@@ -42,7 +42,7 @@ from horovod.run.mpi_run import _get_mpi_implementation, _get_mpi_implementation
 from horovod.run.runner import gloo_built, parse_args, run_controller, HorovodArgs, _run
 from horovod.run.util.threads import in_thread, on_event
 
-from common import is_built, lsf_and_jsrun, override_args, temppath, delay, wait
+from common import is_built, lsf_and_jsrun, override_args, override_env, temppath, delay, wait
 
 
 class RunTests(unittest.TestCase):
@@ -570,11 +570,10 @@ class RunTests(unittest.TestCase):
 
                 # remove PYTHONPATH from execute's env
                 # we cannot know the exact value of that env variable
-                # so we cannot test it through execute.assert_called_once_with
+                # we test right handling of PYTHONPATH in test_mpi_run_*pythonpath* below
                 self.assertIn('env', execute.call_args.kwargs)
-                self.assertIn('PYTHONPATH', execute.call_args.kwargs['env'])
-                actual_python_path = execute.call_args.kwargs['env'].pop('PYTHONPATH')
-                self.assertIn(actual_python_path, os.pathsep.join(sys.path))
+                if 'PYTHONPATH' in execute.call_args.kwargs['env']:
+                    execute.call_args.kwargs['env'].pop('PYTHONPATH')
 
                 expected_env = {'PATH': os.environ.get('PATH')}
                 execute.assert_called_once_with(expected_cmd, env=expected_env, stdout=None, stderr=None)
@@ -612,11 +611,10 @@ class RunTests(unittest.TestCase):
 
                 # remove PYTHONPATH from execute's env
                 # we cannot know the exact value of that env variable
-                # so we cannot test it through execute.assert_called_once_with
+                # we test right handling of PYTHONPATH in test_mpi_run_*pythonpath* below
                 self.assertIn('env', execute.call_args.kwargs)
-                self.assertIn('PYTHONPATH', execute.call_args.kwargs['env'])
-                actual_python_path = execute.call_args.kwargs['env'].pop('PYTHONPATH')
-                self.assertIn(actual_python_path, os.pathsep.join(sys.path))
+                if 'PYTHONPATH' in execute.call_args.kwargs['env']:
+                    execute.call_args.kwargs['env'].pop('PYTHONPATH')
 
                 expected_env = {'PATH': os.environ.get('PATH')}
                 execute.assert_called_once_with(expected_cmd, env=expected_env, stdout=None, stderr=None)
@@ -675,14 +673,83 @@ class RunTests(unittest.TestCase):
 
                 # remove PYTHONPATH from execute's env
                 # we cannot know the exact value of that env variable
-                # so we cannot test it through execute.assert_called_once_with
+                # we test right handling of PYTHONPATH in test_mpi_run_*pythonpath* below
                 self.assertIn('env', execute.call_args.kwargs)
-                self.assertIn('PYTHONPATH', execute.call_args.kwargs['env'])
-                actual_python_path = execute.call_args.kwargs['env'].pop('PYTHONPATH')
-                self.assertIn(actual_python_path, os.pathsep.join(sys.path))
+                if 'PYTHONPATH' in execute.call_args.kwargs['env']:
+                    execute.call_args.kwargs['env'].pop('PYTHONPATH')
 
                 expected_env = {'env1': 'val1', 'env2': 'val2', 'PATH': os.environ.get('PATH')}
                 execute.assert_called_once_with(expected_command, env=expected_env, stdout=stdout, stderr=stderr)
+
+    """
+    Tests mpi_run without PYTHONPATH set.
+    """
+    def test_mpi_run_without_pythonpath(self):
+        self.do_test_mpi_run_env_override({}, {}, 'PYTHONPATH', None)
+
+    """
+    Tests mpi_run with PYTHONPATH set in sys.
+    """
+    def test_mpi_run_with_sys_pythonpath(self):
+        self.do_test_mpi_run_env_override({'PYTHONPATH': 'ppath'}, {}, 'PYTHONPATH', 'ppath')
+
+    """
+    Tests mpi_run with PYTHONPATH set in env.
+    """
+    def test_mpi_run_with_env_pythonpath(self):
+        self.do_test_mpi_run_env_override({}, {'PYTHONPATH': 'ppath'}, 'PYTHONPATH', 'ppath')
+
+    """
+    Tests mpi_run with both PYTHONPATH set.
+    """
+    def test_mpi_run_with_both_pythonpaths(self):
+        self.do_test_mpi_run_env_override({'PYTHONPATH': 'sys-ppath'}, {'PYTHONPATH': 'env-ppath'}, 'PYTHONPATH', 'env-ppath')
+
+    """
+    Tests mpi_run without PATH set.
+    """
+    def test_mpi_run_without_path(self):
+        self.do_test_mpi_run_env_override({}, {}, 'PATH', None)
+
+    """
+    Tests mpi_run with PATH set in sys.
+    """
+    def test_mpi_run_with_sys_path(self):
+        self.do_test_mpi_run_env_override({'PATH': 'ppath'}, {}, 'PATH', 'ppath')
+
+    """
+    Tests mpi_run with PATH set in env.
+    """
+    def test_mpi_run_with_env_path(self):
+        self.do_test_mpi_run_env_override({}, {'PATH': 'ppath'}, 'PATH', 'ppath')
+
+    """
+    Tests mpi_run with both PATH set.
+    """
+    def test_mpi_run_with_both_paths(self):
+        self.do_test_mpi_run_env_override({'PATH': 'sys-path'}, {'PATH': 'env-path'}, 'PATH', 'env-path')
+
+    """
+    Actually tests mpi_run overrides arg env with sys env.
+    """
+    def do_test_mpi_run_env_override(self, sysenv, argenv, env_var, expected):
+        if not mpi_available():
+            self.skipTest("MPI is not available")
+
+        cmd = ['cmd']
+        settings = self.minimal_settings
+
+        def mpi_impl_flags(tcp, env=None):
+            return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"]
+
+        with mock.patch("horovod.run.mpi_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags),\
+             mock.patch("horovod.run.mpi_run.safe_shell_exec.execute", return_value=0) as execute,\
+             override_env(sysenv):
+            mpi_run(settings, None, argenv, cmd)
+
+            # assert the env variable in the execute's env
+            self.assertIn('env', execute.call_args.kwargs)
+            self.assertEqual(execute.call_args.kwargs['env'].get(env_var), expected)
 
     def test_mpi_run_with_non_zero_exit(self):
         if not mpi_available():
