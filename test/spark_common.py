@@ -55,7 +55,7 @@ def spark_session(app, cores=2, gpus=0, max_failures=1, *args):
     from pyspark import SparkConf
     from pyspark.sql import SparkSession
 
-    master = 'local-cluster[{},{},1024]'.format(cores, max_failures) if gpus > 0 \
+    master = 'local-cluster[{},1,1024]'.format(cores) if gpus > 0 \
         else 'local[{},{}]'.format(cores, max_failures)
     conf = SparkConf().setAppName(app).setMaster(master)
     conf = conf.setAll([
