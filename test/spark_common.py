@@ -55,7 +55,9 @@ def spark_session(app, cores=2, gpus=0, max_failures=1, *args):
     from pyspark import SparkConf
     from pyspark.sql import SparkSession
 
-    master = 'local-cluster[{},{},1024]'.format(cores, max_failures) if gpus > 0 \
+    # start a single worker with given cores when gpus are present
+    # max failures are ignored when gpus in that case
+    master = 'local-cluster[1,{},1024]'.format(cores) if gpus > 0 \
         else 'local[{},{}]'.format(cores, max_failures)
     conf = SparkConf().setAppName(app).setMaster(master)
     conf = conf.setAll([
@@ -74,11 +76,13 @@ def spark_session(app, cores=2, gpus=0, max_failures=1, *args):
             os.chmod(temp_file.name, stat.S_IRWXU | stat.S_IXGRP | stat.S_IRGRP |
                      stat.S_IROTH | stat.S_IXOTH)
 
+            # the single worker takes all gpus discovered, and a single executor will get them
+            # each task on that executor will get a single gpu
             conf = conf.setAll([
                 ('spark.worker.resource.gpu.discoveryScript', temp_filename),
-                ('spark.worker.resource.gpu.amount', '1'),
+                ('spark.worker.resource.gpu.amount', str(gpus)),
                 ('spark.task.resource.gpu.amount', '1'),
-                ('spark.executor.resource.gpu.amount', '1')
+                ('spark.executor.resource.gpu.amount', str(gpus))
             ])
 
         session = SparkSession \

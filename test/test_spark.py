@@ -624,11 +624,13 @@ class SparkTests(unittest.TestCase):
                             '-m horovod.spark.task.mpirun_exec_fn [^ ]+ [^ ]+']:
             actual_command = re.sub(replacement, replacement, actual_command, 1)
 
-        actual_secret = actual_env.pop(secret.HOROVOD_SECRET_KEY, None)
+        # we are not asserting on the actual PYTHONPATH in actual_env, this is done in test_run.py
         self.assertEqual(expected_command, actual_command)
-        self.assertIn('PYTHONPATH', actual_env)
-        actual_python_path = actual_env.pop('PYTHONPATH')
-        self.assertIn(actual_python_path, os.pathsep.join(sys.path))
+        if 'PYTHONPATH' in actual_env:
+            actual_env.pop('PYTHONPATH')
+        # we compare this secret below, not by comparing actual_env with env
+        actual_secret = actual_env.pop(secret.HOROVOD_SECRET_KEY, None)
+
         if env:
             if 'PATH' not in env and 'PATH' in os.environ:
                 env = copy.copy(env)
@@ -636,6 +638,7 @@ class SparkTests(unittest.TestCase):
             self.assertEqual(env, actual_env)
         else:
             self.assertIsNotNone(actual_env)
+
         self.assertIsNotNone(actual_secret)
         self.assertTrue(len(actual_secret) > 0)
         self.assertEqual(stdout, actual_stdout)
@@ -1573,7 +1576,7 @@ class SparkTests(unittest.TestCase):
 
         with spark_session('test_get_available_devices', gpus=2):
             res = horovod.spark.run(fn, env={'PATH': os.environ.get('PATH')}, verbose=0)
-            self.assertListEqual([(['0'], 0), (['1'], 1)], res)
+            self.assertListEqual([(['1'], 0), (['0'], 1)], res)
 
     def test_to_list(self):
         none_output = util.to_list(None, 1)

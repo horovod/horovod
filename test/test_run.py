@@ -31,7 +31,7 @@ import mock
 from mock import MagicMock
 
 import horovod
-from horovod.run.common.util import codec, config_parser, safe_shell_exec, secret, \
+from horovod.run.common.util import codec, config_parser, hosts, safe_shell_exec, secret, \
     settings as hvd_settings, timeout
 from horovod.run.common.util.host_hash import _hash, host_hash
 from horovod.run.gloo_run import gloo_run
@@ -39,10 +39,10 @@ from horovod.run.js_run import js_run, generate_jsrun_rankfile
 from horovod.run.mpi_run import _get_mpi_implementation, _get_mpi_implementation_flags,\
     _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_available, mpi_run,\
     _OMPI_IMPL, _SMPI_IMPL, _MPICH_IMPL, _UNKNOWN_IMPL, _MISSING_IMPL
-from horovod.run.runner import gloo_built, parse_args, parse_host_files, run_controller, HorovodArgs, _run
+from horovod.run.runner import gloo_built, parse_args, run_controller, HorovodArgs, _run
 from horovod.run.util.threads import in_thread, on_event
 
-from common import is_built, lsf_and_jsrun, override_args, temppath, delay, wait
+from common import is_built, lsf_and_jsrun, override_args, override_env, temppath, delay, wait
 
 
 class RunTests(unittest.TestCase):
@@ -536,7 +536,6 @@ class RunTests(unittest.TestCase):
     """
     minimal_settings = hvd_settings.Settings(
         verbose=0,
-        num_hosts=1,
         num_proc=2,
         hosts='localhost:2',
         run_func_mode=True
@@ -571,11 +570,10 @@ class RunTests(unittest.TestCase):
 
                 # remove PYTHONPATH from execute's env
                 # we cannot know the exact value of that env variable
-                # so we cannot test it through execute.assert_called_once_with
+                # we test right handling of PYTHONPATH in test_mpi_run_*pythonpath* below
                 self.assertIn('env', execute.call_args.kwargs)
-                self.assertIn('PYTHONPATH', execute.call_args.kwargs['env'])
-                actual_python_path = execute.call_args.kwargs['env'].pop('PYTHONPATH')
-                self.assertIn(actual_python_path, os.pathsep.join(sys.path))
+                if 'PYTHONPATH' in execute.call_args.kwargs['env']:
+                    execute.call_args.kwargs['env'].pop('PYTHONPATH')
 
                 expected_env = {'PATH': os.environ.get('PATH')}
                 execute.assert_called_once_with(expected_cmd, env=expected_env, stdout=None, stderr=None)
@@ -589,7 +587,7 @@ class RunTests(unittest.TestCase):
 
         cmd = ['cmd']
         settings = copy.copy(self.minimal_settings)
-        settings.num_hosts = large_cluster_threshold
+        settings.hosts = ','.join(['localhost:1'] * large_cluster_threshold)
 
         def mpi_impl_flags(tcp, env=None):
             return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"]
@@ -602,21 +600,21 @@ class RunTests(unittest.TestCase):
                 mpi_flags, binding_args = horovod.run.mpi_run._get_mpi_implementation_flags(False)
                 self.assertIsNotNone(mpi_flags)
                 mpi_flags.append('-mca plm_rsh_no_tree_spawn true')
-                mpi_flags.append('-mca plm_rsh_num_concurrent {}'.format(settings.num_hosts))
+                mpi_flags.append('-mca plm_rsh_num_concurrent {}'.format(large_cluster_threshold))
                 expected_cmd = ('mpirun '
                                 '--allow-run-as-root --tag-output '
-                                '-np 2 -H localhost:2 '
+                                '-np 2 -H {hosts} '
                                 '{binding_args} '
                                 '{mpi_flags}       '
-                                'cmd').format(binding_args=' '.join(binding_args), mpi_flags=' '.join(mpi_flags))
+                                'cmd').format(hosts=settings.hosts, binding_args=' '.join(binding_args),
+                                              mpi_flags=' '.join(mpi_flags))
 
                 # remove PYTHONPATH from execute's env
                 # we cannot know the exact value of that env variable
-                # so we cannot test it through execute.assert_called_once_with
+                # we test right handling of PYTHONPATH in test_mpi_run_*pythonpath* below
                 self.assertIn('env', execute.call_args.kwargs)
-                self.assertIn('PYTHONPATH', execute.call_args.kwargs['env'])
-                actual_python_path = execute.call_args.kwargs['env'].pop('PYTHONPATH')
-                self.assertIn(actual_python_path, os.pathsep.join(sys.path))
+                if 'PYTHONPATH' in execute.call_args.kwargs['env']:
+                    execute.call_args.kwargs['env'].pop('PYTHONPATH')
 
                 expected_env = {'PATH': os.environ.get('PATH')}
                 execute.assert_called_once_with(expected_cmd, env=expected_env, stdout=None, stderr=None)
@@ -641,9 +639,8 @@ class RunTests(unittest.TestCase):
             binding_args='>binding args go here<',
             key=secret.make_secret_key(),
             start_timeout=tmout,
-            num_hosts=1,
             num_proc=1,
-            hosts='>host names go here<',
+            hosts='localhost:1',
             output_filename='>output filename goes here<',
             run_func_mode=True
         )
@@ -663,7 +660,7 @@ class RunTests(unittest.TestCase):
                 self.assertIsNotNone(mpi_flags)
                 expected_command = ('mpirun '
                                     '--allow-run-as-root --tag-output '
-                                    '-np 1 -H >host names go here< '
+                                    '-np 1 -H {hosts} '
                                     '>binding args go here< '
                                     '{mpi_flags} '
                                     '-mca plm_rsh_args "-p 1022" '
@@ -671,18 +668,88 @@ class RunTests(unittest.TestCase):
                                     '--output-filename >output filename goes here< '
                                     '-x env1 -x env2 '
                                     '>mpi-extra args go here< '
-                                    'cmd arg1 arg2').format(mpi_flags=' '.join(mpi_flags))
+                                    'cmd arg1 arg2').format(hosts=settings.hosts,
+                                                            mpi_flags=' '.join(mpi_flags))
 
                 # remove PYTHONPATH from execute's env
                 # we cannot know the exact value of that env variable
-                # so we cannot test it through execute.assert_called_once_with
+                # we test right handling of PYTHONPATH in test_mpi_run_*pythonpath* below
                 self.assertIn('env', execute.call_args.kwargs)
-                self.assertIn('PYTHONPATH', execute.call_args.kwargs['env'])
-                actual_python_path = execute.call_args.kwargs['env'].pop('PYTHONPATH')
-                self.assertIn(actual_python_path, os.pathsep.join(sys.path))
+                if 'PYTHONPATH' in execute.call_args.kwargs['env']:
+                    execute.call_args.kwargs['env'].pop('PYTHONPATH')
 
                 expected_env = {'env1': 'val1', 'env2': 'val2', 'PATH': os.environ.get('PATH')}
                 execute.assert_called_once_with(expected_command, env=expected_env, stdout=stdout, stderr=stderr)
+
+    """
+    Tests mpi_run without PYTHONPATH set.
+    """
+    def test_mpi_run_without_pythonpath(self):
+        self.do_test_mpi_run_env_override({}, {}, 'PYTHONPATH', None)
+
+    """
+    Tests mpi_run with PYTHONPATH set in sys.
+    """
+    def test_mpi_run_with_sys_pythonpath(self):
+        self.do_test_mpi_run_env_override({'PYTHONPATH': 'ppath'}, {}, 'PYTHONPATH', 'ppath')
+
+    """
+    Tests mpi_run with PYTHONPATH set in env.
+    """
+    def test_mpi_run_with_env_pythonpath(self):
+        self.do_test_mpi_run_env_override({}, {'PYTHONPATH': 'ppath'}, 'PYTHONPATH', 'ppath')
+
+    """
+    Tests mpi_run with both PYTHONPATH set.
+    """
+    def test_mpi_run_with_both_pythonpaths(self):
+        self.do_test_mpi_run_env_override({'PYTHONPATH': 'sys-ppath'}, {'PYTHONPATH': 'env-ppath'}, 'PYTHONPATH', 'env-ppath')
+
+    """
+    Tests mpi_run without PATH set.
+    """
+    def test_mpi_run_without_path(self):
+        self.do_test_mpi_run_env_override({}, {}, 'PATH', None)
+
+    """
+    Tests mpi_run with PATH set in sys.
+    """
+    def test_mpi_run_with_sys_path(self):
+        self.do_test_mpi_run_env_override({'PATH': 'ppath'}, {}, 'PATH', 'ppath')
+
+    """
+    Tests mpi_run with PATH set in env.
+    """
+    def test_mpi_run_with_env_path(self):
+        self.do_test_mpi_run_env_override({}, {'PATH': 'ppath'}, 'PATH', 'ppath')
+
+    """
+    Tests mpi_run with both PATH set.
+    """
+    def test_mpi_run_with_both_paths(self):
+        self.do_test_mpi_run_env_override({'PATH': 'sys-path'}, {'PATH': 'env-path'}, 'PATH', 'env-path')
+
+    """
+    Actually tests mpi_run overrides arg env with sys env.
+    """
+    def do_test_mpi_run_env_override(self, sysenv, argenv, env_var, expected):
+        if not mpi_available():
+            self.skipTest("MPI is not available")
+
+        cmd = ['cmd']
+        settings = self.minimal_settings
+
+        def mpi_impl_flags(tcp, env=None):
+            return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"]
+
+        with mock.patch("horovod.run.mpi_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags),\
+             mock.patch("horovod.run.mpi_run.safe_shell_exec.execute", return_value=0) as execute,\
+             override_env(sysenv):
+            mpi_run(settings, None, argenv, cmd)
+
+            # assert the env variable in the execute's env
+            self.assertIn('env', execute.call_args.kwargs)
+            self.assertEqual(execute.call_args.kwargs['env'].get(env_var), expected)
 
     def test_mpi_run_with_non_zero_exit(self):
         if not mpi_available():
@@ -745,8 +812,8 @@ class RunTests(unittest.TestCase):
                 fp.write('172.31.32.7 slots=8\n')
                 fp.write('172.31.33.9 slots=8\n')
 
-            hosts = parse_host_files(host_filename)
-            self.assertEqual(hosts, '172.31.32.7:8,172.31.33.9:8')
+            hostnames = hosts.parse_host_files(host_filename)
+            self.assertEqual(hostnames, '172.31.32.7:8,172.31.33.9:8')
 
     """
     Tests js_run.
@@ -766,9 +833,8 @@ class RunTests(unittest.TestCase):
         settings = hvd_settings.Settings(
             verbose=0,
             extra_mpi_args='>mpi-extra args go here<',
-            num_hosts=2,
             num_proc=4,
-            hosts='>host names go here<',
+            hosts='localhost:2,127.0.0.1:2',
             output_filename='>output filename goes here<',
             run_func_mode=True
         )
