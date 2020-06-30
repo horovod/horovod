@@ -30,4 +30,7 @@ class ElasticSparkTensorflowTests(BaseElasticSparkTests):
         super(ElasticSparkTensorflowTests, self).__init__(training_script, *args, **kwargs)
 
     def test_fault_tolerance_hosts_added_and_removed(self):
-        self.skipTest('This test failes due to https://github.com/horovod/horovod/issues/1994')
+        self.skipTest('This test fails due to https://github.com/horovod/horovod/issues/1994')
+
+    def test_auto_scale_down_by_discovery(self):
+        self.skipTest('This test fails due to https://github.com/horovod/horovod/issues/1994')

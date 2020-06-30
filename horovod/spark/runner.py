@@ -35,6 +35,8 @@ from horovod.spark.driver import driver_service, host_discovery, job_id
 
 
 MINIMUM_COMMAND_LIFETIME_S = 3
+WAIT_FOR_COMMAND_START_DELAY_SECONDS = 0.1
+WAIT_FOR_SHUTDOWN_DELAY_SECONDS = 0.1
 
 
 # Spark will fail to initialize correctly locally on Mac OS without this
@@ -71,15 +73,23 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo, is_elastic):
         else:
             local_rank_zero_index = None
 
-        # In elastic all tasks wait for the command to start and terminate.
+        # In elastic all tasks wait for task shutdown signal from driver.
         # With Gloo all tasks wait for the command to start and terminate.
         # With MPI task with first index executes orted which will run mpirun_exec_fn for all tasks.
         if is_elastic:
-            # We don't timeout waiting for command start in elastic
-            task.wait_for_command_start(timeout=None)
-            task.wait_for_command_termination()
-            if is_elastic and task.command_exit_code() != 0:
-                raise Exception('Command failed, making Spark task fail to restart the task')
+            # either terminate on task shutdown or command termination
+            shutdown_thread = in_thread(driver_client.wait_for_task_shutdown)
+
+            while shutdown_thread.is_alive():
+                # Once the command started we wait for its termination
+                if task.check_for_command_start(WAIT_FOR_COMMAND_START_DELAY_SECONDS):
+                    task.wait_for_command_termination()
+                    if task.command_exit_code() != 0:
+                        raise Exception('Command failed, making Spark task fail to restart the task')
+                    break
+
+                # While no command started, we can shutdown any time
+                shutdown_thread.join(WAIT_FOR_SHUTDOWN_DELAY_SECONDS)
         elif use_gloo or index == local_rank_zero_index:
             # Either Gloo or first task with MPI.
             task.wait_for_command_start(settings.start_timeout)
@@ -122,9 +132,7 @@ def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
     def run_spark():
         """Creates `settings.num_proc` Spark tasks, each executing `_task_fn` and waits for them to terminate."""
         try:
-            spark_context.setJobGroup(spark_job_group,
-                                      "Horovod Spark Run",
-                                      interruptOnCancel=True)
+            spark_context.setJobGroup(spark_job_group, "Horovod Spark Run", interruptOnCancel=True)
             procs = spark_context.range(0, numSlices=settings.max_np if settings.elastic else settings.num_proc)
             # We assume that folks caring about security will enable Spark RPC encryption,
             # thus ensuring that key that is passed here remains secret.
@@ -170,7 +178,7 @@ def _notify_and_register_task_addresses(driver, settings, notify=True):
         task_to_task_addresses = task_client.get_task_addresses_for_task(next_task_index, next_task_addresses)
         driver.register_task_to_task_addresses(next_task_index, task_to_task_addresses)
 
-    for index in range(settings.num_proc):
+    for index in driver.task_indices():
         in_thread(notify_and_register, (index,))
 
     driver.wait_for_task_to_task_address_updates(settings.start_timeout)
@@ -248,7 +256,8 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
 
     # start Spark driver service and launch settings.num_proc Spark tasks
     spark_job_group = 'horovod.spark.run.%d' % job_id.next_job_id()
-    driver = driver_service.SparkDriverService(settings.num_proc, fn, args, kwargs,
+    driver = driver_service.SparkDriverService(settings.num_proc, settings.num_proc,
+                                               fn, args, kwargs,
                                                settings.key, settings.nics)
     gloo_is_used = is_gloo_used(use_gloo=use_gloo, use_mpi=use_mpi, use_jsrun=False)
     spark_thread = _make_spark_thread(spark_context, spark_job_group, driver,
@@ -352,7 +361,9 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
     # start Spark driver service and launch settings.num_proc Spark tasks
     key = secret.make_secret_key()
     spark_job_group = 'horovod.spark.run.%d' % job_id.next_job_id()
-    driver = driver_service.SparkDriverService(num_proc, fn, args, kwargs, key, nics)
+    driver = driver_service.SparkDriverService(num_proc, max_np,
+                                               fn, args, kwargs,
+                                               key, nics)
 
     discovery = host_discovery.SparkDriverHostDiscovery(driver)
 

@@ -15,8 +15,8 @@
 
 import threading
 
-from horovod.run.common.util import network
-from horovod.run.common.util import safe_shell_exec
+from horovod.run.common import util
+from horovod.run.common.util import network, safe_shell_exec, timeout
 from horovod.run.util.threads import in_thread
 
 WAIT_FOR_COMMAND_MIN_DELAY = 0.1
@@ -194,6 +194,13 @@ class BasicTaskService(network.BasicService):
             self._wait_cond.release()
 
     def wait_for_command_start(self, timeout=None):
+        """Waits for a command to start.
+
+        Returns as soon as the command has started. This method raises an exception
+        when given optional timeout.Timeout instance runs out.
+
+        :param timeout: timeout.Timeout
+        """
         self._wait_cond.acquire()
         try:
             while self._command_thread is None:
@@ -202,6 +209,27 @@ class BasicTaskService(network.BasicService):
                     timeout.check_time_out_for('command to run')
                 else:
                     self._wait_cond.wait()
+        finally:
+            self._wait_cond.release()
+
+    def check_for_command_start(self, seconds):
+        """Checks that a command has started.
+
+        Returns True as soon as the command has started, waits at most `seconds` seconds and
+        returns False if command has not started in that time.
+
+        :param seconds: seconds
+        :return True or False indication command start
+        """
+        self._wait_cond.acquire()
+        try:
+            tmout = util.timeout.Timeout(seconds, 'Timed out waiting for {activity}')
+
+            while self._command_thread is None:
+                self._wait_cond.wait(tmout.remaining())
+                if tmout.remaining() == 0:
+                    return self._command_thread is not None
+            return True
         finally:
             self._wait_cond.release()
 

@@ -67,7 +67,7 @@ def delay(func, seconds):
         time.sleep(seconds)
         func()
 
-    t = in_thread(target=fn)
+    return in_thread(target=fn)
 
 
 def wait(func, timeout=None):

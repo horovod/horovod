@@ -108,7 +108,7 @@ class BasicService(object):
                     if not resp:
                         raise Exception('Handler did not return a response.')
                     server._wire.write(resp, self.wfile)
-                except EOFError:
+                except (EOFError, BrokenPipeError):
                     # Happens when client is abruptly terminated, don't want to pollute the logs.
                     pass
 

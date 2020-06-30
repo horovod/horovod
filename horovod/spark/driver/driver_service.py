@@ -16,6 +16,7 @@
 import threading
 
 from horovod.run.common.service import driver_service
+from horovod.run.common.util import network
 
 
 class TaskHostHashIndicesRequest(object):
@@ -76,21 +77,28 @@ class CodeResponse(object):
         """Function kwargs."""
 
 
+class WaitForTaskShutdownRequest(object):
+    """Request that blocks until all task services should shut down."""
+    pass
+
+
 class SparkDriverService(driver_service.BasicDriverService):
     NAME = 'driver service'
 
-    def __init__(self, num_proc, fn, args, kwargs, key, nics):
+    def __init__(self, initial_np, num_proc, fn, args, kwargs, key, nics):
         super(SparkDriverService, self).__init__(num_proc,
                                                  SparkDriverService.NAME,
                                                  key, nics)
-
+        self._initial_np = initial_np
         self._fn = fn
         self._args = args
         self._kwargs = kwargs
+        self._key = key
         self._nics = nics
         self._ranks_to_indices = {}
         self._spark_job_failed = False
         self._lock = threading.Lock()
+        self._task_shutdown = threading.Event()
 
     def _handle(self, req, client_address):
 
@@ -132,6 +140,10 @@ class SparkDriverService(driver_service.BasicDriverService):
         if isinstance(req, CodeRequest):
             return CodeResponse(self._fn, self._args, self._kwargs)
 
+        if isinstance(req, WaitForTaskShutdownRequest):
+            self._task_shutdown.wait()
+            return network.AckResponse()
+
         return super(SparkDriverService, self)._handle(req, client_address)
 
     def set_ranks_to_indices(self, ranks_to_indices):
@@ -163,7 +175,7 @@ class SparkDriverService(driver_service.BasicDriverService):
     def wait_for_initial_registration(self, timeout):
         self._wait_cond.acquire()
         try:
-            while len(self._all_task_addresses) < self._num_proc:
+            while len(self._all_task_addresses) < self._initial_np:
                 self.check_for_spark_job_failure()
                 self._wait_cond.wait(timeout.remaining())
                 timeout.check_time_out_for('Spark tasks to start')
@@ -173,7 +185,7 @@ class SparkDriverService(driver_service.BasicDriverService):
     def wait_for_task_to_task_address_updates(self, timeout):
         self._wait_cond.acquire()
         try:
-            while len(self._task_addresses_for_tasks) < self._num_proc:
+            while len(self._task_addresses_for_tasks) < self._initial_np:
                 self.check_for_spark_job_failure()
                 self._wait_cond.wait(timeout.remaining())
                 timeout.check_time_out_for('Spark tasks to update task-to-task addresses')
@@ -201,6 +213,13 @@ class SparkDriverService(driver_service.BasicDriverService):
 
         return nics
 
+    def shutdown_tasks(self):
+        self._task_shutdown.set()
+
+    def shutdown(self):
+        self.shutdown_tasks()
+        super(SparkDriverService, self).shutdown()
+
 
 class SparkDriverClient(driver_service.BasicDriverClient):
     def __init__(self, driver_addresses, key, verbose, match_intf=False):
@@ -225,3 +244,6 @@ class SparkDriverClient(driver_service.BasicDriverClient):
     def code(self):
         resp = self._send(CodeRequest())
         return resp.fn, resp.args, resp.kwargs
+
+    def wait_for_task_shutdown(self):
+        self._send(WaitForTaskShutdownRequest())
