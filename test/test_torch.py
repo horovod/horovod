@@ -1675,16 +1675,16 @@ class TorchTests(unittest.TestCase):
             # Training
             sync_bn_out = sync_bn(ts1[hvd.rank()].unsqueeze(0))
             bn_out = bn(ts2)
-            assert (sync_bn_out - bn_out[hvd.rank()].unsqueeze(0)).abs().sum() < 1e-6
-            assert (sync_bn.running_mean - bn.running_mean).abs().sum() < 1e-6
-            assert (sync_bn.running_var - bn.running_var).abs().sum() < 1e-6
+            assert torch.allclose(sync_bn_out, bn_out[hvd.rank()].unsqueeze(0), 1e-6)
+            assert torch.allclose(sync_bn.running_mean, bn.running_mean, 1e-6)
+            assert torch.allclose(sync_bn.running_var, bn.running_var, 1e-6)
 
             # Gradients
             sync_bn_out.sum().backward()
             bn_out.mean(dim=0).sum().backward()
-            assert (hvd.allreduce(sync_bn.weight.grad, name='sync_bn.weight.grad') - bn.weight.grad).abs().sum() < 1e-6
-            assert (hvd.allreduce(sync_bn.bias.grad, name='sync_bn.bias.grad') - bn.bias.grad).abs().sum() < 1e-6
-            assert (hvd.allreduce(ts1.grad, name='ts1.grad') - ts2.grad).abs().sum() < 1e-6
+            assert torch.allclose(hvd.allreduce(sync_bn.weight.grad, name='sync_bn.weight.grad'), bn.weight.grad,  1e-6)
+            assert torch.allclose(hvd.allreduce(sync_bn.bias.grad, name='sync_bn.bias.grad'), bn.bias.grad, 1e-6)
+            assert torch.allclose(hvd.allreduce(ts1.grad, name='ts1.grad'), ts2.grad, 1e-6)
 
     def test_elastic_state(self):
         hvd.init()
