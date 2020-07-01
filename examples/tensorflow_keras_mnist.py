@@ -1,4 +1,3 @@
-import argparse
 import math
 
 import tensorflow as tf
@@ -10,12 +9,6 @@ from tensorflow.keras.layers import Conv2D, MaxPooling2D
 from tensorflow.keras import backend as K
 
 import horovod.tensorflow.keras as hvd
-
-# Training settings
-parser = argparse.ArgumentParser(description='Tensorflow Keras MNIST Example')
-parser.add_argument('--gradient-predivide-factor', type=float, default=1.0,
-                    help='apply gradient predivide factor in optimizer (default: 1.0)')
-args = parser.parse_args()
 
 # Horovod: initialize Horovod.
 hvd.init()
@@ -75,7 +68,7 @@ model.add(Dense(num_classes, activation='softmax'))
 opt = keras.optimizers.Adadelta(1.0 * hvd.size())
 
 # Horovod: add Horovod Distributed Optimizer.
-opt = hvd.DistributedOptimizer(opt, gradient_predivide_factor=args.gradient_predivide_factor)
+opt = hvd.DistributedOptimizer(opt)
 
 model.compile(loss=keras.losses.categorical_crossentropy,
               optimizer=opt,
