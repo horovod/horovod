@@ -857,7 +857,7 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
     return status.Aborted("AVERAGE not allowed.");
 #endif
   } else if (reduce_op == ReduceOp::ADASUM) {
-#if HAVE_NCCL
+#if HAVE_NCCL && !HAVE_ROCM
     if (device != CPU_DEVICE_ID) {
       // Averaging by local size happens via postscale_factor
       postscale_factor /= horovod_global.controller->GetLocalSize();

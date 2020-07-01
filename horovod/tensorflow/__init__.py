@@ -88,10 +88,8 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
     average_in_framework = False
     if rocm_built():
         # For ROCm, perform averaging at framework level
-        if op == Average or op == Adasum:
-            average_in_framework = True
-        if op == Average:
-            op = Sum
+        average_in_framework = op == Average or op == Adasum
+        op = Sum if op == Average else op
 
     if isinstance(tensor, tf.IndexedSlices):
         # TODO: Need to fix this to actuall call Adasum
@@ -481,6 +479,8 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
     if gradient_predivide_factor != 1.0:
         if rocm_built():
             raise ValueError('gradient_predivide_factor not supported yet with ROCm')
+        if op != Average:
+            raise ValueError('gradient_predivide_factor not supported with op != Average')
 
     if isinstance(optimizer, _LegacyOptimizer):
         if op == Adasum:
@@ -560,6 +560,8 @@ if hasattr(tf, 'GradientTape'):
         if gradient_predivide_factor != 1.0:
             if rocm_built():
                 raise ValueError('gradient_predivide_factor not supported yet with ROCm')
+            if op != Average:
+                raise ValueError('gradient_predivide_factor not supported with op != Average')
 
         cls = type(gradtape.__class__.__name__, (gradtape.__class__,),
                    dict(_DistributedGradientTape.__dict__))

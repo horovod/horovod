@@ -429,10 +429,10 @@ def DistributedOptimizer(optimizer, named_parameters=None,
     # We dynamically create a new class that inherits from the optimizer that was passed in.
     # The goal is to override the `step()` method with an allreduce implementation.
     if gradient_predivide_factor != 1.0:
-        if op == Adasum:
-            raise ValueError('gradient_predivide_factor not supported yet with op == Adasum')
         if rocm_built():
             raise ValueError('gradient_predivide_factor not supported yet with ROCm')
+        if op != Average:
+            raise ValueError('gradient_predivide_factor not supported with op != Average')
 
     if op != Adasum or size() == 1:
         cls = type(optimizer.__class__.__name__, (optimizer.__class__,),

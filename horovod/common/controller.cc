@@ -452,7 +452,7 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
   }
 
   // If we are doing an allreduce, check that prescaling and postscaling factors
-  // are identical.
+  // are identical across ranks.
   double prescale_factor;
   double postscale_factor;
   if (message_type == Request::ALLREDUCE ||
