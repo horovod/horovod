@@ -18,12 +18,20 @@ import horovod.spark.common._namedtuple_fix
 import contextlib
 import os
 
+from distutils.version import LooseVersion
+
 import pyarrow as pa
+import pyarrow.parquet as pq
 import numpy as np
+
+from petastorm.fs_utils import get_filesystem_and_path_or_paths
+from petastorm.spark import make_spark_converter
+
+import pyspark
 import pyspark.sql.functions as f
 from pyspark.ml.linalg import DenseVector, SparseVector, Vector, VectorUDT
 from pyspark.sql.types import ArrayType, BinaryType, BooleanType, FloatType, DoubleType, \
-    IntegerType, LongType, NullType, StringType
+    IntegerType, LongType, StringType
 try:
     # Spark 3.0 moved to a pandas submodule
     from pyspark.sql.pandas.types import from_arrow_type
@@ -425,86 +433,46 @@ def _load_metadata_from_fs(fs, path):
     return data_schema, rows, total_byte_size
 
 
-def get_simple_meta_from_parquet(store, label_columns, feature_columns, sample_weight_col,
-                                 dataset_idx=None):
-    train_data_path = store.get_train_data_path(dataset_idx)
-    validation_data_path = store.get_val_data_path(dataset_idx)
+def get_parquet_dataset(spark_data):
+    filesystem, dataset_path_or_paths = get_filesystem_and_path_or_paths(
+        spark_data.file_urls, constants.PETASTORM_HDFS_DRIVER)
+    return pq.ParquetDataset(dataset_path_or_paths, filesystem=filesystem, validate_schema=False), dataset_path_or_paths
 
-    if not store.exists(train_data_path):
-        raise ValueError("{} path does not exist in the store".format(train_data_path))
 
-    train_data_meta_path = store.get_data_metadata_path(train_data_path)
-    val_data_meta_path = store.get_data_metadata_path(validation_data_path)
-    fs = store.get_filesystem()
+def get_dataset_row_count_and_total_bytes(spark_data, name):
+    dataset, dataset_path_or_paths = get_parquet_dataset(spark_data)
+    return _get_dataset_info(dataset, name, dataset_path_or_paths)
+
+
+def get_dataset_metadata(spark_data, feature_columns, label_columns, sample_weight_col):
+    dataset, _ = get_parquet_dataset(spark_data)
+    dataset_schema = dataset.schema.to_arrow_schema()
 
     schema_cols = feature_columns + label_columns
     if sample_weight_col:
         schema_cols.append(sample_weight_col)
 
-    def make_metadata_dictionary(_train_data_schema):
-        _metadata = {}
-        for col in schema_cols:
-            col_schema = _train_data_schema.field_by_name(col)
-            col_info = {
-                'spark_data_type': pyarrow_to_spark_data_type(col_schema.type),
-                'is_sparse_vector_only': False,
-                'shape': None,  # Only used by SparseVector columns
-                'intermediate_format': constants.NOCHANGE,
-                'max_size': None  # Only used by SparseVector columns
-            }
-            _metadata[col] = col_info
+    metadata = {}
+    for col in schema_cols:
+        col_schema = dataset_schema.field_by_name(col)
+        col_info = {
+            'spark_data_type': pyarrow_to_spark_data_type(col_schema.type),
+            'is_sparse_vector_only': False,
+            'shape': None,  # Only used by SparseVector columns
+            'intermediate_format': constants.NOCHANGE,
+            'max_size': None  # Only used by SparseVector columns
+        }
+        metadata[col] = col_info
 
-        _avg_row_size = train_data_total_byte_size / train_rows
-        return _metadata, _avg_row_size
-
-    # In the try block we try to read the data metadata from the cached metadata in the store. If
-    # anything goes wrong, we will ignore the cache and create the metadata from data.
-    try:
-        if store.exists(train_data_meta_path):
-            train_data_schema, train_rows, train_data_total_byte_size = \
-                _load_metadata_from_fs(fs, train_data_meta_path)
-            metadata, avg_row_size = make_metadata_dictionary(train_data_schema)
-
-            val_rows = 0
-            if store.exists(validation_data_path) and store.exists(val_data_meta_path):
-                val_data_schema, val_rows, val_data_total_byte_size = _load_metadata_from_fs(fs,
-                                                                                             val_data_meta_path)
-
-            return train_rows, val_rows, metadata, avg_row_size
-    except Exception as ex:
-        print(ex)
-
-    train_data = store.get_parquet_dataset(train_data_path)
-    train_data_schema = train_data.schema.to_arrow_schema()
-    train_rows, train_data_total_byte_size = _get_dataset_info(train_data, 'training',
-                                                               train_data_path)
-
-    # Write train metadata to filesystem
-    _save_meta_to_fs(fs, train_data_meta_path, train_data_schema, train_rows,
-                     train_data_total_byte_size)
-
-    val_rows = 0
-    if store.exists(validation_data_path):
-        val_data = store.get_parquet_dataset(validation_data_path)
-        val_data_schema = val_data.schema.to_arrow_schema()
-        val_rows, val_data_total_byte_size = _get_dataset_info(val_data, 'validation',
-                                                               validation_data_path)
-
-        # Write validation metadata to filesystem
-        _save_meta_to_fs(fs, val_data_meta_path, val_data_schema, val_rows,
-                         val_data_total_byte_size)
-    metadata, avg_row_size = make_metadata_dictionary(train_data_schema)
-    return train_rows, val_rows, metadata, avg_row_size
+    return metadata
 
 
 def _train_val_split(df, validation):
     train_df = df
     val_df = None
-    validation_ratio = 0.0
 
     if isinstance(validation, float) and validation > 0:
         train_df, val_df = train_df.randomSplit([1.0 - validation, validation])
-        validation_ratio = validation
     elif isinstance(validation, str):
         dtype = [field.dataType for field in df.schema.fields if field.name == validation][0]
         bool_dtype = isinstance(dtype, BooleanType)
@@ -512,100 +480,10 @@ def _train_val_split(df, validation):
             f.col(validation) if bool_dtype else f.col(validation) > 0).drop(validation)
         train_df = train_df.filter(
             ~f.col(validation) if bool_dtype else f.col(validation) == 0).drop(validation)
-
-        # Approximate ratio of validation data to training data for proportionate scale
-        # of partitions
-        timeout_ms = 1000
-        confidence = 0.90
-        train_rows = train_df.rdd.countApprox(timeout=timeout_ms, confidence=confidence)
-        val_rows = val_df.rdd.countApprox(timeout=timeout_ms, confidence=confidence)
-        validation_ratio = val_rows / (val_rows + train_rows)
     elif validation:
         raise ValueError('Unrecognized validation type: {}'.format(type(validation)))
 
-    return train_df, val_df, validation_ratio
-
-
-def _get_or_create_dataset(key, store, df, feature_columns, label_columns,
-                           validation, sample_weight_col, compress_sparse,
-                           num_partitions, num_processes, verbose):
-    with _training_cache.lock:
-        if _training_cache.is_cached(key, store):
-            dataset_idx = _training_cache.get_dataset(key)
-            train_rows, val_rows, metadata, avg_row_size = _training_cache.get_dataset_properties(dataset_idx)
-            train_data_path = store.get_train_data_path(dataset_idx)
-            val_data_path = store.get_val_data_path(dataset_idx)
-            if verbose:
-                print('using cached dataframes for key: {}'.format(key))
-                print('train_data_path={}'.format(train_data_path))
-                print('train_rows={}'.format(train_rows))
-                print('val_data_path={}'.format(val_data_path))
-                print('val_rows={}'.format(val_rows))
-        else:
-            dataset_idx = _training_cache.next_dataset_index(key)
-            train_data_path = store.get_train_data_path(dataset_idx)
-            val_data_path = store.get_val_data_path(dataset_idx)
-            if verbose:
-                print('writing dataframes')
-                print('train_data_path={}'.format(train_data_path))
-                print('val_data_path={}'.format(val_data_path))
-
-            schema_cols = feature_columns + label_columns
-            if sample_weight_col:
-                schema_cols.append(sample_weight_col)
-            if isinstance(validation, str):
-                schema_cols.append(validation)
-            df = df[schema_cols]
-
-            metadata = None
-            if _has_vector_column(df):
-                if compress_sparse:
-                    metadata = _get_metadata(df)
-                to_petastorm = to_petastorm_fn(schema_cols, metadata)
-                df = df.rdd.map(to_petastorm).toDF()
-
-            train_df, val_df, validation_ratio = _train_val_split(df, validation)
-
-            train_partitions = max(int(num_partitions * (1.0 - validation_ratio)),
-                                   num_processes)
-            if verbose:
-                print('train_partitions={}'.format(train_partitions))
-
-            train_df \
-                .coalesce(train_partitions) \
-                .write \
-                .mode('overwrite') \
-                .parquet(train_data_path)
-
-            if val_df:
-                val_partitions = max(int(num_partitions * validation_ratio),
-                                     num_processes)
-                if verbose:
-                    print('val_partitions={}'.format(val_partitions))
-
-                val_df \
-                    .coalesce(val_partitions) \
-                    .write \
-                    .mode('overwrite') \
-                    .parquet(val_data_path)
-
-            train_rows, val_rows, pq_metadata, avg_row_size = get_simple_meta_from_parquet(
-                store, label_columns, feature_columns, sample_weight_col, dataset_idx)
-
-            if verbose:
-                print('train_rows={}'.format(train_rows))
-            if val_df:
-                if val_rows == 0:
-                    raise ValueError(
-                        'Validation DataFrame does not any samples with validation param {}'
-                        .format(validation))
-                if verbose:
-                    print('val_rows={}'.format(val_rows))
-
-            metadata = metadata or pq_metadata
-            _training_cache.set_dataset_properties(
-                dataset_idx, (train_rows, val_rows, metadata, avg_row_size))
-        return dataset_idx
+    return train_df, val_df
 
 
 def check_validation(validation, df=None):
@@ -624,20 +502,12 @@ def check_validation(validation, df=None):
 
 
 @contextlib.contextmanager
-def prepare_data(num_processes, store, df, label_columns, feature_columns,
-                 validation=None, sample_weight_col=None, compress_sparse=False,
-                 partitions_per_process=10, verbose=0):
+def prepare_data(df, label_columns, feature_columns,
+                 validation=None, sample_weight_col=None, compress_sparse=False):
     check_validation(validation, df=df)
-    if num_processes <= 0 or partitions_per_process <= 0:
-        raise ValueError('num_proc={} and partitions_per_process={} must both be > 0'
-                         .format(num_processes, partitions_per_process))
 
     if not label_columns:
         raise ValueError('Parameter label_columns cannot be None or empty')
-
-    num_partitions = num_processes * partitions_per_process
-    if verbose:
-        print('num_partitions={}'.format(num_partitions))
 
     for col in label_columns:
         if col not in df.columns:
@@ -650,12 +520,28 @@ def prepare_data(num_processes, store, df, label_columns, feature_columns,
             if col not in df.columns:
                 raise ValueError('Feature column {} does not exist in the DataFrame'.format(col))
 
-    key = _training_cache.create_key(df, store, validation)
-    with _training_cache.use_key(key):
-        dataset_idx = _get_or_create_dataset(key, store, df, feature_columns, label_columns,
-                                             validation, sample_weight_col, compress_sparse,
-                                             num_partitions, num_processes, verbose)
-        yield dataset_idx
+    metadata = None
+    if LooseVersion(pyspark.__version__) < LooseVersion('3.0'):
+        schema_cols = feature_columns + label_columns
+        if sample_weight_col:
+            schema_cols.append(sample_weight_col)
+        if isinstance(validation, str):
+            schema_cols.append(validation)
+        df = df[schema_cols]
+
+        if _has_vector_column(df):
+            if compress_sparse:
+                metadata = _get_metadata(df)
+            to_petastorm = to_petastorm_fn(schema_cols, metadata)
+            df = df.rdd.map(to_petastorm).toDF()
+    else:
+        if compress_sparse:
+            raise ValueError('Sparse compression is not supported with Spark 3')
+
+    train_df, val_df = _train_val_split(df, validation)
+    train_data = make_spark_converter(train_df)
+    val_data = make_spark_converter(val_df) if val_df else None
+    return train_data, val_data, metadata
 
 
 def get_dataset_properties(dataset_idx):

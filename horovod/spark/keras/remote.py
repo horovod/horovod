@@ -17,22 +17,27 @@ import contextlib
 import io
 import math
 import os
-
-import h5py
-import tensorflow as tf
+import tempfile
 
 from distutils.version import LooseVersion
 
-from horovod.spark.common import constants
+import h5py
+import tensorflow as tf
+import tensorflow.keras as keras
+
+from horovod.spark.common import constants, util
+from horovod.spark.common.store import LocalStore
+from horovod.spark.keras.util import custom_sparse_to_dense_fn
 from horovod.run.common.util import codec
 
 
 PETASTORM_HDFS_DRIVER = constants.PETASTORM_HDFS_DRIVER
 TOTAL_BUFFER_MEMORY_CAP_GIB = constants.TOTAL_BUFFER_MEMORY_CAP_GIB
 BYTES_PER_GIB = constants.BYTES_PER_GIB
+CUSTOM_SPARSE = constants.CUSTOM_SPARSE
 
 
-def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
+def RemoteTrainer(estimator, metadata, run_id, train_data, val_data):
     # Estimator parameters
     label_columns = estimator.getLabelCols()
     feature_columns = estimator.getFeatureCols()
@@ -51,73 +56,138 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
     val_reader_worker_count = estimator.getValReaderNumWorker()
 
+    # Dataset statistics
+    train_rows, train_bytes = util.get_dataset_row_count_and_total_bytes(train_data, 'train')
+    avg_row_size = train_bytes / train_rows
+    val_rows = util.get_dataset_row_count_and_total_bytes(val_data, 'val')[0] if val_data else 0
+
     # Model parameters
     input_shapes, output_shapes = estimator.get_model_shapes()
+    num_inputs, num_outputs = len(input_shapes), len(output_shapes)
     output_names = estimator.getModel().output_names
 
     # Keras implementation
-    keras_module = keras_utils.keras()
-    floatx = keras_module.backend.floatx()
-    get_horovod = keras_utils.horovod_fn()
-    get_keras = keras_utils.keras_fn()
-    make_dataset = keras_utils.make_dataset_fn(
-        feature_columns, label_columns, sample_weight_col, metadata,
-        input_shapes, output_shapes, output_names, batch_size)
-    fit = keras_utils.fit_fn(epochs)
-    transformation_fn = estimator.getTransformationFn()
-    transformation = transformation_fn if transformation_fn else None
+    floatx = keras.backend.floatx()
 
     # Utility functions
     deserialize_keras_model = _deserialize_keras_model_fn()
     calculate_shuffle_buffer_size = _calculate_shuffle_buffer_size_fn()
     pin_gpu = _pin_gpu_fn()
 
-    # Storage
-    store = estimator.getStore()
-    remote_store = store.to_remote(run_id, dataset_idx)
+    # Store
+    store = estimator.getStore() or LocalStore(tempfile.mkdtemp())
+    remote_store = store.to_remote(run_id)
 
-    def SyncCallback(root_path, sync_to_store_fn, keras):
+    custom_sparse_to_dense = custom_sparse_to_dense_fn()
+    has_sparse_col = any(metadata[col]['is_sparse_vector_only']
+                         for col in label_columns + feature_columns)
+
+    # Petastorm
+    transformation = estimator.getTransformationFn()
+    schema_fields = feature_columns + label_columns
+    if sample_weight_col:
+        schema_fields.append(sample_weight_col)
+
+    def SyncCallback(root_path, sync_to_store_fn):
         class _SyncCallback(keras.callbacks.Callback):
             def on_epoch_end(self, epoch, logs=None):
                 sync_to_store_fn(root_path)
 
         return _SyncCallback()
 
+    def decompress_row(row):
+        new_row = {}
+        if sample_weight_col:
+            new_row[sample_weight_col] = getattr(row, sample_weight_col)
+
+        for col in feature_columns + label_columns:
+            v = getattr(row, col)
+            intermediate_format = metadata[col]['intermediate_format']
+            if intermediate_format == CUSTOM_SPARSE:
+                reshaped_v = tf.reshape(v, [metadata[col]['max_size'] * 2 + 1])
+                v = custom_sparse_to_dense(reshaped_v, metadata[col]['shape'])
+
+            new_row[col] = v
+        return new_row
+
+    def as_tuple(v):
+        return tuple(v) if len(v) > 1 else v[0]
+
+    def reshape_row(row, has_sparse_col):
+        get_col_from_row = getattr if not has_sparse_col else lambda row, col: row[col]
+        if sample_weight_col:
+            sample_weight = get_col_from_row(row, sample_weight_col)
+            return (
+                tuple(
+                    tf.reshape(get_col_from_row(row, feature_columns[i]), input_shapes[i])
+                    for i
+                    in range(num_inputs)),
+                as_tuple([
+                    tf.reshape(get_col_from_row(row, label_columns[j]), output_shapes[j]) for
+                    j
+                    in range(num_outputs)]),
+                {name: tf.reshape(sample_weight, [-1]) for name in output_names}
+            )
+        else:
+            return (
+                tuple(
+                    tf.reshape(get_col_from_row(row, feature_columns[i]), input_shapes[i])
+                    for i
+                    in range(num_inputs)),
+                as_tuple([
+                    tf.reshape(get_col_from_row(row, label_columns[j]), output_shapes[j]) for
+                    j
+                    in range(num_outputs)])
+            )
+
     @contextlib.contextmanager
-    def empty_batch_reader():
-        yield None
+    def make_dataset(converter, workers_count, shuffle_buffer_size=None):
+        from petastorm import TransformSpec
 
-    def train(serialized_model, train_rows, val_rows, avg_row_size):
-        from petastorm import TransformSpec, make_reader, make_batch_reader
+        if not converter:
+            yield None
+        else:
+            petastorm_reader_kwargs = {
+                'reader_pool_type': 'process',
+                'hdfs_driver': PETASTORM_HDFS_DRIVER,
+                'schema_fields': schema_fields,
+                'transform_spec': TransformSpec(transformation) if transformation else None,
+                'pyarrow_serialize': transformation is not None
+            }
 
-        k = get_keras()
-        k.backend.set_floatx(floatx)
+            with converter.make_tf_dataset(batch_size=batch_size if not has_sparse_col else 1,
+                                           workers_count=workers_count,
+                                           shuffle_buffer_size=shuffle_buffer_size,
+                                           **petastorm_reader_kwargs) as dataset:
+                if has_sparse_col:
+                    dataset = dataset.map(decompress_row).batch(batch_size)
+                dataset = dataset.map(lambda row: reshape_row(row, has_sparse_col))
+                yield dataset
 
-        hvd = get_horovod()
+    def train(serialized_model):
+        import horovod.tensorflow.keras as hvd
+
+        keras.backend.set_floatx(floatx)
+
         hvd.init()
-        pin_gpu(hvd, tf, k)
+        pin_gpu(hvd, tf, keras)
 
         if not user_shuffle_buffer_size:
-            shuffle_buffer_size = calculate_shuffle_buffer_size(
-                hvd, avg_row_size, train_rows / hvd.size())
+            shuffle_buffer_size = calculate_shuffle_buffer_size(hvd, avg_row_size, train_rows / hvd.size())
         else:
             shuffle_buffer_size = user_shuffle_buffer_size
 
         # needs to be deserialized in the with scope
-        with k.utils.custom_object_scope(custom_objects):
+        with keras.utils.custom_object_scope(custom_objects):
             model = deserialize_keras_model(
                 serialized_model, lambda x: hvd.load_model(x))
 
         # Horovod: adjust learning rate based on number of processes.
-        k.backend.set_value(model.optimizer.lr,
-                            k.backend.get_value(model.optimizer.lr) * hvd.size())
+        keras.backend.set_value(model.optimizer.lr,
+                            keras.backend.get_value(model.optimizer.lr) * hvd.size())
 
         # Verbose mode 1 will print a progress bar
         verbose = user_verbose if hvd.rank() == 0 else 0
-
-        transform_spec = None
-        if transformation:
-            transform_spec = TransformSpec(transformation)
 
         with remote_store.get_local_output_dir() as run_output_dir:
             callbacks = [
@@ -140,10 +210,10 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 ckpt_file = os.path.join(run_output_dir, remote_store.checkpoint_filename)
                 logs_dir = os.path.join(run_output_dir, remote_store.logs_subdir)
 
-                callbacks.append(k.callbacks.ModelCheckpoint(ckpt_file))
+                callbacks.append(keras.callbacks.ModelCheckpoint(ckpt_file))
                 if remote_store.saving_runs:
-                    callbacks.append(k.callbacks.TensorBoard(logs_dir))
-                    callbacks.append(SyncCallback(run_output_dir, remote_store.sync, k))
+                    callbacks.append(keras.callbacks.TensorBoard(logs_dir))
+                    callbacks.append(SyncCallback(run_output_dir, remote_store.sync))
 
             if train_steps_per_epoch is None:
                 steps_per_epoch = int(math.ceil(train_rows / batch_size / hvd.size()))
@@ -159,57 +229,20 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
             else:
                 validation_steps = validation_steps_per_epoch
 
-            schema_fields = feature_columns + label_columns
-            if sample_weight_col:
-                schema_fields.append(sample_weight_col)
-
-            # In general, make_batch_reader is faster than make_reader for reading the dataset.
-            # However, we found out that make_reader performs data transformations much faster than
-            # make_batch_reader with parallel worker processes. Therefore, the default reader
-            # we choose is make_batch_reader unless there are data transformations.
-            reader_factory_kwargs = dict()
-            if transform_spec:
-                reader_factory = make_reader
-                reader_factory_kwargs['pyarrow_serialize'] = True
-                is_batch_reader = False
-            else:
-                reader_factory = make_batch_reader
-                is_batch_reader = True
-
-            # Petastorm: read data from the store with the correct shard for this rank
-            # setting num_epochs=None will cause an infinite iterator
-            # and enables ranks to perform training and validation with
-            # unequal number of samples
-            with reader_factory(remote_store.train_data_path,
-                                num_epochs=None,
-                                cur_shard=hvd.rank(),
-                                reader_pool_type='process',
-                                workers_count=train_reader_worker_count,
-                                shard_count=hvd.size(),
-                                hdfs_driver=PETASTORM_HDFS_DRIVER,
-                                schema_fields=schema_fields,
-                                transform_spec=transform_spec,
-                                **reader_factory_kwargs) as train_reader:
-                with reader_factory(remote_store.val_data_path,
-                                    num_epochs=None,
-                                    cur_shard=hvd.rank(),
-                                    reader_pool_type='process',
-                                    workers_count=val_reader_worker_count,
-                                    shard_count=hvd.size(),
-                                    hdfs_driver=PETASTORM_HDFS_DRIVER,
-                                    schema_fields=schema_fields,
-                                    transform_spec=transform_spec,
-                                    **reader_factory_kwargs) \
-                    if should_validate else empty_batch_reader() as val_reader:
-
-                    train_data = make_dataset(train_reader, shuffle_buffer_size,
-                                              is_batch_reader, shuffle=True)
-                    val_data = make_dataset(val_reader, shuffle_buffer_size,
-                                            is_batch_reader, shuffle=False) \
-                        if val_reader else None
-
-                    history = fit(model, train_data, val_data, steps_per_epoch,
-                                  validation_steps, callbacks, verbose)
+            with make_dataset(train_data,
+                              workers_count=train_reader_worker_count,
+                              shuffle_buffer_size=shuffle_buffer_size) as train_dataset:
+                with make_dataset(val_data,
+                                  workers_count=val_reader_worker_count,
+                                  shuffle_buffer_size=shuffle_buffer_size) as val_dataset:
+                    history = model.fit(
+                        train_dataset,
+                        validation_data=val_dataset,
+                        steps_per_epoch=steps_per_epoch,
+                        validation_steps=validation_steps,
+                        callbacks=callbacks,
+                        verbose=verbose,
+                        epochs=epochs)
 
             # Dataset API usage currently displays a wall of errors upon termination.
             # This global model registration ensures clean termination.

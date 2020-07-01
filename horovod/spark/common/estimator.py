@@ -15,7 +15,11 @@
 
 import horovod.spark.common._namedtuple_fix
 
+import time
+
 from pyspark.ml import Estimator, Model
+
+from petastorm.spark import SparkDatasetConverter
 
 from horovod.spark.common import util
 from horovod.spark.common.backend import SparkBackend
@@ -34,50 +38,50 @@ class HorovodEstimator(Estimator, EstimatorParams):
         """
         return super(HorovodEstimator, self).fit(df, params)
 
-    def fit_on_parquet(self, params=None):
-        """Trains the model on a saved Parquet file at `store.get_train_path()`.
+    def fit_on_parquet(self, train_data_path, val_data_path=None, params=None):
+        """Trains the model on the given saved Parquet dataset.
 
         Args:
+            train_data_path: String path or list of paths to the training Parquet dataset.
+            val_data_path: Optional string path or list of paths to the validation Parquet dataset.
             params: An optional param map that overrides embedded params.
 
         Returns:
             Trained HorovodModel transformer of the appropriate subclass wrapping the trained model.
         """
-        if params:
-            return self.copy(params)._fit_on_parquet()
-        return self._fit_on_parquet()
+        obj = self.copy(params) if params else self
+        return obj._fit_on_parquet(train_data_path, val_data_path)
 
-    def _fit_on_parquet(self):
+    def _fit_on_parquet(self, train_data_path, val_data_path):
+        train_data = SparkDatasetConverter(cache_dir_url=None, file_urls=train_data_path, dataset_size=0)
+        val_data = SparkDatasetConverter(cache_dir_url=None, file_urls=val_data_path, dataset_size=0) \
+            if val_data_path is not None else None
+
         backend = self._get_or_create_backend()
-        store = self.getStore()
-        label_columns = self.getLabelCols()
-        feature_columns = self.getFeatureCols()
-        sample_weight_col = self.getSampleWeightCol()
+        metadata = util.get_dataset_metadata(
+            train_data, self.getFeatureCols(), self.getLabelCols(), self.getSampleWeightCol())
 
-        train_rows, val_rows, metadata, avg_row_size = \
-            util.get_simple_meta_from_parquet(store,
-                                              label_columns=label_columns,
-                                              feature_columns=feature_columns,
-                                              sample_weight_col=sample_weight_col)
-
-        return self._fit_on_prepared_data(backend, train_rows, val_rows, metadata, avg_row_size)
+        run_id = self._get_or_create_run_id()
+        return self._fit_on_prepared_data(backend, metadata, run_id, train_data, val_data)
 
     def _fit(self, df):
         backend = self._get_or_create_backend()
-        with util.prepare_data(backend.num_processes(),
-                               self.getStore(),
-                               df,
+        with util.prepare_data(df,
                                label_columns=self.getLabelCols(),
                                feature_columns=self.getFeatureCols(),
                                validation=self.getValidation(),
                                sample_weight_col=self.getSampleWeightCol(),
-                               compress_sparse=self.getCompressSparseCols(),
-                               partitions_per_process=self.getPartitionsPerProcess(),
-                               verbose=self.getVerbose()) as dataset_idx:
-            train_rows, val_rows, metadata, avg_row_size = util.get_dataset_properties(dataset_idx)
+                               compress_sparse=self.getCompressSparseCols()) as (train_data, val_data, metadata):
             self._check_metadata_compatibility(metadata)
-            return self._fit_on_prepared_data(
-                backend, train_rows, val_rows, metadata, avg_row_size, dataset_idx)
+
+            run_id = self._get_or_create_run_id()
+            return self._fit_on_prepared_data(backend, metadata, run_id, train_data, val_data)
+
+    def _get_or_create_run_id(self):
+        run_id = self.getRunId()
+        if run_id is None:
+            run_id = self.__class__.__name__ + str(int(time.time()))
+        return run_id
 
     def _get_or_create_backend(self):
         backend = self.getBackend()

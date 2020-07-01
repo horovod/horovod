@@ -16,14 +16,15 @@
 import horovod.spark.common._namedtuple_fix
 
 import numbers
-import time
 
 import numpy as np
-import tensorflow as tf
+import tensorflow.keras as keras
 
 from pyspark import keyword_only
 from pyspark.ml.util import MLWritable, MLReadable
 from pyspark.ml.param.shared import Param, Params
+
+import horovod.tensorflow.keras
 
 from horovod.run.common.util import codec
 
@@ -32,18 +33,14 @@ from horovod.spark.common.estimator import HorovodEstimator, HorovodModel
 from horovod.spark.common.params import EstimatorParams
 from horovod.spark.common.serialization import HorovodParamsWriter, HorovodParamsReader
 from horovod.spark.keras import remote
-from horovod.spark.keras.util import \
-    BARE_KERAS, TF_KERAS, \
-    BareKerasUtil, TFKerasUtil, \
-    is_instance_of_bare_keras_model, is_instance_of_bare_keras_optimizer
+from horovod.spark.keras.util import deserialize_model, deserialize_optimizer, serialize_model, serialize_param_value
 
 
 class KerasEstimatorParamsWriter(HorovodParamsWriter):
     def saveImpl(self, path):
-        keras_utils = self.instance._get_keras_utils()
         # Write the parameters
         HorovodParamsWriter.saveMetadata(self.instance, path, self.sc,
-                                         param_serializer_fn=keras_utils.serialize_param_value)
+                                         param_serializer_fn=serialize_param_value)
 
 
 class KerasEstimatorParamsWritable(MLWritable):
@@ -53,34 +50,21 @@ class KerasEstimatorParamsWritable(MLWritable):
 
 class KerasEstimatorParamsReader(HorovodParamsReader):
     def _deserialize_dict(self, dict):
-        def _param_deserializer_fn(name, param_val, keras_utils, custom_objects):
+        def _param_deserializer_fn(name, param_val, custom_objects):
             if param_val is None:
                 return param_val
 
             if name == EstimatorParams.model.name:
                 def load_model_fn(x):
-                    with keras_utils.keras().utils.custom_object_scope(custom_objects):
-                        return keras_utils.keras().models.load_model(x, compile=True)
+                    with keras.utils.custom_object_scope(custom_objects):
+                        return keras.models.load_model(x, compile=True)
 
-                return keras_utils.deserialize_model(param_val,
-                                                     load_model_fn=load_model_fn)
+                return deserialize_model(param_val, load_model_fn=load_model_fn)
             elif name == KerasEstimator.optimizer.name:
                 opt_base64_encoded = codec.loads_base64(param_val)
-                return keras_utils.deserialize_optimizer(opt_base64_encoded)
+                return deserialize_optimizer(opt_base64_encoded)
             else:
                 return codec.loads_base64(param_val)
-
-        # In order to deserialize the model, we need to deserialize the custom_objects param
-        # first.
-        keras_utils = None
-        if KerasEstimator._keras_pkg_type.name in dict:
-            keras_pkg_type = _param_deserializer_fn(KerasEstimator._keras_pkg_type.name,
-                                                    dict[KerasEstimator._keras_pkg_type.name],
-                                                    None, None)
-            if keras_pkg_type == BARE_KERAS:
-                keras_utils = BareKerasUtil
-            elif keras_pkg_type == TF_KERAS:
-                keras_utils = TFKerasUtil
 
         custom_objects = {}
         if KerasEstimator.custom_objects.name in dict:
@@ -89,7 +73,7 @@ class KerasEstimatorParamsReader(HorovodParamsReader):
                                                     None, None)
 
         for key, val in dict.items():
-            dict[key] = _param_deserializer_fn(key, val, keras_utils, custom_objects)
+            dict[key] = _param_deserializer_fn(key, val, custom_objects)
         return dict
 
 
@@ -197,49 +181,6 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
 
-    def _get_keras_utils(self):
-        # This function determines the keras package type of the Estimator based on the passed
-        # optimizer and model and updates _keras_pkg_type parameter.
-
-        model_type = None
-        model = self.getModel()
-        if model:
-            if isinstance(model, tf.keras.Model):
-                model_type = TF_KERAS
-            elif is_instance_of_bare_keras_model(model):
-                model_type = BARE_KERAS
-            else:
-                raise ValueError(
-                    "model has to be an instance of tensorflow.keras.Model or keras.Model")
-
-        optimizer_type = None
-        optimizer = self.getOptimizer()
-        if optimizer:
-            if isinstance(optimizer, str):
-                optimizer_type = None
-            elif isinstance(optimizer, tf.keras.optimizers.Optimizer):
-                optimizer_type = TF_KERAS
-            elif is_instance_of_bare_keras_optimizer(optimizer):
-                optimizer_type = BARE_KERAS
-            else:
-                raise ValueError("invalid optimizer type")
-
-        types = set([model_type, optimizer_type])
-        types.discard(None)
-
-        if len(types) > 1:
-            raise ValueError('mixed keras and tf.keras values for optimizers and model')
-        elif len(types) == 1:
-            pkg_type = types.pop()
-            super(KerasEstimator, self)._set(_keras_pkg_type=pkg_type)
-
-            if pkg_type == TF_KERAS:
-                return TFKerasUtil
-            elif pkg_type == BARE_KERAS:
-                return BareKerasUtil
-            else:
-                raise ValueError("invalid keras type")
-
     def setCustomObjects(self, value):
         return self._set(custom_objects=value)
 
@@ -262,26 +203,21 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                          for output in model.outputs]
         return input_shapes, output_shapes
 
-    def _fit_on_prepared_data(self, backend, train_rows, val_rows, metadata, avg_row_size, dataset_idx=None):
+    def _fit_on_prepared_data(self, backend,  metadata, run_id, train_data, val_data):
         self._check_params(metadata)
-        keras_utils = self._get_keras_utils()
-
-        run_id = self.getRunId()
-        if run_id is None:
-            run_id = 'keras_' + str(int(time.time()))
 
         if self._has_checkpoint(run_id):
             serialized_model = self._load_model_from_checkpoint(run_id)
         else:
-            serialized_model = self._compile_model(keras_utils)
+            serialized_model = self._compile_model()
 
         # Workaround:
         # https://stackoverflow.com/questions/50583056/is-there-any-way-to-set-java-opts-for-tensorflow-process/50615570
         env = {'LIBHDFS_OPTS': '-Xms2048m -Xmx2048m'}
 
-        trainer = remote.RemoteTrainer(self, metadata, keras_utils, run_id, dataset_idx)
+        trainer = remote.RemoteTrainer(self, metadata, run_id, train_data, val_data)
         handle = backend.run(trainer,
-                             args=(serialized_model, train_rows, val_rows, avg_row_size),
+                             args=(serialized_model,),
                              env=env)
         return self._create_model(handle, run_id, metadata)
 
@@ -295,7 +231,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
         model_bytes = store.read(last_ckpt_path)
         return codec.dumps_base64(model_bytes)
 
-    def _compile_model(self, keras_utils):
+    def _compile_model(self):
         # Compile the model with all the parameters
         model = self.getModel()
 
@@ -322,7 +258,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
             dist_optimizer_args['compression'] = gradient_compression
 
         # Horovod: wrap optimizer with DistributedOptimizer.
-        dist_optimizer = keras_utils.get_horovod().DistributedOptimizer(**dist_optimizer_args)
+        dist_optimizer = horovod.tensorflow.keras.DistributedOptimizer(**dist_optimizer_args)
         model.compile(optimizer=dist_optimizer,
                       loss=loss,
                       loss_weights=loss_weights,
@@ -331,29 +267,27 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
         if optimizer_weight_values:
             model.optimizer.set_weights(optimizer_weight_values)
 
-        return keras_utils.serialize_model(model)
+        return serialize_model(model)
 
     def _create_model(self, run_results, run_id, metadata):
-        keras_utils = self._get_keras_utils()
-        keras_module = keras_utils.keras()
-        floatx = keras_module.backend.floatx()
+        floatx = keras.backend.floatx()
 
         custom_objects = self.getCustomObjects()
 
         history, serialized_model, hvd_size = run_results[0]
 
         def load_model_fn(x):
-            with keras_module.utils.custom_object_scope(custom_objects):
-                return keras_module.models.load_model(x)
+            with keras.utils.custom_object_scope(custom_objects):
+                return keras.models.load_model(x)
 
-        model = keras_utils.deserialize_model(serialized_model, load_model_fn=load_model_fn)
+        model = deserialize_model(serialized_model, load_model_fn=load_model_fn)
 
         # Here, learning rate is scaled down with the number of horovod workers.
         # This is important the retraining of the model. User may retrain the model with
         # different number of workers and we need the raw learning rate to adjust with the
         # new number of workers.
-        scaled_lr = keras_module.backend.get_value(model.optimizer.lr)
-        keras_module.backend.set_value(model.optimizer.lr, scaled_lr / hvd_size)
+        scaled_lr = keras.backend.get_value(model.optimizer.lr)
+        keras.backend.set_value(model.optimizer.lr, scaled_lr / hvd_size)
 
         return self.get_model_class()(**self._get_model_kwargs(
             model, history, run_id, metadata, floatx))
@@ -422,37 +356,13 @@ class KerasModel(HorovodModel, KerasEstimatorParamsReadable,
     def getCustomObjects(self):
         return self.getOrDefault(self.custom_objects)
 
-    def _get_keras_utils(self, model=None):
-        # infer keras package from model
-        model = self.getModel()
-        if model:
-            if isinstance(model, tf.keras.Model):
-                pkg_type = TF_KERAS
-            elif is_instance_of_bare_keras_model(model):
-                pkg_type = BARE_KERAS
-            else:
-                raise ValueError(
-                    "model has to be an instance of tensorflow.keras.Model or keras.Model")
-
-            super(KerasModel, self)._set(_keras_pkg_type=pkg_type)
-
-            if pkg_type == TF_KERAS:
-                return TFKerasUtil
-            elif pkg_type == BARE_KERAS:
-                return BareKerasUtil
-            else:
-                raise ValueError("invalid keras type")
-
-        raise ValueError("model is not set")
-
     def _get_floatx(self):
         return self.getOrDefault(self._floatx)
 
     # To run locally on OS X, need export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
     def _transform(self, df):
-        keras_utils = self._get_keras_utils()
         floatx = self._get_floatx()
-        serialized_model = keras_utils.serialize_model(self.getModel())
+        serialized_model = serialize_model(self.getModel())
 
         label_cols = self.getLabelColumns()
         output_cols = self.getOutputCols()
@@ -464,21 +374,20 @@ class KerasModel(HorovodModel, KerasEstimatorParamsReadable,
 
         def predict(rows):
             import tensorflow as tf
+            import tensorflow.keras as keras
             from pyspark import Row
             from pyspark.ml.linalg import DenseVector, SparseVector
 
-            k = keras_utils.keras()
-            k.backend.set_floatx(floatx)
+            keras.backend.set_floatx(floatx)
 
             # Do not use GPUs for prediction, use single CPU core per task.
-            pin_cpu(tf, k)
+            pin_cpu(tf, keras)
 
             def load_model_fn(x):
-                with k.utils.custom_object_scope(custom_objects):
-                    return k.models.load_model(x)
+                with keras.utils.custom_object_scope(custom_objects):
+                    return keras.models.load_model(x)
 
-            model = keras_utils.deserialize_model(serialized_model,
-                                                  load_model_fn=load_model_fn)
+            model = deserialize_model(serialized_model, load_model_fn=load_model_fn)
 
             input_shapes = [[dim if dim else -1 for dim in input.shape.as_list()]
                             for input in model.inputs]
