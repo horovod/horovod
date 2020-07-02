@@ -141,13 +141,19 @@ def RemoteTrainer(estimator, metadata, run_id, train_data, val_data):
             )
 
     @contextlib.contextmanager
-    def make_dataset(converter, workers_count, shuffle_buffer_size=None):
+    def make_dataset(converter, rank, size, workers_count, shuffle_buffer_size=None):
         from petastorm import TransformSpec
 
         if not converter:
             yield None
         else:
+            # In general, make_batch_reader is faster than make_reader for reading the dataset.
+            # However, we found out that make_reader performs data transformations much faster than
+            # make_batch_reader with parallel worker processes. Therefore, the default reader
+            # we choose is make_batch_reader unless there are data transformations.
             petastorm_reader_kwargs = {
+                'cur_shard': rank,
+                'shard_count': size,
                 'reader_pool_type': 'process',
                 'hdfs_driver': PETASTORM_HDFS_DRIVER,
                 'schema_fields': schema_fields,
@@ -229,10 +235,10 @@ def RemoteTrainer(estimator, metadata, run_id, train_data, val_data):
             else:
                 validation_steps = validation_steps_per_epoch
 
-            with make_dataset(train_data,
+            with make_dataset(train_data, hvd.rank(), hvd.size(),
                               workers_count=train_reader_worker_count,
                               shuffle_buffer_size=shuffle_buffer_size) as train_dataset:
-                with make_dataset(val_data,
+                with make_dataset(val_data, hvd.rank(), hvd.size(),
                                   workers_count=val_reader_worker_count,
                                   shuffle_buffer_size=shuffle_buffer_size) as val_dataset:
                     history = model.fit(

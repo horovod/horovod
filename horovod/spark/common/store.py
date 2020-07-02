@@ -28,44 +28,17 @@ import pyarrow.parquet as pq
 
 class Store(object):
     """
-    Storage layer for intermediate files (materialized DataFrames) and training artifacts (checkpoints, logs).
+    Storage layer for training artifacts (checkpoints, logs).
 
     Store provides an abstraction over a filesystem (e.g., local vs HDFS) or blob storage database. It provides the
     basic semantics for reading and writing objects, and how to access objects with certain definitions.
 
     The store exposes a generic interface that is not coupled to a specific DataFrame, model, or runtime. Every run
-    of an Estimator should result in a separate run directory containing checkpoints and logs, and every variation
-    in dataset should produce a separate intermediate data path.
-
-    In order to allow for caching but to prevent overuse of disk space on intermediate data, intermediate datasets
-    are named in a deterministic sequence. When a dataset is done being used for training, the intermediate files
-    can be reclaimed to free up disk space, but will not be automatically removed so that they can be reused as
-    needed. This is to support both parallel training processes using the same store on multiple DataFrames, as well
-    as iterative training using the same DataFrame on different model variations.
+    of an Estimator should result in a separate run directory containing checkpoints and logs.
     """
     def __init__(self):
         self._train_data_to_key = {}
         self._val_data_to_key = {}
-
-    def is_parquet_dataset(self, path):
-        """Returns True if the path is the root of a Parquet dataset."""
-        raise NotImplementedError()
-
-    def get_parquet_dataset(self, path):
-        """Returns a :py:class:`pyarrow.parquet.ParquetDataset` from the path."""
-        raise NotImplementedError()
-
-    def get_train_data_path(self, idx=None):
-        """Returns the path to the training dataset."""
-        raise NotImplementedError()
-
-    def get_val_data_path(self, idx=None):
-        """Returns the path to the validation dataset."""
-        raise NotImplementedError()
-
-    def get_test_data_path(self, idx=None):
-        """Returns the path to the test dataset."""
-        raise NotImplementedError()
 
     def saving_runs(self):
         """Returns True if run output should be saved during training."""
@@ -110,9 +83,9 @@ class Store(object):
         """Returns a function that synchronises given path recursively into run path for `run_id`."""
         raise NotImplementedError()
 
-    def to_remote(self, run_id, dataset_idx):
+    def to_remote(self, run_id):
         """Returns a view of the store that can execute in a remote environment without Horoovd deps."""
-        attrs = self._remote_attrs(run_id, dataset_idx)
+        attrs = self._remote_attrs(run_id)
 
         class RemoteStore(object):
             def __init__(self):
@@ -121,11 +94,8 @@ class Store(object):
 
         return RemoteStore()
 
-    def _remote_attrs(self, run_id, dataset_idx):
+    def _remote_attrs(self, run_id):
         return {
-            'train_data_path': self.get_train_data_path(dataset_idx),
-            'val_data_path': self.get_val_data_path(dataset_idx),
-            'test_data_path': self.get_test_data_path(dataset_idx),
             'saving_runs': self.saving_runs(),
             'runs_path': self.get_runs_path(),
             'run_path': self.get_run_path(run_id),
@@ -148,11 +118,8 @@ class Store(object):
 class FilesystemStore(Store):
     """Abstract class for stores that use a filesystem for underlying storage."""
 
-    def __init__(self, prefix_path, train_path=None, val_path=None, test_path=None, runs_path=None, save_runs=True):
+    def __init__(self, prefix_path, runs_path=None, save_runs=True):
         self.prefix_path = self.get_full_path(prefix_path)
-        self._train_path = self._get_full_path_or_default(train_path, 'intermediate_train_data')
-        self._val_path = self._get_full_path_or_default(val_path, 'intermediate_val_data')
-        self._test_path = self._get_full_path_or_default(test_path, 'intermediate_test_data')
         self._runs_path = self._get_full_path_or_default(runs_path, 'runs')
         self._save_runs = save_runs
         super(FilesystemStore, self).__init__()
@@ -164,30 +131,12 @@ class FilesystemStore(Store):
         with self.get_filesystem().open(self.get_localized_path(path), 'rb') as f:
             return f.read()
 
-    def is_parquet_dataset(self, path):
-        try:
-            dataset = self.get_parquet_dataset(path)
-            return dataset is not None
-        except:
-            return False
-
-    def get_parquet_dataset(self, path):
-        return pq.ParquetDataset(self.get_localized_path(path), filesystem=self.get_filesystem())
-
-    def get_train_data_path(self, idx=None):
-        return '{}.{}'.format(self._train_path, idx) if idx is not None else self._train_path
-
-    def get_val_data_path(self, idx=None):
-        return '{}.{}'.format(self._val_path, idx) if idx is not None else self._val_path
-
-    def get_test_data_path(self, idx=None):
-        return '{}.{}'.format(self._test_path, idx) if idx is not None else self._test_path
-
     def get_data_metadata_path(self, path):
         localized_path = self.get_localized_path(path)
         if localized_path.endswith('/'):
-            localized_path = localized_path[:-1] # Remove the slash at the end if there is one
-        metadata_cache = localized_path+"_cached_metadata.pkl"
+            # Remove the slash at the end if there is one
+            localized_path = localized_path[:-1]
+        metadata_cache = localized_path + '_cached_metadata.pkl'
         return metadata_cache
 
     def saving_runs(self):

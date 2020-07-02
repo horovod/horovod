@@ -225,12 +225,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                                        self.getLabelCols(),
                                        input_shapes=self.getInputShapes())
 
-    def _fit_on_prepared_data(self, backend, train_rows, val_rows, metadata, avg_row_size, dataset_idx=None):
+    def _fit_on_prepared_data(self, backend,  metadata, run_id, train_data, val_data):
         self._check_params(metadata)
-
-        run_id = self.getRunId()
-        if run_id is None:
-            run_id = 'pytorch_' + str(int(time.time()))
 
         last_checkpoint_state = None
         if self._has_checkpoint(run_id):
@@ -251,10 +247,9 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
             if last_checkpoint_state is None else last_checkpoint_state
         model_opt_state_serialized = save_into_bio(model_opt_state, torch.save)
 
-        trainer = remote.RemoteTrainer(self, metadata, last_checkpoint_state, run_id, dataset_idx)
+        trainer = remote.RemoteTrainer(self, metadata, last_checkpoint_state, run_id, train_data, val_data)
         handle = backend.run(trainer,
-                             args=(serialized_model, optimizer_cls, model_opt_state_serialized,
-                                   train_rows, val_rows, avg_row_size),
+                             args=(serialized_model, optimizer_cls, model_opt_state_serialized),
                              env={})
         return self._create_model(handle, run_id, metadata)
 
