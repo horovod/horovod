@@ -1386,12 +1386,18 @@ class TensorFlowTests(tf.test.TestCase):
             ]
 
             for x in x_list:
-                bn = tf.layers.BatchNormalization(axis=1)
+                try:
+                    bn = tf.layers.BatchNormalization(axis=1)
+                except AttributeError:
+                    bn = tf.compat.v1.layers.BatchNormalization(axis=1)
                 sync_bn = hvd.SyncBatchNormalization(axis=1)
                 bn_func = bn.apply(x, training=True)
                 sync_bn_func = sync_bn.apply(tf.expand_dims(x[hvd.rank()], 0), training=True)
 
-                init = tf.global_variables_initializer()
+                try:
+                  init = tf.global_variables_initializer()
+                except AttributeError:
+                  init = tf.compat.v1.global_variables_initializer()
                 self.evaluate(init)
                 bn_out = self.evaluate(bn_func)
                 sync_bn_out = self.evaluate(sync_bn_func)
@@ -1427,12 +1433,18 @@ class TensorFlowTests(tf.test.TestCase):
             ]
 
             for x in x_list:
-                bn = tf.layers.BatchNormalization(axis=1)
+                try:
+                    bn = tf.layers.BatchNormalization(axis=1)
+                except AttributeError:
+                    bn = tf.compat.v1.layers.BatchNormalization(axis=1)
                 sync_bn = hvd.SyncBatchNormalization(axis=1)
                 bn_func = bn.apply(x, training=True)
                 sync_bn_func = sync_bn.apply(tf.expand_dims(x[hvd.rank()], 0), training=True)
 
-                init = tf.global_variables_initializer()
+                try:
+                  init = tf.global_variables_initializer()
+                except AttributeError:
+                  init = tf.compat.v1.global_variables_initializer()
                 self.evaluate(init)
                 bn_out = self.evaluate(bn_func)
                 sync_bn_out = self.evaluate(sync_bn_func)

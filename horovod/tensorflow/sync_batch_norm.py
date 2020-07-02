@@ -18,7 +18,12 @@ from horovod.tensorflow.mpi_ops import _allreduce
 from horovod.tensorflow.mpi_ops import size, rank
 from horovod.tensorflow.mpi_ops import Sum
 
-class SyncBatchNormalization(tf.layers.BatchNormalization):
+try:
+    _BatchNormalization = tf.compat.v1.layers.BatchNormalization
+except AttributeError:
+    _BatchNormalization = tf.layers.BatchNormalization
+
+class SyncBatchNormalization(_BatchNormalization):
   """ Synchronous batch normalization. Stats are synchronized across all workers during training. """
 
   def __init__(self, fused=False, **kwargs):
