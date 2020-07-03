@@ -96,8 +96,16 @@ class TorchTests(unittest.TestCase):
         """Test that is_initialized returned by hvd.is_initialized() is correct."""
         hvd.init()
         assert hvd.is_initialized()
+
+        gloo_rank = int(os.getenv('HOROVOD_RANK', -1))
+        is_mpi = gloo_rank == -1
+        if is_mpi:
+            # Only applies for Gloo
+            self.skipTest("Gloo is not available")
+
         hvd.shutdown()
         assert not hvd.is_initialized()
+        hvd.init()
 
     def test_horovod_rank(self):
         """Test that the rank returned by hvd.rank() is correct."""
