@@ -68,6 +68,10 @@ class HorovodBasics(object):
         """A function that shuts Horovod down."""
         self.MPI_LIB_CTYPES.horovod_shutdown()
 
+    def is_initialized(self):
+        """Returns True if Horovod is initialized"""
+        return self.MPI_LIB_CTYPES.horovod_is_initialized()
+
     def size(self):
         """A function that returns the number of Horovod processes.
 

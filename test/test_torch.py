@@ -85,13 +85,19 @@ class TorchTests(unittest.TestCase):
 
         hvd.init()
         rank, size = hvd.rank(), hvd.size()
-
         hvd.shutdown()
         hvd.init()
         rank2, size2 = hvd.rank(), hvd.size()
 
         assert rank == rank2
         assert size == size2
+
+    def test_horovod_is_initialized(self):
+        """Test that is_initialized returned by hvd.is_initialized() is correct."""
+        hvd.init()
+        assert hvd.is_initialized()
+        hvd.shutdown()
+        assert not hvd.is_initialized()
 
     def test_horovod_rank(self):
         """Test that the rank returned by hvd.rank() is correct."""
