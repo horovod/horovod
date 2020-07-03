@@ -80,7 +80,8 @@ class TorchTests(unittest.TestCase):
 
         is_mpi = gloo_rank == -1
         if is_mpi:
-            # Only applies for Gloo
+            # Horovod cannot be re-initialized after shutdown when using MPI, so
+            # this test can only be done using the Gloo controller
             self.skipTest("Gloo is not available")
 
         hvd.init()
