@@ -686,7 +686,12 @@ void horovod_shutdown() {
     // Reset the initialization flag to allow restarting with horovod_init(...)
     horovod_global.initialize_flag.clear();
     horovod_global.shut_down = false;
+    horovod_global.initialization_done = false;
   }
+}
+
+bool horovod_is_initialized() {
+  return horovod_global.initialization_done;
 }
 
 int horovod_rank() {

@@ -80,18 +80,33 @@ class TorchTests(unittest.TestCase):
 
         is_mpi = gloo_rank == -1
         if is_mpi:
-            # Only applies for Gloo
+            # Horovod cannot be re-initialized after shutdown when using MPI, so
+            # this test can only be done using the Gloo controller
             self.skipTest("Gloo is not available")
 
         hvd.init()
         rank, size = hvd.rank(), hvd.size()
-
         hvd.shutdown()
         hvd.init()
         rank2, size2 = hvd.rank(), hvd.size()
 
         assert rank == rank2
         assert size == size2
+
+    def test_horovod_is_initialized(self):
+        """Test that is_initialized returned by hvd.is_initialized() is correct."""
+        hvd.init()
+        assert hvd.is_initialized()
+
+        gloo_rank = int(os.getenv('HOROVOD_RANK', -1))
+        is_mpi = gloo_rank == -1
+        if is_mpi:
+            # Only applies for Gloo
+            self.skipTest("Gloo is not available")
+
+        hvd.shutdown()
+        assert not hvd.is_initialized()
+        hvd.init()
 
     def test_horovod_rank(self):
         """Test that the rank returned by hvd.rank() is correct."""
