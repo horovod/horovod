@@ -17,6 +17,9 @@ import contextlib
 import os
 import platform
 import stat
+import tempfile
+
+from petastorm.spark import SparkDatasetConverter
 
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import VectorAssembler
@@ -55,6 +58,9 @@ def spark_session(app, cores=2, gpus=0, max_failures=1, *args):
     from pyspark import SparkConf
     from pyspark.sql import SparkSession
 
+    tempdir = tempfile.mkdtemp('_spark_converter_test')
+    temp_url = 'file://' + tempdir.replace(os.sep, '/')
+
     # start a single worker with given cores when gpus are present
     # max failures are ignored when gpus in that case
     master = 'local-cluster[1,{},1024]'.format(cores) if gpus > 0 \
@@ -64,6 +70,7 @@ def spark_session(app, cores=2, gpus=0, max_failures=1, *args):
         ('spark.ui.showConsoleProgress', 'false'),
         ('spark.test.home', os.environ.get('SPARK_HOME')),
         ('spark.locality.wait', '0'),
+        (SparkDatasetConverter.PARENT_CACHE_DIR_URL_CONF, temp_url)
     ])
 
     with temppath() as temp_filename:

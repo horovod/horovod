@@ -436,7 +436,7 @@ def _load_metadata_from_fs(fs, path):
 def get_parquet_dataset(spark_data):
     filesystem, dataset_path_or_paths = get_filesystem_and_path_or_paths(
         spark_data.file_urls, constants.PETASTORM_HDFS_DRIVER)
-    return pq.ParquetDataset(dataset_path_or_paths, filesystem=filesystem, validate_schema=False), dataset_path_or_paths
+    return pq.ParquetDataset(dataset_path_or_paths, filesystem=filesystem, validate_schema=True), dataset_path_or_paths
 
 
 def get_dataset_row_count_and_total_bytes(spark_data, name):
@@ -501,7 +501,6 @@ def check_validation(validation, df=None):
                              .format(type(validation)))
 
 
-@contextlib.contextmanager
 def prepare_data(df, label_columns, feature_columns,
                  validation=None, sample_weight_col=None, compress_sparse=False):
     check_validation(validation, df=df)

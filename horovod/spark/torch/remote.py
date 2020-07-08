@@ -100,7 +100,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, train_data
     def make_dataloader(converter, rank, size, workers_count, shuffle_buffer_size=None):
         from petastorm import TransformSpec
 
-        if not converter:
+        if converter is None:
             yield None
         else:
             # In general, make_batch_reader is faster than make_reader for reading the dataset.
@@ -113,13 +113,15 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, train_data
                 'reader_pool_type': 'process',
                 'hdfs_driver': PETASTORM_HDFS_DRIVER,
                 'schema_fields': schema_fields,
-                'transform_spec': TransformSpec(transformation) if transformation else None,
-                'pyarrow_serialize': transformation is not None
+                'transform_spec': TransformSpec(transformation) if transformation else None
             }
+
+            if transformation is not None:
+                petastorm_reader_kwargs['pyarrow_serialize'] = True
 
             with converter.make_torch_dataloader(batch_size=batch_size,
                                                  workers_count=workers_count,
-                                                 shuffle_buffer_size=shuffle_buffer_size,
+                                                 shuffling_queue_capacity=shuffle_buffer_size,
                                                  **petastorm_reader_kwargs) as loader:
                 yield loader
 

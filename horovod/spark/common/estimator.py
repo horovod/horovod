@@ -66,16 +66,16 @@ class HorovodEstimator(Estimator, EstimatorParams):
 
     def _fit(self, df):
         backend = self._get_or_create_backend()
-        with util.prepare_data(df,
-                               label_columns=self.getLabelCols(),
-                               feature_columns=self.getFeatureCols(),
-                               validation=self.getValidation(),
-                               sample_weight_col=self.getSampleWeightCol(),
-                               compress_sparse=self.getCompressSparseCols()) as (train_data, val_data, metadata):
-            self._check_metadata_compatibility(metadata)
+        train_data, val_data, metadata = util.prepare_data(df,
+                                                           label_columns=self.getLabelCols(),
+                                                           feature_columns=self.getFeatureCols(),
+                                                           validation=self.getValidation(),
+                                                           sample_weight_col=self.getSampleWeightCol(),
+                                                           compress_sparse=self.getCompressSparseCols())
+        self._check_metadata_compatibility(metadata)
 
-            run_id = self._get_or_create_run_id()
-            return self._fit_on_prepared_data(backend, metadata, run_id, train_data, val_data)
+        run_id = self._get_or_create_run_id()
+        return self._fit_on_prepared_data(backend, metadata, run_id, train_data, val_data)
 
     def _get_or_create_run_id(self):
         run_id = self.getRunId()
@@ -93,6 +93,9 @@ class HorovodEstimator(Estimator, EstimatorParams):
 
     def _has_checkpoint(self, run_id):
         store = self.getStore()
+        if not store:
+            return False
+
         last_ckpt_path = store.get_checkpoint_path(run_id)
         return last_ckpt_path is not None and store.exists(last_ckpt_path)
 

@@ -338,37 +338,29 @@ class SparkTorchTests(unittest.TestCase):
             df = create_xor_data(spark)
 
             backend = CallbackBackend()
-            with local_store() as store:
-                store.get_train_data_path = lambda v=None: store._train_path
-                store.get_val_data_path = lambda v=None: store._val_path
 
-                with util.prepare_data(backend.num_processes(),
-                                       store,
-                                       df,
-                                       feature_columns=['features'],
-                                       label_columns=['y']):
-                    model = create_xor_model()
-                    optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
-                    loss = nn.BCELoss()
+            train_data, val_data, metadata = util.prepare_data(df, label_columns=['y'], feature_columns=['features'])
+            model = create_xor_model()
+            optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+            loss = nn.BCELoss()
 
-                    est = hvd_spark.TorchEstimator(
-                        backend=backend,
-                        store=store,
-                        model=model,
-                        optimizer=optimizer,
-                        input_shapes=[[2]],
-                        feature_cols=['features'],
-                        label_cols=['y'],
-                        batch_size=1,
-                        epochs=3,
-                        verbose=2)
+            est = hvd_spark.TorchEstimator(
+                backend=backend,
+                model=model,
+                optimizer=optimizer,
+                input_shapes=[[2]],
+                feature_cols=['features'],
+                label_cols=['y'],
+                batch_size=1,
+                epochs=3,
+                verbose=2)
 
-                    # To make sure that setLoss works with non-list loss.
-                    est.setLoss(loss)
+            # To make sure that setLoss works with non-list loss.
+            est.setLoss(loss)
 
-                    transformer = est.fit_on_parquet()
-                    predictions = transformer.transform(df)
-                    assert predictions.count() == df.count()
+            transformer = est.fit_on_parquet(train_data.file_urls)
+            predictions = transformer.transform(df)
+            assert predictions.count() == df.count()
 
     def test_calculate_loss_with_sample_weight(self):
         calculate_loss = remote._calculate_loss_fn()
