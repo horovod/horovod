@@ -42,7 +42,7 @@ public:
       }
     }
 
-    return cudaEventCreateWithFlags(event, cudaEventBlockingSync | cudaEventDisableTiming);
+    return cudaEventCreateWithFlags(event, cudaEventDisableTiming);
   }
 
   cudaError_t ReleaseGpuEvent(cudaEvent_t event) {
