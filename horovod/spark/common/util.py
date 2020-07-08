@@ -540,6 +540,10 @@ def prepare_data(df, label_columns, feature_columns,
     train_df, val_df = _train_val_split(df, validation)
     train_data = make_spark_converter(train_df)
     val_data = make_spark_converter(val_df) if val_df else None
+
+    if metadata is None:
+        metadata = get_dataset_metadata(train_data, feature_columns, label_columns, sample_weight_col)
+
     return train_data, val_data, metadata
 
 

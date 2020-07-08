@@ -70,7 +70,6 @@ class SparkTorchTests(unittest.TestCase):
         logging.getLogger('py4j.java_gateway').setLevel(logging.INFO)
         warnings.simplefilter('module')
 
-
     def test_fit_model(self):
         model = create_xor_model()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
@@ -79,27 +78,25 @@ class SparkTorchTests(unittest.TestCase):
         with spark_session('test_fit_model') as spark:
             df = create_xor_data(spark)
 
-            with local_store() as store:
-                torch_estimator = hvd_spark.TorchEstimator(
-                    num_proc=2,
-                    store=store,
-                    model=model,
-                    optimizer=optimizer,
-                    loss=loss,
-                    input_shapes=[[2]],
-                    feature_cols=['features'],
-                    label_cols=['y'],
-                    batch_size=1,
-                    epochs=3,
-                    verbose=2,
-                    sample_weight_col='weight')
+            torch_estimator = hvd_spark.TorchEstimator(
+                num_proc=2,
+                model=model,
+                optimizer=optimizer,
+                loss=loss,
+                input_shapes=[[2]],
+                feature_cols=['features'],
+                label_cols=['y'],
+                batch_size=1,
+                epochs=3,
+                verbose=2,
+                sample_weight_col='weight')
 
-                torch_model = torch_estimator.fit(df)
+            torch_model = torch_estimator.fit(df)
 
-                trained_model = torch_model.getModel()
-                pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
-                assert len(pred) == 1
-                assert pred.dtype == torch.float32
+            trained_model = torch_model.getModel()
+            pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
+            assert len(pred) == 1
+            assert pred.dtype == torch.float32
 
     def test_restore_from_checkpoint(self):
         model = create_xor_model()
@@ -127,6 +124,7 @@ class SparkTorchTests(unittest.TestCase):
                     verbose=2,
                     run_id=run_id)
 
+                # Keep the original behavior, but wrap so we can check that it was called
                 torch_estimator._load_checkpoint = mock.Mock(side_effect=torch_estimator._load_checkpoint)
 
                 ckpt_path = store.get_checkpoint_path(run_id)
