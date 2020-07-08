@@ -16,7 +16,7 @@
 import numpy as np
 import tensorflow as tf
 from tensorflow.python.framework import ops
-from horovod.tensorflow.util import _executing_eagerly, _has_eager
+from horovod.tensorflow.util import _executing_eagerly
 import warnings
 import horovod.tensorflow as hvd
 import math
@@ -65,10 +65,9 @@ if hasattr(tf, 'config') and hasattr(tf.config, 'experimental') \
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
 else:
-    if _has_eager:
-        # Specifies the config to use with eager execution. Does not preclude
-        # tests from running in the graph mode.
-        tf.enable_eager_execution(config=config)
+    # Specifies the config to use with eager execution. Does not preclude
+    # tests from running in the graph mode.
+    tf.enable_eager_execution(config=config)
 class MPITests(tf.test.TestCase):
     """
     Tests for ops in horovod.tensorflow.
@@ -76,11 +75,10 @@ class MPITests(tf.test.TestCase):
     def __init__(self, *args, **kwargs):
         super(MPITests, self).__init__(*args, **kwargs)
         warnings.simplefilter('module')
-        if _has_eager:
-            if hasattr(tf, 'contrib') and hasattr(tf.contrib, 'eager'):
-                self.tfe = tf.contrib.eager
-            else:
-                self.tfe = tf
+        if hasattr(tf, 'contrib') and hasattr(tf.contrib, 'eager'):
+            self.tfe = tf.contrib.eager
+        else:
+            self.tfe = tf
 
     def evaluate(self, tensors):
         if _executing_eagerly():

@@ -13,21 +13,15 @@
 # limitations under the License.
 # ==============================================================================
 
-from distutils.version import LooseVersion
-
 import tensorflow as tf
 
 
-if LooseVersion(tf.__version__) >= LooseVersion('1.7.0'):  # Eager Mode has been introduced in TF 1.7.0
-    from tensorflow.python.eager import context
-    _has_eager = True
-else:
-    _has_eager = False
+from tensorflow.python.eager import context
 
 
 def _executing_eagerly():
     """Returns true if eager execution is supported and enabled."""
-    return _has_eager and context.executing_eagerly()
+    return context.executing_eagerly()
 
 
 def _make_subgraph(f):
