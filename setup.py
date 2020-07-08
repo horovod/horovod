@@ -1165,24 +1165,6 @@ def check_torch_version():
     return version
 
 
-def is_torch_cuda():
-    try:
-        from torch.utils.ffi import create_extension
-        cuda_test_ext = create_extension(
-            name='horovod.torch.test_cuda',
-            headers=['horovod/torch/dummy.h'],
-            sources=[],
-            with_cuda=True,
-            extra_compile_args=['-std=c11', '-fPIC', '-O3']
-        )
-        cuda_test_ext.build()
-        return True
-    except:
-        print(
-            'INFO: Above error indicates that this PyTorch installation does not support CUDA.')
-        return False
-
-
 def is_torch_cuda_v2(build_ext, include_dirs, extra_compile_args):
     try:
         from torch.utils.cpp_extension import include_paths
@@ -1260,77 +1242,6 @@ class protect_files(object):
     def __exit__(self, type, value, traceback):
         for file in self.files:
             os.rename(file + '.protected', file)
-
-
-def build_torch_extension(build_ext, global_options, torch_version):
-    # Backup the options, preventing other plugins access libs that
-    # compiled with compiler of this plugin
-    options = deepcopy(global_options)
-
-    have_cuda = is_torch_cuda()
-    have_cuda_macro = check_macro(options['MACROS'], 'HAVE_CUDA')
-    if not have_cuda and have_cuda_macro:
-        raise DistutilsPlatformError(
-            'Horovod build with GPU support was requested, but this PyTorch '
-            'installation does not support CUDA.')
-
-    # Build gloo
-    if options['BUILD_GLOO']:
-        build_cmake(build_ext, gloo_lib, 'torch', [], options)
-
-    # Update HAVE_CUDA to mean that PyTorch supports CUDA. Internally, we will be checking
-    # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
-    # version or transfer tensors to CPU memory for those operations.
-    if have_cuda and not have_cuda_macro:
-        set_cuda_options(build_ext, **options)
-
-    # Export TORCH_VERSION equal to our representation of torch.__version__. Internally it's
-    # used for backwards compatibility checks.
-    updated_macros = set_macro(
-        options['MACROS'], 'TORCH_VERSION', str(torch_version))
-
-    # Create_extension overwrites these files which are customized, we need to protect them.
-    with protect_files('horovod/torch/mpi_lib/__init__.py',
-                       'horovod/torch/mpi_lib_impl/__init__.py'):
-        from torch.utils.ffi import create_extension
-        ffi_iface = create_extension(
-            name='horovod.torch.mpi_lib',
-            headers=['horovod/torch/interface.h'] +
-                    (['horovod/torch/interface_cuda.h'] if have_cuda else []),
-            with_cuda=have_cuda,
-            language='c',
-            package=True,
-            sources=[],
-            extra_compile_args=['-std=c11', '-fPIC', '-O3']
-        )
-        ffi_impl = create_extension(
-            name='horovod.torch.mpi_lib_impl',
-            headers=[],
-            with_cuda=have_cuda,
-            language='c++',
-            package=True,
-            source_extension='.cc',
-            define_macros=updated_macros,
-            include_dirs=options['INCLUDES'],
-            sources=options['SOURCES'] + ['horovod/torch/mpi_ops.cc',
-                                          'horovod/torch/handle_manager.cc',
-                                          'horovod/torch/ready_event.cc',
-                                          'horovod/torch/tensor_util.cc',
-                                          'horovod/torch/cuda_util.cc',
-                                          'horovod/torch/adapter.cc'],
-            extra_compile_args=options['COMPILE_FLAGS'],
-            extra_link_args=options['LINK_FLAGS'],
-            library_dirs=options['LIBRARY_DIRS'],
-            libraries=options['LIBRARIES']
-        )
-
-    for ffi, setuptools_ext in [(ffi_iface, torch_mpi_lib),
-                                (ffi_impl, torch_mpi_lib_impl)]:
-        ffi_ext = ffi.distutils_extension()
-        # ffi_ext is distutils Extension, not setuptools Extension
-        for k, v in ffi_ext.__dict__.items():
-            setuptools_ext.__dict__[k] = v
-        build_ext.build_extension(setuptools_ext)
 
 
 def build_torch_extension_v2(build_ext, global_options, torch_version):
@@ -1553,10 +1464,7 @@ class custom_build_ext(build_ext):
         if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
             try:
                 torch_version = check_torch_version()
-                if torch_version >= 1000000000:
-                    build_torch_extension_v2(self, options, torch_version)
-                else:
-                    build_torch_extension(self, options, torch_version)
+                build_torch_extension_v2(self, options, torch_version)
                 built_plugins.append(True)
             except:
                 if not os.environ.get('HOROVOD_WITH_PYTORCH'):
