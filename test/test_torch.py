@@ -34,9 +34,7 @@ import horovod.torch as hvd
 
 from common import mpi_env_rank_and_size, temppath
 
-_v2_api = LooseVersion(torch.__version__) >= LooseVersion('1.0.0')
 _1_5_api = LooseVersion(torch.__version__) >= LooseVersion('1.5.0')
-_fp16_supported = _v2_api
 
 ccl_supported_types = set([torch.CharTensor, torch.IntTensor,
                            torch.LongTensor, torch.FloatTensor, 
@@ -144,14 +142,11 @@ class TorchTests(unittest.TestCase):
         hvd.init()
         size = hvd.size()
         dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
-                     torch.FloatTensor, torch.DoubleTensor])
-        if _fp16_supported:
-            dtypes += self.filter_supported_types([torch.HalfTensor])
+                     torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
-                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
-            if _fp16_supported:
-                dtypes += [torch.cuda.HalfTensor]
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             torch.manual_seed(1234)
@@ -184,9 +179,8 @@ class TorchTests(unittest.TestCase):
                      torch.FloatTensor, torch.DoubleTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
-                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
-            if _fp16_supported:
-                dtypes += [torch.cuda.HalfTensor]
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             torch.manual_seed(1234)
@@ -214,14 +208,11 @@ class TorchTests(unittest.TestCase):
         hvd.init()
         size = hvd.size()
         dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
-                     torch.FloatTensor, torch.DoubleTensor])
-        if _fp16_supported:
-            dtypes += self.filter_supported_types([torch.HalfTensor])
+                     torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
-                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
-            if _fp16_supported:
-                dtypes += [torch.cuda.HalfTensor]
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             torch.manual_seed(1234)
@@ -252,14 +243,11 @@ class TorchTests(unittest.TestCase):
         hvd.init()
         size = hvd.size()
         dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor])
-        if _fp16_supported:
-            dtypes += self.filter_supported_types([torch.HalfTensor])
+                  torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
-                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
-            if _fp16_supported:
-                dtypes += [torch.cuda.HalfTensor]
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
         dims = [1, 2, 3]
         tests = []
         is_hvd_poll_false_once = False
@@ -312,9 +300,8 @@ class TorchTests(unittest.TestCase):
 
         iter = 0
         dtypes = [torch.cuda.IntTensor, torch.cuda.LongTensor,
-                  torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
-        if _fp16_supported:
-            dtypes += [torch.cuda.HalfTensor]
+                  torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                  torch.cuda.HalfTensor]
 
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
@@ -458,9 +445,7 @@ class TorchTests(unittest.TestCase):
         # Only Tensors of floating point dtype can require gradients
         dtypes = [torch.FloatTensor, torch.DoubleTensor]
         if torch.cuda.is_available():
-            dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
-            if _fp16_supported:
-                dtypes += [torch.cuda.HalfTensor]
+            dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor, torch.cuda.HalfTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             torch.manual_seed(1234)
@@ -484,9 +469,7 @@ class TorchTests(unittest.TestCase):
         # Only Tensors of floating point dtype can require gradients
         dtypes = [torch.FloatTensor, torch.DoubleTensor]
         if torch.cuda.is_available():
-            dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
-            if _fp16_supported:
-                dtypes += [torch.cuda.HalfTensor]
+            dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor, torch.cuda.HalfTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             torch.manual_seed(1234)
@@ -511,15 +494,13 @@ class TorchTests(unittest.TestCase):
         size = hvd.size()
 
         dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
-                  torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
-        if _fp16_supported:
-            dtypes += [torch.HalfTensor]
+                  torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor,
+                  torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
                        torch.cuda.IntTensor, torch.cuda.LongTensor,
-                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
-            if _fp16_supported:
-                dtypes += [torch.cuda.HalfTensor]
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             tensor = torch.FloatTensor(*([17] * dim)).fill_(1).mul_(rank)
@@ -544,15 +525,13 @@ class TorchTests(unittest.TestCase):
         size = hvd.size()
 
         dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
-                  torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
-        if _fp16_supported:
-            dtypes += [torch.HalfTensor]
+                  torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor,
+                  torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
                        torch.cuda.IntTensor, torch.cuda.LongTensor,
-                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
-            if _fp16_supported:
-                dtypes += [torch.cuda.HalfTensor]
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             # Support tests up to MPI Size of 35
@@ -587,15 +566,13 @@ class TorchTests(unittest.TestCase):
         size = hvd.size()
 
         dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
-                  torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
-        if _fp16_supported:
-            dtypes += [torch.HalfTensor]
+                  torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor,
+                  torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
                        torch.cuda.IntTensor, torch.cuda.LongTensor,
-                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
-            if _fp16_supported:
-                dtypes += [torch.cuda.HalfTensor]
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
         dims = [1, 2, 3]
         tests = []
         is_hvd_poll_false_once = False
@@ -696,9 +673,7 @@ class TorchTests(unittest.TestCase):
         # Only Tensors of floating point dtype can require gradients
         dtypes = [torch.FloatTensor, torch.DoubleTensor]
         if torch.cuda.is_available():
-            dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
-            if _fp16_supported:
-                dtypes += [torch.cuda.HalfTensor]
+            dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor, torch.cuda.HalfTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             # Support tests up to MPI Size of 35
@@ -742,15 +717,13 @@ class TorchTests(unittest.TestCase):
             self.skipTest("Only one worker available")
 
         dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
-                  torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
-        if _fp16_supported:
-            dtypes += [torch.HalfTensor]
+                  torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor,
+                  torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
                        torch.cuda.IntTensor, torch.cuda.LongTensor,
-                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
-            if _fp16_supported:
-                dtypes += [torch.cuda.HalfTensor]
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
         dims = [1, 2, 3]
         root_ranks = list(range(size))
         for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
@@ -778,15 +751,13 @@ class TorchTests(unittest.TestCase):
             self.skipTest("Only one worker available")
 
         dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
-                  torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
-        if _fp16_supported:
-            dtypes += [torch.HalfTensor]
+                  torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor,
+                  torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
                        torch.cuda.IntTensor, torch.cuda.LongTensor,
-                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
-            if _fp16_supported:
-                dtypes += [torch.cuda.HalfTensor]
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
         dims = [1, 2, 3]
         root_ranks = list(range(size))
         for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
@@ -899,9 +870,7 @@ class TorchTests(unittest.TestCase):
         # Only Tensors of floating point dtype can require gradients
         dtypes = [torch.FloatTensor, torch.DoubleTensor]
         if torch.cuda.is_available():
-            dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
-            if _fp16_supported:
-                dtypes += [torch.cuda.HalfTensor]
+            dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor, torch.cuda.HalfTensor]
         dims = [1, 2, 3]
         root_ranks = list(range(size))
         for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
@@ -1136,8 +1105,6 @@ class TorchTests(unittest.TestCase):
             loss.backward()
             optimizer.step()
 
-    @pytest.mark.skipif(LooseVersion(torch.__version__) < LooseVersion('0.4.1'),
-                        reason='Cannot optimize parameters that do not require gradients before PyTorch 0.4.1')
     def test_broadcast_state_no_grad(self):
         class ModelNoGrad(nn.Module):
             def __init__(self, a, b):
@@ -1551,10 +1518,6 @@ class TorchTests(unittest.TestCase):
 
     def test_horovod_join_allreduce(self):
         """Test Join op with allreduce."""
-        # "Join Op is not supported for PyTorch < 1.0"
-        if not _v2_api:
-            self.skipTest("Join Op not available")
-
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -1563,9 +1526,8 @@ class TorchTests(unittest.TestCase):
                      torch.FloatTensor, torch.DoubleTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
-                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
-            if _fp16_supported:
-                dtypes += [torch.cuda.HalfTensor]
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
 
         integral_types = [torch.IntTensor, torch.LongTensor, torch.cuda.IntTensor, torch.cuda.LongTensor]
 
@@ -1624,10 +1586,6 @@ class TorchTests(unittest.TestCase):
 
     def test_horovod_join_allgather(self):
         """Test Join op with allgather."""
-        # "Join Op is not supported for PyTorch < 1.0"
-        if not _v2_api:
-            self.skipTest("Join Op not available")
-
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -1655,10 +1613,6 @@ class TorchTests(unittest.TestCase):
 
     def test_horovod_join_broadcast(self):
         """Test Join op with allgather."""
-        # "Join Op is not supported for PyTorch < 1.0"
-        if not _v2_api:
-            self.skipTest("Join Op not available")
-
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -1737,8 +1691,6 @@ class TorchTests(unittest.TestCase):
             assert (hvd.allreduce(sync_bn.bias.grad, name='sync_bn.bias.grad') - bn.bias.grad).abs().sum() < 1e-6
             assert (hvd.allreduce(ts1.grad, name='ts1.grad') - ts2.grad).abs().sum() < 1e-6
 
-    @pytest.mark.skipif(LooseVersion(torch.__version__) < LooseVersion('1.0.0'),
-                        reason='Synchronizing state requires PyTorch 1.0 or above')
     def test_elastic_state(self):
         hvd.init()
 

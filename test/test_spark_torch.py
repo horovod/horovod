@@ -431,8 +431,6 @@ class SparkTorchTests(unittest.TestCase):
     """
     Test that horovod.spark.run_elastic works properly in a simple setup.
     """
-    @pytest.mark.skipif(LooseVersion(torch.__version__) < LooseVersion('1.0.0'),
-                        reason='Synchronizing state requires PyTorch 1.0 or above')
     def test_happy_run_elastic(self):
         if not gloo_built():
             self.skipTest("Gloo is not available")
@@ -447,8 +445,6 @@ class SparkTorchTests(unittest.TestCase):
     """
     Test that horovod.spark.run_elastic works properly in a fault-tolerant situation.
     """
-    @pytest.mark.skipif(LooseVersion(torch.__version__) < LooseVersion('1.0.0'),
-                        reason='Synchronizing state requires PyTorch 1.0 or above')
     def test_happy_run_elastic_fault_tolerant(self):
         if not gloo_built():
             self.skipTest("Gloo is not available")
@@ -470,8 +466,6 @@ class SparkTorchTests(unittest.TestCase):
     """
     Test that horovod.spark.run_elastic in a fault-tolerant mode fails on too many failures.
     """
-    @pytest.mark.skipif(LooseVersion(torch.__version__) < LooseVersion('1.0.0'),
-                        reason='Synchronizing state requires PyTorch 1.0 or above')
     def test_happy_run_elastic_fault_tolerant_fails(self):
         self.skipTest('elastic horovod does not support shutdown from the spark driver '
                       'while elastic driver is waiting for hosts to come up')
