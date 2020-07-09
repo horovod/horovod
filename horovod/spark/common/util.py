@@ -15,7 +15,6 @@
 
 import horovod.spark.common._namedtuple_fix
 
-import contextlib
 import os
 
 from distutils.version import LooseVersion
@@ -39,9 +38,7 @@ except ImportError:
     from pyspark.sql.types import from_arrow_type
 
 from horovod.run.common.util import codec, host_hash as hh
-from horovod.spark.common import cache, constants
-
-_training_cache = cache.TrainingDataCache()
+from horovod.spark.common import constants
 
 
 def host_hash(salt=None):
@@ -545,14 +542,6 @@ def prepare_data(df, label_columns, feature_columns,
         metadata = get_dataset_metadata(train_data, feature_columns, label_columns, sample_weight_col)
 
     return train_data, val_data, metadata
-
-
-def get_dataset_properties(dataset_idx):
-    return _training_cache.get_dataset_properties(dataset_idx)
-
-
-def clear_training_cache():
-    _training_cache.clear()
 
 
 def to_list(var, length):

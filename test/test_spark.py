@@ -1014,88 +1014,6 @@ class SparkTests(unittest.TestCase):
             slots = discovery.find_available_hosts_and_slots()
             self.assertEqual({'host-hash-1': 2, 'host-hash-2': 2}, slots)
 
-    def test_df_cache(self):
-        # Clean the cache before starting the test
-        util.clear_training_cache()
-        util._training_cache.get_dataset = mock.Mock(side_effect=util._training_cache.get_dataset)
-
-        with spark_session('test_df_cache') as spark:
-            with local_store() as store:
-                df = create_xor_data(spark)
-                df2 = create_xor_data(spark)
-                df3 = create_xor_data(spark)
-
-                key = util._training_cache.create_key(df, store, None)
-                key2 = util._training_cache.create_key(df2, store, None)
-                key3 = util._training_cache.create_key(df3, store, None)
-
-                # All keys are distinct
-                assert key != key2
-                assert key != key3
-                assert key2 != key3
-
-                # The cache should be empty to start
-                assert not util._training_cache.is_cached(key, store)
-                assert not util._training_cache.is_cached(key2, store)
-                assert not util._training_cache.is_cached(key3, store)
-
-                # First insertion into the cache
-                with util.prepare_data(num_processes=2,
-                                       store=store,
-                                       df=df,
-                                       feature_columns=['features'],
-                                       label_columns=['y']) as dataset_idx:
-                    train_rows, val_rows, metadata, avg_row_size = util.get_dataset_properties(dataset_idx)
-                    util._training_cache.get_dataset.assert_not_called()
-                    assert len(util._training_cache._key_to_dataset) == 1
-                    assert util._training_cache.is_cached(key, store)
-                    assert dataset_idx == 0
-
-                    # The first dataset is still in use, so we assign the next integer in sequence to this
-                    # dataset
-                    assert not util._training_cache.is_cached(key2, store)
-                    with util.prepare_data(num_processes=2,
-                                           store=store,
-                                           df=df2,
-                                           feature_columns=['features'],
-                                           label_columns=['y']) as dataset_idx2:
-                        util._training_cache.get_dataset.assert_not_called()
-                        assert len(util._training_cache._key_to_dataset) == 2
-                        assert util._training_cache.is_cached(key2, store)
-                        assert dataset_idx2 == 1
-
-                # Even though the first dataset is no longer in use, it is still cached
-                with util.prepare_data(num_processes=2,
-                                       store=store,
-                                       df=df,
-                                       feature_columns=['features'],
-                                       label_columns=['y']) as dataset_idx1:
-                    train_rows1, val_rows1, metadata1, avg_row_size1 = util.get_dataset_properties(dataset_idx1)
-                    util._training_cache.get_dataset.assert_called()
-                    assert train_rows == train_rows1
-                    assert val_rows == val_rows1
-                    assert metadata == metadata1
-                    assert avg_row_size == avg_row_size1
-                    assert dataset_idx1 == 0
-
-                # The first dataset is no longer in use, so we can reclaim its dataset index
-                assert not util._training_cache.is_cached(key3, store)
-                with util.prepare_data(num_processes=2,
-                                       store=store,
-                                       df=df3,
-                                       feature_columns=['features'],
-                                       label_columns=['y']) as dataset_idx3:
-                    train_rows3, val_rows3, metadata3, avg_row_size3 = util.get_dataset_properties(dataset_idx3)
-                    assert train_rows == train_rows3
-                    assert val_rows == val_rows3
-                    assert metadata == metadata3
-                    assert avg_row_size == avg_row_size3
-                    assert dataset_idx3 == 0
-
-                # Same dataframe, different validation
-                bad_key = util._training_cache.create_key(df, store, 0.1)
-                assert not util._training_cache.is_cached(bad_key, store)
-
     def test_get_col_info(self):
         with spark_session('test_get_col_info') as spark:
             data = [[
@@ -1264,12 +1182,10 @@ class SparkTests(unittest.TestCase):
             self.assertDictEqual(metadata, expected_metadata)
 
     def test_prepare_data_no_compression(self):
-        util.clear_training_cache()
-
         expected_metadata = \
             {
                 'float': {
-                    'spark_data_type': DoubleType,
+                    'spark_data_type': FloatType,
                     'is_sparse_vector_only': False,
                     'intermediate_format': constants.NOCHANGE,
                     'max_size': None,
@@ -1322,21 +1238,13 @@ class SparkTests(unittest.TestCase):
 
                 df = create_test_data_from_schema(spark, data, schema)
 
-                with local_store() as store:
-                    with util.prepare_data(num_processes=2,
-                                           store=store,
-                                           df=df,
-                                           feature_columns=['dense', 'sparse', 'mixed'],
-                                           label_columns=['float']) as dataset_idx:
-                        mock_get_metadata.assert_not_called()
-                        assert dataset_idx == 0
-
-                        train_rows, val_rows, metadata, avg_row_size = util.get_dataset_properties(dataset_idx)
-                        self.assertDictEqual(metadata, expected_metadata)
+                train_data, val_data, metadata = util.prepare_data(df,
+                                                                   label_columns=['dense', 'sparse', 'mixed'],
+                                                                   feature_columns=['float'])
+                mock_get_metadata.assert_not_called()
+                self.assertDictEqual(metadata, expected_metadata)
 
     def test_prepare_data_compress_sparse(self):
-        util.clear_training_cache()
-
         expected_metadata = \
             {
                 'float': {
@@ -1393,18 +1301,12 @@ class SparkTests(unittest.TestCase):
 
                 df = create_test_data_from_schema(spark, data, schema)
 
-                with local_store() as store:
-                    with util.prepare_data(num_processes=2,
-                                           store=store,
-                                           df=df,
-                                           feature_columns=['dense', 'sparse', 'mixed'],
-                                           label_columns=['float'],
-                                           compress_sparse=True) as dataset_idx:
-                        mock_get_metadata.assert_called()
-                        assert dataset_idx == 0
-
-                        train_rows, val_rows, metadata, avg_row_size = util.get_dataset_properties(dataset_idx)
-                        self.assertDictEqual(metadata, expected_metadata)
+                train_data, val_data, metadata = util.prepare_data(df,
+                                                                   label_columns=['dense', 'sparse', 'mixed'],
+                                                                   feature_columns=['float'],
+                                                                   compress_sparse=True)
+                mock_get_metadata.assert_called()
+                self.assertDictEqual(metadata, expected_metadata)
 
     def test_check_shape_compatibility(self):
         feature_columns = ['x1', 'x2', 'features']
@@ -1527,26 +1429,6 @@ class SparkTests(unittest.TestCase):
         with pytest.raises(ValueError):
             hdfs_root = 'file:///user/test/output'
             HDFSStore(hdfs_root)
-
-        # Case 6: override paths, no prefix
-        hdfs_root = '/user/prefix'
-        store = HDFSStore(hdfs_root,
-                          train_path='/user/train_path',
-                          val_path='/user/val_path',
-                          test_path='/user/test_path')
-        assert store.get_train_data_path() == 'hdfs:///user/train_path', hdfs_root
-        assert store.get_val_data_path() == 'hdfs:///user/val_path', hdfs_root
-        assert store.get_test_data_path() == 'hdfs:///user/test_path', hdfs_root
-
-        # Case 7: override paths, prefix
-        hdfs_root = 'hdfs:///user/prefix'
-        store = HDFSStore(hdfs_root,
-                          train_path='hdfs:///user/train_path',
-                          val_path='hdfs:///user/val_path',
-                          test_path='hdfs:///user/test_path')
-        assert store.get_train_data_path() == 'hdfs:///user/train_path', hdfs_root
-        assert store.get_val_data_path() == 'hdfs:///user/val_path', hdfs_root
-        assert store.get_test_data_path() == 'hdfs:///user/test_path', hdfs_root
 
     def test_spark_task_service_env(self):
         service_env = {
