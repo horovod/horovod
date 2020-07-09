@@ -27,7 +27,7 @@ import tensorflow.keras as keras
 
 from horovod.spark.common import constants, util
 from horovod.spark.common.store import LocalStore
-from horovod.spark.keras.util import custom_sparse_to_dense_fn
+from horovod.spark.keras.util import decompress_row_fn, reshape_row_fn
 from horovod.run.common.util import codec
 
 
@@ -63,7 +63,6 @@ def RemoteTrainer(estimator, metadata, run_id, train_data, val_data):
 
     # Model parameters
     input_shapes, output_shapes = estimator.get_model_shapes()
-    num_inputs, num_outputs = len(input_shapes), len(output_shapes)
     output_names = estimator.getModel().output_names
 
     # Keras implementation
@@ -78,7 +77,6 @@ def RemoteTrainer(estimator, metadata, run_id, train_data, val_data):
     store = estimator.getStore() or LocalStore(tempfile.mkdtemp())
     remote_store = store.to_remote(run_id)
 
-    custom_sparse_to_dense = custom_sparse_to_dense_fn()
     has_sparse_col = any(metadata[col]['is_sparse_vector_only']
                          for col in label_columns + feature_columns)
 
@@ -95,56 +93,15 @@ def RemoteTrainer(estimator, metadata, run_id, train_data, val_data):
 
         return _SyncCallback()
 
-    def decompress_row(row):
-        new_row = {}
-        if sample_weight_col:
-            new_row[sample_weight_col] = getattr(row, sample_weight_col)
-
-        for col in feature_columns + label_columns:
-            v = getattr(row, col)
-            intermediate_format = metadata[col]['intermediate_format']
-            if intermediate_format == CUSTOM_SPARSE:
-                reshaped_v = tf.reshape(v, [metadata[col]['max_size'] * 2 + 1])
-                v = custom_sparse_to_dense(reshaped_v, metadata[col]['shape'])
-
-            new_row[col] = v
-        return new_row
-
-    def as_tuple(v):
-        return tuple(v) if len(v) > 1 else v[0]
-
-    def reshape_row(row, has_sparse_col):
-        get_col_from_row = getattr if not has_sparse_col else lambda row, col: row[col]
-        if sample_weight_col:
-            sample_weight = get_col_from_row(row, sample_weight_col)
-            return (
-                tuple(
-                    tf.reshape(get_col_from_row(row, feature_columns[i]), input_shapes[i])
-                    for i
-                    in range(num_inputs)),
-                as_tuple([
-                    tf.reshape(get_col_from_row(row, label_columns[j]), output_shapes[j]) for
-                    j
-                    in range(num_outputs)]),
-                {name: tf.reshape(sample_weight, [-1]) for name in output_names}
-            )
-        else:
-            return (
-                tuple(
-                    tf.reshape(get_col_from_row(row, feature_columns[i]), input_shapes[i])
-                    for i
-                    in range(num_inputs)),
-                as_tuple([
-                    tf.reshape(get_col_from_row(row, label_columns[j]), output_shapes[j]) for
-                    j
-                    in range(num_outputs)])
-            )
+    decompress_row = decompress_row_fn(metadata, feature_columns, label_columns, sample_weight_col)
+    reshape_row = reshape_row_fn(feature_columns, label_columns, sample_weight_col,
+                                 input_shapes, output_shapes, output_names)
 
     @contextlib.contextmanager
     def make_dataset(converter, rank, size, workers_count, shuffle_buffer_size=None):
         from petastorm import TransformSpec
 
-        if not converter:
+        if converter is None:
             yield None
         else:
             # In general, make_batch_reader is faster than make_reader for reading the dataset.
@@ -157,9 +114,11 @@ def RemoteTrainer(estimator, metadata, run_id, train_data, val_data):
                 'reader_pool_type': 'process',
                 'hdfs_driver': PETASTORM_HDFS_DRIVER,
                 'schema_fields': schema_fields,
-                'transform_spec': TransformSpec(transformation) if transformation else None,
-                'pyarrow_serialize': transformation is not None
+                'transform_spec': TransformSpec(transformation) if transformation else None
             }
+
+            if transformation is not None:
+                petastorm_reader_kwargs['pyarrow_serialize'] = True
 
             with converter.make_tf_dataset(batch_size=batch_size if not has_sparse_col else 1,
                                            workers_count=workers_count,

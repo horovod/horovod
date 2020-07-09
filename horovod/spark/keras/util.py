@@ -15,16 +15,16 @@
 
 import io
 
-from distutils.version import LooseVersion
-
 import h5py
 import tensorflow as tf
 import tensorflow.keras as keras
 
 from horovod.run.common.util import codec
 
-from horovod.spark.common import params
+from horovod.spark.common import constants, params
 from horovod.spark.keras import optimizer, remote
+
+CUSTOM_SPARSE = constants.CUSTOM_SPARSE
 
 
 def serialize_optimizer(*args, **kwargs):
@@ -92,6 +92,61 @@ def _serialize_param_value(param_name, param_val, serialize_model_fn, serialize_
         return serialize_opt_fn(param_val)
     else:
         return codec.dumps_base64(param_val)
+
+
+def decompress_row_fn(metadata, feature_columns, label_columns, sample_weight_col):
+    custom_sparse_to_dense = custom_sparse_to_dense_fn()
+
+    def decompress_row(row):
+        new_row = {}
+        if sample_weight_col:
+            new_row[sample_weight_col] = getattr(row, sample_weight_col)
+
+        for col in feature_columns + label_columns:
+            v = getattr(row, col)
+            intermediate_format = metadata[col]['intermediate_format']
+            if intermediate_format == CUSTOM_SPARSE:
+                reshaped_v = tf.reshape(v, [metadata[col]['max_size'] * 2 + 1])
+                v = custom_sparse_to_dense(reshaped_v, metadata[col]['shape'])
+
+            new_row[col] = v
+        return new_row
+    return decompress_row
+
+
+def reshape_row_fn(feature_columns, label_columns, sample_weight_col, input_shapes, output_shapes, output_names):
+    num_inputs, num_outputs = len(input_shapes), len(output_shapes)
+
+    def as_tuple(v):
+        return tuple(v) if len(v) > 1 else v[0]
+
+    def reshape_row(row, has_sparse_col):
+        get_col_from_row = getattr if not has_sparse_col else lambda row, col: row[col]
+        if sample_weight_col:
+            sample_weight = get_col_from_row(row, sample_weight_col)
+            return (
+                tuple(
+                    tf.reshape(get_col_from_row(row, feature_columns[i]), input_shapes[i])
+                    for i
+                    in range(num_inputs)),
+                as_tuple([
+                    tf.reshape(get_col_from_row(row, label_columns[j]), output_shapes[j]) for
+                    j
+                    in range(num_outputs)]),
+                {name: tf.reshape(sample_weight, [-1]) for name in output_names}
+            )
+        else:
+            return (
+                tuple(
+                    tf.reshape(get_col_from_row(row, feature_columns[i]), input_shapes[i])
+                    for i
+                    in range(num_inputs)),
+                as_tuple([
+                    tf.reshape(get_col_from_row(row, label_columns[j]), output_shapes[j]) for
+                    j
+                    in range(num_outputs)])
+            )
+    return reshape_row
 
 
 def custom_sparse_to_dense_fn():

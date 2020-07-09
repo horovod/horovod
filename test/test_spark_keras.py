@@ -24,14 +24,15 @@ import pytest
 import tensorflow as tf
 
 import pyspark.sql.types as T
-from pyspark.ml.linalg import DenseVector, SparseVector
+from pyspark.ml.linalg import SparseVector
 from pyspark.sql.functions import udf
 
 import horovod.spark.keras as hvd
 from horovod.spark.common import constants, util
 from horovod.spark.keras import remote
 from horovod.spark.keras.estimator import EstimatorParams
-from horovod.spark.keras.util import _serialize_param_value, custom_sparse_to_dense_fn
+from horovod.spark.keras.util import _serialize_param_value, custom_sparse_to_dense_fn, \
+    decompress_row_fn, reshape_row_fn
 
 from common import temppath
 from spark_common import CallbackBackend, create_mnist_data, create_xor_data, local_store, spark_session
@@ -81,25 +82,23 @@ class SparkKerasTests(tf.test.TestCase):
         with spark_session('test_fit_model') as spark:
             df = create_xor_data(spark)
 
-            with local_store() as store:
-                keras_estimator = hvd.KerasEstimator(
-                    num_proc=2,
-                    store=store,
-                    model=model,
-                    optimizer=optimizer,
-                    loss=loss,
-                    feature_cols=['features'],
-                    label_cols=['y'],
-                    batch_size=1,
-                    epochs=3,
-                    verbose=2)
+            keras_estimator = hvd.KerasEstimator(
+                num_proc=2,
+                model=model,
+                optimizer=optimizer,
+                loss=loss,
+                feature_cols=['features'],
+                label_cols=['y'],
+                batch_size=1,
+                epochs=3,
+                verbose=2)
 
-                keras_model = keras_estimator.fit(df)
+            keras_model = keras_estimator.fit(df)
 
-                trained_model = keras_model.getModel()
-                pred = trained_model.predict([np.ones([1, 2], dtype=np.float32)])
-                assert len(pred) == 1
-                assert pred.dtype == np.float32
+            trained_model = keras_model.getModel()
+            pred = trained_model.predict([np.ones([1, 2], dtype=np.float32)])
+            assert len(pred) == 1
+            assert pred.dtype == np.float32
 
     def test_fit_model_multiclass(self):
         model = create_mnist_model()
@@ -110,40 +109,36 @@ class SparkKerasTests(tf.test.TestCase):
             with spark_session('test_fit_model_multiclass', cores=num_cores) as spark:
                 df = create_mnist_data(spark)
 
-                with local_store() as store:
-                    keras_estimator = hvd.KerasEstimator(
-                        num_proc=num_cores,
-                        store=store,
-                        model=model,
-                        optimizer=optimizer,
-                        loss=loss,
-                        metrics=['accuracy'],
-                        feature_cols=['features'],
-                        label_cols=['label_vec'],
-                        batch_size=2,
-                        epochs=2,
-                        verbose=2)
+                keras_estimator = hvd.KerasEstimator(
+                    num_proc=num_cores,
+                    model=model,
+                    optimizer=optimizer,
+                    loss=loss,
+                    metrics=['accuracy'],
+                    feature_cols=['features'],
+                    label_cols=['label_vec'],
+                    batch_size=2,
+                    epochs=2,
+                    verbose=2)
 
-                    keras_model = keras_estimator.fit(df).setOutputCols(['label_prob'])
-                    pred_df = keras_model.transform(df)
+                keras_model = keras_estimator.fit(df).setOutputCols(['label_prob'])
+                pred_df = keras_model.transform(df)
 
-                    argmax = udf(lambda v: float(np.argmax(v)), returnType=T.DoubleType())
-                    pred_df = pred_df.withColumn('label_pred', argmax(pred_df.label_prob))
+                argmax = udf(lambda v: float(np.argmax(v)), returnType=T.DoubleType())
+                pred_df = pred_df.withColumn('label_pred', argmax(pred_df.label_prob))
 
-                    preds = pred_df.collect()
-                    assert len(preds) == df.count()
+                preds = pred_df.collect()
+                assert len(preds) == df.count()
 
-                    row = preds[0]
-                    label_prob = row.label_prob.toArray().tolist()
-                    assert label_prob[int(row.label_pred)] == max(label_prob)
+                row = preds[0]
+                label_prob = row.label_prob.toArray().tolist()
+                assert label_prob[int(row.label_pred)] == max(label_prob)
 
     @pytest.mark.skipif(LooseVersion(tf.__version__) == '1.14.0',
                         reason='This test segfaults with Tensorflow 1.14.0: '
                                'https://github.com/horovod/horovod/issues/1995')
     @mock.patch('horovod.spark.keras.remote._pin_gpu_fn')
-    @mock.patch('horovod.spark.keras.util.TFKerasUtil.fit_fn')
-    def test_restore_from_checkpoint(self, mock_fit_fn, mock_pin_gpu_fn):
-        mock_fit_fn.return_value = get_mock_fit_fn()
+    def test_restore_from_checkpoint(self, mock_pin_gpu_fn):
         mock_pin_gpu_fn.return_value = mock.Mock()
 
         model = create_xor_model()
@@ -191,43 +186,33 @@ class SparkKerasTests(tf.test.TestCase):
                         reason='This test segfaults with Tensorflow 1.14.0: '
                                'https://github.com/horovod/horovod/issues/1995')
     @mock.patch('horovod.spark.keras.remote._pin_gpu_fn')
-    @mock.patch('horovod.spark.keras.util.TFKerasUtil.fit_fn')
-    def test_keras_direct_parquet_train(self, mock_fit_fn, mock_pin_gpu_fn):
-        mock_fit_fn.return_value = get_mock_fit_fn()
+    def test_keras_direct_parquet_train(self, mock_pin_gpu_fn):
         mock_pin_gpu_fn.return_value = mock.Mock()
 
         with spark_session('test_keras_direct_parquet_train') as spark:
             df = create_xor_data(spark)
 
             backend = CallbackBackend()
-            with local_store() as store:
-                store.get_train_data_path = lambda v=None: store._train_path
-                store.get_val_data_path = lambda v=None: store._val_path
 
-                with util.prepare_data(backend.num_processes(),
-                                       store,
-                                       df,
-                                       feature_columns=['features'],
-                                       label_columns=['y']):
-                    model = create_xor_model()
-                    optimizer = tf.keras.optimizers.SGD(lr=0.1)
-                    loss = 'binary_crossentropy'
+            train_data, val_data, metadata = util.prepare_data(df, label_columns=['y'], feature_columns=['features'])
+            model = create_xor_model()
+            optimizer = tf.keras.optimizers.SGD(lr=0.1)
+            loss = 'binary_crossentropy'
 
-                    est = hvd.KerasEstimator(
-                        backend=backend,
-                        store=store,
-                        model=model,
-                        optimizer=optimizer,
-                        loss=loss,
-                        feature_cols=['features'],
-                        label_cols=['y'],
-                        batch_size=1,
-                        epochs=3,
-                        verbose=2)
+            est = hvd.KerasEstimator(
+                backend=backend,
+                model=model,
+                optimizer=optimizer,
+                loss=loss,
+                feature_cols=['features'],
+                label_cols=['y'],
+                batch_size=1,
+                epochs=3,
+                verbose=2)
 
-                    transformer = est.fit_on_parquet()
-                    predictions = transformer.transform(df)
-                assert predictions.count() == df.count()
+            transformer = est.fit_on_parquet(train_data.file_urls)
+            predictions = transformer.transform(df)
+            assert predictions.count() == df.count()
 
     @mock.patch('horovod.spark.keras.estimator.remote.RemoteTrainer')
     def test_model_serialization(self, mock_remote_trainer):
@@ -235,7 +220,7 @@ class SparkKerasTests(tf.test.TestCase):
         optimizer = tf.keras.optimizers.SGD(lr=0.1)
         loss = 'binary_crossentropy'
 
-        def train(serialized_model, train_rows, val_rows, avg_row_size):
+        def train(serialized_model):
             return None, serialized_model, 2
         mock_remote_trainer.return_value = train
 
@@ -317,7 +302,7 @@ class SparkKerasTests(tf.test.TestCase):
         assert sparse_vector_values[6] == 60
         assert len(sparse_vector_values) == dense_shape
 
-    def test_reshape(self):
+    def test_decompress_row(self):
         metadata = \
             {
                 'col1': {
@@ -352,10 +337,8 @@ class SparkKerasTests(tf.test.TestCase):
         sw1 = tf.constant([.06])
         row1 = Row(col1=col11, col2=col21, label=label1, sample_weight=sw1)
 
-        reshape_fn = TFKerasUtil._reshape_fn(
-            sample_weight_col, feature_columns, label_columns, metadata)
-
-        reshaped_row = reshape_fn(row1)
+        decompress_row = decompress_row_fn(metadata, feature_columns, label_columns, sample_weight_col)
+        reshaped_row = decompress_row(row1)
         reshaped_row_value = self.evaluate(reshaped_row)
 
         assert np.allclose(reshaped_row_value['sample_weight'], np.array([0.06]))
@@ -364,7 +347,7 @@ class SparkKerasTests(tf.test.TestCase):
                            np.array([[0., 10., 0., 30., 0., 0., 60., 0., 0., 0.]]))
         assert np.allclose(reshaped_row_value['label'], np.array([1.]))
 
-    def test_prep_data_tf_keras_fn_with_sparse_col(self):
+    def test_reshape_row_with_sparse_col(self):
         has_sparse_col = True
 
         feature_columns = ['col1', 'col2']
@@ -381,14 +364,12 @@ class SparkKerasTests(tf.test.TestCase):
         output_shapes = [[-1, 4], [-1, 2, 2]]
         output_names = ['label1', 'label2']
 
-        prep_data_tf_keras = \
-            TFKerasUtil._prep_data_fn(has_sparse_col, sample_weight_col,
-                                      feature_columns, label_columns, input_shapes,
-                                      output_shapes, output_names)
+        reshape_row = reshape_row_fn(feature_columns, label_columns, sample_weight_col,
+                                     input_shapes, output_shapes, output_names)
 
         row = {'col1': col1, 'col2': col2, 'label1': label1, 'label2': label2, sample_weight_col: sw1}
 
-        prepped_row = prep_data_tf_keras(row)
+        prepped_row = reshape_row(row, has_sparse_col)
         prepped_row_vals = self.evaluate(prepped_row)
 
         assert np.array_equal(prepped_row_vals[0][0], np.array([[3.]]))
@@ -401,7 +382,7 @@ class SparkKerasTests(tf.test.TestCase):
         assert np.allclose(prepped_row_vals[2]['label1'], np.array([0.06]))
         assert np.allclose(prepped_row_vals[2]['label2'], np.array([0.06]))
 
-    def test_prep_data_tf_keras_fn_without_sparse_col(self):
+    def test_reshape_row_without_sparse_col(self):
         has_sparse_col = False
 
         feature_columns = ['col1', 'col2']
@@ -418,15 +399,13 @@ class SparkKerasTests(tf.test.TestCase):
         output_shapes = [[-1, 4], [-1, 2, 2]]
         output_names = ['label1', 'label2']
 
-        prep_data_tf_keras = \
-            TFKerasUtil._prep_data_fn(has_sparse_col, sample_weight_col,
-                                      feature_columns, label_columns, input_shapes,
-                                      output_shapes, output_names)
+        reshape_row = reshape_row_fn(feature_columns, label_columns, sample_weight_col,
+                                     input_shapes, output_shapes, output_names)
 
         Row = collections.namedtuple('row', ['col1', 'col2', sample_weight_col, 'label1', 'label2'])
         row = Row(col1=col1, col2=col2, label1=label1, label2=label2, sample_weight=sw1)
 
-        prepped_row = prep_data_tf_keras(row)
+        prepped_row = reshape_row(row, has_sparse_col)
         prepped_row_vals = self.evaluate(prepped_row)
 
         assert np.array_equal(prepped_row_vals[0][0], np.array([[3.]]))

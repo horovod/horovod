@@ -70,7 +70,7 @@ class KerasEstimatorParamsReader(HorovodParamsReader):
         if KerasEstimator.custom_objects.name in dict:
             custom_objects = _param_deserializer_fn(KerasEstimator.custom_objects.name,
                                                     dict[KerasEstimator.custom_objects.name],
-                                                    None, None)
+                                                    None)
 
         for key, val in dict.items():
             dict[key] = _param_deserializer_fn(key, val, custom_objects)
