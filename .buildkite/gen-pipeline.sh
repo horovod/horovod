@@ -303,12 +303,12 @@ run_spark_integration() {
       run_test "${test}" "${queue}" \
         ":spark: Spark Keras MNIST (${test})" \
         "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
-    fi
 
-    if [[ ${queue} != *gpu* ]]; then
-      run_test "${test}" "${queue}" \
-        ":spark: PyTests Spark Estimators (${test})" \
-        "bash -c \"cd /horovod/test && pytest --forked -v --capture=no test_spark_keras.py test_spark_torch.py\""
+      if [[ ${queue} != *gpu* ]]; then
+        run_test "${test}" "${queue}" \
+          ":spark: PyTests Spark Estimators (${test})" \
+          "bash -c \"cd /horovod/test && pytest --forked -v --capture=no test_spark_keras.py test_spark_torch.py\""
+      fi
     fi
 
     run_test "${test}" "${queue}" \
