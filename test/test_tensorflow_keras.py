@@ -21,12 +21,8 @@ import tensorflow as tf
 import warnings
 
 from distutils.version import LooseVersion
-if LooseVersion(tf.__version__) >= LooseVersion("1.4.0"):
-    from tensorflow import keras
-    from tensorflow.python.keras import backend as K
-else:
-    from tensorflow.contrib import keras
-    from tensorflow.contrib.keras import backend as K
+from tensorflow import keras
+from tensorflow.python.keras import backend as K
 
 import horovod.tensorflow.keras as hvd
 
@@ -97,7 +93,6 @@ class TfKerasTests(tf.test.TestCase):
             # No assertions, we just need to verify that it doesn't hang
             model.train_on_batch(x, y)
 
-    @pytest.mark.skipif(LooseVersion(tf.__version__) < LooseVersion('1.12.0'), reason='TensorFlow version too low')
     def test_load_model(self):
         with self.test_session(config=self.config) as sess:
             K.set_session(sess)
@@ -129,7 +124,6 @@ class TfKerasTests(tf.test.TestCase):
             self.assertEqual(K.get_value(opt.lr), K.get_value(new_opt.lr))
             self._check_optimizer_weights(opt, new_opt)
 
-    @pytest.mark.skipif(LooseVersion(tf.__version__) < LooseVersion('1.12.0'), reason='TensorFlow version too low')
     def test_load_model_custom_optimizers(self):
         class TestOptimizer(keras.optimizers.RMSprop):
             def __init__(self, **kwargs):
@@ -165,7 +159,6 @@ class TfKerasTests(tf.test.TestCase):
             self.assertEqual(type(new_opt).__name__, 'TestOptimizer')
             self._check_optimizer_weights(opt, new_opt)
 
-    @pytest.mark.skipif(LooseVersion(tf.__version__) < LooseVersion('1.12.0'), reason='TensorFlow version too low')
     def test_load_model_custom_objects(self):
         class TestOptimizer(keras.optimizers.RMSprop):
             def __init__(self, **kwargs):
@@ -205,7 +198,6 @@ class TfKerasTests(tf.test.TestCase):
             self.assertEqual(K.get_value(opt.lr), K.get_value(new_opt.lr))
             self._check_optimizer_weights(opt, new_opt)
 
-    @pytest.mark.skipif(LooseVersion(tf.__version__) < LooseVersion('1.12.0'), reason='TensorFlow version too low')
     def test_load_model_broadcast(self):
         def create_model():
             opt = keras.optimizers.SGD(lr=0.01 * hvd.size(), momentum=0.9)

@@ -23,7 +23,7 @@ import itertools
 import numpy as np
 import os
 import tensorflow as tf
-from horovod.tensorflow.util import _executing_eagerly, _has_eager
+from horovod.tensorflow.util import _executing_eagerly
 from tensorflow.python.framework import ops
 import warnings
 
@@ -41,10 +41,9 @@ if hasattr(tf, 'config') and hasattr(tf.config, 'experimental') \
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
 else:
-    if _has_eager:
-        # Specifies the config to use with eager execution. Does not preclude
-        # tests from running in the graph mode.
-        tf.enable_eager_execution(config=config)
+    # Specifies the config to use with eager execution. Does not preclude
+    # tests from running in the graph mode.
+    tf.enable_eager_execution(config=config)
 
 ccl_supported_types = set([tf.uint8, tf.int32, tf.int64, tf.float32, tf.float64])
 
@@ -59,11 +58,10 @@ class TensorFlowTests(tf.test.TestCase):
     def __init__(self, *args, **kwargs):
         super(TensorFlowTests, self).__init__(*args, **kwargs)
         warnings.simplefilter('module')
-        if _has_eager:
-            if hasattr(tf, 'contrib') and hasattr(tf.contrib, 'eager'):
-                self.tfe = tf.contrib.eager
-            else:
-                self.tfe = tf
+        if hasattr(tf, 'contrib') and hasattr(tf.contrib, 'eager'):
+            self.tfe = tf.contrib.eager
+        else:
+            self.tfe = tf
 
     def evaluate(self, tensors):
         if _executing_eagerly():
@@ -1359,9 +1357,8 @@ class TensorFlowTests(tf.test.TestCase):
                              "hvd.join with hvd.allreduce on GPU produces incorrect results")
 
 
-if _has_eager:
-    from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
-    run_all_in_graph_and_eager_modes(TensorFlowTests)
+from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
+run_all_in_graph_and_eager_modes(TensorFlowTests)
 
 if __name__ == '__main__':
     tf.test.main()

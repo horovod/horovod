@@ -14,26 +14,15 @@
 # limitations under the License.
 # ==============================================================================
 
-from distutils.version import LooseVersion
-
 # Load all the necessary PyTorch C types.
 import torch
 
 import warnings
 
-# PyTorch v2 API starts with 1.0.0 (including nightly builds)
-_v2_api = LooseVersion(torch.__version__) >= LooseVersion('1.0.0')
-if _v2_api:
-    from horovod.torch import mpi_lib_v2 as mpi_lib
-    from horovod.common.basics import HorovodBasics as _HorovodBasics
-    _NULL = ""
-    _basics = _HorovodBasics(__file__, 'mpi_lib_v2')
-else:
-    from horovod.torch import mpi_lib_impl
-    from horovod.torch import mpi_lib
-    from horovod.common.basics import HorovodBasics as _HorovodBasics
-    _NULL = mpi_lib._ffi.NULL
-    _basics = _HorovodBasics(__file__, 'mpi_lib_impl', '_mpi_lib_impl')
+from horovod.torch import mpi_lib_v2 as mpi_lib
+from horovod.common.basics import HorovodBasics as _HorovodBasics
+_NULL = ""
+_basics = _HorovodBasics(__file__, 'mpi_lib_v2')
 
 from horovod.common.exceptions import HorovodInternalError
 from horovod.common.util import get_average_backwards_compatibility_fun, gpu_available, num_rank_is_power_2
@@ -72,9 +61,6 @@ handle_average_backwards_compatibility = get_average_backwards_compatibility_fun
 # before the operation is finished.
 _handle_map = {}
 
-# Only support fp16 allreduce for PyTorch versions using v2 API.
-_fp16_supported = _v2_api
-
 
 def _check_function(function_factory, tensor):
     function = function_factory(tensor)
@@ -90,11 +76,6 @@ def _allreduce_function_factory(tensor):
 
 
 def _allreduce_async(tensor, output, name, op):
-    if tensor.dtype == torch.float16 and not _fp16_supported:
-        raise NotImplementedError(
-            'float16 allreduce is not supported for PyTorch version {} < 1.0.0'
-            .format(torch.__version__))
-
     # Set the divisor for reduced gradients to average when necessary
     if op == Average:
         divisor = size()
@@ -530,9 +511,6 @@ def join(device=-1):
     Returns:
         Id of the rank that joined last.
     """
-    if not _v2_api:
-        raise NotImplementedError("Join Op is not supported for PyTorch < 1.0")
-
     try:
         return mpi_lib.horovod_torch_join(device)
     except RuntimeError as e:

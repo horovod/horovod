@@ -8,11 +8,11 @@ repository=823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
 
 # list of all the tests
 tests=( \
-       test-cpu-openmpi-py3_6-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2 \
+       test-cpu-openmpi-py3_6-tf1_12_0-keras2_1_2-torch1_2_0-mxnet1_4_1-pyspark2_3_2 \
        test-cpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-gloo-py3_7-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark3_0_0 \
-       test-cpu-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_4_0 \
+       test-cpu-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
        test-cpu-openmpi-py3_6-tf2_0_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
        test-cpu-mpich-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0 \
@@ -138,20 +138,18 @@ run_mpi_integration() {
       ":tensorflow: Test TensorFlow MNIST (${test})" \
       "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist.py\""
 
-    if [[ ${test} != *"tf1_1_0"* && ${test} != *"tf1_6_0"* ]]; then
-      run_test "${test}" "${queue}" \
-        ":tensorflow: Test TensorFlow Eager MNIST (${test})" \
-        "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist_eager.py\""
-    fi
+    run_test "${test}" "${queue}" \
+      ":tensorflow: Test TensorFlow Eager MNIST (${test})" \
+      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist_eager.py\""
 
     run_test "${test}" "${queue}" \
       ":tensorflow: Test Keras MNIST (${test})" \
       "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/keras_mnist_advanced.py\""
-  fi
 
-  run_test "${test}" "${queue}" \
-    ":fire: Test PyTorch MNIST (${test})" \
-    "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/pytorch_mnist.py\""
+    run_test "${test}" "${queue}" \
+      ":fire: Test PyTorch MNIST (${test})" \
+      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/pytorch_mnist.py\""
+  fi
 
   run_test "${test}" "${queue}" \
     ":muscle: Test MXNet MNIST (${test})" \
@@ -292,7 +290,7 @@ run_spark_integration() {
   local queue=$2
 
   # Horovod Spark Estimator tests
-  if [[ ${test} != *"tf1_1_0"* && ${test} != *"tf1_6_0"* && ${test} != *"torch0_"* && ${test} != *"mpich"* && ${test} != *"oneccl"* ]]; then
+  if [[ ${test} != *"tf1_12_0"* && ${test} != *"torch0_"* && ${test} != *"mpich"* && ${test} != *"oneccl"* ]]; then
     if [[ ${test} != *"tf2"* && ${test} != *"tfhead"* ]]; then
       run_test "${test}" "${queue}" \
         ":spark: Spark Keras Rossmann Run (${test})" \
