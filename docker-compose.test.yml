@@ -158,17 +158,17 @@ services:
       - CUDA_VISIBLE_DEVICES
     privileged: true
     shm_size: 8gb
-  test-gpu-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_0:
+  test-gpu-openmpi-py3_6-tf1_14_0-keras2_1_2-torch1_2_0-mxnet1_4_1-pyspark2_4_0:
     extends: test-gpu-base
     build:
       args:
         CUDA_DOCKER_VERSION: 10.0-devel-ubuntu18.04
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
-        TENSORFLOW_PACKAGE: tensorflow-gpu==1.15.0
-        KERAS_PACKAGE: keras==2.3.1
-        PYTORCH_PACKAGE: torch==1.4.0+cu100
-        TORCHVISION_PACKAGE: torchvision==0.5.0+cu100
+        TENSORFLOW_PACKAGE: tensorflow-gpu==1.14.0
+        KERAS_PACKAGE: keras==2.1.2
+        PYTORCH_PACKAGE: torch==1.2.0+cu100
+        TORCHVISION_PACKAGE: torchvision==0.4.1+cu100
         MXNET_PACKAGE: mxnet-cu100==1.4.1
         PYSPARK_PACKAGE: pyspark==2.4.0
         SPARK_PACKAGE: spark-2.4.0/spark-2.4.0-bin-hadoop2.7.tgz
