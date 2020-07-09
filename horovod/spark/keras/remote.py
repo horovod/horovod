@@ -99,15 +99,11 @@ def RemoteTrainer(estimator, metadata, run_id, train_data, val_data):
 
     @contextlib.contextmanager
     def make_dataset(converter, rank, size, workers_count, shuffle_buffer_size=None):
-        from petastorm import TransformSpec
+        from petastorm import TransformSpec, make_reader, make_batch_reader
 
         if converter is None:
             yield None
         else:
-            # In general, make_batch_reader is faster than make_reader for reading the dataset.
-            # However, we found out that make_reader performs data transformations much faster than
-            # make_batch_reader with parallel worker processes. Therefore, the default reader
-            # we choose is make_batch_reader unless there are data transformations.
             petastorm_reader_kwargs = {
                 'cur_shard': rank,
                 'shard_count': size,
@@ -117,12 +113,19 @@ def RemoteTrainer(estimator, metadata, run_id, train_data, val_data):
                 'transform_spec': TransformSpec(transformation) if transformation else None
             }
 
+            # In general, make_batch_reader is faster than make_reader for reading the dataset.
+            # However, we found out that make_reader performs data transformations much faster than
+            # make_batch_reader with parallel worker processes. Therefore, the default reader
+            # we choose is make_batch_reader unless there are data transformations.
+            make_reader_fn = make_batch_reader
             if transformation is not None:
+                make_reader_fn = make_reader
                 petastorm_reader_kwargs['pyarrow_serialize'] = True
 
             with converter.make_tf_dataset(batch_size=batch_size if not has_sparse_col else 1,
                                            workers_count=workers_count,
                                            shuffle_buffer_size=shuffle_buffer_size,
+                                           make_reader_fn=make_reader_fn,
                                            **petastorm_reader_kwargs) as dataset:
                 if has_sparse_col:
                     dataset = dataset.map(decompress_row).batch(batch_size)
