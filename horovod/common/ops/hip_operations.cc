@@ -42,7 +42,7 @@ public:
       }
     }
 
-    return hipEventCreateWithFlags(event, hipEventBlockingSync | hipEventDisableTiming);
+    return hipEventCreateWithFlags(event, hipEventDisableTiming);
   }
 
   hipError_t ReleaseGpuEvent(hipEvent_t event) {
