@@ -138,20 +138,18 @@ run_mpi_integration() {
       ":tensorflow: Test TensorFlow MNIST (${test})" \
       "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist.py\""
 
-    if [[ ${test} != *"tf1_1_0"* && ${test} != *"tf1_6_0"* ]]; then
-      run_test "${test}" "${queue}" \
-        ":tensorflow: Test TensorFlow Eager MNIST (${test})" \
-        "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist_eager.py\""
-    fi
+    run_test "${test}" "${queue}" \
+      ":tensorflow: Test TensorFlow Eager MNIST (${test})" \
+      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist_eager.py\""
 
     run_test "${test}" "${queue}" \
       ":tensorflow: Test Keras MNIST (${test})" \
       "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/keras_mnist_advanced.py\""
-  fi
 
-  run_test "${test}" "${queue}" \
-    ":fire: Test PyTorch MNIST (${test})" \
-    "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/pytorch_mnist.py\""
+    run_test "${test}" "${queue}" \
+      ":fire: Test PyTorch MNIST (${test})" \
+      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/pytorch_mnist.py\""
+  fi
 
   run_test "${test}" "${queue}" \
     ":muscle: Test MXNet MNIST (${test})" \
@@ -292,7 +290,7 @@ run_spark_integration() {
   local queue=$2
 
   # Horovod Spark Estimator tests
-  if [[ ${test} != *"tf1_1_0"* && ${test} != *"tf1_6_0"* && ${test} != *"torch0_"* && ${test} != *"mpich"* && ${test} != *"oneccl"* ]]; then
+  if [[ ${test} != *"tf1_12_0"* && ${test} != *"torch0_"* && ${test} != *"mpich"* && ${test} != *"oneccl"* ]]; then
     if [[ ${test} != *"tf2"* && ${test} != *"tfhead"* ]]; then
       run_test "${test}" "${queue}" \
         ":spark: Spark Keras Rossmann Run (${test})" \
