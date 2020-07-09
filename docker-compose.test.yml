@@ -158,7 +158,7 @@ services:
       - CUDA_VISIBLE_DEVICES
     privileged: true
     shm_size: 8gb
-  test-gpu-openmpi-py3_6-tf1_14_0-keras2_1_2-torch1_2_0-mxnet1_4_1-pyspark2_4_0:
+  test-gpu-openmpi-py3_6-tf1_14_0-keras2_1_2-torch1_3_0-mxnet1_4_1-pyspark2_4_0:
     extends: test-gpu-base
     build:
       args:
@@ -167,7 +167,7 @@ services:
         PYTHON_VERSION: 3.6
         TENSORFLOW_PACKAGE: tensorflow-gpu==1.14.0
         KERAS_PACKAGE: keras==2.1.2
-        PYTORCH_PACKAGE: torch==1.2.0+cu100
+        PYTORCH_PACKAGE: torch==1.3.0+cu100
         TORCHVISION_PACKAGE: torchvision==0.4.1+cu100
         MXNET_PACKAGE: mxnet-cu100==1.4.1
         PYSPARK_PACKAGE: pyspark==2.4.0
