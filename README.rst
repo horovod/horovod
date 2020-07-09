@@ -369,6 +369,7 @@ See `here <docs/autotune.rst>`__ for full details and usage instructions.
 Guides
 ------
 1. Run distributed training in Microsoft Azure using `Batch AI and Horovod <https://github.com/Azure/BatchAI/tree/master/recipes/Horovod>`_.
+2. `Distributed model training using Horovod <https://spell.ml/blog/distributed-model-training-using-horovod-XvqEGRUAACgAa5th>`_.
 
 Send us links to any user guides you want to publish on this site
 
