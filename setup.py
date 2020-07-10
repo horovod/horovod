@@ -71,10 +71,10 @@ def is_build_action():
 def check_tf_version():
     try:
         import tensorflow as tf
-        if LooseVersion(tf.__version__) < LooseVersion('1.12.0'):
+        if LooseVersion(tf.__version__) < LooseVersion('1.14.0'):
             raise DistutilsPlatformError(
                 'Your TensorFlow version %s is outdated.  '
-                'Horovod requires tensorflow>=1.12.0' % tf.__version__)
+                'Horovod requires tensorflow>=1.14.0' % tf.__version__)
         # parse version
         version = parse_version(tf.__version__)
         if version is None:
@@ -87,7 +87,7 @@ def check_tf_version():
     except AttributeError:
         # This means that tf.__version__ was not exposed, which makes it *REALLY* old.
         raise DistutilsPlatformError(
-            'Your TensorFlow version is outdated.  Horovod requires tensorflow>=1.12.0')
+            'Your TensorFlow version is outdated.  Horovod requires tensorflow>=1.14.0')
 
 
 def check_mx_version():

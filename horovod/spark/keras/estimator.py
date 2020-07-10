@@ -18,6 +18,8 @@ import horovod.spark.common._namedtuple_fix
 import numbers
 import time
 
+from distutils.version import LooseVersion
+
 import numpy as np
 import tensorflow as tf
 

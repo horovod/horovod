@@ -8,17 +8,17 @@ repository=823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
 
 # list of all the tests
 tests=( \
-       test-cpu-openmpi-py3_6-tf1_12_0-keras2_1_2-torch1_2_0-mxnet1_4_1-pyspark2_3_2 \
+       test-cpu-openmpi-py3_6-tf1_14_0-keras2_1_2-torch1_2_0-mxnet1_4_1-pyspark2_3_2 \
        test-cpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-gloo-py3_7-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark3_0_0 \
-       test-cpu-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
-       test-cpu-openmpi-py3_6-tf2_0_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0 \
+       test-cpu-openmpi-py3_6-tf2_0_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
+       test-cpu-openmpi-py3_6-tf2_1_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
        test-cpu-mpich-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-oneccl-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-oneccl-ofi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0 \
-       test-gpu-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_0 \
+       test-gpu-openmpi-py3_6-tf1_14_0-keras2_1_2-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
        test-gpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_0 \
        test-gpu-openmpi-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_0 \
        test-gpu-openmpi-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_6_0-pyspark2_4_0 \
@@ -290,7 +290,7 @@ run_spark_integration() {
   local queue=$2
 
   # Horovod Spark Estimator tests
-  if [[ ${test} != *"tf1_12_0"* && ${test} != *"torch0_"* && ${test} != *"mpich"* && ${test} != *"oneccl"* ]]; then
+  if [[ ${test} != *"mpich"* && ${test} != *"oneccl"* ]]; then
     if [[ ${test} != *"tf2"* && ${test} != *"tfhead"* ]]; then
       run_test "${test}" "${queue}" \
         ":spark: Spark Keras Rossmann Run (${test})" \
