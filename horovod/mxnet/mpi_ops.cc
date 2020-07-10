@@ -208,8 +208,8 @@ inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
   auto output_var = output->var();
   auto cpu_input_var = cpu_input_tensor->var();
   auto cpu_output_var = cpu_output_tensor->var();
-  if (input_var != output_var) {
-    // Not in-place
+  if (op_type == OperationType::ALLGATHER) {
+    // Use out-of-place path for operations that have unknown output size (allgather)
     MXEnginePushAsync(DoHorovodOperationCudaOnCPU, ops_param, DeleteMpiOpsParam,
                       &MX_EXEC_CTX, &cpu_input_var, 1, &cpu_output_var, 1,
                       &MX_FUNC_PROP, priority, op_type_name);
@@ -221,7 +221,7 @@ inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
     // Make async copy of CPU output tensor to output tensor.
     TensorUtil::AsyncCopyCPUToCuda(cpu_output_tensor.get(), output);
   } else {
-    // In-place
+    // Use in-place otherwise
     MXEnginePushAsync(DoHorovodOperationCudaOnCPU, ops_param, DeleteMpiOpsParam,
                       &MX_EXEC_CTX, nullptr, 0, &cpu_input_var, 1,
                       &MX_FUNC_PROP, priority, op_type_name);
