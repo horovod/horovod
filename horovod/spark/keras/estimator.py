@@ -40,9 +40,6 @@ from horovod.spark.keras.util import \
     is_instance_of_bare_keras_model, is_instance_of_bare_keras_optimizer
 
 
-_TF_1_14 = LooseVersion('1.15') > LooseVersion(tf.__version__) >= LooseVersion('1.14')
-
-
 class KerasEstimatorParamsWriter(HorovodParamsWriter):
     def saveImpl(self, path):
         keras_utils = self.instance._get_keras_utils()
@@ -283,9 +280,6 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
         # Workaround:
         # https://stackoverflow.com/questions/50583056/is-there-any-way-to-set-java-opts-for-tensorflow-process/50615570
         env = {'LIBHDFS_OPTS': '-Xms2048m -Xmx2048m'}
-        if _TF_1_14:
-            # See: https://github.com/tensorflow/tensorflow/issues/32793
-            env['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices=false'
 
         trainer = remote.RemoteTrainer(self, metadata, keras_utils, run_id, dataset_idx)
         handle = backend.run(trainer,
