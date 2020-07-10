@@ -124,7 +124,7 @@ def RemoteTrainer(estimator, metadata, run_id, train_data, val_data):
 
             with converter.make_tf_dataset(batch_size=batch_size if not has_sparse_col else 1,
                                            workers_count=workers_count,
-                                           shuffle_buffer_size=shuffle_buffer_size,
+                                           shuffling_queue_capacity=shuffle_buffer_size,
                                            make_reader_fn=make_reader_fn,
                                            **petastorm_reader_kwargs) as dataset:
                 if has_sparse_col:
