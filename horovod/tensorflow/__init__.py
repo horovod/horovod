@@ -141,10 +141,10 @@ def _allreduce_cond(tensor, *args, **kwargs):
 
 
 try:
-    _global_variables = tf.global_variables
+    _global_variables = tf.compat.v1.global_variables
 except AttributeError:
     try:
-        _global_variables = tf.compat.v1.global_variables
+        _global_variables = tf.global_variables
     except AttributeError:
         _global_variables = None
 
@@ -167,10 +167,10 @@ if _global_variables is not None:
         return broadcast_variables(_global_variables(), root_rank)
 
 try:
-    _get_default_graph = tf.get_default_graph
+    _get_default_graph = tf.compat.v1.get_default_graph
 except AttributeError:
     try:
-        _get_default_graph = tf.compat.v1.get_default_graph
+        _get_default_graph = tf.get_default_graph
     except AttributeError:
         _get_default_graph = None
 
