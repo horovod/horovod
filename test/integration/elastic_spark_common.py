@@ -30,8 +30,8 @@ from parameterized import parameterized
 import pytest
 import unittest
 
-from horovod.run.util.threads import in_thread
-from horovod.run.common.util import safe_shell_exec, tiny_shell_exec
+from horovod.runner.util.threads import in_thread
+from horovod.runner.common.util import safe_shell_exec, tiny_shell_exec
 from horovod.spark import conf, run_elastic
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))

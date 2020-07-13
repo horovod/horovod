@@ -30,7 +30,7 @@ try:
 except ImportError:
     from pyspark.sql.types import from_arrow_type
 
-from horovod.run.common.util import codec, host_hash as hh
+from horovod.runner.common.util import codec, host_hash as hh
 from horovod.spark.common import cache, constants
 
 _training_cache = cache.TrainingDataCache()

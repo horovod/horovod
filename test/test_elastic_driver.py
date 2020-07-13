@@ -20,12 +20,12 @@ import warnings
 import mock
 import pytest
 
-from horovod.run.util import network
-from horovod.run.elastic.discovery import FixedHosts, HostManager
-from horovod.run.elastic.driver import ElasticDriver
-from horovod.run.elastic.rendezvous import create_rendezvous_handler
-from horovod.run.elastic.worker import WorkerNotificationManager
-from horovod.run.http.http_server import RendezvousServer
+from horovod.runner.util import network
+from horovod.runner.elastic.discovery import FixedHosts, HostManager
+from horovod.runner.elastic.driver import ElasticDriver
+from horovod.runner.elastic.rendezvous import create_rendezvous_handler
+from horovod.runner.elastic.worker import WorkerNotificationManager
+from horovod.runner.http.http_server import RendezvousServer
 
 
 def wait_for_one(events):

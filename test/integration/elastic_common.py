@@ -21,9 +21,9 @@ import sys
 import mock
 import pytest
 
-from horovod.run.common.util import config_parser
-from horovod.run.elastic import constants
-from horovod.run.runner import parse_args, _run_elastic
+from horovod.runner.common.util import config_parser
+from horovod.runner.elastic import constants
+from horovod.runner.runner import parse_args, _run_elastic
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
 

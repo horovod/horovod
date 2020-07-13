@@ -24,7 +24,7 @@ import tensorflow as tf
 from distutils.version import LooseVersion
 
 from horovod.spark.common import constants
-from horovod.run.common.util import codec
+from horovod.runner.common.util import codec
 
 
 PETASTORM_HDFS_DRIVER = constants.PETASTORM_HDFS_DRIVER

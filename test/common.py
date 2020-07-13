@@ -23,7 +23,7 @@ import time
 
 import mock
 
-from horovod.run.util.threads import in_thread
+from horovod.runner.util.threads import in_thread
 
 
 def mpi_env_rank_and_size():

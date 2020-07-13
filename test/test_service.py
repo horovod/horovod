@@ -21,9 +21,9 @@ import warnings
 
 import pytest
 
-from horovod.run.common.service.task_service import BasicTaskClient, BasicTaskService
-from horovod.run.common.util import network, secret
-from horovod.run.util.threads import in_thread
+from horovod.runner.common.service.task_service import BasicTaskClient, BasicTaskService
+from horovod.runner.common.util import network, secret
+from horovod.runner.util.threads import in_thread
 
 
 class SleepRequest(object):

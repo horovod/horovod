@@ -26,9 +26,9 @@ import pytest
 import unittest
 
 from horovod.common.util import gloo_built, mpi_built
-from horovod.run.common.util import safe_shell_exec
-from horovod.run.runner import HorovodArgs, _check_all_hosts_ssh_successful, _run
-from horovod.run.mpi_run import mpi_available, is_mpich
+from horovod.runner.common.util import safe_shell_exec
+from horovod.runner.runner import HorovodArgs, _check_all_hosts_ssh_successful, _run
+from horovod.runner.mpi_run import mpi_available, is_mpich
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
 
@@ -40,7 +40,7 @@ def values_name_func(testcase_func, param_num, param):
 
 
 def fn(fail_rank=None):
-    from horovod.run.common.util.env import get_env_rank_and_size
+    from horovod.runner.common.util.env import get_env_rank_and_size
     rank = get_env_rank_and_size()
     if rank and rank[0] == fail_rank:
         raise RuntimeError('failing as expected')

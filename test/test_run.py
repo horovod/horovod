@@ -31,16 +31,16 @@ import mock
 from mock import MagicMock
 
 import horovod
-from horovod.run.common.util import codec, config_parser, hosts, safe_shell_exec, secret, \
+from horovod.runner.common.util import codec, config_parser, hosts, safe_shell_exec, secret, \
     settings as hvd_settings, timeout
-from horovod.run.common.util.host_hash import _hash, host_hash
-from horovod.run.gloo_run import gloo_run
-from horovod.run.js_run import js_run, generate_jsrun_rankfile
-from horovod.run.mpi_run import _get_mpi_implementation, _get_mpi_implementation_flags,\
+from horovod.runner.common.util.host_hash import _hash, host_hash
+from horovod.runner.gloo_run import gloo_run
+from horovod.runner.js_run import js_run, generate_jsrun_rankfile
+from horovod.runner.mpi_run import _get_mpi_implementation, _get_mpi_implementation_flags,\
     _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_available, mpi_run,\
     _OMPI_IMPL, _SMPI_IMPL, _MPICH_IMPL, _UNKNOWN_IMPL, _MISSING_IMPL
-from horovod.run.runner import gloo_built, parse_args, run_controller, HorovodArgs, _run
-from horovod.run.util.threads import in_thread, on_event
+from horovod.runner.runner import gloo_built, parse_args, run_controller, HorovodArgs, _run
+from horovod.runner.util.threads import in_thread, on_event
 
 from common import is_built, lsf_and_jsrun, override_args, override_env, temppath, delay, wait
 
@@ -559,7 +559,7 @@ class RunTests(unittest.TestCase):
                 mpi_run(settings, None, {}, cmd)
 
                 # call the mocked _get_mpi_implementation_flags method
-                mpi_flags, binding_args = horovod.run.mpi_run._get_mpi_implementation_flags(False)
+                mpi_flags, binding_args = horovod.runner.mpi_run._get_mpi_implementation_flags(False)
                 self.assertIsNotNone(mpi_flags)
                 expected_cmd = ('mpirun '
                                 '--allow-run-as-root --tag-output '
@@ -597,7 +597,7 @@ class RunTests(unittest.TestCase):
                 mpi_run(settings, None, {}, cmd)
 
                 # call the mocked _get_mpi_implementation_flags method
-                mpi_flags, binding_args = horovod.run.mpi_run._get_mpi_implementation_flags(False)
+                mpi_flags, binding_args = horovod.runner.mpi_run._get_mpi_implementation_flags(False)
                 self.assertIsNotNone(mpi_flags)
                 mpi_flags.append('-mca plm_rsh_no_tree_spawn true')
                 mpi_flags.append('-mca plm_rsh_num_concurrent {}'.format(large_cluster_threshold))
@@ -656,7 +656,7 @@ class RunTests(unittest.TestCase):
                 impl.assert_called_once_with(None, env=env)
 
                 # call the mocked _get_mpi_implementation_flags method ourselves
-                mpi_flags, _ = horovod.run.mpi_run._get_mpi_implementation_flags(False)
+                mpi_flags, _ = horovod.runner.mpi_run._get_mpi_implementation_flags(False)
                 self.assertIsNotNone(mpi_flags)
                 expected_command = ('mpirun '
                                     '--allow-run-as-root --tag-output '
@@ -847,7 +847,7 @@ class RunTests(unittest.TestCase):
                 js_run(settings, None, env, cmd, stdout=stdout, stderr=stderr)
 
                 # call the mocked _get_mpi_implementation_flags method
-                mpi_flags, _ = horovod.run.js_run._get_mpi_implementation_flags(False)
+                mpi_flags, _ = horovod.runner.js_run._get_mpi_implementation_flags(False)
                 self.assertIsNotNone(mpi_flags)
                 expected_command = ('jsrun '
                                     '--erf_input /tmp/rankfile '

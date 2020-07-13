@@ -23,7 +23,7 @@ from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.linalg import DenseVector, VectorUDT
 from pyspark.sql.types import FloatType, IntegerType, StructField, StructType
 
-from horovod.run.common.util import secret
+from horovod.runner.common.util import secret
 from horovod.spark.common.store import LocalStore
 from horovod.spark.driver.driver_service import SparkDriverService, SparkDriverClient
 from horovod.spark.task.task_service import SparkTaskService, SparkTaskClient

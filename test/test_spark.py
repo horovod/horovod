@@ -43,10 +43,10 @@ import horovod.spark
 import horovod.torch as hvd
 
 from horovod.common.util import gloo_built, mpi_built
-from horovod.run.common.util import codec, secret, safe_shell_exec, timeout
-from horovod.run.common.util import settings as hvd_settings
-from horovod.run.mpi_run import is_open_mpi
-from horovod.run.util.threads import in_thread
+from horovod.runner.common.util import codec, secret, safe_shell_exec, timeout
+from horovod.runner.common.util import settings as hvd_settings
+from horovod.runner.mpi_run import is_open_mpi
+from horovod.runner.util.threads import in_thread
 from horovod.spark.common import constants, util
 from horovod.spark.common.store import HDFSStore
 from horovod.spark.driver.host_discovery import SparkDriverHostDiscovery
@@ -627,7 +627,7 @@ class SparkTests(unittest.TestCase):
                 self.assertEqual(str(e.value), 'Test Exception')
 
                 # call the mocked _get_mpi_implementation_flags method
-                mpi_flags, binding_args = horovod.run.mpi_run._get_mpi_implementation_flags(False)
+                mpi_flags, binding_args = horovod.runner.mpi_run._get_mpi_implementation_flags(False)
                 self.assertIsNotNone(mpi_flags)
                 expected_command = ('mpirun '
                                     '--allow-run-as-root --tag-output '

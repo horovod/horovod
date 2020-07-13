@@ -17,7 +17,7 @@ import io
 
 import h5py
 
-from horovod.run.common.util import codec
+from horovod.runner.common.util import codec
 
 
 def serialize_bare_keras_optimizer(x):
