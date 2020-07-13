@@ -34,7 +34,7 @@ class BaseSettings(object):
         :param key: used for encryption of parameters passed across the hosts
         :type key: str
         :param start_timeout: has to finish all the checks before this timeout runs out.
-        :type start_timeout: horovod.run.common.util.timeout.Timeout
+        :type start_timeout: horovod.runner.common.util.timeout.Timeout
         :param output_filename: optional filename to redirect stdout / stderr by process
         :type output_filename: string
         :param run_func_mode: whether it is run function mode

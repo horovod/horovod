@@ -553,7 +553,7 @@ def _run_static(args):
         put_data_into_kvstore(driver_ip, run_func_server_port,
                               'runfunc', 'func', args.run_func)
 
-        command = [sys.executable, '-m', 'horovod.run.run_task', str(driver_ip), str(run_func_server_port)]
+        command = [sys.executable, '-m', 'horovod.runner.run_task', str(driver_ip), str(run_func_server_port)]
 
         try:
             _launch_job(args, settings, nics, command)

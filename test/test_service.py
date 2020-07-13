@@ -58,7 +58,7 @@ class TestSleepClient(network.BasicClient):
 
 class NetworkTests(unittest.TestCase):
     """
-    Tests for horovod.run.common.service.
+    Tests for horovod.runner.common.service.
     """
 
     def __init__(self, *args, **kwargs):

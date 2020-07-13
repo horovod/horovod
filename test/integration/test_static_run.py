@@ -49,7 +49,7 @@ def fn(fail_rank=None):
 
 class StaticRunTests(unittest.TestCase):
     """
-    Integration tests for horovod.run.
+    Integration tests for horovod.runner.
     """
 
     def __init__(self, *args, **kwargs):
@@ -90,13 +90,13 @@ class StaticRunTests(unittest.TestCase):
         stdout = io.StringIO()
         try:
             with capture(stdout=stdout):
-                with mock.patch('horovod.run.runner.network.filter_local_addresses',
+                with mock.patch('horovod.runner.launch.network.filter_local_addresses',
                                 side_effect=lambda hosts: [host for host in hosts if host not in local_hosts]), \
-                     mock.patch('horovod.run.gloo_run.network.get_local_host_addresses',
+                     mock.patch('horovod.runner.gloo_run.network.get_local_host_addresses',
                                 return_value=local_hosts), \
-                     mock.patch('horovod.run.gloo_run.network.resolve_host_address',
+                     mock.patch('horovod.runner.gloo_run.network.resolve_host_address',
                                 side_effect=lambda host: host), \
-                     mock.patch('horovod.run.mpi_run.os.execve') as exec:
+                     mock.patch('horovod.runner.mpi_run.os.execve') as exec:
                     yield hargs, exec
         finally:
             stdout = stdout.readlines()

@@ -20,7 +20,7 @@ class ElasticSettings(BaseSettings):
     def __init__(self, discovery, min_np, max_np, elastic_timeout, reset_limit, **kwargs):
         """
         :param discovery: object used to detect and manage available hosts
-        :type discovery: horovod.run.elastic.discovery.HostDiscovery
+        :type discovery: horovod.runner.elastic.discovery.HostDiscovery
         :param min_np: minimum number of processes
         :type min_np: int
         :param max_np: maximum number of processes

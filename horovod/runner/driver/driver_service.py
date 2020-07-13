@@ -67,7 +67,7 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
         }
     :type driver_addresses: map
     :param settings: the object that contains the setting for running horovod
-    :type settings: Horovod.run.common.util.settings.Settings
+    :type settings: horovod.runner.common.util.settings.Settings
     :return:
     :rtype:
     """
@@ -98,7 +98,7 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
         host_name = all_host_names[index]
         if host_name in local_host_names:
             command = \
-                '{python} -m horovod.run.task_fn {index} {num_hosts} ' \
+                '{python} -m horovod.runner.task_fn {index} {num_hosts} ' \
                 '{driver_addresses} {settings}'\
                 .format(python=sys.executable,
                         index=codec.dumps_base64(index),
@@ -109,7 +109,7 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
             command = \
                 'ssh -o PasswordAuthentication=no -o StrictHostKeyChecking=no ' \
                 '{host} {ssh_port_arg} ' \
-                '\'{python} -m horovod.run.task_fn {index} {num_hosts} ' \
+                '\'{python} -m horovod.runner.task_fn {index} {num_hosts} ' \
                 '{driver_addresses} {settings}\''\
                 .format(host=host_name,
                         ssh_port_arg=ssh_port_arg,
@@ -146,7 +146,7 @@ def _driver_fn(all_host_names, local_host_names, settings):
     :param local_host_names: host names that resolve into a local addresses.
     :type local_host_names: set
     :param settings: the object that contains the setting for running horovod
-    :type settings: Horovod.run.common.util.settings.Settings
+    :type settings: horovod.runner.common.util.settings.Settings
     :return: example: ['eth0', 'eth1']
     :rtype: list[string]
     """
@@ -205,13 +205,13 @@ def get_common_interfaces(settings, all_host_names, remote_host_names=None, fn_c
     '''
     Find the set of common and routed interfaces on all the hosts.
     :param settings: the object that contains the setting for running horovod
-    :type settings: Horovod.run.common.util.settings.Settings
+    :type settings: horovod.runner.common.util.settings.Settings
     :param all_host_names: list of the host names
     :type all_host_names: list(string)
     :param remote_host_names: list of the remote host names.
     :type remote_host_names: list(string)
     :param fn_cache: Cache storing the results of checks performed by horovod
-    :type fn_cache: Horovod.run.util.cache.Cache
+    :type fn_cache: horovod.runner.util.cache.Cache
     :return: List of common interfaces
     '''
     # Skipping interface discovery for LSF cluster as it slows down considerably the job start
