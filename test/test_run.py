@@ -31,15 +31,16 @@ import mock
 from mock import MagicMock
 
 import horovod
-from horovod.runner.common.util import codec, config_parser, hosts, safe_shell_exec, secret, \
+from horovod.runner.common.util import config_parser, hosts, safe_shell_exec, secret, \
     settings as hvd_settings, timeout
+from horovod.runner import _HorovodArgs
 from horovod.runner.common.util.host_hash import _hash, host_hash
 from horovod.runner.gloo_run import gloo_run
 from horovod.runner.js_run import js_run, generate_jsrun_rankfile
 from horovod.runner.mpi_run import _get_mpi_implementation, _get_mpi_implementation_flags,\
     _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_available, mpi_run,\
     _OMPI_IMPL, _SMPI_IMPL, _MPICH_IMPL, _UNKNOWN_IMPL, _MISSING_IMPL
-from horovod.runner.launch import gloo_built, parse_args, run_controller, HorovodArgs, _run
+from horovod.runner.launch import gloo_built, parse_args, run_controller, _run
 from horovod.runner.util.threads import in_thread, on_event
 
 from common import is_built, lsf_and_jsrun, override_args, override_env, temppath, delay, wait
@@ -900,6 +901,6 @@ rank: 4: { hostname: host2; cpu: {0-3} ; gpu: * ; mem: * }
     @mock.patch('horovod.runner.launch._check_all_hosts_ssh_successful', MagicMock())
     @mock.patch('horovod.runner.launch.run_controller')
     def test_run_with_jsrun(self, mocked_run_controller):
-        hargs = HorovodArgs()
+        hargs = _HorovodArgs()
         _run(hargs)
         mocked_run_controller.assert_called_once()

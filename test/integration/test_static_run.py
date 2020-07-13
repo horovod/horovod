@@ -27,7 +27,8 @@ import unittest
 
 from horovod.common.util import gloo_built, mpi_built
 from horovod.runner.common.util import safe_shell_exec
-from horovod.runner.launch import HorovodArgs, _check_all_hosts_ssh_successful, _run
+from horovod.runner import _HorovodArgs
+from horovod.runner.launch import _check_all_hosts_ssh_successful, _run
 from horovod.runner.mpi_run import mpi_available, is_mpich
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
@@ -76,7 +77,7 @@ class StaticRunTests(unittest.TestCase):
                 self.skipTest('password-less ssh to {} is required for this test'
                               .format(' and '.join(remote_hosts)))
 
-        hargs = HorovodArgs()
+        hargs = _HorovodArgs()
         hargs.np = 4
         hargs.hosts = ','.join(['{}:2'.format(host) for host in hosts])
         hargs.use_gloo = controller == 'gloo'
