@@ -16,6 +16,7 @@
 
 #include <chrono>
 #include <memory>
+#include <pthread.h>
 #include <thread>
 #include <torch/extension.h>
 #include <torch/torch.h>
@@ -240,8 +241,9 @@ int DoBroadcastCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int roo
 int PollHandle(int handle) { return handle_manager.PollHandle(handle) ? 1 : 0; }
 
 void WaitAndClear(int handle) {
-  while (!handle_manager.PollHandle(handle)) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  while (true) {
+    if (handle_manager.PollHandle(handle)) break;
+    pthread_yield();
   }
   auto status = handle_manager.ReleaseHandle(handle);
   ThrowIfError(*status);
