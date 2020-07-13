@@ -27,7 +27,7 @@ import unittest
 
 from horovod.common.util import gloo_built, mpi_built
 from horovod.runner.common.util import safe_shell_exec
-from horovod.runner.runner import HorovodArgs, _check_all_hosts_ssh_successful, _run
+from horovod.runner.launch import HorovodArgs, _check_all_hosts_ssh_successful, _run
 from horovod.runner.mpi_run import mpi_available, is_mpich
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))

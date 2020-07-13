@@ -24,7 +24,7 @@ import horovod.torch as hvd
 
 from horovod.common.util import gloo_built, mpi_built
 from horovod.runner import run
-from horovod.runner.runner import _run, HorovodArgs
+from horovod.runner.launch import _run, HorovodArgs
 
 
 class InteractiveRunTests(unittest.TestCase):

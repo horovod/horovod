@@ -23,7 +23,7 @@ import pytest
 
 from horovod.runner.common.util import config_parser
 from horovod.runner.elastic import constants
-from horovod.runner.runner import parse_args, _run_elastic
+from horovod.runner.launch import parse_args, _run_elastic
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
 

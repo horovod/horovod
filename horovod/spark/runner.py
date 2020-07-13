@@ -27,7 +27,7 @@ from horovod.spark.common.util import host_hash
 from horovod.spark.task import task_service
 from horovod.spark.gloo_run import gloo_run, gloo_run_elastic
 from horovod.spark.mpi_run import mpi_run
-from horovod.runner.runner import is_gloo_used, run_controller
+from horovod.runner.launch import is_gloo_used, run_controller
 from horovod.runner.common.util import timeout, secret
 from horovod.runner.common.util import settings as hvd_settings
 from horovod.runner.elastic import settings as hvd_elastic_settings
