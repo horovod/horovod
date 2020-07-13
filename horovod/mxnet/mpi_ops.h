@@ -1,4 +1,5 @@
 // Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Modifications copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,19 +40,25 @@ typedef std::shared_ptr<NDArray> NDArraySharedPtr;
 struct MpiOpsParam {
   NDArraySharedPtr input_tensor;
   NDArraySharedPtr output_tensor;
-  NDArraySharedPtr cpu_tensor;
+  NDArray* output;
+  NDArraySharedPtr cpu_input_tensor;
+  NDArraySharedPtr cpu_output_tensor;
   OperationType op_type;
   std::string op_name;
   int root_rank;
 
   MpiOpsParam(NDArraySharedPtr input_tensor,
               NDArraySharedPtr output_tensor,
-              NDArraySharedPtr cpu_tensor,
+              NDArray* output,
+              NDArraySharedPtr cpu_input_tensor,
+              NDArraySharedPtr cpu_output_tensor,
               const OperationType& op_type, const std::string& op_name,
               int root_rank)
       : input_tensor(input_tensor),
         output_tensor(output_tensor),
-        cpu_tensor(cpu_tensor),
+        output(output),
+        cpu_input_tensor(cpu_input_tensor),
+        cpu_output_tensor(cpu_output_tensor),
         op_type(op_type),
         op_name(op_name),
         root_rank(root_rank) {
@@ -60,12 +67,14 @@ struct MpiOpsParam {
 
 inline MpiOpsParam* CreateMpiOpsParam(NDArraySharedPtr input_tensor,
                                       NDArraySharedPtr output_tensor,
-                                      NDArraySharedPtr cpu_tensor,
+                                      NDArray* output,
+                                      NDArraySharedPtr cpu_input_tensor,
+                                      NDArraySharedPtr cpu_output_tensor,
                                       const OperationType& op_type,
                                       const std::string& op_name,
                                       int root_rank) {
-  return new MpiOpsParam(input_tensor, output_tensor, cpu_tensor,
-    op_type, op_name, root_rank);
+  return new MpiOpsParam(input_tensor, output_tensor, output, cpu_input_tensor,
+    cpu_output_tensor, op_type, op_name, root_rank);
 }
 
 void DeleteMpiOpsParam(void* param) {

@@ -1,4 +1,5 @@
 // Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Modifications copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -69,19 +70,20 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
 
   auto on_complete = *static_cast<CallbackOnComplete*>(on_complete_ptr);
   auto ops_param = static_cast<MpiOpsParam*>(param);
-  auto tensor = ops_param->input_tensor.get();
-  auto output = ops_param->output_tensor.get();
+  auto input_tensor = ops_param->input_tensor.get();
+  auto output_tensor = ops_param->output_tensor.get();
+  auto output = ops_param->output;
   auto name = ops_param->op_name;
-  auto device = TensorUtil::GetDevice(tensor);
+  auto device = TensorUtil::GetDevice(input_tensor);
 
-  auto hvd_tensor = std::make_shared<MXTensor>(tensor);
+  auto hvd_tensor = std::make_shared<MXTensor>(input_tensor);
   auto hvd_context = std::make_shared<MXOpContext>(device, output);  
   std::shared_ptr<Tensor> hvd_output = nullptr;  
 
   Status enqueue_result;
   switch (ops_param->op_type) {
     case OperationType::ALLREDUCE:
-      hvd_output = std::make_shared<MXTensor>(output);
+      hvd_output = std::make_shared<MXTensor>(output_tensor);
       enqueue_result = EnqueueTensorAllreduce(
           hvd_context, hvd_tensor, hvd_output, nullptr, name, device,
           [on_complete](const Status& status) {
@@ -97,7 +99,7 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
       break;
     case OperationType::BROADCAST:
       if (horovod_rank() != ops_param->root_rank) {
-        hvd_output = std::make_shared<MXTensor>(output);
+        hvd_output = std::make_shared<MXTensor>(output_tensor);
       }
 
       enqueue_result = EnqueueTensorBroadcast(
@@ -125,8 +127,9 @@ inline void PushHorovodOperation(OperationType op_type, NDArray* input,
   // before MXNet engine process it
   auto input_copy = std::make_shared<NDArray>(*input);
   auto output_copy = std::make_shared<NDArray>(*output);
-  auto ops_param = CreateMpiOpsParam(input_copy, output_copy,
-    nullptr /* cpu_buffer */, op_type, op_name, root_rank);
+  auto ops_param = CreateMpiOpsParam(input_copy, output_copy, output,
+    nullptr /* cpu_input_tensor */, nullptr /* cpu_output_tensor */,
+    op_type, op_name, root_rank);
 
   // Not in-place
   auto input_var = input->var();
@@ -150,9 +153,9 @@ void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
   auto on_complete = *static_cast<CallbackOnComplete*>(on_complete_ptr);
   auto ops_param = static_cast<MpiOpsParam*>(param);
   auto name = ops_param->op_name;
-  auto hvd_cpu_buffer = std::make_shared<MXTensor>(ops_param->cpu_tensor.get());
+  auto hvd_cpu_buffer = std::make_shared<MXTensor>(ops_param->cpu_input_tensor.get());
   auto hvd_context = std::make_shared<MXOpContext>(
-    CPU_DEVICE_ID, ops_param->cpu_tensor.get());
+    CPU_DEVICE_ID, ops_param->cpu_output_tensor.get());
 
   Status enqueue_result;
   switch (ops_param->op_type) {
@@ -191,22 +194,41 @@ inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
   auto op_type_name = GetOpTypeName(op_type);
   auto op_name = GetOpName(op_type_name, name);
 
-  auto cpu_buffer = std::make_shared<NDArray>(Context::Create(Context::kCPU, 0),
+  auto cpu_input_tensor = std::make_shared<NDArray>(Context::Create(Context::kCPU, 0),
     input->dtype());
-  auto ops_param = CreateMpiOpsParam(nullptr, nullptr, cpu_buffer,
-                                     op_type, op_name, root_rank);
+  auto cpu_output_tensor = std::make_shared<NDArray>(Context::Create(Context::kCPU, 0),
+    input->dtype());
+  auto ops_param = CreateMpiOpsParam(nullptr, nullptr, output, cpu_input_tensor,
+                                     cpu_output_tensor, op_type, op_name, root_rank);
 
   // Make async copy of input tensor to CPU tensor.
-  TensorUtil::AsyncCopyCudaToCPU(input, cpu_buffer.get());
+  TensorUtil::AsyncCopyCudaToCPU(input, cpu_input_tensor.get());
 
-  // In-place
-  auto cpu_tensor_var = cpu_buffer->var();
-  MXEnginePushAsync(DoHorovodOperationCudaOnCPU, ops_param, DeleteMpiOpsParam,
-                    &MX_EXEC_CTX, nullptr, 0, &cpu_tensor_var, 1,
-                    &MX_FUNC_PROP, priority, op_type_name);
+  auto input_var = input->var();
+  auto output_var = output->var();
+  auto cpu_input_var = cpu_input_tensor->var();
+  auto cpu_output_var = cpu_output_tensor->var();
+  if (op_type == OperationType::ALLGATHER) {
+    // Use out-of-place path for operations that have unknown output size (allgather)
+    MXEnginePushAsync(DoHorovodOperationCudaOnCPU, ops_param, DeleteMpiOpsParam,
+                      &MX_EXEC_CTX, &cpu_input_var, 1, &cpu_output_var, 1,
+                      &MX_FUNC_PROP, priority, op_type_name);
 
-  // Make async copy of CPU tensor to output tensor.
-  TensorUtil::AsyncCopyCPUToCuda(cpu_buffer.get(), output);
+    // Since cpu_output_tensor is resized in out-of-place path, need
+    // to wait for operation to complete before copying to GPU output.
+    cpu_output_tensor->WaitToRead();
+
+    // Make async copy of CPU output tensor to output tensor.
+    TensorUtil::AsyncCopyCPUToCuda(cpu_output_tensor.get(), output);
+  } else {
+    // Use in-place otherwise
+    MXEnginePushAsync(DoHorovodOperationCudaOnCPU, ops_param, DeleteMpiOpsParam,
+                      &MX_EXEC_CTX, nullptr, 0, &cpu_input_var, 1,
+                      &MX_FUNC_PROP, priority, op_type_name);
+
+    // Make async copy of CPU input tensor to output tensor.
+    TensorUtil::AsyncCopyCPUToCuda(cpu_input_tensor.get(), output);
+  }
 }
 #endif
 
