@@ -1356,6 +1356,102 @@ class TensorFlowTests(tf.test.TestCase):
                     self.assertTrue(diff <= threshold,
                              "hvd.join with hvd.allreduce on GPU produces incorrect results")
 
+    def test_horovod_syncbn_gpu(self):
+        """Test that the SyncBatchNormalization implementation is correct on GPU."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        hvd.init()
+        with tf.device("/gpu:%d" % hvd.local_rank()):
+            x_list = [
+                tf.convert_to_tensor(np.stack([
+                    np.array([
+                        [r, r + 1],
+                        [r * 2, r * 2 + 1],
+                        [r * 3, r * 3 + 1],
+                        [r * 4, r * 4 + 1]
+                    ], dtype=np.float32)
+                    for r in range(hvd.size())
+                ]), np.float32),
+                tf.convert_to_tensor(np.stack([
+                    np.array([
+                        [r + 1],
+                        [r * 2 + 1],
+                        [r * 3 + 1],
+                        [r * 4 + 1]
+                    ], dtype=np.float32)
+                    for r in range(hvd.size())
+                ]), np.float32),
+            ]
+
+            for x in x_list:
+                try:
+                    bn = tf.layers.BatchNormalization(axis=1)
+                except AttributeError:
+                    bn = tf.compat.v1.layers.BatchNormalization(axis=1)
+                sync_bn = hvd.SyncBatchNormalization(axis=1)
+                bn_func = bn.apply(x, training=True)
+                sync_bn_func = sync_bn.apply(tf.expand_dims(x[hvd.rank()], 0), training=True)
+
+                try:
+                  init = tf.global_variables_initializer()
+                except AttributeError:
+                  init = tf.compat.v1.global_variables_initializer()
+                self.evaluate(init)
+                bn_out = self.evaluate(bn_func)
+                sync_bn_out = self.evaluate(sync_bn_func)
+
+                self.assertAllClose(sync_bn_out, np.expand_dims(bn_out[hvd.rank()], 0))
+                self.assertAllClose(self.evaluate(sync_bn.moving_mean), self.evaluate(bn.moving_mean))
+                self.assertAllClose(self.evaluate(sync_bn.moving_variance), self.evaluate(bn.moving_variance))
+
+    def test_horovod_syncbn_cpu(self):
+        """Test that the SyncBatchNormalization implementation is correct on CPU."""
+
+        hvd.init()
+        with tf.device("/cpu:0"):
+            x_list = [
+                tf.convert_to_tensor(np.stack([
+                    np.array([
+                        [r, r + 1],
+                        [r * 2, r * 2 + 1],
+                        [r * 3, r * 3 + 1],
+                        [r * 4, r * 4 + 1]
+                    ], dtype=np.float32)
+                    for r in range(hvd.size())
+                ]), np.float32),
+                tf.convert_to_tensor(np.stack([
+                    np.array([
+                        [r + 1],
+                        [r * 2 + 1],
+                        [r * 3 + 1],
+                        [r * 4 + 1]
+                    ], dtype=np.float32)
+                    for r in range(hvd.size())
+                ]), np.float32),
+            ]
+
+            for x in x_list:
+                try:
+                    bn = tf.layers.BatchNormalization(axis=1)
+                except AttributeError:
+                    bn = tf.compat.v1.layers.BatchNormalization(axis=1)
+                sync_bn = hvd.SyncBatchNormalization(axis=1)
+                bn_func = bn.apply(x, training=True)
+                sync_bn_func = sync_bn.apply(tf.expand_dims(x[hvd.rank()], 0), training=True)
+
+                try:
+                  init = tf.global_variables_initializer()
+                except AttributeError:
+                  init = tf.compat.v1.global_variables_initializer()
+                self.evaluate(init)
+                bn_out = self.evaluate(bn_func)
+                sync_bn_out = self.evaluate(sync_bn_func)
+
+                self.assertAllClose(sync_bn_out, np.expand_dims(bn_out[hvd.rank()], 0))
+                self.assertAllClose(self.evaluate(sync_bn.moving_mean), self.evaluate(bn.moving_mean))
+                self.assertAllClose(self.evaluate(sync_bn.moving_variance), self.evaluate(bn.moving_variance))
 
 from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
 run_all_in_graph_and_eager_modes(TensorFlowTests)
