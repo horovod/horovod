@@ -14,7 +14,7 @@
 # ==============================================================================
 
 from horovod.spark.driver.driver_service import SparkDriverService
-from horovod.run.elastic.discovery import HostDiscovery
+from horovod.runner.elastic.discovery import HostDiscovery
 
 
 class SparkDriverHostDiscovery(HostDiscovery):

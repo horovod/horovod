@@ -43,10 +43,10 @@ import horovod.spark
 import horovod.torch as hvd
 
 from horovod.common.util import gloo_built, mpi_built
-from horovod.run.common.util import codec, secret, safe_shell_exec, timeout
-from horovod.run.common.util import settings as hvd_settings
-from horovod.run.mpi_run import is_open_mpi
-from horovod.run.util.threads import in_thread
+from horovod.runner.common.util import codec, secret, safe_shell_exec, timeout
+from horovod.runner.common.util import settings as hvd_settings
+from horovod.runner.mpi_run import is_open_mpi
+from horovod.runner.util.threads import in_thread
 from horovod.spark.common import constants, util
 from horovod.spark.common.store import HDFSStore
 from horovod.spark.driver.host_discovery import SparkDriverHostDiscovery
@@ -568,8 +568,8 @@ class SparkTests(unittest.TestCase):
                 return 1, alloc_info.rank
             return _exec_command
 
-        with mock.patch("horovod.run.mpi_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags):
-            with mock.patch("horovod.run.mpi_run.safe_shell_exec.execute", return_value=1):
+        with mock.patch("horovod.runner.mpi_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags):
+            with mock.patch("horovod.runner.mpi_run.safe_shell_exec.execute", return_value=1):
                 with mock.patch("horovod.spark.gloo_run._exec_command_fn", side_effect=gloo_exec_command_fn):
                     with spark_session('test_spark_run'):
                         with is_built(gloo_is_built=use_gloo, mpi_is_built=use_mpi):
@@ -610,8 +610,8 @@ class SparkTests(unittest.TestCase):
         def exception(*args, **argv):
             raise Exception('Test Exception')
 
-        with mock.patch("horovod.run.mpi_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags):
-            with mock.patch("horovod.run.mpi_run.safe_shell_exec.execute", side_effect=exception) as execute:
+        with mock.patch("horovod.runner.mpi_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags):
+            with mock.patch("horovod.runner.mpi_run.safe_shell_exec.execute", side_effect=exception) as execute:
                 with spark_session('test_spark_run', cores=cores):
                     with is_built(gloo_is_built=False, mpi_is_built=True):
                         # we make the run fail just after we caught our mocked method calls
@@ -627,7 +627,7 @@ class SparkTests(unittest.TestCase):
                 self.assertEqual(str(e.value), 'Test Exception')
 
                 # call the mocked _get_mpi_implementation_flags method
-                mpi_flags, binding_args = horovod.run.mpi_run._get_mpi_implementation_flags(False)
+                mpi_flags, binding_args = horovod.runner.mpi_run._get_mpi_implementation_flags(False)
                 self.assertIsNotNone(mpi_flags)
                 expected_command = ('mpirun '
                                     '--allow-run-as-root --tag-output '
@@ -1594,7 +1594,7 @@ class SparkTests(unittest.TestCase):
                 file = os.path.sep.join([d, 'command_executed'])
                 self.do_test_spark_task_service_executes_command(client, file)
 
-    @mock.patch('horovod.run.common.util.safe_shell_exec.GRACEFUL_TERMINATION_TIME_S', 0.5)
+    @mock.patch('horovod.runner.common.util.safe_shell_exec.GRACEFUL_TERMINATION_TIME_S', 0.5)
     def test_spark_task_service_abort_command(self):
         with spark_task_service(index=0) as (service, client, _):
             with tempdir() as d:

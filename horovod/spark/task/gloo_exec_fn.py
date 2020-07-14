@@ -16,7 +16,7 @@
 import sys
 
 from horovod.spark.task import task_exec
-from horovod.run.common.util import codec
+from horovod.runner.common.util import codec
 
 
 def main(driver_addresses, settings):

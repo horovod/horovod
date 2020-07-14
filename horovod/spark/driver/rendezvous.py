@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from horovod.run.http.http_server import RendezvousServer
+from horovod.runner.http.http_server import RendezvousServer
 
 
 class SparkRendezvousServer(RendezvousServer):

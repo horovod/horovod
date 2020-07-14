@@ -19,8 +19,8 @@ import os
 import pyspark
 import time
 
-from horovod.run.common.util import codec, secret, timeout
-from horovod.run.common.service import task_service
+from horovod.runner.common.util import codec, secret, timeout
+from horovod.runner.common.service import task_service
 
 
 class ResourcesRequest(object):

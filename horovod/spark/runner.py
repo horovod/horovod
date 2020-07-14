@@ -22,15 +22,15 @@ import time
 import pyspark
 
 from horovod.common.util import gloo_built
-from horovod.run.util.threads import in_thread
+from horovod.runner.util.threads import in_thread
 from horovod.spark.common.util import host_hash
 from horovod.spark.task import task_service
 from horovod.spark.gloo_run import gloo_run, gloo_run_elastic
 from horovod.spark.mpi_run import mpi_run
-from horovod.run.runner import is_gloo_used, run_controller
-from horovod.run.common.util import timeout, secret
-from horovod.run.common.util import settings as hvd_settings
-from horovod.run.elastic import settings as hvd_elastic_settings
+from horovod.runner.launch import is_gloo_used, run_controller
+from horovod.runner.common.util import timeout, secret
+from horovod.runner.common.util import settings as hvd_settings
+from horovod.runner.elastic import settings as hvd_elastic_settings
 from horovod.spark.driver import driver_service, host_discovery, job_id
 
 

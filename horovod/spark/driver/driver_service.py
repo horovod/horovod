@@ -15,8 +15,8 @@
 
 import threading
 
-from horovod.run.common.service import driver_service
-from horovod.run.common.util import network
+from horovod.runner.common.service import driver_service
+from horovod.runner.common.util import network
 
 
 class TaskHostHashIndicesRequest(object):

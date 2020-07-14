@@ -16,8 +16,8 @@
 import sys
 import time
 
-from horovod.run.common.util import codec, secret
-from horovod.run.gloo_run import launch_gloo, launch_gloo_elastic
+from horovod.runner.common.util import codec, secret
+from horovod.runner.gloo_run import launch_gloo, launch_gloo_elastic
 from horovod.spark.driver.rsh import rsh
 from horovod.spark.driver.rendezvous import SparkRendezvousServer
 

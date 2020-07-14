@@ -17,7 +17,7 @@ import logging
 import threading
 import traceback
 
-from horovod.run.util.threads import on_event
+from horovod.runner.util.threads import on_event
 from horovod.spark.task import task_service
 from horovod.spark.driver import driver_service
 

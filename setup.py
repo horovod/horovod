@@ -1566,6 +1566,6 @@ setup(name='horovod',
       zip_safe=False,
       entry_points={
           'console_scripts': [
-              'horovodrun = horovod.run.runner:run_commandline'
+              'horovodrun = horovod.runner.launch:run_commandline'
           ]
       })
