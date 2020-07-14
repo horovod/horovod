@@ -97,7 +97,7 @@ services:
         UBUNTU_VERSION: 18.04
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
-        TENSORFLOW_PACKAGE: tf-nightly
+        TENSORFLOW_PACKAGE: tf-nightly==2.4.0.dev20200712
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: torchvision==0.6.0.dev20200413
@@ -225,7 +225,7 @@ services:
         NCCL_VERSION_OVERRIDE: 2.4.8-1+cuda10.1
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
-        TENSORFLOW_PACKAGE: tf-nightly-gpu
+        TENSORFLOW_PACKAGE: tf-nightly-gpu==2.4.0.dev20200712
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: torchvision==0.6.0.dev20200413
