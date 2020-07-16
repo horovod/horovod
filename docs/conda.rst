@@ -85,7 +85,7 @@ There are a few things worth noting about the dependencies.
    MPI. Include ``cmake`` to insure that the Horovod extensions for Gloo are built.
 
 Below are the core required dependencies. The complete ``environment.yml`` file is available 
-on GitHub. ::
+on `GitHub`_. ::
 
     dependencies:
     - bokeh=1.4
@@ -267,6 +267,7 @@ both the Conda environment and JupyterLab.
 .. _OpenMPI: https://www.open-mpi.org/
 .. _mpi4py: https://mpi4py.readthedocs.io/en/stable/
 .. _Gloo: https://github.com/facebookincubator/gloo
+.. _GitHub: https://github.com/kaust-vislab/horovod-gpu-data-science-project
 .. _jupyterlab-nvdashboard: https://github.com/rapidsai/jupyterlab-nvdashboard
 .. _jupyter-tensorboard: https://github.com/lspvic/jupyter_tensorboard
 .. _environment variables: https://horovod.readthedocs.io/en/latest/install_include.html#environment-variables
