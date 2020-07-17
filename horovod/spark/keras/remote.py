@@ -20,6 +20,7 @@ import os
 
 import h5py
 import tensorflow as tf
+from tensorflow import keras
 
 from distutils.version import LooseVersion
 
@@ -222,8 +223,10 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
             globals()['_DATASET_FINALIZATION_HACK'] = model
 
             if hvd.rank() == 0:
-                with open(ckpt_file, 'rb') as f:
-                    return history.history, codec.dumps_base64(f.read()), hvd.size()
+                model = keras.models.load_model(ckpt_file)
+                return history.history, model, hvd.size()
+                # with open(ckpt_file, 'rb') as f:
+                #     return history.history, codec.dumps_base64(f.read()), hvd.size()
     return train
 
 
