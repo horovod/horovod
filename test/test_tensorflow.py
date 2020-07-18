@@ -753,6 +753,10 @@ class TensorFlowTests(tf.test.TestCase):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors with
         Tensor Fusion, even if those tensors have different sizes along the
         first dim."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
         hvd.init()
         rank = hvd.rank()
         local_rank = hvd.rank()
@@ -811,6 +815,10 @@ class TensorFlowTests(tf.test.TestCase):
     def test_horovod_allgather_variable_size_gpu(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors,
         even if those tensors have different sizes along the first dim."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
         hvd.init()
         rank = hvd.rank()
         local_rank = hvd.rank()
