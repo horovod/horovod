@@ -187,6 +187,33 @@ class TensorFlowTests(tf.test.TestCase):
             diff = self.evaluate(max_difference)
             self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results")
 
+    def test_horovod_allreduce_average_cpu(self):
+        """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors."""
+        hvd.init()
+        size = hvd.size()
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                tensor = self.random_uniform(
+                    [17] * dim, -100, 100, dtype=dtype)
+                averaged = hvd.allreduce(tensor, average=True)
+            max_difference = tf.reduce_max(tf.abs(tf.cast(averaged, dtype=dtype) - tensor))
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                self.skipTest("Horovod cluster too large for precise multiplication comparison")
+
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results")
+
     def test_horovod_allreduce_cpu_fused(self):
         """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors
         with Tensor Fusion."""
@@ -242,6 +269,43 @@ class TensorFlowTests(tf.test.TestCase):
                 summed = hvd.allreduce(tensor, average=False)
             multiplied = tensor * size
             max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                self.skipTest("Horovod cluster too large for precise multiplication comparison")
+
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold, "hvd.allreduce on GPU produces incorrect results")
+
+    def test_horovod_allreduce_average_gpu(self):
+        """Test that the allreduce with average works on GPUs."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        hvd.init()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
+        dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%d" % local_rank):
+                tensor = self.random_uniform(
+                    [17] * dim, -100, 100, dtype=dtype)
+                averaged = hvd.allreduce(tensor, average=True)
+            max_difference = tf.reduce_max(tf.abs(tf.cast(averaged, dtype=dtype) - tensor))
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
@@ -457,6 +521,40 @@ class TensorFlowTests(tf.test.TestCase):
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
 
+    def test_horovod_allreduce_average_grad_cpu(self):
+        """Test the correctness of the allreduce with average gradient on CPU."""
+        hvd.init()
+        size = hvd.size()
+
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                if _executing_eagerly():
+                    tensor = self.tfe.Variable(self.random_uniform(
+                        [5] * dim, -100, 100, dtype=dtype))
+                    with tf.GradientTape() as tape:
+                        averaged = hvd.allreduce(tensor, average=True)
+                else:
+                    tensor = self.random_uniform(
+                        [5] * dim, -100, 100, dtype=dtype)
+                    averaged = hvd.allreduce(tensor, average=True)
+
+                grad_ys = tf.ones([5] * dim, dtype=dtype)
+                if _executing_eagerly():
+                    grad_out = tape.gradient(averaged, tensor, grad_ys)
+                else:
+                    grad = tf.gradients(averaged, tensor, grad_ys)[0]
+                    grad_out = self.evaluate(grad)
+
+            expected = np.ones([5] * dim)
+            err = np.linalg.norm(expected - grad_out)
+            self.assertLess(err, 0.00000001,
+                            "gradient %s differs from expected %s, "
+                            "error: %s" % (grad_out, expected, str(err)))
+
     def test_horovod_allreduce_grad_gpu(self):
         """Test the correctness of the allreduce gradient on GPU."""
         # Only do this test if there are GPUs available.
@@ -494,6 +592,48 @@ class TensorFlowTests(tf.test.TestCase):
                     grad_out = self.evaluate(grad)
 
             expected = np.ones([5] * dim) * size
+            err = np.linalg.norm(expected - grad_out)
+            self.assertLess(err, 0.00000001,
+                            "gradient %s differs from expected %s, "
+                            "error: %s" % (grad_out, expected, str(err)))
+
+    def test_horovod_allreduce_average_grad_gpu(self):
+        """Test the correctness of the allreduce with average gradient on GPU."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        hvd.init()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%d" % local_rank):
+                if _executing_eagerly():
+                    tensor = self.tfe.Variable(
+                        self.random_uniform([5] * dim, -100, 100, dtype=dtype))
+                    with tf.GradientTape() as tape:
+                        averaged = hvd.allreduce(tensor, average=True)
+                else:
+                    tensor = self.random_uniform([5] * dim, -100, 100, dtype=dtype)
+                    averaged = hvd.allreduce(tensor, average=True)
+
+                grad_ys = tf.ones([5] * dim, dtype=dtype)
+                if _executing_eagerly():
+                    grad_out = tape.gradient(averaged, tensor, grad_ys)
+                else:
+                    grad = tf.gradients(averaged, tensor, grad_ys)[0]
+                    grad_out = self.evaluate(grad)
+
+            expected = np.ones([5] * dim)
             err = np.linalg.norm(expected - grad_out)
             self.assertLess(err, 0.00000001,
                             "gradient %s differs from expected %s, "
