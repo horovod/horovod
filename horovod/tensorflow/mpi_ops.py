@@ -114,7 +114,8 @@ def _allreduce_grad(op, grad):
     Returns:
       The gradient with respect to the input of the op.
     """
-    return _allreduce(grad)
+    reduce_op = op.get_attr('reduce_op')
+    return _allreduce(grad, op=reduce_op)
 
 
 def allgather(tensor, name=None):
