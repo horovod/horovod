@@ -223,18 +223,14 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
             globals()['_DATASET_FINALIZATION_HACK'] = model
 
             if hvd.rank() == 0:
-                with open(ckpt_file, 'rb') as f:
-                    return history.history, codec.dumps_base64(f.read()), hvd.size()
+                return history.history, ckpt_file, hvd.size()
     return train
 
 
 def _deserialize_keras_model_fn():
-    def deserialize_keras_model(model_bytes, load_model_fn):
-        """Deserialize model from byte array encoded in base 64."""
-        model_bytes = codec.loads_base64(model_bytes)
-        bio = io.BytesIO(model_bytes)
-        with h5py.File(bio, 'r') as f:
-            return load_model_fn(f)
+    def deserialize_keras_model(serialized_model_path, load_model_fn):
+        """Deserialize model from serialized_model_path"""
+        return load_model_fn(serialized_model_path)
     return deserialize_keras_model
 
 
