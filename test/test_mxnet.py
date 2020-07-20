@@ -587,6 +587,21 @@ class MXTests(unittest.TestCase):
         except (MXNetError, RuntimeError):
             pass
 
+    def test_broadcast_object(self):
+        hvd.init()
+
+        expected_obj = {
+            'hello': 123,
+            0: [1, 2]
+        }
+        obj = expected_obj if hvd.rank() == 0 else {}
+
+        obj = hvd.broadcast_object(obj, root_rank=0)
+        self.assertDictEqual(obj, expected_obj)
+
+        # To prevent premature shutdown from rank 0 for this test
+        mx.nd.waitall()
+
     @unittest.skipUnless(has_gpu, "no gpu detected")
     def test_gluon_trainer(self):
         """Test using horovod allreduce in MXNet Gluon trainer."""
