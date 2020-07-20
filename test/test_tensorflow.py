@@ -510,11 +510,11 @@ class TensorFlowTests(tf.test.TestCase):
                   tf.float64, tf.bool]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
+            tensor = tf.ones([17] * dim) * rank
+            if dtype == tf.bool:
+                tensor = tensor % 2
+            tensor = tf.cast(tensor, dtype=dtype)
             with tf.device("/cpu:0"):
-                tensor = tf.ones([17] * dim) * rank
-                if dtype == tf.bool:
-                    tensor = tensor % 2
-                tensor = tf.cast(tensor, dtype=dtype)
                 gathered = hvd.allgather(tensor)
 
             gathered_tensor = self.evaluate(gathered)
@@ -557,11 +557,11 @@ class TensorFlowTests(tf.test.TestCase):
                   tf.float64, tf.bool]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
+            tensor = tf.ones([17] * dim) * rank
+            if dtype == tf.bool:
+                tensor = tensor % 2
+            tensor = tf.cast(tensor, dtype=dtype)
             with tf.device("/gpu:%d" % local_rank):
-                tensor = tf.ones([17] * dim) * rank
-                if dtype == tf.bool:
-                    tensor = tensor % 2
-                tensor = tf.cast(tensor, dtype=dtype)
                 gathered = hvd.allgather(tensor)
 
             gathered_tensor = self.evaluate(gathered)
@@ -598,11 +598,11 @@ class TensorFlowTests(tf.test.TestCase):
         tests = []
         shape_tests = []
         for dtype, dim in itertools.product(dtypes, dims):
+            tensor = tf.ones([17] * dim) * rank
+            if dtype == tf.bool:
+                tensor = tensor % 2
+            tensor = tf.cast(tensor, dtype=dtype)
             with tf.device("/cpu:0"):
-                tensor = tf.ones([17] * dim) * rank
-                if dtype == tf.bool:
-                    tensor = tensor % 2
-                tensor = tf.cast(tensor, dtype=dtype)
                 gathered = hvd.allgather(tensor)
 
             shape_tests.append(
@@ -656,11 +656,11 @@ class TensorFlowTests(tf.test.TestCase):
         tests = []
         shape_tests = []
         for dtype, dim in itertools.product(dtypes, dims):
+            tensor = tf.ones([17] * dim) * rank
+            if dtype == tf.bool:
+                tensor = tensor % 2
+            tensor = tf.cast(tensor, dtype=dtype)
             with tf.device("/gpu:%d" % local_rank):
-                tensor = tf.ones([17] * dim) * rank
-                if dtype == tf.bool:
-                    tensor = tensor % 2
-                tensor = tf.cast(tensor, dtype=dtype)
                 gathered = hvd.allgather(tensor)
 
             shape_tests.append(
@@ -714,11 +714,11 @@ class TensorFlowTests(tf.test.TestCase):
             tensor_sizes = [17, 32, 81, 12, 15, 23, 22] * 5
             tensor_sizes = tensor_sizes[:size]
 
+            tensor = tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank
+            if dtype == tf.bool:
+                tensor = tensor % 2
+            tensor = tf.cast(tensor, dtype=dtype)
             with tf.device("/cpu:0"):
-                tensor = tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank
-                if dtype == tf.bool:
-                    tensor = tensor % 2
-                tensor = tf.cast(tensor, dtype=dtype)
                 gathered = hvd.allgather(tensor)
             shape_tests.append(
                 tf.reduce_all(tf.equal(tf.shape(gathered),
@@ -777,11 +777,11 @@ class TensorFlowTests(tf.test.TestCase):
             tensor_sizes = [17, 32, 81, 12, 15, 23, 22] * 5
             tensor_sizes = tensor_sizes[:size]
 
+            tensor = tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank
+            if dtype == tf.bool:
+                tensor = tensor % 2
+            tensor = tf.cast(tensor, dtype=dtype)
             with tf.device("/gpu:%d" % local_rank):
-                tensor = tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank
-                if dtype == tf.bool:
-                    tensor = tensor % 2
-                tensor = tf.cast(tensor, dtype=dtype)
                 gathered = hvd.allgather(tensor)
             shape_tests.append(
                 tf.reduce_all(tf.equal(tf.shape(gathered),
@@ -836,11 +836,11 @@ class TensorFlowTests(tf.test.TestCase):
             tensor_sizes = [17, 32, 81, 12, 15, 23, 22] * 5
             tensor_sizes = tensor_sizes[:size]
 
+            tensor = tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank
+            if dtype == tf.bool:
+                tensor = tensor % 2
+            tensor = tf.cast(tensor, dtype=dtype)
             with tf.device("/gpu:%d" % local_rank):
-                tensor = tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank
-                if dtype == tf.bool:
-                    tensor = tensor % 2
-                tensor = tf.cast(tensor, dtype=dtype)
                 gathered = hvd.allgather(tensor)
 
             gathered_tensor = self.evaluate(gathered)
@@ -884,11 +884,11 @@ class TensorFlowTests(tf.test.TestCase):
             tensor_sizes = [17, 32, 81, 12, 15, 23, 22] * 5
             tensor_sizes = tensor_sizes[:size]
 
+            tensor = tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank
+            if dtype == tf.bool:
+                tensor = tensor % 2
+            tensor = tf.cast(tensor, dtype=dtype)
             with tf.device("/cpu:0"):
-                tensor = tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank
-                if dtype == tf.bool:
-                    tensor = tensor % 2
-                tensor = tf.cast(tensor, dtype=dtype)
                 gathered = hvd.allgather(tensor)
 
             gathered_tensor = self.evaluate(gathered)
