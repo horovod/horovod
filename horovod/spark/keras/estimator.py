@@ -342,13 +342,15 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
 
         custom_objects = self.getCustomObjects()
 
-        history, serialized_model, hvd_size = run_results[0]
+        history, serialized_model_path, hvd_size = run_results[0]
 
         def load_model_fn(x):
             with keras_module.utils.custom_object_scope(custom_objects):
                 return keras_module.models.load_model(x)
 
-        model = keras_utils.deserialize_model(serialized_model, load_model_fn=load_model_fn)
+        # model = keras_utils.deserialize_model(serialized_model_path, load_model_fn=load_model_fn)
+        # Don't modify original keras_utils.deserialize_model, which is used in other places.
+        model = load_model_fn(serialized_model_path)
 
         # Here, learning rate is scaled down with the number of horovod workers.
         # This is important the retraining of the model. User may retrain the model with
