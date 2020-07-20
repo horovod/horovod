@@ -383,9 +383,9 @@ def _serialize_keras_model(model, save_model_fn):
     return codec.dumps_base64(bio.getvalue())
 
 
-def _deserialize_keras_model(serialized_model_path, load_model_fn):
+def _deserialize_keras_model(model_bytes, load_model_fn):
     deserialize_keras_model = remote._deserialize_keras_model_fn()
-    return deserialize_keras_model(serialized_model_path, load_model_fn)
+    return deserialize_keras_model(model_bytes, load_model_fn)
 
 
 def _serialize_param_value(param_name, param_val, serialize_model_fn, serialize_opt_fn):
