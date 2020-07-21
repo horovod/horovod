@@ -328,14 +328,11 @@ class TorchTests(unittest.TestCase):
         hvd.init()
         size = hvd.size()
         dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor])
-        if _fp16_supported:
-            dtypes += self.filter_supported_types([torch.HalfTensor])
+                  torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
-                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
-            if _fp16_supported:
-                dtypes += [torch.cuda.HalfTensor]
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
 
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
