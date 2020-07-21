@@ -18,6 +18,7 @@ from horovod.common.util import check_extension
 check_extension('horovod.mxnet', 'HOROVOD_WITH_MXNET',
                 __file__, 'mpi_lib')
 
+from horovod.mxnet.functions import broadcast_object
 from horovod.mxnet.mpi_ops import allgather
 from horovod.mxnet.mpi_ops import allreduce, allreduce_
 from horovod.mxnet.mpi_ops import broadcast, broadcast_
