@@ -46,6 +46,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     should_validate = estimator.getValidation()
     user_shuffle_buffer_size = estimator.getShufflingBufferSize()
     user_verbose = estimator.getVerbose()
+    model_checkpoint_kwargs = estimator.getModelCheckPointKWArgs()
 
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
@@ -140,7 +141,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 ckpt_file = os.path.join(run_output_dir, remote_store.checkpoint_filename)
                 logs_dir = os.path.join(run_output_dir, remote_store.logs_subdir)
 
-                callbacks.append(k.callbacks.ModelCheckpoint(ckpt_file))
+                callbacks.append(k.callbacks.ModelCheckpoint(ckpt_file, **model_checkpoint_kwargs))
                 if remote_store.saving_runs:
                     tensorboard_kwargs = {}
                     if LooseVersion('1.15.0') > LooseVersion(tf.__version__) >= LooseVersion('1.14.0'):

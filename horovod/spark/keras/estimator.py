@@ -160,6 +160,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
 
     custom_objects = Param(Params._dummy(), 'custom_objects', 'custom objects')
     _keras_pkg_type = Param(Params._dummy(), '_keras_pkg_type', 'keras package type')
+    model_checkpoint_kwargs = Param(Params._dummy(), 'model_checkpoint_kwargs',
+                                    'KWArgs passed to ModelCheckpoint')
 
     @keyword_only
     def __init__(self,
@@ -188,13 +190,15 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                  validation_steps_per_epoch=None,
                  transformation_fn=None,
                  train_reader_num_workers=None,
-                 val_reader_num_workers=None):
+                 val_reader_num_workers=None,
+                 model_checkpoint_kwargs=None):
 
         super(KerasEstimator, self).__init__()
 
         self._setDefault(optimizer=None,
                          custom_objects={},
-                         _keras_pkg_type=None)
+                         _keras_pkg_type=None,
+                         model_checkpoint_kwargs={})
 
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
@@ -247,6 +251,12 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
 
     def getCustomObjects(self):
         return self.getOrDefault(self.custom_objects)
+
+    def setModelCheckPointKWArgs(self, value):
+        return self._set(model_checkpoint_kwargs=value)
+
+    def getModelCheckPointKWArgs(self):
+        return self.getOrDefault(self.model_checkpoint_kwargs)
 
     def _check_metadata_compatibility(self, metadata):
         input_shapes, output_shapes = self.get_model_shapes()
