@@ -153,8 +153,8 @@ def _allgather_grad(op, grad):
     with tf.device('/cpu:0'):
         # Keep the tensor of split sizes on CPU.
         x = op.inputs[0]
-        d0 = x.get_shape().as_list()[0]
-        d = tf.convert_to_tensor([d0], dtype=tf.int32)
+        d = tf.shape(x)
+        d = tf.reshape(d[0], [1])
 
         s = size()
         d = tf.reshape(allgather(d), [s])
