@@ -120,7 +120,10 @@ def _allreduce_grad(op, grad):
       The gradient with respect to the input of the op.
     """
     reduce_op = op.get_attr('reduce_op')
-    return _allreduce(grad, op=reduce_op)
+    prescale_factor = op.get_attr('prescale_factor')
+    postscale_factor = op.get_attr('postscale_factor')
+    return _allreduce(grad, op=reduce_op, prescale_factor=prescale_factor,
+                      postscale_factor=postscale_factor)
 
 
 def allgather(tensor, name=None):
