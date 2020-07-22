@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Added ability to dynamically start and stop timeline programmatically. ([#2129](https://github.com/horovod/horovod/pull/2129))
+
 ### Changed
 
 ### Deprecated
