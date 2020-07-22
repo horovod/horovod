@@ -703,6 +703,23 @@ bool horovod_is_initialized() {
   return horovod_global.initialization_done;
 }
 
+bool horovod_start_timeline(const char* file_name, bool mark_cycles) {
+  if (!horovod_global.initialization_done) {
+    return false;
+  }
+  horovod_global.mark_cycles_in_timeline = mark_cycles;
+  horovod_global.timeline.Initialize(file_name, horovod_global.controller->GetSize());
+  return true;
+}
+
+bool horovod_stop_timeline() {
+  if (!horovod_global.initialization_done) {
+    return false;
+  }
+  horovod_global.timeline.Shutdown();
+  return true;
+}
+
 int horovod_rank() {
   if (!horovod_global.initialization_done) {
     return -1;

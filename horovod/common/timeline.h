@@ -21,6 +21,7 @@
 #include <fstream>
 #include <iostream>
 #include <mutex>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -47,6 +48,7 @@ struct TimelineRecord {
 class TimelineWriter {
 public:
   void Initialize(std::string file_name);
+  void Shutdown();
   inline bool IsHealthy() const { return healthy_; }
   void EnqueueWriteEvent(const std::string& tensor_name, char phase,
                          const std::string& op_name, const std::string& args,
@@ -58,8 +60,11 @@ private:
   void DoWriteMarker(const TimelineRecord& r);
   void WriterLoop();
 
-  // Are we healthy?
+  // Are we healthy?  Queue no longer accepts new work items and stops draining immediately when false.
   std::atomic_bool healthy_{false};
+
+  // Similar to healthy, but allows queue to be drained before closing when set to false.
+  std::atomic_bool active_{false};
 
   // Timeline file.
   std::ofstream file_;
@@ -72,6 +77,8 @@ private:
   // Mapping of tensor names to indexes. It is used to reduce size of the
   // timeline file.
   std::unordered_map<std::string, int> tensor_table_;
+
+  std::thread writer_thread_;
 };
 
 enum TimelineState { UNKNOWN, NEGOTIATING, TOP_LEVEL, ACTIVITY };
@@ -81,6 +88,7 @@ enum TimelineState { UNKNOWN, NEGOTIATING, TOP_LEVEL, ACTIVITY };
 class Timeline {
 public:
   void Initialize(std::string file_name, unsigned int horovod_size);
+  void Shutdown();
   inline bool Initialized() const { return initialized_; }
   void NegotiateStart(const std::string& tensor_name,
                       Request::RequestType request_type);

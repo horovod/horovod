@@ -20,7 +20,6 @@ from distutils.version import LooseVersion
 import inspect
 import itertools
 import os
-import pytest
 import unittest
 import warnings
 
@@ -2130,6 +2129,26 @@ class TorchTests(unittest.TestCase):
             np.testing.assert_allclose(w1, w2)
         assert state.batch == 21
         assert state.epoch == 11
+
+    def test_timeline_api(self):
+        hvd.init()
+
+        with temppath() as fname:
+            hvd.start_timeline(fname, mark_cycles=True)
+
+            # Perform a simple allreduce operation
+            hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
+
+            # Wait for timeline to drain before reading it
+            hvd.stop_timeline()
+
+            if hvd.rank() == 0:
+                with open(fname, 'r') as timeline_file:
+                    timeline_text = timeline_file.read()
+                    assert 'allreduce.test_allreduce' in timeline_text, timeline_text
+                    assert 'NEGOTIATE_ALLREDUCE' in timeline_text, timeline_text
+                    assert 'ALLREDUCE' in timeline_text, timeline_text
+                    assert 'CYCLE_START' in timeline_text, timeline_text
 
 
 if __name__ == "__main__":
