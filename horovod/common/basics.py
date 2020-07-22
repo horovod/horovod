@@ -72,6 +72,31 @@ class HorovodBasics(object):
         """Returns True if Horovod is initialized"""
         return self.MPI_LIB_CTYPES.horovod_is_initialized()
 
+    def start_timeline(self, file_path, mark_cycles=False):
+        """Creates a timeline file at `file_path` and begins recording.
+
+        Args:
+            file_path: String path to the timeline file.
+            mark_cycles: Boolean indicating that cycles should be marked on
+                         the timeline (default: False).
+
+        Raises a `ValueError` if Horovod is not initialized.
+        """
+        result = self.MPI_LIB_CTYPES.horovod_start_timeline(
+            ctypes.c_char_p(file_path.encode('utf-8')),
+            ctypes.c_bool(mark_cycles))
+        if not result:
+            raise ValueError('Horovod has not been initialized; use hvd.init().')
+
+    def stop_timeline(self):
+        """Stops the active timeline recording and closes the file.
+
+        Raises a `ValueError` if Horovod is not initialized.
+        """
+        result = self.MPI_LIB_CTYPES.horovod_stop_timeline()
+        if not result:
+            raise ValueError('Horovod has not been initialized; use hvd.init().')
+
     def size(self):
         """A function that returns the number of Horovod processes.
 

@@ -18,7 +18,6 @@
 #include <cassert>
 #include <chrono>
 #include <sstream>
-#include <thread>
 
 #include "logging.h"
 
@@ -31,14 +30,20 @@ void TimelineWriter::Initialize(std::string file_name) {
     // Initialize the timeline with '[' character.
     file_ << "[\n";
     healthy_ = true;
+    active_ = true;
 
     // Spawn writer thread.
-    std::thread writer_thread(&TimelineWriter::WriterLoop, this);
-    writer_thread.detach();
+    writer_thread_ = std::thread(&TimelineWriter::WriterLoop, this);
   } else {
     LOG(ERROR) << "Error opening the Horovod Timeline file " << file_name
                << ", will not write a timeline.";
   }
+}
+
+void TimelineWriter::Shutdown() {
+  active_ = false;
+  writer_thread_.join();
+  file_.close();
 }
 
 void TimelineWriter::EnqueueWriteEvent(const std::string& tensor_name,
@@ -53,7 +58,7 @@ void TimelineWriter::EnqueueWriteEvent(const std::string& tensor_name,
   r.args = args;
   r.ts_micros = ts_micros;
 
-  while (healthy_ && !record_queue_.push(r))
+  while (healthy_ && active_ && !record_queue_.push(r))
     ;
 }
 
@@ -64,7 +69,7 @@ void TimelineWriter::EnqueueWriteMarker(const std::string& name,
   r.marker_name = name;
   r.ts_micros = ts_micros;
 
-  while (healthy_ && !record_queue_.push(r))
+  while (healthy_ && active_ && !record_queue_.push(r))
     ;
 }
 
@@ -119,7 +124,7 @@ void TimelineWriter::DoWriteMarker(const TimelineRecord& r) {
 }
 
 void TimelineWriter::WriterLoop() {
-  while (healthy_) {
+  while (healthy_ && active_) {
     while (healthy_ && !record_queue_.empty()) {
       auto& r = record_queue_.front();
       switch (r.type) {
@@ -162,6 +167,11 @@ void Timeline::Initialize(std::string file_name, unsigned int horovod_size) {
   for (unsigned int i = 0; i < horovod_size; i++) {
     rank_strings_[i] = std::to_string(i);
   }
+}
+
+void Timeline::Shutdown() {
+  initialized_ = false;
+  writer_.Shutdown();
 }
 
 long Timeline::TimeSinceStartMicros() const {
