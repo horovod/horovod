@@ -22,6 +22,7 @@ from tensorflow.python.keras import backend as K
 
 from horovod.tensorflow import init
 from horovod.tensorflow import shutdown
+from horovod.tensorflow import is_initialized, start_timeline, stop_timeline
 from horovod.tensorflow import size
 from horovod.tensorflow import local_size
 from horovod.tensorflow import rank

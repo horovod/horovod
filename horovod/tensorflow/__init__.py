@@ -28,6 +28,7 @@ from horovod.tensorflow.compression import Compression
 from horovod.tensorflow.functions import allgather_object, broadcast_object, broadcast_object_fn, broadcast_variables
 from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce, alltoall
 from horovod.tensorflow.mpi_ops import init, shutdown
+from horovod.tensorflow.mpi_ops import is_initialized, start_timeline, stop_timeline
 from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank, is_homogeneous
 from horovod.tensorflow.mpi_ops import rank_op, local_rank_op, size_op, local_size_op
 from horovod.tensorflow.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
