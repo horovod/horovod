@@ -13,7 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-import time
 import torch
 import unittest
 import warnings
