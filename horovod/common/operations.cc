@@ -336,17 +336,6 @@ void PerformOperation(Response response, HorovodGlobalState& state) {
 bool RunLoopOnce(HorovodGlobalState& state);
 
 void BackgroundThreadLoop(HorovodGlobalState& state) {
-  // Set background thread affinity
-  auto horovod_thread_affinity = std::getenv(HOROVOD_THREAD_AFFINITY);
-#if HAVE_CCL
-  if (horovod_thread_affinity != nullptr) {
-    horovod_thread_affinity = std::getenv(HOROVOD_CCL_BGT_AFFINITY);
-  }
-#endif
-  if (horovod_thread_affinity != nullptr) {
-      int core = std::strtol(horovod_thread_affinity, nullptr, 10);
-      server_affinity_set(core);
-  }
 #if HAVE_CCL
   // Initialize ccl context
   if (state.cpu_operation == LibType::CCL) {
@@ -385,6 +374,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   bool is_homogeneous = state.controller->IsHomogeneous();
   int size = state.controller->GetSize();
   int local_size = state.controller->GetLocalSize();
+  int local_rank = state.controller->GetLocalRank();
+
+  // Set background thread affinity
+  parse_and_set_affinity(std::getenv(HOROVOD_THREAD_AFFINITY), local_size, local_rank);
 
 #if HAVE_GPU
   // Set number of GPU streams to use

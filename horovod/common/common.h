@@ -76,7 +76,6 @@ namespace common {
 #define HOROVOD_HIERARCHICAL_ALLREDUCE "HOROVOD_HIERARCHICAL_ALLREDUCE"
 #define HOROVOD_HIERARCHICAL_ALLGATHER "HOROVOD_HIERARCHICAL_ALLGATHER"
 #define HOROVOD_CACHE_CAPACITY "HOROVOD_CACHE_CAPACITY"
-#define HOROVOD_CCL_BGT_AFFINITY "HOROVOD_CCL_BGT_AFFINITY"
 #define HOROVOD_NUM_NCCL_STREAMS "HOROVOD_NUM_NCCL_STREAMS"
 #define HOROVOD_CPU_OPERATIONS "HOROVOD_CPU_OPERATIONS"
 #define HOROVOD_CONTROLLER "HOROVOD_CONTROLLER"
@@ -251,7 +250,8 @@ struct TensorTableEntry {
 using TensorTable = std::unordered_map<std::string, TensorTableEntry>;
 
 // Set affinity function
-void server_affinity_set(int affinity);
+void set_affinity(int affinity);
+void parse_and_set_affinity(const char* affinity, int local_size, int local_rank);
 
 } // namespace common
 } // namespace horovod
