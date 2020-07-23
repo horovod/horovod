@@ -723,6 +723,8 @@ bool horovod_stop_timeline() {
     return false;
   }
 
+  horovod_global.controller->SetTimelineEnabled(false);
+
   bool is_coordinator = horovod_global.controller->IsCoordinator();
   if (is_coordinator) {
     horovod_global.timeline.Shutdown();
