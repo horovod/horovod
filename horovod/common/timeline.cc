@@ -171,8 +171,10 @@ void Timeline::Initialize(std::string file_name, unsigned int horovod_size) {
 }
 
 void Timeline::Shutdown() {
+  std::lock_guard<std::recursive_mutex> guard(mutex_);
   initialized_ = false;
   writer_.Shutdown();
+  tensor_states_.clear();
 }
 
 long Timeline::TimeSinceStartMicros() const {
