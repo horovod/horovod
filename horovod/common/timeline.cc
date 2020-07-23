@@ -44,6 +44,7 @@ void TimelineWriter::Shutdown() {
   active_ = false;
   writer_thread_.join();
   file_.close();
+  tensor_table_.clear();
 }
 
 void TimelineWriter::EnqueueWriteEvent(const std::string& tensor_name,

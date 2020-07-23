@@ -707,8 +707,14 @@ bool horovod_start_timeline(const char* file_name, bool mark_cycles) {
   if (!horovod_global.initialization_done) {
     return false;
   }
+
+  bool is_coordinator = horovod_global.controller->IsCoordinator();
+  if (is_coordinator) {
+    horovod_global.timeline.Initialize(file_name, horovod_global.controller->GetSize());
+  }
+
   horovod_global.mark_cycles_in_timeline = mark_cycles;
-  horovod_global.timeline.Initialize(file_name, horovod_global.controller->GetSize());
+  horovod_global.controller->SetTimelineEnabled(true);
   return true;
 }
 
@@ -716,7 +722,12 @@ bool horovod_stop_timeline() {
   if (!horovod_global.initialization_done) {
     return false;
   }
-  horovod_global.timeline.Shutdown();
+
+  bool is_coordinator = horovod_global.controller->IsCoordinator();
+  if (is_coordinator) {
+    horovod_global.timeline.Shutdown();
+  }
+
   return true;
 }
 

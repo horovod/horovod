@@ -2133,15 +2133,7 @@ class TorchTests(unittest.TestCase):
     def test_timeline_api(self):
         hvd.init()
 
-        with temppath() as fname:
-            hvd.start_timeline(fname, mark_cycles=True)
-
-            # Perform a simple allreduce operation
-            hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
-
-            # Wait for timeline to drain before reading it
-            hvd.stop_timeline()
-
+        def check_file(fname):
             if hvd.rank() == 0:
                 with open(fname, 'r') as timeline_file:
                     timeline_text = timeline_file.read()
@@ -2149,6 +2141,24 @@ class TorchTests(unittest.TestCase):
                     assert 'NEGOTIATE_ALLREDUCE' in timeline_text, timeline_text
                     assert 'ALLREDUCE' in timeline_text, timeline_text
                     assert 'CYCLE_START' in timeline_text, timeline_text
+
+        with temppath() as fname1:
+            hvd.start_timeline(fname1, mark_cycles=True)
+
+            # Perform a simple allreduce operation
+            hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
+
+            # Wait for timeline to drain before reading it
+            hvd.stop_timeline()
+
+            check_file(fname1)
+
+        # Test resuming with a different filename.
+        with temppath() as fname2:
+            hvd.start_timeline(fname2, mark_cycles=True)
+            hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
+            hvd.stop_timeline()
+            check_file(fname2)
 
 
 if __name__ == "__main__":
