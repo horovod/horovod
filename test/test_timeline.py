@@ -42,7 +42,7 @@ class TimelineTests(unittest.TestCase):
                 hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
 
                 # Wait for it to register in the timeline.
-                time.sleep(0.1)
+                hvd.stop_timeline()
 
                 if hvd.rank() == 0:
                     with open(t, 'r') as tf:
