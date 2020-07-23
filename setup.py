@@ -1122,6 +1122,13 @@ def build_mx_extension(build_ext, global_options):
         mxnet_mpi_lib.define_macros += [('MXNET_USE_MKLDNN', '1')]
     else:
         mxnet_mpi_lib.define_macros += [('MXNET_USE_MKLDNN', '0')]
+    cxx11_abi = '0'
+    try:
+        if mx.library.compiled_with_cxx11_abi():
+            cxx11_abi = '1'
+    except AttributeError:
+        pass
+    mxnet_mpi_lib.define_macros += [('_GLIBCXX_USE_CXX11_ABI', cxx11_abi)]
     mxnet_mpi_lib.define_macros += [('MSHADOW_USE_MKL', '0')]
     mxnet_mpi_lib.define_macros += [('MSHADOW_USE_F16C', '0')]
     mxnet_mpi_lib.include_dirs = options['INCLUDES']

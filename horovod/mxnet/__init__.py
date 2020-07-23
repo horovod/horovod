@@ -99,18 +99,21 @@ class DistributedTrainer(mx.gluon.Trainer):
     def _allreduce_grads(self):
         if size() == 1: return
 
+        # In MXNet 2.0, param.name is no longer unique.
+        # Meanwhile, since horovod requires Python 3.6, there is no need to sort
+        # self._params as enumerating a python dict is always deterministic.
         for i, param in enumerate(self._params):
             if param.grad_req != 'null':
                 allreduce_(param.list_grad()[0], average=False,
-                           name=param.name, priority=-i)
+                           name=str(i), priority=-i)
 
 
 # Wrapper to inject Horovod broadcast after parameter initialization
-def _append_broadcast_init(param, root_rank):
+def _append_broadcast_init(param, root_rank, name):
     init_impl = getattr(param, '_init_impl')
     def wrapped_init_impl(self, *args, **kwargs):
         init_impl(*args, **kwargs)
-        broadcast_(self.data(), root_rank=root_rank, name=self.name)
+        broadcast_(self.data(), root_rank=root_rank, name=name)
     return wrapped_init_impl
 
 
@@ -131,17 +134,25 @@ def broadcast_parameters(params, root_rank=0):
 
     tensors = []
     names = []
-    if isinstance(params, dict):
-        names, tensors = zip(*params.items())
-    elif isinstance(params, mx.gluon.parameter.ParameterDict):
+    try:
+        from mxnet.gluon.parameter import ParameterDict
+        valid_types = (dict, ParameterDict)
+    except ImportError:
+        valid_types = (dict,)
+    if isinstance(params, valid_types):
         for name, p in sorted(params.items()):
             try:
-                tensors.append(p.data())
+                if isinstance(p, mx.gluon.parameter.Parameter):
+                    tensors.append(p.data())
+                else:
+                    tensors.append(p)
                 names.append(name)
             except mx.gluon.parameter.DeferredInitializationError:
                 # Inject wrapper method with post-initialization broadcast to
                 # handle parameters with deferred initialization
-                new_init = _append_broadcast_init(p, root_rank)
+                # we use the key of params instead of param.name, since
+                # param.name is no longer unique in MXNet 2.0
+                new_init = _append_broadcast_init(p, root_rank, name)
                 p._init_impl = types.MethodType(new_init, p)
     else:
         raise ValueError('invalid params of type: %s' % type(params))
