@@ -98,7 +98,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, train_data
 
     @contextlib.contextmanager
     def make_dataloader(converter, rank, size, workers_count, shuffle_buffer_size=None):
-        from petastorm import TransformSpec, make_reader, make_batch_reader
+        from petastorm import TransformSpec
         from petastorm.pytorch import BatchedDataLoader
 
         if converter is None:
@@ -113,19 +113,9 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, train_data
                 'transform_spec': TransformSpec(transformation) if transformation else None
             }
 
-            # In general, make_batch_reader is faster than make_reader for reading the dataset.
-            # However, we found out that make_reader performs data transformations much faster than
-            # make_batch_reader with parallel worker processes. Therefore, the default reader
-            # we choose is make_batch_reader unless there are data transformations.
-            make_reader_fn = make_batch_reader
-            if transformation is not None:
-                make_reader_fn = make_reader
-                petastorm_reader_kwargs['pyarrow_serialize'] = True
-
             with converter.make_torch_dataloader(batch_size=batch_size,
                                                  workers_count=workers_count,
                                                  shuffling_queue_capacity=shuffle_buffer_size,
-                                                 make_reader_fn=make_reader_fn,
                                                  data_loader_fn=BatchedDataLoader,
                                                  **petastorm_reader_kwargs) as loader:
                 yield loader
