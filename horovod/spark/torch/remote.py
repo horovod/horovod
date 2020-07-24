@@ -268,7 +268,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                         # reshape labels to match the output shape of the model
                         if hasattr(outputs[0], 'shape'):
                             # If label_shapes parameter is not provided, reshape the label columns
-                            # data to match the shapee of the model output
+                            # data to match the shape of the model output
                             if label_shapes:
                                 labels = [label.reshape(label_shape)
                                           for label, label_shape in zip(labels, label_shapes)]
