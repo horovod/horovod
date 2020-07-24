@@ -189,7 +189,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                  transformation_fn=None,
                  train_reader_num_workers=None,
                  val_reader_num_workers=None,
-                 label_shape=None):
+                 label_shapes=None):
 
         super(KerasEstimator, self).__init__()
 
