@@ -171,7 +171,9 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  validation_steps_per_epoch=None,
                  transformation_fn=None,
                  train_reader_num_workers=None,
-                 val_reader_num_workers=None):
+                 val_reader_num_workers=None,
+                 label_shape=None):
+
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
                          input_shapes=None,

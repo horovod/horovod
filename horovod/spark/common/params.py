@@ -88,6 +88,8 @@ class EstimatorParams(Params):
                               'function that applies custom transformations to '
                               'every batch before train and validation steps')
 
+    label_shape = Param(Params._dummy(), 'label_shape', 'specifies the shape (or shapes) of the label column (or columns)')
+
     def __init__(self):
         super(EstimatorParams, self).__init__()
 
@@ -117,7 +119,8 @@ class EstimatorParams(Params):
             validation_steps_per_epoch=None,
             transformation_fn=None,
             train_reader_num_workers=2,
-            val_reader_num_workers=2)
+            val_reader_num_workers=2,
+            label_shape=None)
 
     def _check_params(self, metadata):
         model = self.getModel()
@@ -297,6 +300,12 @@ class EstimatorParams(Params):
 
     def getValReaderNumWorker(self):
         return self.getOrDefault(self.val_reader_num_workers)
+
+    def setLabelShape(self, value):
+        return self._set(label_shape=value)
+
+    def getLabelShape(self):
+        return self.getOrDefault(self.label_shape)
 
 
 class ModelParams(HasOutputCols):

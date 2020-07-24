@@ -36,6 +36,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     # Estimator parameters
     gradient_compression = estimator.getGradientCompression()
     input_shapes = estimator.getInputShapes()
+    label_shapes = estimator.getLabelShapes()
     feature_columns = estimator.getFeatureCols()
     label_columns = estimator.getLabelCols()
     num_labels = len(label_columns)
@@ -266,9 +267,16 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
 
                         # reshape labels to match the output shape of the model
                         if hasattr(outputs[0], 'shape'):
-                            labels = [label.reshape(output.shape)
-                                      if output.shape.numel() == label.shape.numel() else label
-                                      for label, output in zip(labels, outputs)]
+                            # If label_shapes parameter is not provided, reshape to match the
+                            # label columns data to match the model output shape
+                            if label_shapes:
+                                labels = [label.reshape(label_shape)
+                                          for label, label_shape in zip(labels, label_shapes)]
+                            else:
+                                labels = [label.reshape(output.shape) if
+                                          output.shape.numel() == label.shape.numel() else label
+                                          for label, output in zip(labels, outputs)]
+
                         return outputs, labels
 
                     def aggregate_metrics(stage, epoch, loss, metric_value_groups):
