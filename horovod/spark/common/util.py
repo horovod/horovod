@@ -148,7 +148,7 @@ def data_type_to_numpy(dtype):
 
 
 def check_shape_compatibility(metadata, feature_columns, label_columns,
-                              input_shapes=None, output_shapes=None):
+                              input_shapes=None, output_shapes=None, label_shapes=None):
     # Check for model and input type incompatibility. Columns must have the same size
     # (total number of elements) of the corresponding inputs.
     feature_count = len(feature_columns)
@@ -171,6 +171,13 @@ def check_shape_compatibility(metadata, feature_columns, label_columns,
                     'model input at index {idx} with size {input}'
                     .format(col=col, feature=col_size, idx=idx, input=input_size))
 
+    if label_shapes is not None:
+        label_count = len(label_columns)
+        if label_count != len(label_shapes):
+            raise ValueError('Label column count {labels} must equal '
+                             'provided label shapes count {outputs}'
+                             .format(labels=label_count, outputs=len(label_shapes)))
+
     if output_shapes is not None:
         label_count = len(label_columns)
         if label_count != len(output_shapes):
@@ -178,6 +185,8 @@ def check_shape_compatibility(metadata, feature_columns, label_columns,
                              'model outputs count {outputs}'
                              .format(labels=label_count, outputs=len(output_shapes)))
 
+    if output_shapes is not None and label_shapes is None:
+        label_count = len(label_columns)
         for idx, col, output_shape in zip(range(label_count), label_columns, output_shapes):
             col_size = metadata[col]['shape']
             if col_size is None:

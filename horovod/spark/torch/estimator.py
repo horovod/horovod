@@ -225,7 +225,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         util.check_shape_compatibility(metadata,
                                        self.getFeatureCols(),
                                        self.getLabelCols(),
-                                       input_shapes=self.getInputShapes())
+                                       input_shapes=self.getInputShapes(),
+                                       label_shapes=self.getLabelShapes())
 
     def _fit_on_prepared_data(self, backend, train_rows, val_rows, metadata, avg_row_size, dataset_idx=None):
         self._check_params(metadata)

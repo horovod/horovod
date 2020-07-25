@@ -255,7 +255,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                                        self.getFeatureCols(),
                                        self.getLabelCols(),
                                        input_shapes=input_shapes,
-                                       output_shapes=output_shapes)
+                                       output_shapes=output_shapes,
+                                       label_shapes=self.getLabelShapes())
 
     def get_model_shapes(self):
         model = self.getModel()
