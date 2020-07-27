@@ -40,6 +40,10 @@ MOCK_MODULES = [
     'pyarrow',
     'pyarrow.parquet',
 
+    'petastorm',
+    'petastorm.fs_utils',
+    'petastorm.spark',
+
     'numpy',
     'numpy.core.multiarray',
     'numpy.dtype',
@@ -55,6 +59,7 @@ MOCK_MODULES = [
     'pyspark.sql.types',
 
     'tensorflow',
+    'tensorflow.keras',
     'tensorflow.python',
     'tensorflow.python.framework',
     'tensorflow.python.platform',
