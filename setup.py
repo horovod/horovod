@@ -1,5 +1,6 @@
 # Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
 # Modifications copyright Microsoft
+# Modifications copyright (C) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -661,11 +662,12 @@ def get_common_options(build_ext):
     gpu_allreduce = get_gpu_op_variable('HOROVOD_GPU_ALLREDUCE', ['NCCL', 'MPI', 'DDL'])
     gpu_allgather = get_gpu_op_variable('HOROVOD_GPU_ALLGATHER', ['NCCL', 'MPI'])
     gpu_broadcast = get_gpu_op_variable('HOROVOD_GPU_BROADCAST', ['NCCL', 'MPI'])
+    gpu_alltoall = get_gpu_op_variable('HOROVOD_GPU_ALLTOALL', ['NCCL', 'MPI'])
 
     have_cuda = False
     have_rocm = False
     gpu_include_dirs = gpu_lib_dirs = gpu_macros = []
-    if gpu_allreduce or gpu_allgather or gpu_broadcast:
+    if gpu_allreduce or gpu_allgather or gpu_broadcast or gpu_alltoall:
         gpu_type = os.environ.get('HOROVOD_GPU', 'CUDA')
         if gpu_type == 'CUDA':
             have_cuda = True
@@ -676,7 +678,7 @@ def get_common_options(build_ext):
         else:
             raise DistutilsError("Unknown HOROVOD_GPU type '%s'" % gpu_type)
 
-    if gpu_allreduce == 'NCCL' or gpu_allgather == 'NCCL' or gpu_broadcast == 'NCCL':
+    if gpu_allreduce == 'NCCL' or gpu_allgather == 'NCCL' or gpu_broadcast == 'NCCL' or gpu_alltoall == 'NCCL':
         have_nccl = True
         nccl_include_dirs, nccl_lib_dirs, nccl_libs = get_nccl_vals(
             build_ext, gpu_include_dirs, gpu_lib_dirs, gpu_macros, cpp_flags, have_rocm)
@@ -698,7 +700,7 @@ def get_common_options(build_ext):
         ddl_include_dirs = ddl_lib_dirs = []
 
     if gpu_allreduce == 'NCCL' \
-            and (gpu_allgather == 'MPI' or gpu_broadcast == 'MPI') \
+            and (gpu_allgather == 'MPI' or gpu_broadcast == 'MPI' or gpu_alltoall == 'MPI') \
             and not os.environ.get('HOROVOD_ALLOW_MIXED_GPU_IMPL'):
         raise DistutilsError(
             'You should not mix NCCL and MPI GPU due to a possible deadlock.\n'
@@ -834,6 +836,9 @@ def get_common_options(build_ext):
 
     if gpu_broadcast:
         MACROS += [('HOROVOD_GPU_BROADCAST', "'%s'" % gpu_broadcast[0])]
+
+    if gpu_alltoall:
+        MACROS += [('HOROVOD_GPU_ALLTOALL', "'%s'" % gpu_alltoall[0])]
 
     return dict(MACROS=MACROS,
                 INCLUDES=INCLUDES,

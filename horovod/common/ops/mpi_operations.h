@@ -1,5 +1,6 @@
 // Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 // Modifications copyright (C) 2019 Uber Technologies, Inc.
+// Modifications copyright (C) 2020, NVIDIA CORPORATION. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -76,6 +77,20 @@ private:
 class MPIBroadcast : public BroadcastOp {
 public:
   MPIBroadcast(MPIContext* mpi_context, HorovodGlobalState* global_state);
+
+  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+
+  bool Enabled(const ParameterManager& param_manager,
+               const std::vector<TensorTableEntry>& entries,
+               const Response& response) const override;
+
+protected:
+  MPIContext* mpi_context_;
+};
+
+class MPIAlltoall : public AlltoallOp {
+public:
+  MPIAlltoall(MPIContext* mpi_context, HorovodGlobalState* global_state);
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 

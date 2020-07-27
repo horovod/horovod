@@ -1,5 +1,6 @@
 // Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 // Modifications copyright (C) 2019 Uber Technologies, Inc.
+// Modifications copyright (C) 2020, NVIDIA CORPORATION. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -368,6 +369,43 @@ Status MPIBroadcast::Execute(std::vector<TensorTableEntry>& entries, const Respo
 }
 
 bool MPIBroadcast::Enabled(const ParameterManager& param_manager,
+                           const std::vector<TensorTableEntry>& entries,
+                           const Response& response) const {
+  return true;
+}
+
+MPIAlltoall::MPIAlltoall(MPIContext* mpi_context, HorovodGlobalState* global_state)
+    : AlltoallOp(global_state), mpi_context_(mpi_context) {}
+
+Status MPIAlltoall::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+  assert(entries.size() == 1);
+  auto e = entries[0];
+
+  std::vector<int32_t> sdispls, rdispls;
+  std::vector<int32_t> sendcounts, recvcounts;
+  Status status = PrepareOutputAndParams(e, sdispls, rdispls, sendcounts, recvcounts);
+  if (!status.ok()) {
+    return status;
+  }
+
+  const void* sendbuf = e.tensor->data();
+  void* buffer_data = (void*) e.output->data();
+  global_state_->timeline.ActivityStartAll(entries, MPI_ALLTOALL);
+
+  int op = MPI_Alltoallv(sendbuf, sendcounts.data(), sdispls.data(),
+                         mpi_context_->GetMPIDataType(e.tensor->dtype()),
+                         buffer_data, recvcounts.data(), rdispls.data(),
+                         mpi_context_->GetMPIDataType(e.output->dtype()),
+                         mpi_context_->GetMPICommunicator(Communicator::GLOBAL));
+  if (op != MPI_SUCCESS) {
+    throw std::runtime_error("MPI_Alltoallv failed, see MPI output for details.");
+  }
+  global_state_->timeline.ActivityEndAll(entries);
+
+  return Status::OK();
+}
+
+bool MPIAlltoall::Enabled(const ParameterManager& param_manager,
                            const std::vector<TensorTableEntry>& entries,
                            const Response& response) const {
   return true;

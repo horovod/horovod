@@ -1,4 +1,5 @@
 // Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
+// Modifications copyright (C) 2020, NVIDIA CORPORATION. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,9 +50,11 @@ public:
   virtual void CrossRankBitwiseOr(std::vector<long long>& bitvector,
                                   int count) = 0;
 
-
   virtual void Bcast(void* buffer, size_t size, int root_rank, Communicator
   communicator) = 0;
+
+  virtual void AlltoallGetRecvSplits(const std::vector<int32_t>& splits,
+                                     std::vector<int32_t>& recvsplits) = 0;
 
   virtual void Barrier(Communicator communicator) = 0;
 

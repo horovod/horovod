@@ -1,5 +1,6 @@
 // Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
 // Modifications copyright Microsoft
+// Modifications copyright (C) 2020, NVIDIA CORPORATION. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -238,6 +239,72 @@ int DoBroadcastCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int roo
   return handle;
 }
 
+int DoAlltoall(::torch::Tensor tensor, ::torch::Tensor splits, ::torch::Tensor output, const std::string& name) {
+  ThrowIfError(common::CheckInitialized());
+
+  auto device = GetDeviceID(tensor);
+  auto ready_event = RecordReadyEvent(device);
+  auto hvd_tensor = std::make_shared<TorchTensor>(tensor);
+  auto hvd_context = std::make_shared<TorchOpContext>(device, output);
+
+  // Make sync copy of splits tensor to CPU if needed
+  auto splits_cpu = (GetDeviceID(splits) != CPU_DEVICE_ID) ?
+      splits.to(::torch::Device(::torch::kCPU), /*non_blocking=*/false) :
+      splits;
+  auto splits_tensor = std::make_shared<TorchTensor>(splits_cpu);
+
+  auto handle = handle_manager.AllocateHandle();
+  auto enqueue_result =
+      EnqueueTensorAlltoall(hvd_context, hvd_tensor, splits_tensor, ready_event,
+                             GetOpName("alltoall", name, handle), device,
+                             [handle](const Status& status) {
+                               handle_manager.MarkDone(handle, status);
+                             });
+  ThrowIfError(enqueue_result);
+
+  return handle;
+}
+
+int DoAlltoallCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor splits, ::torch::Tensor output,
+                         const std::string& name) {
+  ThrowIfError(common::CheckInitialized());
+
+  // Make sync copy of splits tensor to CPU if needed
+  auto splits_cpu = (GetDeviceID(splits) != CPU_DEVICE_ID) ?
+      splits.to(::torch::Device(::torch::kCPU), /*non_blocking=*/false) :
+      splits;
+  auto splits_tensor = std::make_shared<TorchTensor>(splits_cpu);
+
+  // Make async copy of input tensor to CPU tensor and record completion event.
+  auto device = GetDeviceID(tensor);
+  auto cpu_tensor =
+      tensor.to(::torch::Device(::torch::kCPU), /*non_blocking=*/true);
+  auto hvd_cpu_tensor = std::make_shared<TorchTensor>(cpu_tensor);
+  auto ready_event = RecordReadyEvent(device);
+
+  auto cpu_output = ::torch::empty_like(cpu_tensor);
+  auto hvd_cpu_output = std::make_shared<TorchTensor>(cpu_output);
+  auto hvd_context =
+      std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_output);
+
+  auto handle = handle_manager.AllocateHandle();
+  auto enqueue_result = EnqueueTensorAlltoall(
+      hvd_context, hvd_cpu_tensor, splits_tensor, ready_event,
+      GetOpName("alltoall", name, handle), CPU_DEVICE_ID,
+      [handle, cpu_output, output, device](const Status& status) mutable {
+        // Since the operation was on CPU, need to perform copy with the GPU
+        // device guard.
+        with_device device_guard(device);
+        // output needs to be resized before copying in the CPU tensor.
+        output.resize_(cpu_output.sizes());
+        output.copy_(cpu_output);
+        handle_manager.MarkDone(handle, status);
+      });
+  ThrowIfError(enqueue_result);
+
+  return handle;
+}
+
 int PollHandle(int handle) { return handle_manager.PollHandle(handle) ? 1 : 0; }
 
 void WaitAndClear(int handle) {
@@ -372,6 +439,43 @@ PYBIND11_MODULE(mpi_lib_v2, m) {
         &DoBroadcastCudaOnCPU);
   m.def("horovod_torch_broadcast_async_torch_cuda_DoubleTensor",
         &DoBroadcastCudaOnCPU);
+#endif
+
+  // alltoall
+  m.def("horovod_torch_alltoall_async_torch_ByteTensor", &DoAlltoall);
+  m.def("horovod_torch_alltoall_async_torch_CharTensor", &DoAlltoall);
+  m.def("horovod_torch_alltoall_async_torch_ShortTensor", &DoAlltoall);
+  m.def("horovod_torch_alltoall_async_torch_IntTensor", &DoAlltoall);
+  m.def("horovod_torch_alltoall_async_torch_LongTensor", &DoAlltoall);
+  m.def("horovod_torch_alltoall_async_torch_HalfTensor", &DoAlltoall);
+  m.def("horovod_torch_alltoall_async_torch_FloatTensor", &DoAlltoall);
+  m.def("horovod_torch_alltoall_async_torch_DoubleTensor", &DoAlltoall);
+#if HOROVOD_GPU_ALLTOALL
+  m.def("horovod_torch_alltoall_async_torch_cuda_ByteTensor", &DoAlltoall);
+  m.def("horovod_torch_alltoall_async_torch_cuda_CharTensor", &DoAlltoall);
+  m.def("horovod_torch_alltoall_async_torch_cuda_ShortTensor", &DoAlltoall);
+  m.def("horovod_torch_alltoall_async_torch_cuda_IntTensor", &DoAlltoall);
+  m.def("horovod_torch_alltoall_async_torch_cuda_LongTensor", &DoAlltoall);
+  m.def("horovod_torch_alltoall_async_torch_cuda_HalfTensor", &DoAlltoall);
+  m.def("horovod_torch_alltoall_async_torch_cuda_FloatTensor", &DoAlltoall);
+  m.def("horovod_torch_alltoall_async_torch_cuda_DoubleTensor", &DoAlltoall);
+#else
+  m.def("horovod_torch_alltoall_async_torch_cuda_ByteTensor",
+        &DoAlltoallCudaOnCPU);
+  m.def("horovod_torch_alltoall_async_torch_cuda_CharTensor",
+        &DoAlltoallCudaOnCPU);
+  m.def("horovod_torch_alltoall_async_torch_cuda_ShortTensor",
+        &DoAlltoallCudaOnCPU);
+  m.def("horovod_torch_alltoall_async_torch_cuda_IntTensor",
+        &DoAlltoallCudaOnCPU);
+  m.def("horovod_torch_alltoall_async_torch_cuda_LongTensor",
+        &DoAlltoallCudaOnCPU);
+  m.def("horovod_torch_alltoall_async_torch_cuda_HalfTensor",
+        &DoAlltoallCudaOnCPU);
+  m.def("horovod_torch_alltoall_async_torch_cuda_FloatTensor",
+        &DoAlltoallCudaOnCPU);
+  m.def("horovod_torch_alltoall_async_torch_cuda_DoubleTensor",
+        &DoAlltoallCudaOnCPU);
 #endif
 
   // join

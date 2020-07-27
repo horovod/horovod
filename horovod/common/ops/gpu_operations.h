@@ -1,5 +1,6 @@
 // Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 // Modifications copyright (C) 2019 Uber Technologies, Inc.
+// Modifications copyright (C) 2020, NVIDIA CORPORATION. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -173,6 +174,18 @@ public:
 
 protected:
   struct GPUContext* gpu_context_;
+  GPUOpContext gpu_op_context_;
+};
+
+class GPUAlltoall : public AlltoallOp {
+public:
+  GPUAlltoall(GPUContext* context,
+              HorovodGlobalState* global_state);
+  bool Enabled(const ParameterManager& param_manager,
+               const std::vector<TensorTableEntry>& entries,
+               const Response& response) const override;
+protected:
+  GPUContext* gpu_context_;
   GPUOpContext gpu_op_context_;
 };
 

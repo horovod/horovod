@@ -1,6 +1,7 @@
 // Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 // Modifications copyright (C) 2019 Uber Technologies, Inc.
 // Modifications copyright Microsoft
+// Modifications copyright (C) 2020, NVIDIA CORPORATION. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -107,6 +108,9 @@ const std::string& Request::RequestType_Name(RequestType value) {
     case RequestType::ADASUM:
       static const std::string adasum("ADASUM");
       return adasum;
+    case RequestType::ALLTOALL:
+      static const std::string alltoall("ALLTOALL");
+      return alltoall;
     default:
       static const std::string unknown("<unknown>");
       return unknown;
@@ -277,6 +281,9 @@ const std::string& Response::ResponseType_Name(ResponseType value) {
     case ResponseType::ADASUM:
       static const std::string adasum("ADASUM");
       return adasum;
+    case ResponseType::ALLTOALL:
+      static const std::string alltoall("ALLTOALL");
+      return alltoall;
     case ResponseType::ERROR:
       static const std::string error("ERROR");
       return error;
