@@ -114,8 +114,7 @@ protected:
 
 class NCCLAlltoall : public GPUAlltoall {
 public:
-  NCCLAlltoall(NCCLContext* nccl_context, MPIContext* mpi_context,
-               GPUContext* gpu_context,
+  NCCLAlltoall(NCCLContext* nccl_context, GPUContext* gpu_context,
                HorovodGlobalState* global_state)
       : GPUAlltoall(gpu_context, global_state),
         nccl_context_(nccl_context),

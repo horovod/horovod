@@ -197,10 +197,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #endif
 
 #if HAVE_NCCL && HOROVOD_GPU_ALLTOALL == 'N'
-#if HAVE_MPI
   alltoall_ops.push_back(std::shared_ptr<AlltoallOp>(
-      new NCCLAlltoall(&nccl_context, &mpi_context, &gpu_context, &state)));
-#endif
+      new NCCLAlltoall(&nccl_context, &gpu_context, &state)));
 #endif
 
 #if HAVE_GLOO
