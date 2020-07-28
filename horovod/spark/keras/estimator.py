@@ -17,6 +17,8 @@ import horovod.spark.common._namedtuple_fix
 
 import numbers
 
+from distutils.version import LooseVersion
+
 import numpy as np
 import tensorflow.keras as keras
 
@@ -26,7 +28,7 @@ from pyspark.ml.param.shared import Param, Params
 
 import horovod.tensorflow.keras
 
-from horovod.run.common.util import codec
+from horovod.runner.common.util import codec
 
 from horovod.spark.common import util
 from horovod.spark.common.estimator import HorovodEstimator, HorovodModel

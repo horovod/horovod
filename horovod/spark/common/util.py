@@ -37,13 +37,13 @@ try:
 except ImportError:
     from pyspark.sql.types import from_arrow_type
 
-from horovod.run.common.util import codec, host_hash as hh
+from horovod.runner.common.util import codec, host_hash as hh
 from horovod.spark.common import constants
 
 
 def host_hash(salt=None):
     """
-    Computes this host's host hash by invoking horovod.run.common.util.host_hash.host_hash.
+    Computes this host's host hash by invoking horovod.runner.common.util.host_hash.host_hash.
 
     Consider environment variable CONTAINER_ID which is present when running Spark via YARN.
     A YARN container does not share memory with other containers on the same host,

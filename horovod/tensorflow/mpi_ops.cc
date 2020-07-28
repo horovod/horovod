@@ -30,19 +30,11 @@
 #include <cuda_runtime.h>
 
 // Forward declaration of AsGpuStreamValue or AsCUDAStreamValue
-#if TENSORFLOW_VERSION >= 1012001000
 namespace stream_executor {
 namespace gpu {
 cudaStream_t AsGpuStreamValue(Stream* stream);
 } // namespace stream_executor
 } // namespace gpu
-#else
-namespace stream_executor {
-namespace cuda {
-cudaStream_t AsCUDAStreamValue(Stream* stream);
-} // namespace stream_executor
-} // namespace cuda
-#endif
 #include "tensorflow/stream_executor/stream.h"
 #endif
 
@@ -313,11 +305,7 @@ TFOpContext::AllocateZeros(int64_t num_elements, common::DataType dtype,
   if (device_ != CPU_DEVICE_ID) {
 #if HAVE_GPU
     auto device_context = context_->op_device_context();
-    #if TENSORFLOW_VERSION >= 1012001000
     auto stream = (device_context != nullptr) ? stream_executor::gpu::AsGpuStreamValue(device_context->stream()) : 0;
-    #else
-    auto stream = (device_context != nullptr) ? stream_executor::cuda::AsCUDAStreamValue(device_context->stream()) : 0;
-    #endif
     cudaMemsetAsync((void*)zero_tensor->AccessTensor(hvd_context->GetKernelContext())->tensor_data().data(), 0,
                 zero_tensor->AccessTensor(hvd_context->GetKernelContext())->tensor_data().size(), stream);
 #endif

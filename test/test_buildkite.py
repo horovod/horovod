@@ -16,7 +16,7 @@
 import unittest
 import warnings
 
-from horovod.run.common.util import tiny_shell_exec
+from horovod.runner.common.util import tiny_shell_exec
 
 
 class BuildKiteTests(unittest.TestCase):

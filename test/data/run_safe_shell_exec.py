@@ -13,7 +13,7 @@ import os
 import sys
 import time
 
-from horovod.run.common.util import safe_shell_exec
+from horovod.runner.common.util import safe_shell_exec
 
 
 class FakeEvent(object):

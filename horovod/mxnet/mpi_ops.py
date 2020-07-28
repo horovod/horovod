@@ -1,4 +1,5 @@
 # Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Modifications copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -148,7 +149,9 @@ def allgather(tensor, name=None, priority=0):
         first dimensions of the tensors in different Horovod processes.
     """
     assert(isinstance(tensor, mx.nd.NDArray))
-    output = mx.nd.zeros(shape=tensor.shape, ctx=tensor.context,
+    # Size of output is unknown, create output array that
+    # will be resized during Horovod operation
+    output = mx.nd.empty(shape=[1], ctx=tensor.context,
                          dtype=tensor.dtype)
     c_in = tensor.handle
     c_out = output.handle
@@ -158,6 +161,9 @@ def allgather(tensor, name=None, priority=0):
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allgather_async(
             c_in, c_out, name, ctypes.c_int(priority)))
+
+    # Need to block here so changes to output tensor are visible
+    output.wait_to_read()
     return output
 
 

@@ -23,7 +23,7 @@ import itertools
 import numpy as np
 import os
 import tensorflow as tf
-from horovod.tensorflow.util import _executing_eagerly, _has_eager
+from horovod.tensorflow.util import _executing_eagerly
 from tensorflow.python.framework import ops
 import warnings
 
@@ -41,10 +41,9 @@ if hasattr(tf, 'config') and hasattr(tf.config, 'experimental') \
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
 else:
-    if _has_eager:
-        # Specifies the config to use with eager execution. Does not preclude
-        # tests from running in the graph mode.
-        tf.enable_eager_execution(config=config)
+    # Specifies the config to use with eager execution. Does not preclude
+    # tests from running in the graph mode.
+    tf.enable_eager_execution(config=config)
 
 ccl_supported_types = set([tf.uint8, tf.int32, tf.int64, tf.float32, tf.float64])
 
@@ -59,11 +58,10 @@ class TensorFlowTests(tf.test.TestCase):
     def __init__(self, *args, **kwargs):
         super(TensorFlowTests, self).__init__(*args, **kwargs)
         warnings.simplefilter('module')
-        if _has_eager:
-            if hasattr(tf, 'contrib') and hasattr(tf.contrib, 'eager'):
-                self.tfe = tf.contrib.eager
-            else:
-                self.tfe = tf
+        if hasattr(tf, 'contrib') and hasattr(tf.contrib, 'eager'):
+            self.tfe = tf.contrib.eager
+        else:
+            self.tfe = tf
 
     def evaluate(self, tensors):
         if _executing_eagerly():
@@ -189,6 +187,33 @@ class TensorFlowTests(tf.test.TestCase):
             diff = self.evaluate(max_difference)
             self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results")
 
+    def test_horovod_allreduce_average_cpu(self):
+        """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors."""
+        hvd.init()
+        size = hvd.size()
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                tensor = self.random_uniform(
+                    [17] * dim, -100, 100, dtype=dtype)
+                averaged = hvd.allreduce(tensor, average=True)
+            max_difference = tf.reduce_max(tf.abs(tf.cast(averaged, dtype=dtype) - tensor))
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                self.skipTest("Horovod cluster too large for precise multiplication comparison")
+
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results")
+
     def test_horovod_allreduce_cpu_fused(self):
         """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors
         with Tensor Fusion."""
@@ -244,6 +269,43 @@ class TensorFlowTests(tf.test.TestCase):
                 summed = hvd.allreduce(tensor, average=False)
             multiplied = tensor * size
             max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                self.skipTest("Horovod cluster too large for precise multiplication comparison")
+
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold, "hvd.allreduce on GPU produces incorrect results")
+
+    def test_horovod_allreduce_average_gpu(self):
+        """Test that the allreduce with average works on GPUs."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        hvd.init()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
+        dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%d" % local_rank):
+                tensor = self.random_uniform(
+                    [17] * dim, -100, 100, dtype=dtype)
+                averaged = hvd.allreduce(tensor, average=True)
+            max_difference = tf.reduce_max(tf.abs(tf.cast(averaged, dtype=dtype) - tensor))
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
@@ -459,6 +521,40 @@ class TensorFlowTests(tf.test.TestCase):
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
 
+    def test_horovod_allreduce_average_grad_cpu(self):
+        """Test the correctness of the allreduce with average gradient on CPU."""
+        hvd.init()
+        size = hvd.size()
+
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                if _executing_eagerly():
+                    tensor = self.tfe.Variable(self.random_uniform(
+                        [5] * dim, -100, 100, dtype=dtype))
+                    with tf.GradientTape() as tape:
+                        averaged = hvd.allreduce(tensor, average=True)
+                else:
+                    tensor = self.random_uniform(
+                        [5] * dim, -100, 100, dtype=dtype)
+                    averaged = hvd.allreduce(tensor, average=True)
+
+                grad_ys = tf.ones([5] * dim, dtype=dtype)
+                if _executing_eagerly():
+                    grad_out = tape.gradient(averaged, tensor, grad_ys)
+                else:
+                    grad = tf.gradients(averaged, tensor, grad_ys)[0]
+                    grad_out = self.evaluate(grad)
+
+            expected = np.ones([5] * dim)
+            err = np.linalg.norm(expected - grad_out)
+            self.assertLess(err, 0.00000001,
+                            "gradient %s differs from expected %s, "
+                            "error: %s" % (grad_out, expected, str(err)))
+
     def test_horovod_allreduce_grad_gpu(self):
         """Test the correctness of the allreduce gradient on GPU."""
         # Only do this test if there are GPUs available.
@@ -501,6 +597,48 @@ class TensorFlowTests(tf.test.TestCase):
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
 
+    def test_horovod_allreduce_average_grad_gpu(self):
+        """Test the correctness of the allreduce with average gradient on GPU."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        hvd.init()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%d" % local_rank):
+                if _executing_eagerly():
+                    tensor = self.tfe.Variable(
+                        self.random_uniform([5] * dim, -100, 100, dtype=dtype))
+                    with tf.GradientTape() as tape:
+                        averaged = hvd.allreduce(tensor, average=True)
+                else:
+                    tensor = self.random_uniform([5] * dim, -100, 100, dtype=dtype)
+                    averaged = hvd.allreduce(tensor, average=True)
+
+                grad_ys = tf.ones([5] * dim, dtype=dtype)
+                if _executing_eagerly():
+                    grad_out = tape.gradient(averaged, tensor, grad_ys)
+                else:
+                    grad = tf.gradients(averaged, tensor, grad_ys)[0]
+                    grad_out = self.evaluate(grad)
+
+            expected = np.ones([5] * dim)
+            err = np.linalg.norm(expected - grad_out)
+            self.assertLess(err, 0.00000001,
+                            "gradient %s differs from expected %s, "
+                            "error: %s" % (grad_out, expected, str(err)))
+
     def test_horovod_allgather_cpu(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors."""
         hvd.init()
@@ -512,11 +650,11 @@ class TensorFlowTests(tf.test.TestCase):
                   tf.float64, tf.bool]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
+            tensor = tf.ones([17] * dim) * rank
+            if dtype == tf.bool:
+                tensor = tensor % 2
+            tensor = tf.cast(tensor, dtype=dtype)
             with tf.device("/cpu:0"):
-                tensor = tf.ones([17] * dim) * rank
-                if dtype == tf.bool:
-                    tensor = tensor % 2
-                tensor = tf.cast(tensor, dtype=dtype)
                 gathered = hvd.allgather(tensor)
 
             gathered_tensor = self.evaluate(gathered)
@@ -559,11 +697,11 @@ class TensorFlowTests(tf.test.TestCase):
                   tf.float64, tf.bool]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
+            tensor = tf.ones([17] * dim) * rank
+            if dtype == tf.bool:
+                tensor = tensor % 2
+            tensor = tf.cast(tensor, dtype=dtype)
             with tf.device("/gpu:%d" % local_rank):
-                tensor = tf.ones([17] * dim) * rank
-                if dtype == tf.bool:
-                    tensor = tensor % 2
-                tensor = tf.cast(tensor, dtype=dtype)
                 gathered = hvd.allgather(tensor)
 
             gathered_tensor = self.evaluate(gathered)
@@ -600,11 +738,11 @@ class TensorFlowTests(tf.test.TestCase):
         tests = []
         shape_tests = []
         for dtype, dim in itertools.product(dtypes, dims):
+            tensor = tf.ones([17] * dim) * rank
+            if dtype == tf.bool:
+                tensor = tensor % 2
+            tensor = tf.cast(tensor, dtype=dtype)
             with tf.device("/cpu:0"):
-                tensor = tf.ones([17] * dim) * rank
-                if dtype == tf.bool:
-                    tensor = tensor % 2
-                tensor = tf.cast(tensor, dtype=dtype)
                 gathered = hvd.allgather(tensor)
 
             shape_tests.append(
@@ -658,11 +796,11 @@ class TensorFlowTests(tf.test.TestCase):
         tests = []
         shape_tests = []
         for dtype, dim in itertools.product(dtypes, dims):
+            tensor = tf.ones([17] * dim) * rank
+            if dtype == tf.bool:
+                tensor = tensor % 2
+            tensor = tf.cast(tensor, dtype=dtype)
             with tf.device("/gpu:%d" % local_rank):
-                tensor = tf.ones([17] * dim) * rank
-                if dtype == tf.bool:
-                    tensor = tensor % 2
-                tensor = tf.cast(tensor, dtype=dtype)
                 gathered = hvd.allgather(tensor)
 
             shape_tests.append(
@@ -693,7 +831,7 @@ class TensorFlowTests(tf.test.TestCase):
             self.assertTrue(value_tests_passed,
                             "hvd.allgather produces incorrect gathered tensor")
 
-    def test_horovod_allgather_variable_size_fused(self):
+    def test_horovod_allgather_variable_size_fused_cpu(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors with
         Tensor Fusion, even if those tensors have different sizes along the
         first dim."""
@@ -720,7 +858,8 @@ class TensorFlowTests(tf.test.TestCase):
             if dtype == tf.bool:
                 tensor = tensor % 2
             tensor = tf.cast(tensor, dtype=dtype)
-            gathered = hvd.allgather(tensor)
+            with tf.device("/cpu:0"):
+                gathered = hvd.allgather(tensor)
             shape_tests.append(
                 tf.reduce_all(tf.equal(tf.shape(gathered),
                              [sum(tensor_sizes)] + [17] * (dim - 1))))
@@ -750,7 +889,123 @@ class TensorFlowTests(tf.test.TestCase):
             self.assertTrue(value_tests_passed,
                             "hvd.allgather produces incorrect gathered tensor")
 
-    def test_horovod_allgather_variable_size(self):
+    def test_horovod_allgather_variable_size_fused_gpu(self):
+        """Test that the allgather correctly gathers 1D, 2D, 3D tensors with
+        Tensor Fusion, even if those tensors have different sizes along the
+        first dim."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        hvd.init()
+        rank = hvd.rank()
+        local_rank = hvd.rank()
+        size = hvd.size()
+
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64, tf.bool]
+        dims = [1, 2, 3]
+        tests = []
+        shape_tests = []
+
+        for dtype, dim in itertools.product(dtypes, dims):
+            # Support tests up to MPI Size of 35
+            if size > 35:
+                break
+
+            tensor_sizes = [17, 32, 81, 12, 15, 23, 22] * 5
+            tensor_sizes = tensor_sizes[:size]
+
+            tensor = tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank
+            if dtype == tf.bool:
+                tensor = tensor % 2
+            tensor = tf.cast(tensor, dtype=dtype)
+            with tf.device("/gpu:%d" % local_rank):
+                gathered = hvd.allgather(tensor)
+            shape_tests.append(
+                tf.reduce_all(tf.equal(tf.shape(gathered),
+                             [sum(tensor_sizes)] + [17] * (dim - 1))))
+
+            for i in range(size):
+                rank_size = [tensor_sizes[i]] + [17] * (dim - 1)
+                rank_tensor = tf.slice(
+                    gathered, [sum(tensor_sizes[:i])] + [0] * (dim - 1),
+                    rank_size)
+                self.assertEqual(list(rank_tensor.shape), rank_size)
+                if dtype != tf.bool:
+                    value = i
+                else:
+                    value = i % 2
+
+                # tf.equal() does not support tf.uint16 as of TensorFlow 1.2,
+                # so need to cast rank_tensor to tf.int32.
+                tests.append(tf.reduce_all(
+                    tf.equal(tf.cast(rank_tensor, tf.int32), value)))
+
+            shape_tests_passed, value_tests_passed = \
+                self.evaluate([tf.reduce_all(shape_tests), tf.reduce_all(tests)])
+
+            self.assertTrue(shape_tests_passed,
+                            "hvd.allgather produces incorrect gathered tensor")
+
+            self.assertTrue(value_tests_passed,
+                            "hvd.allgather produces incorrect gathered tensor")
+
+    def test_horovod_allgather_variable_size_gpu(self):
+        """Test that the allgather correctly gathers 1D, 2D, 3D tensors,
+        even if those tensors have different sizes along the first dim."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        hvd.init()
+        rank = hvd.rank()
+        local_rank = hvd.rank()
+        size = hvd.size()
+
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64, tf.bool]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            # Support tests up to MPI Size of 35
+            if size > 35:
+                break
+
+            tensor_sizes = [17, 32, 81, 12, 15, 23, 22] * 5
+            tensor_sizes = tensor_sizes[:size]
+
+            tensor = tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank
+            if dtype == tf.bool:
+                tensor = tensor % 2
+            tensor = tf.cast(tensor, dtype=dtype)
+            with tf.device("/gpu:%d" % local_rank):
+                gathered = hvd.allgather(tensor)
+
+            gathered_tensor = self.evaluate(gathered)
+            expected_size = sum(tensor_sizes)
+            self.assertEqual(list(gathered_tensor.shape),
+                             [expected_size] + [17] * (dim - 1))
+
+            for i in range(size):
+                rank_size = [tensor_sizes[i]] + [17] * (dim - 1)
+                rank_tensor = tf.slice(
+                    gathered, [sum(tensor_sizes[:i])] + [0] * (dim - 1),
+                    rank_size)
+                self.assertEqual(list(rank_tensor.shape), rank_size)
+                # tf.equal() does not support tf.uint16 as of TensorFlow 1.2,
+                # so need to cast rank_tensor to tf.int32.
+                if dtype != tf.bool:
+                    value = i
+                else:
+                    value = i % 2
+                self.assertTrue(
+                    self.evaluate(tf.reduce_all(
+                        tf.equal(tf.cast(rank_tensor, tf.int32), value))),
+                    "hvd.allgather produces incorrect gathered tensor")
+
+    def test_horovod_allgather_variable_size_cpu(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors,
         even if those tensors have different sizes along the first dim."""
         hvd.init()
@@ -773,7 +1028,8 @@ class TensorFlowTests(tf.test.TestCase):
             if dtype == tf.bool:
                 tensor = tensor % 2
             tensor = tf.cast(tensor, dtype=dtype)
-            gathered = hvd.allgather(tensor)
+            with tf.device("/cpu:0"):
+                gathered = hvd.allgather(tensor)
 
             gathered_tensor = self.evaluate(gathered)
             expected_size = sum(tensor_sizes)
@@ -845,37 +1101,36 @@ class TensorFlowTests(tf.test.TestCase):
             tensor_sizes = [3, 2, 7, 4, 6, 8, 10] * 5
             tensor_sizes = tensor_sizes[:size]
 
-            if _executing_eagerly():
-                with tf.GradientTape() as tape:
-                    tensor = self.tfe.Variable(
-                        tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank)
+            with tf.device("/cpu:0"):
+                if _executing_eagerly():
+                    with tf.GradientTape() as tape:
+                        tensor = self.tfe.Variable(
+                            tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank)
+                        if dtype == tf.bool:
+                            tensor = tensor % 2
+                        tensor = tf.cast(tensor, dtype=dtype)
+                        gathered = hvd.allgather(tensor)
+                        grad_list = []
+                        for r, tensor_size in enumerate(tensor_sizes):
+                            g = tf.ones([tensor_size] + [17] * (dim - 1)) * r
+                            grad_list.append(g)
+                        grad_ys = tf.concat(grad_list, axis=0)
+                    grad_out = tape.gradient(gathered, tensor, grad_ys)
+                else:
+                    tensor = tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank
                     if dtype == tf.bool:
                         tensor = tensor % 2
                     tensor = tf.cast(tensor, dtype=dtype)
                     gathered = hvd.allgather(tensor)
+
                     grad_list = []
                     for r, tensor_size in enumerate(tensor_sizes):
                         g = tf.ones([tensor_size] + [17] * (dim - 1)) * r
                         grad_list.append(g)
                     grad_ys = tf.concat(grad_list, axis=0)
-                with tf.device("/cpu:0"):
-                    grad_out = tape.gradient(gathered, tensor, grad_ys)
-            else:
-                tensor = tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank
-                if dtype == tf.bool:
-                    tensor = tensor % 2
-                tensor = tf.cast(tensor, dtype=dtype)
-                gathered = hvd.allgather(tensor)
 
-                grad_list = []
-                for r, tensor_size in enumerate(tensor_sizes):
-                    g = tf.ones([tensor_size] + [17] * (dim - 1)) * r
-                    grad_list.append(g)
-                grad_ys = tf.concat(grad_list, axis=0)
-
-                with tf.device("/cpu:0"):
                     grad = tf.gradients(gathered, tensor, grad_ys)[0]
-                grad_out = self.evaluate(grad)
+                    grad_out = self.evaluate(grad)
 
             expected = np.ones(
                 [tensor_sizes[rank]] + [17] * (dim - 1)
@@ -909,37 +1164,36 @@ class TensorFlowTests(tf.test.TestCase):
             tensor_sizes = [3, 2, 7, 4, 6, 8, 10] * 5
             tensor_sizes = tensor_sizes[:size]
 
-            if _executing_eagerly():
-                with tf.GradientTape() as tape:
-                    tensor = self.tfe.Variable(
-                        tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank)
+            with tf.device("/gpu:%d" % local_rank):
+                if _executing_eagerly():
+                    with tf.GradientTape() as tape:
+                        tensor = self.tfe.Variable(
+                            tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank)
+                        if dtype == tf.bool:
+                            tensor = tensor % 2
+                        tensor = tf.cast(tensor, dtype=dtype)
+                        gathered = hvd.allgather(tensor)
+                        grad_list = []
+                        for r, tensor_size in enumerate(tensor_sizes):
+                            g = tf.ones([tensor_size] + [17] * (dim - 1)) * r
+                            grad_list.append(g)
+                        grad_ys = tf.concat(grad_list, axis=0)
+                    grad_out = tape.gradient(gathered, tensor, grad_ys)
+                else:
+                    tensor = tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank
                     if dtype == tf.bool:
                         tensor = tensor % 2
                     tensor = tf.cast(tensor, dtype=dtype)
                     gathered = hvd.allgather(tensor)
+
                     grad_list = []
                     for r, tensor_size in enumerate(tensor_sizes):
                         g = tf.ones([tensor_size] + [17] * (dim - 1)) * r
                         grad_list.append(g)
                     grad_ys = tf.concat(grad_list, axis=0)
-                with tf.device("/gpu:%d" % local_rank):
-                    grad_out = tape.gradient(gathered, tensor, grad_ys)
-            else:
-                tensor = tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank
-                if dtype == tf.bool:
-                    tensor = tensor % 2
-                tensor = tf.cast(tensor, dtype=dtype)
-                gathered = hvd.allgather(tensor)
 
-                grad_list = []
-                for r, tensor_size in enumerate(tensor_sizes):
-                    g = tf.ones([tensor_size] + [17] * (dim - 1)) * r
-                    grad_list.append(g)
-                grad_ys = tf.concat(grad_list, axis=0)
-
-                with tf.device("/gpu:%d" % local_rank):
                     grad = tf.gradients(gathered, tensor, grad_ys)[0]
-                grad_out = self.evaluate(grad)
+                    grad_out = self.evaluate(grad)
 
             expected = np.ones(
                 [tensor_sizes[rank]] + [17] * (dim - 1)
@@ -1358,10 +1612,105 @@ class TensorFlowTests(tf.test.TestCase):
                     self.assertTrue(diff <= threshold,
                              "hvd.join with hvd.allreduce on GPU produces incorrect results")
 
+    def test_horovod_syncbn_gpu(self):
+        """Test that the SyncBatchNormalization implementation is correct on GPU."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
 
-if _has_eager:
-    from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
-    run_all_in_graph_and_eager_modes(TensorFlowTests)
+        hvd.init()
+        with tf.device("/gpu:%d" % hvd.local_rank()):
+            x_list = [
+                tf.convert_to_tensor(np.stack([
+                    np.array([
+                        [r, r + 1],
+                        [r * 2, r * 2 + 1],
+                        [r * 3, r * 3 + 1],
+                        [r * 4, r * 4 + 1]
+                    ], dtype=np.float32)
+                    for r in range(hvd.size())
+                ]), np.float32),
+                tf.convert_to_tensor(np.stack([
+                    np.array([
+                        [r + 1],
+                        [r * 2 + 1],
+                        [r * 3 + 1],
+                        [r * 4 + 1]
+                    ], dtype=np.float32)
+                    for r in range(hvd.size())
+                ]), np.float32),
+            ]
+
+            for x in x_list:
+                try:
+                    bn = tf.layers.BatchNormalization(axis=1)
+                except AttributeError:
+                    bn = tf.compat.v1.layers.BatchNormalization(axis=1)
+                sync_bn = hvd.SyncBatchNormalization(axis=1)
+                bn_func = bn.apply(x, training=True)
+                sync_bn_func = sync_bn.apply(tf.expand_dims(x[hvd.rank()], 0), training=True)
+
+                try:
+                  init = tf.global_variables_initializer()
+                except AttributeError:
+                  init = tf.compat.v1.global_variables_initializer()
+                self.evaluate(init)
+                bn_out = self.evaluate(bn_func)
+                sync_bn_out = self.evaluate(sync_bn_func)
+
+                self.assertAllClose(sync_bn_out, np.expand_dims(bn_out[hvd.rank()], 0))
+                self.assertAllClose(self.evaluate(sync_bn.moving_mean), self.evaluate(bn.moving_mean))
+                self.assertAllClose(self.evaluate(sync_bn.moving_variance), self.evaluate(bn.moving_variance))
+
+    def test_horovod_syncbn_cpu(self):
+        """Test that the SyncBatchNormalization implementation is correct on CPU."""
+
+        hvd.init()
+        with tf.device("/cpu:0"):
+            x_list = [
+                tf.convert_to_tensor(np.stack([
+                    np.array([
+                        [r, r + 1],
+                        [r * 2, r * 2 + 1],
+                        [r * 3, r * 3 + 1],
+                        [r * 4, r * 4 + 1]
+                    ], dtype=np.float32)
+                    for r in range(hvd.size())
+                ]), np.float32),
+                tf.convert_to_tensor(np.stack([
+                    np.array([
+                        [r + 1],
+                        [r * 2 + 1],
+                        [r * 3 + 1],
+                        [r * 4 + 1]
+                    ], dtype=np.float32)
+                    for r in range(hvd.size())
+                ]), np.float32),
+            ]
+
+            for x in x_list:
+                try:
+                    bn = tf.layers.BatchNormalization(axis=1)
+                except AttributeError:
+                    bn = tf.compat.v1.layers.BatchNormalization(axis=1)
+                sync_bn = hvd.SyncBatchNormalization(axis=1)
+                bn_func = bn.apply(x, training=True)
+                sync_bn_func = sync_bn.apply(tf.expand_dims(x[hvd.rank()], 0), training=True)
+
+                try:
+                  init = tf.global_variables_initializer()
+                except AttributeError:
+                  init = tf.compat.v1.global_variables_initializer()
+                self.evaluate(init)
+                bn_out = self.evaluate(bn_func)
+                sync_bn_out = self.evaluate(sync_bn_func)
+
+                self.assertAllClose(sync_bn_out, np.expand_dims(bn_out[hvd.rank()], 0))
+                self.assertAllClose(self.evaluate(sync_bn.moving_mean), self.evaluate(bn.moving_mean))
+                self.assertAllClose(self.evaluate(sync_bn.moving_variance), self.evaluate(bn.moving_variance))
+
+from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
+run_all_in_graph_and_eager_modes(TensorFlowTests)
 
 if __name__ == '__main__':
     tf.test.main()

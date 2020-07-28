@@ -16,8 +16,8 @@
 import copy
 import sys
 
-from horovod.run.mpi_run import mpi_run as hr_mpi_run
-from horovod.run.common.util import codec, secret
+from horovod.runner.mpi_run import mpi_run as hr_mpi_run
+from horovod.runner.common.util import codec, secret
 
 
 def mpi_run(settings, nics, driver, env, stdout=None, stderr=None):

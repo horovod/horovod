@@ -23,8 +23,8 @@ import torch
 import horovod.torch as hvd
 
 from horovod.common.util import gloo_built, mpi_built
-from horovod.run import run
-from horovod.run.runner import _run, HorovodArgs
+from horovod.runner import run, _HorovodArgs
+from horovod.runner.launch import _run
 
 
 class InteractiveRunTests(unittest.TestCase):
@@ -62,7 +62,7 @@ class InteractiveRunTests(unittest.TestCase):
                                   None], res2)
 
     def test_happy_run_elastic(self):
-        args = HorovodArgs()
+        args = _HorovodArgs()
 
         # we need two different hosts here, otherwise would need to give args.nics
         args.hosts = 'localhost:2,127.0.0.1:2'

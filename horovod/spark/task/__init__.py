@@ -16,11 +16,11 @@
 import os
 import time
 
-from horovod.run.util.threads import in_thread
+from horovod.runner.util.threads import in_thread
 from horovod.spark.task import task_info, task_service
 from horovod.spark.task.task_info import get_available_devices
 from horovod.spark.driver import driver_service
-from horovod.run.common.util import codec, secret
+from horovod.runner.common.util import codec, secret
 
 
 def _parent_process_monitor(initial_ppid):

@@ -28,7 +28,7 @@ import tensorflow.keras as keras
 from horovod.spark.common import constants, util
 from horovod.spark.common.store import LocalStore
 from horovod.spark.keras.util import decompress_row_fn, reshape_row_fn
-from horovod.run.common.util import codec
+from horovod.runner.common.util import codec
 
 
 PETASTORM_HDFS_DRIVER = constants.PETASTORM_HDFS_DRIVER
@@ -170,7 +170,12 @@ def RemoteTrainer(estimator, metadata, run_id, train_data, val_data):
 
                 callbacks.append(keras.callbacks.ModelCheckpoint(ckpt_file))
                 if remote_store.saving_runs:
-                    callbacks.append(keras.callbacks.TensorBoard(logs_dir))
+                    tensorboard_kwargs = {}
+                    if LooseVersion('1.15.0') > LooseVersion(tf.__version__) >= LooseVersion('1.14.0'):
+                        # Workaround bug in TF 1.14.0: https://github.com/tensorflow/tensorflow/issues/31451
+                        tensorboard_kwargs['profile_batch'] = 0
+
+                    callbacks.append(keras.callbacks.TensorBoard(logs_dir, **tensorboard_kwargs))
                     callbacks.append(SyncCallback(run_output_dir, remote_store.sync))
 
             if train_steps_per_epoch is None:

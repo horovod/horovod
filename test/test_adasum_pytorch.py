@@ -16,15 +16,11 @@
 import torch
 import horovod.torch as hvd
 import numpy as np
-import time
 from horovod.torch.mpi_ops import synchronize
-import os
 import math
 import unittest
 import warnings
 from distutils.version import LooseVersion
-
-_fp16_supported = LooseVersion(torch.__version__) >= LooseVersion('1.0.0')
 
 class TorchAdasumTests(unittest.TestCase):
   """
@@ -33,9 +29,7 @@ class TorchAdasumTests(unittest.TestCase):
   def __init__(self, *args, **kwargs):
     super(TorchAdasumTests, self).__init__(*args, **kwargs)
     warnings.simplefilter('module')
-    self.data_types = [np.float32]
-    if _fp16_supported:
-      self.data_types.append(np.float16)
+    self.data_types = [np.float32, np.float16]
 
   def diff_ratio(self, true_vec, comp_vec):
     norm_diff = np.linalg.norm(true_vec-comp_vec)

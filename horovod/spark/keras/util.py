@@ -19,7 +19,7 @@ import h5py
 import tensorflow as tf
 import tensorflow.keras as keras
 
-from horovod.run.common.util import codec
+from horovod.runner.common.util import codec
 
 from horovod.spark.common import constants, params
 from horovod.spark.keras import optimizer, remote

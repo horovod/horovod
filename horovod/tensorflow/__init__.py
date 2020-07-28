@@ -37,6 +37,7 @@ from horovod.tensorflow.mpi_ops import Average, Sum, Adasum
 from horovod.tensorflow.mpi_ops import handle_average_backwards_compatibility, check_num_rank_power_of_2
 from horovod.tensorflow.util import _executing_eagerly, _make_subgraph, _cache
 from horovod.tensorflow.mpi_ops import join
+from horovod.tensorflow.sync_batch_norm import SyncBatchNormalization
 
 import tensorflow as tf
 
@@ -141,10 +142,10 @@ def _allreduce_cond(tensor, *args, **kwargs):
 
 
 try:
-    _global_variables = tf.global_variables
+    _global_variables = tf.compat.v1.global_variables
 except AttributeError:
     try:
-        _global_variables = tf.compat.v1.global_variables
+        _global_variables = tf.global_variables
     except AttributeError:
         _global_variables = None
 
@@ -167,10 +168,10 @@ if _global_variables is not None:
         return broadcast_variables(_global_variables(), root_rank)
 
 try:
-    _get_default_graph = tf.get_default_graph
+    _get_default_graph = tf.compat.v1.get_default_graph
 except AttributeError:
     try:
-        _get_default_graph = tf.compat.v1.get_default_graph
+        _get_default_graph = tf.get_default_graph
     except AttributeError:
         _get_default_graph = None
 

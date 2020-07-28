@@ -17,7 +17,7 @@ import io
 import platform
 import sys
 
-from horovod.run.common.util import codec
+from horovod.runner.common.util import codec
 
 
 def is_module_available(module_name):

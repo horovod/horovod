@@ -23,7 +23,7 @@ import time
 
 import mock
 
-from horovod.run.util.threads import in_thread
+from horovod.runner.util.threads import in_thread
 
 
 def mpi_env_rank_and_size():
@@ -153,7 +153,7 @@ def undo(fn):
 @contextlib.contextmanager
 def is_built(gloo_is_built, mpi_is_built):
     """
-    Patches the gloo_built and mpi_built methods called from horovod.run.run.run_controller
+    Patches the gloo_built and mpi_built methods called from horovod.runner.run.run_controller
     to return the given booleans. That method is used by horovod.spark.run to determine which
     controller to use. Patching these methods allows to test horovod.spark.run without an MPI
     implementation to be installed.
@@ -162,8 +162,8 @@ def is_built(gloo_is_built, mpi_is_built):
     :param mpi_is_built: boolean returned by mpi_built
     :return: mocked gloo_built and mpi_built methods
     """
-    with mock.patch("horovod.run.runner.gloo_built", return_value=gloo_is_built) as g:
-        with mock.patch("horovod.run.runner.mpi_built", return_value=mpi_is_built) as m:
+    with mock.patch("horovod.runner.launch.gloo_built", return_value=gloo_is_built) as g:
+        with mock.patch("horovod.runner.launch.mpi_built", return_value=mpi_is_built) as m:
             yield g, m
 
 
@@ -171,14 +171,14 @@ def is_built(gloo_is_built, mpi_is_built):
 def mpi_implementation_flags(flags=["--mock-mpi-impl-flags"],
                              binding_args=["--mock-mpi-binding-args"]):
     """
-    Patches the _get_mpi_implementation_flags method used by horovod.run.mpi_run to retrieve
+    Patches the _get_mpi_implementation_flags method used by horovod.runner.mpi_run to retrieve
     MPI implementation specific command line flags. Patching this method allows to test mpi_run
     without an MPI implementation to be installed.
 
     :param flags: mock flags
     :return: the mocked method
     """
-    with mock.patch("horovod.run.mpi_run._get_mpi_implementation_flags", return_value=(flags, binding_args)) as m:
+    with mock.patch("horovod.runner.mpi_run._get_mpi_implementation_flags", return_value=(flags, binding_args)) as m:
         yield m
 
 
@@ -186,11 +186,11 @@ def mpi_implementation_flags(flags=["--mock-mpi-impl-flags"],
 def lsf_and_jsrun(lsf_exists, jsrun_installed):
     """
     Patches the lsf.LSFUtils.using_lsf and is_jsrun_installed methods called from
-    horovod.run.run.run_controller to return the given booleans.
+    horovod.runner.run.run_controller to return the given booleans.
     :param lsf_exists: boolean returned by lsf.LSFUtils.using_lsf
     :param jsrun_installed: boolean returned by is_jsrun_installed
     :return: mocked methods
     """
-    with mock.patch("horovod.run.runner.lsf.LSFUtils.using_lsf", return_value=lsf_exists) as u:
-        with mock.patch("horovod.run.runner.is_jsrun_installed", return_value=jsrun_installed) as i:
+    with mock.patch("horovod.runner.launch.lsf.LSFUtils.using_lsf", return_value=lsf_exists) as u:
+        with mock.patch("horovod.runner.launch.is_jsrun_installed", return_value=jsrun_installed) as i:
             yield u, i

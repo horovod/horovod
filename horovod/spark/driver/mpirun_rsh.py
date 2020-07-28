@@ -16,7 +16,7 @@
 import os
 import sys
 
-from horovod.run.common.util import codec, secret
+from horovod.runner.common.util import codec, secret
 from horovod.spark.driver.rsh import rsh
 
 

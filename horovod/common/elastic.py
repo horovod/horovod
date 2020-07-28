@@ -17,7 +17,7 @@ import functools
 import queue
 
 from horovod.common.exceptions import HorovodInternalError, HostsUpdatedInterrupt
-from horovod.run.elastic.worker import WorkerNotificationManager
+from horovod.runner.elastic.worker import WorkerNotificationManager
 
 
 notification_manager = WorkerNotificationManager()

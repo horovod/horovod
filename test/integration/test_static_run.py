@@ -26,9 +26,10 @@ import pytest
 import unittest
 
 from horovod.common.util import gloo_built, mpi_built
-from horovod.run.common.util import safe_shell_exec
-from horovod.run.runner import HorovodArgs, _check_all_hosts_ssh_successful, _run
-from horovod.run.mpi_run import mpi_available, is_mpich
+from horovod.runner.common.util import safe_shell_exec
+from horovod.runner import _HorovodArgs
+from horovod.runner.launch import _check_all_hosts_ssh_successful, _run
+from horovod.runner.mpi_run import mpi_available, is_mpich
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
 
@@ -40,7 +41,7 @@ def values_name_func(testcase_func, param_num, param):
 
 
 def fn(fail_rank=None):
-    from horovod.run.common.util.env import get_env_rank_and_size
+    from horovod.runner.common.util.env import get_env_rank_and_size
     rank = get_env_rank_and_size()
     if rank and rank[0] == fail_rank:
         raise RuntimeError('failing as expected')
@@ -49,7 +50,7 @@ def fn(fail_rank=None):
 
 class StaticRunTests(unittest.TestCase):
     """
-    Integration tests for horovod.run.
+    Integration tests for horovod.runner.
     """
 
     def __init__(self, *args, **kwargs):
@@ -76,7 +77,7 @@ class StaticRunTests(unittest.TestCase):
                 self.skipTest('password-less ssh to {} is required for this test'
                               .format(' and '.join(remote_hosts)))
 
-        hargs = HorovodArgs()
+        hargs = _HorovodArgs()
         hargs.np = 4
         hargs.hosts = ','.join(['{}:2'.format(host) for host in hosts])
         hargs.use_gloo = controller == 'gloo'
@@ -90,13 +91,13 @@ class StaticRunTests(unittest.TestCase):
         stdout = io.StringIO()
         try:
             with capture(stdout=stdout):
-                with mock.patch('horovod.run.runner.network.filter_local_addresses',
+                with mock.patch('horovod.runner.launch.network.filter_local_addresses',
                                 side_effect=lambda hosts: [host for host in hosts if host not in local_hosts]), \
-                     mock.patch('horovod.run.gloo_run.network.get_local_host_addresses',
+                     mock.patch('horovod.runner.gloo_run.network.get_local_host_addresses',
                                 return_value=local_hosts), \
-                     mock.patch('horovod.run.gloo_run.network.resolve_host_address',
+                     mock.patch('horovod.runner.gloo_run.network.resolve_host_address',
                                 side_effect=lambda host: host), \
-                     mock.patch('horovod.run.mpi_run.os.execve') as exec:
+                     mock.patch('horovod.runner.mpi_run.os.execve') as exec:
                     yield hargs, exec
         finally:
             stdout = stdout.readlines()

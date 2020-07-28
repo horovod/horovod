@@ -5,12 +5,12 @@ import torch.multiprocessing as mp
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.utils.data.distributed
+from torch.utils.tensorboard import SummaryWriter
 from torchvision import datasets, transforms, models
 import horovod.torch as hvd
 import os
 import math
 from tqdm import tqdm
-from distutils.version import LooseVersion
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Example',
@@ -200,14 +200,7 @@ if __name__ == '__main__':
     verbose = 1 if hvd.rank() == 0 else 0
 
     # Horovod: write TensorBoard logs on first worker.
-    try:
-        if LooseVersion(torch.__version__) >= LooseVersion('1.2.0'):
-            from torch.utils.tensorboard import SummaryWriter
-        else:
-            from tensorboardX import SummaryWriter
-        log_writer = SummaryWriter(args.log_dir) if hvd.rank() == 0 else None
-    except ImportError:
-        log_writer = None
+    log_writer = SummaryWriter(args.log_dir) if hvd.rank() == 0 else None
 
     # Horovod: limit # of CPU threads to be used per worker.
     torch.set_num_threads(4)

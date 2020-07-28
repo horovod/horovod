@@ -20,7 +20,7 @@ import numpy as np
 import mxnet as mx
 
 from mxnet.base import MXNetError
-from mxnet.test_utils import same
+from mxnet.test_utils import almost_equal, same
 
 import horovod.mxnet as hvd
 
@@ -64,7 +64,6 @@ class MXTests(unittest.TestCase):
             tensor = tensor.astype(dtype)
             summed = hvd.allreduce(tensor, average=False, name=str(count))
             multiplied = tensor * size
-            max_difference = mx.nd.max(mx.nd.subtract(summed, multiplied))
             count += 1
 
             # Threshold for floating point equality depends on number of
@@ -78,14 +77,8 @@ class MXTests(unittest.TestCase):
             else:
                 break
 
-            if max_difference > threshold:
-                print("allreduce", count, dtype, dim, max_difference,
-                      threshold)
-                print("tensor", hvd.rank(), tensor)
-                print("summed", hvd.rank(), summed)
-                print("multiplied", hvd.rank(), multiplied)
-            assert max_difference <= threshold, 'hvd.allreduce produces \
-                                                 incorrect results'
+            assert almost_equal(summed.asnumpy(), multiplied.asnumpy(), atol=threshold), \
+                f'hvd.allreduce produces incorrect results: {hvd.rank()} {count} {dtype} {dim}'
 
     def test_horovod_allreduce_average(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
@@ -105,7 +98,6 @@ class MXTests(unittest.TestCase):
             averaged = hvd.allreduce(tensor, average=True, name=str(count))
             tensor *= size
             tensor /= size
-            max_difference = mx.nd.max(mx.nd.subtract(averaged, tensor))
             count += 1
 
             # Threshold for floating point equality depends on number of
@@ -119,12 +111,8 @@ class MXTests(unittest.TestCase):
             else:
                 break
 
-            if max_difference > threshold:
-                print("average", count, dtype, dim, max_difference, threshold)
-                print("tensor", hvd.rank(), tensor)
-                print("averaged", hvd.rank(), averaged)
-            assert max_difference <= threshold, 'hvd.allreduce produces \
-                                                 incorrect results for average'
+            assert almost_equal(averaged.asnumpy(), tensor.asnumpy(), atol=threshold), \
+                f'hvd.allreduce produces incorrect results for average: {hvd.rank()} {count} {dtype} {dim}'
 
     def test_horovod_allreduce_inplace(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
@@ -143,7 +131,6 @@ class MXTests(unittest.TestCase):
             tensor = tensor.astype(dtype)
             multiplied = tensor * size
             hvd.allreduce_(tensor, average=False, name=str(count))
-            max_difference = mx.nd.max(mx.nd.subtract(tensor, multiplied))
             count += 1
 
             # Threshold for floating point equality depends on number of
@@ -157,12 +144,8 @@ class MXTests(unittest.TestCase):
             else:
                 break
 
-            if max_difference > threshold:
-                print("self", count, dtype, dim, max_difference, threshold)
-                print("tensor", hvd.rank(), tensor)
-                print("multiplied", hvd.rank(), multiplied)
-            assert max_difference <= threshold, 'hvd.allreduce produces \
-                                                 incorrect results for self'
+            assert almost_equal(tensor.asnumpy(), multiplied.asnumpy(), atol=threshold), \
+                f'hvd.allreduce produces incorrect results for self: {hvd.rank()} {count} {dtype} {dim}'
 
     def test_horovod_allreduce_error(self):
         """Test that the allreduce raises an error if different ranks try to
@@ -497,6 +480,127 @@ class MXTests(unittest.TestCase):
         for tensor, root_tensor in zip(tensors, root_tensors):
             assert same(tensor.asnumpy(), root_tensor.asnumpy()), \
                 'horovod did not broadcast deferred initialized parameter correctly'
+
+    def test_horovod_allgather(self):
+        """Test that the allgather correctly gathers 1D, 2D, 3D tensors."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        dtypes = ['int32',   'int64',
+                  'float32', 'float64']
+        dims = [1, 2, 3]
+        ctx = self._current_context()
+        for dtype, dim in itertools.product(dtypes, dims):
+            tensor = mx.ndarray.ones(shape=[17] * dim, dtype=dtype, ctx=ctx) * rank
+            gathered = hvd.allgather(tensor)
+
+            assert list(gathered.shape) == [17 * size] + [17] * (dim - 1)
+
+            for i in range(size):
+                rank_tensor = gathered[i * 17:(i + 1) * 17]
+                assert list(rank_tensor.shape) == [17] * dim, \
+                    'hvd.allgather produces incorrect gathered shape'
+                assert rank_tensor.min() == i, 'hvd.allgather produces incorrect gathered tensor'
+                assert rank_tensor.max() == i, 'hvd.allgather produces incorrect gathered tensor'
+
+    def test_horovod_allgather_variable_size(self):
+        """Test that the allgather correctly gathers 1D, 2D, 3D tensors,
+        even if those tensors have different sizes along the first dim."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        dtypes = ['int32',   'int64',
+                  'float32', 'float64']
+        dims = [1, 2, 3]
+        ctx = self._current_context()
+        for dtype, dim in itertools.product(dtypes, dims):
+            # Support tests up to MPI Size of 35
+            if size > 35:
+                break
+
+            tensor_sizes = [17, 32, 81, 12, 15, 23, 22] * 5
+            tensor_sizes = tensor_sizes[:size]
+
+            tensor = mx.ndarray.ones(
+                shape=[tensor_sizes[rank]] + [17] * (dim - 1), dtype=dtype, ctx=ctx) * rank
+
+            gathered = hvd.allgather(tensor)
+
+            expected_size = sum(tensor_sizes)
+            assert list(gathered.shape) == [expected_size] + [17] * (dim - 1)
+
+            for i in range(size):
+                rank_size = [tensor_sizes[i]] + [17] * (dim - 1)
+                rank_tensor = gathered[sum(
+                    tensor_sizes[:i]):sum(tensor_sizes[:i + 1])]
+                assert list(rank_tensor.shape) == rank_size
+                assert rank_tensor.min() == i
+                assert rank_tensor.max() == i
+
+    def test_horovod_allgather_error(self):
+        """Test that the allgather returns an error if any dimension besides
+        the first is different among the tensors being gathered."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            self.skipTest("Only one worker available")
+
+        ctx = self._current_context()
+
+        tensor_size = [17] * 3
+        tensor_size[1] = 10 * (rank + 1)
+        tensor = mx.ndarray.ones(shape=tensor_size, ctx=ctx)
+
+        try:
+            hvd.allgather(tensor)
+            assert False, 'hvd.allgather did not throw error'
+        except (MXNetError, RuntimeError):
+            pass
+
+    def test_horovod_allgather_type_error(self):
+        """Test that the allgather returns an error if the types being gathered
+        differ among the processes"""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            self.skipTest("Only one worker available")
+
+        ctx = self._current_context()
+
+        tensor_size = [17] * 3
+        if rank % 2 == 0:
+            tensor = mx.ndarray.ones(shape=tensor_size, dtype="int32", ctx=ctx)
+        else:
+            tensor = mx.ndarray.ones(shape=tensor_size, dtype="float32", ctx=ctx)
+
+        try:
+            hvd.allgather(tensor)
+            assert False, 'hvd.allgather did not throw error'
+        except (MXNetError, RuntimeError):
+            pass
+
+    def test_broadcast_object(self):
+        hvd.init()
+
+        expected_obj = {
+            'hello': 123,
+            0: [1, 2]
+        }
+        obj = expected_obj if hvd.rank() == 0 else {}
+
+        obj = hvd.broadcast_object(obj, root_rank=0)
+        self.assertDictEqual(obj, expected_obj)
+
+        # To prevent premature shutdown from rank 0 for this test
+        mx.nd.waitall()
 
     @unittest.skipUnless(has_gpu, "no gpu detected")
     def test_gluon_trainer(self):

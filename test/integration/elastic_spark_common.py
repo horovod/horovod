@@ -30,8 +30,8 @@ from parameterized import parameterized
 import pytest
 import unittest
 
-from horovod.run.util.threads import in_thread
-from horovod.run.common.util import safe_shell_exec, tiny_shell_exec
+from horovod.runner.util.threads import in_thread
+from horovod.runner.common.util import safe_shell_exec, tiny_shell_exec
 from horovod.spark import conf, run_elastic
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
@@ -392,7 +392,7 @@ class BaseElasticSparkTests(unittest.TestCase):
 
                 return [json.loads(line) for line in lines]
 
-    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     def test_happy_run(self):
         hosts = 'host-1:1,host-2:2,host-3:3'
 
@@ -412,7 +412,7 @@ class BaseElasticSparkTests(unittest.TestCase):
             self.assertEqual(10, results[epoch]['batch'])
             self.assertEqual(10 + epoch * 11, results[epoch]['commits'])
 
-    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     def test_fault_tolerance_hosts_added_and_removed(self):
         discovery_schedule = [
             (0, ['host-1:1', 'host-2:1']),
@@ -470,7 +470,7 @@ class BaseElasticSparkTests(unittest.TestCase):
             self.assertNotEqual(results[1]['hostname'], results[2]['hostname'])
             self.assertEqual(3, results[2]['rendezvous'])
 
-    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     def test_fault_tolerance_unused_hosts_added_and_removed(self):
         # test setup is similar to test_fault_tolerance_hosts_added_and_removed
         # to ensure training script would actually scale in this setup
@@ -501,7 +501,7 @@ class BaseElasticSparkTests(unittest.TestCase):
         self.assertEqual(1, results[2]['rendezvous'])
         self.assertEqual(results[1]['hostname'], results[2]['hostname'])
 
-    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     def test_fault_tolerance_no_spark_blacklist(self):
         """
         Tests fault-tolerance mode without Spark blacklisting.
@@ -537,7 +537,7 @@ class BaseElasticSparkTests(unittest.TestCase):
                            (conf.SPARK_CONF_DONT_REUSE_FAILING_NODE, 'no node reuse'),
                            (conf.SPARK_CONF_DONT_REUSE_FAILING_NODE_IN_APP, 'no node reuse in app')],
                           name_func=test_name_func)
-    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     def test_fault_tolerance_spark_blacklist(self, setting, _):
         """
         Same as test_fault_tolerance_no_spark_blacklist except Spark blacklists the executor
@@ -556,7 +556,7 @@ class BaseElasticSparkTests(unittest.TestCase):
                       extra_conf=[conf.SPARK_CONF_ALWAYS_RESTART_FAILED_TASK,
                                   conf.SPARK_CONF_BLACKLIST_ENABLED, setting])
 
-    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     def test_fault_tolerance_exception_single_rank(self):
         hosts = 'host-1:2,host-2:2'
 
@@ -582,7 +582,7 @@ class BaseElasticSparkTests(unittest.TestCase):
         self.assertEqual(2, results[2]['size'])
         self.assertEqual(2, results[2]['rendezvous'])
 
-    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     def test_fault_tolerance_exception_all_ranks(self):
         hosts = 'localhost:2'
 
@@ -596,7 +596,7 @@ class BaseElasticSparkTests(unittest.TestCase):
                       extra_conf=[conf.SPARK_CONF_ALWAYS_RESTART_FAILED_TASK,
                                   conf.SPARK_CONF_BLACKLIST_DISABLED])
 
-    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     def test_fault_tolerance_exception_with_min_hosts_timeout(self):
         hosts = 'host-1:1,host-2:1'
 
@@ -611,7 +611,7 @@ class BaseElasticSparkTests(unittest.TestCase):
                                   conf.SPARK_CONF_BLACKLIST_ENABLED,
                                   conf.SPARK_CONF_DONT_REUSE_FAILED_EXECUTOR])
 
-    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     def test_fault_tolerance_all_hosts_lost(self):
         discovery_schedule = [
             (0, ['node-1:1', 'node-2:1']),
@@ -624,8 +624,8 @@ class BaseElasticSparkTests(unittest.TestCase):
                       extra_conf=[conf.SPARK_CONF_ALWAYS_RESTART_FAILED_TASK,
                                   conf.SPARK_CONF_BLACKLIST_DISABLED])
 
-    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
-    @mock.patch('horovod.run.gloo_run._get_min_start_hosts', return_value=1)
+    @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    @mock.patch('horovod.runner.gloo_run._get_min_start_hosts', return_value=1)
     def test_auto_scale_up(self, mock_get_min_start_hosts):
         discovery_schedule = [
             (0, ['host-1:1']),
@@ -651,7 +651,7 @@ class BaseElasticSparkTests(unittest.TestCase):
         self.assertEqual(3, results[2]['rendezvous'])
         self.assertEqual(results[0]['hostname'], results[2]['hostname'])
 
-    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     def test_auto_scale_down_by_discovery(self):
         discovery_schedule = [
             (0, ['host-1:1', 'host-2:1', 'host-3:1']),
@@ -679,7 +679,7 @@ class BaseElasticSparkTests(unittest.TestCase):
         self.assertEqual(1, results[2]['size'])
         self.assertEqual(3, results[2]['rendezvous'])
 
-    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     def test_auto_scale_down_by_exception(self):
         hosts = 'host-1:1,host-2:1,host-3:1,host-4:1'
 
@@ -708,7 +708,7 @@ class BaseElasticSparkTests(unittest.TestCase):
         self.assertNotEqual(results[0]['hostname'], results[2]['hostname'])
         self.assertNotEqual(results[1]['hostname'], results[2]['hostname'])
 
-    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     def test_auto_scale_no_spark_black_list(self):
         """
         Tests auto-scale mode without Spark blacklisting.
@@ -745,7 +745,7 @@ class BaseElasticSparkTests(unittest.TestCase):
                            (conf.SPARK_CONF_DONT_REUSE_FAILING_NODE, 'no node reuse'),
                            (conf.SPARK_CONF_DONT_REUSE_FAILING_NODE_IN_APP, 'no node reuse in app')],
                           name_func=test_name_func)
-    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     def test_auto_scale_spark_blacklist(self, setting, _):
         """
         Spark blacklisting will avoid restarting a failing task on the same executor.
