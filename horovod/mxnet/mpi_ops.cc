@@ -147,6 +147,7 @@ inline void PushHorovodOperation(OperationType op_type, NDArray* input,
   auto output_copy = std::make_shared<NDArray>(*output);
   std::shared_ptr<NDArray> splits_tensor;
   if (splits) {
+#if HAVE_CUDA
     // We expect splits to be a tensor on CPU. Create CPU copy if required.
     if (!IsTensorOnCPU(splits)) {
       splits_tensor = std::make_shared<NDArray>(Context::Create(Context::kCPU, 0),
@@ -155,6 +156,9 @@ inline void PushHorovodOperation(OperationType op_type, NDArray* input,
     } else {
       splits_tensor = std::make_shared<NDArray>(*splits);
     }
+#else
+    splits_tensor = std::make_shared<NDArray>(*splits);
+#endif
   }
   auto ops_param = CreateMpiOpsParam(input_copy, output_copy, output,
     nullptr /* cpu_input_tensor */, nullptr /* cpu_output_tensor */,
