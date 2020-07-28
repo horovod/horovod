@@ -183,8 +183,7 @@ void parse_and_set_affinity(const char* affinity, int local_size, int local_rank
                  << core_id << " in "
                  << HOROVOD_THREAD_AFFINITY << "=" << affinity;
       break;
-    }
-    else {
+    } else {
       core_ids[count] = core_id;
       count++;
     }
@@ -193,8 +192,7 @@ void parse_and_set_affinity(const char* affinity, int local_size, int local_rank
   if (count < local_size) {
     LOG(ERROR) << "Expected " << local_size << " core ids but got " << count << ". "
                << HOROVOD_THREAD_AFFINITY << "=" << affinity;
-  }
-  else {
+  } else {
     set_affinity(core_ids[local_rank]);
   }
 
