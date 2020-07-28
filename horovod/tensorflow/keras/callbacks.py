@@ -152,3 +152,25 @@ class LearningRateWarmupCallback(_impl.LearningRateWarmupCallbackImpl, keras.cal
         """
         super(LearningRateWarmupCallback, self).__init__(K, warmup_epochs, momentum_correction,
                                                          steps_per_epoch, verbose, initial_lr)
+
+
+class ReturnedModelCheckpoint(keras.callbacks.ModelCheckpoint):
+    def __init__(self,
+                 filepath=None,
+                 monitor='val_loss',
+                 verbose=0,
+                 save_best_only=True,
+                 mode='auto',
+                 save_freq='epoch'):
+        """
+        Note that `filepath` argument is not necessary. Set it only if you care about where the
+        model checkpoints are stored during the training. If filepath is not provided,
+        KerasEstimator will use a temporary directory for the checkpoints.
+        """
+        super(ReturnedModelCheckpoint, self).__init__(filepath=filepath,
+                                                      monitor=monitor,
+                                                      verbose=verbose,
+                                                      save_best_only=save_best_only,
+                                                      save_weights_only=False,
+                                                      mode=mode,
+                                                      save_freq=save_freq)
