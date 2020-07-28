@@ -15,10 +15,13 @@
 # ==============================================================================
 
 import os
+import pytest
 import itertools
 import unittest
 import numpy as np
 import mxnet as mx
+
+from distutils.version import LooseVersion
 
 from mxnet.base import MXNetError
 from mxnet.test_utils import almost_equal, same
@@ -29,6 +32,9 @@ has_gpu = mx.context.num_gpus() > 0
 
 ccl_supported_types = set(['int32', 'int64', 'float32', 'float64'])
 
+# MXNet 1.4.x will kill test MPI process if error occurs during operation enqueue. Skip
+# those tests for versions earlier than 1.5.0.
+_skip_enqueue_errors = LooseVersion(mx.__version__) < LooseVersion('1.5.0')
 
 class MXTests(unittest.TestCase):
     """
@@ -697,11 +703,14 @@ class MXTests(unittest.TestCase):
           tensor = mx.ndarray.empty([size], dtype='float32', ctx=ctx)
 
         try:
-            hvd.alltoall(tensor)
+            output = hvd.alltoall(tensor)
+            output.wait_to_read()
             assert False, 'hvd.alltoall did not throw error'
         except (MXNetError, RuntimeError):
             pass
 
+    @pytest.mark.skipif(_skip_enqueue_errors,
+                        reason="Skip enqueue errors for MXNet version < 1.5.0")
     def test_horovod_alltoall_equal_split_length_error(self):
         """Test that the alltoall with default splitting returns an error if the first dimension
         of tensor is not a multiple of the number of workers."""
@@ -729,6 +738,8 @@ class MXTests(unittest.TestCase):
         except (MXNetError, RuntimeError):
             pass
 
+    @pytest.mark.skipif(_skip_enqueue_errors,
+                        reason="Skip enqueue errors for MXNet version < 1.5.0")
     def test_horovod_alltoall_splits_error(self):
         """Test that the alltoall returns an error if the sum of the splits entries exceeds
         the first dimension of the input tensor."""
@@ -753,6 +764,8 @@ class MXTests(unittest.TestCase):
         except (MXNetError, RuntimeError):
             pass
 
+    @pytest.mark.skipif(_skip_enqueue_errors,
+                        reason="Skip enqueue errors for MXNet version < 1.5.0")
     def test_horovod_alltoall_splits_type_error(self):
         """Test that the alltoall returns an error if the splits tensor does not
            contain 32-bit integers."""
@@ -803,7 +816,8 @@ class MXTests(unittest.TestCase):
         tensor = mx.ndarray.ones(shape=tensor_size, ctx=ctx)
 
         try:
-            hvd.alltoall(tensor)
+            output = hvd.alltoall(tensor)
+            output.wait_to_read()
             assert False, 'hvd.alltoall did not throw error'
         except (MXNetError, RuntimeError):
             pass
