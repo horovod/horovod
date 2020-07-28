@@ -172,17 +172,15 @@ def check_shape_compatibility(metadata, feature_columns, label_columns,
                     .format(col=col, feature=col_size, idx=idx, input=input_size))
 
     label_count = len(label_columns)
-    if label_shapes is not None:
-        if label_count != len(label_shapes):
-            raise ValueError('Label column count {labels} must equal '
-                             'provided label shapes count {outputs}'
-                             .format(labels=label_count, outputs=len(label_shapes)))
+    if label_shapes is not None and label_count != len(label_shapes):
+        raise ValueError('Label column count {labels} must equal '
+                         'provided label shapes count {outputs}'
+                         .format(labels=label_count, outputs=len(label_shapes)))
 
-    if output_shapes is not None:
-        if label_count != len(output_shapes):
-            raise ValueError('Label column count {labels} must equal '
-                             'model outputs count {outputs}'
-                             .format(labels=label_count, outputs=len(output_shapes)))
+    if output_shapes is not None and label_count != len(output_shapes):
+        raise ValueError('Label column count {labels} must equal '
+                         'model outputs count {outputs}'
+                         .format(labels=label_count, outputs=len(output_shapes)))
 
     def _check_label_cols_size(target_shapes, target_name):
         for idx, col, target_shape in zip(range(label_count), label_columns, target_shapes):
@@ -201,6 +199,7 @@ def check_shape_compatibility(metadata, feature_columns, label_columns,
     if label_shapes is not None:
         _check_label_cols_size(label_shapes, 'label')
     elif output_shapes is not None:
+        # Check the label size against the model output shapes only if label_shapes is not provided.
         _check_label_cols_size(output_shapes, 'model output')
 
 
