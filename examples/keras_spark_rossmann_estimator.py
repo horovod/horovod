@@ -19,6 +19,8 @@ import datetime
 import os
 from distutils.version import LooseVersion
 
+from petastorm.spark import SparkDatasetConverter
+
 import pyspark.sql.types as T
 import pyspark.sql.functions as F
 from pyspark import SparkConf, Row
@@ -29,7 +31,6 @@ import tensorflow.keras.backend as K
 from tensorflow.keras.layers import Input, Embedding, Concatenate, Dense, Flatten, Reshape, BatchNormalization, Dropout
 
 import horovod.spark.keras as hvd
-from horovod.spark.common.store import Store
 
 parser = argparse.ArgumentParser(description='Keras Spark Rossmann Estimator Example',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -54,7 +55,7 @@ parser.add_argument('--local-submission-csv', default='submission.csv',
                     help='output submission predictions CSV')
 parser.add_argument('--local-checkpoint-file', default='checkpoint',
                     help='model checkpoint')
-parser.add_argument('--work-dir', default='/tmp',
+parser.add_argument('--work-dir', default='file:///tmp',
                     help='temporary working directory to write intermediate files (prefix with hdfs:// to use HDFS)')
 
 if __name__ == '__main__':
@@ -69,7 +70,9 @@ if __name__ == '__main__':
     print('================')
 
     # Create Spark session for data preparation.
-    conf = SparkConf().setAppName('Keras Spark Rossmann Estimator Example').set('spark.sql.shuffle.partitions', '16')
+    conf = SparkConf().setAppName('Keras Spark Rossmann Estimator Example') \
+        .set('spark.sql.shuffle.partitions', '16') \
+        .set(SparkDatasetConverter.PARENT_CACHE_DIR_URL_CONF, args.work_dir)
     if args.master:
         conf.setMaster(args.master)
     elif args.num_proc:
@@ -363,9 +366,7 @@ if __name__ == '__main__':
     opt = tf.keras.optimizers.Adam(lr=args.learning_rate, epsilon=1e-3)
 
     # Horovod: run training.
-    store = Store.create(args.work_dir)
     keras_estimator = hvd.KerasEstimator(num_proc=args.num_proc,
-                                         store=store,
                                          model=model,
                                          optimizer=opt,
                                          loss='mae',

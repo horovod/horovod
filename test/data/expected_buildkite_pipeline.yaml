@@ -377,7 +377,7 @@ steps:
   agents:
     queue: cpu
 - label: ':spark: Spark Keras Rossmann Estimator (test-cpu-openmpi-py3_6-tf1_14_0-keras2_1_2-torch1_2_0-mxnet1_4_1-pyspark2_3_2)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir file:///work --data-dir file:///data --epochs 3 --sample-rate 0.01"
   plugins:
   - docker-compose#v2.6.0:
       run: test-cpu-openmpi-py3_6-tf1_14_0-keras2_1_2-torch1_2_0-mxnet1_4_1-pyspark2_3_2
@@ -391,7 +391,7 @@ steps:
   agents:
     queue: cpu
 - label: ':spark: Spark Keras MNIST (test-cpu-openmpi-py3_6-tf1_14_0-keras2_1_2-torch1_2_0-mxnet1_4_1-pyspark2_3_2)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_mnist.py --num-proc 2 --work-dir file:///work --data-dir /data --epochs 3"
   plugins:
   - docker-compose#v2.6.0:
       run: test-cpu-openmpi-py3_6-tf1_14_0-keras2_1_2-torch1_2_0-mxnet1_4_1-pyspark2_3_2
@@ -419,7 +419,7 @@ steps:
   agents:
     queue: cpu
 - label: ':spark: Spark Torch MNIST (test-cpu-openmpi-py3_6-tf1_14_0-keras2_1_2-torch1_2_0-mxnet1_4_1-pyspark2_3_2)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir file:///work --data-dir /data --epochs 3"
   plugins:
   - docker-compose#v2.6.0:
       run: test-cpu-openmpi-py3_6-tf1_14_0-keras2_1_2-torch1_2_0-mxnet1_4_1-pyspark2_3_2
@@ -615,7 +615,7 @@ steps:
   agents:
     queue: cpu
 - label: ':spark: Spark Keras Rossmann Estimator (test-cpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir file:///work --data-dir file:///data --epochs 3 --sample-rate 0.01"
   plugins:
   - docker-compose#v2.6.0:
       run: test-cpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0
@@ -629,7 +629,7 @@ steps:
   agents:
     queue: cpu
 - label: ':spark: Spark Keras MNIST (test-cpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_mnist.py --num-proc 2 --work-dir file:///work --data-dir /data --epochs 3"
   plugins:
   - docker-compose#v2.6.0:
       run: test-cpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0
@@ -657,7 +657,7 @@ steps:
   agents:
     queue: cpu
 - label: ':spark: Spark Torch MNIST (test-cpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir file:///work --data-dir /data --epochs 3"
   plugins:
   - docker-compose#v2.6.0:
       run: test-cpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0
@@ -839,7 +839,7 @@ steps:
   agents:
     queue: cpu
 - label: ':spark: Spark Torch MNIST (test-cpu-gloo-py3_7-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir file:///work --data-dir /data --epochs 3"
   plugins:
   - docker-compose#v2.6.0:
       run: test-cpu-gloo-py3_7-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0
@@ -1007,7 +1007,7 @@ steps:
   agents:
     queue: cpu
 - label: ':spark: Spark Torch MNIST (test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark3_0_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir file:///work --data-dir /data --epochs 3"
   plugins:
   - docker-compose#v2.6.0:
       run: test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark3_0_0
@@ -1133,7 +1133,7 @@ steps:
   agents:
     queue: cpu
 - label: ':spark: Spark Torch MNIST (test-cpu-openmpi-py3_6-tf2_0_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir file:///work --data-dir /data --epochs 3"
   plugins:
   - docker-compose#v2.6.0:
       run: test-cpu-openmpi-py3_6-tf2_0_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_0
@@ -1259,7 +1259,7 @@ steps:
   agents:
     queue: cpu
 - label: ':spark: Spark Torch MNIST (test-cpu-openmpi-py3_6-tf2_1_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir file:///work --data-dir /data --epochs 3"
   plugins:
   - docker-compose#v2.6.0:
       run: test-cpu-openmpi-py3_6-tf2_1_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0
@@ -1385,7 +1385,7 @@ steps:
   agents:
     queue: cpu
 - label: ':spark: Spark Torch MNIST (test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir file:///work --data-dir /data --epochs 3"
   plugins:
   - docker-compose#v2.6.0:
       run: test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0
@@ -2185,7 +2185,7 @@ steps:
   agents:
     queue: 2x-gpu-g4
 - label: ':spark: Spark Keras Rossmann Estimator (test-gpu-openmpi-py3_6-tf1_14_0-keras2_1_2-torch1_3_0-mxnet1_4_1-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir file:///work --data-dir file:///data --epochs 3 --sample-rate 0.01"
   plugins:
   - docker-compose#v2.6.0:
       run: test-gpu-openmpi-py3_6-tf1_14_0-keras2_1_2-torch1_3_0-mxnet1_4_1-pyspark2_4_0
@@ -2199,7 +2199,7 @@ steps:
   agents:
     queue: 2x-gpu-g4
 - label: ':spark: Spark Keras MNIST (test-gpu-openmpi-py3_6-tf1_14_0-keras2_1_2-torch1_3_0-mxnet1_4_1-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_mnist.py --num-proc 2 --work-dir file:///work --data-dir /data --epochs 3"
   plugins:
   - docker-compose#v2.6.0:
       run: test-gpu-openmpi-py3_6-tf1_14_0-keras2_1_2-torch1_3_0-mxnet1_4_1-pyspark2_4_0
@@ -2213,7 +2213,7 @@ steps:
   agents:
     queue: 2x-gpu-g4
 - label: ':spark: Spark Torch MNIST (test-gpu-openmpi-py3_6-tf1_14_0-keras2_1_2-torch1_3_0-mxnet1_4_1-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir file:///work --data-dir /data --epochs 3"
   plugins:
   - docker-compose#v2.6.0:
       run: test-gpu-openmpi-py3_6-tf1_14_0-keras2_1_2-torch1_3_0-mxnet1_4_1-pyspark2_4_0
@@ -2339,7 +2339,7 @@ steps:
   agents:
     queue: 2x-gpu-g4
 - label: ':spark: Spark Keras Rossmann Estimator (test-gpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir file:///work --data-dir file:///data --epochs 3 --sample-rate 0.01"
   plugins:
   - docker-compose#v2.6.0:
       run: test-gpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_0
@@ -2353,7 +2353,7 @@ steps:
   agents:
     queue: 2x-gpu-g4
 - label: ':spark: Spark Keras MNIST (test-gpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_mnist.py --num-proc 2 --work-dir file:///work --data-dir /data --epochs 3"
   plugins:
   - docker-compose#v2.6.0:
       run: test-gpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_0
@@ -2367,7 +2367,7 @@ steps:
   agents:
     queue: 2x-gpu-g4
 - label: ':spark: Spark Torch MNIST (test-gpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir file:///work --data-dir /data --epochs 3"
   plugins:
   - docker-compose#v2.6.0:
       run: test-gpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_0
@@ -2619,7 +2619,7 @@ steps:
   agents:
     queue: 2x-gpu-g4
 - label: ':spark: Spark Keras Rossmann Estimator (test-gpu-openmpi-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir file:///work --data-dir file:///data --epochs 3 --sample-rate 0.01"
   plugins:
   - docker-compose#v2.6.0:
       run: test-gpu-openmpi-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_0
@@ -2633,7 +2633,7 @@ steps:
   agents:
     queue: 2x-gpu-g4
 - label: ':spark: Spark Keras MNIST (test-gpu-openmpi-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_mnist.py --num-proc 2 --work-dir file:///work --data-dir /data --epochs 3"
   plugins:
   - docker-compose#v2.6.0:
       run: test-gpu-openmpi-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_0
@@ -2647,7 +2647,7 @@ steps:
   agents:
     queue: 2x-gpu-g4
 - label: ':spark: Spark Torch MNIST (test-gpu-openmpi-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir file:///work --data-dir /data --epochs 3"
   plugins:
   - docker-compose#v2.6.0:
       run: test-gpu-openmpi-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_0
@@ -2717,7 +2717,7 @@ steps:
   agents:
     queue: 2x-gpu-g4
 - label: ':spark: Spark Torch MNIST (test-gpu-openmpi-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_6_0-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir file:///work --data-dir /data --epochs 3"
   plugins:
   - docker-compose#v2.6.0:
       run: test-gpu-openmpi-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_6_0-pyspark2_4_0
@@ -2787,7 +2787,7 @@ steps:
   agents:
     queue: 2x-gpu-g4
 - label: ':spark: Spark Torch MNIST (test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir file:///work --data-dir /data --epochs 3"
   plugins:
   - docker-compose#v2.6.0:
       run: test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0
@@ -2941,7 +2941,7 @@ steps:
   agents:
     queue: 2x-gpu-g4
 - label: ':spark: Spark Keras Rossmann Estimator (test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir file:///work --data-dir file:///data --epochs 3 --sample-rate 0.01"
   plugins:
   - docker-compose#v2.6.0:
       run: test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0
@@ -2955,7 +2955,7 @@ steps:
   agents:
     queue: 2x-gpu-g4
 - label: ':spark: Spark Keras MNIST (test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_mnist.py --num-proc 2 --work-dir file:///work --data-dir /data --epochs 3"
   plugins:
   - docker-compose#v2.6.0:
       run: test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0
@@ -2969,7 +2969,7 @@ steps:
   agents:
     queue: 2x-gpu-g4
 - label: ':spark: Spark Torch MNIST (test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir file:///work --data-dir /data --epochs 3"
   plugins:
   - docker-compose#v2.6.0:
       run: test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0

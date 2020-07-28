@@ -298,11 +298,11 @@ run_spark_integration() {
 
       run_test "${test}" "${queue}" \
         ":spark: Spark Keras Rossmann Estimator (${test})" \
-        "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01\""
+        "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir file:///work --data-dir file:///data --epochs 3 --sample-rate 0.01\""
 
       run_test "${test}" "${queue}" \
         ":spark: Spark Keras MNIST (${test})" \
-        "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
+        "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_mnist.py --num-proc 2 --work-dir file:///work --data-dir /data --epochs 3\""
 
       if [[ ${queue} != *gpu* ]]; then
         run_test "${test}" "${queue}" \
@@ -313,7 +313,7 @@ run_spark_integration() {
 
     run_test "${test}" "${queue}" \
       ":spark: Spark Torch MNIST (${test})" \
-      "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
+      "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir file:///work --data-dir /data --epochs 3\""
   fi
 }
 

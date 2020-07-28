@@ -5,6 +5,8 @@ from distutils.version import LooseVersion
 
 import numpy as np
 
+from petastorm.spark import SparkDatasetConverter
+
 import pyspark
 import pyspark.sql.types as T
 from pyspark import SparkConf
@@ -23,7 +25,6 @@ from tensorflow.keras.layers import Dense, Dropout, Flatten
 from tensorflow.keras.layers import Conv2D, MaxPooling2D
 
 import horovod.spark.keras as hvd
-from horovod.spark.common.store import Store
 
 parser = argparse.ArgumentParser(description='Keras Spark MNIST Example',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -35,7 +36,7 @@ parser.add_argument('--batch-size', type=int, default=128,
                     help='input batch size for training')
 parser.add_argument('--epochs', type=int, default=12,
                     help='number of epochs to train')
-parser.add_argument('--work-dir', default='/tmp',
+parser.add_argument('--work-dir', default='file:///tmp',
                     help='temporary working directory to write intermediate files (prefix with hdfs:// to use HDFS)')
 parser.add_argument('--data-dir', default='/tmp',
                     help='location of the training dataset in the local filesystem (will be downloaded if needed)')
@@ -44,18 +45,17 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Initialize SparkSession
-    conf = SparkConf().setAppName('keras_spark_mnist').set('spark.sql.shuffle.partitions', '16')
+    conf = SparkConf().setAppName('keras_spark_mnist') \
+        .set('spark.sql.shuffle.partitions', '16') \
+        .set(SparkDatasetConverter.PARENT_CACHE_DIR_URL_CONF, args.work_dir)
     if args.master:
         conf.setMaster(args.master)
     elif args.num_proc:
         conf.setMaster('local[{}]'.format(args.num_proc))
     spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
-    # Setup our store for intermediate data
-    store = Store.create(args.work_dir)
-
     # Download MNIST dataset
-    data_url = 'https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/multiclass/mnist.bz2'
+    data_url = 'https://horovod-datasets.s3.amazonaws.com/mnist.bz2'
     libsvm_path = os.path.join(args.data_dir, 'mnist.bz2')
     if not os.path.exists(libsvm_path):
         subprocess.check_output(['wget', data_url, '-O', libsvm_path])
@@ -100,7 +100,6 @@ if __name__ == '__main__':
 
     # Train a Horovod Spark Estimator on the DataFrame
     keras_estimator = hvd.KerasEstimator(num_proc=args.num_proc,
-                                         store=store,
                                          model=model,
                                          optimizer=optimizer,
                                          loss=loss,
