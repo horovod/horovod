@@ -1507,7 +1507,7 @@ mxnet_require_list = ['mxnet>=1.4.1']
 pyspark_require_list = ['pyspark>=2.3.2;python_version<"3.8"',
                         # TODO: change to 'pyspark>=3.0.0' once spark3 is released
                         'pyspark>=3.0.0.dev;python_version>="3.8"']
-spark_require_list = ['h5py>=2.9', 'numpy', 'petastorm>=0.9.0', 'pyarrow>=0.15.0'] + \
+spark_require_list = ['h5py>=2.9', 'numpy', 'petastorm>=0.9.0,!=0.9.3', 'pyarrow>=0.15.0'] + \
                      pyspark_require_list
 # all frameworks' dependencies
 all_frameworks_require_list = tensorflow_require_list + \
