@@ -159,7 +159,7 @@ class ReturnedModelCheckpoint(keras.callbacks.ModelCheckpoint):
                  filepath=None,
                  monitor='val_loss',
                  verbose=0,
-                 save_best_only=True,
+                 save_best_only=False,
                  mode='auto',
                  save_freq='epoch'):
         """

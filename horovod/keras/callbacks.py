@@ -158,7 +158,7 @@ class ReturnedModelCheckpoint(keras.callbacks.ModelCheckpoint):
     def __init__(self, filepath=None,
                  monitor='val_loss',
                  verbose=0,
-                 save_best_only=True,
+                 save_best_only=False,
                  mode='auto',
                  save_freq='epoch'):
         """

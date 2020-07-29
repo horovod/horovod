@@ -364,7 +364,7 @@ if __name__ == '__main__':
     opt = tf.keras.optimizers.Adam(lr=args.learning_rate, epsilon=1e-3)
 
     # Checkpoint callback to specify options for the returned Keras model
-    ckpt_callback = ReturnedModelCheckpoint(monitor='mae', save_best_only=True,
+    ckpt_callback = ReturnedModelCheckpoint(monitor='val_loss', save_best_only=True,
                                             mode='auto', save_freq='epoch')
 
     # Horovod: run training.
