@@ -33,7 +33,7 @@ from horovod.spark.keras import remote
 from horovod.spark.keras.estimator import EstimatorParams
 from horovod.spark.keras.util import _custom_sparse_to_dense_fn, _serialize_param_value, BareKerasUtil, TFKerasUtil
 
-from horovod.tensorflow.keras.callbacks import ReturnedModelCheckpoint
+from horovod.tensorflow.keras.callbacks import BestModelCheckpoint
 
 from common import temppath
 from spark_common import CallbackBackend, create_mnist_data, create_xor_data, local_store, spark_session
@@ -231,6 +231,9 @@ class SparkKerasTests(tf.test.TestCase):
                     predictions = transformer.transform(df)
                 assert predictions.count() == df.count()
 
+    @pytest.mark.skipif(LooseVersion(tf.__version__) == '1.14.0',
+                        reason='This test segfaults with Tensorflow 1.14.0: '
+                               'https://github.com/horovod/horovod/issues/1995')
     @mock.patch('horovod.spark.keras.remote._pin_gpu_fn')
     @mock.patch('horovod.spark.keras.util.TFKerasUtil.fit_fn')
     def test_keras_model_checkpoint_callback(self, mock_fit_fn, mock_pin_gpu_fn):
@@ -247,7 +250,7 @@ class SparkKerasTests(tf.test.TestCase):
                     else:
                         callback.on_epoch_end(0, logs={'binary_crossentropy': 0.3})
 
-                    if checkpoint_callback_provided and isinstance(callback, ReturnedModelCheckpoint):
+                    if checkpoint_callback_provided and isinstance(callback, BestModelCheckpoint):
                         self.assertIsNotNone(callback.filepath)
                         self.assertTrue(callback.save_best_only)
                         self.assertEqual(callback.monitor, 'binary_crossentropy')
@@ -309,8 +312,7 @@ class SparkKerasTests(tf.test.TestCase):
 
                     # Test if checkpoint call back is correctly set to the model
                     mock_fit_fn.return_value = _get_mock_fit_fn(checkpoint_callback_provided=True)
-                    checkpoint_callback = ReturnedModelCheckpoint(monitor='binary_crossentropy',
-                                                                  save_best_only=True)
+                    checkpoint_callback = BestModelCheckpoint(monitor='binary_crossentropy')
                     est = hvd.KerasEstimator(
                         backend=backend,
                         store=store,

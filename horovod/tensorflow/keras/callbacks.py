@@ -154,17 +154,16 @@ class LearningRateWarmupCallback(_impl.LearningRateWarmupCallbackImpl, keras.cal
                                                          steps_per_epoch, verbose, initial_lr)
 
 
-class ReturnedModelCheckpoint(keras.callbacks.ModelCheckpoint):
+class BestModelCheckpoint(keras.callbacks.ModelCheckpoint):
     def __init__(self,
                  monitor='val_loss',
                  verbose=0,
-                 save_best_only=False,
                  mode='auto',
                  save_freq='epoch'):
-        super(ReturnedModelCheckpoint, self).__init__(filepath=None,
-                                                      monitor=monitor,
-                                                      verbose=verbose,
-                                                      save_best_only=save_best_only,
-                                                      save_weights_only=False,
-                                                      mode=mode,
-                                                      save_freq=save_freq)
+        super(BestModelCheckpoint, self).__init__(filepath=None,
+                                                  monitor=monitor,
+                                                  verbose=verbose,
+                                                  save_best_only=True,
+                                                  save_weights_only=False,
+                                                  mode=mode,
+                                                  save_freq=save_freq)
