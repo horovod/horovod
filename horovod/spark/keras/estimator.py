@@ -188,7 +188,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                  validation_steps_per_epoch=None,
                  transformation_fn=None,
                  train_reader_num_workers=None,
-                 val_reader_num_workers=None):
+                 val_reader_num_workers=None,
+                 label_shapes=None):
 
         super(KerasEstimator, self).__init__()
 
@@ -254,7 +255,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                                        self.getFeatureCols(),
                                        self.getLabelCols(),
                                        input_shapes=input_shapes,
-                                       output_shapes=output_shapes)
+                                       output_shapes=output_shapes,
+                                       label_shapes=self.getLabelShapes())
 
     def get_model_shapes(self):
         model = self.getModel()

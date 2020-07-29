@@ -1431,6 +1431,18 @@ class SparkTests(unittest.TestCase):
                 util.check_shape_compatibility(metadata, feature_columns, label_columns,
                                                input_shapes, output_shapes)
 
+                input_shapes = [[1], [1], [-1, 3, 4]]
+                label_shapes = [[1], [-1, 3, 4]]
+                util.check_shape_compatibility(metadata, feature_columns, label_columns,
+                                               input_shapes, output_shapes, label_shapes)
+
+                # The case where label_shapes is different from output_shapes
+                input_shapes = [[1], [1], [-1, 3, 4]]
+                output_shapes = [[1, 1], [-1, 2, 3, 2]]
+                label_shapes = [[1], [-1, 3, 4]]
+                util.check_shape_compatibility(metadata, feature_columns, label_columns,
+                                               input_shapes, output_shapes, label_shapes)
+
                 bad_input_shapes = [[1], [1], [-1, 3, 5]]
                 with pytest.raises(ValueError):
                     util.check_shape_compatibility(metadata, feature_columns, label_columns,
@@ -1445,6 +1457,12 @@ class SparkTests(unittest.TestCase):
                 with pytest.raises(ValueError):
                     util.check_shape_compatibility(metadata, feature_columns, label_columns,
                                                    input_shapes, bad_output_shapes)
+
+                input_shapes = [[1], [1], [-1, 3, 4]]
+                bad_label_shapes = [[-1, 3, 4]]
+                with pytest.raises(ValueError):
+                    util.check_shape_compatibility(metadata, feature_columns, label_columns,
+                                                   input_shapes, output_shapes, bad_label_shapes)
 
     @mock.patch('horovod.spark.common.store.HDFSStore._get_filesystem_fn')
     def test_sync_hdfs_store(self, mock_get_fs_fn):
