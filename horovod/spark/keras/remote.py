@@ -150,10 +150,11 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
 
                 # This callback checkpoints the model that ultimately is wrapped and returned after
                 # Estimator.fit is called.
-                _checkpoint_callback = checkpoint_callback if checkpoint_callback \
-                    else hvd.callbacks.ReturnedModelCheckpoint(ckpt_file)
-                if _checkpoint_callback.filepath is None:
+                _checkpoint_callback = checkpoint_callback
+                if _checkpoint_callback:
                     _checkpoint_callback.filepath = ckpt_file
+                else:
+                    _checkpoint_callback = k.callbacks.ModelCheckpoint(ckpt_file)
                 callbacks.append(_checkpoint_callback)
 
                 if remote_store.saving_runs:
