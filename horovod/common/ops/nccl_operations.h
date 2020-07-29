@@ -20,7 +20,7 @@
 
 #if HAVE_CUDA
 #include <nccl.h>
-#if NCCL_VERSION_CODE >= 2700
+#if NCCL_VERSION_CODE >= NCCL_VERSION(2, 7, 0)
 #define NCCL_P2P_SUPPORTED
 #endif
 #elif HAVE_ROCM

@@ -1376,10 +1376,6 @@ class TensorFlowTests(tf.test.TestCase):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
-        # This test does not apply if using gloo controller
-        if hvd.gloo_enabled():
-            self.skipTest("Alltoall currently does not support Gloo controller.")
-
         hvd.init()
         rank = hvd.rank()
         local_rank = hvd.local_rank()

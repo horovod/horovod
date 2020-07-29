@@ -586,7 +586,11 @@ Status NCCLAlltoall::Execute(std::vector<TensorTableEntry>& entries,
 
   return gpu_op_context_.FinalizeGPUQueue(entries);
 #else
-  throw std::runtime_error("NCCLAlltoall requires NCCL version >= 2.7.0.");
+  throw std::runtime_error("NCCLAlltoall requires NCCL version >= 2.7.0. If your NCCL installation cannot be updated "
+                           "and you installed with HOROVOD_GPU_OPERATIONS=NCCL, reinstall with only supported "
+                           "operations individually specified (i.e. HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_BROADCAST=NCCL "
+                           "HOROVOD_GPU_ALLGATHER=NCCL). Otherwise, exclude HOROVOD_GPU_ALLTOALL=NCCL from your "
+                           "installation command.");
 #endif
 }
 
