@@ -33,8 +33,6 @@ from horovod.spark.keras import remote
 from horovod.spark.keras.estimator import EstimatorParams
 from horovod.spark.keras.util import _custom_sparse_to_dense_fn, _serialize_param_value, BareKerasUtil, TFKerasUtil
 
-# from horovod.tensorflow.keras.callbacks import BestModelCheckpoint
-
 from common import temppath
 from spark_common import CallbackBackend, create_mnist_data, create_xor_data, local_store, spark_session
 
@@ -138,199 +136,201 @@ class SparkKerasTests(tf.test.TestCase):
                     row = preds[0]
                     label_prob = row.label_prob.toArray().tolist()
                     assert label_prob[int(row.label_pred)] == max(label_prob)
-    #
-    # @pytest.mark.skipif(LooseVersion(tf.__version__) == LooseVersion('1.14.0'),
-    #                     reason='This test segfaults with Tensorflow 1.14.0: '
-    #                            'https://github.com/horovod/horovod/issues/1995')
-    # @mock.patch('horovod.spark.keras.remote._pin_gpu_fn')
-    # @mock.patch('horovod.spark.keras.util.TFKerasUtil.fit_fn')
-    # def test_restore_from_checkpoint(self, mock_fit_fn, mock_pin_gpu_fn):
-    #     mock_fit_fn.return_value = get_mock_fit_fn()
-    #     mock_pin_gpu_fn.return_value = mock.Mock()
-    #
-    #     model = create_xor_model()
-    #     optimizer = tf.keras.optimizers.SGD(lr=0.1)
-    #     loss = 'binary_crossentropy'
-    #
-    #     with spark_session('test_restore_from_checkpoint') as spark:
-    #         df = create_xor_data(spark)
-    #
-    #         backend = CallbackBackend()
-    #
-    #         run_id = 'run01'
-    #         with local_store() as store:
-    #             keras_estimator = hvd.KerasEstimator(
-    #                 backend=backend,
-    #                 store=store,
-    #                 model=model,
-    #                 optimizer=optimizer,
-    #                 loss=loss,
-    #                 feature_cols=['features'],
-    #                 label_cols=['y'],
-    #                 batch_size=1,
-    #                 epochs=3,
-    #                 verbose=2,
-    #                 run_id=run_id)
-    #
-    #             keras_estimator._load_model_from_checkpoint = mock.Mock(
-    #                 side_effect=keras_estimator._load_model_from_checkpoint)
-    #
-    #             ckpt_path = store.get_checkpoint_path(run_id)
-    #             assert not store.exists(ckpt_path)
-    #             keras_estimator._load_model_from_checkpoint.assert_not_called()
-    #             keras_model = keras_estimator.fit(df)
-    #
-    #             trained_model = keras_model.getModel()
-    #             pred = trained_model.predict([np.ones([1, 2], dtype=np.float64)])
-    #             assert len(pred) == 1
-    #
-    #             assert store.exists(ckpt_path)
-    #
-    #             keras_estimator.fit(df)
-    #             keras_estimator._load_model_from_checkpoint.assert_called()
-    #
-    # @pytest.mark.skipif(LooseVersion(tf.__version__) == LooseVersion('1.14.0'),
-    #                     reason='This test segfaults with Tensorflow 1.14.0: '
-    #                            'https://github.com/horovod/horovod/issues/1995')
-    # @mock.patch('horovod.spark.keras.remote._pin_gpu_fn')
-    # @mock.patch('horovod.spark.keras.util.TFKerasUtil.fit_fn')
-    # def test_keras_direct_parquet_train(self, mock_fit_fn, mock_pin_gpu_fn):
-    #     mock_fit_fn.return_value = get_mock_fit_fn()
-    #     mock_pin_gpu_fn.return_value = mock.Mock()
-    #
-    #     with spark_session('test_keras_direct_parquet_train') as spark:
-    #         df = create_xor_data(spark)
-    #
-    #         backend = CallbackBackend()
-    #         with local_store() as store:
-    #             store.get_train_data_path = lambda v=None: store._train_path
-    #             store.get_val_data_path = lambda v=None: store._val_path
-    #
-    #             with util.prepare_data(backend.num_processes(),
-    #                                    store,
-    #                                    df,
-    #                                    feature_columns=['features'],
-    #                                    label_columns=['y']):
-    #                 model = create_xor_model()
-    #                 optimizer = tf.keras.optimizers.SGD(lr=0.1)
-    #                 loss = 'binary_crossentropy'
-    #
-    #                 est = hvd.KerasEstimator(
-    #                     backend=backend,
-    #                     store=store,
-    #                     model=model,
-    #                     optimizer=optimizer,
-    #                     loss=loss,
-    #                     feature_cols=['features'],
-    #                     label_cols=['y'],
-    #                     batch_size=1,
-    #                     epochs=3,
-    #                     verbose=2)
-    #
-    #                 transformer = est.fit_on_parquet()
-    #                 predictions = transformer.transform(df)
-    #             assert predictions.count() == df.count()
 
-#     @pytest.mark.skipif(LooseVersion(tf.__version__) == LooseVersion('1.14.0'),
-#                         reason='This test segfaults with Tensorflow 1.14.0: '
-#                                'https://github.com/horovod/horovod/issues/1995')
-#     @mock.patch('horovod.spark.keras.remote._pin_gpu_fn')
-#     @mock.patch('horovod.spark.keras.util.TFKerasUtil.fit_fn')
-#     def test_keras_model_checkpoint_callback(self, mock_fit_fn, mock_pin_gpu_fn):
-#
-#         def _get_mock_fit_fn(checkpoint_callback_provided):
-#             def fit(model, train_data, val_data, steps_per_epoch, validation_steps, callbacks,
-#                     verbose):
-#                 returned_model_checkpoint_present = False
-#                 model_checkpoint_present = False
-#                 for callback in callbacks:
-#                     callback.set_model(model)
-#                     if checkpoint_callback_provided:
-#                         callback.on_epoch_end(0, logs={'binary_crossentropy': 0.3})
-#                     else:
-#                         callback.on_epoch_end(0, logs={'binary_crossentropy': 0.3})
-#
-#                     if checkpoint_callback_provided and isinstance(callback, BestModelCheckpoint):
-#                         self.assertIsNotNone(callback.filepath)
-#                         self.assertTrue(callback.save_best_only)
-#                         self.assertEqual(callback.monitor, 'binary_crossentropy')
-#                         returned_model_checkpoint_present = True
-#
-#                     if not checkpoint_callback_provided and isinstance(callback, tf.keras.callbacks.ModelCheckpoint):
-#                         self.assertFalse(callback.save_best_only)
-#                         self.assertFalse(callback.save_best_only)
-#                         self.assertEqual(callback.monitor, 'val_loss')
-#                         model_checkpoint_present = True
-#
-#                 if checkpoint_callback_provided:
-#                     self.assertTrue(returned_model_checkpoint_present)
-#                     self.assertFalse(model_checkpoint_present)
-#                 else:
-#                     self.assertFalse(returned_model_checkpoint_present)
-#                     self.assertTrue(model_checkpoint_present)
-#
-#                 return mock.Mock()
-#
-#             return fit
-#
-#         mock_pin_gpu_fn.return_value = mock.Mock()
-#
-#         with spark_session('test_keras_model_chekcpoint_callbacks') as spark:
-#             df = create_xor_data(spark)
-#
-#             backend = CallbackBackend()
-#             with local_store() as store:
-#                 store.get_train_data_path = lambda v=None: store._train_path
-#                 store.get_val_data_path = lambda v=None: store._val_path
-#
-#                 with util.prepare_data(backend.num_processes(),
-#                                        store,
-#                                        df,
-#                                        feature_columns=['features'],
-#                                        label_columns=['y']):
-#                     model = create_xor_model()
-#                     optimizer = tf.keras.optimizers.SGD(lr=0.1)
-#                     loss = 'binary_crossentropy'
-#
-#                     # Test when the checkpoint callback is not set, the correct one is created
-#                     mock_fit_fn.return_value = _get_mock_fit_fn(checkpoint_callback_provided=False)
-#                     est = hvd.KerasEstimator(
-#                         backend=backend,
-#                         store=store,
-#                         model=model,
-#                         optimizer=optimizer,
-#                         loss=loss,
-#                         feature_cols=['features'],
-#                         label_cols=['y'],
-#                         batch_size=1,
-#                         epochs=3,
-#                         verbose=2)
-#
-#                     transformer = est.fit_on_parquet()
-#                     predictions = transformer.transform(df)
-#                     assert predictions.count() == df.count()
-#
-#                     # Test if checkpoint call back is correctly set to the model
-#                     mock_fit_fn.return_value = _get_mock_fit_fn(checkpoint_callback_provided=True)
-#                     checkpoint_callback = BestModelCheckpoint(monitor='binary_crossentropy')
-#                     est = hvd.KerasEstimator(
-#                         backend=backend,
-#                         store=store,
-#                         model=model,
-#                         optimizer=optimizer,
-#                         loss=loss,
-#                         feature_cols=['features'],
-#                         label_cols=['y'],
-#                         batch_size=1,
-#                         epochs=3,
-#                         verbose=2,
-#                         checkpoint_callback=checkpoint_callback)
-#
-#                     transformer = est.fit_on_parquet()
-#                     predictions = transformer.transform(df)
-#                     assert predictions.count() == df.count()
-#
-#
+    @pytest.mark.skipif(LooseVersion(tf.__version__) == LooseVersion('1.14.0'),
+                        reason='This test segfaults with Tensorflow 1.14.0: '
+                               'https://github.com/horovod/horovod/issues/1995')
+    @mock.patch('horovod.spark.keras.remote._pin_gpu_fn')
+    @mock.patch('horovod.spark.keras.util.TFKerasUtil.fit_fn')
+    def test_restore_from_checkpoint(self, mock_fit_fn, mock_pin_gpu_fn):
+        mock_fit_fn.return_value = get_mock_fit_fn()
+        mock_pin_gpu_fn.return_value = mock.Mock()
+
+        model = create_xor_model()
+        optimizer = tf.keras.optimizers.SGD(lr=0.1)
+        loss = 'binary_crossentropy'
+
+        with spark_session('test_restore_from_checkpoint') as spark:
+            df = create_xor_data(spark)
+
+            backend = CallbackBackend()
+
+            run_id = 'run01'
+            with local_store() as store:
+                keras_estimator = hvd.KerasEstimator(
+                    backend=backend,
+                    store=store,
+                    model=model,
+                    optimizer=optimizer,
+                    loss=loss,
+                    feature_cols=['features'],
+                    label_cols=['y'],
+                    batch_size=1,
+                    epochs=3,
+                    verbose=2,
+                    run_id=run_id)
+
+                keras_estimator._load_model_from_checkpoint = mock.Mock(
+                    side_effect=keras_estimator._load_model_from_checkpoint)
+
+                ckpt_path = store.get_checkpoint_path(run_id)
+                assert not store.exists(ckpt_path)
+                keras_estimator._load_model_from_checkpoint.assert_not_called()
+                keras_model = keras_estimator.fit(df)
+
+                trained_model = keras_model.getModel()
+                pred = trained_model.predict([np.ones([1, 2], dtype=np.float64)])
+                assert len(pred) == 1
+
+                assert store.exists(ckpt_path)
+
+                keras_estimator.fit(df)
+                keras_estimator._load_model_from_checkpoint.assert_called()
+
+    @pytest.mark.skipif(LooseVersion(tf.__version__) == LooseVersion('1.14.0'),
+                        reason='This test segfaults with Tensorflow 1.14.0: '
+                               'https://github.com/horovod/horovod/issues/1995')
+    @mock.patch('horovod.spark.keras.remote._pin_gpu_fn')
+    @mock.patch('horovod.spark.keras.util.TFKerasUtil.fit_fn')
+    def test_keras_direct_parquet_train(self, mock_fit_fn, mock_pin_gpu_fn):
+        mock_fit_fn.return_value = get_mock_fit_fn()
+        mock_pin_gpu_fn.return_value = mock.Mock()
+
+        with spark_session('test_keras_direct_parquet_train') as spark:
+            df = create_xor_data(spark)
+
+            backend = CallbackBackend()
+            with local_store() as store:
+                store.get_train_data_path = lambda v=None: store._train_path
+                store.get_val_data_path = lambda v=None: store._val_path
+
+                with util.prepare_data(backend.num_processes(),
+                                       store,
+                                       df,
+                                       feature_columns=['features'],
+                                       label_columns=['y']):
+                    model = create_xor_model()
+                    optimizer = tf.keras.optimizers.SGD(lr=0.1)
+                    loss = 'binary_crossentropy'
+
+                    est = hvd.KerasEstimator(
+                        backend=backend,
+                        store=store,
+                        model=model,
+                        optimizer=optimizer,
+                        loss=loss,
+                        feature_cols=['features'],
+                        label_cols=['y'],
+                        batch_size=1,
+                        epochs=3,
+                        verbose=2)
+
+                    transformer = est.fit_on_parquet()
+                    predictions = transformer.transform(df)
+                assert predictions.count() == df.count()
+
+    @pytest.mark.skipif(LooseVersion(tf.__version__) == LooseVersion('1.14.0'),
+                        reason='This test segfaults with Tensorflow 1.14.0: '
+                               'https://github.com/horovod/horovod/issues/1995')
+    @mock.patch('horovod.spark.keras.remote._pin_gpu_fn')
+    @mock.patch('horovod.spark.keras.util.TFKerasUtil.fit_fn')
+    def test_keras_model_checkpoint_callback(self, mock_fit_fn, mock_pin_gpu_fn):
+        # Importing this outside of the test function leads to a segmentation fault in the
+        # pytest with tf 1.14
+        from horovod.tensorflow.keras.callbacks import BestModelCheckpoint
+        def _get_mock_fit_fn(checkpoint_callback_provided):
+            def fit(model, train_data, val_data, steps_per_epoch, validation_steps, callbacks,
+                    verbose):
+                returned_model_checkpoint_present = False
+                model_checkpoint_present = False
+                for callback in callbacks:
+                    callback.set_model(model)
+                    if checkpoint_callback_provided:
+                        callback.on_epoch_end(0, logs={'binary_crossentropy': 0.3})
+                    else:
+                        callback.on_epoch_end(0, logs={'binary_crossentropy': 0.3})
+
+                    if checkpoint_callback_provided and isinstance(callback, BestModelCheckpoint):
+                        self.assertIsNotNone(callback.filepath)
+                        self.assertTrue(callback.save_best_only)
+                        self.assertEqual(callback.monitor, 'binary_crossentropy')
+                        returned_model_checkpoint_present = True
+
+                    if not checkpoint_callback_provided and isinstance(callback, tf.keras.callbacks.ModelCheckpoint):
+                        self.assertFalse(callback.save_best_only)
+                        self.assertFalse(callback.save_best_only)
+                        self.assertEqual(callback.monitor, 'val_loss')
+                        model_checkpoint_present = True
+
+                if checkpoint_callback_provided:
+                    self.assertTrue(returned_model_checkpoint_present)
+                    self.assertFalse(model_checkpoint_present)
+                else:
+                    self.assertFalse(returned_model_checkpoint_present)
+                    self.assertTrue(model_checkpoint_present)
+
+                return mock.Mock()
+
+            return fit
+
+        mock_pin_gpu_fn.return_value = mock.Mock()
+
+        with spark_session('test_keras_model_chekcpoint_callbacks') as spark:
+            df = create_xor_data(spark)
+
+            backend = CallbackBackend()
+            with local_store() as store:
+                store.get_train_data_path = lambda v=None: store._train_path
+                store.get_val_data_path = lambda v=None: store._val_path
+
+                with util.prepare_data(backend.num_processes(),
+                                       store,
+                                       df,
+                                       feature_columns=['features'],
+                                       label_columns=['y']):
+                    model = create_xor_model()
+                    optimizer = tf.keras.optimizers.SGD(lr=0.1)
+                    loss = 'binary_crossentropy'
+
+                    # Test when the checkpoint callback is not set, the correct one is created
+                    mock_fit_fn.return_value = _get_mock_fit_fn(checkpoint_callback_provided=False)
+                    est = hvd.KerasEstimator(
+                        backend=backend,
+                        store=store,
+                        model=model,
+                        optimizer=optimizer,
+                        loss=loss,
+                        feature_cols=['features'],
+                        label_cols=['y'],
+                        batch_size=1,
+                        epochs=3,
+                        verbose=2)
+
+                    transformer = est.fit_on_parquet()
+                    predictions = transformer.transform(df)
+                    assert predictions.count() == df.count()
+
+                    # Test if checkpoint call back is correctly set to the model
+                    mock_fit_fn.return_value = _get_mock_fit_fn(checkpoint_callback_provided=True)
+                    checkpoint_callback = BestModelCheckpoint(monitor='binary_crossentropy')
+                    est = hvd.KerasEstimator(
+                        backend=backend,
+                        store=store,
+                        model=model,
+                        optimizer=optimizer,
+                        loss=loss,
+                        feature_cols=['features'],
+                        label_cols=['y'],
+                        batch_size=1,
+                        epochs=3,
+                        verbose=2,
+                        checkpoint_callback=checkpoint_callback)
+
+                    transformer = est.fit_on_parquet()
+                    predictions = transformer.transform(df)
+                    assert predictions.count() == df.count()
+
+
     @mock.patch('horovod.spark.keras.estimator.remote.RemoteTrainer')
     def test_model_serialization(self, mock_remote_trainer):
         model = create_xor_model()
