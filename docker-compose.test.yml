@@ -206,7 +206,7 @@ services:
       args:
         CUDA_DOCKER_VERSION: 10.1-devel-ubuntu18.04
         CUDNN_VERSION: 7.6.5.32-1+cuda10.1
-        NCCL_VERSION_OVERRIDE: 2.4.8-1+cuda10.1
+        NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda10.1
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.2.0
@@ -222,7 +222,7 @@ services:
       args:
         CUDA_DOCKER_VERSION: 10.1-devel-ubuntu18.04
         CUDNN_VERSION: 7.6.5.32-1+cuda10.1
-        NCCL_VERSION_OVERRIDE: 2.4.8-1+cuda10.1
+        NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda10.1
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
         TENSORFLOW_PACKAGE: tf-nightly-gpu
