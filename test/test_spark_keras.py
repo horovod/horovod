@@ -33,7 +33,7 @@ from horovod.spark.keras import remote
 from horovod.spark.keras.estimator import EstimatorParams
 from horovod.spark.keras.util import _custom_sparse_to_dense_fn, _serialize_param_value, BareKerasUtil, TFKerasUtil
 
-from horovod.tensorflow.keras.callbacks import BestModelCheckpoint
+# from horovod.tensorflow.keras.callbacks import BestModelCheckpoint
 
 from common import temppath
 from spark_common import CallbackBackend, create_mnist_data, create_xor_data, local_store, spark_session
