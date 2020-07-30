@@ -330,7 +330,6 @@ class SparkKerasTests(tf.test.TestCase):
                     predictions = transformer.transform(df)
                     assert predictions.count() == df.count()
 
-
     @mock.patch('horovod.spark.keras.estimator.remote.RemoteTrainer')
     def test_model_serialization(self, mock_remote_trainer):
         model = create_xor_model()
