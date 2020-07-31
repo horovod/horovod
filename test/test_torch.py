@@ -387,7 +387,7 @@ class TorchTests(unittest.TestCase):
         if not torch.cuda.is_available():
             self.skipTest("No GPUs available")
 
-        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 

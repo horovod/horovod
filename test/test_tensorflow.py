@@ -252,7 +252,7 @@ class TensorFlowTests(tf.test.TestCase):
         if not tf.test.is_gpu_available(cuda_only=True):
             self.skipTest(("No GPUs available"))
 
-        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
@@ -290,7 +290,7 @@ class TensorFlowTests(tf.test.TestCase):
         if not tf.test.is_gpu_available(cuda_only=True):
             self.skipTest(("No GPUs available"))
 
-        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
@@ -331,7 +331,7 @@ class TensorFlowTests(tf.test.TestCase):
         if not tf.test.is_gpu_available(cuda_only=True):
             self.skipTest(("No GPUs available"))
 
-        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
@@ -380,7 +380,7 @@ class TensorFlowTests(tf.test.TestCase):
         if len(tf.config.experimental.list_physical_devices('GPU')) < 2:
             self.skipTest(("Too few GPUs available"))
 
-        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
@@ -467,7 +467,7 @@ class TensorFlowTests(tf.test.TestCase):
         if not tf.test.is_gpu_available(cuda_only=True):
             self.skipTest(("No GPUs available"))
 
-        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
@@ -561,7 +561,7 @@ class TensorFlowTests(tf.test.TestCase):
         if not tf.test.is_gpu_available(cuda_only=True):
             self.skipTest(("No GPUs available"))
 
-        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
@@ -603,7 +603,7 @@ class TensorFlowTests(tf.test.TestCase):
         if not tf.test.is_gpu_available(cuda_only=True):
             self.skipTest(("No GPUs available"))
 
-        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
@@ -683,7 +683,7 @@ class TensorFlowTests(tf.test.TestCase):
         if not tf.test.is_gpu_available(cuda_only=True):
             self.skipTest(("No GPUs available"))
 
-        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
@@ -780,7 +780,7 @@ class TensorFlowTests(tf.test.TestCase):
         if not tf.test.is_gpu_available(cuda_only=True):
             self.skipTest(("No GPUs available"))
 
-        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
@@ -1147,7 +1147,7 @@ class TensorFlowTests(tf.test.TestCase):
         if not tf.test.is_gpu_available(cuda_only=True):
             self.skipTest(("No GPUs available"))
 
-        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
@@ -1240,7 +1240,7 @@ class TensorFlowTests(tf.test.TestCase):
         if not tf.test.is_gpu_available(cuda_only=True):
             self.skipTest(("No GPUs available"))
 
-        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
@@ -1259,14 +1259,14 @@ class TensorFlowTests(tf.test.TestCase):
         dims = [1, 2, 3]
         root_ranks = list(range(size))
         for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
+            tensor = tf.ones([17] * dim) * rank
+            root_tensor = tf.ones([17] * dim) * root_rank
+            if dtype == tf.bool:
+                tensor = tensor % 2
+                root_tensor = root_tensor % 2
+            tensor = tf.cast(tensor, dtype=dtype)
+            root_tensor = tf.cast(root_tensor, dtype=dtype)
             with tf.device("/gpu:%d" % local_rank):
-                tensor = tf.ones([17] * dim) * rank
-                root_tensor = tf.ones([17] * dim) * root_rank
-                if dtype == tf.bool:
-                    tensor = tensor % 2
-                    root_tensor = root_tensor % 2
-                tensor = tf.cast(tensor, dtype=dtype)
-                root_tensor = tf.cast(root_tensor, dtype=dtype)
                 broadcasted_tensor = hvd.broadcast(tensor, root_rank)
             self.assertTrue(
                 self.evaluate(tf.reduce_all(tf.equal(
@@ -1370,7 +1370,7 @@ class TensorFlowTests(tf.test.TestCase):
         if not tf.test.is_gpu_available(cuda_only=True):
             self.skipTest(("No GPUs available"))
 
-        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
@@ -1576,7 +1576,7 @@ class TensorFlowTests(tf.test.TestCase):
         if not tf.test.is_gpu_available(cuda_only=True):
             self.skipTest(("No GPUs available"))
 
-        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
             self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
 

@@ -213,7 +213,7 @@ class MXTests(unittest.TestCase):
     def test_horovod_allreduce_cpu_gpu_error(self):
         """Test that the allreduce raises an error if different ranks try to
            perform reduction on CPU and GPU."""
-        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
