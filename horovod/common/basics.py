@@ -191,12 +191,14 @@ class HorovodBasics(object):
         return bool(self.MPI_LIB_CTYPES.horovod_gloo_built())
 
     def nccl_built(self):
-        """Returns True if Horovod was compiled with NCCL support.
+        """Function to check if Horovod was compiled with NCCL support.
 
         Returns:
-          A boolean value indicating whether NCCL support was compiled.
+          An integer value indicating whether NCCL support was compiled.
+          If NCCL support was compiled, returns NCCL_VERSION_CODE. Otherwise,
+          returns 0.
         """
-        return bool(self.MPI_LIB_CTYPES.horovod_nccl_built())
+        return int(self.MPI_LIB_CTYPES.horovod_nccl_built())
 
     def ddl_built(self):
         """Returns True if Horovod was compiled with DDL support.

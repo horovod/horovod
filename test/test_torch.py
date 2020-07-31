@@ -1,5 +1,6 @@
 # Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
 # Modifications copyright (C) 2019 Intel Corporation
+# Modifications copyright (C) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -879,6 +880,306 @@ class TorchTests(unittest.TestCase):
 
             c = size if rank == root_rank else 0
             expected = np.ones([17] * dim) * c
+            err = np.linalg.norm(expected - grad_out)
+            self.assertLess(err, 0.00000001,
+                            "gradient %s differs from expected %s, "
+                            "error: %s" % (grad_out, expected, str(err)))
+
+    def test_horovod_alltoall(self):
+        """Test that the alltoall correctly distributes 1D, 2D, and 3D tensors."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if using gloo controller
+        if hvd.gloo_enabled():
+            self.skipTest("Alltoall currently does not support Gloo controller.")
+
+        # This test does not apply if NCCL version < 2.7.0
+        if hvd.nccl_built() and hvd.nccl_built() < 2700:
+            self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
+
+        dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
+                  torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor,
+                  torch.HalfTensor]
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
+                       torch.cuda.IntTensor, torch.cuda.LongTensor,
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            vals = []
+            for i in range(size):
+              vals += [i] * (rank + 1)
+
+            tensor = torch.Tensor(vals)
+            for _ in range(dim - 1):
+              tensor = tensor.unsqueeze(1)
+              tensor = torch.cat((tensor, tensor), dim=1)
+
+            splits = torch.tensor([rank + 1] * size, dtype=torch.int32)
+            tensor = self.cast_and_place(tensor, dtype)
+            collected = hvd.alltoall(tensor, splits)
+            tensor, collected = self.convert_cpu_fp16_to_fp32(tensor, collected)
+
+            assert collected.data.min() == rank, 'hvd.alltoall produces incorrect collected tensor'
+            assert collected.data.max() == rank, 'hvd.alltoall produces incorrect collected tensor'
+            assert collected.numel() == size * (size + 1) // 2 * 2**(dim - 1), 'hvd.alltoall collected wrong number of values'
+
+    def test_horovod_alltoall_equal_split(self):
+        """Test that the alltoall correctly distributes 1D tensors with default splitting."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+        # This test does not apply if using gloo controller
+        if hvd.gloo_enabled():
+            self.skipTest("Alltoall currently does not support Gloo controller.")
+
+        # This test does not apply if NCCL version < 2.7.0
+        if hvd.nccl_built() and hvd.nccl_built() < 2700:
+            self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
+
+        dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
+                  torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor,
+                  torch.HalfTensor]
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
+                       torch.cuda.IntTensor, torch.cuda.LongTensor,
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            vals = []
+            for i in range(size):
+              vals += [i] * (rank + 1)
+
+            tensor = torch.Tensor(vals)
+            for _ in range(dim - 1):
+              tensor = tensor.unsqueeze(1)
+              tensor = torch.cat((tensor, tensor), dim=1)
+
+            tensor = self.cast_and_place(tensor, dtype)
+            collected = hvd.alltoall(tensor)
+            tensor, collected = self.convert_cpu_fp16_to_fp32(tensor, collected)
+
+            assert collected.data.min() == rank, 'hvd.alltoall produces incorrect collected tensor'
+            assert collected.data.max() == rank, 'hvd.alltoall produces incorrect collected tensor'
+            assert collected.numel() == size * (size + 1) // 2 * 2**(dim - 1), 'hvd.alltoall collected wrong number of values'
+
+    def test_horovod_alltoall_type_error(self):
+        """Test that the alltoall returns an error if the tensor types differ
+           across the processes."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            self.skipTest("Only one worker available")
+
+        # This test does not apply if using gloo controller
+        if hvd.gloo_enabled():
+            self.skipTest("Alltoall currently does not support Gloo controller.")
+
+        # This test does not apply if NCCL version < 2.7.0
+        if hvd.nccl_built() and hvd.nccl_built() < 2700:
+            self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
+
+        if rank % 2:
+            tensor = torch.empty(size, dtype=torch.int32)
+        else:
+            tensor = torch.empty(size, dtype=torch.float32)
+        try:
+            hvd.alltoall(tensor)
+            assert False, 'hvd.alltoall did not throw error'
+        except (torch.FatalError, RuntimeError):
+            pass
+
+    def test_horovod_alltoall_equal_split_length_error(self):
+        """Test that the alltoall with default splitting returns an error if the tensor length is not a multiple
+        of the number of workers."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            self.skipTest("Only one worker available")
+
+        # This test does not apply if using gloo controller
+        if hvd.gloo_enabled():
+            self.skipTest("Alltoall currently does not support Gloo controller.")
+
+        # This test does not apply if NCCL version < 2.7.0
+        if hvd.nccl_built() and hvd.nccl_built() < 2700:
+            self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
+
+        tensor = torch.empty(size + 1)
+        try:
+            hvd.alltoall(tensor)
+            assert False, 'hvd.alltoall did not throw error'
+        except (torch.FatalError, ValueError):
+            pass
+
+    def test_horovod_alltoall_splits_error(self):
+        """Test that the alltoall returns an error if the sum of the splits entries exceeds
+        the first dimension of the input tensor."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if using gloo controller
+        if hvd.gloo_enabled():
+            self.skipTest("Alltoall currently does not support Gloo controller.")
+
+        # This test does not apply if NCCL version < 2.7.0
+        if hvd.nccl_built() and hvd.nccl_built() < 2700:
+            self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
+
+        tensor = torch.empty(size - 1)
+        splits = torch.ones(size, dtype=torch.int32)
+        try:
+            hvd.alltoall(tensor, splits)
+            assert False, 'hvd.alltoall did not throw error'
+        except (torch.FatalError, ValueError):
+            pass
+
+    def test_horovod_alltoall_splits_type_error(self):
+        """Test that the alltoall returns an error if the splits tensor does not
+           contain 32-bit integers."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if using gloo controller
+        if hvd.gloo_enabled():
+            self.skipTest("Alltoall currently does not support Gloo controller.")
+
+        # This test does not apply if NCCL version < 2.7.0
+        if hvd.nccl_built() and hvd.nccl_built() < 2700:
+            self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
+
+        tensor = torch.empty(size)
+        splits = torch.empty(size, dtype=torch.float32)
+        try:
+            hvd.alltoall(tensor, splits)
+            assert False, 'hvd.alltoall did not throw error'
+        except (torch.FatalError, ValueError):
+            pass
+
+    def test_horovod_alltoall_rank_error(self):
+        """Test that the alltoall returns an error if any dimension besides
+        the first is different among the tensors being processed."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            self.skipTest("Only one worker available")
+
+        # This test does not apply if using gloo controller
+        if hvd.gloo_enabled():
+            self.skipTest("Alltoall currently does not support Gloo controller.")
+
+        # This test does not apply if NCCL version < 2.7.0
+        if hvd.nccl_built() and hvd.nccl_built() < 2700:
+            self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
+
+        tensor_size = [2 * size] * 3
+        tensor_size[1] = 10 * (rank + 1)
+        tensor = torch.ones(tensor_size)
+
+        try:
+            hvd.alltoall(tensor)
+            assert False, 'hvd.alltoall did not throw error'
+        except (torch.FatalError, RuntimeError):
+            pass
+
+
+    def test_horovod_alltoall_grad(self):
+        """Test the correctness of the alltoall gradient."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if using gloo controller
+        if hvd.gloo_enabled():
+            self.skipTest("Alltoall currently does not support Gloo controller.")
+
+        # This test does not apply if NCCL version < 2.7.0
+        if hvd.nccl_built() and hvd.nccl_built() < 2700:
+            self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
+
+        # Only Tensors of floating point dtype can require gradients
+        dtypes = [torch.FloatTensor, torch.DoubleTensor]
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor, torch.cuda.HalfTensor]
+
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            vals = []
+            for i in range(size):
+              vals += [i] * (rank + 1)
+
+            tensor = torch.Tensor(vals)
+            for _ in range(dim - 1):
+              tensor = tensor.unsqueeze(1)
+              tensor = torch.cat((tensor, tensor), dim=1)
+
+            tensor = self.cast_and_place(tensor, dtype)
+            tensor.requires_grad_()
+            splits = torch.tensor([rank + 1] * size, dtype=torch.int32)
+            collected = hvd.alltoall(tensor, splits)
+
+            collected.backward(self.cast_and_place(torch.ones(collected.shape), dtype))
+            grad_out = tensor.grad.data.cpu().numpy()
+
+            expected = np.ones(tensor.shape)
+            err = np.linalg.norm(expected - grad_out)
+            self.assertLess(err, 0.00000001,
+                            "gradient %s differs from expected %s, "
+                            "error: %s" % (grad_out, expected, str(err)))
+
+    def test_horovod_alltoall_equal_split_grad(self):
+        """Test the correctness of the alltoall gradient with default splitting."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if using gloo controller
+        if hvd.gloo_enabled():
+            self.skipTest("Alltoall currently does not support Gloo controller.")
+
+        # This test does not apply if NCCL version < 2.7.0
+        if hvd.nccl_built() and hvd.nccl_built() < 2700:
+            self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
+
+        # Only Tensors of floating point dtype can require gradients
+        dtypes = [torch.FloatTensor, torch.DoubleTensor]
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor, torch.cuda.HalfTensor]
+
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            vals = []
+            for i in range(size):
+              vals += [i] * (rank + 1)
+
+            tensor = torch.Tensor(vals)
+            for _ in range(dim - 1):
+              tensor = tensor.unsqueeze(1)
+              tensor = torch.cat((tensor, tensor), dim=1)
+
+            tensor = self.cast_and_place(tensor, dtype)
+            tensor.requires_grad_()
+            collected = hvd.alltoall(tensor)
+
+            collected.backward(self.cast_and_place(torch.ones(collected.shape), dtype))
+            grad_out = tensor.grad.data.cpu().numpy()
+
+            expected = np.ones(tensor.shape)
             err = np.linalg.norm(expected - grad_out)
             self.assertLess(err, 0.00000001,
                             "gradient %s differs from expected %s, "

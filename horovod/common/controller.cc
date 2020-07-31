@@ -1,5 +1,6 @@
 // Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
 // Modifications copyright Microsoft
+// Modifications copyright (C) 2020, NVIDIA CORPORATION. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -342,7 +343,8 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
     // order consistently across workers.
     for (auto& response : response_list.responses()) {
       if ((response.response_type() == Response::ResponseType::ALLREDUCE ||
-           response.response_type() == Response::ResponseType::ADASUM) &&
+           response.response_type() == Response::ResponseType::ADASUM ||
+           response.response_type() == Response::ResponseType::ALLTOALL) &&
           (int)response.devices().size() == size_) {
         response_cache_.put(response, tensor_queue_, state.joined);
       }
@@ -385,7 +387,7 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
 
   std::ostringstream error_message_stream;
 
-  // Check that all data types of tensors being reduced, gathered or broadcasted
+  // Check that all data types of tensors being processed
   // are identical.
   auto data_type = requests[0].tensor_type();
   for (unsigned int i = 1; i < requests.size(); ++i) {
@@ -450,16 +452,21 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
   }
 
   std::vector<int64_t> tensor_sizes;
-  if (message_type == Request::ALLGATHER) {
+  if (message_type == Request::ALLGATHER ||
+      message_type == Request::ALLTOALL) {
     if (joined_size > 0) {
       error = true;
-      error_message_stream << "Allgather is not supported with Join at this time. "
-                           << "Specify sparse_to_dense=True if using DistributedOptimizer";
+      if (message_type == Request::ALLGATHER) {
+        error_message_stream << "Allgather is not supported with Join at this time. "
+                             << "Specify sparse_to_dense=True if using DistributedOptimizer";
+      } else if (message_type == Request::ALLTOALL) {
+        error_message_stream << "Alltoall is not supported with Join at this time.";
+      }
     }
 
-    // If we are doing an allgather, make sure all but the first dimension are
+    // If we are doing an allgather/alltoall, make sure all but the first dimension are
     // the same. The first dimension may be different and the output tensor is
-    // the sum of the first dimension. Collect the sizes by rank.
+    // the sum of the first dimension. Collect the sizes by rank for allgather only.
     tensor_sizes.resize(requests.size());
     TensorShape tensor_shape;
     for (auto dim : requests[0].tensor_shape()) {
@@ -513,7 +520,10 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
         break;
       }
 
-      tensor_sizes[requests[i].request_rank()] = request_shape.dim_size(0);
+      // Collect first dimension sizes for allgather to use for fusion and allgather op.
+      if (message_type == Request::ALLGATHER) {
+        tensor_sizes[requests[i].request_rank()] = request_shape.dim_size(0);
+      }
     }
   }
 
@@ -593,6 +603,8 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
     response.set_tensor_type(data_type);
   } else if (message_type == Request::BROADCAST) {
     response.set_response_type(Response::BROADCAST);
+  } else if (message_type == Request::ALLTOALL) {
+    response.set_response_type(Response::ALLTOALL);
   } else if (message_type == Request::ADASUM) {
     response.set_response_type(Response::ADASUM);
     for (auto dim : tensor_sizes) {

@@ -1,5 +1,6 @@
 // Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 // Modifications copyright (C) 2019 Uber Technologies, Inc.
+// Modifications copyright (C) 2020, NVIDIA CORPORATION. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -130,6 +131,26 @@ public:
   BroadcastOp(HorovodGlobalState* global_state);
 
   virtual ~BroadcastOp() = default;
+
+  virtual Status Execute(std::vector<TensorTableEntry>& entries,
+                         const Response& response) = 0;
+
+  virtual bool Enabled(const ParameterManager& param_manager,
+                       const std::vector<TensorTableEntry>& entries,
+                       const Response& response) const = 0;
+};
+
+class AlltoallOp : public HorovodOp {
+public:
+  AlltoallOp(HorovodGlobalState* global_state);
+
+  virtual ~AlltoallOp() = default;
+
+  virtual Status PrepareOutputAndParams(TensorTableEntry& e,
+                                      std::vector<int32_t>& sdispls,
+                                      std::vector<int32_t>& rdispls,
+                                      std::vector<int32_t>& sendcounts,
+                                      std::vector<int32_t>& recvcounts);
 
   virtual Status Execute(std::vector<TensorTableEntry>& entries,
                          const Response& response) = 0;

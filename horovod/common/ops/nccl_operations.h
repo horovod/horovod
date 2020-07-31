@@ -1,5 +1,6 @@
 // Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 // Modifications copyright (C) 2019 Uber Technologies, Inc.
+// Modifications copyright (C) 2020, NVIDIA CORPORATION. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +20,9 @@
 
 #if HAVE_CUDA
 #include <nccl.h>
+#if NCCL_VERSION_CODE >= NCCL_VERSION(2, 7, 0)
+#define NCCL_P2P_SUPPORTED
+#endif
 #elif HAVE_ROCM
 #include <rccl.h>
 #endif
@@ -95,6 +99,24 @@ public:
   NCCLBroadcast(NCCLContext* nccl_context, GPUContext* gpu_context,
                 HorovodGlobalState* global_state)
       : GPUBroadcast(gpu_context, global_state),
+        nccl_context_(nccl_context),
+        nccl_op_context_(nccl_context, global_state, Communicator::GLOBAL),
+        global_state_(global_state){};
+
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
+
+protected:
+  NCCLContext* nccl_context_;
+  NCCLOpContext nccl_op_context_;
+  HorovodGlobalState* global_state_;
+};
+
+class NCCLAlltoall : public GPUAlltoall {
+public:
+  NCCLAlltoall(NCCLContext* nccl_context, GPUContext* gpu_context,
+               HorovodGlobalState* global_state)
+      : GPUAlltoall(gpu_context, global_state),
         nccl_context_(nccl_context),
         nccl_op_context_(nccl_context, global_state, Communicator::GLOBAL),
         global_state_(global_state){};

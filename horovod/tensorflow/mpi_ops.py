@@ -1,6 +1,7 @@
 # Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 # Modifications copyright (C) 2019 Uber Technologies, Inc.
 # Modifications copyright Microsoft
+# Modifications copyright (C) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -197,6 +198,54 @@ def _broadcast_grad(op, grad):
         return grad_reduced * 0
     return grad_reduced
 
+
+def alltoall(tensor, splits=None, name=None):
+    """An op that scatters slices of the input tensor to all other Horovod processes
+    and returns a tensor of gathered slices from all other Horovod processes.
+
+    The slicing is done on the first dimension, so the input tensors on the
+    different processes must have the same rank and shape, except for the first
+    dimension, which is allowed to be different.
+
+    Arguments:
+        tensor: A tensor to distribute with alltoall.
+        splits: A tensor of integers in rank order describing how many
+                elements in `tensor` to send to each worker.  Splitting is
+                applied along the first dimension of `tensor`. If `splits` is
+                not provided, the first dimension is split equally by the
+                number of Horovod processes.
+        name: A name of the alltoall operation.
+
+    Returns:
+      A tensor of the same type as `tensor`, concatenated on dimension zero
+      across all processes. The shape is identical to the input shape, except for
+      the first dimension, which may be greater and is the sum of all first
+      dimensions of the gathered tensor slices from different Horovod processes.
+    """
+    # If splits not provided, create empty tensor as placeholder
+    splits_ = tf.convert_to_tensor(splits) if splits is not None else tf.constant([], dtype=tf.int32)
+
+    if name is None and not _executing_eagerly():
+        name = 'HorovodAlltoall_%s' % _normalize_name(tensor.name)
+    return MPI_LIB.horovod_alltoall(tensor, splits=splits_, name=name)
+
+@ops.RegisterGradient('HorovodAlltoall')
+def _alltoall_grad(op, grad):
+    """Gradient for alltoall op.
+
+    Args:
+      op: An operation.
+      grad: `Tensor` gradient with respect to the output of the op.
+
+    Returns:
+      The gradient with respect to the input of the op.
+    """
+    tensor = op.inputs[0]
+    splits = op.inputs[1]
+    recvsplits = tf.cond(tf.equal(tf.size(splits), 0),
+                         lambda : alltoall(tf.ones([size()], dtype=tf.int32) * (tf.shape(tensor)[0] // size()), splits=[1 for _ in range(size())]),
+                         lambda : alltoall(splits, splits=[1 for _ in range(size())]))
+    return [alltoall(grad, splits=recvsplits), None]
 
 def join():
     return MPI_LIB.horovod_join()

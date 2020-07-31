@@ -147,6 +147,7 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   std::vector<std::shared_ptr<AllgatherOp>> allgather_ops;
   std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops;
   std::vector<std::shared_ptr<AllreduceOp>> adasum_ops;
+  std::vector<std::shared_ptr<AlltoallOp>> alltoall_ops;
 
 #if HAVE_MPI && HAVE_GPU
   if (mpi_context.IsEnabled()) {
@@ -172,6 +173,11 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #endif
     allgather_ops.push_back(std::shared_ptr<AllgatherOp>(
         new MPIHierarchicalAllgather(&mpi_context, &state)));
+
+#if HOROVOD_GPU_ALLTOALL == 'M'
+    alltoall_ops.push_back(std::shared_ptr<AlltoallOp>(
+        new MPI_GPUAlltoall(&mpi_context, &gpu_context, &state)));
+#endif
   }
 #endif
 
@@ -188,6 +194,11 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #if HAVE_NCCL && HOROVOD_GPU_ALLGATHER == 'N'
   allgather_ops.push_back(std::shared_ptr<AllgatherOp>(
       new NCCLAllgather(&nccl_context, &gpu_context, &state)));
+#endif
+
+#if HAVE_NCCL && HOROVOD_GPU_ALLTOALL == 'N'
+  alltoall_ops.push_back(std::shared_ptr<AlltoallOp>(
+      new NCCLAlltoall(&nccl_context, &gpu_context, &state)));
 #endif
 
 #if HAVE_GLOO
@@ -222,6 +233,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
         std::shared_ptr<AllgatherOp>(new MPIAllgather(&mpi_context, &state)));
     broadcast_ops.push_back(
         std::shared_ptr<BroadcastOp>(new MPIBroadcast(&mpi_context, &state)));
+    alltoall_ops.push_back(
+        std::shared_ptr<AlltoallOp>(new MPIAlltoall(&mpi_context, &state)));
   }
 #endif
 
@@ -229,7 +242,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   std::shared_ptr<ErrorOp> error_op(new ErrorOp(&state));
 
   return new OperationManager(&state.parameter_manager, allreduce_ops,
-                              allgather_ops, broadcast_ops, join_op, adasum_ops, error_op);
+                              allgather_ops, broadcast_ops, alltoall_ops,
+                              join_op, adasum_ops, error_op);
 }
 
 // Process a Response by doing a reduction, a gather, a broadcast, or
@@ -765,11 +779,11 @@ bool horovod_gloo_built() {
 #endif
 }
 
-bool horovod_nccl_built() {
+int horovod_nccl_built() {
 #if HAVE_NCCL
-  return true;
+  return NCCL_VERSION_CODE;
 #else
-  return false;
+  return 0;
 #endif
 }
 
@@ -919,6 +933,71 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   e.ready_event = ready_event;
   e.device = device;
   e.callback = callback;
+
+  if (horovod_global.shut_down) {
+    return SHUT_DOWN_ERROR;
+  }
+  Status status = horovod_global.tensor_queue.AddToTensorQueue(e, message);
+  if (status.ok()) {
+    LOG(TRACE, horovod_global.controller->GetRank()) << "Enqueued " << name;
+  }
+  return status;
+}
+
+// Contexts and controller must be initialized and the background thread
+// must be running before this function is called.
+Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
+                             std::shared_ptr<Tensor> tensor,
+                             std::shared_ptr<Tensor> splits,
+                             std::shared_ptr<ReadyEvent> ready_event,
+                             const std::string name, const int device,
+                             StatusCallback callback) {
+  // Check arguments
+  if (splits->shape().dims() > 1) {
+    return Status::InvalidArgument("alltoall expects a 1D splits tensor");
+  }
+  if (splits->dtype() != HOROVOD_INT32) {
+    return Status::InvalidArgument("alltoall expects splits to contain 32-bit integer elements.");
+  }
+
+  Request message;
+  message.set_request_rank(horovod_global.controller->GetRank());
+  message.set_tensor_name(name);
+  message.set_tensor_type(tensor->dtype());
+  message.set_device(device);
+  message.set_request_type(Request::ALLTOALL);
+  for (int i = 0; i < tensor->shape().dims(); ++i) {
+    message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
+  }
+
+  TensorTableEntry e;
+  e.tensor_name = name;
+  e.context = context;
+  e.tensor = tensor;
+  e.ready_event = ready_event;
+  e.device = device;
+  e.callback = callback;
+
+  int64_t splits_first_dim = splits->shape().dim_size(0);
+  int64_t tensor_first_dim = tensor->shape().dim_size(0);
+  int world_size = horovod_global.controller->GetSize();
+  if (splits_first_dim == world_size) {
+    auto splits_data = static_cast<const int32_t*>(splits->data());
+    auto sum = std::accumulate(splits_data, splits_data + splits_first_dim, 0);
+    if (sum > tensor_first_dim) {
+      return Status::InvalidArgument("Sum of splits entries is greater than the first dimension of tensor.");
+    }
+    e.splits.assign(splits_data,
+                    splits_data + splits->shape().num_elements());
+  } else if (splits_first_dim == 0) {
+    if (tensor_first_dim % world_size != 0) {
+      return Status::InvalidArgument("splits not provided, but first dimension of tensor is not an even "
+                                     "multiple of the number of workers.");
+    }
+    e.splits.resize(world_size, tensor_first_dim / world_size);
+  } else {
+      return Status::InvalidArgument("Number of entries in splits does not equal number of workers.");
+  }
 
   if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;

@@ -1,6 +1,7 @@
 // Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 // Modifications copyright (C) 2018 Uber Technologies, Inc.
 // Modifications copyright Microsoft
+// Modifications copyright (C) 2020, NVIDIA CORPORATION. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -701,6 +702,65 @@ their local ranks will be zero through six, inclusive.
 Output
     local_rank:    An integer scalar with the local Horovod rank of the calling
                    process.
+)doc");
+
+class HorovodAlltoallOp : public AsyncOpKernel {
+public:
+  explicit HorovodAlltoallOp(OpKernelConstruction* context)
+      : AsyncOpKernel(context) {}
+
+  void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(common::CheckInitialized()),
+                         done);
+
+    auto node_name = name();
+    auto device = GetDeviceID(context);
+    auto tensor = context->input(0);
+    auto splits = context->input(1);
+    auto ready_event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context));
+    auto hvd_context = std::make_shared<TFOpContext>(context);
+    auto hvd_tensor = std::make_shared<TFTensor>(tensor);
+    auto splits_tensor = std::make_shared<TFTensor>(splits);
+    auto enqueue_result = EnqueueTensorAlltoall(
+        hvd_context, hvd_tensor, splits_tensor, ready_event, node_name, device,
+        [context, done](const common::Status& status) {
+          context->SetStatus(ConvertStatus(status));
+          done();
+        });
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
+  }
+}; // namespace tensorflow
+
+REGISTER_KERNEL_BUILDER(Name("HorovodAlltoall").Device(DEVICE_CPU),
+                        HorovodAlltoallOp);
+#if HOROVOD_GPU_ALLTOALL
+REGISTER_KERNEL_BUILDER(Name("HorovodAlltoall").Device(DEVICE_GPU).HostMemory("splits"),
+                        HorovodAlltoallOp);
+#endif
+
+REGISTER_OP("HorovodAlltoall")
+    .Attr(
+        "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
+    .Input("tensor: T")
+    .Input("splits: int32")
+    .Output("output: T")
+    .SetShapeFn([](shape_inference::InferenceContext* c) {
+      shape_inference::ShapeHandle output;
+      TF_RETURN_IF_ERROR(
+          c->ReplaceDim(c->input(0), 0, c->UnknownDim(), &output));
+      c->set_output(0, output);
+      return Status::OK();
+    })
+    .Doc(R"doc(
+Perform an MPI Alltoall on a tensor.
+
+Arguments
+    tensor:     A tensor to be distributed with all to all
+    splits: A list of integers in rank order describing how many elements
+                in `tensor` to send to each worker.
+
+Output
+    output:    The collected tensor data from all workers.
 )doc");
 
 } // namespace tensorflow

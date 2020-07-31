@@ -1,5 +1,6 @@
 // Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
 // Modifications copyright Microsoft
+// Modifications copyright (C) 2020, NVIDIA CORPORATION. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,6 +30,7 @@ public:
                    std::vector<std::shared_ptr<AllreduceOp>> allreduce_ops,
                    std::vector<std::shared_ptr<AllgatherOp>> allgather_ops,
                    std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops,
+                   std::vector<std::shared_ptr<AlltoallOp>> alltoall_ops,
                    std::shared_ptr<JoinOp> join_op,
                    std::vector<std::shared_ptr<AllreduceOp>> adasum_ops,
                    std::shared_ptr<ErrorOp> error_op);
@@ -40,6 +42,8 @@ public:
   Status ExecuteAllgather(std::vector<TensorTableEntry>& entries, const Response& response) const;
 
   Status ExecuteBroadcast(std::vector<TensorTableEntry>& entries, const Response& response) const;
+
+  Status ExecuteAlltoall(std::vector<TensorTableEntry>& entries, const Response& response) const;
 
   Status ExecuteError(std::vector<TensorTableEntry>& entries, const Response& response) const;
 
@@ -55,6 +59,7 @@ private:
   std::vector<std::shared_ptr<AllreduceOp>> allreduce_ops_;
   std::vector<std::shared_ptr<AllgatherOp>> allgather_ops_;
   std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops_;
+  std::vector<std::shared_ptr<AlltoallOp>> alltoall_ops_;
   std::shared_ptr<JoinOp> join_op_;
   std::vector<std::shared_ptr<AllreduceOp>> adasum_ops_;
   std::shared_ptr<ErrorOp> error_op_;

@@ -1,6 +1,7 @@
 # Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 # Modifications copyright (C) 2018 Uber Technologies, Inc.
 # Modifications copyright (C) 2019 Intel Corporation
+# Modifications copyright (C) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -676,6 +677,7 @@ class TensorFlowTests(tf.test.TestCase):
                     self.evaluate(tf.reduce_all(
                         tf.equal(tf.cast(rank_tensor, tf.int32), value))),
                     "hvd.allgather produces incorrect gathered tensor")
+
 
     def test_horovod_allgather_gpu(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors."""
@@ -1414,6 +1416,463 @@ class TensorFlowTests(tf.test.TestCase):
             self.assertLess(err, 0.00000001,
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
+
+    def test_horovod_alltoall_cpu(self):
+        """Test that the alltoall correctly distributes 1D, 2D, and 3D tensors."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if using gloo controller
+        if hvd.gloo_enabled():
+            self.skipTest("Alltoall currently does not support Gloo controller.")
+
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                vals = []
+                for i in range(size):
+                  vals += [i] * (rank+1)
+                tensor = tf.convert_to_tensor(vals, dtype=dtype)
+                for _ in range(dim - 1):
+                  tensor = tf.expand_dims(tensor, axis=1)
+                  tensor = tf.concat([tensor, tensor], axis=1)
+                splits = tf.convert_to_tensor([rank+1] * size, dtype=tf.int32)
+                collected = hvd.alltoall(tensor, splits)
+
+                self.assertTrue(
+                    self.evaluate(tf.reduce_all(
+                        tf.equal(tf.cast(collected, tf.int32), rank))),
+                    "hvd.alltoall produces incorrect collected tensor")
+
+                self.assertTrue(
+                    self.evaluate(tf.equal(tf.size(collected), size * (size + 1) // 2 * 2**(dim - 1))),
+                    "hvd.alltoall collected wrong number of values")
+
+    def test_horovod_alltoall_gpu(self):
+        """Test that the alltoall correctly distributes 1D, 2D, and 3D tensors on GPU."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        # This test does not apply if using gloo controller
+        if hvd.gloo_enabled():
+            self.skipTest("Alltoall currently does not support Gloo controller.")
+
+        # This test does not apply if NCCL version < 2.7.0
+        if hvd.nccl_built() and hvd.nccl_built() < 2700:
+            self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
+
+        hvd.init()
+        rank = hvd.rank()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%s" % local_rank):
+                vals = []
+                for i in range(size):
+                  vals += [i] * (rank+1)
+                tensor = tf.convert_to_tensor(vals, dtype=dtype)
+                for _ in range(dim - 1):
+                  tensor = tf.expand_dims(tensor, axis=1)
+                  tensor = tf.concat([tensor, tensor], axis=1)
+                splits = tf.convert_to_tensor([rank+1] * size, dtype=tf.int32)
+                collected = hvd.alltoall(tensor, splits)
+
+                self.assertTrue(
+                    self.evaluate(tf.reduce_all(
+                        tf.equal(tf.cast(collected, tf.int32), rank))),
+                    "hvd.alltoall produces incorrect collected tensor")
+
+                self.assertTrue(
+                    self.evaluate(tf.equal(tf.size(collected), size * (size + 1) // 2 * 2**(dim - 1))),
+                    "hvd.alltoall collected wrong number of values")
+
+    def test_horovod_alltoall_equal_split_cpu(self):
+        """Test that the alltoall correctly distributes 1D tensors with default splitting."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if using gloo controller
+        if hvd.gloo_enabled():
+            self.skipTest("Alltoall currently does not support Gloo controller.")
+
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                vals = []
+                for i in range(size):
+                  vals += [i] * (rank+1)
+                tensor = tf.convert_to_tensor(vals, dtype=dtype)
+                for _ in range(dim - 1):
+                  tensor = tf.expand_dims(tensor, axis=1)
+                  tensor = tf.concat([tensor, tensor], axis=1)
+                collected = hvd.alltoall(tensor)
+
+                self.assertTrue(
+                    self.evaluate(tf.reduce_all(
+                        tf.equal(tf.cast(collected, tf.int32), rank))),
+                    "hvd.alltoall produces incorrect collected tensor")
+
+                self.assertTrue(
+                    self.evaluate(tf.equal(tf.size(collected), size * (size + 1) // 2 * 2**(dim - 1))),
+                    "hvd.alltoall collected wrong number of values")
+
+    def test_horovod_alltoall_equal_split_gpu(self):
+        """Test that the alltoall correctly distributes 1D tensors with default splitting on GPU."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        # This test does not apply if using gloo controller
+        if hvd.gloo_enabled():
+            self.skipTest("Alltoall currently does not support Gloo controller.")
+
+        # This test does not apply if NCCL version < 2.7.0
+        if hvd.nccl_built() and hvd.nccl_built() < 2700:
+            self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
+
+        hvd.init()
+        rank = hvd.rank()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%s" % local_rank):
+                vals = []
+                for i in range(size):
+                  vals += [i] * (rank+1)
+                tensor = tf.convert_to_tensor(vals, dtype=dtype)
+                for _ in range(dim - 1):
+                  tensor = tf.expand_dims(tensor, axis=1)
+                  tensor = tf.concat([tensor, tensor], axis=1)
+                collected = hvd.alltoall(tensor)
+
+                self.assertTrue(
+                    self.evaluate(tf.reduce_all(
+                        tf.equal(tf.cast(collected, tf.int32), rank))),
+                    "hvd.alltoall produces incorrect collected tensor")
+
+                self.assertTrue(
+                    self.evaluate(tf.equal(tf.size(collected), size * (size + 1) // 2 * 2**(dim - 1))),
+                    "hvd.alltoall collected wrong number of values")
+
+    def test_horovod_alltoall_type_error(self):
+        """Test that the alltoall returns an error if the tensor types differ
+           across the processes."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            self.skipTest("Only one worker available")
+
+        # This test does not apply if using gloo controller
+        if hvd.gloo_enabled():
+            self.skipTest("Alltoall currently does not support Gloo controller.")
+
+        with tf.device("/cpu:0"):
+            if rank % 2:
+                tensor = tf.ones([size], dtype=tf.int32)
+            else:
+                tensor = tf.ones([size], dtype=tf.float32)
+
+            with self.assertRaises(tf.errors.FailedPreconditionError):
+                self.evaluate(hvd.alltoall(tensor))
+
+    def test_horovod_alltoall_equal_split_length_error(self):
+        """Test that the alltoall with default splitting returns an error if the tensor length is not a multiple
+        of the number of workers."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            self.skipTest("Only one worker available")
+
+        # This test does not apply if using gloo controller
+        if hvd.gloo_enabled():
+            self.skipTest("Alltoall currently does not support Gloo controller.")
+
+        with tf.device("/cpu:0"):
+            tensor = tf.ones([size + 1], dtype=tf.float32)
+
+            with self.assertRaises(tf.errors.InvalidArgumentError):
+                self.evaluate(hvd.alltoall(tensor))
+
+    def test_horovod_alltoall_splits_error(self):
+        """Test that the alltoall returns an error if the sum of the splits entries exceeds
+        the first dimension of the input tensor."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if using gloo controller
+        if hvd.gloo_enabled():
+            self.skipTest("Alltoall currently does not support Gloo controller.")
+
+        with tf.device("/cpu:0"):
+            tensor = tf.ones([size-1], dtype=tf.float32)
+            splits = tf.ones([size], dtype=tf.int32)
+
+            with self.assertRaises(tf.errors.InvalidArgumentError):
+                self.evaluate(hvd.alltoall(tensor))
+
+    def test_horovod_alltoall_rank_error(self):
+        """Test that the alltoall returns an error if any dimension besides
+        the first is different among the tensors being processed."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            self.skipTest("Only one worker available")
+
+        # This test does not apply if using gloo controller
+        if hvd.gloo_enabled():
+            self.skipTest("Alltoall currently does not support Gloo controller.")
+
+        tensor_size = [2 * size] * 3
+        tensor_size[1] = 10 * (rank + 1)
+        with tf.device("/cpu:0"):
+            tensor = tf.ones(tensor_size)
+
+            with self.assertRaises(tf.errors.FailedPreconditionError):
+                self.evaluate(hvd.alltoall(tensor))
+
+    def test_horovod_alltoall_grad_cpu(self):
+        """Test the correctness of the alltoall gradient on CPU."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if using gloo controller
+        if hvd.gloo_enabled():
+            self.skipTest("Alltoall currently does not support Gloo controller.")
+
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                vals = []
+                for i in range(size):
+                  vals += [i] * (rank+1)
+                tensor = tf.convert_to_tensor(vals, dtype=dtype)
+                for _ in range(dim - 1):
+                  tensor = tf.expand_dims(tensor, axis=1)
+                  tensor = tf.concat([tensor, tensor], axis=1)
+
+                if _executing_eagerly():
+                    tensor = self.tfe.Variable(tensor)
+                    splits = tf.convert_to_tensor([rank + 1] * size, dtype=tf.int32)
+                    with tf.GradientTape() as tape:
+                        collected = hvd.alltoall(tensor, splits)
+                else:
+                    splits = tf.convert_to_tensor([rank + 1] * size, dtype=tf.int32)
+                    collected = hvd.alltoall(tensor, splits)
+
+                grad_ys = tf.ones(tf.shape(collected))
+                if _executing_eagerly():
+                    grad_out = tape.gradient(collected, tensor, grad_ys)
+                else:
+                    grad = tf.gradients(collected, tensor, grad_ys)[0]
+                    grad_out = self.evaluate(grad)
+
+            expected = np.ones(tensor.get_shape().as_list())
+            err = np.linalg.norm(expected - grad_out)
+            self.assertLess(err, 0.00000001,
+                            "gradient %s differs from expected %s, "
+                            "error: %s" % (grad_out, expected, str(err)))
+
+    def test_horovod_alltoall_grad_gpu(self):
+        """Test the correctness of the alltoall gradient on GPU."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        # This test does not apply if using gloo controller
+        if hvd.gloo_enabled():
+            self.skipTest("Alltoall currently does not support Gloo controller.")
+
+        # This test does not apply if NCCL version < 2.7.0
+        if hvd.nccl_built() and hvd.nccl_built() < 2700:
+            self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
+
+        hvd.init()
+        rank = hvd.rank()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%s" % local_rank):
+                vals = []
+                for i in range(size):
+                  vals += [i] * (rank+1)
+                tensor = tf.convert_to_tensor(vals, dtype=dtype)
+                for _ in range(dim - 1):
+                  tensor = tf.expand_dims(tensor, axis=1)
+                  tensor = tf.concat([tensor, tensor], axis=1)
+
+                if _executing_eagerly():
+                    tensor = self.tfe.Variable(tensor)
+                    splits = tf.convert_to_tensor([rank + 1] * size, dtype=tf.int32)
+                    with tf.GradientTape() as tape:
+                        collected = hvd.alltoall(tensor, splits)
+                else:
+                    splits = tf.convert_to_tensor([rank + 1] * size, dtype=tf.int32)
+                    collected = hvd.alltoall(tensor, splits)
+
+                grad_ys = tf.ones(tf.shape(collected))
+                if _executing_eagerly():
+                    grad_out = tape.gradient(collected, tensor, grad_ys)
+                else:
+                    grad = tf.gradients(collected, tensor, grad_ys)[0]
+                    grad_out = self.evaluate(grad)
+
+            expected = np.ones(tensor.get_shape().as_list())
+            err = np.linalg.norm(expected - grad_out)
+            self.assertLess(err, 0.00000001,
+                            "gradient %s differs from expected %s, "
+                            "error: %s" % (grad_out, expected, str(err)))
+
+    def test_horovod_alltoall_equal_split_grad_cpu(self):
+        """Test the correctness of the alltoall gradient with default splitting on CPU."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if using gloo controller
+        if hvd.gloo_enabled():
+            self.skipTest("Alltoall currently does not support Gloo controller.")
+
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                vals = []
+                for i in range(size):
+                  vals += [i] * (rank+1)
+                tensor = tf.convert_to_tensor(vals, dtype=dtype)
+                for _ in range(dim - 1):
+                  tensor = tf.expand_dims(tensor, axis=1)
+                  tensor = tf.concat([tensor, tensor], axis=1)
+
+                if _executing_eagerly():
+                    tensor = self.tfe.Variable(tensor)
+                    with tf.GradientTape() as tape:
+                        collected = hvd.alltoall(tensor)
+                else:
+                    collected = hvd.alltoall(tensor)
+
+                grad_ys = tf.ones(tf.shape(collected))
+                if _executing_eagerly():
+                    grad_out = tape.gradient(collected, tensor, grad_ys)
+                else:
+                    grad = tf.gradients(collected, tensor, grad_ys)[0]
+                    grad_out = self.evaluate(grad)
+
+            expected = np.ones(tensor.get_shape().as_list())
+            err = np.linalg.norm(expected - grad_out)
+            self.assertLess(err, 0.00000001,
+                            "gradient %s differs from expected %s, "
+                            "error: %s" % (grad_out, expected, str(err)))
+
+    def test_horovod_alltoall_equal_split_grad_gpu(self):
+        """Test the correctness of the alltoall gradient with default splitting on GPU."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        # This test does not apply if using gloo controller
+        if hvd.gloo_enabled():
+            self.skipTest("Alltoall currently does not support Gloo controller.")
+
+        # This test does not apply if NCCL version < 2.7.0
+        if hvd.nccl_built() and hvd.nccl_built() < 2700:
+            self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
+
+        hvd.init()
+        rank = hvd.rank()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%s" % local_rank):
+                vals = []
+                for i in range(size):
+                  vals += [i] * (rank+1)
+                tensor = tf.convert_to_tensor(vals, dtype=dtype)
+                for _ in range(dim - 1):
+                  tensor = tf.expand_dims(tensor, axis=1)
+                  tensor = tf.concat([tensor, tensor], axis=1)
+
+                if _executing_eagerly():
+                    tensor = self.tfe.Variable(tensor)
+                    with tf.GradientTape() as tape:
+                        collected = hvd.alltoall(tensor)
+                else:
+                    collected = hvd.alltoall(tensor)
+
+                grad_ys = tf.ones(tf.shape(collected))
+                if _executing_eagerly():
+                    grad_out = tape.gradient(collected, tensor, grad_ys)
+                else:
+                    grad = tf.gradients(collected, tensor, grad_ys)[0]
+                    grad_out = self.evaluate(grad)
+
+            expected = np.ones(tensor.get_shape().as_list())
+            err = np.linalg.norm(expected - grad_out)
+            self.assertLess(err, 0.00000001,
+                            "gradient %s differs from expected %s, "
+                            "error: %s" % (grad_out, expected, str(err)))
+
 
     def test_horovod_broadcast_eager_mode_error(self):
         """Test that tries to broadcast tensorflow global variables

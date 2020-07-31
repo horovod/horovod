@@ -42,6 +42,7 @@ static const auto MX_FUNC_PROP = FnProperty::kCPUPrioritized;
 static const char* ALLREDUCE_OP_TYPE_NAME = "horovod_allreduce";
 static const char* ALLGATHER_OP_TYPE_NAME = "horovod_allgather";
 static const char* BROADCAST_OP_TYPE_NAME = "horovod_broadcast";
+static const char* ALLTOALL_OP_TYPE_NAME = "horovod_alltoall";
 
 inline void InvokeCompleteCallback(CallbackOnComplete on_complete, const Status& status) {
   if (status.ok()) {
@@ -60,9 +61,15 @@ inline const char* GetOpTypeName(OperationType op_type) {
       return ALLGATHER_OP_TYPE_NAME;
     case OperationType::BROADCAST:
       return BROADCAST_OP_TYPE_NAME;
+    case OperationType::ALLTOALL:
+      return ALLTOALL_OP_TYPE_NAME;
     default:
       throw std::logic_error("Unsupported Horovod operation type.");
   }
+}
+
+bool IsTensorOnCPU(NDArray* tensor) {
+  return tensor->ctx().dev_mask() == cpu::kDevMask;
 }
 
 void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
@@ -109,6 +116,16 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
             InvokeCompleteCallback(on_complete, status);
       });
       break;
+    case OperationType::ALLTOALL:
+    {
+      auto hvd_splits = std::make_shared<MXTensor>(ops_param->splits_tensor.get());
+      enqueue_result = EnqueueTensorAlltoall(
+          hvd_context, hvd_tensor, hvd_splits, nullptr, name, device,
+          [on_complete](const Status& status) {
+            InvokeCompleteCallback(on_complete, status);
+      });
+      break;
+    }
     default:
       throw std::logic_error("Unsupported Horovod operation type.");
   }
@@ -118,7 +135,8 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
 
 inline void PushHorovodOperation(OperationType op_type, NDArray* input,
                                  NDArray* output, const char* name,
-                                 int priority, int root_rank = -1) {
+                                 int priority, int root_rank = -1,
+                                 NDArray* splits = nullptr) {
   auto op_type_name = GetOpTypeName(op_type);
   auto op_name = GetOpName(op_type_name, name);
 
@@ -127,21 +145,45 @@ inline void PushHorovodOperation(OperationType op_type, NDArray* input,
   // before MXNet engine process it
   auto input_copy = std::make_shared<NDArray>(*input);
   auto output_copy = std::make_shared<NDArray>(*output);
+  std::shared_ptr<NDArray> splits_tensor;
+  if (splits) {
+#if HAVE_CUDA
+    // We expect splits to be a tensor on CPU. Create CPU copy if required.
+    if (!IsTensorOnCPU(splits)) {
+      splits_tensor = std::make_shared<NDArray>(Context::Create(Context::kCPU, 0),
+      splits->dtype());
+      TensorUtil::AsyncCopyCudaToCPU(splits, splits_tensor.get());
+    } else {
+      splits_tensor = std::make_shared<NDArray>(*splits);
+    }
+#else
+    splits_tensor = std::make_shared<NDArray>(*splits);
+#endif
+  }
   auto ops_param = CreateMpiOpsParam(input_copy, output_copy, output,
     nullptr /* cpu_input_tensor */, nullptr /* cpu_output_tensor */,
-    op_type, op_name, root_rank);
+    op_type, op_name, root_rank, splits_tensor);
 
   // Not in-place
   auto input_var = input->var();
   auto output_var = output->var();
   if (input_var != output_var) {
+    std::vector<void*> input_vars {input_var};
+    if (splits) {
+      // Add splits tensor to input list to enforce dependency on possible async D2H copy
+      input_vars.push_back(splits_tensor->var());
+    }
     MXEnginePushAsync(DoHorovodOperation, ops_param, DeleteMpiOpsParam,
-                      &MX_EXEC_CTX, &input_var, 1, &output_var, 1,
+                      &MX_EXEC_CTX, input_vars.data(), input_vars.size(), &output_var, 1,
                       &MX_FUNC_PROP, priority, op_type_name);
   // In-place
   } else {
+    std::vector<void*> input_vars;
+    if (splits) {
+      input_vars.push_back(splits_tensor->var());
+    }
     MXEnginePushAsync(DoHorovodOperation, ops_param, DeleteMpiOpsParam,
-                      &MX_EXEC_CTX, nullptr, 0, &output_var, 1,
+                      &MX_EXEC_CTX, input_vars.data(), input_vars.size(), &output_var, 1,
                       &MX_FUNC_PROP, priority, op_type_name);
   }
 }
@@ -181,6 +223,16 @@ void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
             InvokeCompleteCallback(on_complete, status);
       });
       break;
+    case OperationType::ALLTOALL:
+    {
+      auto hvd_splits = std::make_shared<MXTensor>(ops_param->splits_tensor.get());
+      enqueue_result = EnqueueTensorAlltoall(
+          hvd_context, hvd_cpu_buffer, hvd_splits, nullptr, name, CPU_DEVICE_ID,
+          [on_complete](const Status& status) {
+            InvokeCompleteCallback(on_complete, status);
+      });
+      break;
+    }
     default:
       throw std::logic_error("Unsupported Horovod operation type.");
   }
@@ -190,7 +242,8 @@ void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
 
 inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
                                           NDArray* output, const char* name,
-                                          int priority, int root_rank = -1) {
+                                          int priority, int root_rank = -1,
+                                          NDArray* splits = nullptr) {
   auto op_type_name = GetOpTypeName(op_type);
   auto op_name = GetOpName(op_type_name, name);
 
@@ -198,20 +251,41 @@ inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
     input->dtype());
   auto cpu_output_tensor = std::make_shared<NDArray>(Context::Create(Context::kCPU, 0),
     input->dtype());
-  auto ops_param = CreateMpiOpsParam(nullptr, nullptr, output, cpu_input_tensor,
-                                     cpu_output_tensor, op_type, op_name, root_rank);
 
   // Make async copy of input tensor to CPU tensor.
   TensorUtil::AsyncCopyCudaToCPU(input, cpu_input_tensor.get());
+
+  std::shared_ptr<NDArray> splits_tensor;
+  if (splits) {
+    // We expect splits to be a tensor on CPU. Create CPU copy if required.
+    if (!IsTensorOnCPU(splits)) {
+      splits_tensor = std::make_shared<NDArray>(Context::Create(Context::kCPU, 0),
+      splits->dtype());
+      TensorUtil::AsyncCopyCudaToCPU(splits, splits_tensor.get());
+    } else {
+      splits_tensor = std::make_shared<NDArray>(*splits);
+    }
+  }
+
+  auto ops_param = CreateMpiOpsParam(nullptr, nullptr, output, cpu_input_tensor,
+                                     cpu_output_tensor, op_type, op_name, root_rank,
+                                     splits_tensor);
 
   auto input_var = input->var();
   auto output_var = output->var();
   auto cpu_input_var = cpu_input_tensor->var();
   auto cpu_output_var = cpu_output_tensor->var();
-  if (op_type == OperationType::ALLGATHER) {
-    // Use out-of-place path for operations that have unknown output size (allgather)
+  if (op_type == OperationType::ALLGATHER ||
+      op_type == OperationType::ALLTOALL) {
+    // Use out-of-place path for operations that have unknown output size (allgather, alltoall)
+    std::vector<void*> input_vars {cpu_input_var};
+    if (splits) {
+      // Add splits tensor to input list to enforce dependency on possible async D2H copy
+      input_vars.push_back(splits_tensor->var());
+    }
+
     MXEnginePushAsync(DoHorovodOperationCudaOnCPU, ops_param, DeleteMpiOpsParam,
-                      &MX_EXEC_CTX, &cpu_input_var, 1, &cpu_output_var, 1,
+                      &MX_EXEC_CTX, input_vars.data(), input_vars.size(), &cpu_output_var, 1,
                       &MX_FUNC_PROP, priority, op_type_name);
 
     // Since cpu_output_tensor is resized in out-of-place path, need
@@ -231,10 +305,6 @@ inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
   }
 }
 #endif
-
-bool IsTensorOnCPU(NDArray* tensor) {
-  return tensor->ctx().dev_mask() == cpu::kDevMask;
-}
 
 extern "C" int horovod_mxnet_allreduce_async(NDArray* input, NDArray* output,
                                              const char* name, bool average,
@@ -300,6 +370,30 @@ extern "C" int horovod_mxnet_broadcast_async(NDArray* input,
 #else
   PushHorovodOperation(OperationType::BROADCAST, input, output,
                        name, priority, root_rank);
+#endif
+
+  MX_API_END();
+}
+
+extern "C" int horovod_mxnet_alltoall_async(NDArray* input,
+                                            NDArray* output,
+                                            const char* name,
+                                            NDArray* splits,
+                                            int priority) {
+  MX_API_BEGIN();
+
+#if HAVE_CUDA && !HOROVOD_GPU_ALLTOALL
+  if (IsTensorOnCPU(input) && IsTensorOnCPU(output)) {
+    PushHorovodOperation(OperationType::ALLTOALL, input, output,
+                         name, priority, -1, splits);
+
+  } else {
+    PushHorovodOperationCudaOnCPU(OperationType::ALLTOALL, input, output,
+                                  name, priority, -1, splits);
+  }
+#else
+  PushHorovodOperation(OperationType::ALLTOALL, input, output,
+                       name, priority, -1, splits);
 #endif
 
   MX_API_END();
