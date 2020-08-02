@@ -200,7 +200,7 @@ services:
         MXNET_PACKAGE: mxnet-cu100==1.5.1
         PYSPARK_PACKAGE: pyspark==2.4.0
         SPARK_PACKAGE: spark-2.4.0/spark-2.4.0-bin-hadoop2.7.tgz
-  test-gpu-openmpi-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_7_0-pyspark2_4_0:
+  test-gpu-openmpi-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_6_0-pyspark2_4_0:
     extends: test-gpu-base
     build:
       args:
@@ -213,7 +213,7 @@ services:
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.5.0+cu101
         TORCHVISION_PACKAGE: torchvision==0.6.0+cu101
-        MXNET_PACKAGE: https://repo.mxnet.io/dist/python/cu101/mxnet_cu101-1.7.0b20200731-py2.py3-none-manylinux2014_x86_64.whl
+        MXNET_PACKAGE: mxnet-cu101==1.6.0
         PYSPARK_PACKAGE: pyspark==2.4.0
         SPARK_PACKAGE: spark-2.4.0/spark-2.4.0-bin-hadoop2.7.tgz
   test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0:
