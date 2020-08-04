@@ -46,6 +46,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     should_validate = estimator.getValidation()
     user_shuffle_buffer_size = estimator.getShufflingBufferSize()
     user_verbose = estimator.getVerbose()
+    checkpoint_callback = estimator.getCheckpointCallback()
 
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
@@ -54,6 +55,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     # Model parameters
     input_shapes, output_shapes = estimator.get_model_shapes()
     output_names = estimator.getModel().output_names
+    label_shapes = estimator.getLabelShapes()
 
     # Keras implementation
     keras_module = keras_utils.keras()
@@ -61,8 +63,14 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     get_horovod = keras_utils.horovod_fn()
     get_keras = keras_utils.keras_fn()
     make_dataset = keras_utils.make_dataset_fn(
-        feature_columns, label_columns, sample_weight_col, metadata,
-        input_shapes, output_shapes, output_names, batch_size)
+        feature_columns=feature_columns,
+        label_columns=label_columns,
+        sample_weight_col=sample_weight_col,
+        metadata=metadata,
+        input_shapes=input_shapes,
+        label_shapes=label_shapes if label_shapes else output_shapes,
+        output_names=output_names,
+        batch_size=batch_size)
     fit = keras_utils.fit_fn(epochs)
     transformation_fn = estimator.getTransformationFn()
     transformation = transformation_fn if transformation_fn else None
@@ -140,7 +148,15 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 ckpt_file = os.path.join(run_output_dir, remote_store.checkpoint_filename)
                 logs_dir = os.path.join(run_output_dir, remote_store.logs_subdir)
 
-                callbacks.append(k.callbacks.ModelCheckpoint(ckpt_file))
+                # This callback checkpoints the model that ultimately is wrapped and returned after
+                # Estimator.fit is called.
+                _checkpoint_callback = checkpoint_callback
+                if _checkpoint_callback:
+                    _checkpoint_callback.filepath = ckpt_file
+                else:
+                    _checkpoint_callback = k.callbacks.ModelCheckpoint(ckpt_file)
+                callbacks.append(_checkpoint_callback)
+
                 if remote_store.saving_runs:
                     tensorboard_kwargs = {}
                     if LooseVersion('1.15.0') > LooseVersion(tf.__version__) >= LooseVersion('1.14.0'):

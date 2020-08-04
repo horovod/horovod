@@ -171,7 +171,9 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  validation_steps_per_epoch=None,
                  transformation_fn=None,
                  train_reader_num_workers=None,
-                 val_reader_num_workers=None):
+                 val_reader_num_workers=None,
+                 label_shapes=None):
+
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
                          input_shapes=None,
@@ -223,7 +225,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         util.check_shape_compatibility(metadata,
                                        self.getFeatureCols(),
                                        self.getLabelCols(),
-                                       input_shapes=self.getInputShapes())
+                                       input_shapes=self.getInputShapes(),
+                                       label_shapes=self.getLabelShapes())
 
     def _fit_on_prepared_data(self, backend, train_rows, val_rows, metadata, avg_row_size, dataset_idx=None):
         self._check_params(metadata)

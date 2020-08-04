@@ -1,5 +1,6 @@
 // Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 // Modifications copyright (C) 2019 Uber Technologies, Inc.
+// Modifications copyright (C) 2020, NVIDIA CORPORATION. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,6 +39,19 @@ class MPI_GPUAllgather : public GPUAllgather {
 public:
   MPI_GPUAllgather(MPIContext* mpi_context, GPUContext* gpu_context, HorovodGlobalState* global_state);
   virtual ~MPI_GPUAllgather()=default;
+
+  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+
+protected:
+  MPIContext* mpi_context_;
+};
+
+// TODO: Add MPI_GPUBroadcast implementation
+
+class MPI_GPUAlltoall : public GPUAlltoall {
+public:
+  MPI_GPUAlltoall(MPIContext* mpi_context, GPUContext* gpu_context, HorovodGlobalState* global_state);
+  virtual ~MPI_GPUAlltoall()=default;
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 

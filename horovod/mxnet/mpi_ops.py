@@ -132,10 +132,6 @@ def allgather(tensor, name=None, priority=0):
     the different processes must have the same rank and shape, except for the
     first dimension, which is allowed to be different.
 
-    This acts as a thin wrapper around an autograd function.  If your input
-    tensor requires gradients, then callings this function will allow gradients
-    to be computed and backpropagated.
-
     Arguments:
         tensor: A tensor to allgather.
         name: A name of the allgather operation.
@@ -242,3 +238,53 @@ def broadcast_(tensor, root_rank, name=None, priority=0):
             c_in, c_out, name, ctypes.c_int(root_rank),
             ctypes.c_int(priority)))
     return tensor
+
+def alltoall(tensor, splits=None, name=None, priority=0):
+    """
+    A function that scatters slices of the input tensor to all other Horovod processes
+    and returns a tensor of gathered slices from all other Horovod processes. The input
+    tensor is not modified.
+
+    The slicing is done on the first dimension, so the input tensors on
+    the different processes must have the same rank and shape, except for the
+    first dimension, which is allowed to be different.
+
+    Arguments:
+        tensor: A tensor to distribute with alltoall.
+        splits: A tensor of integers in rank order describing how many
+                elements in `tensor` to send to each worker.  Splitting is
+                applied along the first dimension of `tensor`. If `splits` is
+                not provided, the first dimension is split equally by the
+                number of Horovod processes.
+        name: A name of the alltoall operation.
+        priority: The priority of this operation. Higher priority operations
+                  are likely to be executed before other operations.
+
+    Returns:
+        A tensor containing the gathered tensor data from all workers.
+    """
+    assert(isinstance(tensor, mx.nd.NDArray))
+
+    if splits is None:
+        # If splits not provided, create empty tensor as placeholder
+        splits = mx.nd.array([], ctx=mx.cpu(), dtype='int32')
+    elif not isinstance(splits, mx.nd.NDArray):
+        splits = mx.nd.array(splits, ctx=mx.cpu(), dtype='int32')
+
+    # Size of output is unknown, create output array that
+    # will be resized during Horovod operation
+    output = mx.nd.empty(shape=[1], ctx=tensor.context,
+                         dtype=tensor.dtype)
+    c_in = tensor.handle
+    c_out = output.handle
+    c_splits = splits.handle
+    if isinstance(name, string_types):
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_alltoall_async(
+            c_in, c_out, c_str(name), c_splits, ctypes.c_int(priority)))
+    else:
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_alltoall_async(
+            c_in, c_out, name, c_splits, ctypes.c_int(priority)))
+
+    # Need to block here so changes to output tensor are visible
+    output.wait_to_read()
+    return output

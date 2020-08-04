@@ -143,5 +143,15 @@ bool GPUBroadcast::Enabled(const ParameterManager& param_manager,
   return entries[0].device != CPU_DEVICE_ID;
 }
 
+GPUAlltoall::GPUAlltoall(GPUContext* context,
+		         HorovodGlobalState* global_state)
+    : AlltoallOp(global_state), gpu_context_(context), gpu_op_context_(context, global_state) {}
+
+bool GPUAlltoall::Enabled(const ParameterManager& param_manager,
+                          const std::vector<TensorTableEntry>& entries,
+                          const Response& response) const {
+  return entries[0].device != CPU_DEVICE_ID;
+}
+
 } // namespace common
 } // namespace horovod

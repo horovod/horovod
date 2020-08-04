@@ -1,5 +1,6 @@
 // Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
 // Modifications copyright (C) 2019 Intel Corporation
+// Modifications copyright (C) 2020, NVIDIA CORPORATION. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,10 +46,12 @@ namespace common {
 #define NCCL_ALLREDUCE "NCCL_ALLREDUCE"
 #define MEMCPY_OUT_FUSION_BUFFER "MEMCPY_OUT_FUSION_BUFFER"
 #define MPI_BCAST "MPI_BCAST"
+#define MPI_ALLTOALL "MPI_ALLTOALL"
 #define NCCL_REDUCESCATTER "NCCL_REDUCESCATTER"
 #define NCCL_ALLGATHER "NCCL_ALLGATHER"
 #define NCCL_REDUCE "NCCL_REDUCE"
 #define NCCL_BCAST "NCCL_BCAST"
+#define NCCL_ALLTOALL "NCCL_ALLTOALL"
 #define COPY_ALLGATHER_OUTPUT "COPY_ALLGATHER_OUTPUT"
 #define ALLOCATE_SHARED_BUFFER "ALLOCATE_SHARED_BUFFER"
 #define CCL_ALLREDUCE "CCL_ALLREDUCE"
@@ -76,7 +79,6 @@ namespace common {
 #define HOROVOD_HIERARCHICAL_ALLREDUCE "HOROVOD_HIERARCHICAL_ALLREDUCE"
 #define HOROVOD_HIERARCHICAL_ALLGATHER "HOROVOD_HIERARCHICAL_ALLGATHER"
 #define HOROVOD_CACHE_CAPACITY "HOROVOD_CACHE_CAPACITY"
-#define HOROVOD_CCL_BGT_AFFINITY "HOROVOD_CCL_BGT_AFFINITY"
 #define HOROVOD_NUM_NCCL_STREAMS "HOROVOD_NUM_NCCL_STREAMS"
 #define HOROVOD_CPU_OPERATIONS "HOROVOD_CPU_OPERATIONS"
 #define HOROVOD_CONTROLLER "HOROVOD_CONTROLLER"
@@ -247,11 +249,18 @@ struct TensorTableEntry {
   int device = CPU_DEVICE_ID;
   // A callback to call with the status.
   StatusCallback callback;
+
+  // Alltoall splits (if tensor is for an Alltoall operation)
+  // Note: splits are stored in TensorTableEntry to avoid N^2
+  // storage complexity of collecting all worker split arrays
+  // on coordinator rank.
+  std::vector<int32_t> splits;
 };
 using TensorTable = std::unordered_map<std::string, TensorTableEntry>;
 
 // Set affinity function
-void server_affinity_set(int affinity);
+void set_affinity(int affinity);
+void parse_and_set_affinity(const char* affinity, int local_size, int local_rank);
 
 } // namespace common
 } // namespace horovod

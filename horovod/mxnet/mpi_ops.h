@@ -46,6 +46,7 @@ struct MpiOpsParam {
   OperationType op_type;
   std::string op_name;
   int root_rank;
+  NDArraySharedPtr splits_tensor;
 
   MpiOpsParam(NDArraySharedPtr input_tensor,
               NDArraySharedPtr output_tensor,
@@ -53,7 +54,8 @@ struct MpiOpsParam {
               NDArraySharedPtr cpu_input_tensor,
               NDArraySharedPtr cpu_output_tensor,
               const OperationType& op_type, const std::string& op_name,
-              int root_rank)
+              int root_rank,
+              NDArraySharedPtr splits_tensor)
       : input_tensor(input_tensor),
         output_tensor(output_tensor),
         output(output),
@@ -61,7 +63,8 @@ struct MpiOpsParam {
         cpu_output_tensor(cpu_output_tensor),
         op_type(op_type),
         op_name(op_name),
-        root_rank(root_rank) {
+        root_rank(root_rank),
+        splits_tensor(splits_tensor) {
   }
 };
 
@@ -72,9 +75,10 @@ inline MpiOpsParam* CreateMpiOpsParam(NDArraySharedPtr input_tensor,
                                       NDArraySharedPtr cpu_output_tensor,
                                       const OperationType& op_type,
                                       const std::string& op_name,
-                                      int root_rank) {
+                                      int root_rank,
+                                      NDArraySharedPtr splits_tensor) {
   return new MpiOpsParam(input_tensor, output_tensor, output, cpu_input_tensor,
-    cpu_output_tensor, op_type, op_name, root_rank);
+    cpu_output_tensor, op_type, op_name, root_rank, splits_tensor);
 }
 
 void DeleteMpiOpsParam(void* param) {
@@ -93,6 +97,11 @@ extern "C" int horovod_mxnet_broadcast_async(NDArray* input,
                                              NDArray* output,
                                              const char* name, int root_rank,
                                              int priority);
+extern "C" int horovod_mxnet_alltoall_async(NDArray* input,
+                                            NDArray* output,
+                                            const char* name,
+                                            NDArray* splits,
+                                            int priority);
 
 } // namespace mxnet
 } // namespace horovod

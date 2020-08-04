@@ -19,6 +19,8 @@
 
 #include <sstream>
 #include <cassert>
+#include <cstring>
+#include <limits.h>
 
 namespace horovod {
 namespace common {
@@ -114,7 +116,7 @@ int64_t TensorShape::num_elements() const {
 const std::vector<int64_t>& TensorShape::to_vector() const { return shape_; }
 
 #ifdef __linux__
-void server_affinity_set(int affinity) {
+void set_affinity(int affinity) {
   cpu_set_t cpuset;
   pthread_t current_thread = pthread_self();
 
@@ -137,11 +139,65 @@ void server_affinity_set(int affinity) {
   }
 }
 #else
-void server_affinity_set(int affinity) {
+void set_affinity(int affinity) {
   // TODO(travis): explore equivalent for macOS
   throw std::runtime_error("Environment variable HOROVOD_THREAD_AFFINITY is not supported on macOS.");
 }
 #endif
+
+void parse_and_set_affinity(const char* affinity, int local_size, int local_rank) {
+  if (affinity == nullptr) {
+    return;
+  }
+
+  size_t affinity_len = strlen(affinity);
+
+  // copy is needed because strsep is going to modify the buffer
+  char* affinity_copy = (char*)calloc(affinity_len + 1, sizeof(char));
+  memcpy(affinity_copy, affinity, affinity_len);
+  char* tmp = affinity_copy;
+  char *endptr;
+
+  std::vector<int> core_ids(local_size);
+  int count = 0;
+
+  while (*tmp != 0 && count < local_size) {
+    auto core_id_str = strsep(&tmp, ",");
+    errno = 0;
+    auto core_id = std::strtol(core_id_str, &endptr, 10);
+    if (errno == ERANGE && (core_id == LONG_MAX || core_id == LONG_MIN)
+        || (errno != 0 && core_id == 0)){
+        LOG(ERROR) << "Core ID value is invalid in " << HOROVOD_THREAD_AFFINITY
+                   << "=" << affinity;
+        break;
+    }
+
+    if (endptr == core_id_str) {
+        LOG(ERROR) << "No digits were found in " << HOROVOD_THREAD_AFFINITY
+                   << "=" << affinity;
+        break;
+    }
+    
+    if (core_id < 0) {
+      LOG(ERROR) << "Core ID cannot be less than zero but got "
+                 << core_id << " in "
+                 << HOROVOD_THREAD_AFFINITY << "=" << affinity;
+      break;
+    } else {
+      core_ids[count] = core_id;
+      count++;
+    }
+  }
+    
+  if (count < local_size) {
+    LOG(ERROR) << "Expected " << local_size << " core ids but got " << count << ". "
+               << HOROVOD_THREAD_AFFINITY << "=" << affinity;
+  } else {
+    set_affinity(core_ids[local_rank]);
+  }
+
+  free(affinity_copy);
+}
 
 } // namespace common
 } // namespace horovod

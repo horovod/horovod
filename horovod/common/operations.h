@@ -84,8 +84,9 @@ bool horovod_gloo_enabled();
 // C interface to return flag indicating whether Horovod was compiled with Gloo support.
 bool horovod_gloo_built();
 
-// C interface to return flag indicating whether Horovod was compiled with NCCL support.
-bool horovod_nccl_built();
+// C interface to return integer indicating whether Horovod was compiled with NCCL support.
+// Returns NCCL_VERSION_CODE if NCCL is available, else returns 0.
+int horovod_nccl_built();
 
 // C interface to return flag indicating whether Horovod was compiled with DDL support.
 bool horovod_ddl_built();
@@ -124,6 +125,13 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
                               std::shared_ptr<ReadyEvent> ready_event,
                               const std::string name, const int device,
                               StatusCallback callback);
+
+Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
+                             std::shared_ptr<Tensor> tensor,
+                             std::shared_ptr<Tensor> splits,
+                             std::shared_ptr<ReadyEvent> ready_event,
+                             const std::string name, const int device,
+                             StatusCallback callback);
 
 Status EnqueueJoin(std::shared_ptr<OpContext> context,
                               std::shared_ptr<ReadyEvent> ready_event,

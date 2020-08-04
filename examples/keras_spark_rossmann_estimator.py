@@ -30,6 +30,7 @@ from tensorflow.keras.layers import Input, Embedding, Concatenate, Dense, Flatte
 
 import horovod.spark.keras as hvd
 from horovod.spark.common.store import Store
+from horovod.tensorflow.keras.callbacks import BestModelCheckpoint
 
 parser = argparse.ArgumentParser(description='Keras Spark Rossmann Estimator Example',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -362,6 +363,9 @@ if __name__ == '__main__':
 
     opt = tf.keras.optimizers.Adam(lr=args.learning_rate, epsilon=1e-3)
 
+    # Checkpoint callback to specify options for the returned Keras model
+    ckpt_callback = BestModelCheckpoint(monitor='val_loss', mode='auto', save_freq='epoch')
+
     # Horovod: run training.
     store = Store.create(args.work_dir)
     keras_estimator = hvd.KerasEstimator(num_proc=args.num_proc,
@@ -376,7 +380,8 @@ if __name__ == '__main__':
                                          validation='Validation',
                                          batch_size=args.batch_size,
                                          epochs=args.epochs,
-                                         verbose=2)
+                                         verbose=2,
+                                         checkpoint_callback=ckpt_callback)
 
     keras_model = keras_estimator.fit(train_df).setOutputCols(['Sales'])
 

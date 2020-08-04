@@ -50,6 +50,9 @@ public:
 
   void Bcast(void* buffer, size_t size, int root_rank, Communicator communicator) override;
 
+  void AlltoallGetRecvSplits(const std::vector<int32_t>& splits,
+                             std::vector<int32_t>& recvsplits) override;
+
   void Barrier(Communicator communicator) override;
 
 protected:

@@ -1,5 +1,6 @@
 // Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
 // Modifications copyright Microsoft
+// Modifications copyright (C) 2020, NVIDIA CORPORATION. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +24,7 @@ OperationManager::OperationManager(ParameterManager* param_manager,
                                    std::vector<std::shared_ptr<AllreduceOp>> allreduce_ops,
                                    std::vector<std::shared_ptr<AllgatherOp>> allgather_ops,
                                    std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops,
+                                   std::vector<std::shared_ptr<AlltoallOp>> alltoall_ops,
                                    std::shared_ptr<JoinOp> join_op,
                                    std::vector<std::shared_ptr<AllreduceOp>> adasum_ops,
                                    std::shared_ptr<ErrorOp> error_op)
@@ -30,6 +32,7 @@ OperationManager::OperationManager(ParameterManager* param_manager,
       allreduce_ops_(std::move(allreduce_ops)),
       allgather_ops_(std::move(allgather_ops)),
       broadcast_ops_(std::move(broadcast_ops)),
+      alltoall_ops_(std::move(alltoall_ops)),
       join_op_(std::move(join_op)),
       adasum_ops_(std::move(adasum_ops)),
       error_op_(std::move(error_op)) {}
@@ -64,6 +67,16 @@ Status OperationManager::ExecuteBroadcast(std::vector<TensorTableEntry>& entries
   throw std::logic_error("No Broadcast operation enabled");
 }
 
+Status OperationManager::ExecuteAlltoall(std::vector<TensorTableEntry>& entries,
+                                         const Response& response) const {
+  for (auto& op : alltoall_ops_) {
+    if (op->Enabled(*param_manager_, entries, response)) {
+      return op->Execute(entries, response);
+    }
+  }
+  throw std::logic_error("No Alltoall operation enabled");
+}
+
 Status OperationManager::ExecuteJoin(std::vector<TensorTableEntry>& entries,
                                           const Response& response) const {
   return join_op_->Execute(entries, response);
@@ -92,6 +105,8 @@ Status OperationManager::ExecuteOperation(std::vector<TensorTableEntry>& entries
     return ExecuteAllgather(entries, response);
   } else if (response.response_type() == Response::BROADCAST) {
     return ExecuteBroadcast(entries, response);
+  } else if (response.response_type() == Response::ALLTOALL) {
+    return ExecuteAlltoall(entries, response);
   } else if (response.response_type() == Response::JOIN) {
     return ExecuteJoin(entries, response);
   } else if (response.response_type() == Response::ADASUM) {

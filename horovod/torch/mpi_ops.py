@@ -1,5 +1,6 @@
 # Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
 # Modifications copyright Microsoft
+# Modifications copyright (C) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -459,6 +460,102 @@ def broadcast_(tensor, root_rank, name=None):
     handle = broadcast_async_(tensor, root_rank, name)
     return synchronize(handle)
 
+def _alltoall_function_factory(tensor):
+    return 'horovod_torch_alltoall_async_' + tensor.type().replace('.', '_')
+
+def _alltoall_async(tensor, splits, output, name):
+    if splits is None:
+        # If splits not provided, create empty tensor as placeholder
+        splits = torch.tensor([], dtype=torch.int32, device='cpu')
+    elif not isinstance(splits, torch.Tensor):
+        splits = torch.tensor(splits, dtype=torch.int32, device='cpu')
+
+    function = _check_function(_alltoall_function_factory, tensor)
+    try:
+        handle = getattr(mpi_lib, function)(
+            tensor, splits, output, name.encode() if name is not None else _NULL)
+    except RuntimeError as e:
+        raise HorovodInternalError(e)
+    _handle_map[handle] = (tensor, splits, output)
+    return handle
+
+
+def alltoall_async(tensor, splits=None, name=None):
+    """
+    A function that scatters slices of the input tensor to all other Horovod processes
+    and returns a tensor of gathered slices from all other Horovod processes. The input
+    tensor is not modified.
+
+    The slicing is done on the first dimension, so the input tensors on
+    the different processes must have the same rank and shape, except for the
+    first dimension, which is allowed to be different.
+
+    Arguments:
+        tensor: A tensor to distribute with alltoall.
+        splits: A tensor of integers in rank order describing how many
+                elements in `tensor` to send to each worker.  Splitting is
+                applied along the first dimension of `tensor`. If `splits` is
+                not provided, the first dimension is split equally by the
+                number of Horovod processes.
+        name: A name of the alltoall operation.
+
+    Returns:
+        A handle to the alltoall operation that can be used with `poll()` or
+        `synchronize()`.
+    """
+    output = tensor.new()
+    return _alltoall_async(tensor, splits, output, name)
+
+
+class HorovodAlltoall(torch.autograd.Function):
+    """An autograd function that performs alltoall on a tensor."""
+
+    @staticmethod
+    def forward(ctx, tensor, splits, name):
+        ctx.tensor = tensor
+        ctx.splits = splits
+        handle = alltoall_async(tensor, splits, name)
+        return synchronize(handle)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        recvsplits = None
+        if ctx.splits is not None:
+            recvsplits = alltoall(ctx.splits, splits=torch.ones(size(), dtype=torch.int32, device='cpu'))
+        else:
+            splits_equal = torch.ones(size(), dtype=torch.int32, device='cpu') * (ctx.tensor.size()[0] // size())
+            recvsplits = alltoall(splits_equal, splits=torch.ones(size(), dtype=torch.int32, device='cpu'))
+        return alltoall(grad_output, splits=recvsplits), None, None
+
+
+def alltoall(tensor, splits=None, name=None):
+    """
+    A function that scatters slices of the input tensor to all other Horovod processes
+    and returns a tensor of gathered slices from all other Horovod processes. The input
+    tensor is not modified.
+
+    The slicing is done on the first dimension, so the input tensors on
+    the different processes must have the same rank and shape, except for the
+    first dimension, which is allowed to be different.
+
+    This acts as a thin wrapper around an autograd function.  If your input
+    tensor requires gradients, then callings this function will allow gradients
+    to be computed and backpropagated.
+
+    Arguments:
+        tensor: A tensor to distribute with alltoall.
+        splits: A tensor of integers in rank order describing how many
+                elements in `tensor` to send to each worker.  Splitting is
+                applied along the first dimension of `tensor`. If `splits` is
+                not provided, the first dimension is split equally by the
+                number of Horovod processes.
+        name: A name of the alltoall operation.
+
+    Returns:
+        A tensor containing the gathered tensor data from all workers.
+    """
+    return HorovodAlltoall.apply(tensor, splits, name)
+
 
 def poll(handle):
     """
@@ -493,7 +590,7 @@ def synchronize(handle):
 
     try:
         mpi_lib.horovod_torch_wait_and_clear(handle)
-        _, output = _handle_map.pop(handle)
+        output = _handle_map.pop(handle)[-1]
         return output
     except RuntimeError as e:
         raise HorovodInternalError(e)
