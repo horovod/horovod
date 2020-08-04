@@ -67,11 +67,17 @@ above is installed.
 MXNet
 ~~~~~
 
-To ensure that Horovod is built with MXNet support enabled:
+To ensure that Horovod is built with MXNet CPU support enabled:
 
 .. code-block:: bash
 
     $ HOROVOD_WITH_MXNET=1 pip install horovod[mxnet]
+
+To ensure that Horovod is built with MXNet GPU support enabled for CUDA 10.2:
+
+.. code-block:: bash
+
+    $ HOROVOD_WITH_MXNET=1 pip install horovod[mxnet-cu102]
 
 To skip MXNet, set ``HOROVOD_WITHOUT_MXNET=1`` in your environment.
 
