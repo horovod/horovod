@@ -16,7 +16,6 @@
 
 #include "gpu_operations.h"
 
-#include <pthread.h>
 #include <thread>
 
 namespace horovod {
@@ -102,7 +101,7 @@ public:
         if (error_check_callback) {
           error_check_callback();
         }
-        pthread_yield();
+        std::this_thread::yield();
       }
 
       if (name != "") {
