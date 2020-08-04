@@ -1125,7 +1125,7 @@ def build_mx_extension(build_ext, global_options):
     cxx11_abi = '0'
     try:
         import mxnet as mx
-        if mx.library.compiled_with_cxx11_abi():
+        if int(mx.library.compiled_with_cxx11_abi()) == 1:
             cxx11_abi = '1'
     except AttributeError:
         pass
