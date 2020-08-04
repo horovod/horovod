@@ -17,7 +17,6 @@
 
 #include <chrono>
 #include <memory>
-#include <pthread.h>
 #include <thread>
 #include <torch/extension.h>
 #include <torch/torch.h>
@@ -310,7 +309,7 @@ int PollHandle(int handle) { return handle_manager.PollHandle(handle) ? 1 : 0; }
 void WaitAndClear(int handle) {
   while (true) {
     if (handle_manager.PollHandle(handle)) break;
-    pthread_yield();
+    std::this_thread::yield();
   }
   auto status = handle_manager.ReleaseHandle(handle);
   ThrowIfError(*status);
