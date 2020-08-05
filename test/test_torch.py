@@ -56,7 +56,7 @@ class TorchTests(unittest.TestCase):
         # In case we need to do ops, we will convert tensor to FP32 here.
         result = []
         for value in values:
-            if value.dtype in [torch.float16, torch.HalfTensor]:
+            if value.dtype in [torch.float16, torch.HalfTensor] and not value.is_cuda:
                 result.append(value.float())
             else:
                 result.append(value)
@@ -323,33 +323,44 @@ class TorchTests(unittest.TestCase):
 
             assert torch.allclose(tensor, multiplied, threshold), 'hvd.allreduce produces incorrect results'
 
-    def test_horovod_allreduce_scale(self):
-        """Test that the allreduce correctly sums 1D, 2D, 3D tensors with pre and post scaling."""
+    def test_horovod_allreduce_prescale(self):
+        """Test that the allreduce correctly sums 1D, 2D, 3D tensors with prescaling."""
         hvd.init()
         size = hvd.size()
         dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor])
+                 torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
                        torch.cuda.HalfTensor]
+        int_types = [torch.IntTensor, torch.LongTensor,
+                     torch.cuda.IntTensor, torch.cuda.LongTensor]
+
 
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             torch.manual_seed(1234)
+            np.random.seed(1234)
+            factor = np.random.uniform()
             tensor = torch.FloatTensor(*([17] * dim)).random_(-100, 100)
             tensor = self.cast_and_place(tensor, dtype)
             summed = hvd.allreduce(tensor, average=False,
-                                   prescale_factor=4.0, postscale_factor=0.5)
-            tensor, summed = self.convert_cpu_fp16_to_fp32(tensor, summed)
-            multiplied = tensor * size * 2.0
-            max_difference = summed.data.sub(multiplied).abs().max()
+                                   prescale_factor=factor)
+
+            factor = torch.tensor(factor, dtype=torch.double)
+            if dtype.is_cuda: factor = factor.cuda(hvd.local_rank())
+            # For integer types, scaling done in FP64
+            factor.type(dtype if dtype not in int_types else torch.DoubleTensor)
+            tensor, summed, factor = self.convert_cpu_fp16_to_fp32(tensor, summed, factor)
+            multiplied = factor * tensor
+            multiplied = multiplied.type(dtype)
+            multiplied = self.convert_cpu_fp16_to_fp32(multiplied)[0]
+            multiplied *= size
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
-                                      torch.cuda.IntTensor, torch.cuda.LongTensor]:
-                threshold = 1
+            if size <= 3 or dtype in int_types:
+                threshold = 0
             elif size < 10:
                 threshold = 1e-4
             elif size < 15:
@@ -357,7 +368,54 @@ class TorchTests(unittest.TestCase):
             else:
                 break
 
-            assert max_difference <= threshold, 'hvd.allreduce produces incorrect results'
+            assert torch.allclose(summed, multiplied, threshold), 'hvd.allreduce produces incorrect results'
+
+    def test_horovod_allreduce_postscale(self):
+        """Test that the allreduce correctly sums 1D, 2D, 3D tensors with postscaling."""
+        hvd.init()
+        size = hvd.size()
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                 torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor])
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
+        int_types = [torch.IntTensor, torch.LongTensor,
+                     torch.cuda.IntTensor, torch.cuda.LongTensor]
+
+
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            torch.manual_seed(1234)
+            np.random.seed(1234)
+            factor = np.random.uniform()
+            tensor = torch.FloatTensor(*([17] * dim)).random_(-100, 100)
+            tensor = self.cast_and_place(tensor, dtype)
+            summed = hvd.allreduce(tensor, average=False,
+                                   postscale_factor=factor)
+
+            factor = torch.tensor(factor, dtype=torch.double)
+            if dtype.is_cuda: factor = factor.cuda(hvd.local_rank())
+            # For integer types, scaling done in FP64
+            factor.type(dtype if dtype not in int_types else torch.DoubleTensor)
+            tensor, summed, factor = self.convert_cpu_fp16_to_fp32(tensor, summed, factor)
+            multiplied = size * tensor
+            multiplied = multiplied * factor
+            multiplied = multiplied.type(dtype)
+            multiplied = self.convert_cpu_fp16_to_fp32(multiplied)[0]
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in int_types:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+
+            assert torch.allclose(summed, multiplied, threshold), 'hvd.allreduce produces incorrect results'
 
     def test_horovod_allreduce_error(self):
         """Test that the allreduce raises an error if different ranks try to

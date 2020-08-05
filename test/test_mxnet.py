@@ -154,8 +154,8 @@ class MXTests(unittest.TestCase):
             assert almost_equal(tensor.asnumpy(), multiplied.asnumpy(), atol=threshold), \
                 f'hvd.allreduce produces incorrect results for self: {hvd.rank()} {count} {dtype} {dim}'
 
-    def test_horovod_allreduce_scale(self):
-        """Test that the allreduce correctly sums 1D, 2D, 3D tensors with pre and post scaling."""
+    def test_horovod_allreduce_prescale(self):
+        """Test that the allreduce correctly sums 1D, 2D, 3D tensors with prescaling."""
         hvd.init()
         size = hvd.size()
         dtypes = self.filter_supported_types(['int32',   'int64',
@@ -166,20 +166,31 @@ class MXTests(unittest.TestCase):
         shapes = [(), (17), (17, 17), (17, 17, 17)]
         for dtype, dim in itertools.product(dtypes, dims):
             mx.random.seed(1234, ctx=ctx)
+            np.random.seed(1234)
             tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim],
                                           ctx=ctx)
             tensor = tensor.astype(dtype)
+            factor = np.random.uniform()
             scaled = hvd.allreduce(tensor, average=False, name=str(count),
-                                   prescale_factor=4.0, postscale_factor=0.5)
-            tensor *= size
-            tensor *= 2.0
-            max_difference = mx.nd.max(mx.nd.abs(mx.nd.subtract(scaled, tensor)))
+                                   prescale_factor=factor)
+
+            # For integer types, scaling done in FP64
+            if dtype in ['int32', 'int64']:
+                tensor = tensor.astype('float64')
+
+            # On CPU, use FP32 math instead of FP16
+            if ctx == mx.cpu() and dtype == 'float16':
+                tensor = tensor.astype('float32')
+
+            expected = factor * tensor
+            expected = expected.astype(dtype)
+            expected *= size
             count += 1
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
             if size <= 3 or dtype in ['int32', 'int64']:
-                threshold = 1
+                threshold = 0
             elif size < 10:
                 threshold = 1e-4
             elif size < 15:
@@ -187,8 +198,57 @@ class MXTests(unittest.TestCase):
             else:
                 break
 
-            assert almost_equal(tensor.asnumpy(), scaled.asnumpy(), atol=threshold), \
+            assert almost_equal(expected.asnumpy(), scaled.asnumpy(), atol=threshold), \
+                f'hvd.allreduce produces incorrect results for prescaling: {hvd.rank()} {count} {dtype} {dim}'
+
+    def test_horovod_allreduce_postscale(self):
+        """Test that the allreduce correctly sums 1D, 2D, 3D tensors with postscaling."""
+        hvd.init()
+        size = hvd.size()
+        dtypes = self.filter_supported_types(['int32',   'int64',
+                                              'float16', 'float32', 'float64'])
+        dims = [1, 2, 3]
+        ctx = self._current_context()
+        count = 1
+        shapes = [(), (17), (17, 17), (17, 17, 17)]
+        for dtype, dim in itertools.product(dtypes, dims):
+            mx.random.seed(1234, ctx=ctx)
+            np.random.seed(1234)
+            tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim],
+                                          ctx=ctx)
+            tensor = tensor.astype(dtype)
+            factor = np.random.uniform()
+            scaled = hvd.allreduce(tensor, average=False, name=str(count),
+                                   postscale_factor=factor)
+
+
+            expected = tensor * size
+            # For integer types, scaling done in FP64
+            if dtype in ['int32', 'int64']:
+                expected = expected.astype('float64')
+
+            # On CPU, use FP32 math instead of FP16
+            if ctx == mx.cpu() and dtype == 'float16':
+                expected = expected.astype('float32')
+
+            expected *= factor
+            expected = expected.astype(dtype)
+            count += 1
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in ['int32', 'int64']:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+
+            assert almost_equal(expected.asnumpy(), scaled.asnumpy(), atol=threshold), \
                 f'hvd.allreduce produces incorrect results for pre/post scaling: {hvd.rank()} {count} {dtype} {dim}'
+
 
     def test_horovod_allreduce_error(self):
         """Test that the allreduce raises an error if different ranks try to
