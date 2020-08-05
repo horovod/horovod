@@ -246,7 +246,7 @@ def _make_allreduce_grads_fn(name, device_dense, device_sparse,
         # Perform averaging via pre/postscaling factors.
         # Split average operation across pre/postscale factors
         prescale_factor = 1.0 / gradient_predivide_factor
-        postscale_factor = gradient_predivide_factor / size()
+        postscale_factor = gradient_predivide_factor / tf.cast(size_op(), dtype=tf.float64)
         true_op = Sum
     else:
         prescale_factor = 1.0
