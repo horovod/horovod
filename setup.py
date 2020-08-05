@@ -1509,6 +1509,7 @@ tensorflow_gpu_require_list = ['tensorflow-gpu']
 keras_require_list = ['keras>=2.0.8,!=2.0.9,!=2.1.0,!=2.1.1']
 pytorch_require_list = ['torch']
 mxnet_require_list = ['mxnet>=1.4.1']
+mxnet_cu102_require_list = ['mxnet-cu102>=1.4.1']
 pyspark_require_list = ['pyspark>=2.3.2;python_version<"3.8"',
                         # TODO: change to 'pyspark>=3.0.0' once spark3 is released
                         'pyspark>=3.0.0.dev;python_version>="3.8"']
@@ -1565,6 +1566,7 @@ setup(name='horovod',
           'keras': keras_require_list,
           'pytorch': pytorch_require_list,
           'mxnet': mxnet_require_list,
+          'mxnet-cu102': mxnet_cu102_require_list,
           'spark': spark_require_list
       },
       python_requires='>=3.6',
