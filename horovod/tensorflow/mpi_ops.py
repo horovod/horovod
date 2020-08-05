@@ -101,6 +101,8 @@ def _allreduce(tensor, name=None, op=Sum, prescale_factor=1.0, postscale_factor=
       A tensor of the same shape and type as `tensor`, summed across all
       processes.
     """
+    prescale_factor = tf.convert_to_tensor(prescale_factor, dtype=tf.float64)
+    postscale_factor = tf.convert_to_tensor(postscale_factor, dtype=tf.float64)
     if name is None and not _executing_eagerly():
         name = 'HorovodAllreduce_%s' % _normalize_name(tensor.name)
     return MPI_LIB.horovod_allreduce(tensor, name=name, reduce_op=op,
@@ -120,10 +122,8 @@ def _allreduce_grad(op, grad):
       The gradient with respect to the input of the op.
     """
     reduce_op = op.get_attr('reduce_op')
-    prescale_factor = op.get_attr('prescale_factor')
-    postscale_factor = op.get_attr('postscale_factor')
-    return _allreduce(grad, op=reduce_op, prescale_factor=prescale_factor,
-                      postscale_factor=postscale_factor)
+    return [_allreduce(grad, op=reduce_op, prescale_factor=op.inputs[1],
+                      postscale_factor=op.inputs[2]), None, None]
 
 
 def allgather(tensor, name=None):

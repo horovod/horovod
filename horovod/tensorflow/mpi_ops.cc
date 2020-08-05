@@ -373,8 +373,6 @@ public:
   explicit HorovodAllreduceOp(OpKernelConstruction* context)
       : AsyncOpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("reduce_op", &reduce_op_));
-    OP_REQUIRES_OK(context, context->GetAttr("prescale_factor", &prescale_factor_));
-    OP_REQUIRES_OK(context, context->GetAttr("postscale_factor", &postscale_factor_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -384,6 +382,14 @@ public:
     auto node_name = name();
     auto device = GetDeviceID(context);
     auto tensor = context->input(0);
+    auto prescale_factor = context->input(1);
+    auto postscale_factor = context->input(2);
+    OP_REQUIRES(context, TensorShapeUtils::IsScalar(prescale_factor.shape()),
+                errors::InvalidArgument("prescale_factor should be a scalar tensor."));
+    OP_REQUIRES(context, TensorShapeUtils::IsScalar(postscale_factor.shape()),
+                errors::InvalidArgument("postscale_factor should be a scalar tensor."));
+    double prescale_factor_ = *reinterpret_cast<const double *>(prescale_factor.tensor_data().data());
+    double postscale_factor_ = *reinterpret_cast<const double *>(postscale_factor.tensor_data().data());
     horovod::common::ReduceOp reduce_op = static_cast<horovod::common::ReduceOp>(reduce_op_);
     Tensor* output;
     OP_REQUIRES_OK_ASYNC(
@@ -398,30 +404,29 @@ public:
         [context, done](const common::Status& status) {
           context->SetStatus(ConvertStatus(status));
           done();
-        }, reduce_op, (double) prescale_factor_, (double) postscale_factor_);
+        }, reduce_op, prescale_factor_, postscale_factor_);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 
 private:
   int reduce_op_;
-  // Using float since TF does not support double OP attributes
-  float prescale_factor_;
-  float postscale_factor_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_CPU),
                         HorovodAllreduceOp);
 #if HOROVOD_GPU_ALLREDUCE
-REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_GPU),
+REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_GPU)
+                        .HostMemory("prescale_factor")
+                        .HostMemory("postscale_factor"),
                         HorovodAllreduceOp);
 #endif
 
 REGISTER_OP("HorovodAllreduce")
     .Attr("T: {int32, int64, float16, float32, float64}")
     .Attr("reduce_op: int")
-    .Attr("prescale_factor: float")
-    .Attr("postscale_factor: float")
     .Input("tensor: T")
+    .Input("prescale_factor: double")
+    .Input("postscale_factor: double")
     .Output("sum: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       c->set_output(0, c->input(0));
