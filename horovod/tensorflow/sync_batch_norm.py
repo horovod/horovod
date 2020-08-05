@@ -56,6 +56,8 @@ class SyncBatchNormalization(tf.keras.layers.BatchNormalization):
     outputs = super(SyncBatchNormalization, self).call(*args, **kwargs)
     try:
       # A temporary hack for TF1 compatibility with Keras batch norm.
+      # Ops are added to tf.GraphKeys.UPDATE_OPS manually to mimic
+      # behavior of TF1 batch norm layer for use in control dependencies.
       for u in self.updates:
         tf.add_to_collection(tf.GraphKeys.UPDATE_OPS, u)
     except AttributeError:
