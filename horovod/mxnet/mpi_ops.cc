@@ -139,8 +139,8 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
 inline void PushHorovodOperation(OperationType op_type, NDArray* input,
                                  NDArray* output, const char* name,
                                  int priority, int root_rank = -1,
-                                 NDArray* splits = nullptr,
                                  bool average = true,
+                                 NDArray* splits = nullptr,
                                  double prescale_factor = 1.0,
                                  double postscale_factor = 1.0) {
   auto op_type_name = GetOpTypeName(op_type);
@@ -252,8 +252,8 @@ void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
 inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
                                           NDArray* output, const char* name,
                                           int priority, int root_rank = -1,
-                                          NDArray* splits = nullptr,
                                           bool average = true,
+                                          NDArray* splits = nullptr,
                                           double prescale_factor = 1.0,
                                           double postscale_factor = 1.0) {
   auto op_type_name = GetOpTypeName(op_type);
@@ -408,15 +408,15 @@ extern "C" int horovod_mxnet_alltoall_async(NDArray* input,
 #if HAVE_CUDA && !HOROVOD_GPU_ALLTOALL
   if (IsTensorOnCPU(input) && IsTensorOnCPU(output)) {
     PushHorovodOperation(OperationType::ALLTOALL, input, output,
-                         name, priority, -1, splits);
+                         name, priority, -1, false, splits);
 
   } else {
     PushHorovodOperationCudaOnCPU(OperationType::ALLTOALL, input, output,
-                                  name, priority, -1, splits);
+                                  name, priority, -1, false, splits);
   }
 #else
   PushHorovodOperation(OperationType::ALLTOALL, input, output,
-                       name, priority, -1, splits);
+                       name, priority, -1, false, splits);
 #endif
 
   MX_API_END();
