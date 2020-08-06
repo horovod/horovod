@@ -1967,6 +1967,9 @@ class TensorFlowTests(tf.test.TestCase):
             self.assertDictEqual(obj, expected_obj)
 
     def test_allgather_object(self):
+        if LooseVersion(tf.__version__) < LooseVersion('1.15.0'):
+            self.skipTest("Broadcasting object requires TensorFlow 1.15 or above")
+
         hvd.init()
 
         with tf.device("/cpu:0"):
