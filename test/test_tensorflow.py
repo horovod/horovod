@@ -1976,7 +1976,7 @@ class TensorFlowTests(tf.test.TestCase):
 
             results = hvd.allgather_object(d)
 
-            expected = [{'metric_val_1': 0}] * hvd.size()
+            expected = [{'metric_val_1': i} for i in range(hvd.size())]
             if hvd.size() > 1:
                 expected[1] = {'metric_val_1': 1, 'metric_val_2': 42}
 
