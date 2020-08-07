@@ -146,11 +146,12 @@ public:
 
   virtual ~AlltoallOp() = default;
 
+  template <typename T>
   virtual Status PrepareOutputAndParams(TensorTableEntry& e,
-                                      std::vector<int32_t>& sdispls,
-                                      std::vector<int32_t>& rdispls,
-                                      std::vector<int32_t>& sendcounts,
-                                      std::vector<int32_t>& recvcounts);
+                                      std::vector<T>& sdispls,
+                                      std::vector<T>& rdispls,
+                                      std::vector<T>& sendcounts,
+                                      std::vector<T>& recvcounts);
 
   virtual Status Execute(std::vector<TensorTableEntry>& entries,
                          const Response& response) = 0;

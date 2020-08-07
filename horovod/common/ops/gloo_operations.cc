@@ -99,8 +99,8 @@ void GlooAlgorithms<T>::Broadcast(void* buffer_data, int num_elements,
 
 template <typename T>
 void GlooAlgorithms<T>::Alltoall(void* buffer_data, void* buffer_out,
-                                 std::vector<int32_t>& sendcounts,
-                                 std::vector<int32_t>& recvcounts) {
+                                 std::vector<int64_t>& sendcounts,
+                                 std::vector<int64_t>& recvcounts) {
   gloo::AlltoallvOptions opts(gloo_context_->ctx);
   opts.setInput<T>(static_cast<T*>(buffer_data), sendcounts);
   opts.setOutput<T>(static_cast<T*>(buffer_out), recvcounts);
@@ -304,9 +304,9 @@ Status GlooAlltoall::Execute(std::vector<TensorTableEntry>& entries, const Respo
   assert(entries.size() == 1);
   auto e = entries[0];
 
-  std::vector<int32_t> sdispls, rdispls;
-  std::vector<int32_t> sendcounts, recvcounts;
-  Status status = PrepareOutputAndParams(e, sdispls, rdispls, sendcounts, recvcounts);
+  std::vector<int64_t> sdispls, rdispls;
+  std::vector<int64_t> sendcounts, recvcounts;
+  Status status = PrepareOutputAndParams<int64_t>(e, sdispls, rdispls, sendcounts, recvcounts);
   if (!status.ok()) {
     return status;
   }

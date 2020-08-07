@@ -383,7 +383,7 @@ Status MPIAlltoall::Execute(std::vector<TensorTableEntry>& entries, const Respon
 
   std::vector<int32_t> sdispls, rdispls;
   std::vector<int32_t> sendcounts, recvcounts;
-  Status status = PrepareOutputAndParams(e, sdispls, rdispls, sendcounts, recvcounts);
+  Status status = PrepareOutputAndParams<int32_t>(e, sdispls, rdispls, sendcounts, recvcounts);
   if (!status.ok()) {
     return status;
   }

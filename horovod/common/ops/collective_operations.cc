@@ -215,11 +215,12 @@ BroadcastOp::BroadcastOp(HorovodGlobalState* global_state)
 AlltoallOp::AlltoallOp(HorovodGlobalState* global_state)
     : HorovodOp(global_state) {}
 
+template <typename T>
 Status AlltoallOp::PrepareOutputAndParams(TensorTableEntry& e,
-                                        std::vector<int32_t>& sdispls,
-                                        std::vector<int32_t>& rdispls,
-                                        std::vector<int32_t>& sendcounts,
-                                        std::vector<int32_t>& recvcounts) {
+                                          std::vector<T>& sdispls,
+                                          std::vector<T>& rdispls,
+                                          std::vector<T>& sendcounts,
+                                          std::vector<T>& recvcounts) {
   auto world_size = global_state_->controller->GetSize();
 
   const auto& splits = e.splits;
