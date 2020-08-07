@@ -19,6 +19,7 @@
 
 #include "gloo/allgather.h"
 #include "gloo/allgatherv.h"
+#include "gloo/alltoall.h"
 #include "gloo/allreduce.h"
 #include "gloo/barrier.h"
 #include "gloo/broadcast.h"
@@ -270,8 +271,8 @@ void GlooController::AlltoallGetRecvSplits(const std::vector<int32_t>& splits,
                                            std::vector<int32_t>& recvsplits) {
   recvsplits.resize(size_);
   glo::AlltoallOptions opts(gloo_context_.GetGlooContext(communicator));
-  opts.setInput(input.data(), size_);
-  opts.setOutput(output.data(), size_);
+  opts.setInput(splits.data(), size_);
+  opts.setOutput(recvsplits.data(), size_);
   gloo::alltoall(opts);
 }
 
