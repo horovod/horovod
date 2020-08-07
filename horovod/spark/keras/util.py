@@ -30,8 +30,6 @@ from horovod.spark.keras import optimizer, remote
 BARE_KERAS = 'keras'
 TF_KERAS = 'tf_keras'
 
-_HAS_AUTOGRAPH = LooseVersion(tf.__version__) >= LooseVersion('1.15')
-
 
 class TFKerasUtil(object):
     type = TF_KERAS
@@ -79,7 +77,7 @@ class TFKerasUtil(object):
 
             dataset = dataset.batch(batch_size).map(prep_data_tf_keras)
             return dataset
-        return tf.autograph.experimental.do_not_convert(fn) if _HAS_AUTOGRAPH else fn
+        return tf.autograph.experimental.do_not_convert(fn)
 
     @staticmethod
     def get_horovod():
