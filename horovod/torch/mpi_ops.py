@@ -32,7 +32,6 @@ from horovod.torch.compression import Compression
 
 # import basic methods
 init = _basics.init
-shutdown = _basics.shutdown
 is_initialized = _basics.is_initialized
 size = _basics.size
 local_size = _basics.local_size
@@ -46,6 +45,10 @@ gloo_built = _basics.gloo_built
 nccl_built = _basics.nccl_built
 ddl_built = _basics.ddl_built
 ccl_built = _basics.ccl_built
+# shutdown = _basics.shutdown
+def shutdown(*args, **kwargs):
+    mpi_lib.horovod_torch_reset()
+    return _basics.shutdown(*args, **kwargs)
 
 # import reduction op values
 Average = _basics.Average

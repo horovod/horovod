@@ -50,5 +50,11 @@ std::shared_ptr<Status> HandleManager::ReleaseHandle(int handle) {
   return status;
 }
 
+void HandleManager::Reset() {
+  std::lock_guard<std::mutex> guard(mutex_);
+  results_.clear();
+  last_handle_ = 0;
+}
+
 } // namespace torch
 } // namespace horovod
