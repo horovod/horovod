@@ -161,9 +161,17 @@ def get_cpp_flags(build_ext):
 def get_nvcc_flags():
     default_flags = ['--std=c++11', '-O3', '-Xcompiler', '-fPIC']
     cc_list_env = os.environ.get('HOROVOD_BUILD_CUDA_CC_LIST')
-    cc_list = [52, 60, 61, 70, 75] if cc_list_env is None else [int(x) for x in cc_list_env.split(',')]
+
+    # Invoke nvcc and extract all supported compute capabilities for CUDA toolkit version
+    full_cc_list = subprocess.check_output("nvcc --help  | grep -i sm_ | grep -Eo 'sm_[0-9]+' | sed -e s/sm_//g | sort -g -u | tr '\n' ' '",
+                                           shell=True).strip().split()
+    full_cc_list = [int(i) for i in full_cc_list]
+
+    # Build native kernels for specified compute capabilities
+    cc_list = full_cc_list if cc_list_env is None else [int(x) for x in cc_list_env.split(',')]
     for cc in cc_list:
       default_flags += ['-gencode', 'arch=compute_{cc},code=sm_{cc}'.format(cc=cc)]
+    # Build PTX for maximum specified compute capability
     default_flags += ['-gencode', 'arch=compute_{cc},code=compute_{cc}'.format(cc=max(cc_list))]
 
     return default_flags
