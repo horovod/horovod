@@ -1442,6 +1442,22 @@ class TorchTests(unittest.TestCase):
         obj = hvd.broadcast_object(obj, root_rank=0)
         self.assertDictEqual(obj, expected_obj)
 
+    def test_allgather_object(self):
+        hvd.init()
+
+        d = {'metric_val_1': hvd.rank()}
+        if hvd.rank() == 1:
+            d['metric_val_2'] = 42
+
+        results = hvd.allgather_object(d)
+
+        expected = [{'metric_val_1': i} for i in range(hvd.size())]
+        if hvd.size() > 1:
+            expected[1] = {'metric_val_1': 1, 'metric_val_2': 42}
+
+        self.assertEqual(len(results), hvd.size())
+        self.assertListEqual(results, expected)
+
     def test_compression_fp16(self):
         valid_dtypes = [torch.float32, torch.float64]
         invalid_dtypes = [torch.uint8, torch.int8, torch.int16,

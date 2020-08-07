@@ -25,7 +25,7 @@ check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_
 
 from horovod.tensorflow import elastic
 from horovod.tensorflow.compression import Compression
-from horovod.tensorflow.functions import broadcast_object, broadcast_object_fn, broadcast_variables
+from horovod.tensorflow.functions import allgather_object, broadcast_object, broadcast_object_fn, broadcast_variables
 from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce, alltoall
 from horovod.tensorflow.mpi_ops import init, shutdown
 from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank, is_homogeneous

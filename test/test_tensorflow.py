@@ -1966,6 +1966,26 @@ class TensorFlowTests(tf.test.TestCase):
             obj = bcast(obj)
             self.assertDictEqual(obj, expected_obj)
 
+    def test_allgather_object(self):
+        if LooseVersion(tf.__version__) < LooseVersion('1.15.0'):
+            self.skipTest("Broadcasting object requires TensorFlow 1.15 or above")
+
+        hvd.init()
+
+        with tf.device("/cpu:0"):
+            d = {'metric_val_1': hvd.rank()}
+            if hvd.rank() == 1:
+                d['metric_val_2'] = 42
+
+            results = hvd.allgather_object(d)
+
+            expected = [{'metric_val_1': i} for i in range(hvd.size())]
+            if hvd.size() > 1:
+                expected[1] = {'metric_val_1': 1, 'metric_val_2': 42}
+
+            self.assertEqual(len(results), hvd.size())
+            self.assertListEqual(results, expected)
+
     def test_elastic_state(self):
         if LooseVersion(tf.__version__) < LooseVersion('1.15.0'):
             self.skipTest("Broadcasting object requires TensorFlow 1.15 or above")
