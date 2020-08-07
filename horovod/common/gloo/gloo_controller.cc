@@ -268,9 +268,11 @@ void GlooController::Bcast(void* buffer, size_t size, int root_rank,
 
 void GlooController::AlltoallGetRecvSplits(const std::vector<int32_t>& splits,
                                            std::vector<int32_t>& recvsplits) {
-    throw std::runtime_error(
-        "GlooController::AlltoallGetRecvSplits not yet implemented. Use Horovod "
-        "with MPI to use this functionality.");
+  recvsplits.resize(size_);
+  glo::AlltoallOptions opts(gloo_context_.GetGlooContext(communicator));
+  opts.setInput(input.data(), size_);
+  opts.setOutput(output.data(), size_);
+  gloo::alltoall(opts);
 }
 
 void GlooController::Barrier(Communicator communicator) {
