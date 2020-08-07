@@ -8,7 +8,7 @@ ARG CUDNN_VERSION=7.6.0.64-1+cuda10.0
 ARG NCCL_VERSION_OVERRIDE=2.4.7-1+cuda10.0
 ARG MPI_KIND=OpenMPI
 ARG PYTHON_VERSION=3.6
-ARG TENSORFLOW_PACKAGE=tensorflow-gpu==1.14.0
+ARG TENSORFLOW_PACKAGE=tensorflow-gpu==1.15.0
 ARG KERAS_PACKAGE=keras==2.2.4
 ARG PYTORCH_PACKAGE=torch==1.2.0
 ARG TORCHVISION_PACKAGE=torchvision==0.4.0
@@ -52,8 +52,7 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends g++-7
 RUN apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-distutils
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
-# pytest<5.4.0 until pytest-forked 1.1.4 is released: https://github.com/pytest-dev/pytest-forked/pull/32
-RUN pip install -U --force pip 'setuptools<46.0.0' requests 'pytest<5.4.0' mock pytest-forked parameterized
+RUN pip install -U --force pip setuptools requests pytest mock pytest-forked parameterized
 
 # Install Spark stand-alone cluster.
 RUN if [[ -n ${SPARK_PACKAGE} ]]; then \

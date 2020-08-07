@@ -158,12 +158,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 callbacks.append(_checkpoint_callback)
 
                 if remote_store.saving_runs:
-                    tensorboard_kwargs = {}
-                    if LooseVersion('1.15.0') > LooseVersion(tf.__version__) >= LooseVersion('1.14.0'):
-                        # Workaround bug in TF 1.14.0: https://github.com/tensorflow/tensorflow/issues/31451
-                        tensorboard_kwargs['profile_batch'] = 0
-
-                    callbacks.append(k.callbacks.TensorBoard(logs_dir, **tensorboard_kwargs))
+                    callbacks.append(k.callbacks.TensorBoard(logs_dir))
                     callbacks.append(SyncCallback(run_output_dir, remote_store.sync, k))
 
             if train_steps_per_epoch is None:
