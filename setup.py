@@ -72,10 +72,10 @@ def is_build_action():
 def check_tf_version():
     try:
         import tensorflow as tf
-        if LooseVersion(tf.__version__) < LooseVersion('1.14.0'):
+        if LooseVersion(tf.__version__) < LooseVersion('1.15.0'):
             raise DistutilsPlatformError(
                 'Your TensorFlow version %s is outdated.  '
-                'Horovod requires tensorflow>=1.14.0' % tf.__version__)
+                'Horovod requires tensorflow>=1.15.0' % tf.__version__)
         # parse version
         version = parse_version(tf.__version__)
         if version is None:
@@ -88,7 +88,7 @@ def check_tf_version():
     except AttributeError:
         # This means that tf.__version__ was not exposed, which makes it *REALLY* old.
         raise DistutilsPlatformError(
-            'Your TensorFlow version is outdated.  Horovod requires tensorflow>=1.14.0')
+            'Your TensorFlow version is outdated.  Horovod requires tensorflow>=1.15.0')
 
 
 def check_mx_version():
@@ -1509,7 +1509,6 @@ tensorflow_gpu_require_list = ['tensorflow-gpu']
 keras_require_list = ['keras>=2.0.8,!=2.0.9,!=2.1.0,!=2.1.1']
 pytorch_require_list = ['torch']
 mxnet_require_list = ['mxnet>=1.4.1']
-mxnet_cu102_require_list = ['mxnet-cu102>=1.4.1']
 pyspark_require_list = ['pyspark>=2.3.2;python_version<"3.8"',
                         # TODO: change to 'pyspark>=3.0.0' once spark3 is released
                         'pyspark>=3.0.0.dev;python_version>="3.8"']
@@ -1566,7 +1565,6 @@ setup(name='horovod',
           'keras': keras_require_list,
           'pytorch': pytorch_require_list,
           'mxnet': mxnet_require_list,
-          'mxnet-cu102': mxnet_cu102_require_list,
           'spark': spark_require_list
       },
       python_requires='>=3.6',
