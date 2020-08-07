@@ -116,16 +116,16 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         tensor = p.grad
         tensor_compressed, ctx = self._compression.compress(tensor)
 
-        if self.op == Average and self.gradient_predivide_factor != 1.0:
+        if self.op == Average:
+           # Split average operation across pre/postscale factors
+           # C++ backend will apply additional 1 / size() factor to postscale_factor for op == Average.
             prescale_factor = 1.0 / self.gradient_predivide_factor
-            postscale_factor = self.gradient_predivide_factor / size()
-            true_op = Sum
+            postscale_factor = self.gradient_predivide_factor
         else:
             prescale_factor = 1.0
             postscale_factor = 1.0
-            true_op = self.op
 
-        handle = allreduce_async_(tensor_compressed, name=name, op=true_op,
+        handle = allreduce_async_(tensor_compressed, name=name, op=self.op,
                                   prescale_factor=prescale_factor,
                                   postscale_factor=postscale_factor)
         return handle, ctx

@@ -242,16 +242,14 @@ if _SessionRunHook is not None and _get_default_graph is not None:
 @_cache
 def _make_allreduce_grads_fn(name, device_dense, device_sparse,
                              compression, sparse_as_dense, op, gradient_predivide_factor):
-    if op == Average and gradient_predivide_factor != 1.0:
-        # Perform averaging via pre/postscaling factors.
+    if op == Average:
         # Split average operation across pre/postscale factors
+        # C++ backend will apply additional 1 / size() factor to postscale_factor for op == Average.
         prescale_factor = 1.0 / gradient_predivide_factor
-        postscale_factor = gradient_predivide_factor / size()
-        true_op = Sum
+        postscale_factor = gradient_predivide_factor
     else:
         prescale_factor = 1.0
         postscale_factor = 1.0
-        true_op = op
 
     def allreduce_grads(grads):
         with tf.name_scope(name + "_Allreduce"):
@@ -264,7 +262,7 @@ def _make_allreduce_grads_fn(name, device_dense, device_sparse,
                               device_dense=device_dense,
                               device_sparse=device_sparse,
                               compression=compression,
-                              op=true_op,
+                              op=op,
                               prescale_factor=prescale_factor,
                               postscale_factor=postscale_factor)
                     if grad is not None else grad
