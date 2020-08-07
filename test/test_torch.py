@@ -335,7 +335,7 @@ class TorchTests(unittest.TestCase):
                        torch.cuda.HalfTensor]
         int_types = [torch.IntTensor, torch.LongTensor,
                      torch.cuda.IntTensor, torch.cuda.LongTensor]
-
+        half_types = [torch.HalfTensor, torch.cuda.HalfTensor]
 
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
@@ -348,13 +348,20 @@ class TorchTests(unittest.TestCase):
                                    prescale_factor=factor)
 
             factor = torch.tensor(factor, dtype=torch.double)
-            if dtype.is_cuda: factor = factor.cuda(hvd.local_rank())
-            # For integer types, scaling done in FP64
-            factor.type(dtype if dtype not in int_types else torch.DoubleTensor)
-            tensor, summed, factor = self.convert_cpu_fp16_to_fp32(tensor, summed, factor)
+            if dtype.is_cuda:
+              factor = factor.cuda(hvd.local_rank())
+              # For integer types, scaling done in FP64
+              factor = factor.type(dtype if dtype not in int_types else torch.float64)
+              tensor = tensor.type(dtype if dtype not in int_types else torch.float64)
+            else:
+              # For integer types, scaling done in FP64, FP32 math for FP16 on CPU
+              factor = factor.type(dtype if dtype not in int_types + half_types else
+                                   torch.float32 if dtype in half_types else torch.float64)
+              tensor = tensor.type(dtype if dtype not in int_types + half_types else
+                                   torch.float32 if dtype in half_types else torch.float64)
             multiplied = factor * tensor
             multiplied = multiplied.type(dtype)
-            multiplied = self.convert_cpu_fp16_to_fp32(multiplied)[0]
+            summed, multiplied = self.convert_cpu_fp16_to_fp32(summed, multiplied)
             multiplied *= size
 
             # Threshold for floating point equality depends on number of
@@ -382,7 +389,7 @@ class TorchTests(unittest.TestCase):
                        torch.cuda.HalfTensor]
         int_types = [torch.IntTensor, torch.LongTensor,
                      torch.cuda.IntTensor, torch.cuda.LongTensor]
-
+        half_types = [torch.HalfTensor, torch.cuda.HalfTensor]
 
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
@@ -395,14 +402,21 @@ class TorchTests(unittest.TestCase):
                                    postscale_factor=factor)
 
             factor = torch.tensor(factor, dtype=torch.double)
-            if dtype.is_cuda: factor = factor.cuda(hvd.local_rank())
-            # For integer types, scaling done in FP64
-            factor.type(dtype if dtype not in int_types else torch.DoubleTensor)
-            tensor, summed, factor = self.convert_cpu_fp16_to_fp32(tensor, summed, factor)
+            if dtype.is_cuda:
+              factor = factor.cuda(hvd.local_rank())
+              # For integer types, scaling done in FP64
+              factor.type(dtype if dtype not in int_types else torch.float64)
+              tensor.type(dtype if dtype not in int_types else torch.float64)
+            else:
+              # For integer types, scaling done in FP64, FP32 math for FP16 on CPU
+              factor = factor.type(dtype if dtype not in int_types + half_types else
+                                   torch.float32 if dtype in half_types else torch.float64)
+              tensor = tensor.type(dtype if dtype not in int_types + half_types else
+                                   torch.float32 if dtype in half_types else torch.float64)
             multiplied = size * tensor
             multiplied = multiplied * factor
             multiplied = multiplied.type(dtype)
-            multiplied = self.convert_cpu_fp16_to_fp32(multiplied)[0]
+            summed, multiplied = self.convert_cpu_fp16_to_fp32(summed, multiplied)
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
