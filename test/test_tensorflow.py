@@ -247,12 +247,15 @@ class TensorFlowTests(tf.test.TestCase):
         self.assertTrue(self.evaluate(tf.reduce_all(tests)),
                         "hvd.allreduce produces incorrect results")
 
+    # Note: TF does not support FP64 op attributes so scaling factor is cast to FP32
+    # by op and loses precision. We skip FP64 version of pre/postscale tests for this reason.
+    # See https://github.com/tensorflow/tensorflow/pull/39452 for PR to resolve this limitation.
     def test_horovod_allreduce_cpu_prescale(self):
         """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors
            with prescaling"""
         hvd.init()
         size = hvd.size()
-        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32])
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
@@ -291,7 +294,7 @@ class TensorFlowTests(tf.test.TestCase):
            with postscaling"""
         hvd.init()
         size = hvd.size()
-        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32])
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
@@ -511,7 +514,7 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.init()
         size = hvd.size()
         local_rank = hvd.local_rank()
-        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32])
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%s" % local_rank):
@@ -560,8 +563,7 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.init()
         size = hvd.size()
         local_rank = hvd.local_rank()
-        # TODO: Skip tf.float64 as op attributes can be single precision only. To fix.
-        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32])
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%s" % local_rank):
