@@ -270,7 +270,7 @@ void GlooController::Bcast(void* buffer, size_t size, int root_rank,
 void GlooController::AlltoallGetRecvSplits(const std::vector<int32_t>& splits,
                                            std::vector<int32_t>& recvsplits) {
   recvsplits.resize(size_);
-  gloo::AlltoallOptions opts(gloo_context_.GetGlooContext(communicator));
+  gloo::AlltoallOptions opts(gloo_context_.GetGlooContext(Communicator::GLOBAL));
   opts.setInput(splits.data(), size_);
   opts.setOutput(recvsplits.data(), size_);
   gloo::alltoall(opts);
