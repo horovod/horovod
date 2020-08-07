@@ -1423,10 +1423,6 @@ class TensorFlowTests(tf.test.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
-        # This test does not apply if using gloo controller
-        if hvd.gloo_enabled():
-            self.skipTest("Alltoall currently does not support Gloo controller.")
-
         dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
                   tf.int32, tf.int64, tf.float16, tf.float32,
                   tf.float64]
