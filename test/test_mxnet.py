@@ -847,13 +847,12 @@ class MXTests(unittest.TestCase):
             def __init__(self, layer_num=6, **kwargs):
                 super(SimpleNet, self).__init__(**kwargs)
                 self._layer_num = layer_num
-                with self.name_scope():
-                    self.ln_l = nn.HybridSequential()
-                    self.dense_l = nn.HybridSequential()
-                    for i in range(layer_num):
-                        self.dense_l.add(nn.Dense(units=32 + layer_num - 1 - i,
-                            flatten=False))
-                        self.ln_l.add(nn.LayerNorm())
+                self.ln_l = nn.HybridSequential()
+                self.dense_l = nn.HybridSequential()
+                for i in range(layer_num):
+                    self.dense_l.add(nn.Dense(units=32 + layer_num - 1 - i,
+                        flatten=False))
+                    self.ln_l.add(nn.LayerNorm())
 
             def hybrid_forward(self, F, data):
                 """
