@@ -36,8 +36,8 @@ public:
                          int root_rank) = 0;
 
   virtual void Alltoall(void* buffer_data, void* buffer_out,
-                        std::vector<int32_t>& sendcounts,
-                        std::vector<int32_t>& recvcounts) = 0;
+                        std::vector<int64_t>& sendcounts,
+                        std::vector<int64_t>& recvcounts) = 0;
 
   virtual int ElementSize() const = 0;
 };
@@ -56,8 +56,8 @@ public:
   void Broadcast(void* buffer_data, int num_elements, int root_rank) override;
 
   void Alltoall(void* buffer_data, void* buffer_out,
-                std::vector<int32_t>& sendcounts,
-                std::vector<int32_t>& recvcounts);
+                std::vector<int64_t>& sendcounts,
+                std::vector<int64_t>& recvcounts);
 
   int ElementSize() const override;
 

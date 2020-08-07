@@ -306,7 +306,7 @@ Status GlooAlltoall::Execute(std::vector<TensorTableEntry>& entries, const Respo
 
   std::vector<int64_t> sdispls, rdispls;
   std::vector<int64_t> sendcounts, recvcounts;
-  Status status = PrepareOutputAndParams<int64_t>(e, sdispls, rdispls, sendcounts, recvcounts);
+  Status status = PrepareOutputAndParams(e, sdispls, rdispls, sendcounts, recvcounts);
   if (!status.ok()) {
     return status;
   }
