@@ -271,7 +271,7 @@ void GlooController::AlltoallGetRecvSplits(const std::vector<int32_t>& splits,
                                            std::vector<int32_t>& recvsplits) {
   recvsplits.resize(size_);
   gloo::AlltoallOptions opts(gloo_context_.GetGlooContext(Communicator::GLOBAL));
-  opts.setInput(splits.data(), size_);
+  opts.setInput((int32_t*)splits.data(), size_);
   opts.setOutput(recvsplits.data(), size_);
   gloo::alltoall(opts);
 }
