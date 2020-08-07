@@ -100,7 +100,7 @@ void GlooAlgorithms<T>::Broadcast(void* buffer_data, int num_elements,
 template <typename T>
 void GlooAlgorithms<T>::Alltoall(void* buffer_data, void* buffer_out,
                                  std::vector<int32_t>& sendcounts,
-                                 std::vector<int32_t>* recvcounts) {
+                                 std::vector<int32_t>& recvcounts) {
   gloo::AlltoallvOptions opts(gloo_context_->ctx);
   opts.setInput<T>(static_cast<T*>(buffer_data), sendcounts);
   opts.setOutput<T>(static_cast<T*>(buffer_out), recvcounts);
@@ -314,7 +314,7 @@ Status GlooAlltoall::Execute(std::vector<TensorTableEntry>& entries, const Respo
   global_state_->timeline.ActivityStartAll(entries, MPI_ALLTOALL);
 
   std::unique_ptr<IGlooAlgorithms> gloo_algos(
-      GetAlgorithmsForType(first_entry.tensor->dtype(), gloo_context_));
+      GetAlgorithmsForType(e.tensor->dtype(), gloo_context_));
   gloo_algos->Alltoall((void*)e.tensor->data(), (void*)e.output->data(),
                        sendcounts, recvcounts);
 
