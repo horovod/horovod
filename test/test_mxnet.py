@@ -171,22 +171,21 @@ class MXTests(unittest.TestCase):
             tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim],
                                           ctx=ctx)
             tensor = tensor.astype(dtype)
-            tensor_np = tensor.asnumpy()
             factor = np.random.uniform()
             scaled = hvd.allreduce(tensor, average=False, name=str(count),
                                    prescale_factor=factor)
 
             factor = mx.nd.array([factor], dtype='float64', ctx=ctx)
-            if ctx != mx.cpu():
+            if ctx != mx.cpu() and not int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
                 # For integer types, scaling done in FP64
-                factor = factor.astype(dtype if dtype not in int_types else 'float64')
-                tensor = tensor.astype(dtype if dtype not in int_types else 'float64')
+                factor = factor.astype('float64' if dtype in int_types else dtype)
+                tensor = tensor.astype('float64' if dtype in int_types else dtype)
             else:
                 # For integer types, scaling done in FP64, FP32 math for FP16 on CPU
-                factor = factor.astype(dtype if dtype not in int_types else
-                                       'float32' if dtype == 'float16' else 'float64')
-                tensor = tensor.astype(dtype if dtype not in int_types else
-                                       'float32' if dtype == 'float16' else 'float64')
+                factor = factor.astype('float32' if dtype == 'float16' else
+                                       'float64' if dtype in int_types else dtype)
+                tensor = tensor.astype('float32' if dtype == 'float16' else
+                                       'float64' if dtype in int_types else dtype)
 
             expected = factor * tensor
             expected = expected.astype(dtype)
@@ -229,16 +228,16 @@ class MXTests(unittest.TestCase):
                                    postscale_factor=factor)
 
             factor = mx.nd.array([factor], dtype='float64', ctx=ctx)
-            if ctx != mx.cpu():
+            if ctx != mx.cpu() and not int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
                 # For integer types, scaling done in FP64
-                factor = factor.astype(dtype if dtype not in int_types else 'float64')
-                tensor = tensor.astype(dtype if dtype not in int_types else 'float64')
+                factor = factor.astype('float64' if dtype in int_types else dtype)
+                tensor = tensor.astype('float64' if dtype in int_types else dtype)
             else:
                 # For integer types, scaling done in FP64, FP32 math for FP16 on CPU
-                factor = factor.astype(dtype if dtype not in int_types else
-                                       'float32' if dtype == 'float16' else 'float64')
-                tensor = tensor.astype(dtype if dtype not in int_types else
-                                       'float32' if dtype == 'float16' else 'float64')
+                factor = factor.astype('float32' if dtype == 'float16' else
+                                       'float64' if dtype in int_types else dtype)
+                tensor = tensor.astype('float32' if dtype == 'float16' else
+                                       'float64' if dtype in int_types else dtype)
 
             expected = tensor * size
             expected *= factor

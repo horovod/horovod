@@ -256,6 +256,7 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.init()
         size = hvd.size()
         dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32])
+        int_types = [tf.int32, tf.int64]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
@@ -267,16 +268,16 @@ class TensorFlowTests(tf.test.TestCase):
                                        prescale_factor=factor)
 
                 # Scaling done in FP64 math for integer types, FP32 math for FP16 on CPU
-                tensor = tf.cast(tensor, dtype if dtype not in [tf.int32, tf.int64, tf.float16]
-                                 else tf.float32 if dtype == tf.float16 else tf.float64)
-                factor = tf.convert_to_tensor(factor, dtype if dtype not in [tf.int32, tf.int64, tf.float16]
-                                              else tf.float32 if dtype == tf.float16 else tf.float64)
+                tensor = tf.cast(tensor, tf.float32 if dtype == tf.float16 else
+                                 tf.float64 if dtype in int_types else dtype)
+                factor = tf.convert_to_tensor(factor, tf.float32 if dtype == tf.float16 else
+                                              tf.float64 if dtype in int_types else dtype)
                 multiplied = tf.cast(factor * tensor, dtype) * size
                 max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [tf.int32, tf.int64]:
+            if size <= 3 or dtype in int_types:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -295,6 +296,7 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.init()
         size = hvd.size()
         dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32])
+        int_types = [tf.int32, tf.int64]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
@@ -307,16 +309,16 @@ class TensorFlowTests(tf.test.TestCase):
 
                 multiplied = tensor * size
                 # Scaling done in FP64 math for integer types, FP32 math for FP16 on CPU
-                multiplied = tf.cast(multiplied, dtype if dtype not in [tf.int32, tf.int64, tf.float16]
-                                 else tf.float32 if dtype == tf.float16 else tf.float64)
-                factor = tf.convert_to_tensor(factor, dtype if dtype not in [tf.int32, tf.int64, tf.float16]
-                                              else tf.float32 if dtype == tf.float16 else tf.float64)
+                multiplied = tf.cast(multiplied, tf.float32 if dtype == tf.float16 else
+                                     tf.float64 if dtype in int_types else dtype)
+                factor = tf.convert_to_tensor(factor, tf.float32 if dtype == tf.float16 else
+                                              tf.float64 if dtype in int_types else dtype)
                 multiplied = tf.cast(factor * multiplied, dtype)
                 max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [tf.int32, tf.int64]:
+            if size <= 3 or dtype in int_types:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -507,7 +509,7 @@ class TensorFlowTests(tf.test.TestCase):
         if not tf.test.is_gpu_available(cuda_only=True):
             return
 
-        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
             return
 
@@ -515,6 +517,7 @@ class TensorFlowTests(tf.test.TestCase):
         size = hvd.size()
         local_rank = hvd.local_rank()
         dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32])
+        int_types = [tf.int32, tf.int64]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%s" % local_rank):
@@ -526,16 +529,14 @@ class TensorFlowTests(tf.test.TestCase):
                                        prescale_factor=factor)
 
                 # Scaling done in FP64 math for integer types.
-                tensor = tf.cast(tensor, dtype if dtype not in [tf.int32, tf.int64]
-                                 else tf.float64)
-                factor = tf.convert_to_tensor(factor, dtype if dtype not in [tf.int32, tf.int64]
-                                              else tf.float64)
+                tensor = tf.cast(tensor, tf.float64 if dtype in int_types else dtype)
+                factor = tf.convert_to_tensor(factor, tf.float64 if dtype in int_types else dtype)
                 multiplied = tf.cast(factor * tensor, dtype) * size
                 max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [tf.int32, tf.int64]:
+            if size <= 3 or dtype in int_types:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -556,7 +557,7 @@ class TensorFlowTests(tf.test.TestCase):
         if not tf.test.is_gpu_available(cuda_only=True):
             return
 
-        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
             return
 
@@ -564,6 +565,7 @@ class TensorFlowTests(tf.test.TestCase):
         size = hvd.size()
         local_rank = hvd.local_rank()
         dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32])
+        int_types = [tf.int32, tf.int64]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%s" % local_rank):
@@ -576,16 +578,14 @@ class TensorFlowTests(tf.test.TestCase):
 
                 multiplied = tensor * size
                 # Scaling done in FP64 math for integer types.
-                multiplied = tf.cast(multiplied, dtype if dtype not in [tf.int32, tf.int64]
-                                 else tf.float64)
-                factor = tf.convert_to_tensor(factor, dtype if dtype not in [tf.int32, tf.int64]
-                                              else tf.float64)
+                multiplied = tf.cast(multiplied, tf.float64 if dtype in int_types else dtype)
+                factor = tf.convert_to_tensor(factor, tf.float64 if dtype in int_types else dtype)
                 multiplied = tf.cast(factor * multiplied, dtype)
                 max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [tf.int32, tf.int64]:
+            if size <= 3 or dtype in int_types:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4

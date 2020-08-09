@@ -348,17 +348,17 @@ class TorchTests(unittest.TestCase):
                                    prescale_factor=factor)
 
             factor = torch.tensor(factor, dtype=torch.float64)
-            if dtype.is_cuda:
+            if dtype.is_cuda and not int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
               factor = factor.cuda(hvd.local_rank())
               # For integer types, scaling done in FP64
-              factor = factor.type(dtype if dtype not in int_types else torch.float64)
-              tensor = tensor.type(dtype if dtype not in int_types else torch.float64)
+              factor = factor.type(torch.float64 if dtype in int_types else dtype)
+              tensor = tensor.type(torch.float64 if dtype in int_types else dtype)
             else:
               # For integer types, scaling done in FP64, FP32 math for FP16 on CPU
-              factor = factor.type(dtype if dtype not in int_types + half_types else
-                                   torch.float32 if dtype in half_types else torch.float64)
-              tensor = tensor.type(dtype if dtype not in int_types + half_types else
-                                   torch.float32 if dtype in half_types else torch.float64)
+              factor = factor.type(torch.float32 if dtype in half_types else
+                                   torch.float64 if dtype in int_types else dtype)
+              tensor = tensor.type(torch.float32 if dtype in half_types else
+                                   torch.float64 if dtype in int_types else dtype)
             multiplied = factor * tensor
             multiplied = multiplied.type(dtype)
             summed, multiplied = self.convert_cpu_fp16_to_fp32(summed, multiplied)
@@ -402,17 +402,17 @@ class TorchTests(unittest.TestCase):
                                    postscale_factor=factor)
 
             factor = torch.tensor(factor, dtype=torch.float64)
-            if dtype.is_cuda:
+            if dtype.is_cuda and not int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
               factor = factor.cuda(hvd.local_rank())
               # For integer types, scaling done in FP64
-              factor.type(dtype if dtype not in int_types else torch.float64)
-              tensor.type(dtype if dtype not in int_types else torch.float64)
+              factor = factor.type(torch.float64 if dtype in int_types else dtype)
+              tensor = tensor.type(torch.float64 if dtype in int_types else dtype)
             else:
               # For integer types, scaling done in FP64, FP32 math for FP16 on CPU
-              factor = factor.type(dtype if dtype not in int_types + half_types else
-                                   torch.float32 if dtype in half_types else torch.float64)
-              tensor = tensor.type(dtype if dtype not in int_types + half_types else
-                                   torch.float32 if dtype in half_types else torch.float64)
+              factor = factor.type(torch.float32 if dtype in half_types else
+                                   torch.float64 if dtype in int_types else dtype)
+              tensor = tensor.type(torch.float32 if dtype in half_types else
+                                   torch.float64 if dtype in int_types else dtype)
             multiplied = size * tensor
             multiplied = multiplied * factor
             multiplied = multiplied.type(dtype)
