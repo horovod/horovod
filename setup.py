@@ -163,7 +163,8 @@ def get_nvcc_flags():
     cc_list_env = os.environ.get('HOROVOD_BUILD_CUDA_CC_LIST')
 
     # Invoke nvcc and extract all supported compute capabilities for CUDA toolkit version
-    full_cc_list = subprocess.check_output("nvcc --help  | grep -i sm_ | grep -Eo 'sm_[0-9]+' | sed -e s/sm_//g | sort -g -u | tr '\n' ' '",
+    full_cc_list = subprocess.check_output("nvcc --help | sed -n -e '/gpu-architecture <arch>/,/gpu-code <code>/ p' | sed -n -e '/Allowed values/,/gpu-code <code>/ p' | "
+                                           "grep -i sm_ | grep -Eo 'sm_[0-9]+' | sed -e s/sm_//g | sort -g -u | tr '\n' ' '",
                                            shell=True).strip().split()
     full_cc_list = [int(i) for i in full_cc_list]
 
