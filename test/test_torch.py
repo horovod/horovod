@@ -347,7 +347,7 @@ class TorchTests(unittest.TestCase):
             summed = hvd.allreduce(tensor, average=False,
                                    prescale_factor=factor)
 
-            factor = torch.tensor(factor, dtype=torch.double)
+            factor = torch.tensor(factor, dtype=torch.float64)
             if dtype.is_cuda:
               factor = factor.cuda(hvd.local_rank())
               # For integer types, scaling done in FP64
@@ -401,7 +401,7 @@ class TorchTests(unittest.TestCase):
             summed = hvd.allreduce(tensor, average=False,
                                    postscale_factor=factor)
 
-            factor = torch.tensor(factor, dtype=torch.double)
+            factor = torch.tensor(factor, dtype=torch.float64)
             if dtype.is_cuda:
               factor = factor.cuda(hvd.local_rank())
               # For integer types, scaling done in FP64

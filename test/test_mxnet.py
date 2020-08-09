@@ -160,6 +160,7 @@ class MXTests(unittest.TestCase):
         size = hvd.size()
         dtypes = self.filter_supported_types(['int32',   'int64',
                                               'float16', 'float32', 'float64'])
+        int_types = ['int32', 'int64']
         dims = [1, 2, 3]
         ctx = self._current_context()
         count = 1
@@ -170,17 +171,22 @@ class MXTests(unittest.TestCase):
             tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim],
                                           ctx=ctx)
             tensor = tensor.astype(dtype)
+            tensor_np = tensor.asnumpy()
             factor = np.random.uniform()
             scaled = hvd.allreduce(tensor, average=False, name=str(count),
                                    prescale_factor=factor)
 
-            # For integer types, scaling done in FP64
-            if dtype in ['int32', 'int64']:
-                tensor = tensor.astype('float64')
-
-            # On CPU, use FP32 math instead of FP16
-            if ctx == mx.cpu() and dtype == 'float16':
-                tensor = tensor.astype('float32')
+            factor = mx.nd.array([factor], dtype='float64', ctx=ctx)
+            if ctx != mx.cpu():
+                # For integer types, scaling done in FP64
+                factor = factor.astype(dtype if dtype not in int_types else 'float64')
+                tensor = tensor.astype(dtype if dtype not in int_types else 'float64')
+            else:
+                # For integer types, scaling done in FP64, FP32 math for FP16 on CPU
+                factor = factor.astype(dtype if dtype not in int_types else
+                                       'float32' if dtype == 'float16' else 'float64')
+                tensor = tensor.astype(dtype if dtype not in int_types else
+                                       'float32' if dtype == 'float16' else 'float64')
 
             expected = factor * tensor
             expected = expected.astype(dtype)
@@ -189,7 +195,7 @@ class MXTests(unittest.TestCase):
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in ['int32', 'int64']:
+            if size <= 3 or dtype in int_types:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -207,6 +213,7 @@ class MXTests(unittest.TestCase):
         size = hvd.size()
         dtypes = self.filter_supported_types(['int32',   'int64',
                                               'float16', 'float32', 'float64'])
+        int_types = ['int32', 'int64']
         dims = [1, 2, 3]
         ctx = self._current_context()
         count = 1
@@ -221,23 +228,26 @@ class MXTests(unittest.TestCase):
             scaled = hvd.allreduce(tensor, average=False, name=str(count),
                                    postscale_factor=factor)
 
+            factor = mx.nd.array([factor], dtype='float64', ctx=ctx)
+            if ctx != mx.cpu():
+                # For integer types, scaling done in FP64
+                factor = factor.astype(dtype if dtype not in int_types else 'float64')
+                tensor = tensor.astype(dtype if dtype not in int_types else 'float64')
+            else:
+                # For integer types, scaling done in FP64, FP32 math for FP16 on CPU
+                factor = factor.astype(dtype if dtype not in int_types else
+                                       'float32' if dtype == 'float16' else 'float64')
+                tensor = tensor.astype(dtype if dtype not in int_types else
+                                       'float32' if dtype == 'float16' else 'float64')
 
             expected = tensor * size
-            # For integer types, scaling done in FP64
-            if dtype in ['int32', 'int64']:
-                expected = expected.astype('float64')
-
-            # On CPU, use FP32 math instead of FP16
-            if ctx == mx.cpu() and dtype == 'float16':
-                expected = expected.astype('float32')
-
             expected *= factor
             expected = expected.astype(dtype)
             count += 1
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in ['int32', 'int64']:
+            if size <= 3 or dtype in int_types:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
