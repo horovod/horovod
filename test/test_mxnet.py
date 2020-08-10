@@ -665,10 +665,6 @@ class MXTests(unittest.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
-        # This test does not apply if using gloo controller
-        if hvd.gloo_enabled():
-            self.skipTest("Alltoall currently does not support Gloo controller.")
-
         # This test does not apply if NCCL version < 2.7.0
         if hvd.nccl_built() and hvd.nccl_built() < 2700:
             self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
@@ -703,10 +699,6 @@ class MXTests(unittest.TestCase):
         if size == 1:
             self.skipTest("Only one worker available")
 
-        # This test does not apply if using gloo controller
-        if hvd.gloo_enabled():
-            self.skipTest("Alltoall currently does not support Gloo controller.")
-
         # This test does not apply if NCCL version < 2.7.0
         if hvd.nccl_built() and hvd.nccl_built() < 2700:
             self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
@@ -737,10 +729,6 @@ class MXTests(unittest.TestCase):
         if size == 1:
             self.skipTest("Only one worker available")
 
-        # This test does not apply if using gloo controller
-        if hvd.gloo_enabled():
-            self.skipTest("Alltoall currently does not support Gloo controller.")
-
         # This test does not apply if NCCL version < 2.7.0
         if hvd.nccl_built() and hvd.nccl_built() < 2700:
             self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
@@ -761,10 +749,6 @@ class MXTests(unittest.TestCase):
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
-
-        # This test does not apply if using gloo controller
-        if hvd.gloo_enabled():
-            self.skipTest("Alltoall currently does not support Gloo controller.")
 
         # This test does not apply if NCCL version < 2.7.0
         if hvd.nccl_built() and hvd.nccl_built() < 2700:
@@ -787,10 +771,6 @@ class MXTests(unittest.TestCase):
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
-
-        # This test does not apply if using gloo controller
-        if hvd.gloo_enabled():
-            self.skipTest("Alltoall currently does not support Gloo controller.")
 
         # This test does not apply if NCCL version < 2.7.0
         if hvd.nccl_built() and hvd.nccl_built() < 2700:
@@ -815,10 +795,6 @@ class MXTests(unittest.TestCase):
         # This test does not apply if there is only one worker.
         if size == 1:
             self.skipTest("Only one worker available")
-
-        # This test does not apply if using gloo controller
-        if hvd.gloo_enabled():
-            self.skipTest("Alltoall currently does not support Gloo controller.")
 
         # This test does not apply if NCCL version < 2.7.0
         if hvd.nccl_built() and hvd.nccl_built() < 2700:
