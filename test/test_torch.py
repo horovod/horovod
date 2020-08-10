@@ -348,8 +348,8 @@ class TorchTests(unittest.TestCase):
                                    prescale_factor=factor)
 
             factor = torch.tensor(factor, dtype=torch.float64)
+            factor = factor.cuda(hvd.local_rank()) if dtype.is_cuda else factor
             if dtype.is_cuda and not int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
-              factor = factor.cuda(hvd.local_rank())
               # For integer types, scaling done in FP64
               factor = factor.type(torch.float64 if dtype in int_types else dtype)
               tensor = tensor.type(torch.float64 if dtype in int_types else dtype)
@@ -402,8 +402,8 @@ class TorchTests(unittest.TestCase):
                                    postscale_factor=factor)
 
             factor = torch.tensor(factor, dtype=torch.float64)
+            factor = factor.cuda(hvd.local_rank()) if dtype.is_cuda else factor
             if dtype.is_cuda and not int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
-              factor = factor.cuda(hvd.local_rank())
               # For integer types, scaling done in FP64
               factor = factor.type(torch.float64 if dtype in int_types else dtype)
               tensor = tensor.type(torch.float64 if dtype in int_types else dtype)
