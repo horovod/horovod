@@ -1423,10 +1423,6 @@ class TensorFlowTests(tf.test.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
-        # This test does not apply if using gloo controller
-        if hvd.gloo_enabled():
-            self.skipTest("Alltoall currently does not support Gloo controller.")
-
         dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
                   tf.int32, tf.int64, tf.float16, tf.float32,
                   tf.float64]
@@ -1461,10 +1457,6 @@ class TensorFlowTests(tf.test.TestCase):
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
-
-        # This test does not apply if using gloo controller
-        if hvd.gloo_enabled():
-            self.skipTest("Alltoall currently does not support Gloo controller.")
 
         # This test does not apply if NCCL version < 2.7.0
         if hvd.nccl_built() and hvd.nccl_built() < 2700:
@@ -1506,10 +1498,6 @@ class TensorFlowTests(tf.test.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
-        # This test does not apply if using gloo controller
-        if hvd.gloo_enabled():
-            self.skipTest("Alltoall currently does not support Gloo controller.")
-
         dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
                   tf.int32, tf.int64, tf.float16, tf.float32,
                   tf.float64]
@@ -1543,10 +1531,6 @@ class TensorFlowTests(tf.test.TestCase):
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
-
-        # This test does not apply if using gloo controller
-        if hvd.gloo_enabled():
-            self.skipTest("Alltoall currently does not support Gloo controller.")
 
         # This test does not apply if NCCL version < 2.7.0
         if hvd.nccl_built() and hvd.nccl_built() < 2700:
@@ -1592,10 +1576,6 @@ class TensorFlowTests(tf.test.TestCase):
         if size == 1:
             self.skipTest("Only one worker available")
 
-        # This test does not apply if using gloo controller
-        if hvd.gloo_enabled():
-            self.skipTest("Alltoall currently does not support Gloo controller.")
-
         with tf.device("/cpu:0"):
             if rank % 2:
                 tensor = tf.ones([size], dtype=tf.int32)
@@ -1616,10 +1596,6 @@ class TensorFlowTests(tf.test.TestCase):
         if size == 1:
             self.skipTest("Only one worker available")
 
-        # This test does not apply if using gloo controller
-        if hvd.gloo_enabled():
-            self.skipTest("Alltoall currently does not support Gloo controller.")
-
         with tf.device("/cpu:0"):
             tensor = tf.ones([size + 1], dtype=tf.float32)
 
@@ -1632,10 +1608,6 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
-
-        # This test does not apply if using gloo controller
-        if hvd.gloo_enabled():
-            self.skipTest("Alltoall currently does not support Gloo controller.")
 
         with tf.device("/cpu:0"):
             tensor = tf.ones([size-1], dtype=tf.float32)
@@ -1655,10 +1627,6 @@ class TensorFlowTests(tf.test.TestCase):
         if size == 1:
             self.skipTest("Only one worker available")
 
-        # This test does not apply if using gloo controller
-        if hvd.gloo_enabled():
-            self.skipTest("Alltoall currently does not support Gloo controller.")
-
         tensor_size = [2 * size] * 3
         tensor_size[1] = 10 * (rank + 1)
         with tf.device("/cpu:0"):
@@ -1672,10 +1640,6 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
-
-        # This test does not apply if using gloo controller
-        if hvd.gloo_enabled():
-            self.skipTest("Alltoall currently does not support Gloo controller.")
 
         # As of TensorFlow v1.9, gradients are not supported on
         # integer tensors
@@ -1722,10 +1686,6 @@ class TensorFlowTests(tf.test.TestCase):
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
-
-        # This test does not apply if using gloo controller
-        if hvd.gloo_enabled():
-            self.skipTest("Alltoall currently does not support Gloo controller.")
 
         # This test does not apply if NCCL version < 2.7.0
         if hvd.nccl_built() and hvd.nccl_built() < 2700:
@@ -1778,10 +1738,6 @@ class TensorFlowTests(tf.test.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
-        # This test does not apply if using gloo controller
-        if hvd.gloo_enabled():
-            self.skipTest("Alltoall currently does not support Gloo controller.")
-
         # As of TensorFlow v1.9, gradients are not supported on
         # integer tensors
         dtypes = [tf.float32, tf.float64]
@@ -1825,10 +1781,6 @@ class TensorFlowTests(tf.test.TestCase):
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
-
-        # This test does not apply if using gloo controller
-        if hvd.gloo_enabled():
-            self.skipTest("Alltoall currently does not support Gloo controller.")
 
         # This test does not apply if NCCL version < 2.7.0
         if hvd.nccl_built() and hvd.nccl_built() < 2700:
