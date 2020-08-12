@@ -790,6 +790,37 @@ class MXTests(unittest.TestCase):
         except (MXNetError, ValueError):
             pass
 
+    def test_two_trainer(self):
+        """Test using horovod allreduce in MXNet Gluon trainer."""
+        from mxnet import gluon
+        from mxnet.gluon import Block, nn, HybridBlock
+
+        hvd.init()
+        rank = hvd.rank()
+        ctx = mx.cpu(rank)
+
+        net1 = Dense(20, in_units=10)
+        net2 = Dense(30, in_units=10)
+        net1.initialize(ctx=ctx)
+        net2.initialize(ctx=ctx)
+
+        params1 = net1.collect_params()
+        params2 = net2.collect_params()
+        broadcast_parameters(params1, prefix="net1")
+        broadcast_parameters(params2, prefix="net2")
+        trainer1 = hvd.DistributedTrainer(params1, 'sgd', {'learning_rate': 0.1}, prefix="net1")
+        trainer2 = hvd.DistributedTrainer(params2, 'sgd', {'learning_rate': 0.1}, prefix="net2")
+
+        for i in range(10):
+            data = mx.nd.ones((5, 10), ctx=ctx)
+            with mx.autograd.record():
+                pred1 = net1(data).sum()
+                pred2 = net2(data).sum()
+            mx.autograd.backward([pred1, pred2])
+            trainer1.step(1.0)
+            trainer2.step(1.0)
+            l = pred1.asscalar() + pred2.asscalar()
+
     def test_horovod_alltoall_rank_error(self):
         """Test that the alltoall returns an error if any dimension besides
         the first is different among the tensors being processed."""

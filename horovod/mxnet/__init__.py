@@ -83,7 +83,17 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
 # 2. DistributedTrainer performs allreduce(summation) and average
 #    while Trainer only performs allreduce(summation).
 class DistributedTrainer(mx.gluon.Trainer):
-    def __init__(self, params, optimizer, optimizer_params=None):
+    """The distributed trainer for data parallel training.
+
+    Arguments:
+        params: dict of parameters to train
+        optimizer: mx.optim.Optimizer. the choice of optimizer
+        optimizer_params: hyper-parameter of the chosen optimizer
+        prefix: the prefix of the parameters this trainer manages.
+              If multiple trainers are used in the same program,
+              they must be specified by different prefixes to avoid tensor name collision.
+    """
+    def __init__(self, params, optimizer, optimizer_params=None, prefix=None):
         if isinstance(optimizer, DistributedOptimizer):
             optimizer = optimizer._optimizer
             warnings.warn("DistributedTrainer does not take DistributedOptimizer "
@@ -96,6 +106,8 @@ class DistributedTrainer(mx.gluon.Trainer):
         # function. Normalizing it by Horovod size, which is equivalent to performing
         # average in allreduce, has better performance. 
         self._scale /= size()
+        assert prefix is None or isinstance(prefix, str)
+        self._prefix = self._prefix if self._prefix else ""
 
     def _allreduce_grads(self):
         if size() == 1: return
@@ -106,7 +118,7 @@ class DistributedTrainer(mx.gluon.Trainer):
         for i, param in enumerate(self._params):
             if param.grad_req != 'null':
                 allreduce_(param.list_grad()[0], average=False,
-                           name=str(i), priority=-i)
+                           name=self._prefix + str(i), priority=-i)
 
 
 # Wrapper to inject Horovod broadcast after parameter initialization
@@ -118,7 +130,7 @@ def _append_broadcast_init(param, root_rank, name):
     return wrapped_init_impl
 
 
-def broadcast_parameters(params, root_rank=0):
+def broadcast_parameters(params, root_rank=0, prefix=None):
     """
     Broadcasts the parameters from root rank to all other processes.
     Typical usage is to broadcast the `Module.get_params()` or the
@@ -130,11 +142,16 @@ def broadcast_parameters(params, root_rank=0):
             - ParameterDict to broadcast
         root_rank: The rank of the process from which parameters will be
                    broadcasted to all other processes.
+        prefix: The prefix of the parameters to broadcast.
+              If multiple `broadcast_parameters` are called in the same program,
+              they must be specified by different prefixes to avoid tensor name collision.
     """
     if size() == 1: return
 
     tensors = []
     names = []
+    assert prefix is None or isinstance(prefix, str)
+    prefix = prefix if prefix else ""
     try:
         from mxnet.gluon.parameter import ParameterDict
         valid_types = (dict, ParameterDict)
@@ -147,17 +164,17 @@ def broadcast_parameters(params, root_rank=0):
                     tensors.append(p.data())
                 else:
                     tensors.append(p)
-                names.append(name)
+                names.append(prefix + str(name))
             except mx.gluon.parameter.DeferredInitializationError:
                 # Inject wrapper method with post-initialization broadcast to
                 # handle parameters with deferred initialization
                 # we use the key of params instead of param.name, since
                 # param.name is no longer unique in MXNet 2.0
-                new_init = _append_broadcast_init(p, root_rank, name)
+                new_init = _append_broadcast_init(p, root_rank, prefix + str(name))
                 p._init_impl = types.MethodType(new_init, p)
     else:
         raise ValueError('invalid params of type: %s' % type(params))
 
     # Run broadcasts.
     for tensor, name in zip(tensors, names):
-        broadcast_(tensor, root_rank, name=str(name))
+        broadcast_(tensor, root_rank, name=name)
