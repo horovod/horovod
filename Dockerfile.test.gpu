@@ -104,11 +104,11 @@ RUN ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
 
 # Install PyTorch.
 RUN pip install future typing
-RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
-        PYTORCH_CUDA=$(echo ${CUDA_DOCKER_VERSION} | awk -F- '{print $1}' | sed 's/\.//'); \
-	pip install --pre torch ${TORCHVISION_PACKAGE} -v -f https://download.pytorch.org/whl/nightly/cu${PYTORCH_CUDA}/torch_nightly.html; \
+RUN PYTORCH_CUDA=$(echo ${CUDA_DOCKER_VERSION} | awk -F- '{print $1}' | sed 's/\.//'); \
+    if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
+	    pip install --pre torch ${TORCHVISION_PACKAGE} -v -f https://download.pytorch.org/whl/nightly/cu${PYTORCH_CUDA}/torch_nightly.html; \
     else \
-        pip install ${PYTORCH_PACKAGE} ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/torch_stable.html; \
+        pip install ${PYTORCH_PACKAGE} ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/cu${PYTORCH_CUDA}/torch_stable.html; \
     fi
 # Pin Pillow<7.0: https://github.com/pytorch/vision/issues/1718
 RUN pip install "Pillow<7.0" --no-deps
