@@ -1,0 +1,39 @@
+if("$ENV{HOROVOD_WITHOUT_TENSORFLOW}" STREQUAL "1")
+    return()
+endif()
+
+set(TF_TARGET_LIB "tensorflow")
+
+# Find TF
+set(TF_REQUIRED "")
+if ("$ENV{HOROVOD_WITH_TENSORFLOW}" STREQUAL "1")
+    set(TF_REQUIRED "REQUIRED")
+endif ()
+find_package(Tensorflow "1.15.0" ${TF_REQUIRED})
+if(NOT TENSORFLOW_FOUND)
+    return()
+endif()
+
+include_directories(SYSTEM ${Tensorflow_INCLUDE_DIRS})
+list(APPEND TF_LINKER_LIBS ${Tensorflow_LIBRARIES})
+if(HAVE_GLOO)
+    if (Tensorflow_CXX11)
+        list(APPEND TF_LINKER_LIBS "gloo")
+    else()
+        list(APPEND TF_LINKER_LIBS "compatible_gloo")
+    endif()
+endif()
+set(CMAKE_CXX_FLAGS "${Tensorflow_COMPILE_FLAGS} ${CMAKE_CXX_FLAGS}")
+add_definitions(-DTENSORFLOW_VERSION=${Tensorflow_VERSION})
+set(Tensorflow_CXX11 ${Tensorflow_CXX11} PARENT_SCOPE)
+
+# TF SOURCES
+list(APPEND TF_SOURCES "${PROJECT_SOURCE_DIR}/horovod/tensorflow/mpi_ops.cc")
+
+# Create library
+set_output_dir()
+add_library(${TF_TARGET_LIB} SHARED ${SOURCES} ${TF_SOURCES})
+target_link_libraries(${TF_TARGET_LIB} ${LINKER_LIBS} ${TF_LINKER_LIBS})
+set_target_properties(${TF_TARGET_LIB} PROPERTIES SUFFIX "${Python_SUFFIX}")
+set_target_properties(${TF_TARGET_LIB} PROPERTIES PREFIX "")
+set_target_properties(${TF_TARGET_LIB} PROPERTIES OUTPUT_NAME "mpi_lib")

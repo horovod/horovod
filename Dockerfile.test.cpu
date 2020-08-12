@@ -153,7 +153,6 @@ RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
       fi; \
       . /usr/local/oneccl/env/setvars.sh; \
       export I_MPI_ROOT=/usr/local/oneccl; \
-      export PIP_HOROVOD_MPICXX_SHOW=/usr/local/oneccl/bin/mpicxx; \
       echo "horovod python setup.py sdist, mpicxx is $(which mpicxx)"; \
       cd /horovod && HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 python setup.py sdist; \
     else \
