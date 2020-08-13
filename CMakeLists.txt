@@ -99,6 +99,12 @@ endforeach()
 # PYTHON
 find_package(PythonInterp "3.6" REQUIRED)
 set(PY_EXE ${PYTHON_EXECUTABLE})
+get_filename_component(PY_DIR ${PY_EXE} DIRECTORY)
+# find_package will not always pick the last version,
+# pick 'python' if it exists in same directory
+if (EXISTS "${PY_DIR}/python")
+    set(PY_EXE "${PY_DIR}/python")
+endif()
 
 # CUDA and ROCM
 macro(ADD_CUDA)

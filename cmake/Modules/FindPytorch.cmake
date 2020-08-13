@@ -27,7 +27,7 @@ execute_process(COMMAND ${PY_EXE} -c "import torch; print(hasattr(torch._C, '_cu
 string(TOUPPER ${Pytorch_CUDA} Pytorch_CUDA)
 
 execute_process(COMMAND ${PY_EXE} -c "from torch.utils.cpp_extension import include_paths; print(';'.join(include_paths(cuda=True)))"
-                OUTPUT_VARIABLE _Pytorch_ROCM_INC OUTPUT_STRIP_TRAILING_WHITESPACE)
+                OUTPUT_VARIABLE _Pytorch_ROCM_INC OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
 string(REGEX REPLACE "No CUDA runtime[^\n]*\n" "" _Pytorch_ROCM_INC "${_Pytorch_ROCM_INC}")
 find_path(_TORCH_ROCM_INCLUDE
           NAMES THH.h
