@@ -34,6 +34,7 @@ public:
   void MarkDone(int handle, const Status& status);
   bool PollHandle(int handle);
   std::shared_ptr<Status> ReleaseHandle(int handle);
+  void Reset();
 
 private:
   std::atomic_int last_handle_;
