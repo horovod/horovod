@@ -620,7 +620,7 @@ public:
 REGISTER_KERNEL_BUILDER(
     Name("HorovodSize").Device(DEVICE_CPU).HostMemory("size"),
     HorovodReturnScalarOp<int, common::horovod_size>);
-#if HOROVOD_GPU_BROADCAST
+#if HAVE_GPU
 REGISTER_KERNEL_BUILDER(
     Name("HorovodSize").Device(DEVICE_GPU).HostMemory("size"),
     HorovodReturnScalarOp<int, common::horovod_size>);
@@ -643,7 +643,7 @@ Output
 REGISTER_KERNEL_BUILDER(
     Name("HorovodLocalSize").Device(DEVICE_CPU).HostMemory("local_size"),
     HorovodReturnScalarOp<int, common::horovod_local_size>);
-#if HOROVOD_GPU_BROADCAST
+#if HAVE_GPU
 REGISTER_KERNEL_BUILDER(
     Name("HorovodLocalSize").Device(DEVICE_GPU).HostMemory("local_size"),
     HorovodReturnScalarOp<int, common::horovod_local_size>);
@@ -668,7 +668,7 @@ Output
 REGISTER_KERNEL_BUILDER(
     Name("HorovodRank").Device(DEVICE_CPU).HostMemory("rank"),
     HorovodReturnScalarOp<int, common::horovod_rank>);
-#if HOROVOD_GPU_BROADCAST
+#if HAVE_GPU
 REGISTER_KERNEL_BUILDER(
     Name("HorovodRank").Device(DEVICE_GPU).HostMemory("rank"),
     HorovodReturnScalarOp<int, common::horovod_rank>);
@@ -691,7 +691,7 @@ Output
 REGISTER_KERNEL_BUILDER(
     Name("HorovodLocalRank").Device(DEVICE_CPU).HostMemory("local_rank"),
     HorovodReturnScalarOp<int, common::horovod_local_rank>);
-#if HOROVOD_GPU_BROADCAST
+#if HAVE_GPU
 REGISTER_KERNEL_BUILDER(
     Name("HorovodLocalRank").Device(DEVICE_GPU).HostMemory("local_rank"),
     HorovodReturnScalarOp<int, common::horovod_local_rank>);

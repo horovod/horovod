@@ -91,7 +91,8 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                                       'workaround please pass sparse_as_dense=True to DistributedOptimizer')
         with tf.device(device_sparse):
             # For IndexedSlices, do two allgathers instead of an allreduce.
-            horovod_size = tf.cast(size_op(), dtype=tensor.values.dtype)
+            horovod_size = tf.cast(size_op() if int(os.environ.get("HOROVOD_ELASTIC", 0)) else size(),
+                                   dtype=tensor.values.dtype)
             values = allgather(tensor.values)
             indices = allgather(tensor.indices)
 
@@ -102,7 +103,8 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                                 dense_shape=tensor.dense_shape)
     else:
         with tf.device(device_dense):
-            horovod_size = tf.cast(size_op(), dtype=tensor.dtype)
+            horovod_size = tf.cast(size_op() if int(os.environ.get("HOROVOD_ELASTIC", 0)) else size(),
+                                   dtype=tensor.dtype)
             tensor_compressed, ctx = compression.compress(tensor)
             summed_tensor_compressed = _allreduce(tensor_compressed, op=true_op)
             summed_tensor = compression.decompress(summed_tensor_compressed, ctx)
@@ -115,7 +117,8 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                         elif not check_num_rank_power_of_2(int(size() / local_size())):
                             raise NotImplementedError(
                                 'Running GPU Adasum with non-power of 2 nodes is not supported yet.')
-                        horovod_local_size = tf.cast(local_size_op(), dtype=tensor.dtype)
+                        horovod_local_size = tf.cast(local_size_op() if int(os.environ.get("HOROVOD_ELASTIC", 0)) else local_size(),
+                                                     dtype=tensor.dtype)
                         new_tensor = summed_tensor / horovod_local_size
                     else:
                         warnings.warn('Adasum reduction does not currently support GPU reduction using MPI. Tensors '
@@ -138,7 +141,8 @@ def _allreduce_cond(tensor, *args, **kwargs):
     def id_fn():
         return tensor
 
-    return tf.cond(size_op() > 1, allreduce_fn, id_fn)
+    return tf.cond((size_op() > 1) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else tf.convert_to_tensor(size() > 1),
+                   allreduce_fn, id_fn)
 
 
 try:
