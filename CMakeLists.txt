@@ -66,7 +66,7 @@ endif()
 # Make CMAKE read CPPFLAGS
 set(CMAKE_CXX_FLAGS "$ENV{CPPFLAGS} ${CMAKE_CXX_FLAGS}")
 # Add default project CXX flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -fPIC -O3 -Wall -ftree-vectorize")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -fPIC -O3 -Wall -ftree-vectorize -g")
 # Add architecture specific optimization flags
 set(ARCH_FLAGS "-mf16c" "-mavx" "-mfma")
 set_build_arch_flags("${ARCH_FLAGS}")
