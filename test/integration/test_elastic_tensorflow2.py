@@ -17,6 +17,8 @@ import os
 import unittest
 import warnings
 
+import mock
+
 from elastic_common import BaseElasticTests
 
 
@@ -25,3 +27,14 @@ class ElasticTensorFlow2Tests(BaseElasticTests, unittest.TestCase):
         training_script = os.path.join(os.path.dirname(__file__), 'data/elastic_tensorflow2_main.py')
         super(ElasticTensorFlow2Tests, self).__init__(training_script, *args, **kwargs)
         warnings.simplefilter('module')
+
+    @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    @mock.patch('horovod.runner.gloo_run._get_min_start_hosts', return_value=1)
+    def test_all_hosts_blacklisted(self, mock_get_min_start_hosts):
+        self.skipTest('This test fails due to https://github.com/horovod/horovod/issues/2030')
+
+    @mock.patch('horovod.runner.elastic.driver.ELASTIC_TIMEOUT_SECS', 1)
+    @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    @mock.patch('horovod.runner.gloo_run._get_min_start_hosts', return_value=1)
+    def test_min_hosts_timeout(self, mock_get_min_start_hosts):
+        self.skipTest('This test fails due to https://github.com/horovod/horovod/issues/2030')

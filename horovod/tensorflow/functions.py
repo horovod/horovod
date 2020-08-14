@@ -21,8 +21,8 @@ import tensorflow as tf
 
 from tensorflow.python.framework import ops
 
-from horovod.tensorflow.mpi_ops import broadcast
-from horovod.tensorflow.mpi_ops import local_size, rank, size
+from horovod.tensorflow.mpi_ops import allgather, broadcast
+from horovod.tensorflow.mpi_ops import rank, size
 from horovod.tensorflow.util import _cache, _executing_eagerly, _make_subgraph
 
 
@@ -131,3 +131,47 @@ def broadcast_object_fn(root_rank=0, session=None, name=None):
 
         return obj
     return _bcast
+
+
+def allgather_object(obj, session=None, name=None):
+    """
+    Serializes and allgathers an object from all other processes.
+
+    Arguments:
+        obj: An object capable of being serialized without losing any context.
+        session: Session for TensorFlow v1 compatibility.
+        name: Optional name to use during allgather, will default to the class
+              type.
+
+    Returns:
+        The list of objects that were allgathered across all ranks.
+    """
+    if name is None:
+        name = type(obj).__name__
+
+    def load(byte_array):
+        buf = io.BytesIO(byte_array.tobytes())
+        return cloudpickle.load(buf)
+
+    def to_numpy(v):
+        if not _executing_eagerly():
+            sess = session or ops.get_default_session()
+            return sess.run(v)
+        else:
+            return v.numpy()
+
+    b = io.BytesIO()
+    cloudpickle.dump(obj, b)
+
+    t = tf.convert_to_tensor(bytearray(b.getvalue()), dtype=tf.uint8)
+    sz = tf.convert_to_tensor([t.shape[0]], dtype=tf.int32)
+
+    sizes = to_numpy(allgather(sz, name=name + '.sz'))
+    gathered = to_numpy(allgather(t, name=name + '.t'))
+
+    def select(i):
+        start = sizes[i - 1] if i > 0 else 0
+        end = start + sizes[i]
+        return gathered[start:end]
+
+    return [load(select(i)) for i in range(size())]

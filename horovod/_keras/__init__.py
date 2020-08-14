@@ -13,8 +13,13 @@
 # limitations under the License.
 # ==============================================================================
 
+from distutils.version import LooseVersion
+
 import horovod.tensorflow as hvd
 import tensorflow as tf
+
+
+_PRE_TF_2_4_0 = LooseVersion(tf.__version__) < LooseVersion('2.4.0')
 
 
 def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sparse,
@@ -44,8 +49,13 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
             return self._allreduce(gradients)
 
         def _aggregate_gradients(self, grads_and_vars):
-            gradients = [grad for grad, var in grads_and_vars]
-            return self._allreduce(gradients)
+            grads, vars = list(zip(*grads_and_vars))
+            aggregated_grads = self._allreduce(grads)
+            if _PRE_TF_2_4_0:
+                # Prior to TF 2.4.0, this function was expected to return only a list of
+                # grads, not a list of (grad, var) tuples.
+                return aggregated_grads
+            return list(zip(aggregated_grads, vars))
 
         def _allreduce(self, gradients):
             self._aggregated_gradients = True
@@ -69,12 +79,13 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                 return gradients
 
         def apply_gradients(self, *args, **kwargs):
+            results = super(self.__class__, self).apply_gradients(*args, **kwargs)
             if not self._aggregated_gradients:
                 raise Exception('`apply_gradients()` was called without a call to '
                                 '`get_gradients()` or `_aggregate_gradients`. If you\'re '
                                 'using TensorFlow 2.0, please specify '
                                 '`experimental_run_tf_function=False` in `compile()`.')
-            return super(self.__class__, self).apply_gradients(*args, **kwargs)
+            return results
 
     # We dynamically create a new class that inherits from the optimizer that was passed in.
     # The goal is to override get_gradients() method with an allreduce implementation.

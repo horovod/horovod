@@ -282,8 +282,6 @@ class TfKerasTests(tf.test.TestCase):
             hopt_copy2 = hopt.__class__.from_config(cfg)
             self.assertEqual(cfg, hopt_copy2.get_config())
 
-    @pytest.mark.skipif(LooseVersion(tf.__version__) < LooseVersion('1.15.0'),
-                        reason='Synchronizing state requires TensorFlow 1.15 or above')
     def test_elastic_state(self):
         with self.test_session(config=self.config) as sess:
             K.set_session(sess)

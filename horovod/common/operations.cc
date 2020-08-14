@@ -209,6 +209,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
         std::shared_ptr<AllgatherOp>(new GlooAllgather(&gloo_context, &state)));
     broadcast_ops.push_back(
         std::shared_ptr<BroadcastOp>(new GlooBroadcast(&gloo_context, &state)));
+    alltoall_ops.push_back(
+        std::shared_ptr<AlltoallOp>(new GlooAlltoall(&gloo_context, &state)));
   }
 #endif
 

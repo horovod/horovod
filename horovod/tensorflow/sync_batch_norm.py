@@ -1,4 +1,5 @@
-# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+# Copyright 2020 Google Research. All Rights Reserved.
+# Modifications copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,12 +19,7 @@ from horovod.tensorflow.mpi_ops import _allreduce
 from horovod.tensorflow.mpi_ops import size, rank
 from horovod.tensorflow.mpi_ops import Sum
 
-try:
-    _BatchNormalization = tf.compat.v1.layers.BatchNormalization
-except AttributeError:
-    _BatchNormalization = tf.layers.BatchNormalization
-
-class SyncBatchNormalization(_BatchNormalization):
+class SyncBatchNormalization(tf.keras.layers.BatchNormalization):
   """ Synchronous batch normalization. Stats are synchronized across all workers during training. """
 
   def __init__(self, fused=False, **kwargs):
@@ -45,13 +41,25 @@ class SyncBatchNormalization(_BatchNormalization):
       worker_mean_of_square = worker_variance + worker_square_of_mean
 
       # Average stats across all workers
-      group_mean = _allreduce(worker_mean, op=Sum)
-      group_mean_of_square = _allreduce(worker_mean_of_square, op=Sum)
-      group_mean /= size()
-      group_mean_of_square /= size()
+      worker_stack = tf.stack([worker_mean, worker_mean_of_square])
+      group_stack = _allreduce(worker_stack, op=Sum)
+      group_stack /= size()
+      group_mean, group_mean_of_square = tf.unstack(group_stack)
 
       group_variance = group_mean_of_square - tf.math.square(group_mean)
 
       return (group_mean, group_variance)
     else:
       return (worker_mean, worker_variance)
+
+  def call(self, *args, **kwargs):
+    outputs = super(SyncBatchNormalization, self).call(*args, **kwargs)
+    try:
+      # A temporary hack for TF1 compatibility with Keras batch norm.
+      # Ops are added to tf.GraphKeys.UPDATE_OPS manually to mimic
+      # behavior of TF1 batch norm layer for use in control dependencies.
+      for u in self.updates:
+        tf.add_to_collection(tf.GraphKeys.UPDATE_OPS, u)
+    except AttributeError:
+      pass
+    return outputs

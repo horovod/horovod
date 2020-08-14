@@ -20,8 +20,9 @@ import io
 import cloudpickle
 import mxnet as mx
 
-from horovod.mxnet.mpi_ops import broadcast_
-from horovod.mxnet.mpi_ops import rank
+from horovod.mxnet.mpi_ops import allgather, broadcast_
+from horovod.mxnet.mpi_ops import rank, size
+
 
 def broadcast_object(obj, root_rank=0, name=None):
     """
@@ -58,3 +59,39 @@ def broadcast_object(obj, root_rank=0, name=None):
         obj = cloudpickle.load(buf)
 
     return obj
+
+
+def allgather_object(obj, name=None):
+    """
+    Serializes and allgathers an object from all other processes.
+
+    Arguments:
+        obj: An object capable of being serialized without losing any context.
+        name: Optional name to use during allgather, will default to the class
+              type.
+
+    Returns:
+        The list of objects that were allgathered across all ranks.
+    """
+    if name is None:
+        name = type(obj).__name__
+
+    def load(byte_array):
+        buf = io.BytesIO(byte_array.tobytes())
+        return cloudpickle.load(buf)
+
+    b = io.BytesIO()
+    cloudpickle.dump(obj, b)
+
+    t = mx.nd.array(bytearray(b.getvalue()), dtype='byte')
+    sz = mx.nd.array([t.size], dtype='int')
+
+    sizes = allgather(sz, name=name + '.sz').asnumpy()
+    gathered = allgather(t, name=name + '.t').asnumpy()
+
+    def select(i):
+        start = sizes[i - 1] if i > 0 else 0
+        end = start + sizes[i]
+        return gathered[start:end]
+
+    return [load(select(i)) for i in range(size())]

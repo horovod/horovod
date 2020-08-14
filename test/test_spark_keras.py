@@ -137,9 +137,6 @@ class SparkKerasTests(tf.test.TestCase):
                     label_prob = row.label_prob.toArray().tolist()
                     assert label_prob[int(row.label_pred)] == max(label_prob)
 
-    @pytest.mark.skipif(LooseVersion(tf.__version__) == LooseVersion('1.14.0'),
-                        reason='This test segfaults with Tensorflow 1.14.0: '
-                               'https://github.com/horovod/horovod/issues/1995')
     @mock.patch('horovod.spark.keras.remote._pin_gpu_fn')
     @mock.patch('horovod.spark.keras.util.TFKerasUtil.fit_fn')
     def test_restore_from_checkpoint(self, mock_fit_fn, mock_pin_gpu_fn):
@@ -187,9 +184,6 @@ class SparkKerasTests(tf.test.TestCase):
                 keras_estimator.fit(df)
                 keras_estimator._load_model_from_checkpoint.assert_called()
 
-    @pytest.mark.skipif(LooseVersion(tf.__version__) == LooseVersion('1.14.0'),
-                        reason='This test segfaults with Tensorflow 1.14.0: '
-                               'https://github.com/horovod/horovod/issues/1995')
     @mock.patch('horovod.spark.keras.remote._pin_gpu_fn')
     @mock.patch('horovod.spark.keras.util.TFKerasUtil.fit_fn')
     def test_keras_direct_parquet_train(self, mock_fit_fn, mock_pin_gpu_fn):
@@ -229,15 +223,11 @@ class SparkKerasTests(tf.test.TestCase):
                     predictions = transformer.transform(df)
                 assert predictions.count() == df.count()
 
-    @pytest.mark.skipif(LooseVersion(tf.__version__) == LooseVersion('1.14.0'),
-                        reason='This test segfaults with Tensorflow 1.14.0: '
-                               'https://github.com/horovod/horovod/issues/1995')
     @mock.patch('horovod.spark.keras.remote._pin_gpu_fn')
     @mock.patch('horovod.spark.keras.util.TFKerasUtil.fit_fn')
     def test_keras_model_checkpoint_callback(self, mock_fit_fn, mock_pin_gpu_fn):
-        # Importing this outside of the test function leads to a segmentation fault in the
-        # pytest with tf 1.14
         from horovod.tensorflow.keras.callbacks import BestModelCheckpoint
+
         def _get_mock_fit_fn(checkpoint_callback_provided):
             def fit(model, train_data, val_data, steps_per_epoch, validation_steps, callbacks,
                     verbose):

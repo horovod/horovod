@@ -16,6 +16,9 @@
 #ifndef HOROVOD_GLOO_OPERATIONS_H
 #define HOROVOD_GLOO_OPERATIONS_H
 
+#include <stdint.h>
+#include <vector>
+
 #include "collective_operations.h"
 #include "../gloo/gloo_context.h"
 
@@ -32,6 +35,10 @@ public:
   virtual void Broadcast(void* buffer_data, int num_elements,
                          int root_rank) = 0;
 
+  virtual void Alltoall(void* buffer_data, void* buffer_out,
+                        std::vector<int64_t>& sendcounts,
+                        std::vector<int64_t>& recvcounts) = 0;
+
   virtual int ElementSize() const = 0;
 };
 
@@ -47,6 +54,10 @@ public:
                  int* displcmnts) override;
 
   void Broadcast(void* buffer_data, int num_elements, int root_rank) override;
+
+  void Alltoall(void* buffer_data, void* buffer_out,
+                std::vector<int64_t>& sendcounts,
+                std::vector<int64_t>& recvcounts);
 
   int ElementSize() const override;
 
@@ -92,6 +103,20 @@ public:
 
   Status Execute(std::vector<TensorTableEntry>& entries,
                  const Response& response) override;
+
+  bool Enabled(const ParameterManager& param_manager,
+               const std::vector<TensorTableEntry>& entries,
+               const Response& response) const override;
+
+protected:
+  GlooContext* gloo_context_;
+};
+
+class GlooAlltoall : public AlltoallOp {
+public:
+  GlooAlltoall(GlooContext* gloo_context, HorovodGlobalState* global_state);
+
+  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,

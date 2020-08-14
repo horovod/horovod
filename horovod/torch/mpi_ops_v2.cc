@@ -339,6 +339,10 @@ int DoJoin(int device) {
   return handle;
 }
 
+void Reset() {
+  handle_manager.Reset();
+}
+
 
 PYBIND11_MODULE(mpi_lib_v2, m) {
   // allreduce
@@ -483,6 +487,7 @@ PYBIND11_MODULE(mpi_lib_v2, m) {
   // basics
   m.def("horovod_torch_poll", &PollHandle);
   m.def("horovod_torch_wait_and_clear", &WaitAndClear);
+  m.def("horovod_torch_reset", &Reset);
 }
 
 } // namespace torch

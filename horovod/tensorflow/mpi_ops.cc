@@ -28,12 +28,21 @@
 #define EIGEN_USE_THREADS
 
 #if HAVE_GPU
-#include <cuda_runtime.h>
 
-// Forward declaration of AsGpuStreamValue or AsCUDAStreamValue
+#if HAVE_CUDA
+#include <cuda_runtime.h>
+using GpuStreamHandle = cudaStream_t;
+#define gpuMemsetAsync cudaMemsetAsync
+#elif HAVE_ROCM
+#include <hip/hip_runtime.h>
+using GpuStreamHandle = hipStream_t;
+#define gpuMemsetAsync hipMemsetAsync
+#endif
+
+// Forward declaration of AsGpuStreamValue
 namespace stream_executor {
 namespace gpu {
-cudaStream_t AsGpuStreamValue(Stream* stream);
+GpuStreamHandle AsGpuStreamValue(Stream* stream);
 } // namespace stream_executor
 } // namespace gpu
 #include "tensorflow/stream_executor/stream.h"
@@ -307,8 +316,9 @@ TFOpContext::AllocateZeros(int64_t num_elements, common::DataType dtype,
 #if HAVE_GPU
     auto device_context = context_->op_device_context();
     auto stream = (device_context != nullptr) ? stream_executor::gpu::AsGpuStreamValue(device_context->stream()) : 0;
-    cudaMemsetAsync((void*)zero_tensor->AccessTensor(hvd_context->GetKernelContext())->tensor_data().data(), 0,
-                zero_tensor->AccessTensor(hvd_context->GetKernelContext())->tensor_data().size(), stream);
+    void *ptr = (void*)zero_tensor->AccessTensor(hvd_context->GetKernelContext())->tensor_data().data();
+    auto size = zero_tensor->AccessTensor(hvd_context->GetKernelContext())->tensor_data().size();
+    gpuMemsetAsync(ptr, 0, size, stream);
 #endif
   } else {
     memset((void*)zero_tensor->AccessTensor(hvd_context->GetKernelContext())->tensor_data().data(), 0,
@@ -610,7 +620,7 @@ public:
 REGISTER_KERNEL_BUILDER(
     Name("HorovodSize").Device(DEVICE_CPU).HostMemory("size"),
     HorovodReturnScalarOp<int, common::horovod_size>);
-#if HOROVOD_GPU_BROADCAST
+#if HAVE_GPU
 REGISTER_KERNEL_BUILDER(
     Name("HorovodSize").Device(DEVICE_GPU).HostMemory("size"),
     HorovodReturnScalarOp<int, common::horovod_size>);
@@ -633,7 +643,7 @@ Output
 REGISTER_KERNEL_BUILDER(
     Name("HorovodLocalSize").Device(DEVICE_CPU).HostMemory("local_size"),
     HorovodReturnScalarOp<int, common::horovod_local_size>);
-#if HOROVOD_GPU_BROADCAST
+#if HAVE_GPU
 REGISTER_KERNEL_BUILDER(
     Name("HorovodLocalSize").Device(DEVICE_GPU).HostMemory("local_size"),
     HorovodReturnScalarOp<int, common::horovod_local_size>);
@@ -658,7 +668,7 @@ Output
 REGISTER_KERNEL_BUILDER(
     Name("HorovodRank").Device(DEVICE_CPU).HostMemory("rank"),
     HorovodReturnScalarOp<int, common::horovod_rank>);
-#if HOROVOD_GPU_BROADCAST
+#if HAVE_GPU
 REGISTER_KERNEL_BUILDER(
     Name("HorovodRank").Device(DEVICE_GPU).HostMemory("rank"),
     HorovodReturnScalarOp<int, common::horovod_rank>);
@@ -681,7 +691,7 @@ Output
 REGISTER_KERNEL_BUILDER(
     Name("HorovodLocalRank").Device(DEVICE_CPU).HostMemory("local_rank"),
     HorovodReturnScalarOp<int, common::horovod_local_rank>);
-#if HOROVOD_GPU_BROADCAST
+#if HAVE_GPU
 REGISTER_KERNEL_BUILDER(
     Name("HorovodLocalRank").Device(DEVICE_GPU).HostMemory("local_rank"),
     HorovodReturnScalarOp<int, common::horovod_local_rank>);

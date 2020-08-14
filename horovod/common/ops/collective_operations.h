@@ -146,18 +146,65 @@ public:
 
   virtual ~AlltoallOp() = default;
 
-  virtual Status PrepareOutputAndParams(TensorTableEntry& e,
-                                      std::vector<int32_t>& sdispls,
-                                      std::vector<int32_t>& rdispls,
-                                      std::vector<int32_t>& sendcounts,
-                                      std::vector<int32_t>& recvcounts);
-
   virtual Status Execute(std::vector<TensorTableEntry>& entries,
                          const Response& response) = 0;
 
   virtual bool Enabled(const ParameterManager& param_manager,
                        const std::vector<TensorTableEntry>& entries,
                        const Response& response) const = 0;
+
+protected:
+  template <typename T>
+  Status PrepareOutputAndParams(TensorTableEntry& e,
+                                std::vector<T>& sdispls,
+                                std::vector<T>& rdispls,
+                                std::vector<T>& sendcounts,
+                                std::vector<T>& recvcounts) {
+    auto world_size = global_state_->controller->GetSize();
+
+    const auto& splits = e.splits;
+    std::vector<int32_t> recvsplits;
+    // Perform alltoall of splits to get expeceted receive splits
+    global_state_->controller->AlltoallGetRecvSplits(splits, recvsplits);
+
+    // Every tensor participating in Alltoall operation may have different
+    // first dimension size, but the rest of dimensions are same for all
+    // tensors.  Here we get shape of tensor sliced by first dimension.
+    TensorShape slice_shape;
+    for (int i = 1; i < e.tensor->shape().dims(); ++i) {
+      slice_shape.AddDim(e.tensor->shape().dim_size(i));
+    }
+    int64_t slice_num_elements = slice_shape.num_elements();
+
+    // Prepare send/recvcounts and displacements for Alltoallv
+    sdispls.resize(world_size);
+    rdispls.resize(world_size);
+    sendcounts.resize(world_size);
+    recvcounts.resize(world_size);
+
+    size_t output_first_dim = 0;
+    for (int i = 0; i < world_size; ++i) {
+      sendcounts[i] = splits[i] * slice_num_elements;
+      recvcounts[i] = recvsplits[i] * slice_num_elements;
+      output_first_dim += recvsplits[i];
+    }
+
+    for (int i = 1; i < world_size; ++i) {
+      sdispls[i] = sdispls[i-1] + sendcounts[i-1];
+      rdispls[i] = rdispls[i-1] + recvcounts[i-1];
+    }
+
+    // Allocate output
+    TensorShape output_shape;
+    output_shape.AddDim(output_first_dim);
+    output_shape.AppendShape(slice_shape);
+    Status status = e.context->AllocateOutput(output_shape, &e.output);
+    if (!status.ok()) {
+      return status;
+    }
+
+    return Status::OK();
+  }
 };
 
 class JoinOp : public HorovodOp {
