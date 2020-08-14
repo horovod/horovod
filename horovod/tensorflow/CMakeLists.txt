@@ -24,7 +24,8 @@ if(HAVE_GLOO)
     endif()
 endif()
 set(CMAKE_CXX_FLAGS "${Tensorflow_COMPILE_FLAGS} ${CMAKE_CXX_FLAGS}")
-add_definitions(-DTENSORFLOW_VERSION=${Tensorflow_VERSION})
+parse_version(${Tensorflow_VERSION} VERSION_DEC)
+add_definitions(-DTENSORFLOW_VERSION=${VERSION_DEC})
 set(Tensorflow_CXX11 ${Tensorflow_CXX11} PARENT_SCOPE)
 
 # TF SOURCES
