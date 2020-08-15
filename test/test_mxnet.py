@@ -794,15 +794,15 @@ class MXTests(unittest.TestCase):
         rank = hvd.rank()
         ctx = mx.cpu(rank)
 
-        net1 = Dense(20, in_units=10)
-        net2 = Dense(30, in_units=10)
+        net1 = nn.Dense(20, in_units=10)
+        net2 = nn.Dense(30, in_units=10)
         net1.initialize(ctx=ctx)
         net2.initialize(ctx=ctx)
 
         params1 = net1.collect_params()
         params2 = net2.collect_params()
-        broadcast_parameters(params1, prefix="net1")
-        broadcast_parameters(params2, prefix="net2")
+        hvd.broadcast_parameters(params1, prefix="net1")
+        hvd.broadcast_parameters(params2, prefix="net2")
         trainer1 = hvd.DistributedTrainer(params1, 'sgd', {'learning_rate': 0.1}, prefix="net1")
         trainer2 = hvd.DistributedTrainer(params2, 'sgd', {'learning_rate': 0.1}, prefix="net2")
 

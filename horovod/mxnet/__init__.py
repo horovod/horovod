@@ -107,7 +107,7 @@ class DistributedTrainer(mx.gluon.Trainer):
         # average in allreduce, has better performance. 
         self._scale /= size()
         assert prefix is None or isinstance(prefix, str)
-        self._prefix = self._prefix if self._prefix else ""
+        self._prefix = prefix if prefix else ""
 
     def _allreduce_grads(self):
         if size() == 1: return
