@@ -50,6 +50,9 @@ torch_mpi_lib_v2 = Extension('horovod.torch.mpi_lib_v2', [])
 mxnet_mpi_lib = Extension('horovod.mxnet.mpi_lib', [])
 gloo_lib = CMakeExtension('gloo', cmake_lists_dir='third_party/gloo',
                           sources=[])
+horovod_cuda_lib = CMakeExtension('horovod_cuda_kernels',
+                                  cmake_lists_dir='horovod/common/ops/cuda',
+                                  sources=[])
 
 ccl_root = os.environ.get('CCL_ROOT')
 have_ccl = ccl_root is not None
@@ -155,6 +158,24 @@ def get_cpp_flags(build_ext):
 
     raise DistutilsPlatformError(last_err)
 
+def get_nvcc_flags():
+    default_flags = ['--std=c++11', '-O3', '-Xcompiler', '-fPIC']
+    cc_list_env = os.environ.get('HOROVOD_BUILD_CUDA_CC_LIST')
+
+    # Invoke nvcc and extract all supported compute capabilities for CUDA toolkit version
+    full_cc_list = subprocess.check_output("nvcc --help | sed -n -e '/gpu-architecture <arch>/,/gpu-code <code>/ p' | sed -n -e '/Allowed values/,/gpu-code <code>/ p' | "
+                                           "grep -i sm_ | grep -Eo 'sm_[0-9]+' | sed -e s/sm_//g | sort -g -u | tr '\n' ' '",
+                                           shell=True).strip().split()
+    full_cc_list = [int(i) for i in full_cc_list]
+
+    # Build native kernels for specified compute capabilities
+    cc_list = full_cc_list if cc_list_env is None else [int(x) for x in cc_list_env.split(',')]
+    for cc in cc_list:
+      default_flags += ['-gencode', 'arch=compute_{cc},code=sm_{cc}'.format(cc=cc)]
+    # Build PTX for maximum specified compute capability
+    default_flags += ['-gencode', 'arch=compute_{cc},code=compute_{cc}'.format(cc=max(cc_list))]
+
+    return default_flags
 
 def get_link_flags(build_ext):
     last_err = None
@@ -570,7 +591,8 @@ def get_ddl_dirs(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
     return ddl_include_dirs, ddl_lib_dirs
 
 
-def set_cuda_options(build_ext, COMPILE_FLAGS, MACROS, INCLUDES, SOURCES, BUILD_MPI, LIBRARY_DIRS, LIBRARIES, **kwargs):
+def set_cuda_options(build_ext, COMPILE_FLAGS, MACROS, INCLUDES, SOURCES, BUILD_MPI, LIBRARY_DIRS, LIBRARIES,
+                     NVCC_COMPILE_FLAGS,**kwargs):
     cuda_include_dirs, cuda_lib_dirs = get_cuda_dirs(build_ext, COMPILE_FLAGS)
     MACROS += [('HAVE_CUDA', '1'), ('HAVE_GPU', '1')]
     INCLUDES += cuda_include_dirs
@@ -580,6 +602,8 @@ def set_cuda_options(build_ext, COMPILE_FLAGS, MACROS, INCLUDES, SOURCES, BUILD_
         SOURCES += ['horovod/common/ops/mpi_gpu_operations.cc']
     LIBRARY_DIRS += cuda_lib_dirs
     LIBRARIES += ['cudart']
+
+    NVCC_COMPILE_FLAGS += get_nvcc_flags()
 
 
 def get_common_options(build_ext):
@@ -728,6 +752,7 @@ def get_common_options(build_ext):
     SOURCES = ['horovod/common/common.cc',
                'horovod/common/controller.cc',
                'horovod/common/fusion_buffer_manager.cc',
+               'horovod/common/half.cc',
                'horovod/common/logging.cc',
                'horovod/common/message.cc',
                'horovod/common/operations.cc',
@@ -744,6 +769,7 @@ def get_common_options(build_ext):
                'horovod/common/utils/env_parser.cc'
                ]
     COMPILE_FLAGS = cpp_flags + shlex.split(mpi_flags)
+    NVCC_COMPILE_FLAGS = []
     LINK_FLAGS = link_flags + shlex.split(mpi_flags)
     LIBRARY_DIRS = []
     LIBRARIES = []
@@ -772,8 +798,7 @@ def get_common_options(build_ext):
 
     if have_mpi:
         MACROS += [('HAVE_MPI', '1')]
-        SOURCES += ['horovod/common/half.cc',
-                    'horovod/common/mpi/mpi_context.cc',
+        SOURCES += ['horovod/common/mpi/mpi_context.cc',
                     'horovod/common/mpi/mpi_controller.cc',
                     'horovod/common/ops/mpi_operations.cc',
                     'horovod/common/ops/adasum/adasum_mpi.cc',
@@ -798,7 +823,8 @@ def get_common_options(build_ext):
         LINK_FLAGS += ['-lccl']
 
     if have_cuda:
-        set_cuda_options(build_ext, COMPILE_FLAGS, MACROS, INCLUDES, SOURCES, have_mpi, LIBRARY_DIRS, LIBRARIES)
+        set_cuda_options(build_ext, COMPILE_FLAGS, MACROS, INCLUDES, SOURCES, have_mpi, LIBRARY_DIRS,
+                         LIBRARIES, NVCC_COMPILE_FLAGS)
         INCLUDES += ['horovod/common/ops/cuda']
 
     if have_rocm:
@@ -844,6 +870,7 @@ def get_common_options(build_ext):
                 INCLUDES=INCLUDES,
                 SOURCES=SOURCES,
                 COMPILE_FLAGS=COMPILE_FLAGS,
+                NVCC_COMPILE_FLAGS=NVCC_COMPILE_FLAGS,
                 LINK_FLAGS=LINK_FLAGS,
                 LIBRARY_DIRS=LIBRARY_DIRS,
                 LIBRARIES=LIBRARIES,
@@ -1019,6 +1046,8 @@ def build_tf_extension(build_ext, global_options):
                  LDSHARED=ldshared):
             if options['BUILD_GLOO']:
                 build_cmake(build_ext, gloo_lib, 'tf', gloo_compile_macros, options, tensorflow_mpi_lib)
+            if check_macro(options['MACROS'], 'HAVE_CUDA'):
+                build_cmake(build_ext, horovod_cuda_lib, 'tf', gloo_compile_macros, options, tensorflow_mpi_lib)
             customize_compiler(build_ext.compiler)
             build_ext.build_extension(tensorflow_mpi_lib)
     finally:
@@ -1117,6 +1146,10 @@ def build_mx_extension(build_ext, global_options):
     # version or transfer tensors to CPU memory for those operations.
     if mx_have_cuda and not macro_have_cuda:
         set_cuda_options(build_ext, **options)
+
+    # If framework has CUDA support, build Horovod CUDA kernels
+    if mx_have_cuda:
+        build_cmake(build_ext, horovod_cuda_lib, 'mxnet', [], options=options)
 
     mxnet_mpi_lib.define_macros = options['MACROS']
     if check_macro(options['MACROS'], 'HAVE_CUDA'):
@@ -1377,6 +1410,9 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
                  LDSHARED=ldshared):
             if options['BUILD_GLOO']:
                 build_cmake(build_ext, gloo_lib, 'torchv2', gloo_abi_flag, options, torch_mpi_lib_v2)
+            if have_cuda:
+                # If framework has CUDA support, build Horovod CUDA kernels
+                build_cmake(build_ext, horovod_cuda_lib, 'torchv2', gloo_abi_flag, options, torch_mpi_lib_v2)
             customize_compiler(build_ext.compiler)
             build_ext.build_extension(torch_mpi_lib_v2)
     finally:
@@ -1414,6 +1450,7 @@ def build_cmake(build_ext, ext, prefix, additional_flags, options, plugin_ext=No
     cmake_args = ['-DUSE_MPI=' + use_mpi_flag,
                   '-DCMAKE_BUILD_TYPE=' + config,
                   cmake_cxx_flag,
+                  '-DHVD_NVCC_COMPILE_FLAGS=' + ' '.join(options['NVCC_COMPILE_FLAGS']),
                   '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}'.format(config.upper(), extdir),
                   '-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_{}={}'.format(config.upper(),
                                                                   lib_output_dir),
@@ -1548,7 +1585,7 @@ setup(name='horovod',
           'Topic :: Scientific/Engineering :: Artificial Intelligence',
       ],
       ext_modules=[tensorflow_mpi_lib, torch_mpi_lib, torch_mpi_lib_impl,
-                   torch_mpi_lib_v2, mxnet_mpi_lib, gloo_lib],
+                   torch_mpi_lib_v2, mxnet_mpi_lib, gloo_lib, horovod_cuda_lib],
       cmdclass={'build_ext': custom_build_ext},
       # cffi is required for PyTorch
       # If cffi is specified in setup_requires, it will need libffi to be installed on the machine,

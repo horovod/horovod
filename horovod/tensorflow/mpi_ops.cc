@@ -373,6 +373,8 @@ public:
   explicit HorovodAllreduceOp(OpKernelConstruction* context)
       : AsyncOpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("reduce_op", &reduce_op_));
+    OP_REQUIRES_OK(context, context->GetAttr("prescale_factor", &prescale_factor_));
+    OP_REQUIRES_OK(context, context->GetAttr("postscale_factor", &postscale_factor_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -396,12 +398,15 @@ public:
         [context, done](const common::Status& status) {
           context->SetStatus(ConvertStatus(status));
           done();
-        }, reduce_op);
+        }, reduce_op, (double) prescale_factor_, (double) postscale_factor_);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 
 private:
   int reduce_op_;
+  // Using float since TF does not support double OP attributes
+  float prescale_factor_;
+  float postscale_factor_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_CPU),
@@ -414,6 +419,8 @@ REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_GPU),
 REGISTER_OP("HorovodAllreduce")
     .Attr("T: {int32, int64, float16, float32, float64}")
     .Attr("reduce_op: int")
+    .Attr("prescale_factor: float")
+    .Attr("postscale_factor: float")
     .Input("tensor: T")
     .Output("sum: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {

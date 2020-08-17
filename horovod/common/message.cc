@@ -145,6 +145,14 @@ int32_t Request::device() const { return device_; }
 
 void Request::set_device(int32_t value) { device_ = value; }
 
+double Request::prescale_factor() const { return prescale_factor_; };
+
+double Request::postscale_factor() const { return postscale_factor_; };
+
+void Request::set_prescale_factor(const double prescale_factor) { prescale_factor_ = prescale_factor; };
+
+void Request::set_postscale_factor(const double postscale_factor) { postscale_factor_ = postscale_factor; };
+
 const std::vector<int64_t>& Request::tensor_shape() const {
   return tensor_shape_;
 }
@@ -169,6 +177,8 @@ void Request_ParseFromWire(Request& request,
   request.set_device(obj->device());
   request.set_tensor_shape(std::vector<int64_t>(obj->tensor_shape()->begin(),
                                                 obj->tensor_shape()->end()));
+  request.set_prescale_factor(obj->prescale_factor());
+  request.set_postscale_factor(obj->postscale_factor());
 }
 
 void Request_SerializeToWire(const Request& request,
@@ -187,6 +197,8 @@ void Request_SerializeToWire(const Request& request,
   request_builder.add_root_rank(request.root_rank());
   request_builder.add_device(request.device());
   request_builder.add_tensor_shape(tensor_shape_wire);
+  request_builder.add_prescale_factor(request.prescale_factor());
+  request_builder.add_postscale_factor(request.postscale_factor());
   obj = request_builder.Finish();
 }
 
@@ -371,6 +383,14 @@ void Response::add_allgather_response(const Response& response) {
   }
 }
 
+double Response::prescale_factor() const { return prescale_factor_; };
+
+double Response::postscale_factor() const { return postscale_factor_; };
+
+void Response::set_prescale_factor(const double prescale_factor) { prescale_factor_ = prescale_factor; };
+
+void Response::set_postscale_factor(const double postscale_factor) { postscale_factor_ = postscale_factor; };
+
 void Response_ParseFromWire(Response& response,
                             const wire::Response* obj) {
   response.set_response_type((Response::ResponseType) obj->response_type());
@@ -383,6 +403,8 @@ void Response_ParseFromWire(Response& response,
       std::vector<int32_t>(obj->devices()->begin(), obj->devices()->end()));
   response.set_tensor_sizes(std::vector<int64_t>(obj->tensor_sizes()->begin(),
                                                  obj->tensor_sizes()->end()));
+  response.set_prescale_factor(obj->prescale_factor());
+  response.set_postscale_factor(obj->postscale_factor());
 }
 
 void Response::ParseFromBytes(Response& response, const uint8_t* input) {
@@ -409,6 +431,8 @@ void Response_SerializeToWire(const Response& response,
   response_builder.add_error_message(error_message_wire);
   response_builder.add_devices(devices_wire);
   response_builder.add_tensor_sizes(tensor_sizes_wire);
+  response_builder.add_prescale_factor(response.prescale_factor());
+  response_builder.add_postscale_factor(response.postscale_factor());
   obj = response_builder.Finish();
 }
 

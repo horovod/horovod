@@ -42,6 +42,7 @@ parser.add_argument('--num-iters', type=int, default=10,
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
 
+
 args = parser.parse_args()
 args.cuda = not args.no_cuda
 

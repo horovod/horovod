@@ -247,6 +247,90 @@ class TensorFlowTests(tf.test.TestCase):
         self.assertTrue(self.evaluate(tf.reduce_all(tests)),
                         "hvd.allreduce produces incorrect results")
 
+    # Note: TF does not support FP64 op attributes so scaling factor is cast to FP32
+    # by op and loses precision. We skip FP64 version of pre/postscale tests for this reason.
+    # See https://github.com/tensorflow/tensorflow/pull/39452 for PR to resolve this limitation.
+    def test_horovod_allreduce_cpu_prescale(self):
+        """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors
+           with prescaling"""
+        hvd.init()
+        size = hvd.size()
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32])
+        int_types = [tf.int32, tf.int64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                np.random.seed(1234)
+                factor = np.random.uniform()
+                tensor = self.random_uniform(
+                    [17] * dim, -100, 100, dtype=dtype)
+                summed = hvd.allreduce(tensor, average=False,
+                                       prescale_factor=factor)
+
+                # Scaling done in FP64 math for integer types, FP32 math for FP16 on CPU
+                tensor = tf.cast(tensor, tf.float32 if dtype == tf.float16 else
+                                 tf.float64 if dtype in int_types else dtype)
+                factor = tf.convert_to_tensor(factor, tf.float32 if dtype == tf.float16 else
+                                              tf.float64 if dtype in int_types else dtype)
+                multiplied = tf.cast(factor * tensor, dtype) * size
+                max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in int_types:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold,
+                            "hvd.allreduce produces incorrect results")
+
+    def test_horovod_allreduce_cpu_postscale(self):
+        """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors
+           with postscaling"""
+        hvd.init()
+        size = hvd.size()
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32])
+        int_types = [tf.int32, tf.int64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                np.random.seed(1234)
+                factor = np.random.uniform()
+                tensor = self.random_uniform(
+                    [17] * dim, -100, 100, dtype=dtype)
+                summed = hvd.allreduce(tensor, average=False,
+                                       postscale_factor=factor)
+
+                multiplied = tensor * size
+                # Scaling done in FP64 math for integer types, FP32 math for FP16 on CPU
+                multiplied = tf.cast(multiplied, tf.float32 if dtype == tf.float16 else
+                                     tf.float64 if dtype in int_types else dtype)
+                factor = tf.convert_to_tensor(factor, tf.float32 if dtype == tf.float16 else
+                                              tf.float64 if dtype in int_types else dtype)
+                multiplied = tf.cast(factor * multiplied, dtype)
+                max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in int_types:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold,
+                            "hvd.allreduce produces incorrect results")
+
     def test_horovod_allreduce_gpu(self):
         """Test that the allreduce works on GPUs."""
         # Only do this test if there are GPUs available.
@@ -416,6 +500,103 @@ class TensorFlowTests(tf.test.TestCase):
             diff = self.evaluate(max_difference)
             self.assertTrue(diff <= threshold,
                             "hvd.allreduce on GPU produces incorrect results")
+
+    def test_horovod_allreduce_gpu_prescale(self):
+        """Test on GPU that the allreduce correctly sums 1D, 2D, 3D tensors
+           with prescaling"""
+
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            return
+
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
+            return
+
+        hvd.init()
+        size = hvd.size()
+        local_rank = hvd.local_rank()
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32])
+        int_types = [tf.int32, tf.int64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%s" % local_rank):
+                np.random.seed(1234)
+                factor = np.random.uniform()
+                tensor = self.random_uniform(
+                    [17] * dim, -100, 100, dtype=dtype)
+                summed = hvd.allreduce(tensor, average=False,
+                                       prescale_factor=factor)
+
+                # Scaling done in FP64 math for integer types.
+                tensor = tf.cast(tensor, tf.float64 if dtype in int_types else dtype)
+                factor = tf.convert_to_tensor(factor, tf.float64 if dtype in int_types else dtype)
+                multiplied = tf.cast(factor * tensor, dtype) * size
+                max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in int_types:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold,
+                            "hvd.allreduce produces incorrect results")
+
+    def test_horovod_allreduce_gpu_postscale(self):
+        """Test on GPU that the allreduce correctly sums 1D, 2D, 3D tensors
+           with postscaling"""
+
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            return
+
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
+            return
+
+        hvd.init()
+        size = hvd.size()
+        local_rank = hvd.local_rank()
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32])
+        int_types = [tf.int32, tf.int64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%s" % local_rank):
+                np.random.seed(1234)
+                factor = np.random.uniform()
+                tensor = self.random_uniform(
+                    [17] * dim, -100, 100, dtype=dtype)
+                summed = hvd.allreduce(tensor, average=False,
+                                       postscale_factor=factor)
+
+                multiplied = tensor * size
+                # Scaling done in FP64 math for integer types.
+                multiplied = tf.cast(multiplied, tf.float64 if dtype in int_types else dtype)
+                factor = tf.convert_to_tensor(factor, tf.float64 if dtype in int_types else dtype)
+                multiplied = tf.cast(factor * multiplied, dtype)
+                max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in int_types:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold,
+                            "hvd.allreduce produces incorrect results")
 
     def test_horovod_allreduce_error(self):
         """Test that the allreduce raises an error if different ranks try to

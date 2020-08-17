@@ -25,12 +25,14 @@ from horovod.torch.compression import Compression
 from horovod.torch.mpi_ops import allreduce_async_
 from horovod.torch.mpi_ops import synchronize
 from horovod.torch.mpi_ops import size
-from horovod.torch.mpi_ops import Average, Adasum
+from horovod.torch.mpi_ops import Average, Adasum, Sum
+from horovod.torch.mpi_ops import rocm_built
 
 
 class _DistributedOptimizer(torch.optim.Optimizer):
     def __init__(self, params, named_parameters, compression,
-                 backward_passes_per_step=1, op=Average):
+                 backward_passes_per_step=1, op=Average,
+                 gradient_predivide_factor=1.0):
         super(self.__class__, self).__init__(params)
         self._compression = compression
 
@@ -66,6 +68,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         self._allreduce_delay = {v: self.backward_passes_per_step
                                  for _, v in sorted(named_parameters)}
         self.op = op
+        self.gradient_predivide_factor = gradient_predivide_factor
         self._handles = {}
         self._grad_accs = []
         self._requires_update = set()
@@ -113,7 +116,18 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         tensor = p.grad
         tensor_compressed, ctx = self._compression.compress(tensor)
 
-        handle = allreduce_async_(tensor_compressed, name=name, op=self.op)
+        if self.op == Average:
+           # Split average operation across pre/postscale factors
+           # C++ backend will apply additional 1 / size() factor to postscale_factor for op == Average.
+            prescale_factor = 1.0 / self.gradient_predivide_factor
+            postscale_factor = self.gradient_predivide_factor
+        else:
+            prescale_factor = 1.0
+            postscale_factor = 1.0
+
+        handle = allreduce_async_(tensor_compressed, name=name, op=self.op,
+                                  prescale_factor=prescale_factor,
+                                  postscale_factor=postscale_factor)
         return handle, ctx
 
     def _make_hook(self, p):
@@ -367,7 +381,8 @@ class _DistributedAdasumOptimizer(torch.optim.Optimizer):
 def DistributedOptimizer(optimizer, named_parameters=None,
                          compression=Compression.none,
                          backward_passes_per_step=1,
-                         op=Average):
+                         op=Average,
+                         gradient_predivide_factor=1.0):
     """
     An optimizer that wraps another torch.optim.Optimizer, using an allreduce to
     combine gradient values before applying gradients to model weights.
@@ -406,14 +421,24 @@ def DistributedOptimizer(optimizer, named_parameters=None,
                                   allows accumulating gradients over multiple
                                   mini-batches before reducing and applying them.
         op: The reduction operation to use when combining gradients across different ranks.
+        gradient_predivide_factor: If op == Average, gradient_predivide_factor splits the averaging
+                                   before and after the sum. Gradients are scaled by
+                                   1.0 / gradient_predivide_factor before the sum and
+                                   gradient_predivide_factor / size after the sum.
     """
     # We dynamically create a new class that inherits from the optimizer that was passed in.
     # The goal is to override the `step()` method with an allreduce implementation.
+    if gradient_predivide_factor != 1.0:
+        if rocm_built():
+            raise ValueError('gradient_predivide_factor not supported yet with ROCm')
+        if op != Average:
+            raise ValueError('gradient_predivide_factor not supported with op != Average')
 
     if op != Adasum or size() == 1:
         cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
                    dict(_DistributedOptimizer.__dict__))
-        return cls(optimizer.param_groups, named_parameters, compression, backward_passes_per_step, op)
+        return cls(optimizer.param_groups, named_parameters, compression, backward_passes_per_step, op,
+                   gradient_predivide_factor)
     else:
         cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
                    dict(_DistributedAdasumOptimizer.__dict__))

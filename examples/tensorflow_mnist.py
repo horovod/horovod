@@ -30,6 +30,8 @@ tf.logging.set_verbosity(tf.logging.INFO)
 parser = argparse.ArgumentParser(description='Tensorflow MNIST Example')
 parser.add_argument('--use-adasum', action='store_true', default=False,
                     help='use adasum algorithm to do reduction')
+parser.add_argument('--gradient-predivide-factor', type=float, default=1.0,
+                    help='apply gradient predivide factor in optimizer (default: 1.0)')
 args = parser.parse_args()
 
 def conv_model(feature, target, mode):
@@ -127,7 +129,8 @@ def main(_):
     opt = tf.train.AdamOptimizer(0.001 * lr_scaler)
 
     # Horovod: add Horovod Distributed Optimizer.
-    opt = hvd.DistributedOptimizer(opt, op=hvd.Adasum if args.use_adasum else hvd.Average)
+    opt = hvd.DistributedOptimizer(opt, op=hvd.Adasum if args.use_adasum else hvd.Average,
+                                   gradient_predivide_factor=args.gradient_predivide_factor)
 
     global_step = tf.train.get_or_create_global_step()
     train_op = opt.minimize(loss, global_step=global_step)

@@ -39,6 +39,7 @@ bool is_avx_and_f16c() {
 }
 #endif
 
+#if HAVE_MPI
 // float16 custom data type summation operation.
 void float16_sum(void* invec, void* inoutvec, int* len,
                  MPI_Datatype* datatype) {
@@ -73,6 +74,7 @@ void float16_sum(void* invec, void* inoutvec, int* len,
     Float2HalfBits(&inout_float, inout + i);
   }
 }
+#endif
 
 } // namespace common
 } // namespace horovod

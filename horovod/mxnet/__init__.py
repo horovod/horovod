@@ -27,7 +27,7 @@ from horovod.mxnet.mpi_ops import init, shutdown
 from horovod.mxnet.mpi_ops import size, local_size, rank, local_rank
 from horovod.mxnet.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.mxnet.mpi_ops import gloo_enabled, gloo_built
-from horovod.mxnet.mpi_ops import nccl_built, ddl_built, ccl_built
+from horovod.mxnet.mpi_ops import nccl_built, ddl_built, ccl_built, cuda_built, rocm_built
 
 import mxnet as mx
 import types
@@ -36,11 +36,15 @@ import warnings
 
 # This is where Horovod's DistributedOptimizer wrapper for MXNet goes
 class DistributedOptimizer(mx.optimizer.Optimizer):
-    def __init__(self, optimizer):
+    def __init__(self, optimizer, gradient_predivide_factor=1.0):
+        if gradient_predivide_factor != 1.0 and rocm_built():
+            raise ValueError('gradient_predivide_factor not supported yet with ROCm')
+
         self._optimizer = optimizer
         # Normalizing rescale_grad by Horovod size, which is equivalent to
         # performing average in allreduce, has better performance.
-        self._optimizer.rescale_grad /= size()
+        self._optimizer.rescale_grad *= (gradient_predivide_factor / size())
+        self._gradient_predivide_factor = gradient_predivide_factor
 
     def __getattr__(self, item):
         return getattr(self._optimizer, item)
@@ -54,9 +58,11 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
         if isinstance(index, (tuple, list)):
             for i in range(len(index)):
                 allreduce_(grad[i], average=False,
-                           name=str(index[i]), priority=-i)
+                           name=str(index[i]), priority=-i,
+                           prescale_factor=1.0 / self._gradient_predivide_factor)
         else:
-            allreduce_(grad, average=False, name=str(index))
+            allreduce_(grad, average=False, name=str(index),
+                       prescale_factor=1.0 / self._gradient_predivide_factor)
 
     def update(self, index, weight, grad, state):
         self._do_allreduce(index, grad)
@@ -83,7 +89,11 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
 # 2. DistributedTrainer performs allreduce(summation) and average
 #    while Trainer only performs allreduce(summation).
 class DistributedTrainer(mx.gluon.Trainer):
-    def __init__(self, params, optimizer, optimizer_params=None):
+    def __init__(self, params, optimizer, optimizer_params=None,
+                 gradient_predivide_factor=1.0):
+        if gradient_predivide_factor != 1.0 and rocm_built():
+            raise ValueError('gradient_predivide_factor not supported yet with ROCm')
+
         if isinstance(optimizer, DistributedOptimizer):
             optimizer = optimizer._optimizer
             warnings.warn("DistributedTrainer does not take DistributedOptimizer "
@@ -95,7 +105,8 @@ class DistributedTrainer(mx.gluon.Trainer):
         # _scale is used to check and set rescale_grad for optimizer in Trainer.step()
         # function. Normalizing it by Horovod size, which is equivalent to performing
         # average in allreduce, has better performance. 
-        self._scale /= size()
+        self._scale *= (gradient_predivide_factor / size())
+        self._gradient_predivide_factor = gradient_predivide_factor
 
     def _allreduce_grads(self):
         if size() == 1: return
@@ -103,7 +114,8 @@ class DistributedTrainer(mx.gluon.Trainer):
         for i, param in enumerate(self._params):
             if param.grad_req != 'null':
                 allreduce_(param.list_grad()[0], average=False,
-                           name=param.name, priority=-i)
+                           name=param.name, priority=-i,
+                           prescale_factor=1.0 / self._gradient_predivide_factor)
 
 
 # Wrapper to inject Horovod broadcast after parameter initialization

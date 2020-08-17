@@ -40,13 +40,16 @@ gloo_built = _basics.gloo_built
 nccl_built = _basics.nccl_built
 ddl_built = _basics.ddl_built
 ccl_built = _basics.ccl_built
+cuda_built = _basics.cuda_built
+rocm_built = _basics.rocm_built
 
 dll_path = os.path.join(os.path.dirname(__file__),
                         'mpi_lib' + get_ext_suffix())
 MPI_MXNET_LIB_CTYPES = ctypes.CDLL(dll_path, ctypes.RTLD_GLOBAL)
 
 
-def allreduce(tensor, average=True, name=None, priority=0):
+def allreduce(tensor, average=True, name=None, priority=0, prescale_factor=1.0,
+              postscale_factor=1.0):
     """
     A function that performs averaging or summation of the input tensor over
     all the Horovod processes. The input tensor is not modified.
@@ -67,6 +70,8 @@ def allreduce(tensor, average=True, name=None, priority=0):
         name: A name of the reduction operation.
         priority: The priority of this operation. Higher priority operations
                   are likely to be executed before other operations.
+        prescale_factor: Multiplicative factor to scale tensor before allreduce
+        postscale_factor: Multiplicative factor to scale tensor after allreduce
 
     Returns:
         A tensor of the same shape and type as `tensor`, averaged or summed
@@ -79,16 +84,21 @@ def allreduce(tensor, average=True, name=None, priority=0):
     if isinstance(name, string_types):
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(
             c_in, c_out, c_str(name), ctypes.c_bool(average),
-            ctypes.c_int(priority)))
+            ctypes.c_int(priority),
+            ctypes.c_double(prescale_factor),
+            ctypes.c_double(postscale_factor)))
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(
             c_in, c_out, name, ctypes.c_bool(average),
-            ctypes.c_int(priority)))
+            ctypes.c_int(priority),
+            ctypes.c_double(prescale_factor),
+            ctypes.c_double(postscale_factor)))
 
     return output
 
 
-def allreduce_(tensor, average=True, name=None, priority=0):
+def allreduce_(tensor, average=True, name=None, priority=0, prescale_factor=1.0,
+              postscale_factor=1.0):
     """
     A function that performs in-place averaging or summation of the input
     tensor over all the Horovod processes.
@@ -105,6 +115,8 @@ def allreduce_(tensor, average=True, name=None, priority=0):
         name: A name of the reduction operation.
         priority: The priority of this operation. Higher priority operations
                   are likely to be executed before other operations.
+        prescale_factor: Multiplicative factor to scale tensor before allreduce
+        postscale_factor: Multiplicative factor to scale tensor after allreduce
 
     Returns:
         A tensor of the same shape and type as `tensor`, averaged or summed
@@ -115,11 +127,15 @@ def allreduce_(tensor, average=True, name=None, priority=0):
     if isinstance(name, string_types):
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(
             c_in, c_out, c_str(name), ctypes.c_bool(average),
-            ctypes.c_int(priority)))
+            ctypes.c_int(priority),
+            ctypes.c_double(prescale_factor),
+            ctypes.c_double(postscale_factor)))
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(
             c_in, c_out, name, ctypes.c_bool(average),
-            ctypes.c_int(priority)))
+            ctypes.c_int(priority),
+            ctypes.c_double(prescale_factor),
+            ctypes.c_double(postscale_factor)))
     return tensor
 
 

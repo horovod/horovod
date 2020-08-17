@@ -23,6 +23,7 @@
 #include <vector>
 
 #if HAVE_CUDA
+#include <cuda_fp16.h>
 #include <cuda_runtime.h>
 using gpuError_t = cudaError_t;
 using gpuEvent_t = cudaEvent_t;
@@ -83,6 +84,9 @@ public:
   void MemcpyAsyncH2D(void* dst, const void* src, size_t count, gpuStream_t stream);
   void MemcpyAsyncD2H(void* dst, const void* src, size_t count, gpuStream_t stream);
 
+  void ScaleBufferImpl(const void* fused_input_data, void* buffer_data, int64_t num_elements,
+                       double scale_factor, DataType dtype, gpuStream_t stream);
+
   // Thread pool for finalizer threads
   ThreadPool finalizer_thread_pool;
 
@@ -138,8 +142,12 @@ protected:
   void MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
                                   const void* buffer_data_at_offset, TensorTableEntry& e) override;
 
+  void ScaleBuffer(double scale_factor, const std::vector<TensorTableEntry>& entries,
+                   const void* fused_input_data, void* buffer_data, int64_t num_elements);
+
   GPUContext* gpu_context_;
   GPUOpContext gpu_op_context_;
+
 };
 
 class GPUAllgather : public AllgatherOp {

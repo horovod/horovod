@@ -23,8 +23,14 @@
 #include "../common.h"
 #include "../controller.h"
 #include "../global_state.h"
+#include "../half.h"
 #include "../operations.h"
 #include "../parameter_manager.h"
+
+#if __AVX__ && __F16C__
+#include <cpuid.h>
+#include <immintrin.h>
+#endif
 
 namespace horovod {
 namespace common {
@@ -73,7 +79,50 @@ protected:
   MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
                              const void* buffer_data_at_offset,
                              TensorTableEntry& e);
+
+  virtual void
+  ScaleBuffer(double scale_factor, const std::vector<TensorTableEntry>& entries,
+              const void* fused_input_data, void* buffer_data, int64_t num_elements);
+
 };
+
+template <typename T, typename TS>
+void ScaleBufferCPUImpl(const T* input, T* output, int64_t num_elements, TS scale_factor) {
+  for (int64_t i = 0; i < num_elements; ++i) {
+    output[i] = scale_factor * input[i];
+  }
+}
+
+// Specialization for float16
+template <> inline
+void ScaleBufferCPUImpl(const unsigned short* input, unsigned short* output, int64_t num_elements, float scale_factor) {
+  int64_t i = 0;
+
+#if __AVX__ && __F16C__
+  if (is_avx_and_f16c()) {
+    __m256 scale_factor_m256 = _mm256_broadcast_ss(&scale_factor);
+    for (; i < (num_elements / 8) * 8; i += 8) {
+      // convert input to m256
+      __m256 input_m256 = _mm256_cvtph_ps(_mm_loadu_si128((__m128i*)(input + i)));
+
+      // scale and store result in output_m256
+      __m256 output_m256 = _mm256_mul_ps(input_m256, scale_factor_m256);
+
+      // convert back and store in output
+      __m128i output_m128i = _mm256_cvtps_ph(output_m256, 0);
+      _mm_storeu_si128((__m128i*)(output + i), output_m128i);
+    }
+  }
+#endif
+
+  for (; i < num_elements; ++i) {
+    float in_float;
+    HalfBits2Float(input + i, &in_float);
+    float out_float = scale_factor * in_float;
+    Float2HalfBits(&out_float, output + i);
+  }
+
+}
 
 class AllgatherOp : public HorovodOp {
 public:

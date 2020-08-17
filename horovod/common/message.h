@@ -51,6 +51,7 @@ public:
     ALLREDUCE = 0, ALLGATHER = 1, BROADCAST = 2, JOIN = 3, ADASUM = 4, ALLTOALL = 5
   };
 
+
   static const std::string& RequestType_Name(RequestType value);
 
   // The request rank is necessary to create a consistent ordering of results,
@@ -86,9 +87,18 @@ public:
 
   void add_tensor_shape(int64_t value);
 
+  double prescale_factor() const;
+
+  double postscale_factor() const;
+
+  void set_prescale_factor(const double prescale_factor);
+
+  void set_postscale_factor(const double postscale_factor);
+
   static void ParseFromBytes(Request& request, const uint8_t* input);
 
   static void SerializeToString(const Request& request, std::string& output);
+
 
 private:
   int32_t request_rank_ = 0;
@@ -98,6 +108,8 @@ private:
   int32_t device_ = 0;
   std::string tensor_name_;
   std::vector<int64_t> tensor_shape_;
+  double prescale_factor_ = 1.0;
+  double postscale_factor_ = 1.0;
 };
 
 class RequestList {
@@ -180,6 +192,14 @@ public:
   // To fuse multiple allgather responses
   void add_allgather_response(const Response& response);
 
+  double prescale_factor() const;
+
+  double postscale_factor() const;
+
+  void set_prescale_factor(const double prescale_factor);
+
+  void set_postscale_factor(const double postscale_factor);
+
   static void ParseFromBytes(Response& response, const uint8_t* input);
 
   static void SerializeToString(const Response& response,
@@ -192,6 +212,8 @@ private:
   std::string error_message_;
   std::vector<int32_t> devices_;
   std::vector<int64_t> tensor_sizes_;
+  double prescale_factor_ = 1.0;
+  double postscale_factor_ = 1.0;
 };
 
 class ResponseList {
