@@ -40,6 +40,8 @@ Horovod
 
 .. raw:: html
 
+   </div>
+
 .. inclusion-marker-start-do-not-remove
 
 |
