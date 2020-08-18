@@ -103,7 +103,7 @@ class DistributedTrainer(mx.gluon.Trainer):
               before and after the sum. Gradients are scaled by
               1.0 / gradient_predivide_factor before the sum and
               gradient_predivide_factor / size after the sum. 
-
+    """
     def __init__(self, params, optimizer, optimizer_params=None,
                  gradient_predivide_factor=1.0, prefix=None):
         if gradient_predivide_factor != 1.0 and rocm_built():
