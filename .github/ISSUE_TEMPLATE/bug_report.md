@@ -26,5 +26,5 @@ assignees: ''
 4. Did you check if you question is answered in the [troubleshooting guide](https://github.com/horovod/horovod/blob/master/docs/troubleshooting.rst)?
 
 **Bug report:**
-Please describe errorneous behavior you're observing and steps to reproduce it.
+Please describe erroneous behavior you're observing and steps to reproduce it.
 
