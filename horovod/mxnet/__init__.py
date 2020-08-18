@@ -149,8 +149,7 @@ def _append_broadcast_init(param, root_rank, name):
 
 
 def broadcast_parameters(params, root_rank=0, prefix=None):
-    """
-    Broadcasts the parameters from root rank to all other processes.
+    """Broadcasts the parameters from root rank to all other processes.
     Typical usage is to broadcast the `Module.get_params()` or the
     `Block.collect_params()`.
 
