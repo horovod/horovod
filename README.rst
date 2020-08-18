@@ -6,6 +6,14 @@
 Horovod
 =======
 
+.. raw:: html
+
+   <div align="center">
+
+.. image:: https://badge.fury.io/py/horovod.svg
+   :target: https://badge.fury.io/py/horovod
+   :alt: PyPI Version
+
 .. image:: https://badge.buildkite.com/6f976bc161c69d9960fc00de01b69deb6199b25680a09e5e26.svg?branch=master
    :target: https://buildkite.com/horovod/horovod
    :alt: Build Status
@@ -29,6 +37,10 @@ Horovod
 .. image:: https://pepy.tech/badge/horovod
    :target: https://pepy.tech/project/horovod
    :alt: Downloads
+
+.. raw:: html
+
+   </div>
 
 .. inclusion-marker-start-do-not-remove
 
