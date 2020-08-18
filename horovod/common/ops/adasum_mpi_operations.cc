@@ -40,6 +40,7 @@ Status AdasumMPIAllreduceOp::Execute(std::vector<TensorTableEntry>& entries,
 
   auto& first_entry = entries[0];
 
+  const void* fused_input_data;
   void* buffer_data;
   size_t buffer_len;
 
@@ -47,7 +48,6 @@ Status AdasumMPIAllreduceOp::Execute(std::vector<TensorTableEntry>& entries,
   auto& timeline = global_state_->timeline;
   if (entries.size() > 1) {
     timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
-    const void* fused_input_data;
     MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
     timeline.ActivityEndAll(entries);
   } else {
@@ -56,15 +56,23 @@ Status AdasumMPIAllreduceOp::Execute(std::vector<TensorTableEntry>& entries,
     if (first_entry.tensor->data() != first_entry.output->data()) {
       std::memcpy(buffer_data, (void*)first_entry.tensor->data(), buffer_len);
     }
+    fused_input_data = buffer_data;
+  }
+
+  std::vector<int> tensor_counts;
+  int64_t num_elements = 0;
+  for (auto& e : entries) {
+    tensor_counts.push_back(e.tensor->shape().num_elements());
+    num_elements += e.tensor->shape().num_elements();
+  }
+
+  if (response.prescale_factor() != 1.0) {
+    // Execute prescaling op
+    ScaleBuffer(response.prescale_factor(), entries, fused_input_data, buffer_data, num_elements);
   }
 
   // Do allreduce.
   timeline.ActivityStartAll(entries, MPI_ADASUM_ALLREDUCE);
-  std::vector<int> tensor_counts;
-  for (auto& e : entries) {
-    tensor_counts.push_back(e.tensor->shape().num_elements());
-  }
-
   auto recv_buffer = GetRecvBuffer(buffer_len);
   DispatchFusedAllreduce(entries, buffer_data, recv_buffer, tensor_counts,
                          1, // start_level
@@ -73,6 +81,11 @@ Status AdasumMPIAllreduceOp::Execute(std::vector<TensorTableEntry>& entries,
                          reduction_comms_, first_entry.tensor->dtype(),
                          global_state_);
   timeline.ActivityEndAll(entries);
+
+  if (response.postscale_factor() != 1.0) {
+    // Execute postscaling op
+    ScaleBuffer(response.postscale_factor(), entries, buffer_data, buffer_data, num_elements);
+  }
 
   // Copy memory out of the fusion buffer.
   if (entries.size() > 1) {

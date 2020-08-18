@@ -16,7 +16,6 @@
 import tensorflow as tf
 import horovod.tensorflow as hvd
 
-
 def main(_):
     # Horovod: initialize Horovod.
     hvd.init()

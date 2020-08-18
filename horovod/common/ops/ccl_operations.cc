@@ -69,6 +69,7 @@ CCLAllreduce::CCLAllreduce(CCLContext* ccl_context, HorovodGlobalState* global_s
 Status CCLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   auto& first_entry = entries[0];
 
+  const void* fused_input_data;
   void* buffer_data;
   size_t buffer_len;
   int64_t num_elements = NumElements(entries);
@@ -77,23 +78,34 @@ Status CCLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
   auto& timeline = global_state_->timeline;
   if (entries.size() > 1) {
     timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
-    const void* fused_input_data;
     MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
     timeline.ActivityEndAll(entries);
   } else {
+    fused_input_data = first_entry.tensor->data();
     buffer_data = (void*) first_entry.output->data();
     buffer_len = (size_t) first_entry.output->size();
   }
 
+  if (response.prescale_factor() != 1.0) {
+    // Execute prescaling op
+    ScaleBuffer(response.prescale_factor(), entries, fused_input_data, buffer_data, num_elements);
+    fused_input_data = buffer_data; // for unfused, scale is done out of place
+  }
+
   // Do allreduce.
   timeline.ActivityStartAll(entries, CCL_ALLREDUCE);
-  const void* sendbuf = entries.size() > 1 || first_entry.tensor->data() == first_entry.output->data()
-                        ? buffer_data : first_entry.tensor->data();
+  const void* sendbuf = entries.size() > 1 || fused_input_data == buffer_data
+                        ? buffer_data : fused_input_data;
   ccl_request_t ccl_req;
   CCL_CALL(ccl_allreduce((void*)sendbuf, buffer_data, num_elements, GetCCLDataType(first_entry.tensor),
                          ccl_reduction_sum, nullptr /*attr*/, nullptr /*comm*/, nullptr /*stream*/, &ccl_req));
   CCL_CALL(ccl_wait(ccl_req));
   timeline.ActivityEndAll(entries);
+
+  if (response.postscale_factor() != 1.0) {
+    // Execute postscaling op
+    ScaleBuffer(response.postscale_factor(), entries, buffer_data, buffer_data, num_elements);
+  }
 
   // Copy memory out of the fusion buffer.
   if (entries.size() > 1) {

@@ -71,6 +71,12 @@ Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
     num_elements += e.tensor->shape().num_elements();
   }
 
+  if (response.prescale_factor() != 1.0) {
+    // Execute prescaling op
+    ScaleBuffer(response.prescale_factor(), entries, fused_input_data, buffer_data, num_elements);
+    fused_input_data = buffer_data; // for unfused, scale is done out of place
+  }
+
   // Do allreduce.
   if (entries.size() == 1) {
     // Copy input buffer content to output buffer
@@ -87,6 +93,11 @@ Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
                                   DDL_OP_SUM);
   if (ddl_result != DDL_SUCCESS) {
     throw std::logic_error("ddl_allreduce failed.");
+  }
+
+  if (response.postscale_factor() != 1.0) {
+    // Execute postscaling op
+    ScaleBuffer(response.postscale_factor(), entries, buffer_data, buffer_data, num_elements);
   }
 
   // Copy memory out of the fusion buffer.

@@ -45,3 +45,8 @@ void GPUContext::MemcpyAsyncD2H(void* dst, const void* src, size_t count, gpuStr
   pimpl->MemcpyAsyncD2H(dst, src, count, stream);
 }
 
+void GPUContext::ScaleBufferImpl(const void* fused_input_data, void* buffer_data, int64_t num_elements,
+                                 double scale_factor, DataType dtype, gpuStream_t stream) {
+  pimpl->ScaleBufferImpl(fused_input_data, buffer_data, num_elements, scale_factor, dtype, stream);
+}
+

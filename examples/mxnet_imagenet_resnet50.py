@@ -89,6 +89,8 @@ parser.add_argument('--log-interval', type=int, default=0,
                     help='number of batches to wait before logging (default: 0)')
 parser.add_argument('--save-frequency', type=int, default=0,
                     help='frequency of model saving (default: 0)')
+parser.add_argument('--gradient-predivide-factor', type=float, default=1.0,
+                    help='apply gradient predivide factor in optimizer (default: 1.0)')
 
 
 args = parser.parse_args()
@@ -322,7 +324,8 @@ def train_gluon():
     opt = mx.optimizer.create('sgd', **optimizer_params)
 
     # Horovod: create DistributedTrainer, a subclass of gluon.Trainer
-    trainer = hvd.DistributedTrainer(params, opt)
+    trainer = hvd.DistributedTrainer(params, opt,
+                                     gradient_predivide_factor=args.gradient_predivide_factor)
 
     # Create loss function and train metric
     loss_fn = gluon.loss.SoftmaxCrossEntropyLoss()
@@ -427,7 +430,8 @@ def train_module():
     opt = mx.optimizer.create('sgd', **optimizer_params)
 
     # Horovod: wrap optimizer with DistributedOptimizer
-    dist_opt = hvd.DistributedOptimizer(opt)
+    dist_opt = hvd.DistributedOptimizer(opt,
+                                        gradient_predivide_factor=args.gradient_predivide_factor)
 
     # Setup validation data and callback during training
     eval_data = None

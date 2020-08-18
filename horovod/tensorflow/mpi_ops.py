@@ -62,6 +62,8 @@ gloo_built = _basics.gloo_built
 nccl_built = _basics.nccl_built
 ddl_built = _basics.ddl_built
 ccl_built = _basics.ccl_built
+cuda_built = _basics.cuda_built
+rocm_built = _basics.rocm_built
 
 # import reduction op values
 Average = _basics.Average
@@ -87,7 +89,7 @@ def _normalize_name(name):
     return re.sub('[^a-zA-Z0-9_]', '_', name)
 
 
-def _allreduce(tensor, name=None, op=Sum):
+def _allreduce(tensor, name=None, op=Sum, prescale_factor=1.0, postscale_factor=1.0):
     """An op which reduces an input tensor over all the Horovod processes. The
     default reduction is a sum.
 
@@ -101,7 +103,9 @@ def _allreduce(tensor, name=None, op=Sum):
     """
     if name is None and not _executing_eagerly():
         name = 'HorovodAllreduce_%s' % _normalize_name(tensor.name)
-    return MPI_LIB.horovod_allreduce(tensor, name=name, reduce_op=op)
+    return MPI_LIB.horovod_allreduce(tensor, name=name, reduce_op=op,
+                                     prescale_factor=prescale_factor,
+                                     postscale_factor=postscale_factor)
 
 
 @ops.RegisterGradient('HorovodAllreduce')
@@ -116,7 +120,10 @@ def _allreduce_grad(op, grad):
       The gradient with respect to the input of the op.
     """
     reduce_op = op.get_attr('reduce_op')
-    return _allreduce(grad, op=reduce_op)
+    prescale_factor = op.get_attr('prescale_factor')
+    postscale_factor = op.get_attr('postscale_factor')
+    return _allreduce(grad, op=reduce_op, prescale_factor=prescale_factor,
+                      postscale_factor=postscale_factor)
 
 
 def allgather(tensor, name=None):

@@ -53,10 +53,13 @@ ResponseCache::CacheState ResponseCache::cached(const Request& message) const {
     // If entry associated with this request already exists in cache, check
     // if tensor parameters match. If not, return that entry is invalid.
     uint32_t cache_bit = it->second;
+    auto& cache_response = std::get<0>(*cache_iters_[cache_bit]);
     auto& cache_params = std::get<1>(*cache_iters_[cache_bit]);
     return (cache_params.device == message.device() &&
             cache_params.dtype == message.tensor_type() &&
-            cache_params.shape == message.tensor_shape())
+            cache_params.shape == message.tensor_shape() &&
+            cache_response.prescale_factor() == message.prescale_factor() &&
+            cache_response.postscale_factor() == message.postscale_factor())
                ? CacheState::HIT
                : CacheState::INVALID;
   } else {
@@ -73,6 +76,7 @@ ResponseCache::cached(const Response& response,
     // If entry associated with this response already exists in cache, check
     // if tensor parameters match. If not, return that entry is invalid.
     uint32_t cache_bit = it->second;
+    auto& cache_response = std::get<0>(*cache_iters_[cache_bit]);
     auto& cache_params = std::get<1>(*cache_iters_[cache_bit]);
 
     bool same_shape;
@@ -88,7 +92,9 @@ ResponseCache::cached(const Response& response,
     }
 
     return (cache_params.device == params.device &&
-            cache_params.dtype == params.dtype && same_shape)
+            cache_params.dtype == params.dtype && same_shape &&
+            cache_response.prescale_factor() == response.prescale_factor() &&
+            cache_response.postscale_factor() == response.postscale_factor())
                ? CacheState::HIT
                : CacheState::INVALID;
   } else {
@@ -175,6 +181,8 @@ void ResponseCache::put(const Response& response, TensorQueue& tensor_queue, boo
       new_response.set_devices(response.devices());
       new_response.add_tensor_size(response.tensor_sizes()[i]);
       new_response.set_tensor_type(response.tensor_type());
+      new_response.set_prescale_factor(response.prescale_factor());
+      new_response.set_postscale_factor(response.postscale_factor());
 
       // Populate tensor parameters from tensor_queue entry
       TensorParams params;

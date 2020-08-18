@@ -29,6 +29,8 @@ parser.add_argument('--fp16-allreduce', action='store_true', default=False,
                     help='use fp16 compression during allreduce')
 parser.add_argument('--use-adasum', action='store_true', default=False,
                     help='use adasum algorithm to do reduction')
+parser.add_argument('--gradient-predivide-factor', type=float, default=1.0,
+                    help='apply gradient predivide factor in optimizer (default: 1.0)')
 
 
 class Net(nn.Module):
@@ -179,7 +181,8 @@ if __name__ == '__main__':
     optimizer = hvd.DistributedOptimizer(optimizer,
                                          named_parameters=model.named_parameters(),
                                          compression=compression,
-                                         op=hvd.Adasum if args.use_adasum else hvd.Average)
+                                         op=hvd.Adasum if args.use_adasum else hvd.Average,
+                                         gradient_predivide_factor=args.gradient_predivide_factor)
 
     for epoch in range(1, args.epochs + 1):
         train(epoch)

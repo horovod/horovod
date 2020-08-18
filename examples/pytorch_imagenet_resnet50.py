@@ -31,6 +31,8 @@ parser.add_argument('--batches-per-allreduce', type=int, default=1,
                          'total batch size.')
 parser.add_argument('--use-adasum', action='store_true', default=False,
                     help='use adasum algorithm to do reduction')
+parser.add_argument('--gradient-predivide-factor', type=float, default=1.0,
+                    help='apply gradient predivide factor in optimizer (default: 1.0)')
 
 # Default settings from https://arxiv.org/abs/1706.02677.
 parser.add_argument('--batch-size', type=int, default=32,
@@ -272,7 +274,8 @@ if __name__ == '__main__':
         optimizer, named_parameters=model.named_parameters(),
         compression=compression,
         backward_passes_per_step=args.batches_per_allreduce,
-        op=hvd.Adasum if args.use_adasum else hvd.Average)
+        op=hvd.Adasum if args.use_adasum else hvd.Average,
+        gradient_predivide_factor=args.gradient_predivide_factor)
 
     # Restore from a previous checkpoint, if initial_epoch is specified.
     # Horovod: restore on the first worker which will broadcast weights to other workers.

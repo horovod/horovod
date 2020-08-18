@@ -47,6 +47,9 @@ struct MpiOpsParam {
   std::string op_name;
   int root_rank;
   NDArraySharedPtr splits_tensor;
+  bool average;
+  double prescale_factor;
+  double postscale_factor;
 
   MpiOpsParam(NDArraySharedPtr input_tensor,
               NDArraySharedPtr output_tensor,
@@ -54,8 +57,10 @@ struct MpiOpsParam {
               NDArraySharedPtr cpu_input_tensor,
               NDArraySharedPtr cpu_output_tensor,
               const OperationType& op_type, const std::string& op_name,
-              int root_rank,
-              NDArraySharedPtr splits_tensor)
+              int root_rank, bool average,
+              NDArraySharedPtr splits_tensor,
+              double prescale_factor,
+              double postscale_factor)
       : input_tensor(input_tensor),
         output_tensor(output_tensor),
         output(output),
@@ -64,7 +69,10 @@ struct MpiOpsParam {
         op_type(op_type),
         op_name(op_name),
         root_rank(root_rank),
-        splits_tensor(splits_tensor) {
+        splits_tensor(splits_tensor),
+        average(average),
+        prescale_factor(prescale_factor),
+        postscale_factor(postscale_factor) {
   }
 };
 
@@ -75,10 +83,13 @@ inline MpiOpsParam* CreateMpiOpsParam(NDArraySharedPtr input_tensor,
                                       NDArraySharedPtr cpu_output_tensor,
                                       const OperationType& op_type,
                                       const std::string& op_name,
-                                      int root_rank,
-                                      NDArraySharedPtr splits_tensor) {
+                                      int root_rank, bool average,
+                                      NDArraySharedPtr splits_tensor,
+                                      double prescale_factor,
+                                      double postscale_factor) {
   return new MpiOpsParam(input_tensor, output_tensor, output, cpu_input_tensor,
-    cpu_output_tensor, op_type, op_name, root_rank, splits_tensor);
+    cpu_output_tensor, op_type, op_name, root_rank, average, splits_tensor, prescale_factor,
+    postscale_factor);
 }
 
 void DeleteMpiOpsParam(void* param) {
@@ -89,7 +100,9 @@ void DeleteMpiOpsParam(void* param) {
 extern "C" int horovod_mxnet_allreduce_async(NDArray* input,
                                              NDArray* output,
                                              const char* name, bool average,
-                                             int priority);
+                                             int priority,
+                                             double prescale_factor,
+                                             double postscale_factor);
 extern "C" int horovod_mxnet_allgather_async(NDArray* input,
                                              NDArray* output,
                                              const char* name, int priority);

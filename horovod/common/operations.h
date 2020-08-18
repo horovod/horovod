@@ -94,6 +94,12 @@ bool horovod_ddl_built();
 // C interface to return flag indicating whether Horovod was compiled with CCL support.
 bool horovod_ccl_built();
 
+// C interface to return flag indicating whether Horovod was compiled with CUDA support.
+bool horovod_cuda_built();
+
+// C interface to return flag indicating whether Horovod was compiled with ROCm support.
+bool horovod_rocm_built();
+
 // C interface to return value of the ReduceOp::AVERAGE enum field.
 int horovod_reduce_op_average();
 
@@ -111,7 +117,9 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               std::shared_ptr<ReadyEvent> ready_event,
                               const std::string name, const int device,
                               StatusCallback callback,
-                              ReduceOp reduce_op = ReduceOp::SUM);
+                              ReduceOp reduce_op = ReduceOp::SUM,
+                              double prescale_factor = 1.0,
+                              double postscale_factor = 1.0);
 
 Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,

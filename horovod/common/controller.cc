@@ -451,6 +451,36 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
     }
   }
 
+  // If we are doing an allreduce, check that prescaling and postscaling factors
+  // are identical across ranks.
+  double prescale_factor;
+  double postscale_factor;
+  if (message_type == Request::ALLREDUCE ||
+      message_type == Request::ADASUM) {
+    prescale_factor = requests[0].prescale_factor();
+    postscale_factor = requests[0].postscale_factor();
+
+    for (unsigned int i = 1; i < requests.size(); ++i) {
+      if (error) {
+        break;
+      }
+      double request_prescale_factor = requests[i].prescale_factor();
+      double request_postscale_factor = requests[i].postscale_factor();
+
+      if (prescale_factor != request_prescale_factor ||
+          postscale_factor != request_postscale_factor) {
+        error = true;
+        error_message_stream
+            << "Mismatched prescale and/or postscale factors: "
+            << "One rank sent factors (" << prescale_factor
+            << ", " << postscale_factor << "), but another rank "
+            << "sent factors (" << request_prescale_factor
+            << ", " << request_postscale_factor << ").";
+        break;
+      }
+    }
+  }
+
   std::vector<int64_t> tensor_sizes;
   if (message_type == Request::ALLGATHER ||
       message_type == Request::ALLTOALL) {
@@ -601,6 +631,8 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
       response.add_tensor_size(dim);
     }
     response.set_tensor_type(data_type);
+    response.set_prescale_factor(prescale_factor);
+    response.set_postscale_factor(postscale_factor);
   } else if (message_type == Request::BROADCAST) {
     response.set_response_type(Response::BROADCAST);
   } else if (message_type == Request::ALLTOALL) {
@@ -611,6 +643,8 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
       response.add_tensor_size(dim);
     }
     response.set_tensor_type(data_type);
+    response.set_prescale_factor(prescale_factor);
+    response.set_postscale_factor(postscale_factor);
   }
   response.set_devices(devices);
 
@@ -675,7 +709,9 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
         if (response.response_type() == new_response.response_type() &&
             response.devices() == new_response.devices() &&
             response.tensor_type() == new_response.tensor_type() &&
-            tensor_size + new_tensor_size <= TensorFusionThresholdBytes()) {
+            tensor_size + new_tensor_size <= TensorFusionThresholdBytes() &&
+            response.prescale_factor() == new_response.prescale_factor() &&
+            response.postscale_factor() == new_response.postscale_factor()) {
           // These tensors will fuse together well.
           tensor_size += new_tensor_size;
           response.add_tensor_name(std::move(new_response.tensor_names()[0]));

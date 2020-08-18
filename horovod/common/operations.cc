@@ -805,6 +805,22 @@ bool horovod_ccl_built() {
 #endif
 }
 
+bool horovod_cuda_built() {
+#if HAVE_CUDA
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool horovod_rocm_built() {
+#if HAVE_ROCM
+  return true;
+#else
+  return false;
+#endif
+}
+
 int horovod_reduce_op_average() {
   return ReduceOp::AVERAGE;
 }
@@ -827,22 +843,34 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               std::shared_ptr<ReadyEvent> ready_event,
                               const std::string name, const int device,
                               StatusCallback callback,
-                              ReduceOp reduce_op) {
+                              ReduceOp reduce_op,
+                              double prescale_factor,
+                              double postscale_factor) {
   Status status;
 
-  // AVERAGE should be taken care of in the framework layer. Equeuing it here directly is not allowed.
-  // For example of how to deal with op=hvd.Average in framework layer, please refer to function
-  // `def _allreduce_async(tensor, output, name, op)` in
-  // horovod/horovod/torch/mpi_ops.py
   if (reduce_op == ReduceOp::AVERAGE) {
+#if !HAVE_ROCM
+    // Averaging happens via postscale_factor
+    postscale_factor /= horovod_global.controller->GetSize();
+#else
     LOG(ERROR, horovod_global.controller->GetRank()) << "Enqueuing AVERAGE allreduce is not allowed.";
     return status.Aborted("AVERAGE not allowed.");
+#endif
+  } else if (reduce_op == ReduceOp::ADASUM) {
+#if HAVE_NCCL && !HAVE_ROCM
+    if (device != CPU_DEVICE_ID) {
+      // Averaging by local size happens via postscale_factor
+      postscale_factor /= horovod_global.controller->GetLocalSize();
+    }
+#endif
   }
   Request message;
   message.set_request_rank(horovod_global.controller->GetRank());
   message.set_tensor_name(name);
   message.set_tensor_type(tensor->dtype());
   message.set_device(device);
+  message.set_prescale_factor(prescale_factor);
+  message.set_postscale_factor(postscale_factor);
   
   if (reduce_op == ReduceOp::ADASUM) {
     message.set_request_type(Request::ADASUM);
