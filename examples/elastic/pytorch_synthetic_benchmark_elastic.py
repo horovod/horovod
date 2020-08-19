@@ -73,10 +73,6 @@ optimizer = hvd.DistributedOptimizer(optimizer,
                                      compression=compression,
                                      op=hvd.Adasum if args.use_adasum else hvd.Average)
 
-# Horovod: broadcast parameters & optimizer state.
-hvd.broadcast_parameters(model.state_dict(), root_rank=0)
-hvd.broadcast_optimizer_state(optimizer, root_rank=0)
-
 # Set up fixed fake data
 data = torch.randn(args.batch_size, 3, 224, 224)
 target = torch.LongTensor(args.batch_size).random_() % 1000
