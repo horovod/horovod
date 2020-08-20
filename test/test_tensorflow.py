@@ -2242,10 +2242,7 @@ class TensorFlowTests(tf.test.TestCase):
             ]
 
             for x in x_list:
-                try:
-                    bn = tf.layers.BatchNormalization(axis=1)
-                except AttributeError:
-                    bn = tf.compat.v1.layers.BatchNormalization(axis=1)
+                bn = tf.keras.layers.BatchNormalization(axis=1, fused=False)
                 sync_bn = hvd.SyncBatchNormalization(axis=1)
                 bn_func = bn.apply(x, training=True)
                 sync_bn_func = sync_bn.apply(tf.expand_dims(x[hvd.rank()], 0), training=True)
@@ -2289,10 +2286,7 @@ class TensorFlowTests(tf.test.TestCase):
             ]
 
             for x in x_list:
-                try:
-                    bn = tf.layers.BatchNormalization(axis=1)
-                except AttributeError:
-                    bn = tf.compat.v1.layers.BatchNormalization(axis=1)
+                bn = tf.keras.layers.BatchNormalization(axis=1, fused=False)
                 sync_bn = hvd.SyncBatchNormalization(axis=1)
                 bn_func = bn.apply(x, training=True)
                 sync_bn_func = sync_bn.apply(tf.expand_dims(x[hvd.rank()], 0), training=True)
