@@ -2184,13 +2184,14 @@ class TensorFlowTests(tf.test.TestCase):
             # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
             self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
 
+        hvd.init()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
         # This test does not apply if there is only one worker.
         if size == 1:
             self.skipTest("Only one worker available")
 
-        hvd.init()
-        local_rank = hvd.local_rank()
-        size = hvd.size()
 
         dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
         dims = [1, 2, 3]
