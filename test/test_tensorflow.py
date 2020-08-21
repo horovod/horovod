@@ -1790,6 +1790,10 @@ class TensorFlowTests(tf.test.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            self.skipTest("Only one worker available")
+
         with tf.device("/cpu:0"):
             tensor = tf.ones([size-1], dtype=tf.float32)
             splits = tf.ones([size], dtype=tf.int32)
@@ -2184,17 +2188,22 @@ class TensorFlowTests(tf.test.TestCase):
         local_rank = hvd.local_rank()
         size = hvd.size()
 
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            self.skipTest("Only one worker available")
+
+
         dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
         dims = [1, 2, 3]
         first_join_ranks = [0, 1]
 
         for dtype, dim, first_join_rank in itertools.product(dtypes, dims, first_join_ranks):
             with tf.device("/gpu:%d" % local_rank):
+                tensor = self.random_uniform(
+                        [17] * dim, -100, 100, dtype=dtype)
                 if local_rank == first_join_rank:
                     self.evaluate(hvd.join())
                 else:		
-                    tensor = self.random_uniform(
-                            [17] * dim, -100, 100, dtype=dtype)
                     summed = hvd.allreduce(tensor, average=False)
                     multiplied = tensor * (size-1)
                     max_difference = tf.reduce_max(tf.abs(summed - multiplied))
