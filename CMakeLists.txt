@@ -119,6 +119,9 @@ macro(ADD_CUDA)
                         "${PROJECT_SOURCE_DIR}/horovod/common/ops/gpu_operations.cc")
     add_definitions(-DHAVE_CUDA=1 -DHAVE_GPU=1)
     set(HAVE_CUDA TRUE)
+    if(NOT CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+        set(HAVE_SUB_PROJECT_CUDA TRUE PARENT_SCOPE)
+    endif()
 endmacro()
 
 if(DEFINED HOROVOD_GPU_ALLREDUCE OR DEFINED HOROVOD_GPU_ALLGATHER OR DEFINED HOROVOD_GPU_BROADCAST OR DEFINED HOROVOD_GPU_ALLTOALL)
@@ -275,7 +278,7 @@ add_subdirectory(horovod/torch)
 add_subdirectory(horovod/mxnet)
 
 # CUDA kernels
-if(HAVE_CUDA)
+if(HAVE_CUDA OR HAVE_SUB_PROJECT_CUDA)
     add_subdirectory(horovod/common/ops/cuda)
 endif()
 
