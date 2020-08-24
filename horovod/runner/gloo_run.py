@@ -136,8 +136,8 @@ def _exec_command_fn(settings):
         host_address = network.resolve_host_address(host_name)
         local_addresses = network.get_local_host_addresses()
         if host_address not in local_addresses:
-            local_command=quote('cd {pwd} > /dev/null 2>&1 ; {local_command}'
-                                .format(pwd=os.getcwd(), local_command=command))
+            local_command = quote('cd {pwd} > /dev/null 2>&1 ; {command}'
+                                  .format(pwd=os.getcwd(), command=command))
             get_ssh_command(local_command,
                             host=host_name,
                             port=settings.ssh_port,
