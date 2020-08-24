@@ -24,6 +24,7 @@ from horovod.runner.common.service import driver_service
 from horovod.runner.common.util import codec, safe_shell_exec
 from horovod.runner.task import task_service
 from horovod.runner.util import cache, lsf, network, threads
+from horovod.runner.util.remote import get_ssh_command
 
 
 class HorovodRunDriverService(driver_service.BasicDriverService):
@@ -88,36 +89,24 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
             host_output.close()
         return exit_code
 
-    if settings.ssh_port:
-        ssh_port_arg = '-p {ssh_port}'.format(ssh_port=settings.ssh_port)
-    else:
-        ssh_port_arg = ''
     args_list = []
     num_hosts = len(all_host_names)
     for index in range(num_hosts):
         host_name = all_host_names[index]
-        if host_name in local_host_names:
-            command = \
-                '{python} -m horovod.runner.task_fn {index} {num_hosts} ' \
-                '{driver_addresses} {settings}'\
-                .format(python=sys.executable,
-                        index=codec.dumps_base64(index),
-                        num_hosts=codec.dumps_base64(num_hosts),
-                        driver_addresses=codec.dumps_base64(driver_addresses),
-                        settings=codec.dumps_base64(settings))
-        else:
-            command = \
-                'ssh -o PasswordAuthentication=no -o StrictHostKeyChecking=no ' \
-                '{host} {ssh_port_arg} ' \
-                '\'{python} -m horovod.runner.task_fn {index} {num_hosts} ' \
-                '{driver_addresses} {settings}\''\
-                .format(host=host_name,
-                        ssh_port_arg=ssh_port_arg,
-                        python=sys.executable,
-                        index=codec.dumps_base64(index),
-                        num_hosts=codec.dumps_base64(num_hosts),
-                        driver_addresses=codec.dumps_base64(driver_addresses),
-                        settings=codec.dumps_base64(settings))
+        command = \
+            '{python} -m horovod.runner.task_fn {index} {num_hosts} ' \
+            '{driver_addresses} {settings}' \
+            .format(python=sys.executable,
+                    index=codec.dumps_base64(index),
+                    num_hosts=codec.dumps_base64(num_hosts),
+                    driver_addresses=codec.dumps_base64(driver_addresses),
+                    settings=codec.dumps_base64(settings))
+        if host_name not in local_host_names:
+            command = get_ssh_command(command,
+                                      host=host_name,
+                                      port=settings.ssh_port,
+                                      identity_file=settings.ssh_identity_file)
+
         if settings.verbose >= 2:
             print('Launching horovod task function: {}'.format(command))
         args_list.append([command])

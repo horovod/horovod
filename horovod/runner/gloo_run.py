@@ -31,6 +31,7 @@ from horovod.runner.elastic.driver import ElasticDriver
 from horovod.runner.elastic.rendezvous import create_rendezvous_handler
 from horovod.runner.http.http_server import RendezvousServer
 from horovod.runner.util import network, threads
+from horovod.runner.util.remote import get_ssh_command
 
 
 def _pad_rank(rank, size):
@@ -128,8 +129,6 @@ def _exec_command_fn(settings):
     :return:
     :rtype:
     """
-    ssh_port_arg = '-p {ssh_port}'.format(ssh_port=settings.ssh_port) if settings.ssh_port else ''
-
     def _exec_command(command, slot_info, events):
         index = slot_info.rank
         host_name = slot_info.hostname
@@ -137,13 +136,12 @@ def _exec_command_fn(settings):
         host_address = network.resolve_host_address(host_name)
         local_addresses = network.get_local_host_addresses()
         if host_address not in local_addresses:
-            command = 'ssh -o PasswordAuthentication=no -o StrictHostKeyChecking=no ' \
-                      '{host} {ssh_port_arg} ' \
-                      '{local_command}'\
-                .format(host=host_name,
-                        ssh_port_arg=ssh_port_arg,
-                        local_command=quote('cd {pwd} > /dev/null 2>&1 ; {local_command}'
-                                            .format(pwd=os.getcwd(), local_command=command)))
+            local_command = quote('cd {pwd} > /dev/null 2>&1 ; {command}'
+                                  .format(pwd=os.getcwd(), command=command))
+            get_ssh_command(local_command,
+                            host=host_name,
+                            port=settings.ssh_port,
+                            identity_file=settings.ssh_identity_file)
 
         if settings.verbose:
             print(command)

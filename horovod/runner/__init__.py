@@ -19,6 +19,7 @@ class _HorovodArgs(object):
         self.np = 1
         self.check_build = None
         self.ssh_port = None
+        self.ssh_identity_file = None
         self.disable_cache = None
         self.start_timeout = None
         self.nic = None
@@ -99,6 +100,7 @@ def run(
         hostfile=None,
         start_timeout=None,
         ssh_port=None,
+        ssh_identity_file=None,
         disable_cache=None,
         output_filename=None,
         verbose=None,
@@ -143,6 +145,7 @@ def run(
                           HOROVOD_START_TIMEOUT can also be used to
                           specify the initialization timeout.
     :param ssh_port: SSH port on all the hosts.
+    :param ssh_identity_file: SSH identity (private key) file.
     :param disable_cache: If the flag is not set, horovodrun will perform
                           the initialization checks only once every 60
                           minutes -- if the checks successfully pass.
@@ -189,6 +192,7 @@ def run(
     hargs.hostfile = hostfile
     hargs.start_timeout = start_timeout
     hargs.ssh_port = ssh_port
+    hargs.ssh_identity_file = ssh_identity_file
     hargs.mpi_args = mpi_args
     hargs.disable_cache = disable_cache
     hargs.output_filename = output_filename

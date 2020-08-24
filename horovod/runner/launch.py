@@ -39,6 +39,7 @@ from horovod.runner.mpi_run import mpi_run
 from horovod.runner.js_run import js_run, is_jsrun_installed
 from horovod.runner.http.http_client import read_data_from_kvstore, put_data_into_kvstore
 from horovod.runner.http.http_server import KVStoreServer
+from horovod.runner.util.remote import get_ssh_command
 
 
 # Cached information of horovod functions be stored in this directory
@@ -52,7 +53,7 @@ SSH_ATTEMPTS = 5
 
 
 @cache.use_cache()
-def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
+def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None, ssh_identity_file=None):
     """
     checks if ssh can successfully be performed to all the hosts.
     :param host_addresses: list of addresses to ssh into. for example,
@@ -80,14 +81,10 @@ def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
                 output.close()
         return exit_code, output_msg
 
-    ssh_port_arg = '-p {ssh_port}'.format(
-        ssh_port=ssh_port) if ssh_port else ''
-
-    ssh_command_format = 'ssh -o PasswordAuthentication=no -o StrictHostKeyChecking=no' \
-                         ' {host} {ssh_port_arg} true'
-
-    args_list = [[ssh_command_format.format(host=host_address,
-                                            ssh_port_arg=ssh_port_arg)]
+    args_list = [[get_ssh_command(local_command='true',
+                                  host=host_address,
+                                  port=ssh_port,
+                                  identity_file=ssh_identity_file)]
                  for host_address in host_addresses]
     ssh_exit_codes = \
         threads.execute_function_multithreaded(exec_command,
@@ -229,9 +226,6 @@ def parse_args():
     parser.add_argument('-cb', '--check-build', action=make_check_build_action(np_arg), nargs=0,
                         help='Shows which frameworks and libraries have been built into Horovod.')
 
-    parser.add_argument('-p', '--ssh-port', action='store', dest='ssh_port',
-                        type=int, help='SSH port on all the hosts.')
-
     parser.add_argument('--disable-cache', action='store_true',
                         dest='disable_cache',
                         help='If the flag is not set, horovodrun will perform '
@@ -271,6 +265,12 @@ def parse_args():
                         help='Path to YAML file containing runtime parameter configuration for Horovod. '
                              'Note that this will override any command line arguments provided before '
                              'this argument, and will be overridden by any arguments that come after it.')
+
+    group_ssh = parser.add_argument_group('SSH arguments')
+    group_ssh.add_argument('-p', '--ssh-port', action='store', dest='ssh_port',
+                           type=int, help='SSH port on all the hosts.')
+    group_ssh.add_argument('-i', '--ssh-identity-file', action='store', dest='ssh_identity_file',
+                           help='File on the driver from which the identity (private key) is read.')
 
     group_params = parser.add_argument_group('tuneable parameter arguments')
     group_params.add_argument('--fusion-threshold-mb', action=make_override_action(override_args),type=int,
@@ -499,6 +499,7 @@ def _run_static(args):
                                     'parameter if you have too many servers.')
     settings = hvd_settings.Settings(verbose=2 if args.verbose else 0,
                                      ssh_port=args.ssh_port,
+                                     ssh_identity_file=args.ssh_identity_file,
                                      extra_mpi_args=args.mpi_args,
                                      tcp_flag=args.tcp_flag,
                                      binding_args=args.binding_args,
@@ -522,6 +523,8 @@ def _run_static(args):
             params += str(args.hosts) + ' '
         if args.ssh_port:
             params += str(args.ssh_port)
+        if args.ssh_identity_file:
+            params += args.ssh_identity_file
         parameters_hash = hashlib.md5(params.encode('utf-8')).hexdigest()
         fn_cache = cache.Cache(CACHE_FOLDER, CACHE_STALENESS_THRESHOLD_MINUTES,
                                parameters_hash)
@@ -537,7 +540,8 @@ def _run_static(args):
         if settings.verbose >= 2:
             print('Checking ssh on all remote hosts.')
         # Check if we can ssh into all remote hosts successfully.
-        if not _check_all_hosts_ssh_successful(remote_host_names, args.ssh_port, fn_cache=fn_cache):
+        if not _check_all_hosts_ssh_successful(remote_host_names, args.ssh_port, args.ssh_identity_file,
+                                               fn_cache=fn_cache):
             raise RuntimeError('could not connect to some hosts via ssh')
         if settings.verbose >= 2:
             print('SSH was successful into all the remote hosts.')
@@ -603,6 +607,7 @@ def _run_elastic(args):
                                                 num_proc=args.np,
                                                 verbose=2 if args.verbose else 0,
                                                 ssh_port=args.ssh_port,
+                                                ssh_identity_file=args.ssh_identity_file,
                                                 extra_mpi_args=args.mpi_args,
                                                 key=secret.make_secret_key(),
                                                 start_timeout=tmout,
