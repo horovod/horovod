@@ -142,8 +142,16 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None):
     if mpi_impl_flags is None:
         raise Exception(_MPI_NOT_FOUND_ERROR_MSG)
 
-    ssh_port_arg = '-mca plm_rsh_args \"-p {ssh_port}\"'.format(
-            ssh_port=settings.ssh_port) if settings.ssh_port else ''
+    ssh_args = []
+    if settings.ssh_port:
+        ssh_args += [f'-p {settings.ssh_port}']
+    if settings.ssh_identity_file:
+        ssh_args += [f'-i {settings.ssh_identity_file}']
+
+    mpi_ssh_args = ''
+    if ssh_args:
+        joined_ssh_args = ' '.join(ssh_args)
+        mpi_ssh_args = f'-mca plm_rsh_args \"{joined_ssh_args}\"'
 
     # if user does not specify any hosts, mpirun by default uses local host.
     # There is no need to specify localhost.
@@ -168,7 +176,7 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None):
         '-np {num_proc} {hosts_arg} '
         '{binding_args} '
         '{mpi_args} '
-        '{ssh_port_arg} '
+        '{mpi_ssh_args} '
         '{tcp_intf_arg} '
         '{nccl_socket_intf_arg} '
         '{output_filename_arg} '
@@ -179,7 +187,7 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None):
                 mpi_args=' '.join(mpi_impl_flags),
                 tcp_intf_arg=tcp_intf_arg,
                 nccl_socket_intf_arg=nccl_socket_intf_arg,
-                ssh_port_arg=ssh_port_arg,
+                mpi_ssh_args=mpi_ssh_args,
                 output_filename_arg='--output-filename ' + settings.output_filename
                                     if settings.output_filename else '',
                 env=' '.join('-x %s' % key for key in sorted(env.keys())
