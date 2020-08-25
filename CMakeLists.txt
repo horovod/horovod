@@ -76,7 +76,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 else()
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--version-script=${CMAKE_SOURCE_DIR}/horovod.lds")
 endif()
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-rpath -Wl,/usr/local/lib -Wl,--enable-new-dtags -L/usr/local/lib")
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-Bsymbolic-functions -Wl,-z,relro")
 # GPU Operations
 set(HOROVOD_GPU $ENV{HOROVOD_GPU})
 set(HOROVOD_GPU_OPERATIONS $ENV{HOROVOD_GPU_OPERATIONS})
