@@ -90,7 +90,7 @@ def allgather_object(obj, name=None):
     gathered = allgather(t, name=name + '.t').asnumpy()
 
     def select(i):
-        start = sizes[i - 1] if i > 0 else 0
+        start = sum(sizes[:i])
         end = start + sizes[i]
         return gathered[start:end]
 
