@@ -39,8 +39,7 @@ from horovod.runner.mpi_run import mpi_run
 from horovod.runner.js_run import js_run, is_jsrun_installed
 from horovod.runner.http.http_client import read_data_from_kvstore, put_data_into_kvstore
 from horovod.runner.http.http_server import KVStoreServer
-from horovod.runner.util.remote import get_ssh_command
-
+from horovod.runner.util.remote import get_remote_command
 
 # Cached information of horovod functions be stored in this directory
 CACHE_FOLDER = os.path.join(os.path.expanduser('~'), '.horovod')
@@ -81,10 +80,10 @@ def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None, ssh_identity_
                 output.close()
         return exit_code, output_msg
 
-    args_list = [[get_ssh_command(local_command='true',
-                                  host=host_address,
-                                  port=ssh_port,
-                                  identity_file=ssh_identity_file)]
+    args_list = [[get_remote_command(local_command='true',
+                                     host=host_address,
+                                     port=ssh_port,
+                                     identity_file=ssh_identity_file)]
                  for host_address in host_addresses]
     ssh_exit_codes = \
         threads.execute_function_multithreaded(exec_command,
@@ -130,7 +129,7 @@ def check_build(verbose):
                version=horovod.__version__,
                tensorflow=get_check(extension_available('tensorflow', verbose=verbose)),
                torch=get_check(extension_available('torch', verbose=verbose)),
-               mxnet = get_check(extension_available('mxnet', verbose=verbose)),
+               mxnet=get_check(extension_available('mxnet', verbose=verbose)),
                mpi=get_check(mpi_built(verbose=verbose)),
                gloo=get_check(gloo_built(verbose=verbose)),
                nccl_ops=get_check(nccl_built(verbose=verbose)),
@@ -273,7 +272,7 @@ def parse_args():
                            help='File on the driver from which the identity (private key) is read.')
 
     group_params = parser.add_argument_group('tuneable parameter arguments')
-    group_params.add_argument('--fusion-threshold-mb', action=make_override_action(override_args),type=int,
+    group_params.add_argument('--fusion-threshold-mb', action=make_override_action(override_args), type=int,
                               help='Fusion buffer threshold in MB. This is the maximum amount of '
                                    'tensor data that can be fused together into a single batch '
                                    'during allreduce / allgather. Setting 0 disables tensor fusion. '
@@ -402,13 +401,13 @@ def parse_args():
                                            action=make_override_false_action(override_args), help=argparse.SUPPRESS)
     group_library_options.add_argument('--mpi-args', action='store', dest='mpi_args',
                                        help='Extra MPI arguments to pass to mpirun. '
-                                       'They need to be passed with the equal sign to avoid parsing issues. '
-                                       'e.g. --mpi-args="--map-by ppr:6:node"')
+                                            'They need to be passed with the equal sign to avoid parsing issues. '
+                                            'e.g. --mpi-args="--map-by ppr:6:node"')
     group_library_options.add_argument('--tcp', action='store_true', dest='tcp_flag',
                                        help='If this flag is set, only TCP is used for communication.')
     group_library_options.add_argument('--binding-args', action='store', dest='binding_args',
                                        help='Process binding arguments. Default is socket for Spectrum MPI '
-                                       'and no binding for other cases. e.g. --binding-args="--rankfile myrankfile"')
+                                            'and no binding for other cases. e.g. --binding-args="--rankfile myrankfile"')
     group_library_options.add_argument('--num-nccl-streams', action=make_override_action(override_args),
                                        type=int, default=1,
                                        help='Number of NCCL streams. Only applies when running with NCCL support. '
@@ -648,8 +647,9 @@ def run_controller(use_gloo, gloo_run, use_mpi, mpi_run, use_jsrun, js_run, verb
             raise ValueError('MPI support has not been built.  If this is not expected, ensure MPI is installed '
                              'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.')
         if not lsf.LSFUtils.using_lsf():
-            raise ValueError('Horovod did not detect an LSF job.  The jsrun launcher can only be used in that environment. '
-                             'Please, pick a different launcher for other environments.')
+            raise ValueError(
+                'Horovod did not detect an LSF job.  The jsrun launcher can only be used in that environment. '
+                'Please, pick a different launcher for other environments.')
         js_run()
     else:
         if mpi_built(verbose=verbose):
