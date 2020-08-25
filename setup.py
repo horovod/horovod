@@ -200,7 +200,6 @@ def get_nvcc_flags():
 
     return default_flags
 
-
 def get_link_flags(build_ext):
     last_err = None
     libtool_flags = ['-Wl,-exported_symbols_list,horovod.exp']
@@ -616,7 +615,7 @@ def get_ddl_dirs(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
 
 
 def set_cuda_options(build_ext, COMPILE_FLAGS, MACROS, INCLUDES, SOURCES, BUILD_MPI, LIBRARY_DIRS, LIBRARIES,
-                     NVCC_COMPILE_FLAGS, **kwargs):
+                     **kwargs):
     cuda_include_dirs, cuda_lib_dirs = get_cuda_dirs(build_ext, COMPILE_FLAGS)
     MACROS += [('HAVE_CUDA', '1'), ('HAVE_GPU', '1')]
     INCLUDES += cuda_include_dirs
@@ -626,7 +625,6 @@ def set_cuda_options(build_ext, COMPILE_FLAGS, MACROS, INCLUDES, SOURCES, BUILD_
         SOURCES += ['horovod/common/ops/mpi_gpu_operations.cc']
     LIBRARY_DIRS += cuda_lib_dirs
     LIBRARIES += ['cudart']
-    NVCC_COMPILE_FLAGS += get_nvcc_flags()
 
 
 def get_common_options(build_ext):
@@ -847,8 +845,9 @@ def get_common_options(build_ext):
 
     if have_cuda:
         set_cuda_options(build_ext, COMPILE_FLAGS, MACROS, INCLUDES, SOURCES, have_mpi, LIBRARY_DIRS,
-                         LIBRARIES, NVCC_COMPILE_FLAGS)
+                         LIBRARIES)
         INCLUDES += ['horovod/common/ops/cuda']
+        NVCC_COMPILE_FLAGS += get_nvcc_flags()
 
     if have_rocm:
         MACROS += [('HAVE_ROCM', '1'), ('HAVE_GPU', '1')] + gpu_macros
