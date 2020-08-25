@@ -13,6 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
+from horovod.runner.common.util import env as env_util
+
 SSH_COMMAND_PREFIX = 'ssh -o PasswordAuthentication=no -o StrictHostKeyChecking=no'
 
 
@@ -20,3 +22,8 @@ def get_ssh_command(local_command, host, port=None, identity_file=None):
     port_arg = f'-p {port}' if port is not None else ''
     identity_file_arg = f'-i {identity_file}' if identity_file is not None else ''
     return f'{SSH_COMMAND_PREFIX} {host} {port_arg} {identity_file_arg} {local_command}'
+
+
+def get_remote_command(local_command, host, port=None, identity_file=None):
+    return f'{env_util.KUBEFLOW_MPI_EXEC} {host} {local_command}' if env_util.is_kubeflow_mpi() \
+        else get_ssh_command(local_command, host, port, identity_file)

@@ -24,7 +24,7 @@ from horovod.runner.common.service import driver_service
 from horovod.runner.common.util import codec, safe_shell_exec
 from horovod.runner.task import task_service
 from horovod.runner.util import cache, lsf, network, threads
-from horovod.runner.util.remote import get_ssh_command
+from horovod.runner.util.remote import get_remote_command
 
 
 class HorovodRunDriverService(driver_service.BasicDriverService):
@@ -102,10 +102,10 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
                     driver_addresses=codec.dumps_base64(driver_addresses),
                     settings=codec.dumps_base64(settings))
         if host_name not in local_host_names:
-            command = get_ssh_command(command,
-                                      host=host_name,
-                                      port=settings.ssh_port,
-                                      identity_file=settings.ssh_identity_file)
+            command = get_remote_command(command,
+                                         host=host_name,
+                                         port=settings.ssh_port,
+                                         identity_file=settings.ssh_identity_file)
 
         if settings.verbose >= 2:
             print('Launching horovod task function: {}'.format(command))

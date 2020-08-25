@@ -23,6 +23,8 @@ LOG_LEVEL_STR = ['FATAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG', 'TRACE']
 # List of regular expressions to ignore environment variables by.
 IGNORE_REGEXES = {'BASH_FUNC_.*', 'OLDPWD', secret.HOROVOD_SECRET_KEY}
 
+KUBEFLOW_MPI_EXEC = '/etc/mpi/kubexec.sh'
+
 
 def is_exportable(v):
     return not any(re.match(r, v) for r in IGNORE_REGEXES)
@@ -45,3 +47,7 @@ def get_env_rank_and_size():
     # Default to rank zero and size one if there are no environment variables
     return 0, 1
 
+
+def is_kubeflow_mpi():
+    rsh_agent = os.environ.get('OMPI_MCA_plm_rsh_agent')
+    return rsh_agent == KUBEFLOW_MPI_EXEC

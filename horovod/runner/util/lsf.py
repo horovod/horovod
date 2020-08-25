@@ -20,7 +20,7 @@ import yaml
 
 from horovod.common.util import _cache
 from horovod.runner.common.util import safe_shell_exec
-from horovod.runner.util.remote import get_ssh_command
+from horovod.runner.util.remote import get_remote_command
 
 
 class LSFUtils:
@@ -94,7 +94,7 @@ class LSFUtils:
     @_cache
     def get_num_threads():
         """Returns the number of hardware threads."""
-        lscpu_cmd = get_ssh_command(LSFUtils._LSCPU_CMD, host=LSFUtils.get_compute_hosts()[0])
+        lscpu_cmd = get_remote_command(LSFUtils._LSCPU_CMD, host=LSFUtils.get_compute_hosts()[0])
         output = io.StringIO()
         exit_code = safe_shell_exec.execute(lscpu_cmd, stdout=output, stderr=output)
         if exit_code != 0:
