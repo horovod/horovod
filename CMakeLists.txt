@@ -106,6 +106,26 @@ if (EXISTS "${PY_DIR}/python")
     set(PY_EXE "${PY_DIR}/python")
 endif()
 
+# MPI
+if (NOT "$ENV{HOROVOD_WITHOUT_MPI}" STREQUAL "1")
+    set(MPI_REQUIRED "")
+    if ("$ENV{HOROVOD_WITH_MPI}" STREQUAL "1")
+        set(MPI_REQUIRED "REQUIRED")
+    endif ()
+    find_package(MPI ${MPI_REQUIRED})
+    if(MPI_FOUND)
+        include_directories(SYSTEM ${MPI_INCLUDE_PATH})
+        list(APPEND LINKER_LIBS ${MPI_LIBRARIES})
+        list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/mpi/mpi_context.cc"
+                "${PROJECT_SOURCE_DIR}/horovod/common/mpi/mpi_controller.cc"
+                "${PROJECT_SOURCE_DIR}/horovod/common/ops/mpi_operations.cc"
+                "${PROJECT_SOURCE_DIR}/horovod/common/ops/adasum/adasum_mpi.cc"
+                "${PROJECT_SOURCE_DIR}/horovod/common/ops/adasum_mpi_operations.cc")
+        add_definitions(-DHAVE_MPI=1)
+        set(HAVE_MPI TRUE)
+    endif()
+endif()
+
 # CUDA and ROCM
 macro(ADD_CUDA)
     if (DEFINED ENV{HOROVOD_CUDA_HOME})
@@ -117,6 +137,10 @@ macro(ADD_CUDA)
     list(APPEND LINKER_LIBS ${CUDA_LIBRARIES})
     list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/cuda_operations.cc"
                         "${PROJECT_SOURCE_DIR}/horovod/common/ops/gpu_operations.cc")
+    # CUDA + MPI
+    if(HAVE_MPI)
+        list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/mpi_gpu_operations.cc")
+    endif()
     add_definitions(-DHAVE_CUDA=1 -DHAVE_GPU=1)
     set(HAVE_CUDA TRUE)
     if(NOT CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
@@ -192,26 +216,6 @@ message(FATAL_ERROR "You should not mix NCCL and MPI GPU due to a possible deadl
                     "HOROVOD_ALLOW_MIXED_GPU_IMPL environment variable to '1'.")
 endif()
 
-# MPI
-if (NOT "$ENV{HOROVOD_WITHOUT_MPI}" STREQUAL "1")
-    set(MPI_REQUIRED "")
-    if ("$ENV{HOROVOD_WITH_MPI}" STREQUAL "1")
-        set(MPI_REQUIRED "REQUIRED")
-    endif ()
-    find_package(MPI ${MPI_REQUIRED})
-    if(MPI_FOUND)
-        include_directories(SYSTEM ${MPI_INCLUDE_PATH})
-        list(APPEND LINKER_LIBS ${MPI_LIBRARIES})
-        list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/mpi/mpi_context.cc"
-                "${PROJECT_SOURCE_DIR}/horovod/common/mpi/mpi_controller.cc"
-                "${PROJECT_SOURCE_DIR}/horovod/common/ops/mpi_operations.cc"
-                "${PROJECT_SOURCE_DIR}/horovod/common/ops/adasum/adasum_mpi.cc"
-                "${PROJECT_SOURCE_DIR}/horovod/common/ops/adasum_mpi_operations.cc")
-        add_definitions(-DHAVE_MPI=1)
-        set(HAVE_MPI TRUE)
-    endif()
-endif()
-
 # Gloo
 if (NOT "$ENV{HOROVOD_WITHOUT_GLOO}" STREQUAL "1")
     if(HAVE_MPI)
@@ -236,11 +240,6 @@ endif()
 # NCCL + MPI
 if (HAVE_NCCL AND HAVE_MPI)
     list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/adasum_gpu_operations.cc")
-endif()
-
-# CUDA + MPI
-if(HAVE_CUDA AND HAVE_MPI)
-    list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/mpi_gpu_operations.cc")
 endif()
 
 set(HOROVOD_CPU_OPERATIONS $ENV{HOROVOD_CPU_OPERATIONS})
