@@ -22,27 +22,22 @@ if(NOT PYTORCH_FOUND)
     return()
 endif()
 
-execute_process(COMMAND ${PY_EXE} -c "import torch; print(hasattr(torch._C, '_cuda_getDeviceCount'))"
-                OUTPUT_VARIABLE Pytorch_CUDA OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(COMMAND ${PY_EXE} -c "import torch; from torch.utils.cpp_extension import CUDA_HOME; print(True if ((torch.version.cuda is not None) and (CUDA_HOME is not None)) else False)"
+                OUTPUT_VARIABLE Pytorch_CUDA OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+string(REGEX REPLACE "No CUDA runtime[^\n]*\n" "" Pytorch_CUDA "${Pytorch_CUDA}")
 string(TOUPPER ${Pytorch_CUDA} Pytorch_CUDA)
 
-execute_process(COMMAND ${PY_EXE} -c "from torch.utils.cpp_extension import include_paths; print(';'.join(include_paths(cuda=True)))"
-                OUTPUT_VARIABLE _Pytorch_ROCM_INC OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
-string(REGEX REPLACE "No CUDA runtime[^\n]*\n" "" _Pytorch_ROCM_INC "${_Pytorch_ROCM_INC}")
-find_path(_TORCH_ROCM_INCLUDE
-          NAMES THH.h
-          HINTS ${_Pytorch_ROCM_INC}
-          PATH_SUFFIXES THH)
-if(NOT _TORCH_ROCM_INCLUDE STREQUAL "_TORCH_ROCM_INCLUDE-NOTFOUND")
-    set(Pytorch_ROCM TRUE)
+execute_process(COMMAND ${PY_EXE} -c "import torch; from torch.utils.cpp_extension import ROCM_HOME; print(True if ((torch.version.hip is not None) and (ROCM_HOME is not None)) else False)"
+                OUTPUT_VARIABLE Pytorch_ROCM OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+string(REGEX REPLACE "No CUDA runtime[^\n]*\n" "" Pytorch_ROCM "${Pytorch_ROCM}")
+string(TOUPPER ${Pytorch_ROCM} Pytorch_ROCM)
+
+if(Pytorch_ROCM)
     execute_process(COMMAND ${PY_EXE} -c "from torch.utils.cpp_extension import COMMON_HIPCC_FLAGS; print(' '.join(COMMON_HIPCC_FLAGS))"
                     OUTPUT_VARIABLE _Pytorch_ROCM_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
     string(REGEX REPLACE "No CUDA runtime[^\n]*\n" "" _Pytorch_ROCM_FLAGS "${_Pytorch_ROCM_FLAGS}")
     set(Pytorch_COMPILE_FLAGS "${_Pytorch_ROCM_FLAGS}")
-else()
-    set(Pytorch_ROCM FALSE)
 endif()
-
 
 if (Pytorch_CUDA OR Pytorch_ROCM)
     set(Pytorch_EXT "CUDAExtension")

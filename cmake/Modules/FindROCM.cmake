@@ -18,15 +18,20 @@ list(APPEND ROCM_ROOT ${HOROVOD_ROCM_HOME})
 # Compatible layer for CMake <3.12. ROCM_ROOT will be accounted in for searching paths and libraries for CMake >=3.12.
 list(APPEND CMAKE_PREFIX_PATH ${ROCM_ROOT})
 
-set(ROCM_INCLUDE_DIRS "${HOROVOD_ROCM_HOME}/include" "${HOROVOD_ROCM_HOME}/hcc/include"
-                      "${HOROVOD_ROCM_HOME}/hip/include" "${HOROVOD_ROCM_HOME}/hsa/include")
+find_package(HIP REQUIRED)
+message(STATUS "HIP compiler: ${HIP_COMPILER}")
+message(STATUS "HIP runtime: ${HIP_RUNTIME}")
 
-find_library(ROCM_LIBRARIES
-             NAMES hip_hcc)
+if (${HIP_COMPILER} MATCHES "clang")
+    find_library(ROCM_LIBRARIES NAMES amdhip64)
+elseif (${HIP_COMPILER} MATCHES "hcc")
+    find_library(ROCM_LIBRARIES NAMES hip_hcc)
+endif()
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(ROCM DEFAULT_MSG ROCM_LIBRARIES)
 
+set(ROCM_INCLUDE_DIRS ${HIP_INCLUDE_DIRS})
 set(ROCM_COMPILE_FLAGS "-D__HIP_PLATFORM_HCC__=1")
 
 mark_as_advanced(ROCM_INCLUDE_DIRS ROCM_LIBRARIES ROCM_COMPILE_FLAGS)
