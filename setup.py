@@ -158,13 +158,36 @@ def get_cpp_flags(build_ext):
 
     raise DistutilsPlatformError(last_err)
 
+
+def get_nvcc_bin():
+    cuda_home = os.environ.get('HOROVOD_CUDA_HOME', '/usr/local/cuda')
+    cuda_nvcc = os.path.join(cuda_home, 'bin', 'nvcc')
+
+    for nvcc_bin in ['nvcc', cuda_nvcc]:
+        try:
+            subprocess.check_output([nvcc_bin, '--version'])
+            return nvcc_bin
+        except Exception:
+            pass
+
+    raise RuntimeError('Cannot find `nvcc`. `nvcc` is required to build Horovod with GPU operations. '
+                       'Make sure it is added to your path or in $HOROVOD_CUDA_HOME/bin.')
+
+
 def get_nvcc_flags():
     default_flags = ['--std=c++11', '-O3', '-Xcompiler', '-fPIC']
     cc_list_env = os.environ.get('HOROVOD_BUILD_CUDA_CC_LIST')
 
     # Invoke nvcc and extract all supported compute capabilities for CUDA toolkit version
-    full_cc_list = subprocess.check_output("nvcc --help | sed -n -e '/gpu-architecture <arch>/,/gpu-code <code>/ p' | sed -n -e '/Allowed values/,/gpu-code <code>/ p' | "
-                                           "grep -i sm_ | grep -Eo 'sm_[0-9]+' | sed -e s/sm_//g | sort -g -u | tr '\n' ' '",
+    nvcc_bin = get_nvcc_bin()
+    full_cc_list = subprocess.check_output(f"{nvcc_bin} --help | "
+                                           f"sed -n -e '/gpu-architecture <arch>/,/gpu-code <code>/ p' | "
+                                           f"sed -n -e '/Allowed values/,/gpu-code <code>/ p' | "
+                                           f"grep -i sm_ | "
+                                           f"grep -Eo 'sm_[0-9]+' | "
+                                           f"sed -e s/sm_//g | "
+                                           f"sort -g -u | "
+                                           f"tr '\n' ' '",
                                            shell=True).strip().split()
     full_cc_list = [int(i) for i in full_cc_list]
 
@@ -176,6 +199,7 @@ def get_nvcc_flags():
     default_flags += ['-gencode', 'arch=compute_{cc},code=compute_{cc}'.format(cc=max(cc_list))]
 
     return default_flags
+
 
 def get_link_flags(build_ext):
     last_err = None
@@ -592,7 +616,7 @@ def get_ddl_dirs(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
 
 
 def set_cuda_options(build_ext, COMPILE_FLAGS, MACROS, INCLUDES, SOURCES, BUILD_MPI, LIBRARY_DIRS, LIBRARIES,
-                     NVCC_COMPILE_FLAGS,**kwargs):
+                     NVCC_COMPILE_FLAGS, **kwargs):
     cuda_include_dirs, cuda_lib_dirs = get_cuda_dirs(build_ext, COMPILE_FLAGS)
     MACROS += [('HAVE_CUDA', '1'), ('HAVE_GPU', '1')]
     INCLUDES += cuda_include_dirs
@@ -602,7 +626,6 @@ def set_cuda_options(build_ext, COMPILE_FLAGS, MACROS, INCLUDES, SOURCES, BUILD_
         SOURCES += ['horovod/common/ops/mpi_gpu_operations.cc']
     LIBRARY_DIRS += cuda_lib_dirs
     LIBRARIES += ['cudart']
-
     NVCC_COMPILE_FLAGS += get_nvcc_flags()
 
 
