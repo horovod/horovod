@@ -170,7 +170,7 @@ def allgather_object(obj, session=None, name=None):
     gathered = to_numpy(allgather(t, name=name + '.t'))
 
     def select(i):
-        start = sizes[i - 1] if i > 0 else 0
+        start = sum(sizes[:i])
         end = start + sizes[i]
         return gathered[start:end]
 
