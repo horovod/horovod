@@ -14,6 +14,15 @@ exclude third_party/eigen/Eigen/SparseLU
 exclude third_party/eigen/Eigen/src/IterativeSolvers/*
 exclude third_party/eigen/Eigen/src/OrderingMethods/Amd.h
 exclude third_party/eigen/Eigen/src/SparseCholesky/*
+exclude third_party/eigen/unsupported/test/mpreal/mpreal.h
+exclude third_party/eigen/unsupported/Eigen/FFT
+exclude third_party/eigen/unsupported/Eigen/MPRealSupport
+exclude third_party/eigen/doc/PreprocessorDirectives.dox
+exclude third_party/eigen/doc/UsingIntelMKL.dox
+exclude third_party/eigen/doc/SparseLinearSystems.dox
+exclude third_party/eigen/COPYING.GPL
+exclude third_party/eigen/COPYING.LGPL
+exclude third_party/eigen/COPYING.README
 
 # include cmake related files for submodule gloo
 graft third_party/gloo/cmake
