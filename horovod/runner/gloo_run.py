@@ -138,10 +138,10 @@ def _exec_command_fn(settings):
         if host_address not in local_addresses:
             local_command = quote('cd {pwd} > /dev/null 2>&1 ; {command}'
                                   .format(pwd=os.getcwd(), command=command))
-            get_remote_command(local_command,
-                               host=host_name,
-                               port=settings.ssh_port,
-                               identity_file=settings.ssh_identity_file)
+            command = get_remote_command(local_command,
+                                         host=host_name,
+                                         port=settings.ssh_port,
+                                         identity_file=settings.ssh_identity_file)
 
         if settings.verbose:
             print(command)
