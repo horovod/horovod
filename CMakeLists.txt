@@ -71,7 +71,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -fPIC -O3 -Wall -ftree-vectoriz
 set(ARCH_FLAGS "-mf16c" "-mavx" "-mfma")
 set_build_arch_flags("${ARCH_FLAGS}")
 # Specify Horovod exports
-if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-exported_symbols_list,${CMAKE_SOURCE_DIR}/horovod.exp")
 else()
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--version-script=${CMAKE_SOURCE_DIR}/horovod.lds")
@@ -98,13 +98,13 @@ endforeach()
 
 # PYTHON
 find_package(PythonInterp "3.6" REQUIRED)
-set(PY_EXE ${PYTHON_EXECUTABLE})
-get_filename_component(PY_DIR ${PY_EXE} DIRECTORY)
-# find_package will not always pick the last version,
-# pick 'python' if it exists in same directory
-if (EXISTS "${PY_DIR}/python")
-    set(PY_EXE "${PY_DIR}/python")
+# Get the latest version intalled
+execute_process(COMMAND bash -c "echo $PATH | tr ':' '\n' | xargs -I{} find {} -regex '.*/python[2-3]?\\.?[0-9]*' -printf '%f\n'  | sort -r | head -1"
+                OUTPUT_VARIABLE PY_EXE OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+if (NOT PY_EXE)
+     set(PY_EXE ${PYTHON_EXECUTABLE})
 endif()
+message(STATUS "Using command ${PY_EXE}")
 
 # MPI
 if (NOT "$ENV{HOROVOD_WITHOUT_MPI}" STREQUAL "1")
@@ -223,7 +223,6 @@ if (NOT "$ENV{HOROVOD_WITHOUT_GLOO}" STREQUAL "1")
     set(CMAKE_POLICY_DEFAULT_CMP0074 NEW)
     add_subdirectory(third_party/gloo)
     include_directories(third_party/gloo)
-    #list(APPEND LINKER_LIBS "${PROJECT_SOURCE_DIR}/third_party/gloo/gloo/libgloo.a")
     target_compile_definitions(gloo PRIVATE _GLIBCXX_USE_CXX11_ABI=1)
     list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/gloo/gloo_context.cc"
                         "${PROJECT_SOURCE_DIR}/horovod/common/gloo/gloo_controller.cc"

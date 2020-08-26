@@ -9,29 +9,30 @@
 #  ROCM_LIBRARIES
 #  ROCM_COMPILE_FLAGS
 
-set(HOROVOD_ROCM_HOME $ENV{HOROVOD_ROCM_HOME} CACHE PATH "Folder containing ROCM")
+set(HOROVOD_ROCM_HOME $ENV{HOROVOD_ROCM_HOME})
 if(NOT DEFINED HOROVOD_ROCM_HOME)
     set(HOROVOD_ROCM_HOME "/opt/rocm")
 endif()
+set(HIP_PATH "${HOROVOD_ROCM_HOME}/hip")
 
 list(APPEND ROCM_ROOT ${HOROVOD_ROCM_HOME})
 # Compatible layer for CMake <3.12. ROCM_ROOT will be accounted in for searching paths and libraries for CMake >=3.12.
 list(APPEND CMAKE_PREFIX_PATH ${ROCM_ROOT})
 
 find_package(HIP REQUIRED)
-message(STATUS "HIP compiler: ${HIP_COMPILER}")
-message(STATUS "HIP runtime: ${HIP_RUNTIME}")
 
-if (${HIP_COMPILER} MATCHES "clang")
-    find_library(ROCM_LIBRARIES NAMES amdhip64)
-elseif (${HIP_COMPILER} MATCHES "hcc")
-    find_library(ROCM_LIBRARIES NAMES hip_hcc)
+if(HIP_FOUND)
+  if(HIP_COMPILER STREQUAL clang)
+    set(hip_library_name amdhip64)
+  else()
+    set(hip_library_name hip_hcc)
+  endif()
+  message(STATUS "HIP library name: ${hip_library_name}")
+  find_library(ROCM_LIBRARIES NAMES ${hip_library_name} HINTS ${HIP_PATH}/lib)
 endif()
-
-include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(ROCM DEFAULT_MSG ROCM_LIBRARIES)
 
 set(ROCM_INCLUDE_DIRS ${HIP_INCLUDE_DIRS})
 set(ROCM_COMPILE_FLAGS "-D__HIP_PLATFORM_HCC__=1")
 
-mark_as_advanced(ROCM_INCLUDE_DIRS ROCM_LIBRARIES ROCM_COMPILE_FLAGS)
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(ROCM DEFAULT_MSG ROCM_LIBRARIES)

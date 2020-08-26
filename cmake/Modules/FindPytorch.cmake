@@ -25,12 +25,12 @@ endif()
 execute_process(COMMAND ${PY_EXE} -c "import torch; from torch.utils.cpp_extension import CUDA_HOME; print(True if ((torch.version.cuda is not None) and (CUDA_HOME is not None)) else False)"
                 OUTPUT_VARIABLE Pytorch_CUDA OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
 string(REGEX REPLACE "No CUDA runtime[^\n]*\n" "" Pytorch_CUDA "${Pytorch_CUDA}")
-string(TOUPPER ${Pytorch_CUDA} Pytorch_CUDA)
+string(TOUPPER "${Pytorch_CUDA}" Pytorch_CUDA)
 
 execute_process(COMMAND ${PY_EXE} -c "import torch; from torch.utils.cpp_extension import ROCM_HOME; print(True if ((torch.version.hip is not None) and (ROCM_HOME is not None)) else False)"
                 OUTPUT_VARIABLE Pytorch_ROCM OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
 string(REGEX REPLACE "No CUDA runtime[^\n]*\n" "" Pytorch_ROCM "${Pytorch_ROCM}")
-string(TOUPPER ${Pytorch_ROCM} Pytorch_ROCM)
+string(TOUPPER "${Pytorch_ROCM}" Pytorch_ROCM)
 
 if(Pytorch_ROCM)
     execute_process(COMMAND ${PY_EXE} -c "from torch.utils.cpp_extension import COMMON_HIPCC_FLAGS; print(' '.join(COMMON_HIPCC_FLAGS))"
