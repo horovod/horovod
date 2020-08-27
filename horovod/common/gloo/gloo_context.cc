@@ -139,7 +139,9 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
   auto dev = gloo::transport::tcp::CreateDevice(attr);
   auto timeout = GetTimeoutFromEnv();
 
-  std::string hostname = std::getenv(HOROVOD_HOSTNAME);
+  auto host_env = std::getenv(HOROVOD_HOSTNAME);
+  std::string hostname = host_env != nullptr ? std::string(host_env) : std::string("localhost");
+
   int rank = GetIntEnvOrDefault(HOROVOD_RANK, 0);
   int size = GetIntEnvOrDefault(HOROVOD_SIZE, 1);
   int local_rank = GetIntEnvOrDefault(HOROVOD_LOCAL_RANK, 0);
