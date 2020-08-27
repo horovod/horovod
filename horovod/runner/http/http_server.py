@@ -162,9 +162,8 @@ class RendezvousHTTPServer(socketserver.ThreadingMixIn, HTTPServer, object):
 
     def _extract_scope_size(self, host_alloc_plan):
         for slot_info in host_alloc_plan:
-            self.scope_size['global_'] = slot_info.size
-            cross_rank = slot_info.cross_rank
-            self.scope_size['local_' + str(cross_rank)] = slot_info.local_size
+            self.scope_size['global'] = slot_info.size
+            self.scope_size['local_' + slot_info.hostname] = slot_info.local_size
             local_rank = slot_info.local_rank
             self.scope_size['cross_' + str(local_rank)] = slot_info.cross_size
 
