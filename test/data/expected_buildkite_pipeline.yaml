@@ -41,7 +41,7 @@ steps:
     queue: cpu
 - wait
 - label: ':pytest: Run PyTests (test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2)'
-  command: bash -c " cd /horovod/test && (echo test_*.py | sed 's/[a-z_]*tensorflow2[a-z_.]*//g' | sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/test_spark.py//g' | sed 's/test_run.py//g' | sed 's/test_ray.py//g' | xargs -n 1 \$(cat /mpirun_command) bash -c 'timeout -s SIGINT 10m pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.${HOROVOD_RANK:-${OMPI_COMM_WORLD_RANK:-${PMI_RANK}}}.xml')"
+  command: bash -c " cd /horovod/test && (echo test_*.py | sed 's/[a-z_]*tensorflow2[a-z_.]*//g' | sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/test_spark.py//g' | sed 's/test_run.py//g' | sed 's/test_ray.py//g' | timeout -s SIGINT 9m xargs -n 1 \$(cat /mpirun_command) bash -c 'pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.${HOROVOD_RANK:-${OMPI_COMM_WORLD_RANK:-${PMI_RANK}}}.xml')"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v2.6.0:
@@ -57,7 +57,7 @@ steps:
   agents:
     queue: cpu
 - label: ':pytest: Run PyTests Standalone (test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2)'
-  command: bash -c " cd /horovod/test && timeout -s SIGINT -k 5s 10m pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.standalone.xml test_spark.py test_run.py"
+  command: bash -c " cd /horovod/test && timeout -s SIGINT 9m pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.standalone.xml test_spark.py test_run.py"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v2.6.0:
@@ -73,7 +73,7 @@ steps:
   agents:
     queue: cpu
 - label: ':pytest: Run Cluster PyTests (test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2)'
-  command: bash -c " /etc/init.d/ssh start && cd /horovod/test/integration && timeout -s SIGINT -k 5s 5m pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+  command: bash -c " /etc/init.d/ssh start && cd /horovod/test/integration && timeout -s SIGINT 270s pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v2.6.0:
@@ -89,7 +89,7 @@ steps:
   agents:
     queue: cpu
 - label: ':jupyter: Run PyTests test_interactiverun (test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2)'
-  command: bash -c "cd /horovod/test && timeout -s SIGINT -k 5s 5m pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.integration.xml test_interactiverun.py"
+  command: bash -c "cd /horovod/test && timeout -s SIGINT 270s pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.integration.xml test_interactiverun.py"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v2.6.0:
@@ -281,7 +281,7 @@ steps:
   agents:
     queue: cpu
 - label: ':spark: PyTests Spark Estimators (test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2)'
-  command: bash -c "cd /horovod/test && timeout -s SIGINT -k 5s 5m pytest --forked -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.spark.integration.xml test_spark_keras.py test_spark_torch.py"
+  command: bash -c "cd /horovod/test && timeout -s SIGINT 270s pytest --forked -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.spark.integration.xml test_spark_keras.py test_spark_torch.py"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v2.6.0:
@@ -361,7 +361,7 @@ steps:
   agents:
     queue: cpu
 - label: ':pytest: Run PyTests (test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2)'
-  command: bash -c "cd /horovod/test && (echo test_*.py | sed 's/[a-z_]*tensorflow2[a-z_.]*//g' | sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/test_spark.py//g' | sed 's/test_run.py//g' | sed 's/test_ray.py//g' | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo bash -c 'timeout -s SIGINT 10m pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.${HOROVOD_RANK:-${OMPI_COMM_WORLD_RANK:-${PMI_RANK}}}.xml')"
+  command: bash -c "cd /horovod/test && (echo test_*.py | sed 's/[a-z_]*tensorflow2[a-z_.]*//g' | sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/test_spark.py//g' | sed 's/test_run.py//g' | sed 's/test_ray.py//g' | timeout -s SIGINT 9m xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo bash -c 'pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.${HOROVOD_RANK:-${OMPI_COMM_WORLD_RANK:-${PMI_RANK}}}.xml')"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v2.6.0:
@@ -377,7 +377,7 @@ steps:
   agents:
     queue: cpu
 - label: ':pytest: Run PyTests Standalone (test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2)'
-  command: bash -c "cd /horovod/test && timeout -s SIGINT -k 5s 10m pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.standalone.xml test_spark.py test_run.py test_ray.py"
+  command: bash -c "cd /horovod/test && timeout -s SIGINT 9m pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.standalone.xml test_spark.py test_run.py test_ray.py"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v2.6.0:
@@ -393,7 +393,7 @@ steps:
   agents:
     queue: cpu
 - label: ':pytest: Run Cluster PyTests (test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2)'
-  command: bash -c "/etc/init.d/ssh start && cd /horovod/test/integration && timeout -s SIGINT -k 5s 5m pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
+  command: bash -c "/etc/init.d/ssh start && cd /horovod/test/integration && timeout -s SIGINT 270s pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v2.6.0:
@@ -473,7 +473,7 @@ steps:
   agents:
     queue: cpu
 - label: ':factory: Elastic Tests (test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2)'
-  command: bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG timeout -s SIGINT -k 5s 5m pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow.py"
+  command: bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG timeout -s SIGINT 270s pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow.py"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v2.6.0:
@@ -489,7 +489,7 @@ steps:
   agents:
     queue: cpu
 - label: ':factory: Elastic Spark TensorFlow Tests (test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2)'
-  command: bash -c "cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG timeout -s SIGINT -k 5s 15m pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow.py"
+  command: bash -c "cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG timeout -s SIGINT 14m pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow.py"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v2.6.0:
@@ -505,7 +505,7 @@ steps:
   agents:
     queue: cpu
 - label: ':factory: Elastic Spark Torch Tests (test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2)'
-  command: bash -c "cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG timeout -s SIGINT -k 5s 15m pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py"
+  command: bash -c "cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG timeout -s SIGINT 14m pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v2.6.0:
@@ -569,7 +569,7 @@ steps:
   agents:
     queue: cpu
 - label: ':spark: PyTests Spark Estimators (test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2)'
-  command: bash -c "cd /horovod/test && timeout -s SIGINT -k 5s 5m pytest --forked -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.spark.integration.xml test_spark_keras.py test_spark_torch.py"
+  command: bash -c "cd /horovod/test && timeout -s SIGINT 270s pytest --forked -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.spark.integration.xml test_spark_keras.py test_spark_torch.py"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v2.6.0:
