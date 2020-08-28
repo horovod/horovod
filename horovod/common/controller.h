@@ -114,7 +114,13 @@ public:
     }
   };
 
-  void SetTimelineEnabled(bool value) { timeline_enabled_ = value; }
+  void SetTimelineEnabled(bool value) { timeline_enabled_pending_ = value; timeline_enabled_ = value;}
+  void SetTimelineEnabledPending(bool value) { timeline_enabled_pending_ = value;}
+  void SetMarkCyclesInTimelinePending(bool value) {mark_cycles_in_timeline_pending_ = value;}
+  void SynchronizeTimelineEnabled() { timeline_enabled_ = timeline_enabled_pending_.load();}
+  inline bool TimelineEnabledPending() { return timeline_enabled_pending_; }
+  inline bool MarkCyclesInTimelinePending() { return mark_cycles_in_timeline_pending_;}
+
   std::vector<int>& GetRanks() { return ranks_; };
   int GetRank() { return rank_; };
   int GetLocalRank() { return local_rank_; };
@@ -195,7 +201,10 @@ protected:
   // requests to allreduce every tensor (keyed by tensor name).
   MessageTable message_table_;
 
-  bool timeline_enabled_ = false;
+  std::atomic_bool timeline_enabled_{false};
+  std::atomic_bool timeline_enabled_pending_{false};
+  std::atomic_bool mark_cycles_in_timeline_pending_{false};
+
 
   // Outside dependencies
   TensorQueue& tensor_queue_;

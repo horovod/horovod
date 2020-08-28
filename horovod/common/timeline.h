@@ -50,15 +50,22 @@ public:
   void Initialize(std::string file_name);
   void Shutdown();
   inline bool IsHealthy() const { return healthy_; }
+  inline bool Active() const { return active_; }
   void EnqueueWriteEvent(const std::string& tensor_name, char phase,
                          const std::string& op_name, const std::string& args,
                          long ts_micros);
   void EnqueueWriteMarker(const std::string& name, long ts_micros);
+  void SetPendingTimelineFile(std::string filename);
+  TimelineWriter();
 
 private:
   void DoWriteEvent(const TimelineRecord& r);
   void DoWriteMarker(const TimelineRecord& r);
   void WriterLoop();
+  std::string PendingTimelineFile();
+  void SetTimelineFile(std::string filename);
+
+
 
   // Are we healthy?  Queue no longer accepts new work items and stops draining immediately when false.
   std::atomic_bool healthy_{false};
@@ -79,6 +86,12 @@ private:
   std::unordered_map<std::string, int> tensor_table_;
 
   std::thread writer_thread_;
+  std::string cur_filename_;
+  std::string new_pending_filename_;
+  bool is_new_file_;
+  // mutex that protects timeline writer state
+  std::recursive_mutex writer_mutex_;
+
 };
 
 enum TimelineState { UNKNOWN, NEGOTIATING, TOP_LEVEL, ACTIVITY };
@@ -104,6 +117,7 @@ public:
   void ActivityEnd(const std::string& tensor_name);
   void End(const std::string& tensor_name, std::shared_ptr<Tensor> tensor);
   void MarkCycleStart();
+  void SetPendingTimelineFile(std::string filename);
 
 private:
   long TimeSinceStartMicros() const;

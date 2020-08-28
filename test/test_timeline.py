@@ -16,6 +16,7 @@
 import torch
 import unittest
 import warnings
+import time
 
 import horovod.torch as hvd
 from horovod.common.util import env
@@ -41,11 +42,13 @@ class TimelineTests(unittest.TestCase):
                 hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
 
                 # Wait for it to register in the timeline.
-                hvd.stop_timeline()
+                time.sleep(0.2)
 
                 if hvd.rank() == 0:
                     with open(t, 'r') as tf:
                         timeline_text = tf.read()
+                        print("Timeline text is : ")
+                        print(timeline_text + "\n")
                         assert 'allreduce.test_allreduce' in timeline_text, timeline_text
                         assert 'NEGOTIATE_ALLREDUCE' in timeline_text, timeline_text
                         assert 'ALLREDUCE' in timeline_text, timeline_text

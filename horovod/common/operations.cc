@@ -415,18 +415,26 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
   // Open the timeline file on coordinator.
   auto horovod_timeline = std::getenv(HOROVOD_TIMELINE);
-  if (is_coordinator && horovod_timeline != nullptr) {
+  if (horovod_timeline == nullptr) {
+    char *default_val = (char *)"";
+    horovod_timeline = default_val;
+  }
+  bool should_enable_timeline = false;
+  if (is_coordinator) {
     state.timeline.Initialize(std::string(horovod_timeline),
                               static_cast<unsigned int>(size));
   }
-  if (horovod_timeline != nullptr) {
-    state.controller->SetTimelineEnabled(true);
+  if (strcmp(horovod_timeline, "") != 0) {
+      should_enable_timeline = true;
   }
+  state.controller->SetTimelineEnabled(should_enable_timeline);
 
   ParseStallInspectorFromEnv(state.controller->GetStallInspector());
-
-  SetBoolFromEnv(HOROVOD_TIMELINE_MARK_CYCLES, state.mark_cycles_in_timeline,
+  bool mark_cycles = false;
+  SetBoolFromEnv(HOROVOD_TIMELINE_MARK_CYCLES, mark_cycles,
                  true);
+  state.controller->SetMarkCyclesInTimelinePending(mark_cycles);
+  state.mark_cycles_in_timeline = mark_cycles;
 
   // Override Tensor Fusion threshold, if it's set.
   state.parameter_manager.SetTensorFusionThresholdBytes(64 * 1024 * 1024);
@@ -583,6 +591,8 @@ bool RunLoopOnce(HorovodGlobalState& state) {
   auto response_list =
       state.controller->ComputeResponseList(horovod_global.shut_down, state);
 
+  state.controller->SynchronizeTimelineEnabled();
+  state.mark_cycles_in_timeline = state.controller->MarkCyclesInTimelinePending();
   // Get tensor name and size data for autotuning.
   int64_t total_tensor_size = 0;
   std::vector<std::string> tensor_names;
@@ -689,6 +699,7 @@ void horovod_init_comm(MPI_Comm comm) {
 
 void horovod_shutdown() {
   if (horovod_global.background_thread.joinable()) {
+    horovod_global.timeline.Shutdown();
     horovod_global.shut_down = true;
     horovod_global.background_thread.join();
 
@@ -710,11 +721,11 @@ bool horovod_start_timeline(const char* file_name, bool mark_cycles) {
 
   bool is_coordinator = horovod_global.controller->IsCoordinator();
   if (is_coordinator) {
-    horovod_global.timeline.Initialize(file_name, horovod_global.controller->GetSize());
+    horovod_global.timeline.Initialize(std::string(file_name), horovod_global.controller->GetSize());
+    horovod_global.timeline.SetPendingTimelineFile(std::string(file_name));
   }
-
-  horovod_global.mark_cycles_in_timeline = mark_cycles;
-  horovod_global.controller->SetTimelineEnabled(true);
+  horovod_global.controller->SetTimelineEnabledPending(true);
+  horovod_global.controller->SetMarkCyclesInTimelinePending(mark_cycles);
   return true;
 }
 
@@ -723,13 +734,12 @@ bool horovod_stop_timeline() {
     return false;
   }
 
-  horovod_global.controller->SetTimelineEnabled(false);
-
   bool is_coordinator = horovod_global.controller->IsCoordinator();
   if (is_coordinator) {
-    horovod_global.timeline.Shutdown();
+      horovod_global.timeline.SetPendingTimelineFile(std::string(""));
   }
-
+  horovod_global.controller->SetTimelineEnabledPending(false);
+  horovod_global.controller->SetMarkCyclesInTimelinePending(false);
   return true;
 }
 
@@ -901,7 +911,6 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
   message.set_device(device);
   message.set_prescale_factor(prescale_factor);
   message.set_postscale_factor(postscale_factor);
-  
   if (reduce_op == ReduceOp::ADASUM) {
     message.set_request_type(Request::ADASUM);
   } else {

@@ -50,7 +50,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Added Ray integration. ([#2218](https://github.com/horovod/horovod/pull/2218))
 
-- Added ability to dynamically start and stop timeline programmatically. ([#2129](https://github.com/horovod/horovod/pull/2129))
+- Added ability to dynamically start and stop timeline programmatically. ([#2215](https://github.com/horovod/horovod/pull/2215))
 
 ### Changed
 

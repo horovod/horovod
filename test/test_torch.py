@@ -22,6 +22,7 @@ import itertools
 import os
 import unittest
 import warnings
+import time
 
 from collections.abc import Iterable
 
@@ -2133,22 +2134,26 @@ class TorchTests(unittest.TestCase):
     def test_timeline_api(self):
         hvd.init()
 
-        def check_file(fname):
+        def check_file(fname, check_cycle=True):
             if hvd.rank() == 0:
                 with open(fname, 'r') as timeline_file:
                     timeline_text = timeline_file.read()
+                    print("Timeline text is : ")
+                    print(timeline_text + "\n")
                     assert 'allreduce.test_allreduce' in timeline_text, timeline_text
                     assert 'NEGOTIATE_ALLREDUCE' in timeline_text, timeline_text
                     assert 'ALLREDUCE' in timeline_text, timeline_text
-                    assert 'CYCLE_START' in timeline_text, timeline_text
+                    if check_cycle is True:
+                        assert 'CYCLE_START' in timeline_text, timeline_text
 
         with temppath() as fname1:
             hvd.start_timeline(fname1, mark_cycles=True)
-
-            # Perform a simple allreduce operation
+            print("Calling all reduce\n")
             hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
-
-            # Wait for timeline to drain before reading it
+            print("Calling stop timeline\n")
+            # stop timeline will immediately stop events to be registered in timeline. We are providing some time
+            # before calling stop so that events can be registered in timeline file.
+            time.sleep(0.2)
             hvd.stop_timeline()
 
             check_file(fname1)
@@ -2157,8 +2162,53 @@ class TorchTests(unittest.TestCase):
         with temppath() as fname2:
             hvd.start_timeline(fname2, mark_cycles=True)
             hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
+            # stop timeline will immediately stop events to be registered in timeline. We are providing some time
+            # before calling stop so that events can be registered in timeline file.
+            time.sleep(0.2)
             hvd.stop_timeline()
             check_file(fname2)
+
+        # Test resuming with a different filename, but mark_cycles=False
+        with temppath() as fname3:
+            # Make sure that last stop timeline has been processed.
+            time.sleep(0.2)
+            hvd.start_timeline(fname3, mark_cycles=False)
+            time.sleep(0.2)
+            hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
+            # stop timeline will immediately stop events to be registered in timeline. We are providing some time
+            # before calling stop so that events can be registered in timeline file.
+            time.sleep(0.2)
+            hvd.stop_timeline()
+            check_file(fname3, check_cycle=False)
+
+        # Test resuming with a different filename, but mark_cycles=True
+        with temppath() as fname4:
+            # Make sure that last stop timeline has been processed.
+            time.sleep(0.2)
+            hvd.start_timeline(fname4, mark_cycles=True)
+            time.sleep(0.2)
+            hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
+            # stop timeline will immediately stop events to be registered in timeline. We are providing some time
+            # before calling stop so that events can be registered in timeline file.
+            time.sleep(0.2)
+            hvd.stop_timeline()
+            check_file(fname4, check_cycle=True)
+
+        # Do 2 continous start
+        with temppath() as fname5:
+            # again start timeline with same file
+            time.sleep(0.2)
+            hvd.start_timeline(fname5, mark_cycles=True)
+            hvd.start_timeline(fname5, mark_cycles=True)
+            time.sleep(0.2)
+            hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
+            # stop timeline will immediately stop events to be registered in timeline. We are providing some time
+            # before calling stop so that events can be registered in timeline file.
+            time.sleep(0.2)
+            hvd.stop_timeline()
+            check_file(fname5, check_cycle=True)
+
+        hvd.shutdown()
 
 
 if __name__ == "__main__":
