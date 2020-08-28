@@ -74,9 +74,8 @@ set_build_arch_flags("${ARCH_FLAGS}")
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-exported_symbols_list,${CMAKE_SOURCE_DIR}/horovod.exp")
 else()
-    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--version-script=${CMAKE_SOURCE_DIR}/horovod.lds")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--version-script=${CMAKE_SOURCE_DIR}/horovod.lds -Wl,-Bsymbolic-functions -Wl,-z,relro,-z,now")
 endif()
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-Bsymbolic-functions -Wl,-z,relro")
 # GPU Operations
 set(HOROVOD_GPU $ENV{HOROVOD_GPU})
 set(HOROVOD_GPU_OPERATIONS $ENV{HOROVOD_GPU_OPERATIONS})
@@ -99,7 +98,7 @@ endforeach()
 # PYTHON
 find_package(PythonInterp "3.6" REQUIRED)
 # Get the latest version intalled
-execute_process(COMMAND bash -c "echo $PATH | tr ':' '\n' | xargs -I{} find {} -regex '.*/python[2-3]?\\.?[0-9]*' -printf '%f\n'  | sort -r | head -1"
+execute_process(COMMAND bash -c "for p in $(echo $PATH | tr ':' ' '); do if find $p -maxdepth 1 -regex '.*/python3?\\(3\\.[0-9]*\\)?' -printf '%f\n' | sort -t. -k 2,2n | tail -1 | grep .; then break; fi done"
                 OUTPUT_VARIABLE PY_EXE OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
 if (NOT PY_EXE)
      set(PY_EXE ${PYTHON_EXECUTABLE})
