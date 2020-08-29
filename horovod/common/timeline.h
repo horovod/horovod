@@ -135,6 +135,8 @@ private:
 
   // Time point when Horovod was started.
   std::chrono::steady_clock::time_point start_time_;
+  // stores actual wall clock when horovod timeline was initialized
+  long long start_time_since_epoch_utc_micros_;
 
   // A mutex that guards timeline state from concurrent access.
   std::recursive_mutex mutex_;

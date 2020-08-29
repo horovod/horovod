@@ -27,6 +27,7 @@ namespace common {
 TimelineWriter::TimelineWriter(){
   cur_filename_ = "";
   new_pending_filename_ = "";
+  start_time_ = std::chrono::steady_clock::now();
 }
 
 void TimelineWriter::SetPendingTimelineFile(std::string filename){
@@ -98,6 +99,10 @@ void TimelineWriter::SetTimelineFile(std::string filename){
 
 void TimelineWriter::Initialize(std::string file_name) {
   SetTimelineFile(file_name);
+  auto p1 = std::chrono::system_clock::now();
+  auto tt = std::chrono::duration_cast<std::chrono::microseconds>(start_time_ - std::chrono::steady_clock::now()).count();
+  start_time_since_epoch_utc_micros_ = std::chrono::duration_cast<std::chrono::microseconds>(
+                    p1.time_since_epoch()).count() + tt;
   // Spawn writer thread.
   writer_thread_ = std::thread(&TimelineWriter::WriterLoop, this);
 }
@@ -147,10 +152,27 @@ void TimelineWriter::EnqueueWriteMarker(const std::string& name,
     ;
 }
 
+void TimelineWriter::WriteAtFileStart(){
+    file_ << "[\n";
+
+    file_ << "{";
+    file_ << "\"name\": \"process_name\"";
+    // Note name of process can be given in args{"name:"}
+    file_ << ", \"ph\": \"M\"";
+    file_ << ", \"pid\": " << 0 << "";
+    file_ << ", \"args\": {\"start_time_since_epoch_in_micros\":" << start_time_since_epoch_utc_micros_ << "}";
+    file_ << "}," << std::endl;
+    file_ << "{";
+    file_ << "\"name\": \"process_sort_index\"";
+    file_ << ", \"ph\": \"M\"";
+    file_ << ", \"pid\": " << 0 << "";
+    file_ << ", \"args\": {\"sort_index\": " << 0 << "}";
+    file_ << "}," << std::endl;
+}
 void TimelineWriter::DoWriteEvent(const TimelineRecord& r) {
   assert(r.type == TimelineRecordType::EVENT);
   if(is_new_file_){
-    file_ << "[\n";
+    WriteAtFileStart();
     is_new_file_ = false;
   } else {
     // last event closed the json ']' , need to seek to one position back and write ',' to continue
@@ -198,7 +220,7 @@ void TimelineWriter::DoWriteEvent(const TimelineRecord& r) {
 void TimelineWriter::DoWriteMarker(const TimelineRecord& r) {
   assert(r.type == TimelineRecordType::MARKER);
   if(is_new_file_){
-    file_ << "[\n";
+    WriteAtFileStart();
     is_new_file_ = false;
   } else {
     // last event closed the json ']' , need to seek to one position back and write ',' to continue
