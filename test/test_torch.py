@@ -2145,7 +2145,7 @@ class TorchTests(unittest.TestCase):
                     assert 'NEGOTIATE_ALLREDUCE' in timeline_text, timeline_text
                     assert 'ALLREDUCE' in timeline_text, timeline_text
                     assert 'start_time_since_epoch_in_micros' in timeline_text, timeline_text
-                    json_obj = json.load(timeline_file)
+                    json_obj = json.loads(timeline_text)
                     assert json_obj is not None
                     if check_cycle is True:
                         assert 'CYCLE_START' in timeline_text, timeline_text
