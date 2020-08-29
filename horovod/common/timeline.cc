@@ -27,7 +27,6 @@ namespace common {
 TimelineWriter::TimelineWriter(){
   cur_filename_ = "";
   new_pending_filename_ = "";
-  start_time_ = std::chrono::steady_clock::now();
 }
 
 void TimelineWriter::SetPendingTimelineFile(std::string filename){
@@ -97,7 +96,7 @@ void TimelineWriter::SetTimelineFile(std::string filename){
   }
 }
 
-void TimelineWriter::Initialize(std::string file_name) {
+void TimelineWriter::Initialize(std::string file_name, std::chrono::steady_clock::time_point start_time_) {
   SetTimelineFile(file_name);
   auto p1 = std::chrono::system_clock::now();
   auto tt = std::chrono::duration_cast<std::chrono::microseconds>(start_time_ - std::chrono::steady_clock::now()).count();
@@ -280,8 +279,10 @@ void Timeline::Initialize(std::string file_name, unsigned int horovod_size) {
   if (initialized_) {
     return;
   }
+  start_time_ = std::chrono::steady_clock::now();
+
   // Start the writer.
-  writer_.Initialize(file_name);
+  writer_.Initialize(file_name, start_time_);
 
   // Initialize if we were able to open the file successfully.
   initialized_ = writer_.IsHealthy();

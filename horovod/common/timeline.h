@@ -47,7 +47,7 @@ struct TimelineRecord {
 
 class TimelineWriter {
 public:
-  void Initialize(std::string file_name);
+  void Initialize(std::string file_name, std::chrono::steady_clock::time_point start_time_);
   void Shutdown();
   inline bool IsHealthy() const { return healthy_; }
   inline bool Active() const { return active_; }
@@ -62,6 +62,7 @@ private:
   void DoWriteEvent(const TimelineRecord& r);
   void DoWriteMarker(const TimelineRecord& r);
   void WriterLoop();
+  void WriteAtFileStart();
   std::string PendingTimelineFile();
   void SetTimelineFile(std::string filename);
 
@@ -89,6 +90,8 @@ private:
   std::string cur_filename_;
   std::string new_pending_filename_;
   bool is_new_file_;
+  // stores actual wall clock when horovod timeline was initialized
+  long long start_time_since_epoch_utc_micros_;
   // mutex that protects timeline writer state
   std::recursive_mutex writer_mutex_;
 
@@ -135,8 +138,6 @@ private:
 
   // Time point when Horovod was started.
   std::chrono::steady_clock::time_point start_time_;
-  // stores actual wall clock when horovod timeline was initialized
-  long long start_time_since_epoch_utc_micros_;
 
   // A mutex that guards timeline state from concurrent access.
   std::recursive_mutex mutex_;
