@@ -31,7 +31,7 @@ build_test() {
 
   echo "- label: ':docker: Build ${test}'"
   echo "  plugins:"
-  echo "  - docker-compose#6b0df8a98ff97f42f4944dbb745b5b8cbf04b78c:"
+  echo "  - docker-compose#v3.5.0:"
   echo "      build: ${test}"
   echo "      image-repository: ${repository}"
   echo "      cache-from: ${test}:${repository}:${BUILDKITE_PIPELINE_SLUG}-${test}-latest"
@@ -51,7 +51,7 @@ cache_test() {
 
   echo "- label: ':docker: Update ${BUILDKITE_PIPELINE_SLUG}-${test}-latest'"
   echo "  plugins:"
-  echo "  - docker-compose#v2.6.0:"
+  echo "  - docker-compose#v3.5.0:"
   echo "      push: ${test}:${repository}:${BUILDKITE_PIPELINE_SLUG}-${test}-latest"
   echo "      config: docker-compose.test.yml"
   echo "      push-retries: 3"
@@ -75,7 +75,7 @@ run_test() {
   echo "  command: ${command}"
   echo "  artifact_paths: \"artifacts/**\""
   echo "  plugins:"
-  echo "  - docker-compose#v2.6.0:"
+  echo "  - docker-compose#v3.5.0:"
   echo "      run: ${test}"
   echo "      volumes: \"./artifacts:/artifacts\""
   echo "      config: docker-compose.test.yml"

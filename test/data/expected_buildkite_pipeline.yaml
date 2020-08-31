@@ -1,7 +1,7 @@
 steps:
 - label: ':docker: Build test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2'
   plugins:
-  - docker-compose#6b0df8a98ff97f42f4944dbb745b5b8cbf04b78c:
+  - docker-compose#v3.5.0:
       build: test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
       cache-from: test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2-latest
@@ -16,7 +16,7 @@ steps:
     queue: cpu
 - label: ':docker: Build test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2'
   plugins:
-  - docker-compose#6b0df8a98ff97f42f4944dbb745b5b8cbf04b78c:
+  - docker-compose#v3.5.0:
       build: test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
       cache-from: test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2-latest
@@ -44,7 +44,7 @@ steps:
   command: bash -c " cd /horovod/test && (echo test_*.py | sed 's/[a-z_]*tensorflow2[a-z_.]*//g' | sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/test_spark.py//g' | sed 's/test_run.py//g' | sed 's/test_ray.py//g' | timeout -s SIGINT 9m xargs -n 1 \$(cat /mpirun_command) bash -c 'pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.${HOROVOD_RANK:-${OMPI_COMM_WORLD_RANK:-${PMI_RANK}}}.xml')"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -60,7 +60,7 @@ steps:
   command: bash -c " cd /horovod/test && timeout -s SIGINT 9m pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.standalone.xml test_spark.py test_run.py"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -76,7 +76,7 @@ steps:
   command: bash -c " /etc/init.d/ssh start && cd /horovod/test/integration && timeout -s SIGINT 270s pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -92,7 +92,7 @@ steps:
   command: bash -c "cd /horovod/test && timeout -s SIGINT 270s pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.integration.xml test_interactiverun.py"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -108,7 +108,7 @@ steps:
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist.py"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -124,7 +124,7 @@ steps:
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist_eager.py"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -140,7 +140,7 @@ steps:
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/keras_mnist_advanced.py"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -156,7 +156,7 @@ steps:
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch_mnist.py"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -172,7 +172,7 @@ steps:
   command: bash -c " OMP_NUM_THREADS=1 \$(cat /mpirun_command) python /horovod/examples/mxnet_mnist.py"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -188,7 +188,7 @@ steps:
   command: bash -c " \$(cat /mpirun_command) python /horovod/test/test_stall.py"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -204,7 +204,7 @@ steps:
   command: horovodrun -np 2 -H localhost:2 python /horovod/examples/tensorflow_mnist.py
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -220,7 +220,7 @@ steps:
   command: bash -c "echo 'localhost slots=2' > hostfile && horovodrun -np 2 -hostfile hostfile python /horovod/examples/mxnet_mnist.py"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -236,7 +236,7 @@ steps:
   command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.01"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -252,7 +252,7 @@ steps:
   command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -268,7 +268,7 @@ steps:
   command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -284,7 +284,7 @@ steps:
   command: bash -c "cd /horovod/test && timeout -s SIGINT 270s pytest --forked -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.spark.integration.xml test_spark_keras.py test_spark_torch.py"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -300,7 +300,7 @@ steps:
   command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -316,7 +316,7 @@ steps:
   command: bash -c " python /horovod/examples/keras_mnist_advanced.py --epochs 3 --batch-size 64"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -332,7 +332,7 @@ steps:
   command: bash -c " python /horovod/examples/pytorch_mnist.py --epochs 3"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -348,7 +348,7 @@ steps:
   command: bash -c " python /horovod/examples/mxnet_mnist.py --epochs 3"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -364,7 +364,7 @@ steps:
   command: bash -c "cd /horovod/test && (echo test_*.py | sed 's/[a-z_]*tensorflow2[a-z_.]*//g' | sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/test_spark.py//g' | sed 's/test_run.py//g' | sed 's/test_ray.py//g' | timeout -s SIGINT 9m xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo bash -c 'pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.${HOROVOD_RANK:-${OMPI_COMM_WORLD_RANK:-${PMI_RANK}}}.xml')"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -380,7 +380,7 @@ steps:
   command: bash -c "cd /horovod/test && timeout -s SIGINT 9m pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.standalone.xml test_spark.py test_run.py test_ray.py"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -396,7 +396,7 @@ steps:
   command: bash -c "/etc/init.d/ssh start && cd /horovod/test/integration && timeout -s SIGINT 270s pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -412,7 +412,7 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow_mnist.py
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -428,7 +428,7 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/keras_mnist_advanced.py
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -444,7 +444,7 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch_mnist.py
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -460,7 +460,7 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet_mnist.py
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -476,7 +476,7 @@ steps:
   command: bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG timeout -s SIGINT 270s pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow.py"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -492,7 +492,7 @@ steps:
   command: bash -c "cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG timeout -s SIGINT 14m pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow.py"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -508,7 +508,7 @@ steps:
   command: bash -c "cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG timeout -s SIGINT 14m pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -524,7 +524,7 @@ steps:
   command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.01"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -540,7 +540,7 @@ steps:
   command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -556,7 +556,7 @@ steps:
   command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -572,7 +572,7 @@ steps:
   command: bash -c "cd /horovod/test && timeout -s SIGINT 270s pytest --forked -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.spark.integration.xml test_spark_keras.py test_spark_torch.py"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -588,7 +588,7 @@ steps:
   command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -604,7 +604,7 @@ steps:
   command: bash -c " python /horovod/examples/keras_mnist_advanced.py --epochs 3 --batch-size 64"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -620,7 +620,7 @@ steps:
   command: bash -c " python /horovod/examples/pytorch_mnist.py --epochs 3"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -636,7 +636,7 @@ steps:
   command: bash -c " python /horovod/examples/mxnet_mnist.py --epochs 3"
   artifact_paths: "artifacts/**"
   plugins:
-  - docker-compose#v2.6.0:
+  - docker-compose#v3.5.0:
       run: test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
