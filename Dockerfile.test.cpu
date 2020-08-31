@@ -169,9 +169,9 @@ RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
       fi; \
       . /usr/local/oneccl/env/setvars.sh; \
       echo "pip install horovod, mpicxx is $(which mpicxx)"; \
-      pip install -v $(ls /horovod/dist/horovod-*.tar.gz)[spark]; \
+      pip install -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]; \
     else \
-      pip install -v $(ls /horovod/dist/horovod-*.tar.gz)[spark]; \
+      pip install -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]; \
     fi
 
 # Prefetch Spark MNIST dataset.

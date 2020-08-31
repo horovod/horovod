@@ -1574,6 +1574,8 @@ pyspark_require_list = ['pyspark>=2.3.2;python_version<"3.8"',
                         'pyspark>=3.0.0.dev;python_version>="3.8"']
 spark_require_list = ['h5py>=2.9', 'numpy', 'petastorm>=0.9.0,!=0.9.3', 'pyarrow>=0.15.0'] + \
                      pyspark_require_list
+ray_require_list = ['ray']
+
 # all frameworks' dependencies
 all_frameworks_require_list = tensorflow_require_list + \
                               tensorflow_gpu_require_list + \
@@ -1625,7 +1627,8 @@ setup(name='horovod',
           'keras': keras_require_list,
           'pytorch': pytorch_require_list,
           'mxnet': mxnet_require_list,
-          'spark': spark_require_list
+          'spark': spark_require_list,
+          'ray': ray_require_list,
       },
       python_requires='>=3.6',
       zip_safe=False,
