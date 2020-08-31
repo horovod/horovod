@@ -526,7 +526,11 @@ class SparkTests(unittest.TestCase):
 
     """
     Test that horovod.spark.run fails with os.environ as env with mpi.
+    
+    TODO: figure out why this test sometimes causes hangs in CI
+          https://github.com/horovod/horovod/issues/2217
     """
+    @pytest.mark.skip
     def test_spark_run_with_os_environ_with_mpi(self):
         with is_built(gloo_is_built=False, mpi_is_built=True):
             with spark_session('test_spark_run', cores=2):

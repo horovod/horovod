@@ -40,7 +40,7 @@ namespace common {
 #define HOROVOD_GLOO_TIMEOUT_SECONDS "HOROVOD_GLOO_TIMEOUT_SECONDS"
 #define HOROVOD_GLOO_RENDEZVOUS_ADDR "HOROVOD_GLOO_RENDEZVOUS_ADDR"
 #define HOROVOD_GLOO_RENDEZVOUS_PORT "HOROVOD_GLOO_RENDEZVOUS_PORT"
-#define HOROVOD_GLOO_GLOBAL_PREFIX "global_"
+#define HOROVOD_GLOO_GLOBAL_PREFIX "global"
 #define HOROVOD_GLOO_LOCAL_PREFIX "local_"
 #define HOROVOD_GLOO_CROSS_PREFIX "cross_"
 #define HOROVOD_GLOO_GET_RANK_AND_SIZE "rank_and_size"
@@ -139,6 +139,9 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
   auto dev = gloo::transport::tcp::CreateDevice(attr);
   auto timeout = GetTimeoutFromEnv();
 
+  auto host_env = std::getenv(HOROVOD_HOSTNAME);
+  std::string hostname = host_env != nullptr ? std::string(host_env) : std::string("localhost");
+
   int rank = GetIntEnvOrDefault(HOROVOD_RANK, 0);
   int size = GetIntEnvOrDefault(HOROVOD_SIZE, 1);
   int local_rank = GetIntEnvOrDefault(HOROVOD_LOCAL_RANK, 0);
@@ -157,7 +160,6 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
   bool elastic = GetBoolEnvOrDefault(HOROVOD_ELASTIC, false);
   if (elastic && reset_) {
     LOG(DEBUG) << "elastic mode reinitialization started, reset rank=" << rank << " size=" << size;
-    std::string hostname = std::getenv(HOROVOD_HOSTNAME);
     std::string server_addr = rendezvous_addr_env;
     std::string scope = HOROVOD_GLOO_GET_RANK_AND_SIZE;
     HTTPStore init_store(server_addr, rendezvous_port, scope, rank);
@@ -208,7 +210,7 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
                    rank, size, dev, timeout);
   LOG(DEBUG) << "Global Gloo context initialized.";
 
-  local_ctx = Rendezvous(HOROVOD_GLOO_LOCAL_PREFIX + std::to_string(cross_rank),
+  local_ctx = Rendezvous(HOROVOD_GLOO_LOCAL_PREFIX + hostname,
                          rendezvous_addr_env, rendezvous_port,
                          local_rank, local_size, dev, timeout);
   LOG(DEBUG) << "Local Gloo context initialized.";

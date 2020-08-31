@@ -16,6 +16,8 @@
 import collections
 import re
 
+from dataclasses import dataclass
+
 
 class HostInfo:
     def __init__(self, hostname, slots):
@@ -28,28 +30,20 @@ class HostInfo:
         return HostInfo(hostname, int(slots))
 
 
+@dataclass
 class SlotInfo:
-    def __init__(self, hostname, rank, local_rank, cross_rank, size=None, local_size=None, cross_size=None):
-        self.hostname = hostname
-        self.rank = rank
-        self.size = size
-        self.local_rank = local_rank
-        self.local_size = local_size
-        self.cross_rank = cross_rank
-        self.cross_size = cross_size
+    hostname: str
+    rank: int
+    local_rank: int
+    cross_rank: int
+    size: int
+    local_size: int
+    cross_size: int
 
     def to_response_string(self):
         return ','.join(str(v) for v in [self.rank, self.size,
                                          self.local_rank, self.local_size,
                                          self.cross_rank, self.cross_size])
-
-    def __eq__(self, other):
-        if isinstance(other, SlotInfo):
-            return self.hostname == other.hostname and \
-                   self.rank == other.rank and self.size == other.size and \
-                   self.local_rank == other.local_rank and self.local_size == other.local_size and \
-                   self.cross_rank == other.cross_rank and self.cross_size == other.cross_size
-        return False
 
 
 INVALID_SLOT_INFO = SlotInfo(hostname='',
@@ -111,45 +105,51 @@ def get_host_assignments(hosts, min_np, max_np=None):
 
     :param hosts: list of HostInfo objects describing host and slot capacity
     :type hosts: list[HostInfo]
-    :param np: total number of processes to be allocated
-    :type np: int
-    :return: a list of the allocation of process on hosts in a AllocInfo object.
-            Members in the object include: hostname, rank, local_rank, cross_rank,
-            total_size, local_size, cross_size
+    :param min_np: minimum number of processes to be allocated
+    :type min_np: int
+    :param max_np: (optional) maximum number of processes to be allocated
+    :type max_np: int
+    :return: a list of the allocation of process on hosts in a `SlotInfo` object.
     :rtype: list[SlotInfo]
     """
+    host_ranks = []
+    cross_ranks = collections.defaultdict(dict)
     rank = 0
-    alloc_list = []
-
-    # key: local_rank; value: cross_size for this local_rank
-    local_sizes = collections.defaultdict(int)
-    # key: cross_rank; value: local_size for this cross_rank
-    cross_sizes = collections.defaultdict(int)
-
-    # allocate processes into slots
-    for host_idx, host_info in enumerate(hosts):
+    for host_info in hosts:
+        ranks = []
         for local_rank in range(host_info.slots):
             if rank == max_np:
                 break
-            cross_rank = host_idx
-            alloc_list.append(
-                SlotInfo(
-                    host_info.hostname,
-                    rank,
-                    local_rank,
-                    cross_rank))
-            cross_sizes[local_rank] += 1
-            local_sizes[cross_rank] += 1
+
+            ranks.append(rank)
             rank += 1
 
-    if rank < min_np:
-        raise ValueError('Requested more processes ({}) than there are available slots ({})'
-                         .format(min_np, rank))
+            cross_ranks_at_local = cross_ranks[local_rank]
+            cross_ranks_at_local[host_info.hostname] = len(cross_ranks_at_local)
 
-    # Fill in the local_size and cross_size because we can only know these number after
-    # allocation is done.
-    for alloc_item in alloc_list:
-        alloc_item.local_size = local_sizes[alloc_item.cross_rank]
-        alloc_item.cross_size = cross_sizes[alloc_item.local_rank]
-        alloc_item.size = rank
+        host_ranks.append((host_info, ranks))
+
+    world_size = rank
+    if world_size < min_np:
+        raise ValueError('Requested more processes ({}) than there are available slots ({})'
+                         .format(min_np, world_size))
+
+    alloc_list = []
+    for host_info, ranks in host_ranks:
+        local_size = len(ranks)
+        for local_rank, rank in enumerate(ranks):
+            cross_ranks_at_local = cross_ranks[local_rank]
+            cross_rank = cross_ranks_at_local[host_info.hostname]
+            cross_size = len(cross_ranks_at_local)
+
+            alloc_list.append(
+                SlotInfo(
+                    hostname=host_info.hostname,
+                    rank=rank,
+                    local_rank=local_rank,
+                    cross_rank=cross_rank,
+                    size=world_size,
+                    local_size=local_size,
+                    cross_size=cross_size))
+
     return alloc_list

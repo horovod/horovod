@@ -1559,7 +1559,7 @@ class custom_build_ext(build_ext):
                 'None of TensorFlow, PyTorch, or MXNet plugins were built. See errors above.')
 
 
-require_list = ['cloudpickle', 'psutil', 'pyyaml']
+require_list = ['cloudpickle', 'psutil', 'pyyaml', 'dataclasses;python_version<"3.7"']
 test_require_list = ['mock', 'pytest', 'pytest-forked', 'parameterized']
 
 # framework dependencies
