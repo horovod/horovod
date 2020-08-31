@@ -1,6 +1,6 @@
 name: Examples Keras Spark3 Sync
 
-on: [pull_request]
+on: [push]
 
 jobs:
   build:
@@ -8,7 +8,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
+    - name: Checkout
+      uses: actions/checkout@v1
+
     - name: Diffing examples/keras_spark_rossmann_run.py with examples/keras_spark3_rossmann.py
       run: |
         patch --quiet -p0 examples/keras_spark_rossmann_run.py examples/keras_spark3_rossmann.py.patch -o examples/keras_spark3_rossmann.py.from-keras_spark_rossmann_run
