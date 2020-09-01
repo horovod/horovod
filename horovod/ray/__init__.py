@@ -1,1 +1,1 @@
-from .runner import HorovodJob, BaseHorovodWorker
+from .runner import RayExecutor, BaseHorovodWorker

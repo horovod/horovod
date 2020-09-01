@@ -9,16 +9,16 @@ the Horovod-Ray integration.
 import os
 
 import ray
-from horovod.ray import HorovodJob
+from horovod.ray import RayExecutor
 
 
 def test_local(address=None, num_slots=4):
     ray.init(address)
     original_resources = ray.available_resources()
-    setting = HorovodJob.create_settings(
+    setting = RayExecutor.create_settings(
         timeout_s=30,
         ssh_identity_file=os.path.expanduser("~/ray_bootstrap_key.pem"))
-    hjob = HorovodJob(setting, num_hosts=1, num_slots=num_slots, use_gpu=True)
+    hjob = RayExecutor(setting, num_hosts=1, num_slots=num_slots, use_gpu=True)
     hjob.start()
     hostnames = hjob.execute(lambda _: ray.services.get_node_ip_address())
     assert len(set(hostnames)) == 1, hostnames
@@ -38,10 +38,10 @@ def test_hvd_init(address=None, num_slots=4, hosts=1):
         print("hvd rank", hvd.rank())
         return hvd.rank()
 
-    setting = HorovodJob.create_settings(
+    setting = RayExecutor.create_settings(
         timeout_s=30,
         ssh_identity_file=os.path.expanduser("~/ray_bootstrap_key.pem"))
-    hjob = HorovodJob(
+    hjob = RayExecutor(
         setting, num_hosts=hosts, num_slots=num_slots, use_gpu=True)
     hjob.start()
     result = hjob.execute(simple_fn)
@@ -124,10 +124,10 @@ def test_horovod_train(address=None, num_slots=4, hosts=1, use_gpu=None):
         _train(use_gpu=use_gpu)
         return True
 
-    setting = HorovodJob.create_settings(
+    setting = RayExecutor.create_settings(
         timeout_s=30,
         ssh_identity_file=os.path.expanduser("~/ray_bootstrap_key.pem"))
-    hjob = HorovodJob(
+    hjob = RayExecutor(
         setting, num_hosts=hosts, num_slots=num_slots, use_gpu=True)
     hjob.start()
     result = hjob.execute(simple_fn)

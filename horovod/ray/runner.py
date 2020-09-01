@@ -240,13 +240,13 @@ class Coordinator:
         }
 
 
-class HorovodJob:
+class RayExecutor:
     """Job class for Horovod + Ray integration.
 
     Args:
         settings (horovod.Settings): Configuration for job setup. You can
             use a standard Horovod Settings object or create one directly
-            from HorovodJob.create_settings.
+            from RayExecutor.create_settings.
         num_hosts (int): Number of machines to execute the job on.
         num_slots (int): Humber of workers to be placed on each machine.
         use_gpu (bool): Whether to use GPU for allocation. TODO: this
@@ -329,10 +329,11 @@ class HorovodJob:
               executable_kwargs: Optional[Dict] = None):
         """Starts the workers and colocates them on all machines.
 
-            We implement a node grouping because it seems like
-            our implementation doesn't quite work for imbalanced nodes.
-            Also, colocation performance is typically much better than
-            non-colocated workers.
+        We implement a node grouping because it seems like
+        our implementation doesn't quite work for imbalanced nodes.
+        Also, colocation performance is typically much better than
+        non-colocated workers.
+
         Args:
             executable_cls (type): The class that will be created within
                 an actor (BaseHorovodWorker). This will allow Horovod

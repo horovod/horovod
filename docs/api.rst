@@ -52,6 +52,12 @@ horovod.spark.common
 .. automodule:: horovod.spark.common.store
     :show-inheritance:
 
+.. _horovod_ray_api:
+
+horovod.ray
+-----------
+.. automodule:: horovod.ray
+
 horovod.run
 -------------
 .. automodule:: horovod.run
