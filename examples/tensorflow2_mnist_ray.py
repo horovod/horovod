@@ -15,14 +15,15 @@ def train(num_epochs):
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
     if gpus:
-        tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
+        tf.config.experimental.set_visible_devices(
+            gpus[hvd.local_rank()], 'GPU')
 
     (mnist_images, mnist_labels), _ = \
         tf.keras.datasets.mnist.load_data(path='mnist-%d.npz' % hvd.rank())
 
     dataset = tf.data.Dataset.from_tensor_slices(
         (tf.cast(mnist_images[..., tf.newaxis] / 255.0, tf.float32),
-                 tf.cast(mnist_labels, tf.int64))
+         tf.cast(mnist_labels, tf.int64))
     )
     dataset = dataset.repeat().shuffle(10000).batch(128)
 
@@ -66,20 +67,22 @@ def train(num_epochs):
         # Horovod: using `lr = 1.0 * hvd.size()` from the very beginning leads to worse final
         # accuracy. Scale the learning rate `lr = 1.0` ---> `lr = 1.0 * hvd.size()` during
         # the first three epochs. See https://arxiv.org/abs/1706.02677 for details.
-        hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=3, initial_lr=scaled_lr, verbose=1),
+        hvd.callbacks.LearningRateWarmupCallback(
+            warmup_epochs=3, initial_lr=scaled_lr, verbose=1),
     ]
 
     # Horovod: save checkpoints only on worker 0 to prevent other workers from corrupting them.
     if hvd.rank() == 0:
-        callbacks.append(tf.keras.callbacks.ModelCheckpoint('./checkpoint-{epoch}.h5'))
+        callbacks.append(tf.keras.callbacks.ModelCheckpoint(
+            './checkpoint-{epoch}.h5'))
 
     # Horovod: write logs on worker 0.
     verbose = 1 if hvd.rank() == 0 else 0
 
     # Train the model.
     # Horovod: adjust number of steps based on number of GPUs.
-    mnist_model.fit(dataset, steps_per_epoch=500 // hvd.size(), callbacks=callbacks, epochs=num_epochs, verbose=verbose)
-
+    mnist_model.fit(dataset, steps_per_epoch=500 // hvd.size(),
+                    callbacks=callbacks, epochs=num_epochs, verbose=verbose)
 
 
 ray.init()
