@@ -72,7 +72,8 @@ set(ARCH_FLAGS "-mf16c" "-mavx" "-mfma")
 set_build_arch_flags("${ARCH_FLAGS}")
 # Specify Horovod exports
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-exported_symbols_list,${CMAKE_SOURCE_DIR}/horovod.exp")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -undefined dynamic_lookup -Wl,-exported_symbols_list,${CMAKE_SOURCE_DIR}/horovod.exp")
+    set(CMAKE_MACOSX_RPATH TRUE)
 else()
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--version-script=${CMAKE_SOURCE_DIR}/horovod.lds -Wl,-Bsymbolic-functions -Wl,-z,relro,-z,now")
 endif()
@@ -98,8 +99,13 @@ endforeach()
 # PYTHON
 find_package(PythonInterp "3.6" REQUIRED)
 # Get the latest version intalled
-execute_process(COMMAND bash -c "for p in $(echo $PATH | tr ':' ' '); do if find $p -maxdepth 1 -regex '.*/python3?\\(3\\.[0-9]*\\)?' -printf '%f\n' | sort -t. -k 2,2n | tail -1 | grep .; then break; fi done"
-                OUTPUT_VARIABLE PY_EXE OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    execute_process(COMMAND bash -c "for p in $(echo $PATH | tr ':' ' '); do if find -E $p -maxdepth 1 -regex '.*/python3(\\.[0-9]*)?' -exec basename {} \; | sort -t. -k 2,2n | tail -1 | grep .; then break; fi done"
+                    OUTPUT_VARIABLE PY_EXE OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+else()
+    execute_process(COMMAND bash -c "for p in $(echo $PATH | tr ':' ' '); do if find $p -maxdepth 1 -regex '.*/python3\\(\\.[0-9]*\\)?' -exec basename {} \; | sort -t. -k 2,2n | tail -1 | grep .; then break; fi done"
+                    OUTPUT_VARIABLE PY_EXE OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+endif()
 if (NOT PY_EXE)
      set(PY_EXE ${PYTHON_EXECUTABLE})
 endif()
@@ -213,7 +219,7 @@ message(FATAL_ERROR "You should not mix NCCL and MPI GPU due to a possible deadl
 endif()
 
 # Gloo
-if (NOT "$ENV{HOROVOD_WITHOUT_GLOO}" STREQUAL "1")
+if (NOT "$ENV{HOROVOD_WITHOUT_GLOO}" STREQUAL "1" AND NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     if(HAVE_MPI)
         set(USE_MPI TRUE)
     else()
@@ -230,6 +236,9 @@ if (NOT "$ENV{HOROVOD_WITHOUT_GLOO}" STREQUAL "1")
                         "${PROJECT_SOURCE_DIR}/horovod/common/ops/gloo_operations.cc")
     add_definitions(-DHAVE_GLOO=1)
     set(HAVE_GLOO TRUE)
+endif()
+if (NOT HAVE_MPI AND ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    message(FATAL_ERROR "Gloo cannot be compiled on MacOS, install MPI.")
 endif()
 
 # NCCL + MPI
