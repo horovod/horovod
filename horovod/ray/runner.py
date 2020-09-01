@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class MiniSettings:
-    """Mock object, only necessary for Tune.
+    """Minimal settings necessary for Ray to work.
 
-    Should be replaced with a proper Horovod object.
+    Can be replaced with a proper Horovod Settings object.
     """
     nics: set = None
     verbose: int = 1
@@ -148,8 +148,12 @@ class NodeColocator:
         # Propogate cuda visible devices to the underlying
         # colocated workers.
         gpu_ids = ray.get_gpu_ids()
-        for worker, gpu_id in zip(self.workers, gpu_ids):
-            worker.update_env_vars.remote({"CUDA_VISIBLE_DEVICES": gpu_id})
+        all_ids = ",".join([str(gpu_id) for gpu_id in gpu_ids])
+        # By setting CUDA VISIBLE DEVICES to ALL GPUs,
+        # CUDA will be able to detect adjacent devices and use IPC
+        # allowing for better performance.
+        for worker in self.workers:
+            worker.update_env_vars.remote({"CUDA_VISIBLE_DEVICES": all_ids})
 
         ray.get([
             worker.start_executable.remote(executable_cls, executable_args,
@@ -313,9 +317,9 @@ class RayExecutor:
         node_ids = map_blocking(
             lambda a: a.create_workers.remote(e_cls, e_args, e_kwargs),
             colocators)
-        assert len(set(node_ids)) == len(node_ids), (
-            "Colocator actors must "
-            f"be placed on unique nodes! Got: {node_ids}")
+        if not len(set(node_ids)) == len(node_ids):
+            raise RuntimeError("Colocator actors must "
+                               f"be placed on unique nodes! Got: {node_ids}")
 
         # Obtain handles to the workers
         workers = map_blocking(lambda w: w.get_workers.remote(), colocators)

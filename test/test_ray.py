@@ -112,7 +112,8 @@ def test_colocator_gpu(tmpdir, ray_start_4_cpus_4_gpus):
     assert resources.get(f"node:{ip_address}", 0) == 1 - 4 * 0.01
 
     all_envs = ray.get([h.env_vars.remote() for h in worker_handles])
-    assert len({ev["CUDA_VISIBLE_DEVICES"] for ev in all_envs}) == 4
+    assert len({ev["CUDA_VISIBLE_DEVICES"] for ev in all_envs}) == 1
+    assert len(all_envs[0]["CUDA_VISIBLE_DEVICES"].split(",")) == 4
 
 
 def test_horovod_mixin(ray_start_2_cpus):
