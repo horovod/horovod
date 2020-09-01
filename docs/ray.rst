@@ -31,18 +31,17 @@ which is a wrapper over a group of `Ray actors (stateful processes) <https://doc
 
     from horovod.ray import RayExecutor
 
-    # We assume that each machine has an equivalent number of
-    # slots.
+    # Start the Ray cluster or attach to an exisint Ray cluster.
     ray.init()
 
     # Start num_hosts * num_slots actors on the cluster.
-    hjob = RayExecutor(
+    executor = RayExecutor(
         setting, num_hosts=num_hosts, num_slots=num_slots, use_gpu=True)
 
     # Launch the Ray actors on each machine.
     # This will launch `num_slots` actors on each machine, each with
     # 1 GPU allocated (set via CUDA VISIBLE DEVICES)
-    hjob.start()
+    executor.start()
 
 
 All actors will be part of the Horovod ring, so ``RayExecutor`` invocations will be able to support arbitrary Horovod collective operations.
@@ -61,11 +60,11 @@ To actually execute a function, you can run the following:
         return hvd.rank()
 
     # Execute the function on all workers at once.
-    result = hjob.execute(simple_fn)
+    result = executor.execute(simple_fn)
     # Check that the rank of all workers is unique
     assert len(set(result)) == hosts * num_slots
 
-    hjob.shutdown()
+    executor.shutdown()
 
 
 Execution
@@ -96,12 +95,12 @@ A unique feature of Ray is its support for `stateful Actors <https://docs.ray.io
 
 
     ray.init()
-    hjob = RayExecutor(...)
-    hjob.start(executable_cls=MyModel)
+    executor = RayExecutor(...)
+    executor.start(executable_cls=MyModel)
     for i in range(5):
-        hjob.execute(lambda worker: worker.train())
+        executor.execute(lambda worker: worker.train())
 
-    result = hjob.execute(lambda worker: worker.get_weights())
+    result = executor.execute(lambda worker: worker.get_weights())
 
     # result will be N copies of the model weights
     assert all(isinstance(res, dict) for res in result)

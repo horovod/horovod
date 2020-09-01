@@ -1,16 +1,13 @@
 """Ray-Horovod Job unit tests.
 
-This is currently not run on the Ray CI and is expected
-to land in Horovod repo soon. If not, then these
-should be run after every commit for anything that touches
-the Horovod-Ray integration.
+This is currently not run on the Ray CI.
 """
-
+import os
+import pytest
 import ray
 
 from horovod.ray.runner import (
     BaseHorovodWorker, NodeColocator, Coordinator, MiniSettings, RayExecutor)
-import pytest
 
 
 @pytest.fixture
@@ -35,6 +32,16 @@ def ray_start_6_cpus():
     yield address_info
     # The code after the yield will run as teardown code.
     ray.shutdown()
+
+
+@pytest.fixture
+def ray_start_4_cpus_4_gpus():
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
+    address_info = ray.init(num_cpus=4, num_gpus=4)
+    yield address_info
+    # The code after the yield will run as teardown code.
+    ray.shutdown()
+    del os.environ["CUDA_VISIBLE_DEVICES"]
 
 
 def check_resources(original_resources):
@@ -62,11 +69,11 @@ def test_coordinator_registration():
 
     rank_to_info = coord.finalize_registration()
     assert len(rank_to_info) == len(ranks)
-    assert all(info["node_world_size"] == 3 for info in rank_to_info.values())
-    assert {info["node_world_rank"]
+    assert all(info["NODE_WORLD_SIZE"] == 3 for info in rank_to_info.values())
+    assert {info["NODE_WORLD_RANK"]
             for info in rank_to_info.values()} == {0, 1, 2}
-    assert all(info["local_size"] == 4 for info in rank_to_info.values())
-    assert {info["local_rank"]
+    assert all(info["LOCAL_SIZE"] == 4 for info in rank_to_info.values())
+    assert {info["LOCAL_RANK"]
             for info in rank_to_info.values()} == {0, 1, 2, 3}
 
 

@@ -200,10 +200,10 @@ class Coordinator:
                 self.hostnames_by_rank.items()):
             for local_rank, world_rank in enumerate(ranks):
                 rank_to_info[world_rank] = dict(
-                    node_world_rank=node_world_rank,
-                    node_world_size=len(self.hostnames_by_rank),
-                    local_rank=local_rank,
-                    local_size=len(ranks))
+                    NODE_WORLD_RANK=node_world_rank,
+                    NODE_WORLD_SIZE=len(self.hostnames_by_rank),
+                    LOCAL_RANK=local_rank,
+                    LOCAL_SIZE=len(ranks))
         return rank_to_info
 
     def establish_rendezvous(self) -> Dict[str, str]:
@@ -359,9 +359,10 @@ class RayExecutor:
             executable_kwargs=executable_kwargs)
 
         # Update the environment variables.
+        local_hostname = str(ray.services.get_node_ip_address())
         ray.get([
             w.update_env_vars.remote(
-                dict(HOROVOD_RANK=i, HOROVOD_SIZE=self.num_workers))
+                dict(HOROVOD_HOSTNAME=local_hostname, HOROVOD_RANK=i, HOROVOD_SIZE=self.num_workers))
             for i, w in enumerate(self.workers)
         ])
         # Get all the hostnames of all workers
