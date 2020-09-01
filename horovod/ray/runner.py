@@ -230,7 +230,6 @@ class Coordinator:
             self.settings, list(self.hostnames_by_rank))
 
         return {
-            # "HOROVOD_LOG_LEVEL": "DEBUG",
             "HOROVOD_GLOO_RENDEZVOUS_ADDR": ray.services.get_node_ip_address(),
             "HOROVOD_GLOO_RENDEZVOUS_PORT": str(self.global_rendezv_port),
             "HOROVOD_CONTROLLER": "gloo",
@@ -273,7 +272,6 @@ class RayExecutor:
             with open(ssh_identity_file, "w") as f:
                 os.chmod(ssh_identity_file, 0o600)
                 f.write(ssh_str)
-        # import ipdb; ipdb.set_trace()
         return MiniSettings(
             ssh_identity_file=ssh_identity_file, timeout_s=timeout_s)
 
@@ -366,7 +364,10 @@ class RayExecutor:
         local_hostname = str(ray.services.get_node_ip_address())
         ray.get([
             w.update_env_vars.remote(
-                dict(HOROVOD_HOSTNAME=local_hostname, HOROVOD_RANK=i, HOROVOD_SIZE=self.num_workers))
+                dict(
+                    HOROVOD_HOSTNAME=local_hostname,
+                    HOROVOD_RANK=i,
+                    HOROVOD_SIZE=self.num_workers))
             for i, w in enumerate(self.workers)
         ])
         # Get all the hostnames of all workers
