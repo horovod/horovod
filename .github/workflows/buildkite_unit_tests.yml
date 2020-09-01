@@ -15,12 +15,25 @@ jobs:
         output_path: test-results
         log_level: DEBUG
 
+    - name: Unit Test Results
+      if: always()
+      uses: EnricoMi/publish-unit-test-result-action@master
+      with:
+        check_name: Unit Test Results
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        files: "test-results/**/*.xml"
+        artifact_name: "Unit Test Results"
+        artifact_file_name: "unit-test-results.json"
+        log_level: DEBUG
+
     - name: Upload Test Results
-      if: ${{ always() }}
+      if: always()
       uses: actions/upload-artifact@v2
       with:
         name: Unit Test Results
-        path: "test-results/**"
+        path: |
+          test-results/*.xml
+          unit-test-results.json
 
     - name: Display file structure
       run: ls -R
