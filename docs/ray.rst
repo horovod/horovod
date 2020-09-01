@@ -27,8 +27,6 @@ Horovod Ray Job
 The Horovod Ray integration offers a ``RayExecutor`` abstraction (:ref:`docs <horovod_ray_api>`),
 which is a wrapper over a group of `Ray actors (stateful processes) <https://docs.ray.io/en/latest/walkthrough.html#remote-classes-actors>`_.
 
-Each actor will be part of the Horovod ring, so ``RayExecutor`` function executions will be able to support arbitrary Horovod collective operations.
-
 .. code-block:: python
 
     from horovod.ray import RayExecutor
@@ -36,13 +34,25 @@ Each actor will be part of the Horovod ring, so ``RayExecutor`` function executi
     # We assume that each machine has an equivalent number of
     # slots.
     ray.init()
+
+    # Start num_hosts * num_slots actors on the cluster.
     hjob = RayExecutor(
         setting, num_hosts=num_hosts, num_slots=num_slots, use_gpu=True)
 
     # Launch the Ray actors on each machine.
-    # This will launch num_hosts * num_slots workers, each with
+    # This will launch `num_slots` actors on each machine, each with
     # 1 GPU allocated (set via CUDA VISIBLE DEVICES)
     hjob.start()
+
+
+All actors will be part of the Horovod ring, so ``RayExecutor`` invocations will be able to support arbitrary Horovod collective operations.
+
+Note that there is an implicit assumption on the cluster being homogenous in shape (i.e., all machines have the same number of slots available). This is simply
+an implementation detail and is not a fundamental limitation.
+
+To actually execute a function, you can run the following:
+
+.. code-block:: python
 
     # In its simplest form, a function must take in a dummy variable
     def simple_fn(_):

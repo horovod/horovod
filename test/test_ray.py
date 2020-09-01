@@ -9,7 +9,7 @@ the Horovod-Ray integration.
 import ray
 
 from horovod.ray.runner import (
-    BaseHorovodWorker, NodeColocator, Coordinator, MiniSettings)
+    BaseHorovodWorker, NodeColocator, Coordinator, MiniSettings, RayExecutor)
 import pytest
 
 
@@ -35,6 +35,17 @@ def ray_start_6_cpus():
     yield address_info
     # The code after the yield will run as teardown code.
     ray.shutdown()
+
+
+def check_resources(original_resources):
+    for i in reversed(range(10)):
+        if original_resources == ray.available_resources():
+            return True
+        else:
+            print(ray.available_resources())
+            import time
+            time.sleep(0.5)
+    return False
 
 
 def test_coordinator_registration():
@@ -101,6 +112,86 @@ def test_horovod_mixin(ray_start_2_cpus):
     DUMMY_VALUE = 1123123
     actor.update_env_vars.remote({"TEST": DUMMY_VALUE})
     assert ray.get(actor.env_vars.remote())["TEST"] == str(DUMMY_VALUE)
+
+
+def test_local(ray_start_4_cpus):
+    original_resources = ray.available_resources()
+    setting = RayExecutor.create_settings(timeout_s=30)
+    hjob = RayExecutor(setting, num_hosts=1, num_slots=4)
+    hjob.start()
+    hostnames = hjob.execute(lambda _: ray.services.get_node_ip_address())
+    assert len(set(hostnames)) == 1, hostnames
+    hjob.shutdown()
+    assert check_resources(original_resources)
+
+
+def test_hvd_init(ray_start_4_cpus):
+    original_resources = ray.available_resources()
+
+    def simple_fn(worker):
+        import horovod.torch as hvd
+        hvd.init()
+        return hvd.rank()
+
+    setting = RayExecutor.create_settings(timeout_s=30)
+    hjob = RayExecutor(
+        setting, num_hosts=1, num_slots=4, use_gpu=True)
+    hjob.start()
+    result = hjob.execute(simple_fn)
+    assert len(set(result)) == 4
+    hjob.shutdown()
+    assert check_resources(original_resources)
+
+
+def _train(batch_size=32,
+           batch_per_iter=10):
+    import torch.backends.cudnn as cudnn
+    import torch.nn.functional as F
+    import torch.optim as optim
+    import torch.utils.data.distributed
+    from torchvision import models
+    import horovod.torch as hvd
+    import timeit
+
+    hvd.init()
+
+    # Set up fixed fake data
+    data = torch.randn(batch_size, 2)
+    target = torch.LongTensor(batch_size).random_() % 2
+
+    model = torch.nn.Sequential(torch.nn.Linear(2, 2))
+    optimizer = optim.SGD(model.parameters(), lr=0.01)
+
+    # Horovod: wrap optimizer with DistributedOptimizer.
+    optimizer = hvd.DistributedOptimizer(
+        optimizer, named_parameters=model.named_parameters())
+
+    # Horovod: broadcast parameters & optimizer state.
+    hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+    hvd.broadcast_optimizer_state(optimizer, root_rank=0)
+
+    def benchmark_step():
+        optimizer.zero_grad()
+        output = model(data)
+        loss = F.cross_entropy(output, target)
+        loss.backward()
+        optimizer.step()
+
+    time = timeit.timeit(benchmark_step, number=batch_per_iter)
+
+
+def test_horovod_train(ray_start_4_cpus):
+    def simple_fn(worker):
+        _train()
+        return True
+
+    setting = RayExecutor.create_settings(timeout_s=30)
+    hjob = RayExecutor(
+        setting, num_hosts=1, num_slots=4, use_gpu=True)
+    hjob.start()
+    result = hjob.execute(simple_fn)
+    assert all(result)
+    hjob.shutdown()
 
 
 if __name__ == "__main__":
