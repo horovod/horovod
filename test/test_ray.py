@@ -3,9 +3,12 @@
 This is currently not run on the Ray CI.
 """
 import os
+
 import pytest
 import ray
+import torch
 
+from horovod.common.util import gloo_built
 from horovod.ray.runner import (
     BaseHorovodWorker, NodeColocator, Coordinator, MiniSettings, RayExecutor)
 
@@ -92,6 +95,8 @@ def test_colocator(tmpdir, ray_start_6_cpus):
     assert resources.get(f"node:{ip_address}", 0) == 1 - 4 * 0.01
 
 
+@pytest.mark.skipif(torch.cuda.device_count() < 4, reason='GPU colocator test requires 4 GPUs')
+@pytest.mark.skipif(not torch.cuda.is_available(), reason='GPU colocator test requires CUDA')
 def test_colocator_gpu(tmpdir, ray_start_4_cpus_4_gpus):
     SetColocator = NodeColocator.options(num_cpus=4, num_gpus=4)
     colocator = SetColocator.remote(
@@ -132,6 +137,7 @@ def test_local(ray_start_4_cpus):
     assert check_resources(original_resources)
 
 
+@pytest.mark.skipif(not gloo_built(), reason='Gloo is required for Ray integration')
 def test_hvd_init(ray_start_4_cpus):
     original_resources = ray.available_resources()
 
@@ -142,7 +148,7 @@ def test_hvd_init(ray_start_4_cpus):
 
     setting = RayExecutor.create_settings(timeout_s=30)
     hjob = RayExecutor(
-        setting, num_hosts=1, num_slots=4, use_gpu=True)
+        setting, num_hosts=1, num_slots=4, use_gpu=torch.cuda.is_available())
     hjob.start()
     result = hjob.execute(simple_fn)
     assert len(set(result)) == 4
@@ -187,6 +193,7 @@ def _train(batch_size=32,
     time = timeit.timeit(benchmark_step, number=batch_per_iter)
 
 
+@pytest.mark.skipif(not gloo_built(), reason='Gloo is required for Ray integration')
 def test_horovod_train(ray_start_4_cpus):
     def simple_fn(worker):
         _train()
@@ -194,7 +201,7 @@ def test_horovod_train(ray_start_4_cpus):
 
     setting = RayExecutor.create_settings(timeout_s=30)
     hjob = RayExecutor(
-        setting, num_hosts=1, num_slots=4, use_gpu=True)
+        setting, num_hosts=1, num_slots=4, use_gpu=torch.cuda.is_available())
     hjob.start()
     result = hjob.execute(simple_fn)
     assert all(result)
