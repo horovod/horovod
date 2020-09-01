@@ -118,15 +118,17 @@ Guides
    gpus_include
 
    conda_include
-   
+
    docker_include
 
    spark_include
 
+   ray_include
+
    lsf_include
 
    tensor-fusion_include
-   
+
    adasum_user_guide_include
 
    timeline_include
