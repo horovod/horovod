@@ -326,7 +326,8 @@ class RayExecutor:
     def start(self,
               executable_cls: type = None,
               executable_args: Optional[List] = None,
-              executable_kwargs: Optional[Dict] = None):
+              executable_kwargs: Optional[Dict] = None,
+              extra_env_vars: Optional[Dict] = None):
         """Starts the workers and colocates them on all machines.
 
         We implement a node grouping because it seems like
@@ -342,8 +343,11 @@ class RayExecutor:
                 worker class upon initialization.
             executable_kwargs (Dict): Keyword arguments to be passed into the
                 worker class upon initialization.
+            extra_env_vars (Dict): Environment variables to be set
+                on the actors (worker processes) before initialization.
 
         """
+        extra_env_vars = extra_env_vars or {}
 
         def resources_per_host():
             num_cpus = self.cpus_per_slot * self.num_slots
@@ -378,6 +382,7 @@ class RayExecutor:
             indexed_runners[rank].update_env_vars.remote(local_cross_env_var)
 
         coordinator_envs = self.coordinator.establish_rendezvous()
+        coordinator_envs.update(extra_env_vars)
 
         map_blocking(lambda w: w.update_env_vars.remote(coordinator_envs),
                      self.workers)
@@ -392,6 +397,28 @@ class RayExecutor:
             Deserialized return values from the target function.
         """
         return ray.get([worker.execute.remote(fn) for worker in self.workers])
+
+    def execute_func(self,
+                     fn: Callable[[Any], Any],
+                     args: Optional[List] = None,
+                     kwargs: Optional[Dict] = None) -> List[Any]:
+        """Executes the provided function on all workers.
+
+        Args:
+            fn: Target function that can be executed with arbitrary
+                args and keyword arguments.
+            args: List of arguments to be passed into the target function.
+            kwargs: Dictionary of keyword arguments to be
+                passed into the target function.
+
+        Returns:
+            Deserialized return values from the target function.
+        """
+        args = args or []
+        kwargs = kwargs or {}
+        return ray.get(
+            [worker.execute.remote(
+                lambda w: fn(*args, **kwargs)) for worker in self.workers])
 
     def execute_single(self,
                        fn: Callable[["executable_cls"], Any]) -> List[Any]:
