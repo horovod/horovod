@@ -399,10 +399,10 @@ class RayExecutor:
         """
         return ray.get([worker.execute.remote(fn) for worker in self.workers])
 
-    def execute_func(self,
-                     fn: Callable[[Any], Any],
-                     args: Optional[List] = None,
-                     kwargs: Optional[Dict] = None) -> List[Any]:
+    def run(self,
+            fn: Callable[[Any], Any],
+            args: Optional[List] = None,
+            kwargs: Optional[Dict] = None) -> List[Any]:
         """Executes the provided function on all workers.
 
         Args:

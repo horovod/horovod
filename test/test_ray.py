@@ -168,7 +168,7 @@ def test_ray_exec_func(ray_start_4_cpus):
     hjob = RayExecutor(
         setting, num_hosts=1, num_slots=4, use_gpu=torch.cuda.is_available())
     hjob.start()
-    result = hjob.execute_func(simple_fn, args=[0])
+    result = hjob.run(simple_fn, args=[0])
     assert len(set(result)) == 1
     hjob.shutdown()
 
