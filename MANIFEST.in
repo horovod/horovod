@@ -1,6 +1,7 @@
-recursive-include * *.h *.hpp *.cc *.cu *.md
+recursive-include * *.h *.hpp *.cc *.cu *.md *.cmake CMakeLists.txt
 
-include LICENSE horovod.lds horovod.exp
+include LICENSE horovod.lds horovod.exp CMakeLists.txt
+include cmake/build_utils.py
 prune .eggs
 
 # prune eigen LGPL2
@@ -28,6 +29,3 @@ exclude third_party/eigen/COPYING.README
 graft third_party/gloo/cmake
 recursive-include third_party/gloo CMakeLists.txt
 recursive-include third_party/gloo *.in
-
-# include cmake related files for CUDA compilation
-include horovod/common/ops/cuda/CMakeLists.txt

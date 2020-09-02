@@ -1,0 +1,297 @@
+cmake_minimum_required(VERSION 2.8.12 FATAL_ERROR)
+if(POLICY CMP0074)
+    # 1. Introduced with 3.12.4.
+    # 2. *_ROOT variables will be checked
+    cmake_policy(SET CMP0074 NEW)
+endif()
+
+project(horovod CXX)
+
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Configure path to modules (for find_package)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/Modules/")
+include(cmake/Utilities.cmake)
+
+# 3rd-parties
+include_directories("third_party/HTTPRequest/include"
+        "third_party/boost/assert/include"
+        "third_party/boost/config/include"
+        "third_party/boost/core/include"
+        "third_party/boost/detail/include"
+        "third_party/boost/iterator/include"
+        "third_party/boost/lockfree/include"
+        "third_party/boost/mpl/include"
+        "third_party/boost/parameter/include"
+        "third_party/boost/predef/include"
+        "third_party/boost/preprocessor/include"
+        "third_party/boost/static_assert/include"
+        "third_party/boost/type_traits/include"
+        "third_party/boost/utility/include"
+        "third_party/eigen"
+        "third_party/flatbuffers/include"
+        "third_party/lbfgs/include")
+
+# Sources
+list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/common.cc"
+        "${PROJECT_SOURCE_DIR}/horovod/common/controller.cc"
+        "${PROJECT_SOURCE_DIR}/horovod/common/fusion_buffer_manager.cc"
+        "${PROJECT_SOURCE_DIR}/horovod/common/half.cc"
+        "${PROJECT_SOURCE_DIR}/horovod/common/logging.cc"
+        "${PROJECT_SOURCE_DIR}/horovod/common/message.cc"
+        "${PROJECT_SOURCE_DIR}/horovod/common/operations.cc"
+        "${PROJECT_SOURCE_DIR}/horovod/common/parameter_manager.cc"
+        "${PROJECT_SOURCE_DIR}/horovod/common/response_cache.cc"
+        "${PROJECT_SOURCE_DIR}/horovod/common/stall_inspector.cc"
+        "${PROJECT_SOURCE_DIR}/horovod/common/thread_pool.cc"
+        "${PROJECT_SOURCE_DIR}/horovod/common/timeline.cc"
+        "${PROJECT_SOURCE_DIR}/horovod/common/tensor_queue.cc"
+        "${PROJECT_SOURCE_DIR}/horovod/common/ops/collective_operations.cc"
+        "${PROJECT_SOURCE_DIR}/horovod/common/ops/operation_manager.cc"
+        "${PROJECT_SOURCE_DIR}/horovod/common/optim/bayesian_optimization.cc"
+        "${PROJECT_SOURCE_DIR}/horovod/common/optim/gaussian_process.cc"
+        "${PROJECT_SOURCE_DIR}/horovod/common/utils/env_parser.cc")
+
+# Default Macro
+add_definitions(-DEIGEN_MPL2_ONLY=1)
+
+# Remove platform default std
+string(REGEX REPLACE  "-std=[^ ]+" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+# Pickup ar from environmental variable if available
+if(DEFINED ENV{AR})
+    set(CMAKE_AR $ENV{AR})
+endif()
+# Make CMAKE read CPPFLAGS
+set(CMAKE_CXX_FLAGS "$ENV{CPPFLAGS} ${CMAKE_CXX_FLAGS}")
+# Add default project CXX flags
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -fPIC -O3 -Wall -ftree-vectorize -g")
+# Add architecture specific optimization flags
+set(ARCH_FLAGS "-mf16c" "-mavx" "-mfma")
+set_build_arch_flags("${ARCH_FLAGS}")
+# Specify Horovod exports
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -undefined dynamic_lookup -Wl,-exported_symbols_list,${CMAKE_SOURCE_DIR}/horovod.exp")
+    set(CMAKE_MACOSX_RPATH TRUE)
+else()
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--version-script=${CMAKE_SOURCE_DIR}/horovod.lds -Wl,-Bsymbolic-functions -Wl,-z,relro,-z,now")
+endif()
+# GPU Operations
+set(HOROVOD_GPU $ENV{HOROVOD_GPU})
+set(HOROVOD_GPU_OPERATIONS $ENV{HOROVOD_GPU_OPERATIONS})
+if(DEFINED HOROVOD_GPU_OPERATIONS AND NOT "${HOROVOD_GPU_OPERATIONS}" MATCHES "^(MPI|NCCL)$")
+    message(FATAL_ERROR "HOROVOD_GPU_OPERATIONS=${HOROVOD_GPU_OPERATIONS} is invalid, supported values are '', 'MPI', and 'NCCL'.")
+endif()
+set_gpu_op(HOROVOD_GPU_ALLREDUCE "MPI;NCCL;DDL")
+set_gpu_op(HOROVOD_GPU_ALLGATHER "MPI;NCCL")
+set_gpu_op(HOROVOD_GPU_BROADCAST "MPI;NCCL")
+set_gpu_op(HOROVOD_GPU_ALLTOALL "MPI;NCCL")
+
+foreach(VAR in ITEMS HOROVOD_GPU_ALLREDUCE HOROVOD_GPU_ALLGATHER HOROVOD_GPU_BROADCAST HOROVOD_GPU_ALLTOALL)
+    if(DEFINED ${VAR})
+        string(SUBSTRING ${${VAR}} 0 1 ${VAR})
+        convert_to_ascii_dec(ASCII_DEC ${${VAR}})
+        add_definitions(-D${VAR}=${ASCII_DEC})
+    endif()
+endforeach()
+
+# PYTHON
+find_package(PythonInterp "3.6" REQUIRED)
+# Get the latest version intalled
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    execute_process(COMMAND bash -c "for p in $(echo $PATH | tr ':' ' '); do if find -E $p -maxdepth 1 -regex '.*/python3(\\.[0-9]*)?' -exec basename {} \; | sort -t. -k 2,2n | tail -1 | grep .; then break; fi done"
+                    OUTPUT_VARIABLE PY_EXE OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+else()
+    execute_process(COMMAND bash -c "for p in $(echo $PATH | tr ':' ' '); do if find $p -maxdepth 1 -regex '.*/python3\\(\\.[0-9]*\\)?' -exec basename {} \; | sort -t. -k 2,2n | tail -1 | grep .; then break; fi done"
+                    OUTPUT_VARIABLE PY_EXE OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+endif()
+if (NOT PY_EXE)
+     set(PY_EXE ${PYTHON_EXECUTABLE})
+endif()
+message(STATUS "Using command ${PY_EXE}")
+
+# MPI
+if (NOT "$ENV{HOROVOD_WITHOUT_MPI}" STREQUAL "1")
+    set(MPI_REQUIRED "")
+    if ("$ENV{HOROVOD_WITH_MPI}" STREQUAL "1")
+        set(MPI_REQUIRED "REQUIRED")
+    endif ()
+    find_package(MPI ${MPI_REQUIRED})
+    if(MPI_FOUND)
+        include_directories(SYSTEM ${MPI_INCLUDE_PATH})
+        list(APPEND LINKER_LIBS ${MPI_LIBRARIES})
+        list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/mpi/mpi_context.cc"
+                "${PROJECT_SOURCE_DIR}/horovod/common/mpi/mpi_controller.cc"
+                "${PROJECT_SOURCE_DIR}/horovod/common/ops/mpi_operations.cc"
+                "${PROJECT_SOURCE_DIR}/horovod/common/ops/adasum/adasum_mpi.cc"
+                "${PROJECT_SOURCE_DIR}/horovod/common/ops/adasum_mpi_operations.cc")
+        add_definitions(-DHAVE_MPI=1)
+        set(HAVE_MPI TRUE)
+    endif()
+endif()
+
+# CUDA and ROCM
+macro(ADD_CUDA)
+    if (DEFINED ENV{HOROVOD_CUDA_HOME})
+        set(CUDA_TOOLKIT_ROOT_DIR $ENV{HOROVOD_CUDA_HOME})
+    endif()
+    option(CUDA_USE_STATIC_CUDA_RUNTIME "Use the static version of the CUDA runtime library if available" OFF)
+    find_package(CUDA REQUIRED)
+    include_directories(SYSTEM ${CUDA_INCLUDE_DIRS})
+    list(APPEND LINKER_LIBS ${CUDA_LIBRARIES})
+    list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/cuda_operations.cc"
+                        "${PROJECT_SOURCE_DIR}/horovod/common/ops/gpu_operations.cc")
+    # CUDA + MPI
+    if(HAVE_MPI)
+        list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/mpi_gpu_operations.cc")
+    endif()
+    add_definitions(-DHAVE_CUDA=1 -DHAVE_GPU=1)
+    set(HAVE_CUDA TRUE)
+    if(NOT CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+        set(HAVE_SUB_PROJECT_CUDA TRUE PARENT_SCOPE)
+    endif()
+endmacro()
+
+if(DEFINED HOROVOD_GPU_ALLREDUCE OR DEFINED HOROVOD_GPU_ALLGATHER OR DEFINED HOROVOD_GPU_BROADCAST OR DEFINED HOROVOD_GPU_ALLTOALL)
+    if(NOT DEFINED HOROVOD_GPU OR HOROVOD_GPU STREQUAL "CUDA")
+        add_cuda()
+    elseif(HOROVOD_GPU STREQUAL "ROCM")
+        find_package(ROCM REQUIRED)
+        include_directories(SYSTEM ${ROCM_INCLUDE_DIRS})
+        list(APPEND LINKER_LIBS ${ROCM_LIBRARIES})
+        set(CMAKE_CXX_FLAGS "${ROCM_COMPILE_FLAGS} ${CMAKE_CXX_FLAGS}")
+        list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/hip_operations.cc"
+                            "${PROJECT_SOURCE_DIR}/horovod/common/ops/gpu_operations.cc")
+        add_definitions(-DHAVE_ROCM=1 -DHAVE_GPU=1)
+        set(HAVE_ROCM TRUE)
+    else()
+        message(FATAL_ERROR "Unknown HOROVOD_GPU type: ${HOROVOD_GPU}")
+    endif()
+endif()
+
+# NCCL
+if(HOROVOD_GPU_ALLREDUCE STREQUAL "N" OR HOROVOD_GPU_ALLGATHER STREQUAL "N" OR HOROVOD_GPU_BROADCAST STREQUAL "N" OR HOROVOD_GPU_ALLTOALL STREQUAL "N")
+    if(HAVE_ROCM)
+        find_package(rccl REQUIRED)
+        include_directories(SYSTEM ${RCCL_INCLUDE_DIRS})
+        list(APPEND LINKER_LIBS roc::rccl)
+    else()
+        find_package(NCCL REQUIRED)
+        if (NCCL_MAJOR_VERSION LESS "2")
+            message(FATAL_ERROR "Horovod requires NCCL 2.0 or later version please upgrade.")
+        endif()
+        include_directories(SYSTEM ${NCCL_INCLUDE_DIRS})
+        list(APPEND LINKER_LIBS ${NCCL_LIBRARIES})
+    endif()
+    list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/nccl_operations.cc")
+    add_definitions(-DHAVE_NCCL=1)
+    set(HAVE_NCCL TRUE)
+endif()
+
+# DDL
+if(HOROVOD_GPU_ALLREDUCE STREQUAL "D")
+    message(DEPRECATION "DDL backend has been deprecated. Please, start using the NCCL backend by building Horovod with "
+                        "'HOROVOD_GPU_OPERATIONS=NCCL'. Will be removed in v0.21.0.")
+    list(APPEND LINKER_LIBS "${CUDA_TOOLKIT_ROOT_DIR}/lib/libddl.so" "${CUDA_TOOLKIT_ROOT_DIR}/lib/libddl_pack.so")
+    list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/mpi/ddl_mpi_context_manager.cc"
+                        "${PROJECT_SOURCE_DIR}/horovod/common/ops/ddl_operations.cc")
+    add_definitions(-DHAVE_DDL=1)
+    set(HAVE_DDL TRUE)
+endif()
+
+# oneCCL
+set(CCL_ROOT $ENV{CCL_ROOT})
+if(DEFINED CCL_ROOT)
+    include_directories(${CCL_ROOT}/include)
+    list(APPEND LINKER_LIBS "${CCL_ROOT}/lib/libccl.so")
+    list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/ccl_operations.cc")
+    add_definitions(-DHAVE_CCL=1)
+    set(HAVE_CCL TRUE)
+endif()
+
+set(HOROVOD_ALLOW_MIXED_GPU_IMPL $ENV{HOROVOD_ALLOW_MIXED_GPU_IMPL})
+if(HOROVOD_GPU_ALLREDUCE STREQUAL "N" AND (HOROVOD_GPU_ALLGATHER STREQUAL "M" OR HOROVOD_GPU_BROADCAST STREQUAL "M" OR HOROVOD_GPU_ALLTOALL STREQUAL "M") AND
+   NOT HOROVOD_ALLOW_MIXED_GPU_IMPL STREQUAL "1")
+message(FATAL_ERROR "You should not mix NCCL and MPI GPU due to a possible deadlock.\n"
+                    "If you are sure you want to mix them, set the "
+                    "HOROVOD_ALLOW_MIXED_GPU_IMPL environment variable to '1'.")
+endif()
+
+# Gloo
+if (NOT "$ENV{HOROVOD_WITHOUT_GLOO}" STREQUAL "1" AND NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    if(HAVE_MPI)
+        set(USE_MPI TRUE)
+    else()
+        set(USE_MPI FALSE)
+    endif()
+    set(CMAKE_POLICY_DEFAULT_CMP0074 NEW)
+    add_subdirectory(third_party/gloo)
+    include_directories(third_party/gloo)
+    target_compile_definitions(gloo PRIVATE _GLIBCXX_USE_CXX11_ABI=1)
+    list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/gloo/gloo_context.cc"
+                        "${PROJECT_SOURCE_DIR}/horovod/common/gloo/gloo_controller.cc"
+                        "${PROJECT_SOURCE_DIR}/horovod/common/gloo/http_store.cc"
+                        "${PROJECT_SOURCE_DIR}/horovod/common/gloo/memory_store.cc"
+                        "${PROJECT_SOURCE_DIR}/horovod/common/ops/gloo_operations.cc")
+    add_definitions(-DHAVE_GLOO=1)
+    set(HAVE_GLOO TRUE)
+endif()
+if (NOT HAVE_MPI AND ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    message(FATAL_ERROR "Gloo cannot be compiled on MacOS, install MPI.")
+endif()
+
+# NCCL + MPI
+if (HAVE_NCCL AND HAVE_MPI)
+    list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/adasum_gpu_operations.cc")
+endif()
+
+set(HOROVOD_CPU_OPERATIONS $ENV{HOROVOD_CPU_OPERATIONS})
+if(DEFINED HOROVOD_CPU_OPERATIONS)
+    message(STATUS "Set default CPU operation to " ${HOROVOD_CPU_OPERATIONS})
+    if(HOROVOD_CPU_OPERATIONS STREQUAL "MPI")
+        if(NOT HAVE_MPI)
+            message(FATAL_ERROR "MPI is not installed, try changing HOROVOD_CPU_OPERATIONS.")
+        endif()
+        add_definitions(-DHOROVOD_CPU_OPERATIONS_DEFAULT=M)
+    elseif(HOROVOD_CPU_OPERATIONS STREQUAL "MLSL")
+        message(FATAL_ERROR "Intel(R) MLSL was removed. Upgrade to oneCCL and set HOROVOD_CPU_OPERATIONS=CCL.")
+    elseif(HOROVOD_CPU_OPERATIONS STREQUAL "CCL")
+        if(NOT HAVE_CCL)
+            message(FATAL_ERROR "oneCCL is not installed, try changing HOROVOD_CPU_OPERATIONS.")
+        endif()
+        add_definitions(-DHOROVOD_CPU_OPERATIONS_DEFAULT=C)
+    elseif(HOROVOD_CPU_OPERATIONS STREQUAL "GLOO")
+        if(NOT HAVE_GLOO)
+            message(FATAL_ERROR "Cannot set both HOROVOD_WITHOUT_GLOO and HOROVOD_CPU_OPERATIONS=GLOO.")
+        endif()
+        add_definitions(-DHOROVOD_CPU_OPERATIONS_DEFAULT=G)
+    endif()
+endif()
+
+# Get Python suffix
+execute_process(COMMAND ${PY_EXE} -c "import sysconfig; print(next(x for x in [sysconfig.get_config_var('EXT_SUFFIX'), sysconfig.get_config_var('SO'), '.so'] if x))"
+                OUTPUT_VARIABLE Python_SUFFIX OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+
+# TF
+add_subdirectory(horovod/tensorflow)
+# PyTorch
+add_subdirectory(horovod/torch)
+#MXNet
+add_subdirectory(horovod/mxnet)
+
+# CUDA kernels
+if(HAVE_CUDA OR HAVE_SUB_PROJECT_CUDA)
+    add_subdirectory(horovod/common/ops/cuda)
+endif()
+
+# if we need compatible c++ abi
+# Duplicate gloo folder and add it as a new sub-project
+if(HAVE_GLOO AND ((DEFINED Tensorflow_CXX11 AND NOT Tensorflow_CXX11) OR (DEFINED Pytorch_CXX11 AND NOT Pytorch_CXX11)))
+    file(COPY ${PROJECT_SOURCE_DIR}/third_party/gloo/ DESTINATION ${PROJECT_SOURCE_DIR}/third_party/compatible_gloo)
+    file(READ ${PROJECT_SOURCE_DIR}/third_party/compatible_gloo/gloo/CMakeLists.txt GLOO_CMAKE)
+    string(REPLACE "gloo " "compatible_gloo " GLOO_CMAKE "${GLOO_CMAKE}")
+    file(WRITE ${PROJECT_SOURCE_DIR}/third_party/compatible_gloo/gloo/CMakeLists.txt "${GLOO_CMAKE}")
+    add_subdirectory(third_party/compatible_gloo)
+    target_compile_definitions(compatible_gloo PRIVATE _GLIBCXX_USE_CXX11_ABI=0)
+endif()

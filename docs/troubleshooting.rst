@@ -103,7 +103,6 @@ installed MPI, make sure that the path to MPI libraries is present the ``$LD_LIB
 
     mpicxx: error while loading shared libraries: libopen-pal.so.40: cannot open shared object file: No such file or directory
     error: mpicxx -show failed (see error below), is MPI in $PATH?
-    Note: If your version of MPI has a custom command to show compilation flags, please specify it with the HOROVOD_MPICXX_SHOW environment variable.
 
     Traceback (most recent call last):
     File "/tmp/pip-build-wrtVwH/horovod/setup.py", line 107, in get_mpi_flags
@@ -325,14 +324,6 @@ To build Horovod with a specific CUDA version, use the ``HOROVOD_CUDA_HOME`` env
     $ HOROVOD_GPU_OPERATIONS=NCCL HOROVOD_NCCL_HOME=/path/to/nccl HOROVOD_CUDA_HOME=/path/to/cuda pip install --no-cache-dir horovod
 
 
-Alternatively, you can use the ``HOROVOD_CUDA_INCLUDE`` and ``HOROVOD_CUDA_LIB`` environment variables to specify the CUDA library to use:
-
-.. code-block:: bash
-
-    $ pip uninstall -y horovod
-    $ HOROVOD_GPU_OPERATIONS=NCCL HOROVOD_NCCL_HOME=/path/to/nccl HOROVOD_CUDA_INCLUDE=/path/to/cuda/include HOROVOD_CUDA_LIB=/path/to/cuda/lib64 pip install --no-cache-dir horovod
-
-
 FORCE-TERMINATE AT Data unpack would read past end of buffer
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 If you see the error message below during the training, it's likely that you have a wrong version of ``hwloc`` installed in your system.
@@ -372,13 +363,13 @@ If you are using TensorFlow 1.14 or 1.15 and are getting a segmentation fault, c
     [ 0] /lib/x86_64-linux-gnu/libc.so.6(+0x3ef20)[0x7f309d34ff20]
     [ 1] /usr/lib/x86_64-linux-gnu/libopen-pal.so.20(opal_hwloc_base_free_topology+0x76)[0x7f3042871ca6]
     ...
-    
-If it does, this could be a conflict with the `hwloc` symbols explorted from TensorFlow. 
+
+If it does, this could be a conflict with the `hwloc` symbols explorted from TensorFlow.
 
 To fix this, locate your hwloc library with `ldconfig -p | grep libhwloc.so`, and then set `LD_PRELOAD`. For example:
 
     LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libhwloc.so python -c 'import horovod.tensorflow as hvd; hvd.init()'
-    
+
 See [this issue](https://github.com/horovod/horovod/issues/1123) for more information.
 
 bash: orted: command not found
