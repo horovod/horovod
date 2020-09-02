@@ -25,12 +25,12 @@ function build_one()
 }
 
 # clear upstream images, ok to fail if images do not exist
-docker rmi $(cat Dockerfile.gpu | grep FROM | awk '{print $2}') || true
 docker rmi $(cat Dockerfile.cpu | grep FROM | awk '{print $2}') || true
+docker rmi $(cat Dockerfile.gpu | grep FROM | awk '{print $2}') || true
 
 # build for cpu and gpu
-build_one 3.6 gpu
-build_one 3.6 cpu
+build_one 3.7 cpu
+build_one 3.7 gpu
 
 # print recent images
 docker images horovod/horovod
