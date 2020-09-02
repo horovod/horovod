@@ -1,12 +1,12 @@
 FROM ubuntu:18.04
 
-ENV TENSORFLOW_VERSION=2.1.0
-ENV PYTORCH_VERSION=1.4.0
-ENV TORCHVISION_VERSION=0.5.0
-ENV MXNET_VERSION=1.6.0
+ENV TENSORFLOW_VERSION=2.3.0
+ENV PYTORCH_VERSION=1.6.0
+ENV TORCHVISION_VERSION=0.7.0
+ENV MXNET_VERSION=1.6.0.post0
 
-# Python 3.6 is supported by Ubuntu Bionic out of the box
-ARG python=3.6
+# Python 3.7 is supported by Ubuntu Bionic out of the box
+ARG python=3.7
 ENV PYTHON_VERSION=${python}
 
 # Set default shell to /bin/bash
@@ -38,10 +38,9 @@ RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
 
 # Install TensorFlow, Keras, PyTorch and MXNet
 RUN pip install future typing
-RUN pip install numpy \
-        tensorflow==${TENSORFLOW_VERSION} \
-        keras \
-        h5py
+RUN pip install tensorflow-cpu==${TENSORFLOW_VERSION} \
+                keras \
+                h5py
 RUN pip install torch==${PYTORCH_VERSION} torchvision==${TORCHVISION_VERSION}
 RUN pip install mxnet==${MXNET_VERSION}
 
