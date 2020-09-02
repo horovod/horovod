@@ -28,15 +28,19 @@ Current voting members of the Horovod TSC:
 
 Current non-voting members of the Horovod TSC:
 * Yuxi Hu (@yuxihu)
-* Lin Yuan (@apeforest)
 * Todd Mytkowicz (@klipto)
 * Emad Barsoum (@ebarsoum)
 * Kaarthik Sivashanmugam (@skaarthik)
 * Enrico Minack (@EnricoMi)
+* Leonard Lausen (@leezu)
+
+Emeritus members of the Horovod TSC:
+* Lin Yuan (@apeforest)
 * Haibin Lin (@eric-haibin-lin)
 
 Non-voting members of the TSC ("maintainers") have commit access to the Horovod GitHub repository, and take part in the
-standing TSC meetings and mailing lists.
+standing TSC meetings and mailing lists. Emeritus members are no longer active maintainers of the project, but are
+welcome to participate in any TSC meeting.
 
 The Horovod TSC meets monthly and publishes meeting notes via a [mailing list](https://lists.lfai.foundation/g/horovod-tsc).
 This mailing list can also be utilized to reach out to the TSC.  Major decisions regarding the technical directions of

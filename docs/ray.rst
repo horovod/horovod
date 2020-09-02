@@ -31,16 +31,15 @@ which is a wrapper over a group of `Ray actors (stateful processes) <https://doc
 
     from horovod.ray import RayExecutor
 
-    # Start the Ray cluster or attach to an exisint Ray cluster.
+    # Start the Ray cluster or attach to an existing Ray cluster
     ray.init()
 
-    # Start num_hosts * num_slots actors on the cluster.
+    # Start num_hosts * num_slots actors on the cluster
     executor = RayExecutor(
         setting, num_hosts=num_hosts, num_slots=num_slots, use_gpu=True)
 
-    # Launch the Ray actors on each machine.
-    # This will launch `num_slots` actors on each machine, each with
-    # 1 GPU allocated (set via CUDA VISIBLE DEVICES)
+    # Launch the Ray actors on each machine
+    # This will launch `num_slots` actors on each machine
     executor.start()
 
 
@@ -53,22 +52,22 @@ To actually execute a function, you can run the following:
 
 .. code-block:: python
 
-    # In its simplest form, a function must take in a dummy variable
-    def simple_fn(_):
+    # Using the stateless `run` method, a function can take in any args or kwargs
+    def simple_fn():
         hvd.init()
         print("hvd rank", hvd.rank())
         return hvd.rank()
 
-    # Execute the function on all workers at once.
-    result = executor.execute(simple_fn)
+    # Execute the function on all workers at once
+    result = executor.run(simple_fn)
     # Check that the rank of all workers is unique
     assert len(set(result)) == hosts * num_slots
 
     executor.shutdown()
 
 
-Execution
-~~~~~~~~~
+Stateful Execution
+~~~~~~~~~~~~~~~~~~
 
 A unique feature of Ray is its support for `stateful Actors <https://docs.ray.io/en/latest/walkthrough.html#remote-classes-actors>`_. This means that you can start arbitrary Python classes on each worker, easily supporting operations and calls where data is cached in memory.
 
@@ -91,18 +90,22 @@ A unique feature of Ray is its support for `stateful Actors <https://docs.ray.io
             return dict(self.model.parameters())
 
         def train(self):
-            return train(self.model, self.optimizer)
+            return self._train(self.model, self.optimizer)
 
 
     ray.init()
     executor = RayExecutor(...)
     executor.start(executable_cls=MyModel)
+
+    # Run 5 training steps
     for i in range(5):
+        # Stateful `execute` method takes the current worker executable as a parameter
         executor.execute(lambda worker: worker.train())
 
+    # Obtain the trained weights from each model replica
     result = executor.execute(lambda worker: worker.get_weights())
 
-    # result will be N copies of the model weights
+    # `result` will be N copies of the model weights
     assert all(isinstance(res, dict) for res in result)
 
 
