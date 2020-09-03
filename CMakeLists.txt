@@ -98,7 +98,7 @@ endforeach()
 
 # PYTHON
 if (NOT PYTHON_EXECUTABLE)
-    find_package(PythonInterp "3.6" REQUIRED)
+    find_package(Python 3.6 COMPONENTS Interpreter REQUIRED)
 endif()
 set(PY_EXE ${PYTHON_EXECUTABLE})
 message(STATUS "Using command ${PY_EXE}")
