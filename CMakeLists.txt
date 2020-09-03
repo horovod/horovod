@@ -97,6 +97,9 @@ foreach(VAR in ITEMS HOROVOD_GPU_ALLREDUCE HOROVOD_GPU_ALLGATHER HOROVOD_GPU_BRO
 endforeach()
 
 # PYTHON
+if (NOT PYTHON_EXECUTABLE)
+    find_package(PythonInterp "3.6" REQUIRED)
+endif()
 set(PY_EXE ${PYTHON_EXECUTABLE})
 message(STATUS "Using command ${PY_EXE}")
 
