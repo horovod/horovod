@@ -99,15 +99,15 @@ To install Horovod:
 
 1. Install `CMake <https://cmake.org/install/>`__
 
-2. **Optional**: Install `Open MPI <https://www.open-mpi.org/>`_ or another MPI implementation.
+2. *Optional*: Install `Open MPI <https://www.open-mpi.org/>`_ or another MPI implementation.
 
    Learn how to install Open MPI `on this page <https://www.open-mpi.org/faq/?category=building#easy-build>`_.
 
    **Note**: Open MPI 3.1.3 has an issue that may cause hangs. The recommended fix is to downgrade to Open MPI 3.1.2 or upgrade to Open MPI 4.0.0.
 
-   Linux users can use `Gloo <https://github.com/facebookincubator/gloo>`__ as an alternative to MPI, which requires no extra dependencies.
+   **Note (Linux)**: Linux users can use `Gloo <https://github.com/facebookincubator/gloo>`__ as an alternative to MPI, which requires no extra dependencies.
 
-   **Note (macOS)** MPI is required for Horovod on macOS, as Gloo is currently unavailable.
+   **Note (macOS)**: MPI is required for Horovod on macOS, as Gloo is currently unavailable.
 
 .. raw:: html
 
