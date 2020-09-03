@@ -150,7 +150,9 @@ public:
   void ScaleBufferImpl(const void* fused_input_data, void* buffer_data, int64_t num_elements,
                        double scale_factor, DataType dtype, cudaStream_t stream) {
     ScaleBufferCudaImpl(fused_input_data, buffer_data, num_elements, scale_factor, dtype, stream);
-    ErrorCheck("ScaleBufferCudaImpl", cudaGetLastError());
+
+    // TODO: https://github.com/horovod/horovod/issues/2230
+    //ErrorCheck("ScaleBufferCudaImpl", cudaGetLastError());
   }
 
 private:
