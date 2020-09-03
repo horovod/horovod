@@ -164,6 +164,15 @@ class FilesystemStore(Store):
         with self.get_filesystem().open(self.get_localized_path(path), 'rb') as f:
             return f.read()
 
+    def read_serialized_keras_model(self, path):
+        """
+        This function will be overridden by DBFSLocalStore.
+        """
+        from horovod.runner.common.util import codec
+
+        model_bytes = self.read(path)
+        return codec.dumps_base64(model_bytes)
+
     def is_parquet_dataset(self, path):
         try:
             dataset = self.get_parquet_dataset(path)
@@ -431,3 +440,34 @@ class HDFSStore(FilesystemStore):
     @classmethod
     def filesystem_prefix(cls):
         return cls.FS_PREFIX
+
+
+class DBFSLocalStore(LocalStore):
+    """Uses DBFS as a store of intermediate data and training artifacts.
+
+    Initialized from a `prefix_path` starts with `/dbfs/...`, see
+    https://docs.databricks.com/data/databricks-file-system.html#local-file-apis.
+
+    Note that DBFSLocalStore cannot be created via Store.create("/dbfs/..."), which will create a
+    LocalStore instead.
+    """
+    def __init__(self, prefix_path, *args, **kwargs):
+        if not prefix_path.startswith("/dbfs/"):
+            raise ValueError("Please provide a `prefix_path` starts with `/dbfs/...`")
+        super(DBFSLocalStore, self).__init__(prefix_path, *args, **kwargs)
+
+    def get_checkpoint_filename(self):
+        # https://github.com/tensorflow/tensorflow/blob/d6850c4a4fa36794d4922e117685918f31faa1df/
+        # tensorflow/python/keras/engine/training.py#L1935
+        # Use Tensorflow SavedModel format.
+        return 'checkpoint.tf'
+
+    def read_serialized_keras_model(self, path):
+        """
+        Returns serialized keras model. On Databricks, only TFKeras is supported, not BareKeras.
+        """
+        from tensorflow import keras
+        from horovod.spark.keras.util import TFKerasUtil
+
+        model = keras.models.load_model(path)
+        return TFKerasUtil.serialize_model(model)
