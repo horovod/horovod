@@ -47,7 +47,8 @@ struct TimelineRecord {
 
 class TimelineWriter {
 public:
-  void Initialize(std::string file_name, std::chrono::steady_clock::time_point start_time_);
+  void Initialize(std::string file_name,
+                  std::chrono::steady_clock::time_point start_time_);
   void Shutdown();
   inline bool IsHealthy() const { return healthy_; }
   inline bool Active() const { return active_; }
@@ -66,12 +67,12 @@ private:
   std::string PendingTimelineFile();
   void SetTimelineFile(std::string filename);
 
-
-
-  // Are we healthy?  Queue no longer accepts new work items and stops draining immediately when false.
+  // Are we healthy?  Queue no longer accepts new work items and stops draining
+  // immediately when false.
   std::atomic_bool healthy_{false};
 
-  // Similar to healthy, but allows queue to be drained before closing when set to false.
+  // Similar to healthy, but allows queue to be drained before closing when set
+  // to false.
   std::atomic_bool active_{false};
 
   // Timeline file.
@@ -94,7 +95,6 @@ private:
   long long start_time_since_epoch_utc_micros_;
   // mutex that protects timeline writer state
   std::recursive_mutex writer_mutex_;
-
 };
 
 enum TimelineState { UNKNOWN, NEGOTIATING, TOP_LEVEL, ACTIVITY };

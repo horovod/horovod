@@ -2139,22 +2139,18 @@ class TorchTests(unittest.TestCase):
             if hvd.rank() == 0:
                 with open(fname, 'r') as timeline_file:
                     timeline_text = timeline_file.read()
-                    print("Timeline text is : ")
-                    print(timeline_text + "\n")
                     assert 'allreduce.test_allreduce' in timeline_text, timeline_text
                     assert 'NEGOTIATE_ALLREDUCE' in timeline_text, timeline_text
                     assert 'ALLREDUCE' in timeline_text, timeline_text
                     assert 'start_time_since_epoch_in_micros' in timeline_text, timeline_text
                     json_obj = json.loads(timeline_text)
                     assert json_obj is not None
-                    if check_cycle is True:
+                    if check_cycle:
                         assert 'CYCLE_START' in timeline_text, timeline_text
 
         with temppath() as fname1:
             hvd.start_timeline(fname1, mark_cycles=True)
-            print("Calling all reduce\n")
             hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
-            print("Calling stop timeline\n")
             # stop timeline will immediately stop events to be registered in timeline. We are providing some time
             # before calling stop so that events can be registered in timeline file.
             time.sleep(0.2)

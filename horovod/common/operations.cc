@@ -414,17 +414,14 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 #endif
 
   // Open the timeline file on coordinator.
-  auto horovod_timeline = std::getenv(HOROVOD_TIMELINE);
-  if (horovod_timeline == nullptr) {
-    char *default_val = (char *)"";
-    horovod_timeline = default_val;
-  }
+  auto timeline_env = std::getenv(HOROVOD_TIMELINE);
+  auto horovod_timeline = timeline_env != nullptr ? std::string(timeline_env) : std::string("");
   bool should_enable_timeline = false;
   if (is_coordinator) {
-    state.timeline.Initialize(std::string(horovod_timeline),
+    state.timeline.Initialize(horovod_timeline,
                               static_cast<unsigned int>(size));
   }
-  if (strcmp(horovod_timeline, "") != 0) {
+  if (horovod_timeline != "") {
       should_enable_timeline = true;
   }
   state.controller->SetTimelineEnabled(should_enable_timeline);
