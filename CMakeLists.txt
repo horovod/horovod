@@ -97,10 +97,12 @@ foreach(VAR in ITEMS HOROVOD_GPU_ALLREDUCE HOROVOD_GPU_ALLGATHER HOROVOD_GPU_BRO
 endforeach()
 
 # PYTHON
-if (NOT PYTHON_EXECUTABLE)
+if(NOT PYTHON_EXECUTABLE)
     find_package(Python 3.6 COMPONENTS Interpreter REQUIRED)
+    set(PY_EXE ${Python_EXECUTABLE})
+else()
+    set(PY_EXE ${PYTHON_EXECUTABLE})
 endif()
-set(PY_EXE ${PYTHON_EXECUTABLE})
 message(STATUS "Using command ${PY_EXE}")
 
 # MPI
