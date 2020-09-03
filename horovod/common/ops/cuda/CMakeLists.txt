@@ -8,9 +8,7 @@ MESSAGE(STATUS "HVD_NVCC_COMPILE_FLAGS = ${HVD_NVCC_COMPILE_FLAGS}")
 
 list(APPEND CUDA_NVCC_FLAGS "${HVD_NVCC_COMPILE_FLAGS}")
 
-cuda_add_library(horovod_cuda_kernels cuda_kernels.cu)
-target_compile_definitions(horovod_cuda_kernels PRIVATE _GLIBCXX_USE_CXX11_ABI=1)
+cuda_add_library(horovod_cuda_kernels cuda_kernels.cu OPTIONS -D_GLIBCXX_USE_CXX11_ABI=1)
 
 # if we need compatible c++ abi, build a compatible version
-cuda_add_library(compatible_horovod_cuda_kernels cuda_kernels.cu)
-target_compile_definitions(compatible_horovod_cuda_kernels PRIVATE _GLIBCXX_USE_CXX11_ABI=0)
+cuda_add_library(compatible_horovod_cuda_kernels cuda_kernels.cu OPTIONS -D_GLIBCXX_USE_CXX11_ABI=0)
