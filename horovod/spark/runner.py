@@ -196,7 +196,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
         use_mpi=None, use_gloo=None, extra_mpi_args=None,
         env=None, stdout=None, stderr=None, verbose=1, nics=None):
     """
-    Runs Horovod in Spark.  Runs `num_proc` processes executing `fn` using the same amount of Spark tasks.
+    Runs Horovod on Spark.  Runs `num_proc` processes executing `fn` using the same amount of Spark tasks.
 
     Args:
         fn: Function to run.
@@ -303,7 +303,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
 def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
                 start_timeout=None, elastic_timeout=None, reset_limit=None, env=None, verbose=1, nics=None):
     """
-    Runs Elastic Horovod in Spark.  Runs `num_proc` processes executing `fn` using the same amount of Spark tasks.
+    Runs Elastic Horovod on Spark.  Runs `num_proc` processes executing `fn` using the same amount of Spark tasks.
 
     Args:
         fn: Function to run.

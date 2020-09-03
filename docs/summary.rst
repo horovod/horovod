@@ -286,11 +286,13 @@ See `Run Horovod <running.rst>`_ for more details, including RoCE/InfiniBand twe
 
 5. To run in Kubernetes, see `Kubeflow <https://github.com/kubeflow/examples/tree/master/demos/yelp_demo/ks_app/vendor/kubeflow/mpi-job>`_, `MPI Operator <https://github.com/kubeflow/mpi-operator/>`_, `Helm Chart <https://github.com/kubernetes/charts/tree/master/stable/horovod/>`_, `FfDL <https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/>`_, and `Polyaxon <https://docs.polyaxon.com/integrations/horovod/>`_.
 
-6. To run in Spark, see `Spark <spark.rst>`_.
+6. To run on Spark, see `Horovod on Spark <spark.rst>`_.
 
-7. To run in Singularity, see `Singularity <https://github.com/sylabs/examples/tree/master/machinelearning/horovod>`_.
+7. To run on Ray, see `Horovod on Ray <ray.rst>`_.
 
-8. To run in a LSF HPC cluster (e.g. Summit), see `LSF <lsf.rst>`_.
+8. To run in Singularity, see `Singularity <https://github.com/sylabs/examples/tree/master/machinelearning/horovod>`_.
+
+9. To run in a LSF HPC cluster (e.g. Summit), see `LSF <lsf.rst>`_.
 
 Gloo
 ----
