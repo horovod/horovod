@@ -68,7 +68,8 @@ class custom_build_ext(build_ext):
         build_dir = os.path.abspath(build_dir)
 
         cmake_args = ['-DCMAKE_BUILD_TYPE=' + config,
-                      '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}'.format(config.upper(), build_dir)]
+                      '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}'.format(config.upper(), build_dir),
+                      '-DPYTHON_EXECUTABLE:FILEPATH=' + sys.executable]
 
         make_args = ['--', '-j8'] if not os.environ.get('MAKEFLAGS') else []
         if self.verbose:

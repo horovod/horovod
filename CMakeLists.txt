@@ -97,17 +97,11 @@ foreach(VAR in ITEMS HOROVOD_GPU_ALLREDUCE HOROVOD_GPU_ALLGATHER HOROVOD_GPU_BRO
 endforeach()
 
 # PYTHON
-find_package(PythonInterp "3.6" REQUIRED)
-# Get the latest version intalled
-if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    execute_process(COMMAND bash -c "for p in $(echo $PATH | tr ':' ' '); do if find -E $p -maxdepth 1 -regex '.*/python3(\\.[0-9]*)?' -exec basename {} \; | sort -t. -k 2,2n | tail -1 | grep .; then break; fi done"
-                    OUTPUT_VARIABLE PY_EXE OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+if(NOT PYTHON_EXECUTABLE)
+    find_package(Python 3.6 COMPONENTS Interpreter REQUIRED)
+    set(PY_EXE ${Python_EXECUTABLE})
 else()
-    execute_process(COMMAND bash -c "for p in $(echo $PATH | tr ':' ' '); do if find $p -maxdepth 1 -regex '.*/python3\\(\\.[0-9]*\\)?' -exec basename {} \; | sort -t. -k 2,2n | tail -1 | grep .; then break; fi done"
-                    OUTPUT_VARIABLE PY_EXE OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
-endif()
-if (NOT PY_EXE)
-     set(PY_EXE ${PYTHON_EXECUTABLE})
+    set(PY_EXE ${PYTHON_EXECUTABLE})
 endif()
 message(STATUS "Using command ${PY_EXE}")
 
