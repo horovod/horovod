@@ -97,15 +97,23 @@ Install
 -------
 To install Horovod:
 
-1. Install `Open MPI <https://www.open-mpi.org/>`_ or another MPI implementation. Learn how to install Open MPI `on this page <https://www.open-mpi.org/faq/?category=building#easy-build>`_.
+1. Install `CMake <https://cmake.org/install/>`__
+
+2. *Optional*: Install `Open MPI <https://www.open-mpi.org/>`_ or another MPI implementation.
+
+   Learn how to install Open MPI `on this page <https://www.open-mpi.org/faq/?category=building#easy-build>`_.
 
    **Note**: Open MPI 3.1.3 has an issue that may cause hangs. The recommended fix is to downgrade to Open MPI 3.1.2 or upgrade to Open MPI 4.0.0.
+
+   **Note (Linux)**: Linux users can use `Gloo <https://github.com/facebookincubator/gloo>`__ as an alternative to MPI, which requires no extra dependencies.
+
+   **Note (macOS)**: MPI is required for Horovod on macOS, as Gloo is currently unavailable.
 
 .. raw:: html
 
     <p/>
 
-2. If you've installed TensorFlow from `PyPI <https://pypi.org/project/tensorflow>`__, make sure that the ``g++-4.8.5`` or ``g++-4.9`` is installed.
+3. If you've installed TensorFlow from `PyPI <https://pypi.org/project/tensorflow>`__, make sure that the ``g++-4.8.5`` or ``g++-4.9`` is installed.
 
    If you've installed PyTorch from `PyPI <https://pypi.org/project/torch>`__, make sure that the ``g++-4.9`` or above is installed.
 
@@ -115,7 +123,7 @@ To install Horovod:
 
     <p/>
 
-3. Install the ``horovod`` pip package.
+4. Install the ``horovod`` pip package.
 
    To run on CPUs:
 
@@ -278,11 +286,13 @@ See `Run Horovod <running.rst>`_ for more details, including RoCE/InfiniBand twe
 
 5. To run in Kubernetes, see `Kubeflow <https://github.com/kubeflow/examples/tree/master/demos/yelp_demo/ks_app/vendor/kubeflow/mpi-job>`_, `MPI Operator <https://github.com/kubeflow/mpi-operator/>`_, `Helm Chart <https://github.com/kubernetes/charts/tree/master/stable/horovod/>`_, `FfDL <https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/>`_, and `Polyaxon <https://docs.polyaxon.com/integrations/horovod/>`_.
 
-6. To run in Spark, see `Spark <spark.rst>`_.
+6. To run on Spark, see `Horovod on Spark <spark.rst>`_.
 
-7. To run in Singularity, see `Singularity <https://github.com/sylabs/examples/tree/master/machinelearning/horovod>`_.
+7. To run on Ray, see `Horovod on Ray <ray.rst>`_.
 
-8. To run in a LSF HPC cluster (e.g. Summit), see `LSF <lsf.rst>`_.
+8. To run in Singularity, see `Singularity <https://github.com/sylabs/examples/tree/master/machinelearning/horovod>`_.
+
+9. To run in a LSF HPC cluster (e.g. Summit), see `LSF <lsf.rst>`_.
 
 Gloo
 ----

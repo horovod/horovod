@@ -1,6 +1,6 @@
 .. inclusion-marker-start-do-not-remove
 
-Horovod in Spark
+Horovod on Spark
 ================
 
 The ``horovod.spark`` package provides a convenient wrapper around Horovod that makes running distributed training
@@ -104,7 +104,7 @@ competition. It is inspired by an article `An Introduction to Deep Learning for 
 and leverages the code of the notebook referenced in the article. The example is split into three parts:
 
 #. The first part performs complicated data preprocessing over an initial set of CSV files provided by the competition and gathered by the community.
-#. The second part defines a Keras model and performs a distributed training of the model using Horovod in Spark.
+#. The second part defines a Keras model and performs a distributed training of the model using Horovod on Spark.
 #. The third part performs prediction using the best model and creates a submission file.
 
 To run the example, be sure to install Horovod with ``[spark]``, then:
@@ -279,7 +279,7 @@ and training.
 
 Security
 --------
-Horovod in Spark uses Open MPI to run the Horovod jobs in Spark, so
+Horovod on Spark uses Open MPI to run the Horovod jobs in Spark, so
 it's as secure as the Open MPI implementation itself.
 
 Since Open MPI does not use encrypted communication and is capable of
