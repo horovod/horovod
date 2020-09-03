@@ -7,12 +7,16 @@ Requirements
 ------------
 
 - Python >= 3.6
-- MPI or CMake
+- CMake
 - TensorFlow, PyTorch, or MXNet
+- (Optional) MPI
 
 For best performance on GPU:
 
 - `NCCL 2 <https://developer.nvidia.com/nccl>`__
+
+If Horovod in unable to find the CMake binary, you may need to set ``HOROVOD_CMAKE`` in your environment before
+installing.
 
 Frameworks
 ----------
@@ -142,9 +146,6 @@ When used as a controller in combination with NCCL, Gloo performs almost identic
 Gloo mode uses ``horovodrun`` to launch worker processes.
 
 Gloo is required to use the elastic / fault tolerant API for Horovod.
-
-If Horovod in unable to find the CMake binary, you may need to set ``HOROVOD_CMAKE`` in your environment before
-installing.
 
 Tensor Operations
 -----------------
