@@ -814,9 +814,11 @@ class SparkTests(unittest.TestCase):
     def test_rsh_with_non_zero_exit_code(self):
         self.do_test_rsh('false', 1)
 
+    @pytest.mark.skip(reason='https://github.com/horovod/horovod/issues/1993')
     def test_rsh_event(self):
         self.do_test_rsh_events(1)
 
+    @pytest.mark.skip(reason='https://github.com/horovod/horovod/issues/1993')
     def test_rsh_events(self):
         self.do_test_rsh_events(3)
 
