@@ -121,13 +121,11 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
         cuda_available = torch.cuda.is_available()
         if cuda_available:
             # Horovod: pin GPU to local rank.
-            if os.environ.get('CUDA_VISIBLE_DEVICES') is None:
-                assert not is_dbfs
+            if not is_dbfs:
                 torch.cuda.set_device(hvd.local_rank())
             else:
                 # Databricks pyspark sets CUDA_VISIBLE_DEVICES for GPU scheduling.
                 # Pin the only visible GPU allocated to this task.
-                assert is_dbfs
                 torch.cuda.set_device(0)
             # Move model to GPU.
             model.cuda()
