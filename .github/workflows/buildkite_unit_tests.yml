@@ -8,7 +8,7 @@ jobs:
 
     steps:
     - name: Download Buildkite Artifacts
-      uses: EnricoMi/download-buildkite-artifact-action@master
+      uses: EnricoMi/download-buildkite-artifact-action@v1.3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
@@ -17,7 +17,7 @@ jobs:
 
     - name: Unit Test Results
       if: always()
-      uses: EnricoMi/publish-unit-test-result-action@master
+      uses: EnricoMi/publish-unit-test-result-action@v1.1
       with:
         check_name: Unit Test Results
         github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -30,6 +30,3 @@ jobs:
       with:
         name: Unit Test Results
         path: test-results/**/*.xml
-
-    - name: Display file structure
-      run: ls -R
