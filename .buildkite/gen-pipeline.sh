@@ -9,7 +9,7 @@ repository=823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
 # list of all the tests
 tests=( \
        #test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2 \
-       #test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2 \
+       test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2 \
        #test-cpu-openmpi-py3_6-tf2_0_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
        test-cpu-openmpi-py3_6-tf2_1_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0 \
        #test-cpu-gloo-py3_7-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0 \
@@ -112,12 +112,12 @@ run_mpi_pytest() {
   # pytests have 4x GPU use cases and require a separate queue
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"${oneccl_env} cd /horovod/test && (echo test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 \\\$(cat /mpirun_command) bash -c 'pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.xml')\"" \
-    10
+    "bash -c \"${oneccl_env} cd /horovod/test && (ls -1 test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 \\\$(cat /mpirun_command) /bin/bash /pytest.sh mpi)\"" \
+    5
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests Standalone (${test})" \
     "bash -c \"${oneccl_env} cd /horovod/test && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.standalone.xml ${standalone_tests}\"" \
-    10
+    5
 
   run_test "${test}" "${queue}" \
     ":pytest: Run Cluster PyTests (${test})" \
@@ -220,12 +220,12 @@ run_gloo_pytest() {
 
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo bash -c 'pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.xml')\"" \
-    10
+    "bash -c \"cd /horovod/test && (ls -1 test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)\"" \
+    5
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests Standalone (${test})" \
     "bash -c \"cd /horovod/test && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.standalone.xml ${standalone_tests}\"" \
-    10
+    5
 
   run_test "${test}" "${queue}" \
     ":pytest: Run Cluster PyTests (${test})" \
