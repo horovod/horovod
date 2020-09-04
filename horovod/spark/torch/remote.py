@@ -23,6 +23,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from horovod.spark.common import constants
 from horovod.spark.common.util import to_list
+from horovod.spark.common.store import DBFSLocalStore
 from horovod.spark.torch.util import deserialize_fn
 
 PETASTORM_HDFS_DRIVER = constants.PETASTORM_HDFS_DRIVER
@@ -85,6 +86,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     # Storage
     store = estimator.getStore()
     remote_store = store.to_remote(run_id, dataset_idx)
+    is_dbfs = isinstance(store, DBFSLocalStore)
 
     @contextlib.contextmanager
     def empty_batch_reader():
@@ -120,10 +122,12 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
         if cuda_available:
             # Horovod: pin GPU to local rank.
             if os.environ.get('CUDA_VISIBLE_DEVICES') is None:
+                assert not is_dbfs
                 torch.cuda.set_device(hvd.local_rank())
             else:
                 # Databricks pyspark sets CUDA_VISIBLE_DEVICES for GPU scheduling.
                 # Pin the only visible GPU allocated to this task.
+                assert is_dbfs
                 torch.cuda.set_device(0)
             # Move model to GPU.
             model.cuda()
