@@ -1,0 +1,32 @@
+name: Unit Tests
+on: [push]
+
+jobs:
+  buildkite:
+    name: "Buildkite Unit Tests"
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download Buildkite Artifacts
+      uses: EnricoMi/download-buildkite-artifact-action@v1.3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
+        output_path: test-results
+        log_level: DEBUG
+
+    - name: Unit Test Results
+      if: always()
+      uses: EnricoMi/publish-unit-test-result-action@v1.1
+      with:
+        check_name: Unit Test Results
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        files: "test-results/**/*.xml"
+        log_level: DEBUG
+
+    - name: Upload Test Results
+      if: always()
+      uses: actions/upload-artifact@v2
+      with:
+        name: Unit Test Results
+        path: test-results/**/*.xml

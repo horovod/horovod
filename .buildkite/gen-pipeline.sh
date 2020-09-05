@@ -31,7 +31,7 @@ build_test() {
 
   echo "- label: ':docker: Build ${test}'"
   echo "  plugins:"
-  echo "  - docker-compose#6b0df8a98ff97f42f4944dbb745b5b8cbf04b78c:"
+  echo "  - docker-compose#v3.5.0:"
   echo "      build: ${test}"
   echo "      image-repository: ${repository}"
   echo "      cache-from: ${test}:${repository}:${BUILDKITE_PIPELINE_SLUG}-${test}-latest"
@@ -51,7 +51,7 @@ cache_test() {
 
   echo "- label: ':docker: Update ${BUILDKITE_PIPELINE_SLUG}-${test}-latest'"
   echo "  plugins:"
-  echo "  - docker-compose#v2.6.0:"
+  echo "  - docker-compose#v3.5.0:"
   echo "      push: ${test}:${repository}:${BUILDKITE_PIPELINE_SLUG}-${test}-latest"
   echo "      config: docker-compose.test.yml"
   echo "      push-retries: 3"
@@ -73,9 +73,11 @@ run_test() {
 
   echo "- label: '${label}'"
   echo "  command: ${command}"
+  echo "  artifact_paths: \"artifacts/**\""
   echo "  plugins:"
-  echo "  - docker-compose#v2.6.0:"
+  echo "  - docker-compose#v3.5.0:"
   echo "      run: ${test}"
+  echo "      volumes: \"./artifacts:/artifacts\""
   echo "      config: docker-compose.test.yml"
   echo "      pull-retries: 3"
   echo "  - ecr#v1.2.0:"
@@ -110,12 +112,16 @@ run_mpi_pytest() {
   # pytests have 4x GPU use cases and require a separate queue
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"${oneccl_env} cd /horovod/test && (echo test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no) && pytest --forked -v --capture=fd ${standalone_tests}\"" \
-    10
+    "bash -c \"${oneccl_env} cd /horovod/test && (ls -1 test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 \\\$(cat /mpirun_command) /bin/bash /pytest.sh mpi)\"" \
+    5
+  run_test "${test}" "${queue}" \
+    ":pytest: Run PyTests Standalone (${test})" \
+    "bash -c \"${oneccl_env} cd /horovod/test && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.standalone.xml ${standalone_tests}\"" \
+    5
 
   run_test "${test}" "${queue}" \
     ":pytest: Run Cluster PyTests (${test})" \
-    "bash -c \"${oneccl_env} /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd test_static_run.py\""
+    "bash -c \"${oneccl_env} /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py\""
 }
 
 run_mpi_integration() {
@@ -129,7 +135,7 @@ run_mpi_integration() {
     # TODO: support mpich
     run_test "${test}" "${queue}" \
       ":jupyter: Run PyTests test_interactiverun (${test})" \
-      "bash -c \"cd /horovod/test && pytest -v --capture=no test_interactiverun.py\""
+      "bash -c \"cd /horovod/test && pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.integration.xml test_interactiverun.py\""
   fi
 
   # Legacy TensorFlow tests
@@ -214,12 +220,16 @@ run_gloo_pytest() {
 
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=fd ${standalone_tests}\"" \
-    10
+    "bash -c \"cd /horovod/test && (ls -1 test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)\"" \
+    5
+  run_test "${test}" "${queue}" \
+    ":pytest: Run PyTests Standalone (${test})" \
+    "bash -c \"cd /horovod/test && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.standalone.xml ${standalone_tests}\"" \
+    5
 
   run_test "${test}" "${queue}" \
     ":pytest: Run Cluster PyTests (${test})" \
-    "bash -c \"/etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd test_static_run.py\""
+    "bash -c \"/etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py\""
 }
 
 run_gloo_integration() {
@@ -263,16 +273,16 @@ run_gloo_integration() {
 
   run_test "${test}" "${queue}" \
     ":factory: Elastic Tests (${test})" \
-    "bash -c \"cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no test_elastic_torch.py ${elastic_tensorflow}\""
+    "bash -c \"cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py ${elastic_tensorflow}\""
 
   run_test "${test}" "${queue}" \
     ":factory: Elastic Spark TensorFlow Tests (${test})" \
-    "bash -c \"cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no ${elastic_spark_tensorflow}\"" \
+    "bash -c \"cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml ${elastic_spark_tensorflow}\"" \
     15
 
   run_test "${test}" "${queue}" \
     ":factory: Elastic Spark Torch Tests (${test})" \
-    "bash -c \"cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no test_elastic_spark_torch.py\"" \
+    "bash -c \"cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py\"" \
     15
 
 }
@@ -307,7 +317,7 @@ run_spark_integration() {
       if [[ ${queue} != *gpu* ]]; then
         run_test "${test}" "${queue}" \
           ":spark: PyTests Spark Estimators (${test})" \
-          "bash -c \"cd /horovod/test && pytest --forked -v --capture=no test_spark_keras.py test_spark_torch.py\""
+          "bash -c \"cd /horovod/test && pytest --forked -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.spark.integration.xml test_spark_keras.py test_spark_torch.py\""
       fi
     fi
 

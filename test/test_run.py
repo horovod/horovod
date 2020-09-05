@@ -356,6 +356,7 @@ class RunTests(unittest.TestCase):
     def test_safe_shell_exec_returns_exit_code(self):
         self.do_test_safe_shell_exec('false', 1, '', '')
 
+    @pytest.mark.skip(reason='https://github.com/horovod/horovod/issues/1993')
     def test_safe_shell_exec_interrupts_on_event(self):
         # interrupt execute in one second
         interrupt = threading.Event()
