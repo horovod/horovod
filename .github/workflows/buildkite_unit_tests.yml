@@ -19,7 +19,7 @@ jobs:
 
     steps:
     - name: Download Buildkite Artifacts
-      uses: EnricoMi/download-buildkite-artifact-action@v1.4
+      uses: EnricoMi/download-buildkite-artifact-action@branch-fix-new-artifact-detection
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
