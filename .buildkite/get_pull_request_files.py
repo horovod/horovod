@@ -2,12 +2,11 @@ import json
 import logging
 import os
 import sys
-from typing import List, Optional
 
 import requests
 
 
-def get_pr_files(commit: Optional[str], pr_number: Optional[int]) -> List[str]:
+def get_pr_files(commit, pr_number):
     if not commit or not pr_number:
         return []
 
@@ -38,7 +37,7 @@ def get_pr_files(commit: Optional[str], pr_number: Optional[int]) -> List[str]:
     return [file.get('filename') for file in compare.get('files')]
 
 
-def get_branch_files(commit: Optional[str], default: Optional[str], branch: Optional[str]) -> List[str]:
+def get_branch_files(commit, default, branch):
     response = requests.get(
         'https://api.github.com/repos/horovod/horovod/compare/{default}...{branch}'.format(
             default=default, branch=branch
