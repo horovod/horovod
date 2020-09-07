@@ -8,10 +8,10 @@ repository=823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
 
 # don't build and test any code if there are no code changes
 # keep in-sync with .github/workflows/buildkite_unit_test.yml
-non_code_files=("^.buildkite/get_pull_request_files.py$" "^.github/" "^docs/" "^*.md" "^*.rst")
+non_code_files=("^.buildkite/get_commit_files.py$" "^.github/" "^docs/" "^*.md" "^*.rst")
 printf "%s\n" "${non_code_files[@]}" > gen-pipeline.sh.grep-patterns
 # shellcheck disable=SC2046
-python $(dirname "$0")/get_pull_request_files.py > gen-pipeline.sh.commit-files
+python $(dirname "$0")/get_commit_files.py > gen-pipeline.sh.commit-files
 commit_files="$(cat gen-pipeline.sh.commit-files)"
 code_files=$(grep -v -f gen-pipeline.sh.grep-patterns gen-pipeline.sh.commit-files || true)
 tests=$(if [[ -z "$commit_files" || "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}" ]] || [[ -n "$code_files" ]]; then
