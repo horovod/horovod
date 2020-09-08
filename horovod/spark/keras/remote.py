@@ -24,6 +24,7 @@ import tensorflow as tf
 from distutils.version import LooseVersion
 
 from horovod.spark.common import constants
+from horovod.spark.common.store import DBFSLocalStore
 from horovod.spark.common.util import _get_allocated_gpu
 from horovod.runner.common.util import codec
 
@@ -83,6 +84,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
 
     # Storage
     store = estimator.getStore()
+    is_dbfs = isinstance(store, DBFSLocalStore)
     remote_store = store.to_remote(run_id, dataset_idx)
 
     def SyncCallback(root_path, sync_to_store_fn, keras):
@@ -155,7 +157,11 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 if _checkpoint_callback:
                     _checkpoint_callback.filepath = ckpt_file
                 else:
-                    _checkpoint_callback = k.callbacks.ModelCheckpoint(ckpt_file)
+                    if is_dbfs and LooseVersion(tf.__version__) < LooseVersion("2.0.0"):
+                        _checkpoint_callback = k.callbacks.ModelCheckpoint(ckpt_file,
+                                                                           save_weights_only=True)
+                    else:
+                        _checkpoint_callback = k.callbacks.ModelCheckpoint(ckpt_file)
                 callbacks.append(_checkpoint_callback)
 
                 if remote_store.saving_runs:
@@ -234,12 +240,17 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
             globals()['_DATASET_FINALIZATION_HACK'] = model
 
             if hvd.rank() == 0:
-                if ckpt_file.endswith(".tf"):
-                    model = k.models.load_model(ckpt_file)
-                    return history.history, keras_utils.serialize_model(model), hvd.size()
+                if is_dbfs:
+                    if LooseVersion(tf.__version__) < LooseVersion("2.0.0"):
+                        model.load_weights(ckpt_file)
+                    else:
+                        model = k.models.load_model(ckpt_file)
+                    serialized_model = keras_utils.serialize_model(model)
                 else:
                     with open(ckpt_file, 'rb') as f:
-                        return history.history, codec.dumps_base64(f.read()), hvd.size()
+                        serialized_model = codec.dumps_base64(f.read())
+
+                return history.history, serialized_model, hvd.size()
     return train
 
 

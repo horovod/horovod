@@ -306,7 +306,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
         if self.getVerbose():
             print('Resuming training from last checkpoint: {}'.format(last_ckpt_path))
 
-        return store.read_serialized_keras_model(last_ckpt_path)
+        return store.read_serialized_keras_model(last_ckpt_path, self.getModel())
 
     def _compile_model(self, keras_utils):
         # Compile the model with all the parameters

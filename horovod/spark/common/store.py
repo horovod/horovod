@@ -165,13 +165,13 @@ class FilesystemStore(Store):
         with self.get_filesystem().open(self.get_localized_path(path), 'rb') as f:
             return f.read()
 
-    def read_serialized_keras_model(self, path):
+    def read_serialized_keras_model(self, ckpt_path, model=None):
         """
         This function will be overridden by DBFSLocalStore.
         """
         from horovod.runner.common.util import codec
 
-        model_bytes = self.read(path)
+        model_bytes = self.read(ckpt_path)
         return codec.dumps_base64(model_bytes)
 
     def is_parquet_dataset(self, path):
@@ -459,17 +459,22 @@ class DBFSLocalStore(LocalStore):
         super(DBFSLocalStore, self).__init__(prefix_path, *args, **kwargs)
 
     def get_checkpoint_filename(self):
-        # https://github.com/tensorflow/tensorflow/blob/d6850c4a4fa36794d4922e117685918f31faa1df/
-        # tensorflow/python/keras/engine/training.py#L1935
-        # Use Tensorflow SavedModel format.
+        # Use the default Tensorflow SavedModel format in TF 2.x. In TF 1.x, the SavedModel format
+        # is used by providing `save_weights_only=True` to the ModelCheckpoint() callback.
         return 'checkpoint.tf'
 
-    def read_serialized_keras_model(self, path):
+    def read_serialized_keras_model(self, ckpt_path, model=None):
         """
         Returns serialized keras model. On Databricks, only TFKeras is supported, not BareKeras.
+        The parameter `model` is for providing the model structure when the checkpoint file only
+        contains model weights.
         """
+        import tensorflow
         from tensorflow import keras
         from horovod.spark.keras.util import TFKerasUtil
 
-        model = keras.models.load_model(path)
+        if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
+            model.load_weights(ckpt_path)
+        else:
+            model = keras.models.load_model(ckpt_path)
         return TFKerasUtil.serialize_model(model)
