@@ -13,11 +13,11 @@ ARG KERAS_PACKAGE=keras==2.2.4
 ARG PYTORCH_PACKAGE=torch==1.2.0
 ARG TORCHVISION_PACKAGE=torchvision==0.4.0
 ARG MXNET_PACKAGE=mxnet-cu100==1.5.0
-ARG PYSPARK_PACKAGE=pyspark==2.4.0
+ARG PYSPARK_PACKAGE=pyspark==2.4.7
 # if SPARK_PACKAGE is set, installs Spark into /spark from the tgz archive
 # if SPARK_PACKAGE is a preview version, installs PySpark from the tgz archive
 # see https://archive.apache.org/dist/spark/ for available packages, version must match PYSPARK_PACKAGE
-ARG SPARK_PACKAGE=spark-2.4.0/spark-2.4.0-bin-hadoop2.7.tgz
+ARG SPARK_PACKAGE=spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
 ARG HOROVOD_BUILD_FLAGS="HOROVOD_GPU_OPERATIONS=NCCL"
 ARG HOROVOD_MIXED_INSTALL=0
 
