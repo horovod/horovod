@@ -4,6 +4,9 @@ on:
     branches: "**"
     tags-ignore: "**"
 
+  pull_request_target:
+    branches: "**"
+
 jobs:
   # buildkite does not run tests when there are no code changes, unless master is build
   # downloading unit tests only works in the horovod repository
