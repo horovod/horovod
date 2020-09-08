@@ -698,14 +698,10 @@ def to_list(var, length):
 
 
 def _get_allocated_gpu(hvd):
-    import warnings
     try:
         # if GPU-aware scheduling is available, pin to the assigned GPU index
         from horovod.spark.task import get_available_devices
-        assigned_gpus = get_available_devices()
-        warnings.warn(str(assigned_gpus))
-        return int(assigned_gpus[0])
-    except Exception as e:
+        return int(get_available_devices()[0])
+    except:
         # pin to local rank
-        warnings.warn(str(e))
         return hvd.local_rank()

@@ -313,13 +313,10 @@ def _pin_gpu_fn():
 
 def _pin_gpu_tensorflow2_fn():
     def fn(hvd, tf, keras):
-        import warnings
         gpus = tf.config.experimental.list_physical_devices('GPU')
-        warnings.warn(str(gpus))
         for gpu in gpus:
             tf.config.experimental.set_memory_growth(gpu, True)
         if gpus:
-            warnings.warn(str(_get_allocated_gpu(hvd)))
             tf.config.experimental.set_visible_devices(gpus[_get_allocated_gpu(hvd)], 'GPU')
     return fn
 
