@@ -698,10 +698,13 @@ def to_list(var, length):
 
 
 def _get_allocated_gpu(hvd):
+    import warnings
     try:
         # if GPU-aware scheduling is available, pin to the assigned GPU index
         from pyspark import TaskContext
+        warnings.warn(str(TaskContext.get().resources()['gpu'].addresses[0]))
         return TaskContext.get().resources()['gpu'].addresses[0]
-    except:
+    except Exception as e:
         # pin to local rank
+        warnings.warn(str(e))
         return hvd.local_rank()
