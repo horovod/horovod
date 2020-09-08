@@ -6,9 +6,16 @@ set -eu
 # our repository in AWS
 repository=823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
 
-# list of all the tests
-tests=( \
-       test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2 \
+# don't build and test any code if there are no code changes
+# keep in-sync with .github/workflows/buildkite_unit_test.yml
+non_code_files=("^.buildkite/get_commit_files.py$" "^.github/" "^docs/" "^.*.md" "^.*.rst")
+printf "%s\n" "${non_code_files[@]}" > gen-pipeline.sh.grep-patterns
+# shellcheck disable=SC2046
+python $(dirname "$0")/get_commit_files.py > gen-pipeline.sh.commit-files
+commit_files="$(cat gen-pipeline.sh.commit-files)"
+code_files=$(grep -v -f gen-pipeline.sh.grep-patterns gen-pipeline.sh.commit-files || true)
+tests=$(if [[ -z "$commit_files" || "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}" ]] || [[ -n "$code_files" ]]; then
+  echo test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2 \
        test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2 \
        test-cpu-openmpi-py3_6-tf2_0_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
        test-cpu-openmpi-py3_6-tf2_1_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0 \
@@ -23,8 +30,10 @@ tests=( \
        test-gpu-openmpi-gloo-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_4_1-pyspark2_4_0 \
        test-gpu-openmpi-py3_6-tf2_3_0-keras2_3_1-torch1_6_0-mxnet1_6_0-pyspark2_4_0 \
        test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
-       test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0 \
-)
+       test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0
+fi)
+read -r -a tests <<< "$tests"
+
 
 build_test() {
   local test=$1
@@ -366,7 +375,7 @@ build_docs() {
 echo "steps:"
 
 # build every test container
-for test in ${tests[@]}; do
+for test in ${tests[@]-}; do
   build_test "${test}"
 done
 
@@ -378,7 +387,7 @@ echo "- wait"
 
 # cache test containers if built from master
 if [[ "${BUILDKITE_BRANCH}" == "master" ]]; then
-  for test in ${tests[@]}; do
+  for test in ${tests[@]-}; do
     cache_test "${test}"
   done
 fi
@@ -386,7 +395,7 @@ fi
 oneccl_env=""
 
 # run all the cpu unit tests and integration tests
-for test in ${tests[@]}; do
+for test in ${tests[@]-}; do
   if [[ ${test} == *-cpu-* ]]; then
     # if gloo is specified, run gloo cpu unit tests and integration tests
     if [[ ${test} == *-gloo* ]]; then
@@ -423,7 +432,7 @@ done
 echo "- wait"
 
 # run 4x gpu unit tests
-for test in ${tests[@]}; do
+for test in ${tests[@]-}; do
   if [[ ${test} == *-gpu-* ]] || [[ ${test} == *-mixed-* ]]; then
     # if gloo is specified, run gloo gpu unit tests
     if [[ ${test} == *-gloo* ]]; then
@@ -441,7 +450,7 @@ done
 echo "- wait"
 
 # run 2x gpu integration tests
-for test in ${tests[@]}; do
+for test in ${tests[@]-}; do
   if [[ ${test} == *-gpu-* ]] || [[ ${test} == *-mixed-* ]]; then
     # if gloo is specified, run gloo gpu integration tests
     if [[ ${test} == *-gloo* ]]; then
