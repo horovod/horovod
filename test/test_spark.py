@@ -1706,10 +1706,6 @@ class SparkTests(unittest.TestCase):
         serialized_model_dbfs = dbfs_store.read_serialized_keras_model(dbfs_ckpt_path, model)
         reconstructed_model_dbfs = deserialize_keras_model(serialized_model_dbfs)
         assert reconstructed_model_dbfs.get_config() == model.get_config()
-        assert reconstructed_model_dbfs.layers[0].get_weights()[0] == \
-               model.layers[0].get_weights()[0]
-        assert reconstructed_model_dbfs.layers[0].get_weights()[1] == \
-               model.layers[0].get_weights()[1]
 
         # test local_store.read_serialized_keras_model
         local_ckpt_path = local_store.prefix_path + "/" + local_store.get_checkpoint_filename()
@@ -1717,7 +1713,3 @@ class SparkTests(unittest.TestCase):
         serialized_model_local = local_store.read_serialized_keras_model(local_ckpt_path, model)
         reconstructed_model_local = deserialize_keras_model(serialized_model_local)
         assert reconstructed_model_local.get_config() == model.get_config()
-        assert reconstructed_model_local.layers[0].get_weights()[0] == \
-               model.layers[0].get_weights()[0]
-        assert reconstructed_model_local.layers[0].get_weights()[1] == \
-               model.layers[0].get_weights()[1]
