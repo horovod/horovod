@@ -1676,6 +1676,7 @@ class SparkTests(unittest.TestCase):
         import h5py
         import io
 
+        import tensorflow
         from tensorflow import keras
 
         # test Store.create will not automatically create DBFSLocalStore
@@ -1698,16 +1699,22 @@ class SparkTests(unittest.TestCase):
 
         # test dbfs_store.read_serialized_keras_model
         dbfs_ckpt_path = dbfs_store.prefix_path + "/" + dbfs_ckpt_name
-        model.save(dbfs_ckpt_path)
-        serialized_model_dbfs = dbfs_store.read_serialized_keras_model(dbfs_ckpt_path)
+        if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
+            model.save_weights(dbfs_ckpt_path)
+        else:
+            model.save(dbfs_ckpt_path)
+        serialized_model_dbfs = dbfs_store.read_serialized_keras_model(dbfs_ckpt_path, model)
         reconstructed_model_dbfs = deserialize_keras_model(serialized_model_dbfs)
         assert reconstructed_model_dbfs.get_config() == model.get_config()
-        assert reconstructed_model_dbfs.get_weights() == model.get_weights()
+        assert reconstructed_model_dbfs.layers[0].get_weights()[0] == \
+               model.layers[0].get_weights()[0]
+        assert reconstructed_model_dbfs.layers[0].get_weights()[1] == \
+               model.layers[0].get_weights()[1]
 
         # test local_store.read_serialized_keras_model
         local_ckpt_path = local_store.prefix_path + "/" + local_store.get_checkpoint_filename()
         model.save(local_ckpt_path)
-        serialized_model_local = local_store.read_serialized_keras_model(local_ckpt_path)
+        serialized_model_local = local_store.read_serialized_keras_model(local_ckpt_path, model)
         reconstructed_model_local = deserialize_keras_model(serialized_model_local)
         assert reconstructed_model_local.get_config() == model.get_config()
         assert reconstructed_model_local.layers[0].get_weights()[0] == \
