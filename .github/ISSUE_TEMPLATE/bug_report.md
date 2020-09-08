@@ -18,6 +18,7 @@ assignees: ''
 8. Spark / PySpark version:
 9. OS and version:
 10. GCC version:
+11. CMake version:
 
 **Checklist:**
 1. Did you search issues to find if somebody asked this question before?
