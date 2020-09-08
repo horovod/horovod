@@ -704,7 +704,7 @@ def _get_allocated_gpu(hvd):
         from horovod.spark.task import get_available_devices
         assigned_gpus = get_available_devices()
         warnings.warn(str(assigned_gpus))
-        return assigned_gpus[0]
+        return int(assigned_gpus[0])
     except Exception as e:
         # pin to local rank
         warnings.warn(str(e))
