@@ -22,7 +22,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from horovod.spark.common import constants
-from horovod.spark.common.util import to_list
+from horovod.spark.common.util import _get_allocated_gpu, to_list
 from horovod.spark.common.store import DBFSLocalStore
 from horovod.spark.torch.util import deserialize_fn
 
@@ -120,13 +120,8 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
 
         cuda_available = torch.cuda.is_available()
         if cuda_available:
-            # Horovod: pin GPU to local rank.
-            if not is_dbfs:
-                torch.cuda.set_device(hvd.local_rank())
-            else:
-                # Databricks pyspark sets CUDA_VISIBLE_DEVICES for GPU scheduling.
-                # Pin the only visible GPU allocated to this task.
-                torch.cuda.set_device(0)
+            # Horovod: pin GPU to local rank or the allocated GPU from spark.
+            torch.cuda.set_device(_get_allocated_gpu(hvd))
             # Move model to GPU.
             model.cuda()
 

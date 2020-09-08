@@ -19,6 +19,7 @@ import os
 import re
 import shutil
 import tempfile
+import warnings
 
 from distutils.version import LooseVersion
 
@@ -453,7 +454,8 @@ class DBFSLocalStore(LocalStore):
     """
     def __init__(self, prefix_path, *args, **kwargs):
         if not prefix_path.startswith("/dbfs/"):
-            raise ValueError("Please provide a `prefix_path` starts with `/dbfs/...`")
+            warnings.warn("The provided prefix_path might be ephemeral: {} Please provide a "
+                          "`prefix_path` starting with `/dbfs/...`".format(prefix_path))
         super(DBFSLocalStore, self).__init__(prefix_path, *args, **kwargs)
 
     def get_checkpoint_filename(self):

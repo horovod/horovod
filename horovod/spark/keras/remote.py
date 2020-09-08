@@ -24,6 +24,7 @@ import tensorflow as tf
 from distutils.version import LooseVersion
 
 from horovod.spark.common import constants
+from horovod.spark.common.util import _get_allocated_gpu
 from horovod.runner.common.util import codec
 
 
@@ -305,12 +306,7 @@ def _pin_gpu_tensorflow2_fn():
         for gpu in gpus:
             tf.config.experimental.set_memory_growth(gpu, True)
         if gpus:
-            if os.environ.get('CUDA_VISIBLE_DEVICES') is None:
-                tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
-            else:
-                # Databricks pyspark sets CUDA_VISIBLE_DEVICES for GPU scheduling.
-                # Pin the only visible GPU allocated to this task.
-                tf.config.experimental.set_visible_devices(gpus[0], 'GPU')
+            tf.config.experimental.set_visible_devices(gpus[_get_allocated_gpu(hvd)], 'GPU')
     return fn
 
 
@@ -318,12 +314,7 @@ def _pin_gpu_tensorflow1_fn():
     def fn(hvd, tf, keras):
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
-        if os.environ.get('CUDA_VISIBLE_DEVICES') is None:
-            config.gpu_options.visible_device_list = str(hvd.local_rank())
-        else:
-            # Databricks pyspark sets CUDA_VISIBLE_DEVICES for GPU scheduling.
-            # Pin the only visible GPU allocated to this task.
-            config.gpu_options.visible_device_list = '0'
+        config.gpu_options.visible_device_list = str(_get_allocated_gpu(hvd))
         keras.backend.set_session(tf.Session(config=config))
     return fn
 
