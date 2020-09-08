@@ -89,7 +89,20 @@ class custom_build_ext(build_ext):
             raise RuntimeError('CMake failed: {}'.format(str(e)))
 
 
+# python packages required to use horovod in general
 require_list = ['cloudpickle', 'psutil', 'pyyaml', 'dataclasses;python_version<"3.7"']
+
+# python packages required / recommended to develop horovod
+# e.g., set of framework versions pinned for development, keep in sync with Dockerfile.test.cpu
+# NOTE: do not use versions with +cpu or +gpu here as users would need to add --find-links to pip
+dev_require_list = ['tensorflow-cpu==1.15.0',
+                    'keras==2.2.4',
+                    'torch==1.2.0',
+                    'torchvision==0.4.0',
+                    'mxnet==1.5.0',
+                    'pyspark==2.4.0']
+
+# python packages required only to run tests
 test_require_list = ['mock', 'pytest', 'pytest-forked', 'parameterized']
 
 # framework dependencies
@@ -158,7 +171,16 @@ setup(name='horovod',
           'mxnet': mxnet_require_list,
           'spark': spark_require_list,
           'ray': ray_require_list,
+          'dev': dev_require_list,
       },
+      # not used by pip since 19.0: https://github.com/pypa/pip/issues/4187#issuecomment-415067034
+      # here for completeness as pip install needs some of these via -f for versions with '+cpu'
+      # for examples, see Dockerfile.test.cpu and Dockerfile.test.gpu
+      dependency_links=[
+          'https://download.pytorch.org/whl/torch_stable.html',
+          'https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html',
+          'https://dist.mxnet.io/python/all'
+      ],
       python_requires='>=3.6',
       zip_safe=False,
       entry_points={
