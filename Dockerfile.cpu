@@ -3,7 +3,7 @@ FROM ubuntu:18.04
 ENV TENSORFLOW_VERSION=2.3.0
 ENV PYTORCH_VERSION=1.6.0
 ENV TORCHVISION_VERSION=0.7.0
-ENV MXNET_VERSION=1.6.0.post0
+ENV MXNET_VERSION=1.6.0
 
 # Python 3.7 is supported by Ubuntu Bionic out of the box
 ARG python=3.7

@@ -71,10 +71,14 @@ class custom_build_ext(build_ext):
                       '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}'.format(config.upper(), build_dir),
                       '-DPYTHON_EXECUTABLE:FILEPATH=' + sys.executable]
 
-        make_args = ['--', '-j8'] if not os.environ.get('MAKEFLAGS') else []
+        make_args = ['-j8'] if not os.environ.get('MAKEFLAGS') else []
         if self.verbose:
             make_args.append('VERBOSE=1')
-        cmake_build_args = ['--config', config] + make_args
+
+        cmake_build_args = ['--config', config]
+        if make_args:
+            # -- specifies that these args are going to the native build tool: make
+            cmake_build_args += ['--'] + make_args
 
         if not os.path.exists(self.build_temp):
             os.makedirs(self.build_temp)
