@@ -67,8 +67,8 @@ model = getattr(applications, args.model)(weights=None)
 opt = tf.optimizers.SGD(0.01)
 
 # Synthetic dataset
-data = tf.random.uniform([args.batch_size, 224, 224, 3], seed=42)
-target = tf.random.uniform([args.batch_size, 1], minval=0, maxval=999, dtype=tf.int64, seed=42)
+data = tf.random.uniform([args.batch_size, 224, 224, 3])
+target = tf.random.uniform([args.batch_size, 1], minval=0, maxval=999, dtype=tf.int64)
 dataset = tf.data.Dataset.from_tensor_slices((data, target)).cache().repeat().batch(args.batch_size)
 
 # Horovod: (optional) compression algorithm.
