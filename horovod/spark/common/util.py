@@ -701,9 +701,10 @@ def _get_allocated_gpu(hvd):
     import warnings
     try:
         # if GPU-aware scheduling is available, pin to the assigned GPU index
-        from pyspark import TaskContext
-        warnings.warn(str(TaskContext.get().resources()['gpu'].addresses[0]))
-        return TaskContext.get().resources()['gpu'].addresses[0]
+        from horovod.spark.task import get_available_devices
+        assigned_gpus = get_available_devices()
+        warnings.warn(str(assigned_gpus))
+        return assigned_gpus[0]
     except Exception as e:
         # pin to local rank
         warnings.warn(str(e))
