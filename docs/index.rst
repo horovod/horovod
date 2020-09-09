@@ -117,6 +117,8 @@ Guides
 
    gpus_include
 
+   mpi_include
+
    conda_include
 
    docker_include
