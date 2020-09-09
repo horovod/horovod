@@ -290,5 +290,14 @@ Environment knobs
 -----------------
 * ``HOROVOD_SPARK_START_TIMEOUT`` - sets the default timeout for Spark tasks to spawn, register, and start running the code.  If executors for Spark tasks are scheduled on-demand and can take a long time to start, it may be useful to increase this timeout on a system level.
 
+Horovod in Spark on Databricks
+------------------------------
+Horovod in Spark in supported on
+`Databricks Runtime 7.4 ML <https://docs.databricks.com/release-notes/runtime/releases.html>`__
+and above. To run Horovod in Spark on Databricks, use `DBFSLocalStore` as the store object:
+
+.. code-block:: python
+
+    store = DBFSLocalStore(prefix_path='/dbfs/...')
 
 .. inclusion-marker-end-do-not-remove

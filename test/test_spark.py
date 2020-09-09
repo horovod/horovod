@@ -1684,7 +1684,8 @@ class SparkTests(unittest.TestCase):
         assert isinstance(local_store, LocalStore)
 
         # test get_checkpoint_filename suffix
-        dbfs_store = DBFSLocalStore("/dbfs/tmp/test_dbfs_dir")
+        # Use a tmp path for testing.
+        dbfs_store = DBFSLocalStore("/tmp/test_dbfs_dir")
         dbfs_ckpt_name = dbfs_store.get_checkpoint_filename()
         assert dbfs_ckpt_name.endswith(".tf")
 
@@ -1698,21 +1699,25 @@ class SparkTests(unittest.TestCase):
                 return keras.models.load_model(f)
 
         # test dbfs_store.read_serialized_keras_model
-        dbfs_ckpt_path = dbfs_store.prefix_path + "/" + dbfs_ckpt_name
-        if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
-            model.save_weights(dbfs_ckpt_path)
-        else:
-            model.save(dbfs_ckpt_path)
-        serialized_model_dbfs = dbfs_store.read_serialized_keras_model(dbfs_ckpt_path, model)
-        reconstructed_model_dbfs = deserialize_keras_model(serialized_model_dbfs)
-        assert reconstructed_model_dbfs.get_config() == model.get_config()
+        get_dbfs_output_dir = dbfs_store.get_local_output_dir_fn("0")
+        with get_dbfs_output_dir() as run_output_dir:
+            dbfs_ckpt_path = run_output_dir + "/" + local_store.get_checkpoint_filename()
+            if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
+                model.save_weights(dbfs_ckpt_path)
+            else:
+                model.save(dbfs_ckpt_path)
+            serialized_model_dbfs = dbfs_store.read_serialized_keras_model(dbfs_ckpt_path, model)
+            reconstructed_model_dbfs = deserialize_keras_model(serialized_model_dbfs)
+            assert reconstructed_model_dbfs.get_config() == model.get_config()
 
         # test local_store.read_serialized_keras_model
         with tempdir() as tmp:
             local_store = Store.create(tmp)
-            local_ckpt_path = local_store.prefix_path + "/" + local_store.get_checkpoint_filename()
-            model.save(local_ckpt_path)
-            serialized_model_local = \
-                local_store.read_serialized_keras_model(local_ckpt_path, model)
-            reconstructed_model_local = deserialize_keras_model(serialized_model_local)
-            assert reconstructed_model_local.get_config() == model.get_config()
+            get_local_output_dir = local_store.get_local_output_dir_fn("0")
+            with get_local_output_dir() as run_output_dir:
+                local_ckpt_path = run_output_dir + "/" + local_store.get_checkpoint_filename()
+                model.save(local_ckpt_path)
+                serialized_model_local = \
+                    local_store.read_serialized_keras_model(local_ckpt_path, model)
+                reconstructed_model_local = deserialize_keras_model(serialized_model_local)
+                assert reconstructed_model_local.get_config() == model.get_config()
