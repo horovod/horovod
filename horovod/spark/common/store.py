@@ -165,9 +165,13 @@ class FilesystemStore(Store):
         with self.get_filesystem().open(self.get_localized_path(path), 'rb') as f:
             return f.read()
 
-    def read_serialized_keras_model(self, ckpt_path, model=None):
-        """
-        This function will be overridden by DBFSLocalStore.
+    def read_serialized_keras_model(self, ckpt_path, model):
+        """Reads the checkpoint file of the keras model into model bytes and returns the base 64
+        encoded model bytes.
+        :param ckpt_path: A string of path to the checkpoint file.
+        :param model: A keras model. This parameter will be used in DBFSLocalStore\
+            .read_serialized_keras_model() when the ckpt_path only contains model weights.
+        :return: the base 64 encoded model bytes of the checkpoint model.
         """
         from horovod.runner.common.util import codec
 
@@ -444,7 +448,8 @@ class HDFSStore(FilesystemStore):
 
 
 class DBFSLocalStore(LocalStore):
-    """Uses DBFS as a store of intermediate data and training artifacts.
+    """Uses Databricks File System (DBFS) local file APIs as a store of intermediate data and
+    training artifacts.
 
     Initialized from a `prefix_path` starts with `/dbfs/...`, see
     https://docs.databricks.com/data/databricks-file-system.html#local-file-apis.
@@ -463,7 +468,7 @@ class DBFSLocalStore(LocalStore):
         # is used by providing `save_weights_only=True` to the ModelCheckpoint() callback.
         return 'checkpoint.tf'
 
-    def read_serialized_keras_model(self, ckpt_path, model=None):
+    def read_serialized_keras_model(self, ckpt_path, model):
         """
         Returns serialized keras model. On Databricks, only TFKeras is supported, not BareKeras.
         The parameter `model` is for providing the model structure when the checkpoint file only

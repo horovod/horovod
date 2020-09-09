@@ -1708,6 +1708,7 @@ class SparkTests(unittest.TestCase):
         assert reconstructed_model_dbfs.get_config() == model.get_config()
 
         # test local_store.read_serialized_keras_model
+        local_store = Store.create("/tmp/test_local_dir")
         local_ckpt_path = local_store.prefix_path + "/" + local_store.get_checkpoint_filename()
         model.save(local_ckpt_path)
         serialized_model_local = local_store.read_serialized_keras_model(local_ckpt_path, model)

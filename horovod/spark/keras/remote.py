@@ -25,7 +25,7 @@ from distutils.version import LooseVersion
 
 from horovod.spark.common import constants
 from horovod.spark.common.store import DBFSLocalStore
-from horovod.spark.common.util import _get_allocated_gpu
+from horovod.spark.common.util import _get_assigned_gpu_or_default
 from horovod.runner.common.util import codec
 
 
@@ -158,6 +158,9 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                     _checkpoint_callback.filepath = ckpt_file
                 else:
                     if is_dbfs and LooseVersion(tf.__version__) < LooseVersion("2.0.0"):
+                        # Because DBFS local file APIs does not support random write which is
+                        # required by h5 format, save_weights_only=True is needed for switching
+                        # to the TensorFlow SavedModel format.
                         _checkpoint_callback = k.callbacks.ModelCheckpoint(ckpt_file,
                                                                            save_weights_only=True)
                     else:
@@ -317,7 +320,8 @@ def _pin_gpu_tensorflow2_fn():
         for gpu in gpus:
             tf.config.experimental.set_memory_growth(gpu, True)
         if gpus:
-            tf.config.experimental.set_visible_devices(gpus[_get_allocated_gpu(hvd)], 'GPU')
+            tf.config.experimental.set_visible_devices(
+                gpus[_get_assigned_gpu_or_default(default=hvd.local_rank())], 'GPU')
     return fn
 
 
@@ -325,7 +329,8 @@ def _pin_gpu_tensorflow1_fn():
     def fn(hvd, tf, keras):
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
-        config.gpu_options.visible_device_list = str(_get_allocated_gpu(hvd))
+        config.gpu_options.visible_device_list = \
+            str(_get_assigned_gpu_or_default(default=hvd.local_rank()))
         keras.backend.set_session(tf.Session(config=config))
     return fn
 
