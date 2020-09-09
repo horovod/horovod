@@ -575,6 +575,7 @@ bool RunLoopOnce(HorovodGlobalState& state) {
   }
   state.last_cycle_start = std::chrono::steady_clock::now();
 
+  std::lock_guard<std::recursive_mutex> guard(state.cycle_mutex_);
   if (state.mark_cycles_in_timeline) {
     // Mark start of the new cycle.
     state.timeline.MarkCycleStart();
@@ -708,6 +709,7 @@ bool horovod_start_timeline(const char* file_name, bool mark_cycles) {
     return false;
   }
 
+  std::lock_guard<std::recursive_mutex> guard(state.cycle_mutex_);
   bool is_coordinator = horovod_global.controller->IsCoordinator();
   if (is_coordinator) {
     horovod_global.timeline.Initialize(file_name, horovod_global.controller->GetSize());
@@ -723,6 +725,7 @@ bool horovod_stop_timeline() {
     return false;
   }
 
+  std::lock_guard<std::recursive_mutex> guard(state.cycle_mutex_);
   horovod_global.controller->SetTimelineEnabled(false);
 
   bool is_coordinator = horovod_global.controller->IsCoordinator();

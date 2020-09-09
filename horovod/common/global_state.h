@@ -17,6 +17,7 @@
 #ifndef HOROVOD_GLOBAL_STATE_H
 #define HOROVOD_GLOBAL_STATE_H
 
+#include <mutex>
 #include <queue>
 #include <thread>
 
@@ -49,6 +50,9 @@ struct HorovodGlobalState {
 
   // Whether the background thread should shutdown.
   std::atomic_bool shut_down{false};
+
+  // Mutex over a single cycle
+  std::recursive_mutex cycle_mutex_;
 
   // Timeline writer.
   Timeline timeline;
