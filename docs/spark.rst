@@ -300,4 +300,19 @@ and above. To run Horovod in Spark on Databricks, use `DBFSLocalStore` as the st
 
     store = DBFSLocalStore(prefix_path='/dbfs/...')
 
+The `DBFSLocalStore` uses `Databricks File System (DBFS) local file APIs <https://docs.databricks.com/data/databricks-file-system.html#local-file-apis>`__
+as a store of intermediate data and training artifacts.
+
+Databricks preconfigures GPU-aware scheduling for you on GPU clusters. See the
+`Databricks blog post <https://databricks.com/blog/2020/06/26/announcing-gpu-aware-scheduling-and-enhanced-deep-learning-capabilities.html>`__
+for details.
+
+With the Estimator API, horovod will launch # of tasks on each worker = # of GPUs on each worker, and each task will
+pin GPU to the assigned GPU from spark.
+
+With the Run API, the function `get_available_devices()` from `horovod.spark.task` will return a list of assigned GPUs
+for the spark task from which `get_available_devices()` is called.
+See `keras_spark3_rossmann.py <../examples/keras_spark3_rossmann.py>`__ for an example of using
+`get_available_devices()` with the Run API.
+
 .. inclusion-marker-end-do-not-remove
