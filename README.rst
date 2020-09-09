@@ -107,21 +107,11 @@ To install Horovod:
 
 1. Install `CMake <https://cmake.org/install/>`__
 
-2. *Optional*: Install `Open MPI <https://www.open-mpi.org/>`_ or another MPI implementation.
-
-   Learn how to install Open MPI `on this page <https://www.open-mpi.org/faq/?category=building#easy-build>`_.
-
-   **Note**: Open MPI 3.1.3 has an issue that may cause hangs. The recommended fix is to downgrade to Open MPI 3.1.2 or upgrade to Open MPI 4.0.0.
-
-   **Note (Linux)**: Linux users can use `Gloo <https://github.com/facebookincubator/gloo>`__ as an alternative to MPI, which requires no extra dependencies.
-
-   **Note (macOS)**: MPI is required for Horovod on macOS, as Gloo is currently unavailable.
-
 .. raw:: html
 
     <p/>
 
-3. If you've installed TensorFlow from `PyPI <https://pypi.org/project/tensorflow>`__, make sure that the ``g++-4.8.5`` or ``g++-4.9`` is installed.
+2. If you've installed TensorFlow from `PyPI <https://pypi.org/project/tensorflow>`__, make sure that the ``g++-4.8.5`` or ``g++-4.9`` is installed.
 
    If you've installed PyTorch from `PyPI <https://pypi.org/project/torch>`__, make sure that the ``g++-4.9`` or above is installed.
 
@@ -131,7 +121,7 @@ To install Horovod:
 
     <p/>
 
-4. Install the ``horovod`` pip package.
+3. Install the ``horovod`` pip package.
 
    To run on CPUs:
 
@@ -145,11 +135,11 @@ To install Horovod:
 
       $ HOROVOD_GPU_OPERATIONS=NCCL pip install horovod
 
-This basic installation is good for laptops and for getting to know Horovod.
-
 For more details on installing Horovod with GPU support, read `Horovod on GPU <docs/gpus.rst>`_.
 
 For the full list of Horovod installation options, read the `Installation Guide <docs/install.rst>`_.
+
+If you want to use MPI, read `Horovod with MPI <docs/mpi.rst>`_.
 
 If you want to use Conda, read `Building a Conda environment with GPU support for Horovod <docs/conda.rst>`_.
 
@@ -306,16 +296,13 @@ Gloo
 ----
 `Gloo <https://github.com/facebookincubator/gloo>`_ is an open source collective communications library developed by Facebook.
 
-Gloo comes included with Horovod, and allows users to run Horovod without requiring MPI to be installed. Gloo support only requires
-that you have `CMake <https://cmake.org/>`_ installed, and is only supported on Linux at this time.
+Gloo comes included with Horovod, and allows users to run Horovod without requiring MPI to be installed.
 
 For environments that have support both MPI and Gloo, you can choose to use Gloo at runtime by passing the ``--gloo`` argument to ``horovodrun``:
 
 .. code-block:: bash
 
      $ horovodrun --gloo -np 2 python train.py
-
-Gloo support is still early in its development, and more features are coming soon.
 
 mpi4py
 ------

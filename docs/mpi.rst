@@ -1,7 +1,18 @@
-:orphan:
+.. inclusion-marker-start-do-not-remove
 
-Run Horovod with Open MPI
-=========================
+Horovod with MPI
+================
+
+MPI can be used as an alternative to Gloo for coordinating work between processes in Horovod. When using NCCL, performance
+will be similar between the two, but if you are doing CPU training, there are noticeable performance benefits to using MPI.
+
+First install `Open MPI <https://www.open-mpi.org/>`_ or another MPI implementation. Learn how to install Open MPI `on this page <https://www.open-mpi.org/faq/?category=building#easy-build>`_.
+
+**Note**: Open MPI 3.1.3 has an issue that may cause hangs. The recommended fix is to downgrade to Open MPI 3.1.2 or upgrade to Open MPI 4.0.0.
+
+mpirun
+------
+
 ``horovodrun`` introduces a convenient, Open MPI-based wrapper for running Horovod scripts.
 
 In some cases it is desirable to have fine-grained control over options passed to Open MPI.  This page describes
@@ -56,7 +67,7 @@ With the ``-x`` option you can specify (``-x NCCL_DEBUG=INFO``) or copy (``-x LD
 all the workers.
 
 Custom SSH ports
-----------------
+~~~~~~~~~~~~~~~~
 
 Specify custom SSH ports with ``-mca plm_rsh_args "-p <port>"`` as follows:
 
@@ -73,7 +84,7 @@ Specify custom SSH ports with ``-mca plm_rsh_args "-p <port>"`` as follows:
 This is frequently useful in the case of `running Horovod in Docker environment <docker.rst>`_.
 
 Open MPI with RDMA
-------------------
+~~~~~~~~~~~~~~~~~~
 
 As noted above, using TCP for MPI communication does not have any significant effects on performance in the majority of
 cases. Models that make heavy use of ``hvd.broadcast()`` and ``hvd.allgather()`` operations are exceptions to that rule.
@@ -95,7 +106,7 @@ Other MPI RDMA implementations may or may not benefit from disabling multithread
 documentation.
 
 Horovod Parameter Knobs
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 Many of the configurable parameters available as command line arguments to ``horovodrun`` can be used with ``mpirun``
 through the use of environment variables.
@@ -121,7 +132,7 @@ Autotuning:
 Note that when using ``horovodrun``, any command line arguments will override values set in the environment.
 
 Hangs due to non-routed network interfaces
-------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Having network interfaces that are not routed can cause Open MPI to hang. An example of such interface is ``docker0``.
 
@@ -177,3 +188,5 @@ Example ``mpirun`` command with ``lo`` and ``docker0`` interfaces excluded:
         -mca pml ob1 -mca btl ^openib \
         -mca btl_tcp_if_exclude lo,docker0 \
         python train.py
+
+.. inclusion-marker-end-do-not-remove
