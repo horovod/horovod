@@ -1690,7 +1690,7 @@ class SparkTests(unittest.TestCase):
         assert dbfs_ckpt_name.endswith(".tf")
 
         # prepare for testing read_serialized_keras_model
-        model = keras.Sequential([keras.Input((32,)), keras.layers.Dense(1)])
+        model = keras.Sequential([keras.Input([32]), keras.layers.Dense(1)])
 
         def deserialize_keras_model(serialized_model):
             model_bytes = codec.loads_base64(serialized_model)
@@ -1708,7 +1708,8 @@ class SparkTests(unittest.TestCase):
                 model.save(dbfs_ckpt_path)
             serialized_model_dbfs = dbfs_store.read_serialized_keras_model(dbfs_ckpt_path, model)
             reconstructed_model_dbfs = deserialize_keras_model(serialized_model_dbfs)
-            assert reconstructed_model_dbfs.get_config() == model.get_config()
+            if LooseVersion(tensorflow.__version__) >= LooseVersion("2.3.0"):
+                assert reconstructed_model_dbfs.get_config() == model.get_config()
 
         # test local_store.read_serialized_keras_model
         with tempdir() as tmp:
@@ -1720,4 +1721,5 @@ class SparkTests(unittest.TestCase):
                 serialized_model_local = \
                     local_store.read_serialized_keras_model(local_ckpt_path, model)
                 reconstructed_model_local = deserialize_keras_model(serialized_model_local)
-                assert reconstructed_model_local.get_config() == model.get_config()
+                if LooseVersion(tensorflow.__version__) >= LooseVersion("2.3.0"):
+                    assert reconstructed_model_local.get_config() == model.get_config()
