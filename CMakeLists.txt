@@ -213,11 +213,14 @@ message(FATAL_ERROR "You should not mix NCCL and MPI GPU due to a possible deadl
 endif()
 
 # Gloo
-if (NOT "$ENV{HOROVOD_WITHOUT_GLOO}" STREQUAL "1" AND NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+if (NOT "$ENV{HOROVOD_WITHOUT_GLOO}" STREQUAL "1")
     if(HAVE_MPI)
         set(USE_MPI TRUE)
     else()
         set(USE_MPI FALSE)
+    endif()
+    if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+        set(USE_LIBUV_DEFAULT ON)
     endif()
     set(CMAKE_POLICY_DEFAULT_CMP0074 NEW)
     add_subdirectory(third_party/gloo)
@@ -230,9 +233,6 @@ if (NOT "$ENV{HOROVOD_WITHOUT_GLOO}" STREQUAL "1" AND NOT ${CMAKE_SYSTEM_NAME} M
                         "${PROJECT_SOURCE_DIR}/horovod/common/ops/gloo_operations.cc")
     add_definitions(-DHAVE_GLOO=1)
     set(HAVE_GLOO TRUE)
-endif()
-if (NOT HAVE_MPI AND ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    message(FATAL_ERROR "Gloo cannot be compiled on MacOS, install MPI.")
 endif()
 
 # NCCL + MPI

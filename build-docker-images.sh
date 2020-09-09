@@ -22,7 +22,7 @@ function build_one()
     docker build -f Dockerfile.${device} -t ${tag} --build-arg python=${py} --no-cache .
     horovod_version=$(docker run --rm ${tag} pip show horovod | grep Version | awk '{print $2}')
     tensorflow_version=$(docker run --rm ${tag} pip show ${tensorflow_pkg} | grep Version | awk '{print $2}')
-    pytorch_version=$(docker run --rm ${tag} pip show torch | grep Version | awk '{print $2}')
+    pytorch_version=$(docker run --rm ${tag} pip show torch | grep Version | sed 's/+/ /g' | awk '{print $2}')
     mxnet_version=$(docker run --rm ${tag} pip show ${mxnet_pkg} | grep Version | awk '{print $2}')
     final_tag=horovod/horovod:${horovod_version}-tf${tensorflow_version}-torch${pytorch_version}-mxnet${mxnet_version}-py${py}-${device}
     docker tag ${tag} ${final_tag}

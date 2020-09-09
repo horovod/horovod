@@ -23,7 +23,17 @@
 #include "gloo/rendezvous/context.h"
 #include "gloo/rendezvous/file_store.h"
 #include "gloo/rendezvous/prefix_store.h"
+
+#ifdef __linux__
 #include "gloo/transport/tcp/device.h"
+using attr = gloo::transport::tcp::attr;
+constexpr auto CreateDevice = gloo::transport::tcp::CreateDevice;
+#else
+// Use uv on macOS as TCP requires epoll (Linux-only)
+#include "gloo/transport/uv/device.h"
+using attr = gloo::transport::uv::attr;
+constexpr auto CreateDevice = gloo::transport::uv::CreateDevice;
+#endif
 
 #if HAVE_MPI
 #include "gloo/mpi/context.h"
@@ -98,10 +108,10 @@ void GlooContext::InitializeFromMPI(MPIContext& mpi_ctx,
 
   // TODO(sihan): Add support for multiple interfaces:
   //  https://github.com/facebookincubator/gloo/issues/190
-  gloo::transport::tcp::attr attr;
-  attr.iface = gloo_iface;
-  attr.ai_family = AF_UNSPEC;
-  auto dev = gloo::transport::tcp::CreateDevice(attr);
+  attr device_attr;
+  device_attr.iface = gloo_iface;
+  device_attr.ai_family = AF_UNSPEC;
+  auto dev = CreateDevice(device_attr);
   auto timeout = GetTimeoutFromEnv();
 
   auto context =
@@ -129,14 +139,14 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
     return;
   }
 
-  // Create a tcp device for communication
+  // Create a device for communication
   // TODO(sihan): Add support for multiple interfaces:
   //  https://github.com/facebookincubator/gloo/issues/190
-  gloo::transport::tcp::attr attr;
-  attr.iface = gloo_iface;
+  attr device_attr;
+  device_attr.iface = gloo_iface;
 
-  attr.ai_family = AF_UNSPEC;
-  auto dev = gloo::transport::tcp::CreateDevice(attr);
+  device_attr.ai_family = AF_UNSPEC;
+  auto dev = CreateDevice(device_attr);
   auto timeout = GetTimeoutFromEnv();
 
   auto host_env = std::getenv(HOROVOD_HOSTNAME);
