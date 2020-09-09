@@ -19,6 +19,7 @@ from distutils.version import LooseVersion
 
 import inspect
 import itertools
+import json
 import os
 import unittest
 import warnings
@@ -2133,7 +2134,7 @@ class TorchTests(unittest.TestCase):
     def test_timeline_api(self):
         hvd.init()
 
-        def check_file(fname):
+        def check_file(fname, mark_cycles):
             if hvd.rank() == 0:
                 with open(fname, 'r') as timeline_file:
                     timeline_text = timeline_file.read()
@@ -2142,8 +2143,12 @@ class TorchTests(unittest.TestCase):
                     assert 'ALLREDUCE' in timeline_text, timeline_text
                     assert 'CYCLE_START' in timeline_text, timeline_text
 
+                    if mark_cycles:
+                        assert 'CYCLE_START' in timeline_text, timeline_text
+
+        mark_cycles = True
         with temppath() as fname1:
-            hvd.start_timeline(fname1, mark_cycles=True)
+            hvd.start_timeline(fname1, mark_cycles=mark_cycles)
 
             # Perform a simple allreduce operation
             hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
@@ -2151,14 +2156,14 @@ class TorchTests(unittest.TestCase):
             # Wait for timeline to drain before reading it
             hvd.stop_timeline()
 
-            check_file(fname1)
+            check_file(fname1, mark_cycles)
 
         # Test resuming with a different filename.
         with temppath() as fname2:
-            hvd.start_timeline(fname2, mark_cycles=True)
+            hvd.start_timeline(fname2, mark_cycles=mark_cycles)
             hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
             hvd.stop_timeline()
-            check_file(fname2)
+            check_file(fname2, mark_cycles)
 
 
 if __name__ == "__main__":
