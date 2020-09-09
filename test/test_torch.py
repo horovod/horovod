@@ -2141,29 +2141,38 @@ class TorchTests(unittest.TestCase):
                     assert 'allreduce.test_allreduce' in timeline_text, timeline_text
                     assert 'NEGOTIATE_ALLREDUCE' in timeline_text, timeline_text
                     assert 'ALLREDUCE' in timeline_text, timeline_text
-                    assert 'CYCLE_START' in timeline_text, timeline_text
-
                     if mark_cycles:
                         assert 'CYCLE_START' in timeline_text, timeline_text
+                    else:
+                        assert 'CYCLE_START' not in timeline_text, timeline_text
 
-        mark_cycles = True
-        with temppath() as fname1:
-            hvd.start_timeline(fname1, mark_cycles=mark_cycles)
+        def do_test(mark_cycles, starts=1):
+            with temppath() as fname:
+                for _ in range(starts):
+                    hvd.start_timeline(fname, mark_cycles=mark_cycles)
 
-            # Perform a simple allreduce operation
-            hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
+                # Perform a simple allreduce operation
+                hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
 
-            # Wait for timeline to drain before reading it
-            hvd.stop_timeline()
+                # Wait for timeline to drain before reading it
+                hvd.stop_timeline()
 
-            check_file(fname1, mark_cycles)
+                check_file(fname, mark_cycles)
+
+        # Start -> allreduce -> stop -> check
+        do_test(True)
 
         # Test resuming with a different filename.
-        with temppath() as fname2:
-            hvd.start_timeline(fname2, mark_cycles=mark_cycles)
-            hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
-            hvd.stop_timeline()
-            check_file(fname2, mark_cycles)
+        do_test(True)
+
+        # Test resuming without cycles
+        do_test(False)
+
+        # Test resuming again with cycles
+        do_test(True)
+
+        # Test starting twice
+        do_test(True, starts=2)
 
 
 if __name__ == "__main__":
