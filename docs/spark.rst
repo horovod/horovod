@@ -290,21 +290,22 @@ Environment knobs
 -----------------
 * ``HOROVOD_SPARK_START_TIMEOUT`` - sets the default timeout for Spark tasks to spawn, register, and start running the code.  If executors for Spark tasks are scheduled on-demand and can take a long time to start, it may be useful to increase this timeout on a system level.
 
-Horovod in Spark on Databricks
+Horovod on Databricks
 ------------------------------
-Horovod in Spark in supported on
-`Databricks Runtime 7.4 ML <https://docs.databricks.com/release-notes/runtime/releases.html>`__
-and above. To run Horovod in Spark on Databricks, use `DBFSLocalStore` as the store object:
+To run Horovod in Spark on Databricks, use `DBFSLocalStore` as the store object:
 
 .. code-block:: python
 
     store = DBFSLocalStore(prefix_path='/dbfs/...')
 
-The `DBFSLocalStore` uses `Databricks File System (DBFS) local file APIs <https://docs.databricks.com/data/databricks-file-system.html#local-file-apis>`__
+The `DBFSLocalStore` uses Databricks File System (DBFS) local file APIs
+(`AWS <https://docs.databricks.com/data/databricks-file-system.html#local-file-apis>`__ |
+`Azure <https://docs.microsoft.com/en-us/azure/databricks/data/databricks-file-system#--local-file-apis>`__)
 as a store of intermediate data and training artifacts.
 
-Databricks preconfigures GPU-aware scheduling for you on GPU clusters. See the
-`Databricks blog post <https://databricks.com/blog/2020/06/26/announcing-gpu-aware-scheduling-and-enhanced-deep-learning-capabilities.html>`__
+Databricks pre-configures GPU-aware scheduling on Databricks Runtime 7.0 ML GPU and above. See GPU scheduling instructions
+(`AWS <https://docs.databricks.com/clusters/gpu.html#gpu-scheduling-1>`__ |
+`Azure <https://docs.microsoft.com/en-us/azure/databricks/clusters/gpu#gpu-scheduling>`__)
 for details.
 
 With the Estimator API, horovod will launch # of tasks on each worker = # of GPUs on each worker, and each task will
