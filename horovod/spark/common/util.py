@@ -698,10 +698,11 @@ def to_list(var, length):
 
 
 def _get_assigned_gpu_or_default(default):
-    try:
+    from horovod.spark.task import get_available_devices
+    available_devices = get_available_devices()
+    if available_devices:
         # if GPU-aware scheduling is available, pin to the assigned GPU index
-        from horovod.spark.task import get_available_devices
-        return int(get_available_devices()[0])
-    except:
+        return int(available_devices[0])
+    else:
         # pin to default GPU index (local rank)
         return default
