@@ -1,18 +1,18 @@
 os:
   - osx
 osx_image: xcode12u
-language: python
+language: generic
 addons:
   homebrew:
     packages:
       - openmpi
       - cmake
       - libuv
+      - python@3.7
     update: true
 jobs:
   include:
-    - python: "3.6"
-      env:
+    - env:
         - HOROVOD_WITH_MPI=1
         - HOROVOD_WITHOUT_GLOO=1
         - TENSORFLOW=1.15.0
@@ -20,8 +20,7 @@ jobs:
         - PYTORCH=1.2.0+cpu
         - TORCHVISION=0.4.1+cpu
         - MXNET=1.4.1
-    - python: "3.7"
-      env:
+    - env:
         - HOROVOD_WITH_GLOO=1
         - HOROVOD_WITHOUT_MPI=1
         - TENSORFLOW=2.2.0
@@ -29,8 +28,7 @@ jobs:
         - PYTORCH=1.5.0+cpu
         - TORCHVISION=0.6.0+cpu
         - MXNET=1.5.0
-    - python: "3.8"
-      env:
+    - env:
         - HOROVOD_WITH_GLOO=1
         - HOROVOD_WITH_MPI=1
         - TENSORFLOW=2.3.0
