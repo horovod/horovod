@@ -1,0 +1,48 @@
+os:
+  - osx
+osx_image: xcode12u
+language: python
+addons:
+  homebrew:
+    packages:
+      - openmpi
+      - cmake
+      - libuv
+    update: true
+jobs:
+  include:
+    - python: "3.6"
+      env:
+        - HOROVOD_WITH_MPI=1
+        - HOROVOD_WITHOUT_GLOO=1
+        - TENSORFLOW=1.15.0
+        - KERAS=2.2.4
+        - PYTORCH=1.2.0+cpu
+        - TORCHVISION=0.4.1+cpu
+        - MXNET=1.4.1
+    - python: "3.7"
+      env:
+        - HOROVOD_WITH_GLOO=1
+        - HOROVOD_WITHOUT_MPI=1
+        - TENSORFLOW=2.2.0
+        - KERAS=2.3.1
+        - PYTORCH=1.5.0+cpu
+        - TORCHVISION=0.6.0+cpu
+        - MXNET=1.5.0
+    - python: "3.8"
+      env:
+        - HOROVOD_WITH_GLOO=1
+        - HOROVOD_WITH_MPI=1
+        - TENSORFLOW=2.3.0
+        - KERAS=2.3.1
+        - PYTORCH=1.6.0+cpu
+        - TORCHVISION=0.7.0+cpu
+        - MXNET=1.5.0
+install:
+  - python -m pip install -U pip
+  - pip install tensorflow==${TENSORFLOW} keras==${KERAS}
+  - pip install torch==${TORCH} torchvision==${TORCHVISION}
+  - pip install mxnet==${MXNET}
+  - HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir '.'
+script:
+  - cd test && (ls parallel/test_*.py | xargs -n 1 horovodrun -np 2 pytest -v)
