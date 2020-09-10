@@ -50,16 +50,17 @@ class BuildKiteTests(unittest.TestCase):
     """
     Tests the generated buildkite pipeline.
     
-    Compares output of .buildkite/gen_pipeline.sh with test/data/expected_buildkite_pipeline.yaml.
+    Compares output of .buildkite/gen-pipeline.sh with test/single/data/expected_buildkite_pipeline.yaml.
     To see the changes in the output, run the following in your Horovod project root:
     
-        BUILDKITE_PIPELINE_SLUG=SLUG BUILDKITE_BRANCH=BRANCH .buildkite/gen-pipeline.sh > test/data/expected_buildkite_pipeline.yaml
+        BUILDKITE_PIPELINE_SLUG=SLUG BUILDKITE_BRANCH=BRANCH .buildkite/gen-pipeline.sh > test/single/data/expected_buildkite_pipeline.yaml
     
     Then run `git diff` to see the changes in the generated pipeline YAML.
-    Commit `test/data/expected_buildkite_pipeline.yaml` to get those changes into your PR.
+    Commit `test/single/data/expected_buildkite_pipeline.yaml` to get those changes into your PR.
     """
     def test_gen_pipeline(self):
-        with open('data/expected_buildkite_pipeline.yaml', 'r') as f:
+        expected_filename = os.path.join(os.path.dirname(__file__), 'data/expected_buildkite_pipeline.yaml')
+        with open(expected_filename, 'r') as f:
             lines = f.readlines()
             expected_pipeline = ''.join(lines)
 
@@ -76,7 +77,8 @@ class BuildKiteTests(unittest.TestCase):
     Tests the given command produces the full pipeline.
     """
     def do_test_gen_full_pipeline(self, cmd, env=dict()):
-        with open('data/expected_buildkite_pipeline.yaml', 'r') as f:
+        expected_filename = os.path.join(os.path.dirname(__file__), 'data/expected_buildkite_pipeline.yaml')
+        with open(expected_filename, 'r') as f:
             lines = f.readlines()
             expected_pipeline = ''.join(lines)
 
