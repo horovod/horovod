@@ -710,6 +710,8 @@ bool horovod_start_timeline(const char* file_name, bool mark_cycles) {
   }
 
   std::lock_guard<std::recursive_mutex> guard(horovod_global.cycle_mutex_);
+  horovod_global.response_cache.clear();
+
   bool is_coordinator = horovod_global.controller->IsCoordinator();
   if (is_coordinator) {
     horovod_global.timeline.Initialize(file_name, horovod_global.controller->GetSize());
@@ -726,6 +728,8 @@ bool horovod_stop_timeline() {
   }
 
   std::lock_guard<std::recursive_mutex> guard(horovod_global.cycle_mutex_);
+  horovod_global.response_cache.clear();
+
   horovod_global.controller->SetTimelineEnabled(false);
 
   bool is_coordinator = horovod_global.controller->IsCoordinator();
