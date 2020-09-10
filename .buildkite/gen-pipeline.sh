@@ -99,33 +99,19 @@ run_mpi_pytest() {
   local oneccl_env=${3:-}
   oneccl_env=$(echo ${oneccl_env//:/ })
 
-  local exclude_keras=""
-  if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
-    # TODO: support for Keras + TF 2.0 and TF-Keras 2.0
-    exclude_keras="| sed 's/test_keras.py//g' | sed 's/test_tensorflow_keras.py//g'"
-  else
-    exclude_keras="| sed 's/[a-z_]*tensorflow2[a-z_.]*//g'"
-  fi
-
-  local excluded_tests="| sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g'"
-
-  # Spark and Run test does not need to be executed with horovodrun, but we still run it below.
-  local exclude_standalone_test="| sed 's/test_spark.py//g' | sed 's/test_run.py//g' | sed 's/test_ray.py//g' | sed 's/test_ray_elastic.py//g'"
-  local standalone_tests="test_spark.py test_run.py"
-
   # pytests have 4x GPU use cases and require a separate queue
   run_test "${test}" "${queue}" \
-    ":pytest: Run PyTests (${test})" \
-    "bash -c \"${oneccl_env} cd /horovod/test && (ls -1 test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 \\\$(cat /mpirun_command) /bin/bash /pytest.sh mpi)\"" \
+    ":pytest: MPI Parallel PyTests (${test})" \
+    "bash -c \"${oneccl_env} cd /horovod/test && (ls -1 parallel/test_*.py | xargs -n 1 \\\$(cat /mpirun_command) /bin/bash /pytest.sh mpi)\"" \
     5
   run_test "${test}" "${queue}" \
-    ":pytest: Run PyTests Standalone (${test})" \
-    "bash -c \"${oneccl_env} cd /horovod/test && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.standalone.xml ${standalone_tests}\"" \
+    ":pytest: MPI Single PyTests (${test})" \
+    "bash -c \"${oneccl_env} cd /horovod/test && (ls -l single/test_*.py | xargs -n 1 /pytest_standalone.sh mpi)\"" \
     5
 
   run_test "${test}" "${queue}" \
-    ":pytest: Run Cluster PyTests (${test})" \
-    "bash -c \"${oneccl_env} /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py\""
+    ":pytest: MPI Cluster PyTests (${test})" \
+    "bash -c \"${oneccl_env} /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml integration/test_static_run.py\""
 }
 
 run_mpi_integration() {
@@ -139,35 +125,35 @@ run_mpi_integration() {
     # TODO: support mpich
     run_test "${test}" "${queue}" \
       ":jupyter: Run PyTests test_interactiverun (${test})" \
-      "bash -c \"cd /horovod/test && pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.integration.xml test_interactiverun.py\""
+      "bash -c \"cd /horovod/test && pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.integration.xml integration/test_interactiverun.py\""
   fi
 
   # Legacy TensorFlow tests
   if [[ ${test} != *"tf2_"* ]] && [[ ${test} != *"tfhead"* ]]; then
     run_test "${test}" "${queue}" \
-      ":tensorflow: Test TensorFlow MNIST (${test})" \
+      ":tensorflow: MPI TensorFlow MNIST (${test})" \
       "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/tensorflow/tensorflow_mnist.py\""
 
     run_test "${test}" "${queue}" \
-      ":tensorflow: Test TensorFlow Eager MNIST (${test})" \
+      ":tensorflow: MPI TensorFlow Eager MNIST (${test})" \
       "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/tensorflow/tensorflow_mnist_eager.py\""
 
     run_test "${test}" "${queue}" \
-      ":tensorflow: Test Keras MNIST (${test})" \
+      ":tensorflow: MPI Keras MNIST (${test})" \
       "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/keras/keras_mnist_advanced.py\""
 
     run_test "${test}" "${queue}" \
-      ":fire: Test PyTorch MNIST (${test})" \
+      ":fire: MPI PyTorch MNIST (${test})" \
       "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py\""
   fi
 
   if [[ ${test} == *"mxnet2_"* ]] || [[ ${test} == *"mxnethead"* ]]; then
       run_test "${test}" "${queue}" \
-               ":muscle: Test MXNet2 MNIST (${test})" \
+               ":muscle: MPI MXNet2 MNIST (${test})" \
                "bash -c \"${oneccl_env} OMP_NUM_THREADS=1 \\\$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet2_mnist.py\""
   else
       run_test "${test}" "${queue}" \
-               ":muscle: Test MXNet MNIST (${test})" \
+               ":muscle: MPI MXNet MNIST (${test})" \
                "bash -c \"${oneccl_env} OMP_NUM_THREADS=1 \\\$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet_mnist.py\""
   fi
 
@@ -175,15 +161,15 @@ run_mpi_integration() {
   # a framework-specific functionality
   if [[ ${test} == *"tf1_15_0"* ]]; then
     run_test "${test}" "${queue}" \
-      ":muscle: Test Stall (${test})" \
+      ":muscle: MPI Stall (${test})" \
       "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/test/test_stall.py\""
 
     if [[ ${test} == *"openmpi"* ]]; then
       run_test "${test}" "${queue}" \
-        ":terminal: Test Horovodrun (${test})" \
+        ":terminal: MPI Horovodrun (${test})" \
         "horovodrun -np 2 -H localhost:2 python /horovod/examples/tensorflow/tensorflow_mnist.py"
       run_test "${test}" "${queue}" \
-        ":terminal: Test Horovodrun (${test})" \
+        ":terminal: MPI Horovodrun (${test})" \
         "bash -c \"echo 'localhost slots=2' > hostfile && horovodrun -np 2 -hostfile hostfile python /horovod/examples/mxnet/mxnet_mnist.py\""
     fi
   fi
@@ -191,11 +177,11 @@ run_mpi_integration() {
   # TensorFlow 2.0 tests
   if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
     run_test "${test}" "${queue}" \
-      ":tensorflow: Test TensorFlow 2.0 MNIST (${test})" \
+      ":tensorflow: MPI TensorFlow 2.0 MNIST (${test})" \
       "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py\""
 
     run_test "${test}" "${queue}" \
-      ":tensorflow: Test TensorFlow 2.0 Keras MNIST (${test})" \
+      ":tensorflow: MPI TensorFlow 2.0 Keras MNIST (${test})" \
       "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py\""
   fi
 }
@@ -213,34 +199,18 @@ run_gloo_pytest() {
   local test=$1
   local queue=$2
 
-  local exclude_keras=""
-  if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
-    # TODO: support for Keras + TF 2.0 and TF-Keras 2.0
-    exclude_keras="| sed 's/test_keras.py//g' | sed 's/test_tensorflow_keras.py//g'"
-  else
-    exclude_keras="| sed 's/[a-z_]*tensorflow2[a-z_.]*//g'"
-  fi
-
-  # These are tested as integration style tests.
-  local excluded_tests="| sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g'"
-
-  # Spark and Run test does not need to be executed with horovodrun, but we still run it below.
-  local exclude_standalone_test="| sed 's/test_spark.py//g' | sed 's/test_run.py//g' | sed 's/test_ray.py//g' | sed 's/test_ray_elastic.py//g'"
-  local standalone_tests="test_spark.py test_run.py"
-  local standalone_ray_tests="test_ray.py test_ray_elastic.py"
-
   run_test "${test}" "${queue}" \
-    ":pytest: Run PyTests (${test})" \
-    "bash -c \"cd /horovod/test && (ls -1 test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)\"" \
+    ":pytest: Gloo Parallel PyTests (${test})" \
+    "bash -c \"cd /horovod/test && (ls -1 parallel/test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)\"" \
     5
   run_test "${test}" "${queue}" \
-    ":pytest: Run PyTests Standalone (${test})" \
-    "bash -c \"cd /horovod/test && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.standalone.xml ${standalone_tests} && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.standalone.xml ${standalone_ray_tests}\"" \
-    10
+    ":pytest: Gloo Single PyTests (${test})" \
+    "bash -c \"cd /horovod/test && (ls -l single/test_*.py | xargs -n 1 /pytest_standalone.sh gloo)\"" \
+    5
 
   run_test "${test}" "${queue}" \
-    ":pytest: Run Cluster PyTests (${test})" \
-    "bash -c \"/etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py\""
+    ":pytest: Gloo Cluster PyTests (${test})" \
+    "bash -c \"/etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml integration/test_static_run.py\""
 }
 
 run_gloo_integration() {
@@ -250,33 +220,33 @@ run_gloo_integration() {
   # TensorFlow 2.0 tests
   if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
     run_test "${test}" "${queue}" \
-      ":tensorflow: Test TensorFlow 2.0 MNIST (${test})" \
+      ":tensorflow: Gloo TensorFlow 2.0 MNIST (${test})" \
       "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
 
     run_test "${test}" "${queue}" \
-      ":tensorflow: Test TensorFlow 2.0 Keras MNIST (${test})" \
+      ":tensorflow: Gloo TensorFlow 2.0 Keras MNIST (${test})" \
       "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
   else
     run_test "${test}" "${queue}" \
-      ":tensorflow: Test TensorFlow MNIST (${test})" \
+      ":tensorflow: Gloo TensorFlow MNIST (${test})" \
       "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow/tensorflow_mnist.py"
 
     run_test "${test}" "${queue}" \
-      ":tensorflow: Test Keras MNIST (${test})" \
+      ":tensorflow: Gloo Keras MNIST (${test})" \
       "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/keras/keras_mnist_advanced.py"
   fi
 
   run_test "${test}" "${queue}" \
-    ":fire: Test PyTorch MNIST (${test})" \
+    ":fire: Gloo PyTorch MNIST (${test})" \
     "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py"
 
   if [[ ${test} == *"mxnet2_"* ]] || [[ ${test} == *"mxnethead"* ]]; then
       run_test "${test}" "${queue}" \
-               ":muscle: Test MXNet2 MNIST (${test})" \
+               ":muscle: Gloo MXNet2 MNIST (${test})" \
                "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet2_mnist.py"
   else
       run_test "${test}" "${queue}" \
-               ":muscle: Test MXNet MNIST (${test})" \
+               ":muscle: Gloo MXNet MNIST (${test})" \
                "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet_mnist.py"
   fi
 
@@ -334,7 +304,7 @@ run_spark_integration() {
       if [[ ${queue} != *gpu* ]]; then
         run_test "${test}" "${queue}" \
           ":spark: PyTests Spark Estimators (${test})" \
-          "bash -c \"cd /horovod/test && pytest --forked -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.spark.integration.xml test_spark_keras.py test_spark_torch.py\""
+          "bash -c \"cd /horovod/test && pytest --forked -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.spark.integration.xml integration/test_spark_keras.py integration/test_spark_torch.py\""
       fi
     fi
 
