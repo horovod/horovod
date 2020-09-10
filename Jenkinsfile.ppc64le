@@ -42,12 +42,12 @@ pipeline {
                           set -xe
 
                           # TensorFlow unit tests
-                          horovodrun -n 2 -H localhost:2 --mpi-args="-pami_noib" pytest -k 'not multi_gpu' -v -s test/test_tensorflow.py
+                          horovodrun -n 2 -H localhost:2 --mpi-args="-pami_noib" pytest -k 'not multi_gpu' -v -s test/parallel/test_tensorflow.py
                           # Container has only 2 GPUs, so run the 'multi_gpu' test seperatly on one process
-                          horovodrun -n 1 -H localhost:1 --mpi-args="-pami_noib" pytest -k 'multi_gpu' -v -s test/test_tensorflow.py
+                          horovodrun -n 1 -H localhost:1 --mpi-args="-pami_noib" pytest -k 'multi_gpu' -v -s test/parallel/test_tensorflow.py
 
                           # PyTorch unit tests
-                          horovodrun -n 2 -H localhost:2 --mpi-args="-pami_noib" pytest -v -s test/test_torch.py
+                          horovodrun -n 2 -H localhost:2 --mpi-args="-pami_noib" pytest -v -s test/parallel/test_torch.py
                     '''
                 }
             }
