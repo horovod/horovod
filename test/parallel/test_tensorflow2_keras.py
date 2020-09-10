@@ -13,17 +13,22 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Tests for horovod.tensorflow.keras."""
+"""Tests for horovod.tensorflow.keras in TensorFlow 2."""
 
 import tensorflow as tf
 import numpy as np
 import warnings
+
+from distutils.version import LooseVersion
+
+import pytest
 
 from tensorflow import keras
 
 import horovod.tensorflow.keras as hvd
 
 
+@pytest.mark.skipif(LooseVersion(tf.__version__) < LooseVersion('2.0.0'), reason='TensorFlow v2 tests')
 class Tf2KerasTests(tf.test.TestCase):
     """
     Tests for ops in horovod.tensorflow.keras.

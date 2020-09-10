@@ -30,6 +30,7 @@ import horovod.keras as hvd
 from common import temppath
 
 
+@pytest.mark.skipif(LooseVersion(tf.__version__) >= LooseVersion('2.0.0'), reason='TensorFlow v1 tests')
 class KerasTests(tf.test.TestCase):
     """
     Tests for ops in horovod.keras.
