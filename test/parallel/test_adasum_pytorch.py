@@ -18,10 +18,14 @@ import horovod.torch as hvd
 import numpy as np
 from horovod.torch.mpi_ops import synchronize
 import math
+import platform
 import unittest
 import warnings
-from distutils.version import LooseVersion
 
+import pytest
+
+
+@pytest.mark.skipif(platform.system() == 'Darwin', reason='Adasum is not supported on macOS')
 class TorchAdasumTests(unittest.TestCase):
   """
   Tests for Adasum reduction logic in horovod.torch.
