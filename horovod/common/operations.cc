@@ -710,6 +710,7 @@ bool horovod_start_timeline(const char* file_name, bool mark_cycles) {
   }
 
   std::lock_guard<std::recursive_mutex> guard(horovod_global.cycle_mutex_);
+  horovod_global.controller->Barrier(Communicator::GLOBAL);
   horovod_global.response_cache.clear();
 
   bool is_coordinator = horovod_global.controller->IsCoordinator();
@@ -728,6 +729,7 @@ bool horovod_stop_timeline() {
   }
 
   std::lock_guard<std::recursive_mutex> guard(horovod_global.cycle_mutex_);
+  horovod_global.controller->Barrier(Communicator::GLOBAL);
   horovod_global.response_cache.clear();
 
   horovod_global.controller->SetTimelineEnabled(false);
