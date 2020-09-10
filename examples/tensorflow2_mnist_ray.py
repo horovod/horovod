@@ -1,6 +1,5 @@
 import tensorflow as tf
 import horovod.tensorflow.keras as hvd
-import horovod.keras as hvd
 
 import ray
 from horovod.ray import RayExecutor
