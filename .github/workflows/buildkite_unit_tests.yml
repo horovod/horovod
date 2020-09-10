@@ -4,13 +4,13 @@ on:
     # keep in-sync with .buildkite/gen-pipeline.sh
     # buildkite does not run tests when there are no changes in paths other then these
     paths-ignore:
-    - '.buildkite/get_commit_files.py'
-    - '.github/**'
-    - 'docs/'
-    - '*.md'
-    - '^*.rst'
+    - ".buildkite/get_commit_files.py"
+    - ".github/**"
+    - "docs/"
+    - "*.md"
+    - "*.rst"
     branches-ignore: master
-    tags-ignore: '**'
+    tags-ignore: "**"
 
 jobs:
   buildkite:
