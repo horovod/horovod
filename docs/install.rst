@@ -147,6 +147,12 @@ Gloo mode uses ``horovodrun`` to launch worker processes.
 
 Gloo is required to use the elastic / fault tolerant API for Horovod.
 
+**Note**: macOS users must install `libuv <https://github.com/libuv/libuv>`_ in order to use Gloo:
+
+.. code-block:: bash
+
+    $ brew install libuv
+
 Tensor Operations
 -----------------
 
