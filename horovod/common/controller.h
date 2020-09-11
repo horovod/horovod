@@ -118,8 +118,11 @@ public:
   void SetTimelineEnabledPending(bool value) { timeline_enabled_pending_ = value;}
   void SetMarkCyclesInTimelinePending(bool value) {mark_cycles_in_timeline_pending_ = value;}
   void SynchronizeTimelineEnabled() {
+    std::cout<< " In synch timeline_enabled_ " << timeline_enabled_.load() << " Pending:" << timeline_enabled_pending_.load() << "\n";
+
     if(timeline_enabled_.load() != timeline_enabled_pending_.load()) {
-      timeline_enabled_ = timeline_enabled_pending_.load();
+
+      timeline_enabled_.store(timeline_enabled_pending_.load());
       std::cout<< "Timeline synchronized\n";
     }
   }
