@@ -123,7 +123,11 @@ public:
       std::cout<< "Timeline synchronized\n";
     }
   }
-  inline bool TimeLineEnabledSynchronized() { return timeline_enabled_.load() == timeline_enabled_pending_.load();}
+  inline bool TimeLineEnabled() {
+    auto p = (timeline_enabled_.load() == timeline_enabled_pending_.load());
+    std::cout<< "timeline_enabled_ " << timeline_enabled_.load() << " Pending:" << timeline_enabled_pending_.load() << " comparison:" << p << "\n";
+    return timeline_enabled_.load();
+  }
   inline bool TimelineEnabledPending() { return timeline_enabled_pending_; }
   inline bool MarkCyclesInTimelinePending() { return mark_cycles_in_timeline_pending_;}
 
