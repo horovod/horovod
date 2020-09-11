@@ -726,7 +726,7 @@ bool horovod_start_timeline(const char* file_name, bool mark_cycles) {
   horovod_global.controller->SetMarkCyclesInTimelinePending(mark_cycles);
   // block until timeline is started
   while(! horovod_global.controller->TimeLineEnabledSynchronized()){
-    std::this_thread::sleep_for(1ms);
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
   return true;
 }

@@ -39,7 +39,7 @@ void TimelineWriter::SetPendingTimelineFile(std::string filename) {
   while (pending_status_.load()) {
     LOG(DEBUG) << "StopTimeline is called. Blocking thread since "
                   "pending_status is still true.";
-    std::this_thread::sleep_for(1ms);
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 }
 
