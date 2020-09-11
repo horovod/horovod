@@ -43,7 +43,7 @@ before_install:
 install:
   - python -m pip install -U pip
   - pip install tensorflow==${TENSORFLOW} keras==${KERAS}
-  - pip install torch==${TORCH} torchvision==${TORCHVISION}
+  - pip install torch==${PYTORCH} torchvision==${TORCHVISION}
   - pip install mxnet==${MXNET}
   - HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir '.'
   - horovodrun --check-build
