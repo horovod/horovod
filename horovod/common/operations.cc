@@ -588,8 +588,9 @@ bool RunLoopOnce(HorovodGlobalState& state) {
   auto response_list =
       state.controller->ComputeResponseList(horovod_global.shut_down, state);
 
-  state.controller->SynchronizeTimelineEnabled();
   state.mark_cycles_in_timeline = state.controller->MarkCyclesInTimelinePending();
+  state.controller->SynchronizeTimelineEnabled();
+
   // Get tensor name and size data for autotuning.
   int64_t total_tensor_size = 0;
   std::vector<std::string> tensor_names;
@@ -723,6 +724,10 @@ bool horovod_start_timeline(const char* file_name, bool mark_cycles) {
   }
   horovod_global.controller->SetTimelineEnabledPending(true);
   horovod_global.controller->SetMarkCyclesInTimelinePending(mark_cycles);
+  // block until timeline is started
+  while(! horovod_global.controller->TimeLineEnabledSynchronized()){
+    std::this_thread::sleep_for(1ms);
+  }
   return true;
 }
 

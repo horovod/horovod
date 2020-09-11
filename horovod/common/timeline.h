@@ -75,6 +75,8 @@ private:
   // to false.
   std::atomic_bool active_{false};
 
+  std::atomic_bool pending_status_{false};
+
   // Timeline file.
   std::ofstream file_;
 

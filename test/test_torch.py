@@ -2152,7 +2152,7 @@ class TorchTests(unittest.TestCase):
             hvd.start_timeline(fname1, mark_cycles=True)
             hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
             # stop timeline will immediately stop events to be registered in timeline. We are providing some time
-            # before calling stop so that events can be registered in timeline file.
+            # before calling stop so that mark_cycle events can be registered in timeline file.
             time.sleep(0.2)
             hvd.stop_timeline()
 
@@ -2171,25 +2171,20 @@ class TorchTests(unittest.TestCase):
         # Test resuming with a different filename, but mark_cycles=False
         with temppath() as fname3:
             # Make sure that last stop timeline has been processed.
-            time.sleep(0.2)
             hvd.start_timeline(fname3, mark_cycles=False)
-            time.sleep(0.2)
             hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
             # stop timeline will immediately stop events to be registered in timeline. We are providing some time
             # before calling stop so that events can be registered in timeline file.
-            time.sleep(0.2)
             hvd.stop_timeline()
             check_file(fname3, check_cycle=False)
 
         # Test resuming with a different filename, but mark_cycles=True
         with temppath() as fname4:
             # Make sure that last stop timeline has been processed.
-            time.sleep(0.2)
             hvd.start_timeline(fname4, mark_cycles=True)
-            time.sleep(0.2)
             hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
             # stop timeline will immediately stop events to be registered in timeline. We are providing some time
-            # before calling stop so that events can be registered in timeline file.
+            # before calling stop so that mark_cycle events can be registered in timeline file.
             time.sleep(0.2)
             hvd.stop_timeline()
             check_file(fname4, check_cycle=True)
@@ -2197,16 +2192,11 @@ class TorchTests(unittest.TestCase):
         # Do 2 continous start
         with temppath() as fname5:
             # again start timeline with same file
-            time.sleep(0.2)
-            hvd.start_timeline(fname5, mark_cycles=True)
-            hvd.start_timeline(fname5, mark_cycles=True)
-            time.sleep(0.2)
+            hvd.start_timeline(fname5, mark_cycles=False)
+            hvd.start_timeline(fname5, mark_cycles=False)
             hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
-            # stop timeline will immediately stop events to be registered in timeline. We are providing some time
-            # before calling stop so that events can be registered in timeline file.
-            time.sleep(0.2)
             hvd.stop_timeline()
-            check_file(fname5, check_cycle=True)
+            check_file(fname5, check_cycle=False)
 
         hvd.shutdown()
 

@@ -30,8 +30,17 @@ TimelineWriter::TimelineWriter() {
 }
 
 void TimelineWriter::SetPendingTimelineFile(std::string filename) {
-  std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
-  new_pending_filename_ = filename;
+  {
+    std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
+    new_pending_filename_ = filename;
+    pending_status_ = true;
+  }
+  // block until pending_Status is applied
+  while (pending_status_.load()) {
+    LOG(DEBUG) << "StopTimeline is called. Blocking thread since "
+                  "pending_status is still true.";
+    std::this_thread::sleep_for(1ms);
+  }
 }
 
 std::string TimelineWriter::PendingTimelineFile() {
@@ -40,6 +49,13 @@ std::string TimelineWriter::PendingTimelineFile() {
 }
 
 void TimelineWriter::SetTimelineFile(std::string filename) {
+  // No op if there are pending events in record_queue, let all the event from
+  // record queue to get dumped to file
+  if (!record_queue_.empty()) {
+    LOG(DEBUG) << " SetTimelineFile is no-op as there are events in "
+                  "record_queue. Will allow those events to be dumped.";
+    return;
+  }
   LOG(INFO) << "Setting TimelineFile. Current file:" << cur_filename_
             << " New filename:" << filename;
   // Close if there existing file open and new file is not same as existing file
@@ -101,6 +117,7 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
     healthy_ = true;
     active_ = false;
   }
+  pending_status_ = false;
 }
 
 void TimelineWriter::Initialize(
@@ -254,7 +271,7 @@ void TimelineWriter::DoWriteMarker(const TimelineRecord& r) {
 
 void TimelineWriter::WriterLoop() {
   while (healthy_) {
-    while (healthy_ && active_ && !record_queue_.empty()) {
+    while (healthy_ && !record_queue_.empty()) {
       auto& r = record_queue_.front();
       switch (r.type) {
       case TimelineRecordType::EVENT:
@@ -274,16 +291,11 @@ void TimelineWriter::WriterLoop() {
         active_ = false;
       }
     }
-    if (!active_) {
-      // drain record_queue
-      while (!record_queue_.empty()) {
-        record_queue_.pop();
-      }
-    }
     // check if we need to call SetTimeLineFile
     std::string pending_timeline_file = PendingTimelineFile();
     if (pending_timeline_file != cur_filename_) {
-      SetTimelineFile(pending_timeline_file);
+      std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
+      SetTimelineFile(PendingTimelineFile());
     }
     // Allow scheduler to schedule other work for this core.
     std::this_thread::yield();
