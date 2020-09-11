@@ -117,7 +117,12 @@ public:
   void SetTimelineEnabled(bool value) { timeline_enabled_pending_ = value; timeline_enabled_ = value;}
   void SetTimelineEnabledPending(bool value) { timeline_enabled_pending_ = value;}
   void SetMarkCyclesInTimelinePending(bool value) {mark_cycles_in_timeline_pending_ = value;}
-  void SynchronizeTimelineEnabled() { timeline_enabled_ = timeline_enabled_pending_.load(); std::cout<< "Timeline synchronized\n";}
+  void SynchronizeTimelineEnabled() {
+    if(timeline_enabled_.load() != timeline_enabled_pending_.load()) {
+      timeline_enabled_ = timeline_enabled_pending_.load();
+      std::cout<< "Timeline synchronized\n";
+    }
+  }
   inline bool TimeLineEnabledSynchronized() { return timeline_enabled_.load() == timeline_enabled_pending_.load();}
   inline bool TimelineEnabledPending() { return timeline_enabled_pending_; }
   inline bool MarkCyclesInTimelinePending() { return mark_cycles_in_timeline_pending_;}
