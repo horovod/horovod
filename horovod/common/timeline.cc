@@ -77,7 +77,7 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
     // activate it.
     healthy_ = true;
     active_ = false;
-    pending_status = false;
+    pending_status_ = false;
     LOG(INFO) << "Inited TimelineWriter but active_ is false, since filename "
                  "passed is empty string";
     return;
@@ -93,7 +93,7 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
       is_new_file_ = false;
       healthy_ = true;
       active_ = true;
-      pending_status = false;
+      pending_status_ = false;
       return;
     } else {
       LOG(ERROR) << "Filename:" << filename
