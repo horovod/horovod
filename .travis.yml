@@ -18,7 +18,7 @@ jobs:
         - KERAS=2.2.4
         - PYTORCH=1.2.0
         - TORCHVISION=0.4.1
-        - MXNET=1.4.1
+        - MXNET=1.5.0
     - env:
         - HOROVOD_WITH_GLOO=1
         - HOROVOD_WITHOUT_MPI=1
@@ -45,7 +45,7 @@ install:
   - pip install tensorflow==${TENSORFLOW} keras==${KERAS}
   - pip install torch==${PYTORCH} torchvision==${TORCHVISION}
   - pip install mxnet==${MXNET}
-  - HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir '.'
+  - HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir '.[test]'
   - horovodrun --check-build
 script:
   - cd test && (ls parallel/test_*.py | xargs -n 1 horovodrun -np 2 pytest -v)
