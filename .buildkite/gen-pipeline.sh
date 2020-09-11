@@ -106,12 +106,12 @@ run_mpi_pytest() {
     5
   run_test "${test}" "${queue}" \
     ":pytest: MPI Single PyTests (${test})" \
-    "bash -c \"${oneccl_env} cd /horovod/test && (ls -l single/test_*.py | xargs -n 1 /pytest_standalone.sh mpi)\"" \
+    "bash -c \"${oneccl_env} cd /horovod/test && (ls -l single/test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh mpi)\"" \
     5
 
   run_test "${test}" "${queue}" \
     ":pytest: MPI Cluster PyTests (${test})" \
-    "bash -c \"${oneccl_env} /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml integration/test_static_run.py\""
+    "bash -c \"${oneccl_env} /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py\""
 }
 
 run_mpi_integration() {
@@ -162,7 +162,7 @@ run_mpi_integration() {
   if [[ ${test} == *"tf1_15_0"* ]]; then
     run_test "${test}" "${queue}" \
       ":muscle: MPI Stall (${test})" \
-      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/test/test_stall.py\""
+      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/test/integration/test_stall.py\""
 
     if [[ ${test} == *"openmpi"* ]]; then
       run_test "${test}" "${queue}" \
@@ -205,12 +205,12 @@ run_gloo_pytest() {
     5
   run_test "${test}" "${queue}" \
     ":pytest: Gloo Single PyTests (${test})" \
-    "bash -c \"cd /horovod/test && (ls -l single/test_*.py | xargs -n 1 /pytest_standalone.sh gloo)\"" \
+    "bash -c \"cd /horovod/test && (ls -l single/test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh gloo)\"" \
     5
 
   run_test "${test}" "${queue}" \
     ":pytest: Gloo Cluster PyTests (${test})" \
-    "bash -c \"/etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml integration/test_static_run.py\""
+    "bash -c \"/etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py\""
 }
 
 run_gloo_integration() {
