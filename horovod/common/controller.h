@@ -118,7 +118,7 @@ public:
   void SetTimelineEnabledPending(bool value) { timeline_enabled_pending_ = value;}
   void SetMarkCyclesInTimelinePending(bool value) {mark_cycles_in_timeline_pending_ = value;}
   void SynchronizeTimelineEnabled() { timeline_enabled_ = timeline_enabled_pending_.load();}
-  inline bool TimeLineEnabledSynchronized() { return (timeline_enabled_ == timeline_enabled_pending_) && ;}
+  inline bool TimeLineEnabledSynchronized() { return timeline_enabled_ == timeline_enabled_pending_;}
   inline bool TimelineEnabledPending() { return timeline_enabled_pending_; }
   inline bool MarkCyclesInTimelinePending() { return mark_cycles_in_timeline_pending_;}
 
