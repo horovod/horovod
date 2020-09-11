@@ -134,7 +134,7 @@ def run_benchmark(state):
 
 
 def on_state_reset():
-    tf.keras.backend.set_value(model.optimizer.lr, lr * hvd.size())
+    opt.lr.assign(lr * hvd.size())
 
 
 state = hvd.elastic.TensorFlowKerasState(model, opt, img_secs=[], iter=0, batch=0, warm=False)
