@@ -36,6 +36,7 @@ jobs:
         - TORCHVISION=0.7.0+cpu
         - MXNET=1.5.0
 before_install:
+  - export PATH=$(pyenv root)/shims:$PATH
   - pyenv install 3.7.7
   - pyenv global 3.7.7
   - python --version
