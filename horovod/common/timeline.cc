@@ -39,6 +39,8 @@ void TimelineWriter::SetPendingTimelineFile(std::string filename) {
   while (pending_status_.load()) {
     LOG(DEBUG) << "StopTimeline is called. Blocking thread since "
                   "pending_status is still true.";
+    std::cout << "StopTimeline is called. Blocking thread since "
+                 "pending_status is still true.";
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 }
@@ -75,6 +77,7 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
     // activate it.
     healthy_ = true;
     active_ = false;
+    pending_status = false;
     LOG(INFO) << "Inited TimelineWriter but active_ is false, since filename "
                  "passed is empty string";
     return;
@@ -90,6 +93,7 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
       is_new_file_ = false;
       healthy_ = true;
       active_ = true;
+      pending_status = false;
       return;
     } else {
       LOG(ERROR) << "Filename:" << filename
