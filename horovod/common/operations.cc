@@ -743,6 +743,10 @@ bool horovod_stop_timeline() {
   }
   horovod_global.controller->SetTimelineEnabledPending(false);
   horovod_global.controller->SetMarkCyclesInTimelinePending(false);
+  while(horovod_global.controller->TimeLineEnabled()){
+    std::cout<< " Stop timeline not yet synchrnonized.\n";
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
   return true;
 }
 
