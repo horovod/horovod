@@ -56,6 +56,7 @@ RUN pip install -U --force pip setuptools requests pytest mock pytest-forked par
 RUN echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.\$1.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.\$2.xml \${@:2} > /pytest.sh
 RUN cat /pytest.sh
 RUN echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.\$1.standalone.\$2.xml \${@:2} > /pytest_standalone.sh
+RUN chmod a+x /pytest_standalone.sh
 RUN cat /pytest_standalone.sh
 
 # Install Spark stand-alone cluster.
