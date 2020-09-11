@@ -123,7 +123,7 @@ public:
     if(timeline_enabled_.load() != timeline_enabled_pending_.load()) {
 
       timeline_enabled_.exchange(timeline_enabled_pending_.load());
-      timeline_enabled_pending_.exchange(timeline_enabled_.load())
+      timeline_enabled_pending_.exchange(timeline_enabled_.load());
       std::cout<< "Timeline synchronized. " << "timeline_enabled_ " << timeline_enabled_.load() << " Pending:" << timeline_enabled_pending_.load() << "\n"
     }
   }
