@@ -116,7 +116,7 @@ public:
 
   void SetTimelineEnabled(bool value) {
     std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
-    timeline_enabled_pending = value;
+    timeline_enabled_pending_ = value;
     timeline_enabled_ = value;
   }
   void SetTimelineEnabledPending(bool value) {
@@ -130,12 +130,12 @@ public:
   void SynchronizeTimelineEnabled() {
       std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
       timeline_enabled_ = timeline_enabled_pending_;
-      std::cout<< "Timeline synchronized. " << "timeline_enabled_ " << timeline_enabled_.load() << " Pending:" << timeline_enabled_pending_.load() << "\n";
+      std::cout<< "Timeline synchronized. " << "timeline_enabled_ " << timeline_enabled_ << " Pending:" << timeline_enabled_pending_ << "\n";
   }
   inline bool TimeLineEnabled() {
     std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
-    auto p = (timeline_enabled_.load() == timeline_enabled_pending_.load());
-    std::cout<< "timeline_enabled_ " << timeline_enabled_.load() << " Pending:" << timeline_enabled_pending_.load() << " comparison:" << p << "\n";
+    auto p = (timeline_enabled_ == timeline_enabled_pending_);
+    std::cout<< "timeline_enabled_ " << timeline_enabled_ << " Pending:" << timeline_enabled_pending_ << " comparison:" << p << "\n";
     return timeline_enabled_;
   }
   inline bool TimelineEnabledPending() {
