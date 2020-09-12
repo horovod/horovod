@@ -114,26 +114,40 @@ public:
     }
   };
 
-  void SetTimelineEnabled(bool value) { timeline_enabled_pending_.exchange(value); timeline_enabled_.exchange(value);}
-  void SetTimelineEnabledPending(bool value) { timeline_enabled_pending_.exchange(value);}
-  void SetMarkCyclesInTimelinePending(bool value) {mark_cycles_in_timeline_pending_.exchange(value);}
+  void SetTimelineEnabled(bool value) {
+    std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
+    timeline_enabled_pending = value;
+    timeline_enabled_ = value;
+  }
+  void SetTimelineEnabledPending(bool value) {
+    std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
+    timeline_enabled_pending_ = value;
+  }
+  void SetMarkCyclesInTimelinePending(bool value) {
+    std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
+    mark_cycles_in_timeline_pending_ = value;
+  }
   void SynchronizeTimelineEnabled() {
-    std::cout<< " In synch timeline_enabled_ " << timeline_enabled_.load() << " Pending:" << timeline_enabled_pending_.load() << "\n";
-
-    if(timeline_enabled_.load() != timeline_enabled_pending_.load()) {
-
-      timeline_enabled_.exchange(timeline_enabled_pending_.load());
-      timeline_enabled_pending_.exchange(timeline_enabled_.load());
+      std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
+      timeline_enabled_ = timeline_enabled_pending_;
       std::cout<< "Timeline synchronized. " << "timeline_enabled_ " << timeline_enabled_.load() << " Pending:" << timeline_enabled_pending_.load() << "\n";
     }
   }
   inline bool TimeLineEnabled() {
+    std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
+
     auto p = (timeline_enabled_.load() == timeline_enabled_pending_.load());
     std::cout<< "timeline_enabled_ " << timeline_enabled_.load() << " Pending:" << timeline_enabled_pending_.load() << " comparison:" << p << "\n";
-    return timeline_enabled_.load();
+    return timeline_enabled_;
   }
-  inline bool TimelineEnabledPending() { return timeline_enabled_pending_; }
-  inline bool MarkCyclesInTimelinePending() { return mark_cycles_in_timeline_pending_;}
+  inline bool TimelineEnabledPending() {
+    std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
+    return timeline_enabled_pending_;
+  }
+  inline bool MarkCyclesInTimelinePending() {
+    std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
+    return mark_cycles_in_timeline_pending_;
+  }
 
   std::vector<int>& GetRanks() { return ranks_; };
   int GetRank() { return rank_; };
@@ -215,9 +229,10 @@ protected:
   // requests to allreduce every tensor (keyed by tensor name).
   MessageTable message_table_;
 
-  std::atomic_bool timeline_enabled_{false};
-  std::atomic_bool timeline_enabled_pending_{false};
-  std::atomic_bool mark_cycles_in_timeline_pending_{false};
+  bool timeline_enabled_ = false;
+  bool timeline_enabled_pending_ = false;
+  bool mark_cycles_in_timeline_pending_ = false;
+  std::recursive_mutex timeline_mutex_;
 
 
   // Outside dependencies

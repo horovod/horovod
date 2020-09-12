@@ -27,16 +27,23 @@ namespace common {
 TimelineWriter::TimelineWriter() {
   cur_filename_ = "";
   new_pending_filename_ = "";
+  pending_status_ = false;
 }
 
 void TimelineWriter::SetPendingTimelineFile(std::string filename) {
   {
     std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
     new_pending_filename_ = filename;
-    pending_status_.exchange(true);
+    pending_status_ = true;
   }
   // block until pending_Status is applied
-  while (pending_status_.load()) {
+  while (true) {
+    {
+       std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
+       if(!pending_status_){
+         return;
+       }
+    }
     LOG(DEBUG) << "StopTimeline is called. Blocking thread since "
                   "pending_status is still true.";
     if(filename==""){
@@ -87,7 +94,7 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
     // empty filename is special which tells that init the timeline but don't
     // activate it.
 
-    pending_status_.exchange(false);
+    pending_status_ = false;
     LOG(INFO) << "Inited TimelineWriter but active_ is false, since filename "
                  "passed is empty string";
     return;
@@ -103,7 +110,7 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
       is_new_file_ = false;
       healthy_ = true;
       active_ = true;
-      pending_status_.exchange(false);
+      pending_status_ = false;
       return;
     } else {
       LOG(ERROR) << "Filename:" << filename
@@ -131,7 +138,7 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
     healthy_ = true;
     active_ = false;
   }
-  pending_status_.exchange(false);
+  pending_status_ = false;
 }
 
 void TimelineWriter::Initialize(
