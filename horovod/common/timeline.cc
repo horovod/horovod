@@ -314,7 +314,8 @@ void TimelineWriter::WriterLoop() {
     {
       std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
       // check if we need to call SetTimeLineFile
-      SetTimelineFile(PendingTimelineFile());
+      if(pending_status_)
+        SetTimelineFile(PendingTimelineFile());
     }
     // Allow scheduler to schedule other work for this core.
     std::this_thread::yield();
