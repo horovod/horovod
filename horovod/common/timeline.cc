@@ -44,13 +44,11 @@ void TimelineWriter::SetPendingTimelineFile(std::string filename) {
          return;
        }
     }
-    LOG(DEBUG) << "StopTimeline is called. Blocking thread since "
-                  "pending_status is still true.";
     if(filename==""){
-        std::cout << "StopTimeline is called. Blocking thread since "
+        LOG(DEBUG) << "StopTimeline is called. Blocking thread since "
                     "pending_status is still true.\n";
     } else {
-        std::cout << "StartTimeline is called. Blocking thread since "
+        LOG(DEBUG) << "StartTimeline is called. Blocking thread since "
                     "pending_status is still true.\n";
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -68,6 +66,7 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
 
   LOG(INFO) << "Setting TimelineFile. Current file:" << cur_filename_
             << " New filename:" << filename;
+
   // Close if there existing file open and new file is not same as existing file
   if (cur_filename_ != "" && cur_filename_ != filename) {
 
@@ -314,12 +313,8 @@ void TimelineWriter::WriterLoop() {
     }
     {
       std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
-
       // check if we need to call SetTimeLineFile
-      std::string pending_timeline_file = PendingTimelineFile();
-      if (pending_timeline_file != cur_filename_) {
-        SetTimelineFile(pending_timeline_file);
-      }
+      SetTimelineFile(PendingTimelineFile());
     }
     // Allow scheduler to schedule other work for this core.
     std::this_thread::yield();
