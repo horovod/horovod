@@ -131,13 +131,12 @@ public:
   }
 
   void SynchronizeTimelineEnabled() {
-      std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
-      timeline_enabled_ = timeline_enabled_pending_;
+    std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
+    timeline_enabled_ = timeline_enabled_pending_;
   }
 
   inline bool TimeLineEnabled() {
     std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
-    auto p = (timeline_enabled_ == timeline_enabled_pending_);
     return timeline_enabled_;
   }
 

@@ -39,16 +39,16 @@ void TimelineWriter::SetPendingTimelineFile(std::string filename) {
   // block until pending_Status is applied
   while (true) {
     {
-       std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
-       if(!pending_status_){
-         return;
-       }
+      std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
+      if (!pending_status_) {
+        return;
+      }
     }
-    if(filename==""){
-        LOG(DEBUG) << "StopTimeline is called. Blocking thread since "
+    if (filename == "") {
+      LOG(DEBUG) << "StopTimeline is called. Blocking thread since "
                     "pending_status is still true.\n";
     } else {
-        LOG(DEBUG) << "StartTimeline is called. Blocking thread since "
+      LOG(DEBUG) << "StartTimeline is called. Blocking thread since "
                     "pending_status is still true.\n";
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -72,7 +72,7 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
 
     if (!record_queue_.empty()) {
       LOG(DEBUG) << " SetTimelineFile is no-op as there are events in "
-                  "record_queue. Will allow those events to be dumped.";
+                    "record_queue. Will allow those events to be dumped.";
       active_ = false;
       return;
     }
