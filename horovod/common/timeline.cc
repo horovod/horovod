@@ -33,7 +33,7 @@ void TimelineWriter::SetPendingTimelineFile(std::string filename) {
   {
     std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
     new_pending_filename_ = filename;
-    pending_status_ = true;
+    pending_status_.exchange(true);
   }
   // block until pending_Status is applied
   while (pending_status_.load()) {
@@ -58,15 +58,18 @@ std::string TimelineWriter::PendingTimelineFile() {
 void TimelineWriter::SetTimelineFile(std::string filename) {
   // No op if there are pending events in record_queue, let all the event from
   // record queue to get dumped to file
-  if (!record_queue_.empty()) {
-    LOG(DEBUG) << " SetTimelineFile is no-op as there are events in "
-                  "record_queue. Will allow those events to be dumped.";
-    return;
-  }
+
   LOG(INFO) << "Setting TimelineFile. Current file:" << cur_filename_
             << " New filename:" << filename;
   // Close if there existing file open and new file is not same as existing file
   if (cur_filename_ != "" && cur_filename_ != filename) {
+
+    if (!record_queue_.empty()) {
+      LOG(DEBUG) << " SetTimelineFile is no-op as there are events in "
+                  "record_queue. Will allow those events to be dumped.";
+      active_ = false;
+      return;
+    }
     if (file_.is_open() && file_.good()) {
       file_.close();
       LOG(INFO) << "Closed timeline file:" << cur_filename_;
@@ -76,13 +79,15 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
   // if new filename is empty, we need to stop accepting activities. This would
   // stopping timeline
   if (filename == "") {
+
+    healthy_ = true;
+    active_ = false;
     cur_filename_ = filename;
     new_pending_filename_ = cur_filename_;
     // empty filename is special which tells that init the timeline but don't
     // activate it.
-    healthy_ = true;
-    active_ = false;
-    pending_status_ = false;
+
+    pending_status_.exchange(false);
     LOG(INFO) << "Inited TimelineWriter but active_ is false, since filename "
                  "passed is empty string";
     return;
@@ -98,7 +103,7 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
       is_new_file_ = false;
       healthy_ = true;
       active_ = true;
-      pending_status_ = false;
+      pending_status_.exchange(false);
       return;
     } else {
       LOG(ERROR) << "Filename:" << filename
@@ -126,7 +131,7 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
     healthy_ = true;
     active_ = false;
   }
-  pending_status_ = false;
+  pending_status_.exchange(false);
 }
 
 void TimelineWriter::Initialize(
@@ -300,11 +305,14 @@ void TimelineWriter::WriterLoop() {
         active_ = false;
       }
     }
-    // check if we need to call SetTimeLineFile
-    std::string pending_timeline_file = PendingTimelineFile();
-    if (pending_timeline_file != cur_filename_) {
+    {
       std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
-      SetTimelineFile(PendingTimelineFile());
+
+      // check if we need to call SetTimeLineFile
+      std::string pending_timeline_file = PendingTimelineFile();
+      if (pending_timeline_file != cur_filename_) {
+        SetTimelineFile(pending_timeline_file);
+      }
     }
     // Allow scheduler to schedule other work for this core.
     std::this_thread::yield();
