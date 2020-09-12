@@ -114,9 +114,9 @@ public:
     }
   };
 
-  void SetTimelineEnabled(bool value) { timeline_enabled_pending_ = value; timeline_enabled_ = value;}
-  void SetTimelineEnabledPending(bool value) { timeline_enabled_pending_ = value;}
-  void SetMarkCyclesInTimelinePending(bool value) {mark_cycles_in_timeline_pending_ = value;}
+  void SetTimelineEnabled(bool value) { timeline_enabled_pending_.exchange(value); timeline_enabled_.exchange(value);}
+  void SetTimelineEnabledPending(bool value) { timeline_enabled_pending_.exchange(value);}
+  void SetMarkCyclesInTimelinePending(bool value) {mark_cycles_in_timeline_pending_.exchange(value);}
   void SynchronizeTimelineEnabled() {
     std::cout<< " In synch timeline_enabled_ " << timeline_enabled_.load() << " Pending:" << timeline_enabled_pending_.load() << "\n";
 
@@ -124,7 +124,7 @@ public:
 
       timeline_enabled_.exchange(timeline_enabled_pending_.load());
       timeline_enabled_pending_.exchange(timeline_enabled_.load());
-      std::cout<< "Timeline synchronized. " << "timeline_enabled_ " << timeline_enabled_.load() << " Pending:" << timeline_enabled_pending_.load() << "\n"
+      std::cout<< "Timeline synchronized. " << "timeline_enabled_ " << timeline_enabled_.load() << " Pending:" << timeline_enabled_pending_.load() << "\n";
     }
   }
   inline bool TimeLineEnabled() {
