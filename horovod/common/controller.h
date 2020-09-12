@@ -118,37 +118,37 @@ public:
     std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
     timeline_enabled_pending_ = value;
     timeline_enabled_ = value;
-  }
+  };
 
   void SetTimelineEnabledPending(bool value) {
     std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
     timeline_enabled_pending_ = value;
-  }
+  };
 
   void SetMarkCyclesInTimelinePending(bool value) {
     std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
     mark_cycles_in_timeline_pending_ = value;
-  }
+  };
 
   void SynchronizeTimelineEnabled() {
     std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
     timeline_enabled_ = timeline_enabled_pending_;
-  }
+  };
 
   inline bool TimeLineEnabled() {
     std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
     return timeline_enabled_;
-  }
+  };
 
   inline bool TimelineEnabledPending() {
     std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
     return timeline_enabled_pending_;
-  }
+  };
 
   inline bool MarkCyclesInTimelinePending() {
     std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
     return mark_cycles_in_timeline_pending_;
-  }
+  };
 
   std::vector<int>& GetRanks() { return ranks_; };
   int GetRank() { return rank_; };
