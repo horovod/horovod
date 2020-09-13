@@ -114,42 +114,6 @@ public:
     }
   };
 
-  void SetTimelineEnabled(bool value) {
-    std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
-    timeline_enabled_pending_ = value;
-    timeline_enabled_ = value;
-  };
-
-  void SetTimelineEnabledPending(bool value) {
-    std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
-    timeline_enabled_pending_ = value;
-  };
-
-  void SetMarkCyclesInTimelinePending(bool value) {
-    std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
-    mark_cycles_in_timeline_pending_ = value;
-  };
-
-  void SynchronizeTimelineEnabled() {
-    std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
-    timeline_enabled_ = timeline_enabled_pending_;
-  };
-
-  inline bool TimeLineEnabled() {
-    std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
-    return timeline_enabled_;
-  };
-
-  inline bool TimelineEnabledPending() {
-    std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
-    return timeline_enabled_pending_;
-  };
-
-  inline bool MarkCyclesInTimelinePending() {
-    std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
-    return mark_cycles_in_timeline_pending_;
-  };
-
   std::vector<int>& GetRanks() { return ranks_; };
   int GetRank() { return rank_; };
   int GetLocalRank() { return local_rank_; };
@@ -160,7 +124,13 @@ public:
   const std::vector<int>& GetLocalCommRanks() { return local_comm_ranks_; };
   bool IsCoordinator() const { return is_coordinator_; };
   bool IsHomogeneous() const { return is_homogeneous_; };
-
+  void SetTimelineEnabled(bool value);
+  bool TimeLineEnabled();
+  void SetTimelineEnabledPending(bool value);
+  bool TimelineEnabledPending();
+  void SetMarkCyclesInTimelinePending(bool value);
+  bool MarkCyclesInTimelinePending();
+  void SynchronizeTimelineEnabled();
   StallInspector& GetStallInspector() { return stall_inspector_; };
 
 protected:
