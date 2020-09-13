@@ -82,7 +82,7 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
       // Give chance to dump existing event
       return;
     }
-    if (file_.is_open() && file_.good()) {
+    if (file_.is_open()) {
       file_.close();
       LOG(INFO) << "Closed timeline file:" << cur_filename_;
       std::cout << "Closed timeline file:" << cur_filename_ << "\n";
@@ -135,11 +135,14 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
       active_ = false;
     }
   }
+
   // all other cases, need to create a new file
   file_.open(filename, std::ios::out | std::ios::trunc);
   if (file_.good()) {
     LOG(INFO) << "Opened new timeline file" << filename
               << " Set active and healthy to true";
+    std::cout << "Opened new timeline file" << filename
+              << " Set active and healthy to true\n";
     cur_filename_ = filename;
     new_pending_filename_ = cur_filename_;
     is_new_file_ = true;
@@ -147,6 +150,8 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
     active_ = true;
   } else {
     LOG(ERROR) << "Error opening the Horovod Timeline file " << filename
+               << ", will not write a timeline.";
+    std::cout << "Error opening the Horovod Timeline file " << filename
                << ", will not write a timeline.";
     healthy_ = true;
     active_ = false;
@@ -182,7 +187,7 @@ void TimelineWriter::Shutdown() {
               << e.code() << " meaning " << e.what();
   }
 
-  if (cur_filename_ != "" && file_.is_open() && file_.good()) {
+  if (cur_filename_ != "" && file_.is_open()) {
     file_.close();
   }
   tensor_table_.clear();
@@ -332,7 +337,7 @@ void TimelineWriter::WriterLoop() {
         SetTimelineFile(PendingTimelineFile());
       if (active_ && !file_.good()) {
         LOG(ERROR) << "Error writing to the Horovod Timeline after it was "
-                      "successfully opened, will stop writing the timeline.";
+                      "successfully opened, will stop writing the timeline." << " eofbit:" << file_.eof() << " failbit:" << file_.fail() << " badbit"<< file_.bad() << "\n";
         active_ = false;
       }
     }

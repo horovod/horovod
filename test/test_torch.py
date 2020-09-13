@@ -2139,6 +2139,7 @@ class TorchTests(unittest.TestCase):
             if hvd.rank() == 0:
                 with open(fname, 'r') as timeline_file:
                     timeline_text = timeline_file.read()
+                    print(timeline_text)
                     assert 'allreduce.test_allreduce' in timeline_text, timeline_text
                     assert 'NEGOTIATE_ALLREDUCE' in timeline_text, timeline_text
                     assert 'ALLREDUCE' in timeline_text, timeline_text
@@ -2194,7 +2195,7 @@ class TorchTests(unittest.TestCase):
             # again start timeline with same file
             hvd.start_timeline(fname5, mark_cycles=False)
             hvd.start_timeline(fname5, mark_cycles=False)
-            hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
+            summed = hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
             hvd.stop_timeline()
             check_file(fname5, check_cycle=False)
 
