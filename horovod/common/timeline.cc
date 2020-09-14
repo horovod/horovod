@@ -77,7 +77,8 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
       LOG(DEBUG) << " SetTimelineFile is no-op as there are events in "
                     "record_queue. Will allow those events to be dumped.";
       std::cout << " SetTimelineFile is no-op as there are events in "
-                    "record_queue. Will allow those events to be dumped." << "\n";
+                   "record_queue. Will allow those events to be dumped."
+                << "\n";
       active_ = false;
       // Give chance to dump existing event
       return;
@@ -104,7 +105,8 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
     LOG(INFO) << "Inited TimelineWriter but active_ is false, since filename "
                  "passed is empty string";
     std::cout << "Inited TimelineWriter but active_ is false, since filename "
-                 "passed is empty string" << "\n";
+                 "passed is empty string"
+              << "\n";
     return;
   }
   // if newfile is same as existing file, it should be no-op and we can continue
@@ -114,7 +116,8 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
       LOG(INFO) << "Timeline cur_filename_ is same as existing filename:"
                 << filename << " Set active and healthy to true";
       std::cout << "Timeline cur_filename_ is same as existing filename:"
-                << filename << " Set active and healthy to true" << "\n";
+                << filename << " Set active and healthy to true"
+                << "\n";
       cur_filename_ = filename;
       new_pending_filename_ = cur_filename_;
       is_new_file_ = false;
@@ -127,12 +130,14 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
                  << " is not good. Setting healthy to true and active to false "
                     "since file is not good";
       std::cout << "Filename:" << filename
-                 << " is not good. Setting healthy to true and active to false "
-                    "since file is not good" << "\n";
+                << " is not good. Setting healthy to true and active to false "
+                   "since file is not good"
+                << "\n";
       cur_filename_ = filename;
       new_pending_filename_ = cur_filename_;
       healthy_ = true;
       active_ = false;
+      return;
     }
   }
 
@@ -152,7 +157,7 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
     LOG(ERROR) << "Error opening the Horovod Timeline file " << filename
                << ", will not write a timeline.";
     std::cout << "Error opening the Horovod Timeline file " << filename
-               << ", will not write a timeline.";
+              << ", will not write a timeline.";
     healthy_ = true;
     active_ = false;
   }
@@ -162,9 +167,11 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
 void TimelineWriter::Initialize(
     std::string file_name, std::chrono::steady_clock::time_point start_time_) {
   std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
-  if(healthy_) return;
+  if (healthy_)
+    return;
 
-  std::cout<< " Initializing TimelineWriter with filename" << file_name << "\n";
+  std::cout << " Initializing TimelineWriter with filename" << file_name
+            << "\n";
   SetTimelineFile(file_name);
   auto p1 = std::chrono::system_clock::now();
   auto tt = std::chrono::duration_cast<std::chrono::microseconds>(
@@ -210,7 +217,8 @@ void TimelineWriter::EnqueueWriteEvent(const std::string& tensor_name,
   r.ts_micros = ts_micros;
   {
     std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
-    if(!active_ || !healthy_) return;
+    if (!active_ || !healthy_)
+      return;
   }
   while (healthy_ && active_ && !record_queue_.push(r))
     ;
@@ -224,7 +232,8 @@ void TimelineWriter::EnqueueWriteMarker(const std::string& name,
   r.ts_micros = ts_micros;
   {
     std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
-    if(!active_ || !healthy_) return;
+    if (!active_ || !healthy_)
+      return;
   }
   while (healthy_ && active_ && !record_queue_.push(r))
     ;
@@ -337,11 +346,13 @@ void TimelineWriter::WriterLoop() {
     {
       std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
       // check if we need to call SetTimeLineFile
-      if(pending_status_)
+      if (pending_status_)
         SetTimelineFile(PendingTimelineFile());
       if (active_ && !file_.good()) {
         LOG(ERROR) << "Error writing to the Horovod Timeline after it was "
-                      "successfully opened, will stop writing the timeline." << " eofbit:" << file_.eof() << " failbit:" << file_.fail() << " badbit"<< file_.bad() << "\n";
+                      "successfully opened, will stop writing the timeline."
+                   << " eofbit:" << file_.eof() << " failbit:" << file_.fail()
+                   << " badbit" << file_.bad() << "\n";
         active_ = false;
       }
     }

@@ -716,7 +716,6 @@ bool horovod_start_timeline(const char* file_name, bool mark_cycles) {
   if (!horovod_global.initialization_done) {
     return false;
   }
-
   bool is_coordinator = horovod_global.controller->IsCoordinator();
   if (is_coordinator) {
     horovod_global.timeline.Initialize(std::string(file_name), horovod_global.controller->GetSize());
