@@ -186,7 +186,7 @@ services:
         MXNET_PACKAGE: mxnet-cu100==1.4.1
         PYSPARK_PACKAGE: pyspark==2.4.7
         SPARK_PACKAGE: spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
-  test-gpu-openmpi-gloo-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_4_1-pyspark2_4_7:
+  test-gpu-openmpi-gloo-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_7_0-pyspark2_4_7:
     extends: test-gpu-base
     build:
       args:
@@ -199,10 +199,10 @@ services:
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.5.0+cu101
         TORCHVISION_PACKAGE: torchvision==0.6.0+cu101
-        MXNET_PACKAGE: mxnet-cu101==1.6.0.post0
+        MXNET_PACKAGE: mxnet-cu101==1.7.0
         PYSPARK_PACKAGE: pyspark==2.4.7
         SPARK_PACKAGE: spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
-  test-gpu-openmpi-py3_6-tf2_3_0-keras2_3_1-torch1_6_0-mxnet1_6_0-pyspark2_4_7:
+  test-gpu-openmpi-py3_6-tf2_3_0-keras2_3_1-torch1_6_0-mxnet1_7_0-pyspark2_4_7:
     extends: test-gpu-base
     build:
       args:
@@ -215,7 +215,7 @@ services:
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.6.0+cu101
         TORCHVISION_PACKAGE: torchvision==0.7.0+cu101
-        MXNET_PACKAGE: mxnet-cu101==1.6.0.post0
+        MXNET_PACKAGE: mxnet-cu101==1.7.0
         PYSPARK_PACKAGE: pyspark==2.4.7
         SPARK_PACKAGE: spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
   test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7:
