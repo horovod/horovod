@@ -16,7 +16,7 @@
 import keras
 
 from horovod._keras import elastic as _impl
-from horovod.tensorflow.elastic import TensorFlowKerasState
+from horovod.tensorflow.elastic import TensorFlowKerasState, run
 
 
 class KerasState(TensorFlowKerasState):
