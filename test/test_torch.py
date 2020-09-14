@@ -2194,7 +2194,7 @@ class TorchTests(unittest.TestCase):
         with temppath() as fname5:
             # again start timeline with same file
             hvd.start_timeline(fname5, mark_cycles=False)
-            #hvd.start_timeline(fname5, mark_cycles=False)
+            hvd.start_timeline(fname5, mark_cycles=False)
             summed = hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
             hvd.stop_timeline()
             check_file(fname5, check_cycle=False)
