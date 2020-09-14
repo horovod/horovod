@@ -64,11 +64,11 @@ class BuildKiteTests(unittest.TestCase):
         exit_code, actual_pipeline, gen_pipeline_log = self._run(gen_pipeline_cmd, gen_pipeline_env)
 
         self.assertEqual(0, exit_code)
-        self.assertEqual(expected_pipeline, actual_pipeline)
         self.assertEqual('DEBUG:root:commit = None\n'
                          'DEBUG:root:pr number = None\n'
                          'DEBUG:root:branch = BRANCH\n'
                          'DEBUG:root:default = None\n', gen_pipeline_log)
+        self.assertEqual(expected_pipeline, actual_pipeline)
 
     """
     Tests .buildkite/gen-pipeline.sh with a commit that has no code changes.
@@ -92,6 +92,7 @@ class BuildKiteTests(unittest.TestCase):
             exit_code, actual_pipeline, gen_pipeline_log = self._run(tmp_gen_pipeline_sh, gen_pipeline_env)
 
             self.assertEqual(0, exit_code)
+            self.assertEqual('', gen_pipeline_log)
             self.assertEqual("steps:\n"
                              "- label: \':book: Build Docs\'\n"
                              "  command: 'cd /workdir/docs && pip install -r requirements.txt && make html'\n"
@@ -106,7 +107,6 @@ class BuildKiteTests(unittest.TestCase):
                              "- wait\n"
                              "- wait\n"
                              "- wait\n", actual_pipeline)
-            self.assertEqual('', gen_pipeline_log)
 
     def do_test_gen_full_pipeline(self, cmd, env=dict()):
         with open('data/expected_buildkite_pipeline.yaml', 'r') as f:
@@ -118,8 +118,8 @@ class BuildKiteTests(unittest.TestCase):
         exit_code, pipeline, log = self._run(cmd, cmd_env)
 
         self.assertEqual(0, exit_code)
-        self.assertEqual(expected_pipeline, pipeline)
         self.assertEqual('', log)
+        self.assertEqual(expected_pipeline, pipeline)
 
     def test_gen_pipeline_with_code_changes(self):
         with tempdir() as dir:
