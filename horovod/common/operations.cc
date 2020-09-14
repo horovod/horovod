@@ -719,7 +719,7 @@ bool horovod_start_timeline(const char* file_name, bool mark_cycles) {
   bool is_coordinator = horovod_global.controller->IsCoordinator();
   if(horovod_global.controller->TimelineEnabledPending()){
     LOG(INFO) << " Timeline is already enabled. Please stop timeline before restarting it.";
-    return;
+    return true;
   }
   if (is_coordinator) {
     horovod_global.timeline.Initialize(std::string(file_name), horovod_global.controller->GetSize());
@@ -739,7 +739,10 @@ bool horovod_stop_timeline() {
   if (!horovod_global.initialization_done) {
     return false;
   }
-
+  if(!horovod_global.controller->TimelineEnabledPending()){
+    LOG(INFO) << " Timeline is already stopped. Please start timeline before stopping it.";
+    return true;
+  }
   bool is_coordinator = horovod_global.controller->IsCoordinator();
   if (is_coordinator) {
       horovod_global.timeline.SetPendingTimelineFile(std::string(""));
