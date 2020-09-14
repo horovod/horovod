@@ -164,7 +164,7 @@ void TimelineWriter::Initialize(
   std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
   if(healthy_) return;
 
-  std::cout<< " Initializing TimelineWriter with filename" << filename << "\n";
+  std::cout<< " Initializing TimelineWriter with filename" << file_name << "\n";
   SetTimelineFile(file_name);
   auto p1 = std::chrono::system_clock::now();
   auto tt = std::chrono::duration_cast<std::chrono::microseconds>(
