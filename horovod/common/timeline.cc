@@ -161,6 +161,10 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
 
 void TimelineWriter::Initialize(
     std::string file_name, std::chrono::steady_clock::time_point start_time_) {
+  std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
+  if(healthy_) return;
+
+  std::cout<< " Initializing TimelineWriter with filename" << filename << "\n";
   SetTimelineFile(file_name);
   auto p1 = std::chrono::system_clock::now();
   auto tt = std::chrono::duration_cast<std::chrono::microseconds>(
