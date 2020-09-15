@@ -67,8 +67,6 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
 
   LOG(INFO) << "Setting TimelineFile. Current file:" << cur_filename_
             << " New filename:" << filename;
-  std::cout << "Setting TimelineFile. Current file:" << cur_filename_
-            << " New filename:" << filename << "\n";
 
   // Close if there existing file open and new file is not same as existing file
   if (cur_filename_ != "" && cur_filename_ != filename) {
@@ -76,9 +74,6 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
     if (!record_queue_.empty()) {
       LOG(DEBUG) << " SetTimelineFile is no-op as there are events in "
                     "record_queue. Will allow those events to be dumped.";
-      std::cout << " SetTimelineFile is no-op as there are events in "
-                   "record_queue. Will allow those events to be dumped."
-                << "\n";
       active_ = false;
       // Give chance to dump existing event
       return;
@@ -86,7 +81,6 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
     if (file_.is_open()) {
       file_.close();
       LOG(INFO) << "Closed timeline file:" << cur_filename_;
-      std::cout << "Closed timeline file:" << cur_filename_ << "\n";
     }
     tensor_table_.clear();
   }
@@ -104,9 +98,6 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
     pending_status_ = false;
     LOG(INFO) << "Inited TimelineWriter but active_ is false, since filename "
                  "passed is empty string";
-    std::cout << "Inited TimelineWriter but active_ is false, since filename "
-                 "passed is empty string"
-              << "\n";
     return;
   }
   // if newfile is same as existing file, it should be no-op and we can continue
@@ -115,9 +106,6 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
     if (file_.good()) {
       LOG(INFO) << "Timeline cur_filename_ is same as existing filename:"
                 << filename << " Set active and healthy to true";
-      std::cout << "Timeline cur_filename_ is same as existing filename:"
-                << filename << " Set active and healthy to true"
-                << "\n";
       cur_filename_ = filename;
       new_pending_filename_ = cur_filename_;
       is_new_file_ = false;
@@ -129,10 +117,6 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
       LOG(ERROR) << "Filename:" << filename
                  << " is not good. Setting healthy to true and active to false "
                     "since file is not good";
-      std::cout << "Filename:" << filename
-                << " is not good. Setting healthy to true and active to false "
-                   "since file is not good"
-                << "\n";
       cur_filename_ = filename;
       new_pending_filename_ = cur_filename_;
       healthy_ = true;
@@ -146,8 +130,6 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
   if (file_.good()) {
     LOG(INFO) << "Opened new timeline file" << filename
               << " Set active and healthy to true";
-    std::cout << "Opened new timeline file" << filename
-              << " Set active and healthy to true\n";
     cur_filename_ = filename;
     new_pending_filename_ = cur_filename_;
     is_new_file_ = true;
@@ -156,8 +138,6 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
   } else {
     LOG(ERROR) << "Error opening the Horovod Timeline file " << filename
                << ", will not write a timeline.";
-    std::cout << "Error opening the Horovod Timeline file " << filename
-              << ", will not write a timeline.";
     healthy_ = true;
     active_ = false;
   }
@@ -170,8 +150,6 @@ void TimelineWriter::Initialize(
   if (healthy_)
     return;
 
-  std::cout << " Initializing TimelineWriter with filename" << file_name
-            << "\n";
   SetTimelineFile(file_name);
   auto p1 = std::chrono::system_clock::now();
   auto tt = std::chrono::duration_cast<std::chrono::microseconds>(
