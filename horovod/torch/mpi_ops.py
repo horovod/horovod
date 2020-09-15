@@ -33,6 +33,8 @@ from horovod.torch.compression import Compression
 # import basic methods
 init = _basics.init
 is_initialized = _basics.is_initialized
+start_timeline = _basics.start_timeline
+stop_timeline = _basics.stop_timeline
 size = _basics.size
 local_size = _basics.local_size
 rank = _basics.rank
