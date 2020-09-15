@@ -2139,7 +2139,6 @@ class TorchTests(unittest.TestCase):
             if hvd.rank() == 0:
                 with open(fname, 'r') as timeline_file:
                     timeline_text = timeline_file.read()
-                    print(timeline_text)
                     assert 'allreduce.test_allreduce' in timeline_text, timeline_text
                     assert 'NEGOTIATE_ALLREDUCE' in timeline_text, timeline_text
                     assert 'ALLREDUCE' in timeline_text, timeline_text
