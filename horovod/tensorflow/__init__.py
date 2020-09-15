@@ -86,12 +86,6 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
     """
     op = handle_average_backwards_compatibility(op, average)
 
-    average_in_framework = False
-    if rocm_built():
-        # For ROCm, perform averaging at framework level
-        average_in_framework = op == Average or op == Adasum
-        op = Sum if op == Average else op
-
     if isinstance(tensor, tf.IndexedSlices):
         # TODO: Need to fix this to actuall call Adasum
         if op == Adasum:
@@ -110,6 +104,12 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
         return tf.IndexedSlices(new_values, indices,
                                 dense_shape=tensor.dense_shape)
     else:
+        average_in_framework = False
+        if rocm_built():
+            # For ROCm, perform averaging at framework level
+            average_in_framework = op == Average or op == Adasum
+            op = Sum if op == Average else op
+
         with tf.device(device_dense):
             horovod_size = tf.cast(size_op() if int(os.environ.get("HOROVOD_ELASTIC", 0)) else size(),
                                    dtype=tensor.dtype)
