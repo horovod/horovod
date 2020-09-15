@@ -7,21 +7,19 @@
 namespace horovod {
 namespace common {
 
-enum class LogLevel {
-  TRACE, DEBUG, INFO, WARNING, ERROR, FATAL
-};
+enum class LogLevel { TRACE, DEBUG, INFO, WARNING, ERROR, FATAL };
 
 #define LOG_LEVELS "TDIWEF"
 
 class LogMessage : public std::basic_ostringstream<char> {
- public:
+public:
   LogMessage(const char* fname, int line, LogLevel severity);
   ~LogMessage();
 
- protected:
+protected:
   void GenerateLogMessage(bool log_time);
 
- private:
+private:
   const char* fname_;
   int line_;
   LogLevel severity_;
@@ -30,23 +28,17 @@ class LogMessage : public std::basic_ostringstream<char> {
 // LogMessageFatal ensures the process will exit in failure after
 // logging this message.
 class LogMessageFatal : public LogMessage {
- public:
+public:
   LogMessageFatal(const char* file, int line);
   ~LogMessageFatal();
 };
 
-#define _HVD_LOG_TRACE \
-  LogMessage(__FILE__, __LINE__, LogLevel::TRACE)
-#define _HVD_LOG_DEBUG \
-  LogMessage(__FILE__, __LINE__, LogLevel::DEBUG)
-#define _HVD_LOG_INFO \
-  LogMessage(__FILE__, __LINE__, LogLevel::INFO)
-#define _HVD_LOG_WARNING \
-  LogMessage(__FILE__, __LINE__, LogLevel::WARNING)
-#define _HVD_LOG_ERROR \
-  LogMessage(__FILE__, __LINE__, LogLevel::ERROR)
-#define _HVD_LOG_FATAL \
-  LogMessageFatal(__FILE__, __LINE__)
+#define _HVD_LOG_TRACE LogMessage(__FILE__, __LINE__, LogLevel::TRACE)
+#define _HVD_LOG_DEBUG LogMessage(__FILE__, __LINE__, LogLevel::DEBUG)
+#define _HVD_LOG_INFO LogMessage(__FILE__, __LINE__, LogLevel::INFO)
+#define _HVD_LOG_WARNING LogMessage(__FILE__, __LINE__, LogLevel::WARNING)
+#define _HVD_LOG_ERROR LogMessage(__FILE__, __LINE__, LogLevel::ERROR)
+#define _HVD_LOG_FATAL LogMessageFatal(__FILE__, __LINE__)
 
 #define _LOG(severity) _HVD_LOG_##severity
 
@@ -58,7 +50,7 @@ class LogMessageFatal : public LogMessage {
 LogLevel MinLogLevelFromEnv();
 bool LogTimeFromEnv();
 
-}
-}
+} // namespace common
+} // namespace horovod
 
 #endif // HOROVOD_LOGGING_H

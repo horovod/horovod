@@ -25,9 +25,7 @@ void ThreadPool::create(int num_threads) {
   }
 }
 
-ThreadPool::~ThreadPool() {
-  reset();
-}
+ThreadPool::~ThreadPool() { reset(); }
 
 void ThreadPool::execute(std::function<void(void)> f) {
   {
@@ -43,7 +41,7 @@ void ThreadPool::reset() {
   cond_.notify_all();
   lock.unlock();
 
-  for (auto& thread: threads_) {
+  for (auto& thread : threads_) {
     thread.join();
   }
   threads_.clear();
@@ -52,8 +50,9 @@ void ThreadPool::reset() {
 void ThreadPool::loop() {
   while (running_) {
     std::unique_lock<std::mutex> lock(mutex_);
-    cond_.wait(lock, [this] {return !(running_ && work_queue_.empty());});
-    if (!running_) break;
+    cond_.wait(lock, [this] { return !(running_ && work_queue_.empty()); });
+    if (!running_)
+      break;
 
     auto f = work_queue_.front();
     work_queue_.pop();

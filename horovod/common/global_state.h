@@ -106,9 +106,9 @@ struct HorovodGlobalState {
   // If a rank is Joined, AllReduce uses temporary 0 tensors for it.
   bool joined = false;
 
-  // Chunk size for MPI send/recv in Adasum allreduce. Some versions of Intel MPI
-  // benefit from a smaller chunk size.
-  int64_t adasum_mpi_chunk_size = 1<<30;
+  // Chunk size for MPI send/recv in Adasum allreduce. Some versions of Intel
+  // MPI benefit from a smaller chunk size.
+  int64_t adasum_mpi_chunk_size = 1 << 30;
 
   ~HorovodGlobalState() {
     // Make sure that the destructor of the background thread is safe to

@@ -17,10 +17,10 @@
 #include "common.h"
 #include "logging.h"
 
-#include <sstream>
 #include <cassert>
 #include <cstring>
 #include <limits.h>
+#include <sstream>
 
 namespace horovod {
 namespace common {
@@ -32,9 +32,7 @@ Status::Status(StatusType type, std::string reason) {
   reason_ = reason;
 }
 
-Status Status::OK() {
-  return Status();
-}
+Status Status::OK() { return Status(); }
 
 Status Status::UnknownError(std::string message) {
   return Status(StatusType::UNKNOWN_ERROR, message);
@@ -52,29 +50,17 @@ Status Status::InvalidArgument(std::string message) {
   return Status(StatusType::INVALID_ARGUMENT, message);
 }
 
-Status Status::InProgress() {
-  return Status(StatusType::IN_PROGRESS, "");
-}
+Status Status::InProgress() { return Status(StatusType::IN_PROGRESS, ""); }
 
-bool Status::ok() const {
-  return type_ == StatusType::OK;
-}
+bool Status::ok() const { return type_ == StatusType::OK; }
 
-bool Status::in_progress() const {
-  return type_ == StatusType::IN_PROGRESS;
-}
+bool Status::in_progress() const { return type_ == StatusType::IN_PROGRESS; }
 
-StatusType Status::type() const {
-  return type_;
-}
+StatusType Status::type() const { return type_; }
 
-const std::string& Status::reason() const {
-  return reason_;
-}
+const std::string& Status::reason() const { return reason_; }
 
-void TensorShape::AddDim(int64_t dim) {
-  shape_.push_back(dim);
-}
+void TensorShape::AddDim(int64_t dim) { shape_.push_back(dim); }
 
 void TensorShape::AppendShape(TensorShape& other) {
   for (auto dim : other.shape_) {
@@ -95,9 +81,7 @@ const std::string TensorShape::DebugString() const {
   return args.str();
 }
 
-int TensorShape::dims() const {
-  return (int)shape_.size();
-}
+int TensorShape::dims() const { return (int)shape_.size(); }
 
 int64_t TensorShape::dim_size(int idx) const {
   assert(idx >= 0);
@@ -141,11 +125,13 @@ void set_affinity(int affinity) {
 #else
 void set_affinity(int affinity) {
   // TODO(travis): explore equivalent for macOS
-  throw std::runtime_error("Environment variable HOROVOD_THREAD_AFFINITY is not supported on macOS.");
+  throw std::runtime_error("Environment variable HOROVOD_THREAD_AFFINITY is "
+                           "not supported on macOS.");
 }
 #endif
 
-void parse_and_set_affinity(const char* affinity, int local_size, int local_rank) {
+void parse_and_set_affinity(const char* affinity, int local_size,
+                            int local_rank) {
   if (affinity == nullptr) {
     return;
   }
@@ -156,7 +142,7 @@ void parse_and_set_affinity(const char* affinity, int local_size, int local_rank
   char* affinity_copy = (char*)calloc(affinity_len + 1, sizeof(char));
   memcpy(affinity_copy, affinity, affinity_len);
   char* tmp = affinity_copy;
-  char *endptr;
+  char* endptr;
 
   std::vector<int> core_ids(local_size);
   int count = 0;
@@ -165,33 +151,32 @@ void parse_and_set_affinity(const char* affinity, int local_size, int local_rank
     auto core_id_str = strsep(&tmp, ",");
     errno = 0;
     auto core_id = std::strtol(core_id_str, &endptr, 10);
-    if (errno == ERANGE && (core_id == LONG_MAX || core_id == LONG_MIN)
-        || (errno != 0 && core_id == 0)){
-        LOG(ERROR) << "Core ID value is invalid in " << HOROVOD_THREAD_AFFINITY
-                   << "=" << affinity;
-        break;
+    if (errno == ERANGE && (core_id == LONG_MAX || core_id == LONG_MIN) ||
+        (errno != 0 && core_id == 0)) {
+      LOG(ERROR) << "Core ID value is invalid in " << HOROVOD_THREAD_AFFINITY
+                 << "=" << affinity;
+      break;
     }
 
     if (endptr == core_id_str) {
-        LOG(ERROR) << "No digits were found in " << HOROVOD_THREAD_AFFINITY
-                   << "=" << affinity;
-        break;
+      LOG(ERROR) << "No digits were found in " << HOROVOD_THREAD_AFFINITY << "="
+                 << affinity;
+      break;
     }
-    
+
     if (core_id < 0) {
-      LOG(ERROR) << "Core ID cannot be less than zero but got "
-                 << core_id << " in "
-                 << HOROVOD_THREAD_AFFINITY << "=" << affinity;
+      LOG(ERROR) << "Core ID cannot be less than zero but got " << core_id
+                 << " in " << HOROVOD_THREAD_AFFINITY << "=" << affinity;
       break;
     } else {
       core_ids[count] = core_id;
       count++;
     }
   }
-    
+
   if (count < local_size) {
-    LOG(ERROR) << "Expected " << local_size << " core ids but got " << count << ". "
-               << HOROVOD_THREAD_AFFINITY << "=" << affinity;
+    LOG(ERROR) << "Expected " << local_size << " core ids but got " << count
+               << ". " << HOROVOD_THREAD_AFFINITY << "=" << affinity;
   } else {
     set_affinity(core_ids[local_rank]);
   }

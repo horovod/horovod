@@ -24,19 +24,19 @@
 namespace horovod {
 namespace common {
 class ThreadPool {
-  public:
-    ~ThreadPool();
-    void create(int num_threads);
-    void reset();
-    void execute(std::function<void(void)> f);
+public:
+  ~ThreadPool();
+  void create(int num_threads);
+  void reset();
+  void execute(std::function<void(void)> f);
 
-  private:
-    void loop();
-    bool running_;
-    std::queue<std::function<void(void)>> work_queue_;
-    std::mutex mutex_;
-    std::condition_variable cond_;
-    std::vector<std::thread> threads_;
+private:
+  void loop();
+  bool running_;
+  std::queue<std::function<void(void)>> work_queue_;
+  std::mutex mutex_;
+  std::condition_variable cond_;
+  std::vector<std::thread> threads_;
 };
 
 } // namespace common

@@ -67,9 +67,9 @@ ResponseCache::CacheState ResponseCache::cached(const Request& message) const {
   }
 }
 
-ResponseCache::CacheState
-ResponseCache::cached(const Response& response,
-                      const TensorParams& params, bool joined) const {
+ResponseCache::CacheState ResponseCache::cached(const Response& response,
+                                                const TensorParams& params,
+                                                bool joined) const {
   assert(response.tensor_names().size() == 1);
   auto it = tensor_name_to_bit_.find(response.tensor_names()[0]);
   if (it != tensor_name_to_bit_.end()) {
@@ -102,7 +102,8 @@ ResponseCache::cached(const Response& response,
   }
 }
 
-void ResponseCache::put_(const Response& response, TensorParams& params, bool joined) {
+void ResponseCache::put_(const Response& response, TensorParams& params,
+                         bool joined) {
   // Note: This method invalidates all previously returned cache bit positions.
 
   uint32_t cache_bit;
@@ -154,10 +155,10 @@ void ResponseCache::put_(const Response& response, TensorParams& params, bool jo
 
   cache_iters_[cache_bit] = cache_.begin();
   tensor_name_to_bit_[response.tensor_names()[0]] = cache_bit;
-
 }
 
-void ResponseCache::put(const Response& response, TensorQueue& tensor_queue, bool joined) {
+void ResponseCache::put(const Response& response, TensorQueue& tensor_queue,
+                        bool joined) {
   // Note: This method invalidates all previously returned cache bit positions
   // if evictions occur.
 

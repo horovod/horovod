@@ -48,9 +48,13 @@ std::size_t DataType_Size(DataType value);
 class Request {
 public:
   enum RequestType {
-    ALLREDUCE = 0, ALLGATHER = 1, BROADCAST = 2, JOIN = 3, ADASUM = 4, ALLTOALL = 5
+    ALLREDUCE = 0,
+    ALLGATHER = 1,
+    BROADCAST = 2,
+    JOIN = 3,
+    ADASUM = 4,
+    ALLTOALL = 5
   };
-
 
   static const std::string& RequestType_Name(RequestType value);
 
@@ -99,7 +103,6 @@ public:
 
   static void SerializeToString(const Request& request, std::string& output);
 
-
 private:
   int32_t request_rank_ = 0;
   RequestType request_type_ = RequestType::ALLREDUCE;
@@ -126,8 +129,7 @@ public:
 
   void set_shutdown(bool value);
 
-  static void ParseFromBytes(RequestList& request_list,
-                             const uint8_t* input);
+  static void ParseFromBytes(RequestList& request_list, const uint8_t* input);
 
   static void SerializeToString(const RequestList& request_list,
                                 std::string& output);
@@ -145,7 +147,13 @@ private:
 class Response {
 public:
   enum ResponseType {
-    ALLREDUCE = 0, ALLGATHER = 1, BROADCAST = 2, JOIN = 3, ADASUM = 4, ALLTOALL= 5, ERROR = 6
+    ALLREDUCE = 0,
+    ALLGATHER = 1,
+    BROADCAST = 2,
+    JOIN = 3,
+    ADASUM = 4,
+    ALLTOALL = 5,
+    ERROR = 6
   };
 
   static const std::string& ResponseType_Name(ResponseType value);
@@ -202,8 +210,7 @@ public:
 
   static void ParseFromBytes(Response& response, const uint8_t* input);
 
-  static void SerializeToString(const Response& response,
-                                std::string& output);
+  static void SerializeToString(const Response& response, std::string& output);
 
 private:
   ResponseType response_type_ = ResponseType::ALLREDUCE;
@@ -232,8 +239,7 @@ public:
 
   void set_shutdown(bool value);
 
-  static void ParseFromBytes(ResponseList& response_list,
-                             const uint8_t* input);
+  static void ParseFromBytes(ResponseList& response_list, const uint8_t* input);
 
   static void SerializeToString(const ResponseList& response_list,
                                 std::string& output);

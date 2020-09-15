@@ -27,93 +27,93 @@ namespace common {
 
 const std::string& DataType_Name(DataType value) {
   switch (value) {
-    case HOROVOD_UINT8:
-      static const std::string uint8("uint8");
-      return uint8;
-    case HOROVOD_INT8:
-      static const std::string int8("int8");
-      return int8;
-    case HOROVOD_UINT16:
-      static const std::string uint16("uint16");
-      return uint16;
-    case HOROVOD_INT16:
-      static const std::string int16("int16");
-      return int16;
-    case HOROVOD_INT32:
-      static const std::string int32("int32");
-      return int32;
-    case HOROVOD_INT64:
-      static const std::string int64("int64");
-      return int64;
-    case HOROVOD_FLOAT16:
-      static const std::string float16("float16");
-      return float16;
-    case HOROVOD_FLOAT32:
-      static const std::string float32("float32");
-      return float32;
-    case HOROVOD_FLOAT64:
-      static const std::string float64("float64");
-      return float64;
-    case HOROVOD_BOOL:
-      static const std::string bool_("bool");
-      return bool_;
-    default:
-      static const std::string unknown("<unknown>");
-      return unknown;
+  case HOROVOD_UINT8:
+    static const std::string uint8("uint8");
+    return uint8;
+  case HOROVOD_INT8:
+    static const std::string int8("int8");
+    return int8;
+  case HOROVOD_UINT16:
+    static const std::string uint16("uint16");
+    return uint16;
+  case HOROVOD_INT16:
+    static const std::string int16("int16");
+    return int16;
+  case HOROVOD_INT32:
+    static const std::string int32("int32");
+    return int32;
+  case HOROVOD_INT64:
+    static const std::string int64("int64");
+    return int64;
+  case HOROVOD_FLOAT16:
+    static const std::string float16("float16");
+    return float16;
+  case HOROVOD_FLOAT32:
+    static const std::string float32("float32");
+    return float32;
+  case HOROVOD_FLOAT64:
+    static const std::string float64("float64");
+    return float64;
+  case HOROVOD_BOOL:
+    static const std::string bool_("bool");
+    return bool_;
+  default:
+    static const std::string unknown("<unknown>");
+    return unknown;
   }
 }
 
 std::size_t DataType_Size(DataType value) {
   switch (value) {
-    case HOROVOD_UINT8:
-      return sizeof(u_int8_t);
-    case HOROVOD_INT8:
-      return sizeof(int8_t);
-    case HOROVOD_UINT16:
-      return sizeof(u_int16_t);
-    case HOROVOD_INT16:
-      return sizeof(int16_t);
-    case HOROVOD_INT32:
-      return sizeof(int32_t);
-    case HOROVOD_INT64:
-      return sizeof(int64_t);
-    case HOROVOD_FLOAT16:
-      return 2;
-    case HOROVOD_FLOAT32:
-      return sizeof(float);
-    case HOROVOD_FLOAT64:
-      return sizeof(double);
-    case HOROVOD_BOOL:
-      return sizeof(bool);
-    default:
-      throw std::logic_error("Type " + DataType_Name(value) +
-                             " is not supported.");
+  case HOROVOD_UINT8:
+    return sizeof(u_int8_t);
+  case HOROVOD_INT8:
+    return sizeof(int8_t);
+  case HOROVOD_UINT16:
+    return sizeof(u_int16_t);
+  case HOROVOD_INT16:
+    return sizeof(int16_t);
+  case HOROVOD_INT32:
+    return sizeof(int32_t);
+  case HOROVOD_INT64:
+    return sizeof(int64_t);
+  case HOROVOD_FLOAT16:
+    return 2;
+  case HOROVOD_FLOAT32:
+    return sizeof(float);
+  case HOROVOD_FLOAT64:
+    return sizeof(double);
+  case HOROVOD_BOOL:
+    return sizeof(bool);
+  default:
+    throw std::logic_error("Type " + DataType_Name(value) +
+                           " is not supported.");
   }
 }
 
 const std::string& Request::RequestType_Name(RequestType value) {
   switch (value) {
-    case RequestType::ALLREDUCE:
-      static const std::string allreduce("ALLREDUCE");
-      return allreduce;
-    case RequestType::ALLGATHER:
-      static const std::string allgather("ALLGATHER");
-      return allgather;
-    case RequestType::BROADCAST:
-      static const std::string broadcast("BROADCAST");
-      return broadcast;
-    case RequestType::JOIN:
-      static const std::string join("JOIN");
-      return join;
-    case RequestType::ADASUM:
-      static const std::string adasum("ADASUM");
-      return adasum;
-    case RequestType::ALLTOALL:
-      static const std::string alltoall("ALLTOALL");
-      return alltoall;
-    default:
-      static const std::string unknown("<unknown>");
-      return unknown;
+  case RequestType::ALLREDUCE:
+    static const std::string allreduce("ALLREDUCE");
+    return allreduce;
+  case RequestType::ALLGATHER:
+    static const std::string allgather("ALLGATHER");
+    return allgather;
+  case RequestType::BROADCAST:
+    static const std::string broadcast("BROADCAST");
+    return broadcast;
+  case RequestType::JOIN:
+    static const std::string join("JOIN");
+    return join;
+  case RequestType::ADASUM:
+    static const std::string adasum("ADASUM");
+    return adasum;
+  case RequestType::ALLTOALL:
+    static const std::string alltoall("ALLTOALL");
+    return alltoall;
+  default:
+    static const std::string unknown("<unknown>");
+    return unknown;
   }
 }
 
@@ -121,9 +121,7 @@ int32_t Request::request_rank() const { return request_rank_; }
 
 void Request::set_request_rank(int32_t value) { request_rank_ = value; }
 
-Request::RequestType Request::request_type() const {
-  return request_type_;
-}
+Request::RequestType Request::request_type() const { return request_type_; }
 
 void Request::set_request_type(RequestType value) { request_type_ = value; }
 
@@ -149,9 +147,13 @@ double Request::prescale_factor() const { return prescale_factor_; };
 
 double Request::postscale_factor() const { return postscale_factor_; };
 
-void Request::set_prescale_factor(const double prescale_factor) { prescale_factor_ = prescale_factor; };
+void Request::set_prescale_factor(const double prescale_factor) {
+  prescale_factor_ = prescale_factor;
+};
 
-void Request::set_postscale_factor(const double postscale_factor) { postscale_factor_ = postscale_factor; };
+void Request::set_postscale_factor(const double postscale_factor) {
+  postscale_factor_ = postscale_factor;
+};
 
 const std::vector<int64_t>& Request::tensor_shape() const {
   return tensor_shape_;
@@ -167,11 +169,10 @@ void Request::add_tensor_shape(int64_t value) {
 
 namespace {
 
-void Request_ParseFromWire(Request& request,
-                           const wire::Request* obj) {
+void Request_ParseFromWire(Request& request, const wire::Request* obj) {
   request.set_request_rank(obj->request_rank());
-  request.set_request_type((Request::RequestType) obj->request_type());
-  request.set_tensor_type((DataType) obj->tensor_type());
+  request.set_request_type((Request::RequestType)obj->request_type());
+  request.set_tensor_type((DataType)obj->tensor_type());
   request.set_tensor_name(obj->tensor_name()->str());
   request.set_root_rank(obj->root_rank());
   request.set_device(obj->device());
@@ -190,9 +191,8 @@ void Request_SerializeToWire(const Request& request,
 
   wire::RequestBuilder request_builder(builder);
   request_builder.add_request_rank(request.request_rank());
-  request_builder.add_request_type(
-      (wire::RequestType) request.request_type());
-  request_builder.add_tensor_type((wire::DataType) request.tensor_type());
+  request_builder.add_request_type((wire::RequestType)request.request_type());
+  request_builder.add_tensor_type((wire::DataType)request.tensor_type());
   request_builder.add_tensor_name(tensor_name_wire);
   request_builder.add_root_rank(request.root_rank());
   request_builder.add_device(request.device());
@@ -209,8 +209,7 @@ void Request::ParseFromBytes(Request& request, const uint8_t* input) {
   Request_ParseFromWire(request, obj);
 }
 
-void Request::SerializeToString(const Request& request,
-                                std::string& output) {
+void Request::SerializeToString(const Request& request, std::string& output) {
   flatbuffers::FlatBufferBuilder builder(1024);
   flatbuffers::Offset<wire::Request> obj;
   Request_SerializeToWire(request, builder, obj);
@@ -218,12 +217,10 @@ void Request::SerializeToString(const Request& request,
 
   uint8_t* buf = builder.GetBufferPointer();
   auto size = builder.GetSize();
-  output = std::string((char*) buf, size);
+  output = std::string((char*)buf, size);
 }
 
-const std::vector<Request>& RequestList::requests() const {
-  return requests_;
-}
+const std::vector<Request>& RequestList::requests() const { return requests_; }
 
 void RequestList::set_requests(const std::vector<Request>& value) {
   requests_ = value;
@@ -273,35 +270,35 @@ void RequestList::SerializeToString(const RequestList& request_list,
 
   uint8_t* buf = builder.GetBufferPointer();
   auto size = builder.GetSize();
-  output = std::string((char*) buf, size);
+  output = std::string((char*)buf, size);
 }
 
 const std::string& Response::ResponseType_Name(ResponseType value) {
   switch (value) {
-    case ResponseType::ALLREDUCE:
-      static const std::string allreduce("ALLREDUCE");
-      return allreduce;
-    case ResponseType::ALLGATHER:
-      static const std::string allgather("ALLGATHER");
-      return allgather;
-    case ResponseType::BROADCAST:
-      static const std::string broadcast("BROADCAST");
-      return broadcast;
-    case ResponseType::JOIN:
-      static const std::string join("JOIN");
-      return join;
-    case ResponseType::ADASUM:
-      static const std::string adasum("ADASUM");
-      return adasum;
-    case ResponseType::ALLTOALL:
-      static const std::string alltoall("ALLTOALL");
-      return alltoall;
-    case ResponseType::ERROR:
-      static const std::string error("ERROR");
-      return error;
-    default:
-      static const std::string unknown("<unknown>");
-      return unknown;
+  case ResponseType::ALLREDUCE:
+    static const std::string allreduce("ALLREDUCE");
+    return allreduce;
+  case ResponseType::ALLGATHER:
+    static const std::string allgather("ALLGATHER");
+    return allgather;
+  case ResponseType::BROADCAST:
+    static const std::string broadcast("BROADCAST");
+    return broadcast;
+  case ResponseType::JOIN:
+    static const std::string join("JOIN");
+    return join;
+  case ResponseType::ADASUM:
+    static const std::string adasum("ADASUM");
+    return adasum;
+  case ResponseType::ALLTOALL:
+    static const std::string alltoall("ALLTOALL");
+    return alltoall;
+  case ResponseType::ERROR:
+    static const std::string error("ERROR");
+    return error;
+  default:
+    static const std::string unknown("<unknown>");
+    return unknown;
   }
 }
 
@@ -309,9 +306,7 @@ Response::ResponseType Response::response_type() const {
   return response_type_;
 }
 
-void Response::set_response_type(ResponseType value) {
-  response_type_ = value;
-}
+void Response::set_response_type(ResponseType value) { response_type_ = value; }
 
 const std::vector<std::string>& Response::tensor_names() const {
   return tensor_names_;
@@ -387,17 +382,20 @@ double Response::prescale_factor() const { return prescale_factor_; };
 
 double Response::postscale_factor() const { return postscale_factor_; };
 
-void Response::set_prescale_factor(const double prescale_factor) { prescale_factor_ = prescale_factor; };
+void Response::set_prescale_factor(const double prescale_factor) {
+  prescale_factor_ = prescale_factor;
+};
 
-void Response::set_postscale_factor(const double postscale_factor) { postscale_factor_ = postscale_factor; };
+void Response::set_postscale_factor(const double postscale_factor) {
+  postscale_factor_ = postscale_factor;
+};
 
-void Response_ParseFromWire(Response& response,
-                            const wire::Response* obj) {
-  response.set_response_type((Response::ResponseType) obj->response_type());
+void Response_ParseFromWire(Response& response, const wire::Response* obj) {
+  response.set_response_type((Response::ResponseType)obj->response_type());
   for (const auto& tensor_name_obj : *obj->tensor_names()) {
     response.add_tensor_name(tensor_name_obj->str());
   }
-  response.set_tensor_type((DataType) obj->tensor_type());
+  response.set_tensor_type((DataType)obj->tensor_type());
   response.set_error_message(obj->error_message()->str());
   response.set_devices(
       std::vector<int32_t>(obj->devices()->begin(), obj->devices()->end()));
@@ -424,10 +422,9 @@ void Response_SerializeToWire(const Response& response,
 
   wire::ResponseBuilder response_builder(builder);
   response_builder.add_response_type(
-      (wire::ResponseType) response.response_type());
+      (wire::ResponseType)response.response_type());
   response_builder.add_tensor_names(tensor_names_wire);
-  response_builder.add_tensor_type(
-      (wire::DataType) response.tensor_type());
+  response_builder.add_tensor_type((wire::DataType)response.tensor_type());
   response_builder.add_error_message(error_message_wire);
   response_builder.add_devices(devices_wire);
   response_builder.add_tensor_sizes(tensor_sizes_wire);
@@ -445,7 +442,7 @@ void Response::SerializeToString(const Response& response,
 
   uint8_t* buf = builder.GetBufferPointer();
   auto size = builder.GetSize();
-  output = std::string((char*) buf, size);
+  output = std::string((char*)buf, size);
 }
 
 const std::vector<Response>& ResponseList::responses() const {
@@ -504,7 +501,7 @@ void ResponseList::SerializeToString(const ResponseList& response_list,
 
   uint8_t* buf = builder.GetBufferPointer();
   auto size = builder.GetSize();
-  output = std::string((char*) buf, size);
+  output = std::string((char*)buf, size);
 }
 
 } // namespace common
