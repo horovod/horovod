@@ -30,7 +30,6 @@
 namespace horovod {
 namespace common {
 
-
 void Controller::SynchronizeParameters() {
   ParameterManager::Params param;
   if (is_coordinator_) {
@@ -246,7 +245,8 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
             continue;
           }
 
-          bool reduce = IncrementTensorCount(received_message, state.joined_size);
+          bool reduce =
+              IncrementTensorCount(received_message, state.joined_size);
           stall_inspector_.RecordUncachedTensorStart(
               received_message.tensor_name(), received_message.request_rank(),
               size_);
@@ -363,7 +363,8 @@ int64_t Controller::TensorFusionThresholdBytes() {
 
   // If the cluster is homogeneous,
   // adjust buffer size to make sure it is divisible by local_size to improve
-  // performance for operations that perform local reductions by default such as Adasum.
+  // performance for operations that perform local reductions by default such as
+  // Adasum.
   if (is_homogeneous_) {
     // Assume the worst-case data type float64, since if it is divisible with
     // float64, it will be divisible for other types too.
@@ -422,8 +423,7 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
 
   // If we are doing an allreduce or broadcast, check that all tensor shapes are
   // identical.
-  if (message_type == Request::ALLREDUCE ||
-      message_type == Request::ADASUM ||
+  if (message_type == Request::ALLREDUCE || message_type == Request::ADASUM ||
       message_type == Request::BROADCAST) {
     TensorShape tensor_shape;
     for (auto dim : requests[0].tensor_shape()) {
@@ -455,8 +455,7 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
   // are identical across ranks.
   double prescale_factor;
   double postscale_factor;
-  if (message_type == Request::ALLREDUCE ||
-      message_type == Request::ADASUM) {
+  if (message_type == Request::ALLREDUCE || message_type == Request::ADASUM) {
     prescale_factor = requests[0].prescale_factor();
     postscale_factor = requests[0].postscale_factor();
 
@@ -472,31 +471,33 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
         error = true;
         error_message_stream
             << "Mismatched prescale and/or postscale factors: "
-            << "One rank sent factors (" << prescale_factor
-            << ", " << postscale_factor << "), but another rank "
-            << "sent factors (" << request_prescale_factor
-            << ", " << request_postscale_factor << ").";
+            << "One rank sent factors (" << prescale_factor << ", "
+            << postscale_factor << "), but another rank "
+            << "sent factors (" << request_prescale_factor << ", "
+            << request_postscale_factor << ").";
         break;
       }
     }
   }
 
   std::vector<int64_t> tensor_sizes;
-  if (message_type == Request::ALLGATHER ||
-      message_type == Request::ALLTOALL) {
+  if (message_type == Request::ALLGATHER || message_type == Request::ALLTOALL) {
     if (joined_size > 0) {
       error = true;
       if (message_type == Request::ALLGATHER) {
-        error_message_stream << "Allgather is not supported with Join at this time. "
-                             << "Specify sparse_to_dense=True if using DistributedOptimizer";
+        error_message_stream
+            << "Allgather is not supported with Join at this time. "
+            << "Specify sparse_to_dense=True if using DistributedOptimizer";
       } else if (message_type == Request::ALLTOALL) {
-        error_message_stream << "Alltoall is not supported with Join at this time.";
+        error_message_stream
+            << "Alltoall is not supported with Join at this time.";
       }
     }
 
-    // If we are doing an allgather/alltoall, make sure all but the first dimension are
-    // the same. The first dimension may be different and the output tensor is
-    // the sum of the first dimension. Collect the sizes by rank for allgather only.
+    // If we are doing an allgather/alltoall, make sure all but the first
+    // dimension are the same. The first dimension may be different and the
+    // output tensor is the sum of the first dimension. Collect the sizes by
+    // rank for allgather only.
     tensor_sizes.resize(requests.size());
     TensorShape tensor_shape;
     for (auto dim : requests[0].tensor_shape()) {
@@ -550,7 +551,8 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
         break;
       }
 
-      // Collect first dimension sizes for allgather to use for fusion and allgather op.
+      // Collect first dimension sizes for allgather to use for fusion and
+      // allgather op.
       if (message_type == Request::ALLGATHER) {
         tensor_sizes[requests[i].request_rank()] = request_shape.dim_size(0);
       }
@@ -568,7 +570,8 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
   if (message_type == Request::BROADCAST) {
     if (joined_size > 0) {
       error = true;
-      error_message_stream << "Broadcast is not supported with Join at this time.";
+      error_message_stream
+          << "Broadcast is not supported with Join at this time.";
     }
 
     // If we are doing a broadcast, check that all root ranks are identical.
@@ -695,17 +698,19 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
         response.response_type() == Response::ResponseType::ADASUM) {
       // Attempt to add more responses to this fused response.
 
-      tensor_size = response.tensor_sizes()[0] * GetTypeSize(response.tensor_type());
+      tensor_size =
+          response.tensor_sizes()[0] * GetTypeSize(response.tensor_type());
       std::deque<Response> skipped_responses;
       int64_t skipped_size = 0;
       while (!responses.empty()) {
         auto& new_response = responses.front();
         assert(new_response.tensor_names().size() == 1);
 
-        int64_t new_tensor_size = new_response.tensor_sizes().empty()
-                                      ? 0
-                                      : new_response.tensor_sizes()[0] *
-                                        GetTypeSize(new_response.tensor_type());
+        int64_t new_tensor_size =
+            new_response.tensor_sizes().empty()
+                ? 0
+                : new_response.tensor_sizes()[0] *
+                      GetTypeSize(new_response.tensor_type());
         if (response.response_type() == new_response.response_type() &&
             response.devices() == new_response.devices() &&
             response.tensor_type() == new_response.tensor_type() &&

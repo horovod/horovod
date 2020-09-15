@@ -69,13 +69,16 @@ namespace common {
 #define HOROVOD_AUTOTUNE_LOG "HOROVOD_AUTOTUNE_LOG"
 #define HOROVOD_AUTOTUNE_WARMUP_SAMPLES "HOROVOD_AUTOTUNE_WARMUP_SAMPLES"
 #define HOROVOD_AUTOTUNE_STEPS_PER_SAMPLE "HOROVOD_AUTOTUNE_STEPS_PER_SAMPLE"
-#define HOROVOD_AUTOTUNE_BAYES_OPT_MAX_SAMPLES "HOROVOD_AUTOTUNE_BAYES_OPT_MAX_SAMPLES"
-#define HOROVOD_AUTOTUNE_GAUSSIAN_PROCESS_NOISE "HOROVOD_AUTOTUNE_GAUSSIAN_PROCESS_NOISE"
+#define HOROVOD_AUTOTUNE_BAYES_OPT_MAX_SAMPLES                                 \
+  "HOROVOD_AUTOTUNE_BAYES_OPT_MAX_SAMPLES"
+#define HOROVOD_AUTOTUNE_GAUSSIAN_PROCESS_NOISE                                \
+  "HOROVOD_AUTOTUNE_GAUSSIAN_PROCESS_NOISE"
 #define HOROVOD_FUSION_THRESHOLD "HOROVOD_FUSION_THRESHOLD"
 #define HOROVOD_CYCLE_TIME "HOROVOD_CYCLE_TIME"
 #define HOROVOD_STALL_CHECK_DISABLE "HOROVOD_STALL_CHECK_DISABLE"
 #define HOROVOD_STALL_CHECK_TIME_SECONDS "HOROVOD_STALL_CHECK_TIME_SECONDS"
-#define HOROVOD_STALL_SHUTDOWN_TIME_SECONDS "HOROVOD_STALL_SHUTDOWN_TIME_SECONDS"
+#define HOROVOD_STALL_SHUTDOWN_TIME_SECONDS                                    \
+  "HOROVOD_STALL_SHUTDOWN_TIME_SECONDS"
 #define HOROVOD_HIERARCHICAL_ALLREDUCE "HOROVOD_HIERARCHICAL_ALLREDUCE"
 #define HOROVOD_HIERARCHICAL_ALLGATHER "HOROVOD_HIERARCHICAL_ALLGATHER"
 #define HOROVOD_CACHE_CAPACITY "HOROVOD_CACHE_CAPACITY"
@@ -106,26 +109,29 @@ namespace common {
 // List of supported frameworks.
 enum Framework { TENSORFLOW, PYTORCH, MXNET };
 
-enum StatusType { OK, UNKNOWN_ERROR, PRECONDITION_ERROR, ABORTED, INVALID_ARGUMENT, IN_PROGRESS };
+enum StatusType {
+  OK,
+  UNKNOWN_ERROR,
+  PRECONDITION_ERROR,
+  ABORTED,
+  INVALID_ARGUMENT,
+  IN_PROGRESS
+};
 
 enum DeviceType { CPU, GPU };
 
-enum Communicator {
-  GLOBAL = 0,
-  LOCAL = 1,
-  CROSS = 2
-};
+enum Communicator { GLOBAL = 0, LOCAL = 1, CROSS = 2 };
 
 inline std::string CommunicatorName(Communicator comm) {
   switch (comm) {
-    case GLOBAL:
-      return "global";
-    case LOCAL:
-      return "local";
-    case CROSS:
-      return "cross";
-    default:
-      return "<unknown>";
+  case GLOBAL:
+    return "global";
+  case LOCAL:
+    return "local";
+  case CROSS:
+    return "cross";
+  default:
+    return "<unknown>";
   }
 }
 
@@ -220,7 +226,7 @@ public:
   virtual Status AllocateOutput(TensorShape shape,
                                 std::shared_ptr<Tensor>* tensor) = 0;
   virtual Status AllocateZeros(int64_t num_elements, DataType dtype,
-                                std::shared_ptr<Tensor>* tensor) = 0;
+                               std::shared_ptr<Tensor>* tensor) = 0;
   virtual Framework framework() const = 0;
   virtual ~OpContext() = default;
 };
@@ -260,7 +266,8 @@ using TensorTable = std::unordered_map<std::string, TensorTableEntry>;
 
 // Set affinity function
 void set_affinity(int affinity);
-void parse_and_set_affinity(const char* affinity, int local_size, int local_rank);
+void parse_and_set_affinity(const char* affinity, int local_size,
+                            int local_rank);
 
 } // namespace common
 } // namespace horovod

@@ -30,54 +30,56 @@
 namespace horovod {
 namespace common {
 
-// ParameterManager encapsulates the various tunable "knobs" in Horovod including the cycle time
-// between iterations of the background thread, and the size of the fusion buffer.
+// ParameterManager encapsulates the various tunable "knobs" in Horovod
+// including the cycle time between iterations of the background thread, and the
+// size of the fusion buffer.
 //
-// During the early training batches, the auto-tuning feature (if enabled) will try various
-// combinations of parameters in search of the combination that yields the highest throughput
-// in units of bytes processed per second.
+// During the early training batches, the auto-tuning feature (if enabled) will
+// try various combinations of parameters in search of the combination that
+// yields the highest throughput in units of bytes processed per second.
 //
-// Once the auto-tuner has converged to find the highest scoring combination of parameters, the tuning
-// will end and the returned values will always be equal to the best scoring.
+// Once the auto-tuner has converged to find the highest scoring combination of
+// parameters, the tuning will end and the returned values will always be equal
+// to the best scoring.
 class ParameterManager {
 public:
   ParameterManager();
   ParameterManager(const ParameterManager&) = delete;
 
   // Initializes this manager if auto tuning was requested.
-  void Initialize(int32_t rank, int32_t root_rank, const std::string& file_name);
+  void Initialize(int32_t rank, int32_t root_rank,
+                  const std::string& file_name);
 
   // Starts or stop the auto tuning procedure.
   void SetAutoTuning(bool active);
 
   // Returns true if parameters are being actively tuned currently.
-  inline bool IsAutoTuning() const {
-    return active_;
-  }
+  inline bool IsAutoTuning() const { return active_; }
 
   // Do hierarchical allreduce.
   bool HierarchicalAllreduce() const;
-  void SetHierarchicalAllreduce(bool value, bool fixed=false);
+  void SetHierarchicalAllreduce(bool value, bool fixed = false);
 
   // Do hierarchical allgather.
   bool HierarchicalAllgather() const;
-  void SetHierarchicalAllgather(bool value, bool fixed=false);
+  void SetHierarchicalAllgather(bool value, bool fixed = false);
 
   // Threshold for Tensor Fusion.  All tensors that occupy memory beyond this
   // threshold will be fused.
   int64_t TensorFusionThresholdBytes() const;
-  void SetTensorFusionThresholdBytes(int64_t threshold, bool fixed=false);
+  void SetTensorFusionThresholdBytes(int64_t threshold, bool fixed = false);
 
   // Background thread cycle time in milliseconds.  Fractional numbers are
   // permitted.
   double CycleTimeMs() const;
-  void SetCycleTimeMs(double cycle_time_ms, bool fixed=false);
+  void SetCycleTimeMs(double cycle_time_ms, bool fixed = false);
 
   // Enable response caching.
   bool CacheEnabled() const;
-  void SetCacheEnabled (bool enabled, bool fixed=false);
+  void SetCacheEnabled(bool enabled, bool fixed = false);
 
-  // Observes that the given tensors have been processed (e.g., allreduced) over the given number of microseconds.
+  // Observes that the given tensors have been processed (e.g., allreduced) over
+  // the given number of microseconds.
   //
   // Args:
   //  tensor_names: The names of the tensors that have been processed.
@@ -101,7 +103,8 @@ public:
   // Using given params to update its own params.
   void SetParams(const Params& newParams);
 
-  // Resets the tuning state in preparation for evaluating a new set of parameter values.
+  // Resets the tuning state in preparation for evaluating a new set of
+  // parameter values.
   void Reset();
 
 private:
@@ -112,7 +115,8 @@ private:
   void LogParameters(double score);
   void LogBestParameters();
 
-  // Interface used to represent a parameter (or group of parameters) being tuned.
+  // Interface used to represent a parameter (or group of parameters) being
+  // tuned.
   class ITunableParameter {
   public:
     virtual bool Tune(double score, double* best_score) = 0;
@@ -122,8 +126,7 @@ private:
   };
 
   // Abstract base class used to implement hierarchical parameter tuning.
-  template <class T>
-  class TunableParameter : public ITunableParameter {
+  template <class T> class TunableParameter : public ITunableParameter {
   public:
     TunableParameter(T initial_value);
     bool Tune(double score, double* best_score) override;
@@ -160,9 +163,9 @@ private:
     bool tunable_;
   };
 
-  // A parameter that optimizes over a finite set of discrete values to be tried sequentially.
-  template <class T>
-  class CategoricalParameter : public TunableParameter<T> {
+  // A parameter that optimizes over a finite set of discrete values to be tried
+  // sequentially.
+  template <class T> class CategoricalParameter : public TunableParameter<T> {
   public:
     CategoricalParameter(std::vector<T> values);
 
@@ -182,11 +185,13 @@ private:
     std::pair<double, double> bounds;
   };
 
-  // A set of numerical parameters optimized jointly using Bayesian Optimization.
+  // A set of numerical parameters optimized jointly using Bayesian
+  // Optimization.
   class BayesianParameter : public TunableParameter<Eigen::VectorXd> {
   public:
-    BayesianParameter(std::vector<BayesianVariableConfig> variables, std::vector<Eigen::VectorXd> test_points,
-                      int max_samples, double gaussian_process_noise);
+    BayesianParameter(std::vector<BayesianVariableConfig> variables,
+                      std::vector<Eigen::VectorXd> test_points, int max_samples,
+                      double gaussian_process_noise);
 
     void SetValue(BayesianVariable variable, double value, bool fixed);
     double Value(BayesianVariable variable) const;
@@ -208,8 +213,7 @@ private:
     uint32_t iteration_;
 
     struct EnumClassHash {
-      template <typename T>
-      std::size_t operator()(T t) const {
+      template <typename T> std::size_t operator()(T t) const {
         return static_cast<std::size_t>(t);
       }
     };
@@ -248,4 +252,4 @@ private:
 } // namespace common
 } // namespace horovod
 
-#endif //HOROVOD_PARAMETER_MANAGER_H
+#endif // HOROVOD_PARAMETER_MANAGER_H

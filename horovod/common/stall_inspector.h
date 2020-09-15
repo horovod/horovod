@@ -34,8 +34,9 @@ public:
       : response_cache_(response_cache) {}
   StallInspector(const StallInspector&) = delete;
 
-  // Report Tensors that were submitted to be reduced, gathered or broadcasted by
-  // some ranks but not others and are waiting for long time to get processed.
+  // Report Tensors that were submitted to be reduced, gathered or broadcasted
+  // by some ranks but not others and are waiting for long time to get
+  // processed.
   bool CheckForStalledTensors(int global_size);
 
   // Invalidate cached tensors that have been pending for a long time.

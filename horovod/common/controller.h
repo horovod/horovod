@@ -50,8 +50,8 @@ public:
   virtual void CrossRankBitwiseOr(std::vector<long long>& bitvector,
                                   int count) = 0;
 
-  virtual void Bcast(void* buffer, size_t size, int root_rank, Communicator
-  communicator) = 0;
+  virtual void Bcast(void* buffer, size_t size, int root_rank,
+                     Communicator communicator) = 0;
 
   virtual void AlltoallGetRecvSplits(const std::vector<int32_t>& splits,
                                      std::vector<int32_t>& recvsplits) = 0;
@@ -144,7 +144,8 @@ protected:
   // For other ranks to send their ready tensors to rank 0
   virtual void SendReadyTensors(RequestList& message_list) = 0;
 
-  // For rank 0 to send final ready tensors to be allreaduce/allgather to other ranks.
+  // For rank 0 to send final ready tensors to be allreaduce/allgather to other
+  // ranks.
   virtual void SendFinalTensors(ResponseList& response_list) = 0;
 
   // For other ranks to receive to final ready tensors.
@@ -204,7 +205,6 @@ protected:
   bool timeline_enabled_pending_ = false;
   bool mark_cycles_in_timeline_pending_ = false;
   std::recursive_mutex timeline_mutex_;
-
 
   // Outside dependencies
   TensorQueue& tensor_queue_;

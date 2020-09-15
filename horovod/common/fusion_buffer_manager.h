@@ -25,8 +25,8 @@
 namespace horovod {
 namespace common {
 
-// Encapsulates the process of creating and destroying fusion buffers as the requested
-// threshold is changed.
+// Encapsulates the process of creating and destroying fusion buffers as the
+// requested threshold is changed.
 class FusionBufferManager {
 public:
   // Initializes a buffer of the given threshold size if not already cached.
@@ -37,25 +37,25 @@ public:
   //  context: Framework used to create the buffer and associate it.
   //  on_start_init: Callback on starting buffer initialization.
   //  on_end_init: Callback on completing buffer initialization.
-  Status InitializeBuffer(int64_t threshold,
-                          int device, std::shared_ptr<OpContext> context,
-                          int stream_id,
+  Status InitializeBuffer(int64_t threshold, int device,
+                          std::shared_ptr<OpContext> context, int stream_id,
                           std::function<void()> on_start_init,
                           std::function<void()> on_end_init);
 
   // Returns the buffer associated with the given device and framework, or null.
-  std::shared_ptr<PersistentBuffer> GetBuffer(int device, Framework framework, int stream_id);
+  std::shared_ptr<PersistentBuffer> GetBuffer(int device, Framework framework,
+                                              int stream_id);
 
 private:
   // Memory buffers for Tensor Fusion.  They are keyed off device ID and
   // framework, and all are allocated tensor_fusion_threshold bytes if
   // initialized.
-  std::unordered_map<
-      std::tuple<int, Framework, int>,
-      std::pair<std::shared_ptr<PersistentBuffer>, int64_t>> tensor_fusion_buffers_;
+  std::unordered_map<std::tuple<int, Framework, int>,
+                     std::pair<std::shared_ptr<PersistentBuffer>, int64_t>>
+      tensor_fusion_buffers_;
 };
 
 } // namespace common
 } // namespace horovod
 
-#endif //HOROVOD_FUSION_BUFFER_MANAGER_H
+#endif // HOROVOD_FUSION_BUFFER_MANAGER_H

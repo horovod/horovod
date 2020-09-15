@@ -46,8 +46,8 @@
 #include "mpi.h"
 #include "mpi/mpi_context.h"
 #include "mpi/mpi_controller.h"
-#include "ops/mpi_operations.h"
 #include "ops/adasum_mpi_operations.h"
+#include "ops/mpi_operations.h"
 #endif
 
 #if HAVE_GPU
@@ -156,7 +156,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
         new MPI_GPUAllreduce(&mpi_context, &gpu_context, &state)));
 
 #elif HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
-    adasum_ops.push_back(std::shared_ptr<AllreduceOp>(new AdasumGpuAllreduceOp(&mpi_context, &nccl_context, &gpu_context, &state)));
+    adasum_ops.push_back(std::shared_ptr<AllreduceOp>(new AdasumGpuAllreduceOp(
+        &mpi_context, &nccl_context, &gpu_context, &state)));
 
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new NCCLHierarchicalAllreduce(
@@ -187,8 +188,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #endif
 
 #if HAVE_NCCL && HOROVOD_GPU_BROADCAST == 'N'
-    broadcast_ops.push_back(
-        std::shared_ptr<BroadcastOp>(new NCCLBroadcast(&nccl_context, &gpu_context, &state)));
+  broadcast_ops.push_back(std::shared_ptr<BroadcastOp>(
+      new NCCLBroadcast(&nccl_context, &gpu_context, &state)));
 #endif
 
 #if HAVE_NCCL && HOROVOD_GPU_ALLGATHER == 'N'
@@ -226,11 +227,11 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #endif
 
 #if HAVE_MPI
-  if (mpi_context.IsEnabled()){
-    adasum_ops.push_back(
-        std::shared_ptr<AllreduceOp>(new AdasumMPIAllreduceOp(&mpi_context, &state)));
+  if (mpi_context.IsEnabled()) {
+    adasum_ops.push_back(std::shared_ptr<AllreduceOp>(
+        new AdasumMPIAllreduceOp(&mpi_context, &state)));
     allreduce_ops.push_back(
-        std::shared_ptr<AllreduceOp>(new MPIAllreduce(&mpi_context,&state)));
+        std::shared_ptr<AllreduceOp>(new MPIAllreduce(&mpi_context, &state)));
     allgather_ops.push_back(
         std::shared_ptr<AllgatherOp>(new MPIAllgather(&mpi_context, &state)));
     broadcast_ops.push_back(
@@ -373,15 +374,14 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
 #if HAVE_GLOO
 #if HAVE_MPI
-    if (mpi_context.IsEnabled()) {
-      // Initialize gloo context if mpi context is available
-      gloo_context.InitializeFromMPI(mpi_context, ParseGlooIface());
-    }
-    else
+  if (mpi_context.IsEnabled()) {
+    // Initialize gloo context if mpi context is available
+    gloo_context.InitializeFromMPI(mpi_context, ParseGlooIface());
+  } else
 #endif
-    {
-      gloo_context.Initialize(ParseGlooIface());
-    }
+  {
+    gloo_context.Initialize(ParseGlooIface());
+  }
 #endif
   // Initialize controller
   state.controller->Initialize();
@@ -393,12 +393,12 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   int local_rank = state.controller->GetLocalRank();
 
   // Set background thread affinity
-  parse_and_set_affinity(std::getenv(HOROVOD_THREAD_AFFINITY), local_size, local_rank);
+  parse_and_set_affinity(std::getenv(HOROVOD_THREAD_AFFINITY), local_size,
+                         local_rank);
 
 #if HAVE_GPU
   // Set number of GPU streams to use
-  auto horovod_num_nccl_streams =
-      std::getenv(HOROVOD_NUM_NCCL_STREAMS);
+  auto horovod_num_nccl_streams = std::getenv(HOROVOD_NUM_NCCL_STREAMS);
   if (horovod_num_nccl_streams != nullptr &&
       std::stol(horovod_num_nccl_streams, nullptr, 10) > 0) {
     state.num_nccl_streams = std::atoi(horovod_num_nccl_streams);
@@ -415,21 +415,21 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
   // Open the timeline file on coordinator.
   auto timeline_env = std::getenv(HOROVOD_TIMELINE);
-  auto horovod_timeline = timeline_env != nullptr ? std::string(timeline_env) : std::string("");
+  auto horovod_timeline =
+      timeline_env != nullptr ? std::string(timeline_env) : std::string("");
   bool should_enable_timeline = false;
   if (is_coordinator) {
     state.timeline.Initialize(horovod_timeline,
                               static_cast<unsigned int>(size));
   }
   if (horovod_timeline != "") {
-      should_enable_timeline = true;
+    should_enable_timeline = true;
   }
   state.controller->SetTimelineEnabled(should_enable_timeline);
 
   ParseStallInspectorFromEnv(state.controller->GetStallInspector());
   bool mark_cycles = false;
-  SetBoolFromEnv(HOROVOD_TIMELINE_MARK_CYCLES, mark_cycles,
-                 true);
+  SetBoolFromEnv(HOROVOD_TIMELINE_MARK_CYCLES, mark_cycles, true);
   state.controller->SetMarkCyclesInTimelinePending(mark_cycles);
   state.mark_cycles_in_timeline = mark_cycles;
 
@@ -512,9 +512,11 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
 
   // Set chunk size for MPI based Adasum allreduce algorithms
-  auto horovod_adasum_mpi_chunk_size = std::getenv(HOROVOD_ADASUM_MPI_CHUNK_SIZE);
+  auto horovod_adasum_mpi_chunk_size =
+      std::getenv(HOROVOD_ADASUM_MPI_CHUNK_SIZE);
   if (horovod_adasum_mpi_chunk_size != nullptr) {
-    state.adasum_mpi_chunk_size = std::strtol(horovod_adasum_mpi_chunk_size, nullptr, 10);
+    state.adasum_mpi_chunk_size =
+        std::strtol(horovod_adasum_mpi_chunk_size, nullptr, 10);
   }
 
   op_manager.reset(CreateOperationManager(state));
@@ -525,12 +527,13 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
   // Iterate until shutdown.
   try {
-    while (RunLoopOnce(state));
+    while (RunLoopOnce(state))
+      ;
   } catch (const std::exception& ex) {
     LOG(ERROR) << "Horovod background loop uncaught exception: " << ex.what();
   }
 
-    // Finalize all contexts
+  // Finalize all contexts
 #if HAVE_NCCL
   nccl_context.ShutDown();
 #endif
@@ -539,7 +542,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   gloo_context.Finalize();
 #endif
 
-  LOG(DEBUG, horovod_global.controller->GetRank()) << "Shutting down background thread";
+  LOG(DEBUG, horovod_global.controller->GetRank())
+      << "Shutting down background thread";
 
   // Signal that shutdown has been requested.
   state.shut_down = true;
@@ -561,11 +565,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 #endif
 
 #if HAVE_CCL
-  if (state.cpu_operation == LibType::CCL){
+  if (state.cpu_operation == LibType::CCL) {
     ccl_context.Finalize();
   }
 #endif
-
 }
 
 bool RunLoopOnce(HorovodGlobalState& state) {
@@ -588,7 +591,8 @@ bool RunLoopOnce(HorovodGlobalState& state) {
   auto response_list =
       state.controller->ComputeResponseList(horovod_global.shut_down, state);
 
-  state.mark_cycles_in_timeline = state.controller->MarkCyclesInTimelinePending();
+  state.mark_cycles_in_timeline =
+      state.controller->MarkCyclesInTimelinePending();
   state.controller->SynchronizeTimelineEnabled();
 
   // Get tensor name and size data for autotuning.
@@ -637,11 +641,11 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
       mpi_context.Enable();
     }
 
-    if (horovod_global.control_operation == LibType::MPI){
+    if (horovod_global.control_operation == LibType::MPI) {
       horovod_global.controller.reset(new MPIController(
-          horovod_global.response_cache,
-          horovod_global.tensor_queue, horovod_global.timeline,
-          horovod_global.parameter_manager, mpi_context));
+          horovod_global.response_cache, horovod_global.tensor_queue,
+          horovod_global.timeline, horovod_global.parameter_manager,
+          mpi_context));
       horovod_global.controller->SetRanks(ranks, nranks);
     }
 #endif
@@ -655,15 +659,15 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
 
     if (horovod_global.control_operation == LibType::GLOO) {
       horovod_global.controller.reset(new GlooController(
-          horovod_global.response_cache,
-          horovod_global.tensor_queue, horovod_global.timeline,
-          horovod_global.parameter_manager, gloo_context));
+          horovod_global.response_cache, horovod_global.tensor_queue,
+          horovod_global.timeline, horovod_global.parameter_manager,
+          gloo_context));
     }
 #endif
     // Reset initialization flag
     horovod_global.initialization_done = false;
-    horovod_global.background_thread = std::thread(
-        BackgroundThreadLoop, std::ref(horovod_global));
+    horovod_global.background_thread =
+        std::thread(BackgroundThreadLoop, std::ref(horovod_global));
   }
 
   // Wait to ensure that the background thread has finished initializing MPI.
@@ -708,28 +712,28 @@ void horovod_shutdown() {
   }
 }
 
-bool horovod_is_initialized() {
-  return horovod_global.initialization_done;
-}
+bool horovod_is_initialized() { return horovod_global.initialization_done; }
 
 bool horovod_start_timeline(const char* file_name, bool mark_cycles) {
   if (!horovod_global.initialization_done) {
     return false;
   }
   bool is_coordinator = horovod_global.controller->IsCoordinator();
-  if(horovod_global.controller->TimelineEnabledPending()){
-    LOG(INFO) << " Timeline is already enabled. Please stop timeline before restarting it.";
+  if (horovod_global.controller->TimelineEnabledPending()) {
+    LOG(INFO) << " Timeline is already enabled. Please stop timeline before "
+                 "restarting it.";
     return true;
   }
   if (is_coordinator) {
-    horovod_global.timeline.Initialize(std::string(file_name), horovod_global.controller->GetSize());
+    horovod_global.timeline.Initialize(std::string(file_name),
+                                       horovod_global.controller->GetSize());
     horovod_global.timeline.SetPendingTimelineFile(std::string(file_name));
   }
   horovod_global.controller->SetTimelineEnabledPending(true);
   horovod_global.controller->SetMarkCyclesInTimelinePending(mark_cycles);
   // block until timeline is started
-  while(! horovod_global.controller->TimeLineEnabled()){
-    LOG(DEBUG)<< " Start timeline not yet synchronized.";
+  while (!horovod_global.controller->TimeLineEnabled()) {
+    LOG(DEBUG) << " Start timeline not yet synchronized.";
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
   return true;
@@ -739,18 +743,19 @@ bool horovod_stop_timeline() {
   if (!horovod_global.initialization_done) {
     return false;
   }
-  if(!horovod_global.controller->TimelineEnabledPending()){
-    LOG(INFO) << " Timeline is already stopped. Please start timeline before stopping it.";
+  if (!horovod_global.controller->TimelineEnabledPending()) {
+    LOG(INFO) << " Timeline is already stopped. Please start timeline before "
+                 "stopping it.";
     return true;
   }
   bool is_coordinator = horovod_global.controller->IsCoordinator();
   if (is_coordinator) {
-      horovod_global.timeline.SetPendingTimelineFile(std::string(""));
+    horovod_global.timeline.SetPendingTimelineFile(std::string(""));
   }
   horovod_global.controller->SetTimelineEnabledPending(false);
   horovod_global.controller->SetMarkCyclesInTimelinePending(false);
-  while(horovod_global.controller->TimeLineEnabled()){
-    LOG(DEBUG)<< " Stop timeline not yet synchronized.";
+  while (horovod_global.controller->TimeLineEnabled()) {
+    LOG(DEBUG) << " Stop timeline not yet synchronized.";
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
   return true;
@@ -874,18 +879,11 @@ bool horovod_rocm_built() {
 #endif
 }
 
-int horovod_reduce_op_average() {
-  return ReduceOp::AVERAGE;
-}
+int horovod_reduce_op_average() { return ReduceOp::AVERAGE; }
 
-int horovod_reduce_op_sum() {
-  return ReduceOp::SUM;
-}
+int horovod_reduce_op_sum() { return ReduceOp::SUM; }
 
-int horovod_reduce_op_adasum() {
-  return ReduceOp::ADASUM;
-}
-
+int horovod_reduce_op_adasum() { return ReduceOp::ADASUM; }
 }
 
 // Contexts and controller must be initialized and the background thread
@@ -895,10 +893,8 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> output,
                               std::shared_ptr<ReadyEvent> ready_event,
                               const std::string name, const int device,
-                              StatusCallback callback,
-                              ReduceOp reduce_op,
-                              double prescale_factor,
-                              double postscale_factor) {
+                              StatusCallback callback, ReduceOp reduce_op,
+                              double prescale_factor, double postscale_factor) {
   Status status;
 
   if (reduce_op == ReduceOp::AVERAGE) {
@@ -906,7 +902,8 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
     // Averaging happens via postscale_factor
     postscale_factor /= horovod_global.controller->GetSize();
 #else
-    LOG(ERROR, horovod_global.controller->GetRank()) << "Enqueuing AVERAGE allreduce is not allowed.";
+    LOG(ERROR, horovod_global.controller->GetRank())
+        << "Enqueuing AVERAGE allreduce is not allowed.";
     return status.Aborted("AVERAGE not allowed.");
 #endif
   } else if (reduce_op == ReduceOp::ADASUM) {
@@ -1039,7 +1036,8 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
     return Status::InvalidArgument("alltoall expects a 1D splits tensor");
   }
   if (splits->dtype() != HOROVOD_INT32) {
-    return Status::InvalidArgument("alltoall expects splits to contain 32-bit integer elements.");
+    return Status::InvalidArgument(
+        "alltoall expects splits to contain 32-bit integer elements.");
   }
 
   Request message;
@@ -1067,18 +1065,20 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
     auto splits_data = static_cast<const int32_t*>(splits->data());
     auto sum = std::accumulate(splits_data, splits_data + splits_first_dim, 0);
     if (sum > tensor_first_dim) {
-      return Status::InvalidArgument("Sum of splits entries is greater than the first dimension of tensor.");
+      return Status::InvalidArgument("Sum of splits entries is greater than "
+                                     "the first dimension of tensor.");
     }
-    e.splits.assign(splits_data,
-                    splits_data + splits->shape().num_elements());
+    e.splits.assign(splits_data, splits_data + splits->shape().num_elements());
   } else if (splits_first_dim == 0) {
     if (tensor_first_dim % world_size != 0) {
-      return Status::InvalidArgument("splits not provided, but first dimension of tensor is not an even "
-                                     "multiple of the number of workers.");
+      return Status::InvalidArgument(
+          "splits not provided, but first dimension of tensor is not an even "
+          "multiple of the number of workers.");
     }
     e.splits.resize(world_size, tensor_first_dim / world_size);
   } else {
-      return Status::InvalidArgument("Number of entries in splits does not equal number of workers.");
+    return Status::InvalidArgument(
+        "Number of entries in splits does not equal number of workers.");
   }
 
   if (horovod_global.shut_down) {
