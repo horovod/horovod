@@ -24,6 +24,8 @@ import tensorflow as tf
 from distutils.version import LooseVersion
 
 from horovod.spark.common import constants
+from horovod.spark.common.store import DBFSLocalStore
+from horovod.spark.common.util import _get_assigned_gpu_or_default
 from horovod.runner.common.util import codec
 
 
@@ -82,6 +84,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
 
     # Storage
     store = estimator.getStore()
+    is_dbfs = isinstance(store, DBFSLocalStore)
     remote_store = store.to_remote(run_id, dataset_idx)
 
     def SyncCallback(root_path, sync_to_store_fn, keras):
@@ -154,7 +157,14 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 if _checkpoint_callback:
                     _checkpoint_callback.filepath = ckpt_file
                 else:
-                    _checkpoint_callback = k.callbacks.ModelCheckpoint(ckpt_file)
+                    if is_dbfs and LooseVersion(tf.__version__) < LooseVersion("2.0.0"):
+                        # Because DBFS local file APIs does not support random write which is
+                        # required by h5 format, save_weights_only=True is needed for switching
+                        # to the TensorFlow SavedModel format.
+                        _checkpoint_callback = k.callbacks.ModelCheckpoint(ckpt_file,
+                                                                           save_weights_only=True)
+                    else:
+                        _checkpoint_callback = k.callbacks.ModelCheckpoint(ckpt_file)
                 callbacks.append(_checkpoint_callback)
 
                 if remote_store.saving_runs:
@@ -233,8 +243,17 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
             globals()['_DATASET_FINALIZATION_HACK'] = model
 
             if hvd.rank() == 0:
-                with open(ckpt_file, 'rb') as f:
-                    return history.history, codec.dumps_base64(f.read()), hvd.size()
+                if is_dbfs:
+                    if LooseVersion(tf.__version__) < LooseVersion("2.0.0"):
+                        model.load_weights(ckpt_file)
+                    else:
+                        model = k.models.load_model(ckpt_file)
+                    serialized_model = keras_utils.serialize_model(model)
+                else:
+                    with open(ckpt_file, 'rb') as f:
+                        serialized_model = codec.dumps_base64(f.read())
+
+                return history.history, serialized_model, hvd.size()
     return train
 
 
@@ -301,7 +320,8 @@ def _pin_gpu_tensorflow2_fn():
         for gpu in gpus:
             tf.config.experimental.set_memory_growth(gpu, True)
         if gpus:
-            tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
+            tf.config.experimental.set_visible_devices(
+                gpus[_get_assigned_gpu_or_default(default=hvd.local_rank())], 'GPU')
     return fn
 
 
@@ -309,7 +329,8 @@ def _pin_gpu_tensorflow1_fn():
     def fn(hvd, tf, keras):
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
-        config.gpu_options.visible_device_list = str(hvd.local_rank())
+        config.gpu_options.visible_device_list = \
+            str(_get_assigned_gpu_or_default(default=hvd.local_rank()))
         keras.backend.set_session(tf.Session(config=config))
     return fn
 

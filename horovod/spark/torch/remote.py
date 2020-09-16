@@ -22,7 +22,8 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from horovod.spark.common import constants
-from horovod.spark.common.util import to_list
+from horovod.spark.common.util import _get_assigned_gpu_or_default, to_list
+from horovod.spark.common.store import DBFSLocalStore
 from horovod.spark.torch.util import deserialize_fn
 
 PETASTORM_HDFS_DRIVER = constants.PETASTORM_HDFS_DRIVER
@@ -85,6 +86,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     # Storage
     store = estimator.getStore()
     remote_store = store.to_remote(run_id, dataset_idx)
+    is_dbfs = isinstance(store, DBFSLocalStore)
 
     @contextlib.contextmanager
     def empty_batch_reader():
@@ -118,8 +120,8 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
 
         cuda_available = torch.cuda.is_available()
         if cuda_available:
-            # Horovod: pin GPU to local rank.
-            torch.cuda.set_device(hvd.local_rank())
+            # Horovod: pin GPU to local rank or the assigned GPU from spark.
+            torch.cuda.set_device(_get_assigned_gpu_or_default(default=hvd.local_rank()))
             # Move model to GPU.
             model.cuda()
 

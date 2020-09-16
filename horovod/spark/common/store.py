@@ -19,6 +19,7 @@ import os
 import re
 import shutil
 import tempfile
+import warnings
 
 from distutils.version import LooseVersion
 
@@ -163,6 +164,19 @@ class FilesystemStore(Store):
     def read(self, path):
         with self.get_filesystem().open(self.get_localized_path(path), 'rb') as f:
             return f.read()
+
+    def read_serialized_keras_model(self, ckpt_path, model):
+        """Reads the checkpoint file of the keras model into model bytes and returns the base 64
+        encoded model bytes.
+        :param ckpt_path: A string of path to the checkpoint file.
+        :param model: A keras model. This parameter will be used in DBFSLocalStore\
+            .read_serialized_keras_model() when the ckpt_path only contains model weights.
+        :return: the base 64 encoded model bytes of the checkpoint model.
+        """
+        from horovod.runner.common.util import codec
+
+        model_bytes = self.read(ckpt_path)
+        return codec.dumps_base64(model_bytes)
 
     def is_parquet_dataset(self, path):
         try:
@@ -431,3 +445,41 @@ class HDFSStore(FilesystemStore):
     @classmethod
     def filesystem_prefix(cls):
         return cls.FS_PREFIX
+
+
+class DBFSLocalStore(LocalStore):
+    """Uses Databricks File System (DBFS) local file APIs as a store of intermediate data and
+    training artifacts.
+
+    Initialized from a `prefix_path` starts with `/dbfs/...`, see
+    https://docs.databricks.com/data/databricks-file-system.html#local-file-apis.
+
+    Note that DBFSLocalStore cannot be created via Store.create("/dbfs/..."), which will create a
+    LocalStore instead.
+    """
+    def __init__(self, prefix_path, *args, **kwargs):
+        if not prefix_path.startswith("/dbfs/"):
+            warnings.warn("The provided prefix_path might be ephemeral: {} Please provide a "
+                          "`prefix_path` starting with `/dbfs/...`".format(prefix_path))
+        super(DBFSLocalStore, self).__init__(prefix_path, *args, **kwargs)
+
+    def get_checkpoint_filename(self):
+        # Use the default Tensorflow SavedModel format in TF 2.x. In TF 1.x, the SavedModel format
+        # is used by providing `save_weights_only=True` to the ModelCheckpoint() callback.
+        return 'checkpoint.tf'
+
+    def read_serialized_keras_model(self, ckpt_path, model):
+        """
+        Returns serialized keras model. On Databricks, only TFKeras is supported, not BareKeras.
+        The parameter `model` is for providing the model structure when the checkpoint file only
+        contains model weights.
+        """
+        import tensorflow
+        from tensorflow import keras
+        from horovod.spark.keras.util import TFKerasUtil
+
+        if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
+            model.load_weights(ckpt_path)
+        else:
+            model = keras.models.load_model(ckpt_path)
+        return TFKerasUtil.serialize_model(model)
