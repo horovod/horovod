@@ -2053,7 +2053,7 @@ class TensorFlowTests(tf.test.TestCase):
         silent_splits = [0] * hvd.size()
         silent_shape = [0, 4]
 
-        with tf.device("/gpu:0"):
+        with tf.device("/gpu:%s" % hvd.local_rank()):
             if hvd.rank() in active_ranks:
                 source_tensor = tf.fill(active_shape, value=tf.cast(hvd.rank(), tf.int32))
                 splits = tf.convert_to_tensor(active_splits)
