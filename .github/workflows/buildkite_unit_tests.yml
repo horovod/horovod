@@ -1,15 +1,21 @@
 name: Unit Tests
 on:
-  push:
-    # keep paths-ignore in-sync with .buildkite/gen-pipeline.sh
-    # buildkite does not run tests when there are no changes in paths other then these
-    paths-ignore:
-    - ".buildkite/get_commit_files.py"
-    - ".github/**"
-    - "docs/"
-    - "*.md"
-    - "*.rst"
-    tags-ignore: "**"
+  # pushing to master, always run this workflow
+  - push:
+      branches: master
+      tags-ignore: "**"
+  # pushing to non-master branches, ignore non-code changes
+  - push:
+      branches-ignore: master
+      tags-ignore: "**"
+      # keep paths-ignore in-sync with .buildkite/gen-pipeline.sh
+      # buildkite does not run tests when there are no changes in paths other then these
+      paths-ignore:
+      - ".buildkite/get_commit_files.py"
+      - ".github/**"
+      - "docs/"
+      - "*.md"
+      - "*.rst"
 
 jobs:
   buildkite:
