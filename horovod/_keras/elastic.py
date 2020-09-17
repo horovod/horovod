@@ -25,8 +25,14 @@ class CommitStateCallbackImpl(object):
     def on_batch_end(self, batch, logs=None):
         self.batches_remaining -= 1
         if self.batches_remaining == 0:
-            self.state.commit()
+            self.commit()
             self.batches_remaining = self.batches_per_commit
+
+    def on_epoch_end(self, epoch, logs=None):
+        self.commit()
+
+    def commit(self):
+        self.state.commit()
 
 
 class UpdateBatchStateCallbackImpl(object):

@@ -30,6 +30,7 @@ dataset = tf.data.Dataset.from_tensor_slices(
 )
 dataset = dataset.repeat().shuffle(10000).batch(batch_size)
 
+# NOTE: `input_shape` is required to ensure the model is built before training
 model = Sequential()
 model.add(Conv2D(32, kernel_size=(3, 3),
                  activation='relu',
