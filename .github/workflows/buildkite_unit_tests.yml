@@ -1,7 +1,7 @@
 name: Unit Tests
 on:
   push:
-    # keep in-sync with .buildkite/gen-pipeline.sh
+    # keep paths-ignore in-sync with .buildkite/gen-pipeline.sh
     # buildkite does not run tests when there are no changes in paths other then these
     paths-ignore:
     - ".buildkite/get_commit_files.py"
@@ -9,17 +9,16 @@ on:
     - "docs/"
     - "*.md"
     - "*.rst"
-    branches-ignore: master
     tags-ignore: "**"
 
 jobs:
   buildkite:
     name: "Buildkite Unit Tests"
     runs-on: ubuntu-latest
+    if: github.repository_owner == 'horovod'
 
     steps:
     - name: Download Buildkite Artifacts
-      if: github.repository_owner == 'horovod'
       uses: EnricoMi/download-buildkite-artifact-action@master
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -29,7 +28,6 @@ jobs:
       continue-on-error: true
 
     - name: Unit Test Results
-      if: github.repository_owner == 'horovod'
       uses: EnricoMi/publish-unit-test-result-action@master
       with:
         check_name: Unit Test Results
@@ -39,7 +37,6 @@ jobs:
       continue-on-error: true
 
     - name: Upload Test Results
-      if: github.repository_owner == 'horovod'
       uses: actions/upload-artifact@v2
       with:
         name: Unit Test Results
