@@ -1746,6 +1746,336 @@ class TensorFlowTests(tf.test.TestCase):
                     self.evaluate(tf.equal(tf.size(collected), size * (size + 1) // 2 * 2**(dim - 1))),
                     "hvd.alltoall collected wrong number of values")
 
+    def test_horovod_alltoall_empty_cpu(self):
+        """Test that the alltoall correctly deals with an empty input tensor."""
+        hvd.init()
+        size = hvd.size()
+
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64]
+        for dtype in dtypes:
+            with tf.device("/cpu:0"):
+                vals = [[] for i in range(size)]
+                tensor = tf.convert_to_tensor(vals, dtype=dtype)
+                collected = hvd.alltoall(tensor)
+
+                self.assertTrue(
+                    self.evaluate(tf.equal(tf.size(collected), 0)),
+                    "hvd.alltoall collected wrong number of values")
+
+    def test_horovod_alltoall_empty_gpu(self):
+        """Test that the alltoall correctly deals with an empty input tensor."""
+        # ncclGroupEnd failed: invalid usage
+
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest("No GPUs available")
+
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        # This test does not apply if NCCL version < 2.7.0
+        if hvd.nccl_built() and hvd.nccl_built() < 2700:
+            self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
+
+        hvd.init()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64]
+        for dtype in dtypes:
+            with tf.device("/gpu:%s" % local_rank):
+                vals = [[] for i in range(size)]
+                tensor = tf.convert_to_tensor(vals, dtype=dtype)
+                collected = hvd.alltoall(tensor)
+
+                self.assertTrue(
+                    self.evaluate(tf.equal(tf.size(collected), 0)),
+                    "hvd.alltoall collected wrong number of values")
+
+    def test_horovod_alltoall_one_rank_sends_nothing_cpu(self):
+        """Test where one rank sends nothing in an alltoall."""
+        hvd.init()
+        size = hvd.size()
+        rank = hvd.rank()
+
+        if hvd.size() < 2:
+            self.skipTest("Only one worker available")
+
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                if rank == 1:
+                    splits = tf.convert_to_tensor([0] * size, dtype=tf.int32)
+                    vals = []
+                    tensor = tf.convert_to_tensor(vals, dtype=dtype)
+                    tensor = tf.reshape(tensor, shape=[0] + (dim-1)*[2])
+                else:
+                    splits = tf.convert_to_tensor([rank + 1] * size, dtype=tf.int32)
+                    vals = []
+                    for i in range(size):
+                        vals += [i] * (rank + 1)
+                    tensor = tf.convert_to_tensor(vals, dtype=dtype)
+                    for _ in range(dim - 1):
+                        tensor = tf.expand_dims(tensor, axis=1)
+                        tensor = tf.concat([tensor, tensor], axis=1)
+
+                collected = hvd.alltoall(tensor, splits, name="a2a")
+
+                self.assertTrue(
+                    self.evaluate(tf.reduce_all(
+                        tf.equal(tf.cast(collected, tf.int32), rank))),
+                    "hvd.alltoall produces incorrect collected tensor")
+
+                self.assertTrue(
+                    self.evaluate(tf.equal(tf.size(collected), size * (size + 1) // 2 * 2**(dim - 1)
+                                                               - (1+1) * 2 ** (dim-1)  # subtract missing rank 1 contributions
+                                           )),
+                    "hvd.alltoall collected wrong number of values")
+
+    def test_horovod_alltoall_one_rank_sends_nothing_gpu(self):
+        """Test where one rank sends nothing in an alltoall."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest("No GPUs available")
+
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        # This test does not apply if NCCL version < 2.7.0
+        if hvd.nccl_built() and hvd.nccl_built() < 2700:
+            self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
+
+        hvd.init()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+        rank = hvd.rank()
+
+        if hvd.size() < 2:
+            self.skipTest("Only one worker available")
+
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%s" % local_rank):
+                if rank == 1:
+                    splits = tf.convert_to_tensor([0] * size, dtype=tf.int32)
+                    vals = []
+                    tensor = tf.convert_to_tensor(vals, dtype=dtype)
+                    tensor = tf.reshape(tensor, shape=[0] + (dim-1)*[2])
+                else:
+                    splits = tf.convert_to_tensor([rank + 1] * size, dtype=tf.int32)
+                    vals = []
+                    for i in range(size):
+                        vals += [i] * (rank + 1)
+                    tensor = tf.convert_to_tensor(vals, dtype=dtype)
+                    for _ in range(dim - 1):
+                        tensor = tf.expand_dims(tensor, axis=1)
+                        tensor = tf.concat([tensor, tensor], axis=1)
+
+                collected = hvd.alltoall(tensor, splits, name="a2a")
+
+                self.assertTrue(
+                    self.evaluate(tf.reduce_all(
+                        tf.equal(tf.cast(collected, tf.int32), rank))),
+                    "hvd.alltoall produces incorrect collected tensor")
+
+                self.assertTrue(
+                    self.evaluate(tf.equal(tf.size(collected), size * (size + 1) // 2 * 2**(dim - 1)
+                                                               - (1+1) * 2 ** (dim-1)  # subtract missing rank 1 contributions
+                                           )),
+                    "hvd.alltoall collected wrong number of values")
+
+    def test_horovod_alltoall_one_rank_receives_nothing_cpu(self):
+        """Test where one rank receives nothing in an alltoall."""
+        hvd.init()
+        size = hvd.size()
+        rank = hvd.rank()
+
+        if hvd.size() < 2:
+            self.skipTest("Only one worker available")
+
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                # send nothing to rank 0
+                splits = tf.convert_to_tensor([0] + [rank + 1] * (size - 1), dtype=tf.int32)
+                vals = []
+                for i in range(1, size):
+                    vals += [i] * (rank + 1)
+                tensor = tf.convert_to_tensor(vals, dtype=dtype)
+                for _ in range(dim - 1):
+                    tensor = tf.expand_dims(tensor, axis=1)
+                    tensor = tf.concat([tensor, tensor], axis=1)
+
+                collected = hvd.alltoall(tensor, splits, name="a2a")
+                self.assertTrue(
+                    self.evaluate(tf.reduce_all(
+                        tf.equal(tf.cast(collected, tf.int32), rank))),
+                    "hvd.alltoall produces incorrect collected tensor")
+                if rank == 0:
+                    expected_size = 0
+                else:
+                    expected_size = size * (size + 1) // 2 * 2**(dim - 1)
+                self.assertTrue(
+                    self.evaluate(tf.equal(tf.size(collected), expected_size)),
+                    "hvd.alltoall collected wrong number of values")
+
+    def test_horovod_alltoall_one_rank_receives_nothing_gpu(self):
+        """Test where one rank receives nothing in an alltoall."""
+        # ncclGroupEnd failed: invalid usage
+
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest("No GPUs available")
+
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        # This test does not apply if NCCL version < 2.7.0
+        if hvd.nccl_built() and hvd.nccl_built() < 2700:
+            self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
+
+        hvd.init()
+        size = hvd.size()
+        rank = hvd.rank()
+        local_rank = hvd.local_rank()
+
+        if hvd.size() < 2:
+            self.skipTest("Only one worker available")
+
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%s" % local_rank):
+                # send nothing to rank 0
+                splits = tf.convert_to_tensor([0] + [rank + 1] * (size - 1), dtype=tf.int32)
+                vals = []
+                for i in range(1, size):
+                    vals += [i] * (rank + 1)
+                tensor = tf.convert_to_tensor(vals, dtype=dtype)
+                for _ in range(dim - 1):
+                    tensor = tf.expand_dims(tensor, axis=1)
+                    tensor = tf.concat([tensor, tensor], axis=1)
+
+                collected = hvd.alltoall(tensor, splits, name="a2a")
+                self.assertTrue(
+                    self.evaluate(tf.reduce_all(
+                        tf.equal(tf.cast(collected, tf.int32), rank))),
+                    "hvd.alltoall produces incorrect collected tensor")
+                if rank == 0:
+                    expected_size = 0
+                else:
+                    expected_size = size * (size + 1) // 2 * 2**(dim - 1)
+                self.assertTrue(
+                    self.evaluate(tf.equal(tf.size(collected), expected_size)),
+                    "hvd.alltoall collected wrong number of values")
+
+
+    def test_horovod_alltoall_zero_splits_cpu(self):
+        """Test alltoall with some ranks not participating / splits set to zero."""
+        hvd.init()
+
+        if hvd.size() == 1:
+            self.skipTest("Only one worker available")
+
+        active_ranks = range(0, hvd.size() // 2)
+        silent_ranks = range(hvd.size() // 2, hvd.size())
+
+        active_splits = [1 if r in active_ranks else 0 for r in range(hvd.size())]
+        active_shape = [sum(active_splits), 4]
+        silent_splits = [0] * hvd.size()
+        silent_shape = [0, 4]
+
+        with tf.device("/cpu:0"):
+            if hvd.rank() in active_ranks:
+                source_tensor = tf.fill(active_shape, value=tf.cast(hvd.rank(), tf.int32))
+                splits = tf.convert_to_tensor(active_splits)
+            else:
+                source_tensor = tf.fill(silent_shape, value=tf.cast(hvd.rank(), tf.int32))
+                splits = tf.convert_to_tensor(silent_splits)
+            collected = hvd.alltoall(source_tensor, splits, name="alltoall_zero_splits")
+            result = self.evaluate(collected)
+
+        print(hvd.rank(), "result.shape", result.shape)
+        print(hvd.rank(), "result", result)
+        if hvd.rank() in active_ranks:
+            expected_result_shape = active_shape
+        else:
+            expected_result_shape = silent_shape
+        self.assertSequenceEqual(result.shape, expected_result_shape)
+        if hvd.rank() in active_ranks:
+            for r_idx, r in enumerate(active_ranks):
+                self.assertTrue(np.all(result[r_idx, ...] == r))
+        else:
+            self.assertLen(result, 0)
+
+    def test_horovod_alltoall_zero_splits_gpu(self):
+        """Test alltoall with some ranks not participating / splits set to zero."""
+        # ncclCommInitRank failed: invalid usage
+        hvd.init()
+
+        if hvd.size() == 1:
+            self.skipTest("Only one worker available")
+
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest("No GPUs available")
+
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        # This test does not apply if NCCL version < 2.7.0
+        if hvd.nccl_built() and hvd.nccl_built() < 2700:
+            self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
+
+        active_ranks = range(0, hvd.size() // 2)
+        silent_ranks = range(hvd.size() // 2, hvd.size())
+
+        active_splits = [1 if r in active_ranks else 0 for r in range(hvd.size())]
+        active_shape = [sum(active_splits), 4]
+        silent_splits = [0] * hvd.size()
+        silent_shape = [0, 4]
+
+        with tf.device("/gpu:%s" % hvd.local_rank()):
+            if hvd.rank() in active_ranks:
+                source_tensor = tf.fill(active_shape, value=tf.cast(hvd.rank(), tf.int32))
+                splits = tf.convert_to_tensor(active_splits)
+            else:
+                source_tensor = tf.fill(silent_shape, value=tf.cast(hvd.rank(), tf.int32))
+                splits = tf.convert_to_tensor(silent_splits)
+            collected = hvd.alltoall(source_tensor, splits, name="alltoall_zero_splits")
+            result = self.evaluate(collected)
+
+        print(hvd.rank(), "result.shape", result.shape)
+        print(hvd.rank(), "result", result)
+        if hvd.rank() in active_ranks:
+            expected_result_shape = active_shape
+        else:
+            expected_result_shape = silent_shape
+        self.assertSequenceEqual(result.shape, expected_result_shape)
+        if hvd.rank() in active_ranks:
+            for r_idx, r in enumerate(active_ranks):
+                self.assertTrue(np.all(result[r_idx, ...] == r))
+        else:
+            self.assertLen(result, 0)
+
     def test_horovod_alltoall_type_error(self):
         """Test that the alltoall returns an error if the tensor types differ
            across the processes."""
