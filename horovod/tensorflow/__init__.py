@@ -299,7 +299,7 @@ if _LegacyOptimizer is not None:
             super(_DistributedOptimizer, self).__init__(name=name, use_locking=use_locking)
 
             self._optimizer = optimizer
-            self._allreduce_grads = make_allreduce_grads_fn(
+            self._allreduce_grads = _make_allreduce_grads_fn(
                 name, device_dense, device_sparse, compression, sparse_as_dense, op,
                 gradient_predivide_factor)
 
@@ -515,7 +515,7 @@ if hasattr(tf, 'GradientTape'):
                 super(self.__class__, self).__init__(persistent)
 
             self._tape = tape
-            self._allreduce_grads = make_allreduce_grads_fn(
+            self._allreduce_grads = _make_allreduce_grads_fn(
                 'DistributedGradientTape', device_dense, device_sparse, compression,
                 sparse_as_dense, op, gradient_predivide_factor)
 

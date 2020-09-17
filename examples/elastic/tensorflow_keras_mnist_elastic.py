@@ -63,9 +63,9 @@ state.register_reset_callbacks([on_state_reset])
 
 callbacks = [
     # Horovod: elastic training callbacks to update and commit state.
-    hvd.elastic.CommitStateCallback(state),
-    hvd.elastic.UpdateBatchStateCallback(state),
     hvd.elastic.UpdateEpochStateCallback(state),
+    hvd.elastic.UpdateBatchStateCallback(state),
+    hvd.elastic.CommitStateCallback(state),
 ]
 
 # Horovod: save checkpoints only on worker 0 to prevent other workers from corrupting them.
