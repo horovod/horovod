@@ -113,19 +113,23 @@ state = hvd.elastic.KerasState(model, batch=0, epoch=0, commits=0, rendezvous=0)
 state.register_reset_callbacks([on_state_reset])
 
 
+# Handles all the test logic the surrounds the training loop
 class TestCallback(tf.keras.callbacks.Callback):
     def __init__(self, state):
         self.state = state
 
     def on_batch_begin(self, batch, logs=None):
-        check_exit(self.state.epoch, batch)
+        check_exit(self.state.epoch, self.state.batch)
+
+    def on_epoch_begin(self, epoch, logs=None):
+        print('epoch {} batch {}'.format(self.state.epoch, self.state.batch))
 
     def on_epoch_end(self, epoch, logs=None):
         if hvd.rank() == 0:
             log_state(self.state)
 
-            current_hosts = epoch_to_hosts.get(epoch, default_hosts)
-            next_hosts = epoch_to_hosts.get(epoch + 1, default_hosts)
+            current_hosts = epoch_to_hosts.get(self.state.epoch, default_hosts)
+            next_hosts = epoch_to_hosts.get(self.state.epoch + 1, default_hosts)
             if args.discovery_wait > 0 and current_hosts != next_hosts:
                 print('host changes: {} -> {}'.format(current_hosts, next_hosts))
                 start = int(time.time())
@@ -138,6 +142,7 @@ class TestCallback(tf.keras.callbacks.Callback):
             time.sleep(args.epoch_wait)
 
 
+# Special callback for testing that allows us to record how many times we have committed
 class TrackingCommitCallback(hvd.elastic.CommitStateCallback):
     def commit(self):
         self.state.commits += 1

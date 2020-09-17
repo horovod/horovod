@@ -60,6 +60,10 @@ class UpdateEpochStateCallbackImpl(object):
         super(UpdateEpochStateCallbackImpl, self).__init__(*args)
         self.backend = backend
         self.state = state
+        self.initial_epoch = self.state.epoch
+
+    def on_train_begin(self, logs=None):
+        self.initial_epoch = self.state.epoch
 
     def on_epoch_end(self, epoch, logs=None):
-        self.state.epoch = epoch
+        self.state.epoch = self.initial_epoch + epoch + 1
