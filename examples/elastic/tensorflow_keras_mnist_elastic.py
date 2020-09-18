@@ -61,10 +61,22 @@ def on_state_reset():
 state = hvd.elastic.KerasState(model, batch=0, epoch=0)
 state.register_reset_callbacks([on_state_reset])
 
+# Horovod: elastic training callbacks to update and commit state.
 callbacks = [
-    # Horovod: elastic training callbacks to update and commit state.
+    # Handles keeping the current epoch in sync across reset events
     hvd.elastic.UpdateEpochStateCallback(state),
+
+    # Handles keeping the current batch in sync and ensuring that
+    # epochs that were partially completed resume from the last
+    # committed batch
     hvd.elastic.UpdateBatchStateCallback(state),
+
+    # Commit state at the end of every `batches_per_commit` batches
+    # (default: 1) and at the end of each epoch.
+    #
+    # It is important that this callback comes last to ensure that all
+    # other state is fully up to date before we commit, so we do not lose
+    # any progress.
     hvd.elastic.CommitStateCallback(state),
 ]
 
@@ -75,7 +87,8 @@ if hvd.rank() == 0:
 
 @hvd.elastic.run
 def train(state):
-    # Horovod: adjust number of steps based on number of GPUs.
+    # Horovod: adjust number of steps based on number of GPUs and number of epochs
+    # based on the number of previously completed epochs.
     state.model.fit(dataset,
                     steps_per_epoch=500 // hvd.size(),
                     callbacks=callbacks,

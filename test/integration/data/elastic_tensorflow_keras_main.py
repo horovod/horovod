@@ -113,7 +113,7 @@ state = hvd.elastic.KerasState(model, batch=0, epoch=0, commits=0, rendezvous=0)
 state.register_reset_callbacks([on_state_reset])
 
 
-# Handles all the test logic the surrounds the training loop
+# Handles all the test logic that surrounds the training loop
 class TestCallback(tf.keras.callbacks.Callback):
     def __init__(self, state):
         self.state = state

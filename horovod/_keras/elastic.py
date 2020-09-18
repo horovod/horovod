@@ -68,10 +68,19 @@ class UpdateEpochStateCallbackImpl(object):
         super(UpdateEpochStateCallbackImpl, self).__init__(*args)
         self.backend = backend
         self.state = state
+
+        # The `epoch` number tracked by Keras always starts at 0,
+        # but we want to track the global number of epochs (across
+        # resets) in the state.
         self.initial_epoch = self.state.epoch
 
     def on_train_begin(self, logs=None):
         self.initial_epoch = self.state.epoch
 
     def on_epoch_end(self, epoch, logs=None):
+        # Offset the epoch number by our starting epoch when training
+        # began (carried over from previous reset events).
+        #
+        # We also want to offset by 1 to avoid repeating the previous
+        # epoch if a reset occurs after `state.batch` is set back to 0.
         self.state.epoch = self.initial_epoch + epoch + 1
