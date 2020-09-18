@@ -58,7 +58,7 @@ def on_state_reset():
     tf.keras.backend.set_value(model.optimizer.lr, lr * hvd.size())
 
 
-state = hvd.elastic.KerasState(model, batch=100, epoch=0)
+state = hvd.elastic.KerasState(model, batch=0, epoch=0)
 state.register_reset_callbacks([on_state_reset])
 
 callbacks = [

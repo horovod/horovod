@@ -22,6 +22,10 @@ class CommitStateCallbackImpl(object):
         self.batches_per_commit = batches_per_commit
         self.batches_remaining = batches_per_commit
 
+    def on_train_begin(self, logs=None):
+        # Reset this for every sync event to ensure consistency across ranks
+        self.batches_remaining = self.batches_per_commit
+
     def on_batch_end(self, batch, logs=None):
         self.batches_remaining -= 1
         if self.batches_remaining == 0:
@@ -40,6 +44,10 @@ class UpdateBatchStateCallbackImpl(object):
         super(UpdateBatchStateCallbackImpl, self).__init__(*args)
         self.backend = backend
         self.state = state
+        self.steps_per_epoch = None
+
+    def on_train_begin(self, logs=None):
+        # Reset this for every sync event to ensure consistency across ranks
         self.steps_per_epoch = None
 
     def on_epoch_begin(self, epoch, logs=None):
