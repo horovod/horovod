@@ -65,10 +65,13 @@ class ElasticSampler(torch.utils.data.Sampler):
             processed_indices=self.processed_indices
         )
 
+    def get_indices(self, offset, length):
+        start_idx = offset * length
+        end_idx = min(start_idx + length, len(self.indices))
+        return self.indices[start_idx:end_idx]
+
     def record_indices(self, batch_idx, batch_size):
-        start_idx = batch_idx * batch_size
-        end_idx = min(start_idx + batch_size, len(self.indices))
-        processed = set(self.indices[start_idx:end_idx])
+        processed = set(self.get_indices(batch_idx, batch_size))
         self.processed_indices.update(processed)
 
     def __iter__(self):

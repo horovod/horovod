@@ -42,7 +42,7 @@ class TorchState(ObjectState):
         kwargs.update(dict(model=model, optimizer=optimizer))
         self._handlers, kwargs = _get_handlers(kwargs)
         for name, handler in self._handlers.items():
-            setattr(self, name, handler)
+            setattr(self, name, handler.value)
         super(TorchState, self).__init__(bcast_object=broadcast_object,
                                          get_rank=rank,
                                          **kwargs)
@@ -146,7 +146,7 @@ def _union(sets):
 
 _handler_registry = [
     (torch.nn.Module, ModelStateHandler),
-    (torch.optim.optimizer.Optimizer, OptimizerStateHandler),
+    (torch.optim.Optimizer, OptimizerStateHandler),
     (ElasticSampler, SamplerStateHandler),
 ]
 
