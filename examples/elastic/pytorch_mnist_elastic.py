@@ -125,6 +125,8 @@ def check_rank(epoch):
 
 @hvd.elastic.run
 def train(state):
+    train_sampler.reset()
+
     # post synchronization event (worker added, worker removed) init ...
     for state.epoch in range(state.epoch, args.epochs + 1):
         state.model.train()
@@ -149,7 +151,7 @@ def train(state):
                 # this worker's partition.
                 print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                     state.epoch, state.batch * len(data), len(train_sampler),
-                    100.0 * state.batch / len(train_loader), loss.item()))
+                                 100.0 * state.batch / len(train_loader), loss.item()))
             state.commit()
         state.batch = 0
 
