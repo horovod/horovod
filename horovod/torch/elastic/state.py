@@ -25,14 +25,21 @@ from horovod.torch.mpi_ops import rank
 
 
 class TorchState(ObjectState):
-    """State representation of a PyTorch model and optimizer.
+    """State representation of a PyTorch training process.
+
+    Multiple models and optimizers are supported by providing them as
+    kwargs. During initialization, `TorchState` will assign attributes
+    for every keyword argument, and handle its state synchronization.
 
     Args:
+        model: Optional PyTorch model.
+        optimizer: Optional PyTorch optimizer.
         kwargs: Attributes sync, will be exposed as attributes of the object. If a handler exists
                 for the attribute type, it will be used to sync the object, otherwise it will be
                 handled an ordinary Python object.
     """
-    def __init__(self, **kwargs):
+    def __init__(self, model=None, optimizer=None, **kwargs):
+        kwargs.update(dict(model=model, optimizer=optimizer))
         self._handlers, kwargs = _get_handlers(kwargs)
         for name, handler in self._handlers.items():
             setattr(self, name, handler)
