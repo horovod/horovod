@@ -5,14 +5,6 @@ on:
   push:
     branches-ignore: master
     tags-ignore: "**"
-    # keep paths-ignore in-sync with .buildkite/gen-pipeline.sh
-    # buildkite does not run tests when there are no changes in paths other then these
-    paths-ignore:
-    - ".buildkite/get_commit_files.py"
-    - ".github/**"
-    - "docs/"
-    - "*.md"
-    - "*.rst"
 
 jobs:
   buildkite:
@@ -21,8 +13,37 @@ jobs:
     if: github.repository_owner == 'horovod'
 
     steps:
+    - name: Checkout Git
+      uses: actions/checkout@v2
+
+    - name: Setup Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3'
+
+    - name: Install Python Dependencies
+      run: |
+        python -m pip install --upgrade --force --no-cache-dir pip
+        pip install --force --no-cache-dir requests
+
+    # buildkite does not run tests when there are no changes in paths other then these (see grep)
+    # keep grep's -e patterns in-sync with .buildkite/gen-pipeline.sh
+    - name: Check for commit changes
+      id: commit-changes
+      env:
+        BUILDKITE_COMMIT: ${{ github.sha }}
+        BUILDKITE_PIPELINE_DEFAULT_BRANCH: master
+      run: |
+        files=$(python .buildkite/get_changed_code_files.py || echo failure)
+        echo changed code files: $files
+        echo "::set-output name=changed-code-files::$(echo $files)"
+      shell: bash
+      continue-on-error: true
+
     - name: Download Buildkite Artifacts
+      id: download
       uses: EnricoMi/download-buildkite-artifact-action@master
+      if: steps.commit-changes.outputs.changed-code-files != ''
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
@@ -32,6 +53,7 @@ jobs:
 
     - name: Unit Test Results
       uses: EnricoMi/publish-unit-test-result-action@master
+      if: steps.download.outcome != 'skipped'
       with:
         check_name: Unit Test Results
         github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -41,6 +63,7 @@ jobs:
 
     - name: Upload Test Results
       uses: actions/upload-artifact@v2
+      if: always()
       with:
         name: Unit Test Results
         path: test-results/**/*.xml
