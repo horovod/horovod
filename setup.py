@@ -181,8 +181,7 @@ setup(name='horovod',
       # for examples, see Dockerfile.test.cpu and Dockerfile.test.gpu
       dependency_links=[
           'https://download.pytorch.org/whl/torch_stable.html',
-          'https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html',
-          'https://dist.mxnet.io/python/all'
+          'https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html'
       ],
       python_requires='>=3.6',
       zip_safe=False,
