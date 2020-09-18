@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import sys
 
 import requests
 
@@ -37,10 +36,10 @@ def get_pr_files(commit, pr_number):
     return [file.get('filename') for file in compare.get('files')]
 
 
-def get_branch_files(commit, default, branch):
+def get_changed_files(base, head):
     response = requests.get(
-        'https://api.github.com/repos/horovod/horovod/compare/{default}...{branch}'.format(
-            default=default, branch=branch
+        'https://api.github.com/repos/horovod/horovod/compare/{base}...{head}'.format(
+            base=base, head=head
         )
     )
     if response.status_code != 200:
@@ -63,10 +62,8 @@ if __name__ == "__main__":
         for file in get_pr_files(commit, int(pr_number)):
             print(file)
     else:
-        branch = os.environ.get('BUILDKITE_BRANCH')
         default = os.environ.get('BUILDKITE_PIPELINE_DEFAULT_BRANCH')
-        logging.debug('branch = {}'.format(branch))
         logging.debug('default = {}'.format(default))
-        if branch and default:
-            for file in get_branch_files(commit, default, branch):
+        if default:
+            for file in get_changed_files(default, commit):
                 print(file)
