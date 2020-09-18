@@ -421,9 +421,10 @@ class RayExecutor:
         """
         args = args or []
         kwargs = kwargs or {}
-        return ray.get(
-            [worker.execute.remote(
-                lambda w: fn(*args, **kwargs)) for worker in self.workers])
+        return ray.get([
+            worker.execute.remote(lambda w: fn(*args, **kwargs))
+            for worker in self.workers
+        ])
 
     def execute_single(self,
                        fn: Callable[["executable_cls"], Any]) -> List[Any]:
