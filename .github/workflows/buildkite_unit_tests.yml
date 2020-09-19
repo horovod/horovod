@@ -1,0 +1,75 @@
+name: Unit Tests
+on:
+  push:
+    branches: "**"
+    tags-ignore: "**"
+
+jobs:
+  # buildkite does not run tests when there are no code changes, unless master is build
+  # downloading unit tests only works in the horovod repository
+  buildkite:
+    name: "Buildkite Unit Tests"
+    runs-on: ubuntu-latest
+    if: github.repository_owner == 'horovod'
+
+    steps:
+    - name: Checkout Git
+      uses: actions/checkout@v2
+      if: github.ref != 'refs/heads/master'
+
+    - name: Setup Python
+      uses: actions/setup-python@v2
+      if: github.ref != 'refs/heads/master'
+      with:
+        python-version: '3'
+
+    - name: Install Python Dependencies
+      if: github.ref != 'refs/heads/master'
+      run: |
+        python -m pip install --upgrade --force --no-cache-dir pip
+        pip install --force --no-cache-dir requests
+
+    - name: Check for commit changes
+      id: commit-changes
+      env:
+        BUILDKITE_COMMIT: ${{ github.sha }}
+        BUILDKITE_PIPELINE_DEFAULT_BRANCH: master
+      run: |
+        if [[ "${{ github.ref }}" == "refs/heads/master" ]]
+        then
+          echo "::set-output name=changed-code-files::this is master"
+        else
+          files=$(python .buildkite/get_changed_code_files.py || echo failure)
+          echo changed code files: $files
+          echo "::set-output name=changed-code-files::$(echo $files)"
+        fi
+      shell: bash
+      continue-on-error: true
+
+    - name: Download Buildkite Artifacts
+      id: download
+      uses: EnricoMi/download-buildkite-artifact-action@master
+      if: steps.commit-changes.outputs.changed-code-files != ''
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
+        output_path: test-results
+        log_level: DEBUG
+      continue-on-error: true
+
+    - name: Unit Test Results
+      uses: EnricoMi/publish-unit-test-result-action@master
+      if: steps.download.outcome != 'skipped'
+      with:
+        check_name: Unit Test Results
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        files: "test-results/**/*.xml"
+        log_level: DEBUG
+      continue-on-error: true
+
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v2
+      if: always()
+      with:
+        name: Unit Test Results
+        path: test-results/**/*.xml

@@ -6,16 +6,10 @@ set -eu
 # our repository in AWS
 repository=823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
 
-# don't build and test any code if there are no code changes
-# keep in-sync with .github/workflows/buildkite_unit_test.yml
-non_code_files=("^.buildkite/get_commit_files.py$" "^.github/" "^docs/" "^.*.md" "^.*.rst")
+# skip tests when there are no code changes
 dir="$(dirname "$0")"
-printf "%s\n" "${non_code_files[@]}" > "$dir/gen-pipeline.sh.grep-patterns"
-# shellcheck disable=SC2046
-python "$dir/get_commit_files.py" > "$dir/gen-pipeline.sh.commit-files"
-commit_files="$(cat "$dir/gen-pipeline.sh.commit-files")"
-code_files=$(grep -v -f "$dir/gen-pipeline.sh.grep-patterns" "$dir/gen-pipeline.sh.commit-files" || true)
-tests=$(if [[ -z "$commit_files" || "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}" ]] || [[ -n "$code_files" ]]; then
+code_files=$(python "$dir/get_changed_code_files.py" || echo failure)
+tests=$(if [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}" ]] || [[ -n "$code_files" ]]; then
   printf "test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2 "
   printf "test-cpu-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2 "
   printf "test-cpu-openmpi-py3_6-tf2_0_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_7 "
