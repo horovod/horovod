@@ -204,7 +204,7 @@ def full_train(state):
         train(state)
         validate(state.epoch)
         save_checkpoint(state.epoch)
-        state.commit()
+        end_epoch(state)
 
 
 if __name__ == '__main__':
