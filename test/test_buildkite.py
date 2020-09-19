@@ -23,7 +23,8 @@ from shutil import copy
 from common import tempdir
 from horovod.runner.common.util import safe_shell_exec
 
-sys.path.append('../.buildkite')
+# when you move this file, adjust this path to .buildkite in parent dir
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, '.buildkite'))
 from get_changed_code_files import is_code_file
 
 
