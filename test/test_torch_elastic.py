@@ -124,7 +124,7 @@ class TorchElasticTests(unittest.TestCase):
                 batch_data = [dataset[idx] for idx in batch_indices]
                 assert batch_data == batch.numpy().tolist()
 
-                sampler.record_indices(batch_idx, batch_size)
+                sampler.record_batch(batch_idx, batch_size)
                 assert len(sampler.processed_indices) == batch_size * (batch_idx + 1)
 
                 total_batches += 1
@@ -141,16 +141,16 @@ class TorchElasticTests(unittest.TestCase):
         sampler.set_epoch(2)
         assert len(sampler.processed_indices) == 0
 
-        sampler.record_indices(0, batch_size)
-        sampler.record_indices(1, batch_size)
+        sampler.record_batch(0, batch_size)
+        sampler.record_batch(1, batch_size)
         assert len(sampler.processed_indices) == 2 * batch_size
 
         committed_indices = copy.copy(sampler.processed_indices)
         state.commit()
 
         # Elastic: partial epoch + restore
-        sampler.record_indices(2, batch_size)
-        sampler.record_indices(3, batch_size)
+        sampler.record_batch(2, batch_size)
+        sampler.record_batch(3, batch_size)
         assert len(sampler.processed_indices) == 4 * batch_size
 
         state.restore()
@@ -159,7 +159,7 @@ class TorchElasticTests(unittest.TestCase):
         assert sampler.processed_indices == committed_indices
 
         # Elastic: sync across workers and verify non-overlap of processed samples
-        sampler.record_indices(2, batch_size)
+        sampler.record_batch(2, batch_size)
         assert len(sampler.processed_indices) == 3 * batch_size
 
         state.commit()
