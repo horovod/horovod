@@ -56,13 +56,16 @@ jobs:
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
+        ignore_build_states: canceled
+        ignore_job_states: timed_out
         output_path: test-results
         log_level: DEBUG
       continue-on-error: true
 
     - name: Unit Test Results
+      id: results
       uses: EnricoMi/publish-unit-test-result-action@master
-      if: steps.download.outcome != 'skipped'
+      if: steps.download.outcome != 'skipped' && steps.download.outputs.build-state != 'canceled'
       with:
         check_name: Unit Test Results
         github_token: ${{ secrets.GITHUB_TOKEN }}
