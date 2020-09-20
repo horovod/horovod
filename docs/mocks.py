@@ -72,6 +72,7 @@ MOCK_MODULES = [
     'torch.nn.modules.batchnorm',
     'torch.utils',
     'torch.utils.data',
+    'torch.utils.data.distributed',
     'torch.utils.tensorboard',
 
     'mxnet',
