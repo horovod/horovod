@@ -49,7 +49,7 @@ def _reset():
 
 
 __all__ = [
-    'run',
     'TorchState',
     'ElasticSampler',
+    'run',
 ]
