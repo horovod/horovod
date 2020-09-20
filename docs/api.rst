@@ -21,6 +21,10 @@ horovod.torch
 -------------
 .. automodule:: horovod.torch
 
+horovod.torch.elastic
+---------------------
+.. automodule:: horovod.torch.elastic
+
 horovod.mxnet
 -------------
 .. automodule:: horovod.mxnet

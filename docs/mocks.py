@@ -113,6 +113,11 @@ MOCK_TREE = {
                 }
             },
         },
+        'utils': {
+            'data': {
+                'Sampler': MagicMock,
+            },
+        },
     },
     'pyspark': {
         'ml': {

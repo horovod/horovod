@@ -17,7 +17,7 @@ from horovod.common.elastic import run_fn
 from horovod.torch.mpi_ops import init, shutdown
 
 from horovod.torch.elastic.sampler import ElasticSampler
-from horovod.torch.elastic.state import TorchState, ObjectState
+from horovod.torch.elastic.state import TorchState
 
 
 def run(func):
@@ -46,3 +46,10 @@ def run(func):
 def _reset():
     shutdown()
     init()
+
+
+__all__ = [
+    'run',
+    'TorchState',
+    'ElasticSampler',
+]

@@ -67,7 +67,6 @@ parser.add_argument('--seed', type=int, default=42,
 def train(state):
     model.train()
     epoch = state.epoch
-    train_sampler.set_epoch(epoch)
     train_loss = Metric('train_loss')
     train_accuracy = Metric('train_accuracy')
 
@@ -179,6 +178,7 @@ def save_checkpoint(epoch):
 def end_epoch(state):
     state.epoch += 1
     state.batch = 0
+    state.train_sampler.set_epoch(state.epoch)
     state.commit()
 
 
