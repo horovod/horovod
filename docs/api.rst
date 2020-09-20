@@ -4,25 +4,25 @@ API
 horovod.tensorflow
 ------------------
 .. automodule:: horovod.tensorflow
+.. automodule:: horovod.tensorflow.elastic
 
 horovod.tensorflow.keras
 ------------------------
 .. automodule:: horovod.tensorflow.keras
 .. automodule:: horovod.tensorflow.keras.callbacks
     :special-members: __init__
+.. automodule:: horovod.tensorflow.keras.elastic
 
 horovod.keras
 -------------
 .. automodule:: horovod.keras
 .. automodule:: horovod.keras.callbacks
     :special-members: __init__
+.. automodule:: horovod.keras.elastic
 
 horovod.torch
 -------------
 .. automodule:: horovod.torch
-
-horovod.torch.elastic
----------------------
 .. automodule:: horovod.torch.elastic
 
 horovod.mxnet
