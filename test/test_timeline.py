@@ -13,10 +13,10 @@
 # limitations under the License.
 # ==============================================================================
 
-import time
 import torch
 import unittest
 import warnings
+import time
 
 import horovod.torch as hvd
 from horovod.common.util import env

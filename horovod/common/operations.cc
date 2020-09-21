@@ -414,19 +414,24 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 #endif
 
   // Open the timeline file on coordinator.
-  auto horovod_timeline = std::getenv(HOROVOD_TIMELINE);
-  if (is_coordinator && horovod_timeline != nullptr) {
-    state.timeline.Initialize(std::string(horovod_timeline),
+  auto timeline_env = std::getenv(HOROVOD_TIMELINE);
+  auto horovod_timeline = timeline_env != nullptr ? std::string(timeline_env) : std::string("");
+  bool should_enable_timeline = false;
+  if (is_coordinator) {
+    state.timeline.Initialize(horovod_timeline,
                               static_cast<unsigned int>(size));
   }
-  if (horovod_timeline != nullptr) {
-    state.controller->SetTimelineEnabled(true);
+  if (horovod_timeline != "") {
+      should_enable_timeline = true;
   }
+  state.controller->SetTimelineEnabled(should_enable_timeline);
 
   ParseStallInspectorFromEnv(state.controller->GetStallInspector());
-
-  SetBoolFromEnv(HOROVOD_TIMELINE_MARK_CYCLES, state.mark_cycles_in_timeline,
+  bool mark_cycles = false;
+  SetBoolFromEnv(HOROVOD_TIMELINE_MARK_CYCLES, mark_cycles,
                  true);
+  state.controller->SetMarkCyclesInTimelinePending(mark_cycles);
+  state.mark_cycles_in_timeline = mark_cycles;
 
   // Override Tensor Fusion threshold, if it's set.
   state.parameter_manager.SetTensorFusionThresholdBytes(64 * 1024 * 1024);
@@ -583,6 +588,9 @@ bool RunLoopOnce(HorovodGlobalState& state) {
   auto response_list =
       state.controller->ComputeResponseList(horovod_global.shut_down, state);
 
+  state.mark_cycles_in_timeline = state.controller->MarkCyclesInTimelinePending();
+  state.controller->SynchronizeTimelineEnabled();
+
   // Get tensor name and size data for autotuning.
   int64_t total_tensor_size = 0;
   std::vector<std::string> tensor_names;
@@ -689,6 +697,7 @@ void horovod_init_comm(MPI_Comm comm) {
 
 void horovod_shutdown() {
   if (horovod_global.background_thread.joinable()) {
+    horovod_global.timeline.Shutdown();
     horovod_global.shut_down = true;
     horovod_global.background_thread.join();
 
@@ -701,6 +710,50 @@ void horovod_shutdown() {
 
 bool horovod_is_initialized() {
   return horovod_global.initialization_done;
+}
+
+bool horovod_start_timeline(const char* file_name, bool mark_cycles) {
+  if (!horovod_global.initialization_done) {
+    return false;
+  }
+  bool is_coordinator = horovod_global.controller->IsCoordinator();
+  if(horovod_global.controller->TimelineEnabledPending()){
+    LOG(INFO) << " Timeline is already enabled. Please stop timeline before restarting it.";
+    return true;
+  }
+  if (is_coordinator) {
+    horovod_global.timeline.Initialize(std::string(file_name), horovod_global.controller->GetSize());
+    horovod_global.timeline.SetPendingTimelineFile(std::string(file_name));
+  }
+  horovod_global.controller->SetTimelineEnabledPending(true);
+  horovod_global.controller->SetMarkCyclesInTimelinePending(mark_cycles);
+  // block until timeline is started
+  while(! horovod_global.controller->TimeLineEnabled()){
+    LOG(DEBUG)<< " Start timeline not yet synchronized.";
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  return true;
+}
+
+bool horovod_stop_timeline() {
+  if (!horovod_global.initialization_done) {
+    return false;
+  }
+  if(!horovod_global.controller->TimelineEnabledPending()){
+    LOG(INFO) << " Timeline is already stopped. Please start timeline before stopping it.";
+    return true;
+  }
+  bool is_coordinator = horovod_global.controller->IsCoordinator();
+  if (is_coordinator) {
+      horovod_global.timeline.SetPendingTimelineFile(std::string(""));
+  }
+  horovod_global.controller->SetTimelineEnabledPending(false);
+  horovod_global.controller->SetMarkCyclesInTimelinePending(false);
+  while(horovod_global.controller->TimeLineEnabled()){
+    LOG(DEBUG)<< " Stop timeline not yet synchronized.";
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  return true;
 }
 
 int horovod_rank() {
@@ -871,7 +924,6 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
   message.set_device(device);
   message.set_prescale_factor(prescale_factor);
   message.set_postscale_factor(postscale_factor);
-  
   if (reduce_op == ReduceOp::ADASUM) {
     message.set_request_type(Request::ADASUM);
   } else {

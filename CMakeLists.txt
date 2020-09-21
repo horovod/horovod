@@ -63,10 +63,18 @@ string(REGEX REPLACE  "-std=[^ ]+" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 if(DEFINED ENV{AR})
     set(CMAKE_AR $ENV{AR})
 endif()
-# Make CMAKE read CPPFLAGS
-set(CMAKE_CXX_FLAGS "$ENV{CPPFLAGS} ${CMAKE_CXX_FLAGS}")
+
 # Add default project CXX flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -fPIC -O3 -Wall -ftree-vectorize -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -fPIC -Wall -ftree-vectorize")
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fstandalone-debug")
+  endif()
+endif()
+if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+endif()
 # Add architecture specific optimization flags
 set(ARCH_FLAGS "-mf16c" "-mavx" "-mfma")
 set_build_arch_flags("${ARCH_FLAGS}")

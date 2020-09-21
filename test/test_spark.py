@@ -48,7 +48,7 @@ from horovod.runner.common.util import settings as hvd_settings
 from horovod.runner.mpi_run import is_open_mpi
 from horovod.runner.util.threads import in_thread
 from horovod.spark.common import constants, util
-from horovod.spark.common.store import HDFSStore
+from horovod.spark.common.store import DBFSLocalStore, HDFSStore, LocalStore, Store
 from horovod.spark.driver.host_discovery import SparkDriverHostDiscovery
 from horovod.spark.driver.rsh import rsh
 from horovod.spark.task import get_available_devices, gloo_exec_fn, mpirun_exec_fn
@@ -1671,3 +1671,55 @@ class SparkTests(unittest.TestCase):
 
         with pytest.raises(ValueError):
             util.to_list(['item1', 'item2'], 4)
+
+    def test_dbfs_local_store(self):
+        import h5py
+        import io
+
+        import tensorflow
+        from tensorflow import keras
+
+        # test Store.create will not automatically create DBFSLocalStore
+        local_store = Store.create("/dbfs/tmp/test_local_dir")
+        assert isinstance(local_store, LocalStore)
+
+        # test get_checkpoint_filename suffix
+        # Use a tmp path for testing.
+        dbfs_store = DBFSLocalStore("/tmp/test_dbfs_dir")
+        dbfs_ckpt_name = dbfs_store.get_checkpoint_filename()
+        assert dbfs_ckpt_name.endswith(".tf")
+
+        # prepare for testing read_serialized_keras_model
+        model = keras.Sequential([keras.Input([32]), keras.layers.Dense(1)])
+
+        def deserialize_keras_model(serialized_model):
+            model_bytes = codec.loads_base64(serialized_model)
+            bio = io.BytesIO(model_bytes)
+            with h5py.File(bio, 'r') as f:
+                return keras.models.load_model(f)
+
+        # test dbfs_store.read_serialized_keras_model
+        get_dbfs_output_dir = dbfs_store.get_local_output_dir_fn("0")
+        with get_dbfs_output_dir() as run_output_dir:
+            dbfs_ckpt_path = run_output_dir + "/" + local_store.get_checkpoint_filename()
+            if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
+                model.save_weights(dbfs_ckpt_path)
+            else:
+                model.save(dbfs_ckpt_path)
+            serialized_model_dbfs = dbfs_store.read_serialized_keras_model(dbfs_ckpt_path, model)
+            reconstructed_model_dbfs = deserialize_keras_model(serialized_model_dbfs)
+            if LooseVersion(tensorflow.__version__) >= LooseVersion("2.3.0"):
+                assert reconstructed_model_dbfs.get_config() == model.get_config()
+
+        # test local_store.read_serialized_keras_model
+        with tempdir() as tmp:
+            local_store = Store.create(tmp)
+            get_local_output_dir = local_store.get_local_output_dir_fn("0")
+            with get_local_output_dir() as run_output_dir:
+                local_ckpt_path = run_output_dir + "/" + local_store.get_checkpoint_filename()
+                model.save(local_ckpt_path)
+                serialized_model_local = \
+                    local_store.read_serialized_keras_model(local_ckpt_path, model)
+                reconstructed_model_local = deserialize_keras_model(serialized_model_local)
+                if LooseVersion(tensorflow.__version__) >= LooseVersion("2.3.0"):
+                    assert reconstructed_model_local.get_config() == model.get_config()

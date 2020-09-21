@@ -24,6 +24,7 @@ from horovod.mxnet.mpi_ops import allreduce, allreduce_
 from horovod.mxnet.mpi_ops import alltoall
 from horovod.mxnet.mpi_ops import broadcast, broadcast_
 from horovod.mxnet.mpi_ops import init, shutdown
+from horovod.mxnet.mpi_ops import is_initialized, start_timeline, stop_timeline
 from horovod.mxnet.mpi_ops import size, local_size, rank, local_rank
 from horovod.mxnet.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.mxnet.mpi_ops import gloo_enabled, gloo_built

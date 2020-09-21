@@ -114,7 +114,6 @@ public:
     }
   };
 
-  void SetTimelineEnabled(bool value) { timeline_enabled_ = value; }
   std::vector<int>& GetRanks() { return ranks_; };
   int GetRank() { return rank_; };
   int GetLocalRank() { return local_rank_; };
@@ -125,7 +124,13 @@ public:
   const std::vector<int>& GetLocalCommRanks() { return local_comm_ranks_; };
   bool IsCoordinator() const { return is_coordinator_; };
   bool IsHomogeneous() const { return is_homogeneous_; };
-
+  void SetTimelineEnabled(bool value);
+  bool TimeLineEnabled();
+  void SetTimelineEnabledPending(bool value);
+  bool TimelineEnabledPending();
+  void SetMarkCyclesInTimelinePending(bool value);
+  bool MarkCyclesInTimelinePending();
+  void SynchronizeTimelineEnabled();
   StallInspector& GetStallInspector() { return stall_inspector_; };
 
 protected:
@@ -196,6 +201,10 @@ protected:
   MessageTable message_table_;
 
   bool timeline_enabled_ = false;
+  bool timeline_enabled_pending_ = false;
+  bool mark_cycles_in_timeline_pending_ = false;
+  std::recursive_mutex timeline_mutex_;
+
 
   // Outside dependencies
   TensorQueue& tensor_queue_;

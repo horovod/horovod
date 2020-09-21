@@ -13,15 +13,20 @@
 # limitations under the License.
 # ==============================================================================
 
-import os
 import io
+import os
+import sys
 import unittest
 import warnings
 from shutil import copy
 
+from common import tempdir
 from horovod.runner.common.util import safe_shell_exec
 
-from common import tempdir
+# when you move this file, adjust this path to .buildkite in parent dir
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, '.buildkite'))
+from get_changed_code_files import is_code_file
+
 
 class BuildKiteTests(unittest.TestCase):
     """
@@ -64,16 +69,52 @@ class BuildKiteTests(unittest.TestCase):
         exit_code, actual_pipeline, gen_pipeline_log = self._run(gen_pipeline_cmd, gen_pipeline_env)
 
         self.assertEqual(0, exit_code)
-        self.assertEqual('DEBUG:root:commit = None\n'
-                         'DEBUG:root:pr number = None\n'
-                         'DEBUG:root:branch = BRANCH\n'
-                         'DEBUG:root:default = None\n', gen_pipeline_log)
+        self.assertEqual('WARNING:root:no commit (None) or default branch (None) given\n', gen_pipeline_log)
         self.assertEqual(expected_pipeline, actual_pipeline)
 
     """
-    Tests .buildkite/gen-pipeline.sh with a commit that has no code changes.
+    Tests the given command produces the full pipeline.
+    """
+    def do_test_gen_full_pipeline(self, cmd, env=dict()):
+        with open('data/expected_buildkite_pipeline.yaml', 'r') as f:
+            lines = f.readlines()
+            expected_pipeline = ''.join(lines)
 
-    The .buildkite/gen-pipeline.sh script calls the co-located get_commit_files.py script.
+        cmd_env = dict(BUILDKITE_PIPELINE_SLUG='SLUG', BUILDKITE_BRANCH='BRANCH')
+        cmd_env.update(env)
+        exit_code, pipeline, log = self._run(cmd, cmd_env)
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual('', log)
+        self.assertEqual(expected_pipeline, pipeline)
+
+    """
+    Tests code changes produces the full pipeline.
+
+    The .buildkite/gen-pipeline.sh script calls the co-located get_changed_code_files.py script.
+    So we can mock the output of that Python script by copying gen-pipeline.sh into a temp
+    directory and providing our own mock Python script.
+    """
+    def test_gen_pipeline_with_code_changes(self):
+        with tempdir() as dir:
+            tmp_gen_pipeline_sh = os.path.join(dir, 'gen-pipeline.sh')
+            copy('../.buildkite/gen-pipeline.sh', tmp_gen_pipeline_sh)
+
+            for filename in ['.buildkite/gen-pipeline.sh',
+                             'cmake/file',
+                             'examples/file',
+                             'horovod/file',
+                             'test/file',
+                             'Dockerfile.cpu']:
+                with open(os.path.join(dir, 'get_changed_code_files.py'), 'w') as py:
+                    py.write("print('{}')".format(filename))
+
+                self.do_test_gen_full_pipeline(tmp_gen_pipeline_sh)
+
+    """
+    Tests non-code changes produces the short pipeline.
+
+    The .buildkite/gen-pipeline.sh script calls the co-located get_changed_code_files.py script.
     So we can mock the output of that Python script by copying gen-pipeline.sh into a temp
     directory and providing our own mock Python script.
     """
@@ -81,12 +122,9 @@ class BuildKiteTests(unittest.TestCase):
         with tempdir() as dir:
             tmp_gen_pipeline_sh = os.path.join(dir, 'gen-pipeline.sh')
             copy('../.buildkite/gen-pipeline.sh', tmp_gen_pipeline_sh)
-            with open(os.path.join(dir, 'get_commit_files.py'), 'w') as py:
-                py.write("print('.buildkite/get_commit_files.py')\n")
-                py.write("print('.github/new_file')\n")
-                py.write("print('docs/new_file')\n")
-                py.write("print('new_file.md')\n")
-                py.write("print('new_file.rst')\n")
+
+            with open(os.path.join(dir, 'get_changed_code_files.py'), 'w') as py:
+                py.write("pass")
 
             gen_pipeline_env = dict(BUILDKITE_PIPELINE_SLUG='SLUG', BUILDKITE_BRANCH='BRANCH')
             exit_code, actual_pipeline, gen_pipeline_log = self._run(tmp_gen_pipeline_sh, gen_pipeline_env)
@@ -104,63 +142,61 @@ class BuildKiteTests(unittest.TestCase):
                              "    automatic: true\n"
                              "  agents:\n"
                              "    queue: cpu\n"
-                             "- wait\n"
+                            "- wait\n"
                              "- wait\n"
                              "- wait\n", actual_pipeline)
 
-    def do_test_gen_full_pipeline(self, cmd, env=dict()):
-        with open('data/expected_buildkite_pipeline.yaml', 'r') as f:
-            lines = f.readlines()
-            expected_pipeline = ''.join(lines)
-
-        cmd_env = dict(BUILDKITE_PIPELINE_SLUG='SLUG', BUILDKITE_BRANCH='BRANCH')
-        cmd_env.update(env)
-        exit_code, pipeline, log = self._run(cmd, cmd_env)
-
-        self.assertEqual(0, exit_code)
-        self.assertEqual('', log)
-        self.assertEqual(expected_pipeline, pipeline)
-
-    def test_gen_pipeline_with_code_changes(self):
-        with tempdir() as dir:
-            tmp_gen_pipeline_sh = os.path.join(dir, 'gen-pipeline.sh')
-            copy('../.buildkite/gen-pipeline.sh', tmp_gen_pipeline_sh)
-
-            for filename in ['.buildkite/gen-pipeline.sh',
-                             'cmake/file',
-                             'examples/file',
-                             'horovod/file',
-                             'test/file',
-                             'Dockerfile.cpu',
-                             '']:
-                with open(os.path.join(dir, 'get_commit_files.py'), 'w') as py:
-                    py.write("print('{}')".format(filename))
-
-                self.do_test_gen_full_pipeline(tmp_gen_pipeline_sh)
-
     """
-    Tests gen-pipeline.sh with no commit changes. Should generate the full pipeline.
-    """
-    def test_gen_pipeline_with_empty_changes(self):
-        with tempdir() as dir:
-            tmp_gen_pipeline_sh = os.path.join(dir, 'gen-pipeline.sh')
-            copy('../.buildkite/gen-pipeline.sh', tmp_gen_pipeline_sh)
-
-            with open(os.path.join(dir, 'get_commit_files.py'), 'w') as py:
-                py.write("pass")
-
-            self.do_test_gen_full_pipeline(tmp_gen_pipeline_sh)
-
-    """
-    Tests gen-pipeline.sh with no commit changes. Should generate the full pipeline.
+    Tests no changed code files on master produces the full pipeline.
     """
     def test_gen_pipeline_on_default_branch(self):
         with tempdir() as dir:
             tmp_gen_pipeline_sh = os.path.join(dir, 'gen-pipeline.sh')
             copy('../.buildkite/gen-pipeline.sh', tmp_gen_pipeline_sh)
 
-            with open(os.path.join(dir, 'get_commit_files.py'), 'w') as py:
-                py.write("print('.github/new_file')")
+            with open(os.path.join(dir, 'get_changed_code_files.py'), 'w') as py:
+                py.write("pass")
 
             env = dict(BUILDKITE_BRANCH='default', BUILDKITE_PIPELINE_DEFAULT_BRANCH='default')
             self.do_test_gen_full_pipeline(tmp_gen_pipeline_sh, env)
+
+    """
+    Tests a failing get_changed_code_files.py script produces the full pipeline.
+
+    The .buildkite/gen-pipeline.sh script calls the co-located get_changed_code_files.py script.
+    So we can mock the output of that Python script by copying gen-pipeline.sh into a temp
+    directory and providing our own mock Python script.
+    """
+    def test_gen_pipeline_with_failing_py(self):
+        with tempdir() as dir:
+            tmp_gen_pipeline_sh = os.path.join(dir, 'gen-pipeline.sh')
+            copy('../.buildkite/gen-pipeline.sh', tmp_gen_pipeline_sh)
+
+            with open(os.path.join(dir, 'get_changed_code_files.py'), 'w') as py:
+                py.write('import sys\n')
+                py.write('sys.exit(1)')
+
+            self.do_test_gen_full_pipeline(tmp_gen_pipeline_sh)
+
+    """
+    Tests .buildkite/get_changed_code_files.py identifies files as non-code files.
+    """
+    def test_get_changed_code_files_with_non_code_files(self):
+        for file in ['.buildkite/get_changed_code_files.py',
+                     '.github/new_file',
+                     'docs/new_file',
+                     'new_file.md',
+                     'new_file.rst']:
+            self.assertFalse(is_code_file(file), file)
+
+    """
+    Tests .buildkite/get_changed_code_files.py identifies files as code files.
+    """
+    def test_get_changed_code_files_with_code_files(self):
+        for file in ['.buildkite/gen-pipeline.sh',
+                     'cmake/file',
+                     'examples/file',
+                     'horovod/file',
+                     'test/file',
+                     'Dockerfile.cpu']:
+            self.assertTrue(is_code_file(file), file)

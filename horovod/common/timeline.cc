@@ -18,27 +18,168 @@
 #include <cassert>
 #include <chrono>
 #include <sstream>
-#include <thread>
 
 #include "logging.h"
 
 namespace horovod {
 namespace common {
 
-void TimelineWriter::Initialize(std::string file_name) {
-  file_.open(file_name, std::ios::out | std::ios::trunc);
-  if (file_.good()) {
-    // Initialize the timeline with '[' character.
-    file_ << "[\n";
-    healthy_ = true;
+TimelineWriter::TimelineWriter() {
+  std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
+  cur_filename_ = "";
+  new_pending_filename_ = "";
+  pending_status_ = false;
+}
 
-    // Spawn writer thread.
-    std::thread writer_thread(&TimelineWriter::WriterLoop, this);
-    writer_thread.detach();
-  } else {
-    LOG(ERROR) << "Error opening the Horovod Timeline file " << file_name
-               << ", will not write a timeline.";
+void TimelineWriter::SetPendingTimelineFile(std::string filename) {
+  {
+    std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
+    new_pending_filename_ = filename;
+    pending_status_ = true;
   }
+  // block until pending_Status is applied
+  while (true) {
+    {
+      std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
+      if (!pending_status_) {
+        return;
+      }
+    }
+    if (filename == "") {
+      LOG(DEBUG) << "StopTimeline is called. Blocking thread since "
+                    "pending_status is still true.\n";
+    } else {
+      LOG(DEBUG) << "StartTimeline is called. Blocking thread since "
+                    "pending_status is still true.\n";
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+}
+
+std::string TimelineWriter::PendingTimelineFile() {
+  std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
+  return new_pending_filename_;
+}
+
+void TimelineWriter::SetTimelineFile(std::string filename) {
+  // No op if there are pending events in record_queue, let all the event from
+  // record queue to get dumped to file
+
+  LOG(INFO) << "Setting TimelineFile. Current file:" << cur_filename_
+            << " New filename:" << filename;
+
+  // Close if there existing file open and new file is not same as existing file
+  if (cur_filename_ != "" && cur_filename_ != filename) {
+
+    if (!record_queue_.empty()) {
+      LOG(DEBUG) << " SetTimelineFile is no-op as there are events in "
+                    "record_queue. Will allow those events to be dumped.";
+      active_ = false;
+      // Give chance to dump existing event
+      return;
+    }
+    if (file_.is_open()) {
+      file_.close();
+      LOG(INFO) << "Closed timeline file:" << cur_filename_;
+    }
+    tensor_table_.clear();
+  }
+  // if new filename is empty, we need to stop accepting activities. This would
+  // stopping timeline
+  if (filename == "") {
+
+    healthy_ = true;
+    active_ = false;
+    cur_filename_ = filename;
+    new_pending_filename_ = cur_filename_;
+    // empty filename is special which tells that init the timeline but don't
+    // activate it.
+
+    pending_status_ = false;
+    LOG(INFO) << "Inited TimelineWriter but active_ is false, since filename "
+                 "passed is empty string";
+    return;
+  }
+  // if newfile is same as existing file, it should be no-op and we can continue
+  // writing in existing file.
+  if (cur_filename_ == filename) {
+    if (file_.good()) {
+      LOG(INFO) << "Timeline cur_filename_ is same as existing filename:"
+                << filename << " Set active and healthy to true";
+      cur_filename_ = filename;
+      new_pending_filename_ = cur_filename_;
+      is_new_file_ = false;
+      healthy_ = true;
+      active_ = true;
+      pending_status_ = false;
+      return;
+    } else {
+      LOG(ERROR) << "Filename:" << filename
+                 << " is not good. Setting healthy to true and active to false "
+                    "since file is not good";
+      cur_filename_ = filename;
+      new_pending_filename_ = cur_filename_;
+      healthy_ = true;
+      active_ = false;
+      return;
+    }
+  }
+
+  // all other cases, need to create a new file
+  file_.open(filename, std::ios::out | std::ios::trunc);
+  if (file_.good()) {
+    LOG(INFO) << "Opened new timeline file" << filename
+              << " Set active and healthy to true";
+    cur_filename_ = filename;
+    new_pending_filename_ = cur_filename_;
+    is_new_file_ = true;
+    healthy_ = true;
+    active_ = true;
+  } else {
+    LOG(ERROR) << "Error opening the Horovod Timeline file " << filename
+               << ", will not write a timeline.";
+    healthy_ = true;
+    active_ = false;
+  }
+  pending_status_ = false;
+}
+
+void TimelineWriter::Initialize(
+    std::string file_name, std::chrono::steady_clock::time_point start_time_) {
+  std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
+  if (healthy_)
+    return;
+
+  SetTimelineFile(file_name);
+  auto p1 = std::chrono::system_clock::now();
+  auto tt = std::chrono::duration_cast<std::chrono::microseconds>(
+                start_time_ - std::chrono::steady_clock::now())
+                .count();
+  start_time_since_epoch_utc_micros_ =
+      std::chrono::duration_cast<std::chrono::microseconds>(
+          p1.time_since_epoch())
+          .count() +
+      tt;
+  // Spawn writer thread.
+  writer_thread_ = std::thread(&TimelineWriter::WriterLoop, this);
+}
+
+void TimelineWriter::Shutdown() {
+  active_ = false;
+  healthy_ = false;
+  try {
+    if (writer_thread_.joinable()) {
+      writer_thread_.join();
+    }
+  } catch (const std::system_error& e) {
+    LOG(INFO) << "Caught system_error while joining writer thread. Code "
+              << e.code() << " meaning " << e.what();
+  }
+
+  if (cur_filename_ != "" && file_.is_open()) {
+    file_.close();
+  }
+  tensor_table_.clear();
 }
 
 void TimelineWriter::EnqueueWriteEvent(const std::string& tensor_name,
@@ -52,8 +193,12 @@ void TimelineWriter::EnqueueWriteEvent(const std::string& tensor_name,
   r.op_name = op_name;
   r.args = args;
   r.ts_micros = ts_micros;
-
-  while (healthy_ && !record_queue_.push(r))
+  {
+    std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
+    if (!active_ || !healthy_)
+      return;
+  }
+  while (healthy_ && active_ && !record_queue_.push(r))
     ;
 }
 
@@ -63,14 +208,45 @@ void TimelineWriter::EnqueueWriteMarker(const std::string& name,
   r.type = TimelineRecordType::MARKER;
   r.marker_name = name;
   r.ts_micros = ts_micros;
-
-  while (healthy_ && !record_queue_.push(r))
+  {
+    std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
+    if (!active_ || !healthy_)
+      return;
+  }
+  while (healthy_ && active_ && !record_queue_.push(r))
     ;
 }
 
+void TimelineWriter::WriteAtFileStart() {
+  file_ << "[\n";
+
+  file_ << "{";
+  file_ << "\"name\": \"process_name\"";
+  // Note name of process can be given in args{"name:"}
+  file_ << ", \"ph\": \"M\"";
+  file_ << ", \"pid\": " << 0 << "";
+  file_ << ", \"args\": {\"start_time_since_epoch_in_micros\":"
+        << start_time_since_epoch_utc_micros_ << "}";
+  file_ << "}," << std::endl;
+  file_ << "{";
+  file_ << "\"name\": \"process_sort_index\"";
+  file_ << ", \"ph\": \"M\"";
+  file_ << ", \"pid\": " << 0 << "";
+  file_ << ", \"args\": {\"sort_index\": " << 0 << "}";
+  file_ << "}," << std::endl;
+}
 void TimelineWriter::DoWriteEvent(const TimelineRecord& r) {
   assert(r.type == TimelineRecordType::EVENT);
-
+  if (is_new_file_) {
+    WriteAtFileStart();
+    is_new_file_ = false;
+  } else {
+    // last event closed the json ']' , need to seek to one position back and
+    // write ',' to continue
+    long pos = file_.tellp();
+    file_.seekp(pos - 1);
+    file_ << ",";
+  }
   auto& tensor_idx = tensor_table_[r.tensor_name];
   if (tensor_idx == 0) {
     tensor_idx = (int)tensor_table_.size();
@@ -104,18 +280,29 @@ void TimelineWriter::DoWriteEvent(const TimelineRecord& r) {
   if (r.args != "") {
     file_ << ", \"args\": {" << r.args << "}";
   }
-  file_ << "}," << std::endl;
+  // We make sure that the events are written always produce valid json file
+  file_ << "}]";
 }
 
 void TimelineWriter::DoWriteMarker(const TimelineRecord& r) {
   assert(r.type == TimelineRecordType::MARKER);
-
+  if (is_new_file_) {
+    WriteAtFileStart();
+    is_new_file_ = false;
+  } else {
+    // last event closed the json ']' , need to seek to one position back and
+    // write ',' to continue
+    long pos = file_.tellp();
+    file_.seekp(pos - 1);
+    file_ << ",";
+  }
   file_ << "{";
   file_ << "\"ph\": \"i\"";
   file_ << ", \"name\": \"" << r.marker_name << "\"";
   file_ << ", \"ts\": " << r.ts_micros << "";
   file_ << ", \"s\": \"g\"";
-  file_ << "}," << std::endl;
+  // We make sure that the events are written always produce valid json file
+  file_ << "}]";
 }
 
 void TimelineWriter::WriterLoop() {
@@ -133,14 +320,20 @@ void TimelineWriter::WriterLoop() {
         throw std::logic_error("Unknown event type provided.");
       }
       record_queue_.pop();
-
-      if (!file_.good()) {
+    }
+    {
+      std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
+      // check if we need to call SetTimeLineFile
+      if (pending_status_)
+        SetTimelineFile(PendingTimelineFile());
+      if (active_ && !file_.good()) {
         LOG(ERROR) << "Error writing to the Horovod Timeline after it was "
-                      "successfully opened, will stop writing the timeline.";
-        healthy_ = false;
+                      "successfully opened, will stop writing the timeline."
+                   << " eofbit:" << file_.eof() << " failbit:" << file_.fail()
+                   << " badbit" << file_.bad() << "\n";
+        active_ = false;
       }
     }
-
     // Allow scheduler to schedule other work for this core.
     std::this_thread::yield();
   }
@@ -150,9 +343,10 @@ void Timeline::Initialize(std::string file_name, unsigned int horovod_size) {
   if (initialized_) {
     return;
   }
+  start_time_ = std::chrono::steady_clock::now();
 
   // Start the writer.
-  writer_.Initialize(std::move(file_name));
+  writer_.Initialize(file_name, start_time_);
 
   // Initialize if we were able to open the file successfully.
   initialized_ = writer_.IsHealthy();
@@ -162,6 +356,13 @@ void Timeline::Initialize(std::string file_name, unsigned int horovod_size) {
   for (unsigned int i = 0; i < horovod_size; i++) {
     rank_strings_[i] = std::to_string(i);
   }
+}
+
+void Timeline::Shutdown() {
+  std::lock_guard<std::recursive_mutex> guard(mutex_);
+  initialized_ = false;
+  writer_.Shutdown();
+  tensor_states_.clear();
 }
 
 long Timeline::TimeSinceStartMicros() const {
@@ -200,8 +401,7 @@ void Timeline::NegotiateStart(const std::string& tensor_name,
   }
 
   assert(tensor_states_[tensor_name] == TimelineState::UNKNOWN);
-  auto event_category =
-      "NEGOTIATE_" + Request::RequestType_Name(request_type);
+  auto event_category = "NEGOTIATE_" + Request::RequestType_Name(request_type);
   WriteEvent(tensor_name, 'B', event_category);
   tensor_states_[tensor_name] = TimelineState::NEGOTIATING;
 }
@@ -307,5 +507,9 @@ void Timeline::MarkCycleStart() {
   WriteMarker("CYCLE_START");
 }
 
+void Timeline::SetPendingTimelineFile(std::string filename) {
+  writer_.SetPendingTimelineFile(filename);
+  LOG(INFO) << "Set pending timeline file to " << filename;
+}
 } // namespace common
 } // namespace horovod

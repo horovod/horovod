@@ -590,15 +590,19 @@ Status NCCLAlltoall::Execute(std::vector<TensorTableEntry>& entries,
   nccl_context_->ErrorCheck("ncclGroupStart", ncclGroupStart(), *nccl_op_context_.nccl_comm_);
 
   for (int i = 0; i < world_size; ++i) {
-    auto nccl_result = ncclRecv((uint8_t*) e.output->data() + rdispls[i] * DataType_Size(e.tensor->dtype()),
-                                recvcounts[i] * DataType_Size(e.tensor->dtype()), ncclChar, i,
-                                *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
-    nccl_context_->ErrorCheck("ncclRecv", nccl_result, *nccl_op_context_.nccl_comm_);
+    if (recvcounts[i] > 0) {
+      auto nccl_result = ncclRecv((uint8_t*) e.output->data() + rdispls[i] * DataType_Size(e.tensor->dtype()),
+                                  recvcounts[i] * DataType_Size(e.tensor->dtype()), ncclChar, i,
+                                  *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
+      nccl_context_->ErrorCheck("ncclRecv", nccl_result, *nccl_op_context_.nccl_comm_);
+    }
 
-    nccl_result = ncclSend((uint8_t*) e.tensor->data() + sdispls[i] * DataType_Size(e.tensor->dtype()),
-                           sendcounts[i] * DataType_Size(e.tensor->dtype()), ncclChar, i,
-                           *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
-    nccl_context_->ErrorCheck("ncclSend", nccl_result, *nccl_op_context_.nccl_comm_);
+    if (sendcounts[i] > 0) {
+      auto nccl_result = ncclSend((uint8_t*) e.tensor->data() + sdispls[i] * DataType_Size(e.tensor->dtype()),
+                             sendcounts[i] * DataType_Size(e.tensor->dtype()), ncclChar, i,
+                             *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
+      nccl_context_->ErrorCheck("ncclSend", nccl_result, *nccl_op_context_.nccl_comm_);
+    }
   }
   nccl_context_->ErrorCheck("ncclGroupEnd", ncclGroupEnd(), *nccl_op_context_.nccl_comm_);
 
