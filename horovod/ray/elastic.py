@@ -6,7 +6,9 @@ from horovod.ray.runner import BaseHorovodWorker
 from horovod.runner.http.http_server import RendezvousServer
 from horovod.runner.util import network
 from horovod.runner.gloo_run import (create_slot_env_vars, create_run_envs,
-                                     register_shutdown_event)
+                                     register_shutdown_event, _get_min_start_hosts)
+from horovod.runner.driver import driver_service
+from horovod.runner.elastic import settings as elastic_settings
 from horovod.runner.elastic.rendezvous import create_rendezvous_handler
 from horovod.runner.elastic.discovery import HostDiscovery
 from horovod.runner.elastic.driver import ElasticDriver
@@ -21,6 +23,7 @@ class RayHostDiscovery(HostDiscovery):
 
     def find_available_hosts_and_slots(self) -> dict:
         """Returns a dict mapping <hostname> -> <number of slots>."""
+        print("FINDING AVAILABLE HOSTS ON RAY")
         alive_nodes = [k for k in ray.nodes() if k["alive"]]
         host_mapping = {}
         for node in alive_nodes:
@@ -29,11 +32,30 @@ class RayHostDiscovery(HostDiscovery):
             slots = resources["CPU"] // self.cpus_per_slot
             if self.use_gpu:
                 slots = min(slots, resources["GPU"])
-            host_mapping[hostname] = slots
+            host_mapping[hostname] = int(slots)
+        print(f"Ray discovery: {host_mapping}")
         return host_mapping
 
 
 class ElasticRayExecutor:
+    @staticmethod
+    def create_settings(
+            min_np=1, max_np=None, elastic_timeout=600, ssh_identity_file=None, nics=None, **kwargs):
+        settings = elastic_settings.ElasticSettings(
+            discovery=None,
+            min_np=min_np,
+            max_np=max_np,
+            elastic_timeout=elastic_timeout,
+            reset_limit=3,
+            num_proc=min_np,
+            ssh_identity_file=ssh_identity_file,
+            nics=nics,
+            **kwargs
+            # ssh_port=args.ssh_port,
+            # key=secret.make_secret_key(),
+        )
+        return settings
+
     def __init__(self, settings, cpus_per_slot: int = 1,
                  use_gpu: bool = False):
         if not isinstance(settings.discovery, RayHostDiscovery):
@@ -41,16 +63,24 @@ class ElasticRayExecutor:
         self.settings = settings
         self.rendezvous = RendezvousServer(self.settings.verbose)
         self.driver = ElasticDriver(
-            self.rendezvous,
-            settings.discovery,
-            settings.min_np,
-            settings.max_np,
+            rendezvous=self.rendezvous,
+            discovery=settings.discovery,
+            min_np=settings.min_np,
+            max_np=settings.max_np,
             timeout=settings.elastic_timeout,
             reset_limit=settings.reset_limit,
             verbose=settings.verbose)
 
-    def start(self, get_common_interfaces, envs):
-        self.envs = envs
+    def start(self, envs=None):
+        settings = self.settings
+        def get_common_interfaces(driver):
+            # Host-to-host common interface detection requires at least 2 hosts in an elastic job.
+            min_hosts = _get_min_start_hosts(settings)
+            print(f"Waiting for {min_hosts}, got {settings.num_proc}")
+            current_hosts = driver.wait_for_available_slots(settings.num_proc, min_hosts=min_hosts)
+            return driver_service.get_common_interfaces(settings, current_hosts.host_assignment_order)
+
+        self.envs = envs or {}
         handler = create_rendezvous_handler(self.driver)
         global_rendezv_port = self.rendezvous.start(handler)
         self.driver.wait_for_available_slots(self.settings.num_proc)
@@ -75,13 +105,21 @@ class ElasticRayExecutor:
         def create_worker(slot_info, events):
             hostname = slot_info.hostname
             loaded_worker_cls = self.remote_worker_cls.options(
-                **self.create_resources(hostname))
+                resources=self.create_resources(hostname))
 
             worker = loaded_worker_cls.remote()
             worker.update_env_vars.remote(worker_envs)
             worker.update_env_vars.remote(create_slot_env_vars(slot_info))
             future = worker.execute.remote(worker_fn)
-            while not ray.get(future, timeout=0.1):
+            def get_or_fail():
+                try:
+                    ray.get(future, timeout=0.1)
+                    return True
+                except ray.exceptions.GetTimeoutError:
+                    pass
+                return False
+
+            while not get_or_fail():
                 if any(e.is_set() for e in events):
                     ray.kill(worker)
                     return 1, time.time()
@@ -91,7 +129,7 @@ class ElasticRayExecutor:
 
     def run(self, worker_fn):
         self.driver.start(self.settings.num_proc,
-                          self.create_spawn_worker(worker_fn))
+                          self.create_spawn_worker_fn(worker_fn))
         res = self.driver.get_results()
         self.driver.stop()
 
