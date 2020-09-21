@@ -108,12 +108,16 @@ class TensorFlowKerasState(ObjectState):
         self.backend = backend
         self._save_model()
 
-        def broadcast_object_with_session(obj):
-            return broadcast_object(obj, session=backend.get_session())
+        if not backend or _executing_eagerly():
+            self._bcast_model = lambda: _broadcast_model(self.model, self.optimizer, backend=self.backend)
+            bcast_object = broadcast_object
+        else:
+            # For TensorFlow v1, we need to reuse the broadcast op to prevent incrementing the uids
+            bcast_op = broadcast_variables(_global_variables(), root_rank=0)
+            self._bcast_model = lambda: self.backend.get_session().run(bcast_op)
+            bcast_object = broadcast_object_fn(session=self.backend.get_session())
 
-        broadcast_object_fn = broadcast_object if not backend or _executing_eagerly() else broadcast_object_with_session
-
-        super(TensorFlowKerasState, self).__init__(bcast_object=broadcast_object_fn,
+        super(TensorFlowKerasState, self).__init__(bcast_object=bcast_object,
                                                    get_rank=rank,
                                                    **kwargs)
 
@@ -126,7 +130,7 @@ class TensorFlowKerasState(ObjectState):
         super(TensorFlowKerasState, self).restore()
 
     def sync(self):
-        _broadcast_model(self.model, self.optimizer, backend=self.backend)
+        self._bcast_model()
         self._save_model()
         super(TensorFlowKerasState, self).sync()
 

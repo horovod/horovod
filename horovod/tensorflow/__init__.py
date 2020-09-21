@@ -260,12 +260,12 @@ def _make_allreduce_grads_fn(name, device_dense, device_sparse,
                          else grad for grad in grads]
 
             return [_allreduce_cond(grad,
-                              device_dense=device_dense,
-                              device_sparse=device_sparse,
-                              compression=compression,
-                              op=op,
-                              prescale_factor=prescale_factor,
-                              postscale_factor=postscale_factor)
+                                    device_dense=device_dense,
+                                    device_sparse=device_sparse,
+                                    compression=compression,
+                                    op=op,
+                                    prescale_factor=prescale_factor,
+                                    postscale_factor=postscale_factor)
                     if grad is not None else grad
                     for grad in grads]
 

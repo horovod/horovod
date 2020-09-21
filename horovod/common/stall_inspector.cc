@@ -73,7 +73,7 @@ bool StallInspector::CheckForStalledTensors(int global_size) {
                "submit different tensors or that only subset of ranks is "
                "submitting tensors, which will cause deadlock. "
             << std::endl
-            << "Stalled ranks:";
+            << "Missing ranks:";
     for (auto& kv : missing_ranks) {
       message << std::endl << kv.first;
       if (shutdown_ranks.find(kv.first) != shutdown_ranks.end()) {

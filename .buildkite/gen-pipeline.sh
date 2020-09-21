@@ -268,7 +268,7 @@ run_gloo_integration() {
     "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet_mnist.py"
 
   # Elastic
-  local elastic_tensorflow="test_elastic_tensorflow.py"
+  local elastic_tensorflow="test_elastic_tensorflow.py test_elastic_tensorflow_keras.py"
   local elastic_spark_tensorflow="test_elastic_spark_tensorflow.py"
   if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
       elastic_tensorflow="test_elastic_tensorflow2.py"
