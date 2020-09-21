@@ -76,6 +76,9 @@ def train(state):
               disable=not verbose) as t:
         for idx, (data, target) in enumerate(train_loader):
             state.batch = batch_idx = batch_offset + idx
+            if state.batch % args.batches_per_commit == 0:
+                state.commit()
+
             adjust_learning_rate(epoch, batch_idx)
 
             if args.cuda:
@@ -101,9 +104,6 @@ def train(state):
             optimizer.step()
             t.set_postfix({'loss': train_loss.avg.item(),
                            'accuracy': 100. * train_accuracy.avg.item()})
-
-            if (state.batch + 1) % args.batches_per_commit == 0:
-                state.commit()
 
             t.update(1)
 
