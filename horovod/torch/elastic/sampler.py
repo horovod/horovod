@@ -18,7 +18,7 @@ import random
 
 import torch.utils.data.distributed
 
-import horovod.torch as hvd
+from horovod.torch.mpi_ops import rank, size
 
 
 class ElasticSampler(torch.utils.data.Sampler):
@@ -101,8 +101,8 @@ class ElasticSampler(torch.utils.data.Sampler):
         )
 
     def reset(self):
-        self.num_replicas = hvd.size()
-        self.rank = hvd.rank()
+        self.num_replicas = size()
+        self.rank = rank()
 
         # Exclude any samples we have already processed this epoch
         self.remaining_indices = [idx for idx in range(len(self.dataset))
