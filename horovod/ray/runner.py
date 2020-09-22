@@ -137,12 +137,11 @@ class NodeColocator:
         remote_cls = remote_cls.options(
             num_cpus=0, num_gpus=0, resources={node_id: 0.01})
 
-        world_rank_start = self.num_slots * self.node_rank
+        rank_start = self.num_slots * self.node_rank
 
         self.workers = [
             remote_cls.remote(world_rank=rank, world_size=self.world_size)
-            for rank in range(world_rank_start, world_rank_start +
-                              self.num_slots)
+            for rank in range(rank_start, rank_start + self.num_slots)
         ]
 
         # Propogate cuda visible devices to the underlying

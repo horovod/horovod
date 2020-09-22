@@ -2,16 +2,14 @@ import logging
 import ray
 import time
 import os
-from typing import Dict, Callable, Any, Optional, List
-
+from typing import Callable
 
 from horovod.ray.runner import BaseHorovodWorker
-from horovod.runner.common.util import timeout, hosts, secret
+from horovod.runner.common.util import timeout, secret
 
 from horovod.runner.http.http_server import RendezvousServer
 from horovod.runner.util import network
 from horovod.runner.gloo_run import (create_slot_env_vars, create_run_env_vars,
-                                     register_shutdown_event,
                                      _get_min_start_hosts)
 from horovod.runner.driver import driver_service
 from horovod.runner.elastic.settings import ElasticSettings
@@ -26,6 +24,7 @@ class RayHostDiscovery(HostDiscovery):
     """Uses Ray global state to obtain host mapping.
 
     Assumes that the whole global state is available for usage."""
+
     def __init__(self, use_gpu=False, cpus_per_slot=1):
         self.use_gpu = use_gpu
         self.cpus_per_slot = cpus_per_slot
@@ -47,7 +46,9 @@ class RayHostDiscovery(HostDiscovery):
 class ElasticRayExecutor:
     """Executor for elastic jobs.
 
-
+    Leverages the Ray global state to detect available hosts and
+    slots. Assumes that the entire Ray cluster is available for
+    the Executor to use.
 
     Args:
         settings: Configuration for the elastic job
@@ -56,6 +57,9 @@ class ElasticRayExecutor:
             ElasticRayExecutor.create_settings.
         env_vars (Dict): Environment variables to be set
             on the actors (worker processes) before initialization.
+        use_gpu (bool): Whether to use GPU for allocation.
+        cpus_per_slot (int): Number of CPU resources to allocate to
+            each worker.
 
     Example:
 
@@ -68,6 +72,7 @@ class ElasticRayExecutor:
             settings, use_gpu=True, cpus_per_slot=2)
         executor.run(train_fn)
     """
+
     @staticmethod
     def create_settings(min_np: int = 1,
                         max_np: int = None,
@@ -122,12 +127,14 @@ class ElasticRayExecutor:
             nics=nics,
             start_timeout=start_timeout,
             key=secret.make_secret_key() if secret else None,
-            **kwargs
-        )
+            **kwargs)
         return settings
 
-    def __init__(self, settings: ElasticSettings, cpus_per_slot: int = 1,
-                 use_gpu: bool = False, env_vars: dict = None):
+    def __init__(self,
+                 settings: ElasticSettings,
+                 cpus_per_slot: int = 1,
+                 use_gpu: bool = False,
+                 env_vars: dict = None):
         if not isinstance(settings.discovery, RayHostDiscovery):
             settings.discovery = RayHostDiscovery(use_gpu, cpus_per_slot)
         self.cpus_per_slot = cpus_per_slot
@@ -148,9 +155,10 @@ class ElasticRayExecutor:
         global_rendezv_port = self.rendezvous.start(handler)
         self.driver.wait_for_available_slots(self.settings.num_proc)
 
-        # Host-to-host common interface detection requires at least 2 hosts in an elastic job.
+        # Host-to-host common interface detection
+        # requires at least 2 hosts in an elastic job.
         min_hosts = _get_min_start_hosts(self.settings)
-        current_hosts = driver.wait_for_available_slots(
+        current_hosts = self.driver.wait_for_available_slots(
             self.settings.num_proc, min_hosts=min_hosts)
         nics = driver_service.get_common_interfaces(
             self.settings, current_hosts.host_assignment_order)
@@ -166,7 +174,7 @@ class ElasticRayExecutor:
             resources={f"node:{hostname}": 0.01})
         return resources
 
-    def _create_remote_worker(self, slot_info) -> "ActorHandle":
+    def _create_remote_worker(self, slot_info, worker_env_vars):
         hostname = slot_info.hostname
         loaded_worker_cls = self.remote_worker_cls.options(
             **self._create_resources(hostname))
@@ -190,7 +198,7 @@ class ElasticRayExecutor:
         worker_env_vars.update({"PYTHONUNBUFFERED": "1"})
 
         def worker_loop(slot_info, events):
-            worker = self._create_remote_worker(slot_info)
+            worker = self._create_remote_worker(slot_info, worker_env_vars)
             future = worker.execute.remote(lambda _: worker_fn())
 
             result = None
@@ -217,7 +225,7 @@ class ElasticRayExecutor:
         """Executes the provided function on all workers.
 
         Args:
-            worker_fn: Target function that can be executed.
+            worker_fn: Target elastic function that can be executed.
         """
         self.driver.start(self.settings.num_proc,
                           self._create_spawn_worker_fn(worker_fn))
@@ -232,7 +240,9 @@ class ElasticRayExecutor:
             exit_code, timestamp = value
             if exit_code != 0:
                 raise RuntimeError(
-                    'Horovod detected that one or more processes exited with non-zero '
-                    'status, thus causing the job to be terminated. The first process '
+                    'Horovod detected that one or more processes '
+                    'exited with non-zero '
+                    'status, thus causing the job to be terminated. '
+                    'The first process '
                     'to do so was:\nProcess name: {name}\nExit code: {code}\n'
                     .format(name=name, code=exit_code))
