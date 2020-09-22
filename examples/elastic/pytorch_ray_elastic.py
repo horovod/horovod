@@ -33,7 +33,7 @@ parser.add_argument('--use-adasum', action='store_true', default=False,
 args = parser.parse_args()
 
 
-def train_fn(_):
+def train_fn():
     # Horovod: initialize library.
     hvd.init()
     torch.manual_seed(args.seed)
