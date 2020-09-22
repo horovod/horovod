@@ -2,6 +2,8 @@ import logging
 import ray
 import time
 import os
+from typing import Dict, Callable, Any, Optional, List
+
 
 from horovod.ray.runner import BaseHorovodWorker
 from horovod.runner.common.util import timeout, hosts, secret
@@ -12,7 +14,7 @@ from horovod.runner.gloo_run import (create_slot_env_vars, create_run_envs,
                                      register_shutdown_event,
                                      _get_min_start_hosts)
 from horovod.runner.driver import driver_service
-from horovod.runner.elastic import settings as elastic_settings
+from horovod.runner.elastic.settings import ElasticSettings
 from horovod.runner.elastic.rendezvous import create_rendezvous_handler
 from horovod.runner.elastic.discovery import HostDiscovery
 from horovod.runner.elastic.driver import ElasticDriver
@@ -56,7 +58,7 @@ class ElasticRayExecutor:
             "parameter if you have too many servers.")
         ssh_identity_file = ssh_identity_file or os.path.expanduser(
             "~/ray_bootstrap_key.pem")
-        settings = elastic_settings.ElasticSettings(
+        settings = ElasticSettings(
             discovery=None,
             min_np=min_np,
             max_np=max_np,
@@ -68,12 +70,10 @@ class ElasticRayExecutor:
             start_timeout=start_timeout,
             key=secret.make_secret_key() if secret else None,
             **kwargs
-            # ssh_port=args.ssh_port,
-            # key=secret.make_secret_key(),
         )
         return settings
 
-    def __init__(self, settings, cpus_per_slot: int = 1,
+    def __init__(self, settings: ElasticSettings, cpus_per_slot: int = 1,
                  use_gpu: bool = False):
         if not isinstance(settings.discovery, RayHostDiscovery):
             settings.discovery = RayHostDiscovery(use_gpu, cpus_per_slot)
@@ -90,33 +90,48 @@ class ElasticRayExecutor:
             reset_limit=settings.reset_limit,
             verbose=settings.verbose)
 
-    def start(self, envs=None):
-        def get_common_interfaces(driver):
-            # Host-to-host common interface detection requires at least 2 hosts in an elastic job.
-            min_hosts = _get_min_start_hosts(self.settings)
-            current_hosts = driver.wait_for_available_slots(
-                self.settings.num_proc, min_hosts=min_hosts)
-            return driver_service.get_common_interfaces(
-                self.settings, current_hosts.host_assignment_order)
+    def start(self, envs: dict = None):
 
         self.envs = envs or {}
         handler = create_rendezvous_handler(self.driver)
         global_rendezv_port = self.rendezvous.start(handler)
         self.driver.wait_for_available_slots(self.settings.num_proc)
 
-        nics = get_common_interfaces(self.driver)
+        # Host-to-host common interface detection requires at least 2 hosts in an elastic job.
+        min_hosts = _get_min_start_hosts(self.settings)
+        current_hosts = driver.wait_for_available_slots(
+            self.settings.num_proc, min_hosts=min_hosts)
+        nics = driver_service.get_common_interfaces(
+            self.settings, current_hosts.host_assignment_order)
+
         server_ip = network.get_driver_ip(nics)
         self.run_envs = create_run_envs(
             server_ip, nics, global_rendezv_port, elastic=True)
 
-    def create_resources(self, hostname):
+    def create_resources(self, hostname: str):
         resources = dict(
             num_cpus=self.cpus_per_slot,
             num_gpus=int(self.use_gpu),
             resources={f"node:{hostname}": 0.01})
         return resources
 
-    def create_spawn_worker_fn(self, worker_fn):
+    def _create_remote_worker(self, slot_info) -> "ActorHandle":
+        hostname = slot_info.hostname
+        loaded_worker_cls = self.remote_worker_cls.options(
+            **self.create_resources(hostname))
+
+        worker = loaded_worker_cls.remote()
+        worker.update_env_vars.remote(worker_envs)
+        worker.update_env_vars.remote(create_slot_env_vars(slot_info))
+        visible_devices = ",".join(
+            [str(i) for i in range(slot_info.local_size)])
+        worker.update_env_vars.remote({
+            "CUDA_VISIBLE_DEVICES":
+            visible_devices
+        })
+        return worker
+
+    def create_spawn_worker_fn(self, worker_fn: Callable) -> Callable:
         self.remote_worker_cls = ray.remote(BaseHorovodWorker)
         # event = register_shutdown_event()
         worker_envs = {}
@@ -124,44 +139,31 @@ class ElasticRayExecutor:
         worker_envs.update(self.envs.copy())
         worker_envs.update(PYTHONUNBUFFERED="1")
 
-        def create_worker(slot_info, events):
-            hostname = slot_info.hostname
-            loaded_worker_cls = self.remote_worker_cls.options(
-                **self.create_resources(hostname))
+        def worker_loop(slot_info, events):
+            worker = self._create_remote_worker(slot_info)
+            future = worker.execute.remote(lambda _: worker_fn())
 
-            worker = loaded_worker_cls.remote()
-            worker.update_env_vars.remote(worker_envs)
-            worker.update_env_vars.remote(create_slot_env_vars(slot_info))
-            visible_devices = ",".join(
-                [str(i) for i in range(slot_info.local_size)])
-            worker.update_env_vars.remote({
-                "CUDA_VISIBLE_DEVICES":
-                visible_devices
-            })
-            future = worker.execute.remote(worker_fn)
-
-            def get_or_fail():
+            result = None
+            while result is None:
                 try:
                     ray.get(future, timeout=0.1)
                     # Success
-                    return 0, time.time()
+                    result = 0, time.time()
                 except ray.exceptions.GetTimeoutError:
                     # Timeout
                     if any(e.is_set() for e in events):
                         ray.kill(worker)
-                        return 1, time.time()
+                        result = 1, time.time()
+                    else:
+                        result = None
                 except Exception:
                     # Fail
-                    return 1, time.time()
-
-            result = None
-            while not result:
-                result = get_or_fail()
+                    result = 1, time.time()
             return result
 
-        return create_worker
+        return worker_loop
 
-    def run(self, worker_fn):
+    def run(self, worker_fn: Callable):
         self.driver.start(self.settings.num_proc,
                           self.create_spawn_worker_fn(worker_fn))
         res = self.driver.get_results()
