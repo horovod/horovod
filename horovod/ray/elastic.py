@@ -9,7 +9,8 @@ from horovod.runner.common.util import timeout, hosts, secret
 from horovod.runner.http.http_server import RendezvousServer
 from horovod.runner.util import network
 from horovod.runner.gloo_run import (create_slot_env_vars, create_run_envs,
-                                     register_shutdown_event, _get_min_start_hosts)
+                                     register_shutdown_event,
+                                     _get_min_start_hosts)
 from horovod.runner.driver import driver_service
 from horovod.runner.elastic import settings as elastic_settings
 from horovod.runner.elastic.rendezvous import create_rendezvous_handler
@@ -40,15 +41,21 @@ class RayHostDiscovery(HostDiscovery):
 
 class ElasticRayExecutor:
     @staticmethod
-    def create_settings(
-            min_np=1, max_np=None, elastic_timeout=600, timeout_s=60, ssh_identity_file=None, nics=None, **kwargs):
+    def create_settings(min_np=1,
+                        max_np=None,
+                        elastic_timeout=600,
+                        timeout_s=60,
+                        ssh_identity_file=None,
+                        nics=None,
+                        **kwargs):
         start_timeout = timeout.Timeout(
             timeout_s,
             message="Timed out waiting for {activity}. Please "
             "check connectivity between servers. You "
             "may need to increase the --start-timeout "
             "parameter if you have too many servers.")
-        ssh_identity_file = ssh_identity_file or os.path.expanduser("~/ray_bootstrap_key.pem")
+        ssh_identity_file = ssh_identity_file or os.path.expanduser(
+            "~/ray_bootstrap_key.pem")
         settings = elastic_settings.ElasticSettings(
             discovery=None,
             min_np=min_np,
@@ -59,7 +66,7 @@ class ElasticRayExecutor:
             ssh_identity_file=ssh_identity_file,
             nics=nics,
             start_timeout=start_timeout,
-            key = secret.make_secret_key() if secret else None,
+            key=secret.make_secret_key() if secret else None,
             **kwargs
             # ssh_port=args.ssh_port,
             # key=secret.make_secret_key(),
@@ -87,8 +94,10 @@ class ElasticRayExecutor:
         def get_common_interfaces(driver):
             # Host-to-host common interface detection requires at least 2 hosts in an elastic job.
             min_hosts = _get_min_start_hosts(self.settings)
-            current_hosts = driver.wait_for_available_slots(self.settings.num_proc, min_hosts=min_hosts)
-            return driver_service.get_common_interfaces(self.settings, current_hosts.host_assignment_order)
+            current_hosts = driver.wait_for_available_slots(
+                self.settings.num_proc, min_hosts=min_hosts)
+            return driver_service.get_common_interfaces(
+                self.settings, current_hosts.host_assignment_order)
 
         self.envs = envs or {}
         handler = create_rendezvous_handler(self.driver)
@@ -104,8 +113,7 @@ class ElasticRayExecutor:
         resources = dict(
             num_cpus=self.cpus_per_slot,
             num_gpus=int(self.use_gpu),
-            resources={f"node:{hostname}": 0.01}
-        )
+            resources={f"node:{hostname}": 0.01})
         return resources
 
     def create_spawn_worker_fn(self, worker_fn):
@@ -126,8 +134,12 @@ class ElasticRayExecutor:
             worker.update_env_vars.remote(create_slot_env_vars(slot_info))
             visible_devices = ",".join(
                 [str(i) for i in range(slot_info.local_size)])
-            worker.update_env_vars.remote({"CUDA_VISIBLE_DEVICES": visible_devices})
+            worker.update_env_vars.remote({
+                "CUDA_VISIBLE_DEVICES":
+                visible_devices
+            })
             future = worker.execute.remote(worker_fn)
+
             def get_or_fail():
                 try:
                     ray.get(future, timeout=0.1)
@@ -141,12 +153,11 @@ class ElasticRayExecutor:
                 except Exception:
                     # Fail
                     return 1, time.time()
+
             result = None
             while not result:
                 result = get_or_fail()
             return result
-
-
 
         return create_worker
 
