@@ -72,6 +72,7 @@ MOCK_MODULES = [
     'torch.nn.modules.batchnorm',
     'torch.utils',
     'torch.utils.data',
+    'torch.utils.data.distributed',
     'torch.utils.tensorboard',
 
     'mxnet',
@@ -110,6 +111,11 @@ MOCK_TREE = {
                 'batchnorm': {
                     '_BatchNorm': MagicMock,
                 }
+            },
+        },
+        'utils': {
+            'data': {
+                'Sampler': MagicMock,
             },
         },
     },

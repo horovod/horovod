@@ -482,8 +482,6 @@ def parse_args():
 
 
 def _run_static(args):
-    nics_set = set(args.nics.split(',')) if args.nics else None
-
     # horovodrun has to finish all the checks before this timeout runs out.
     if args.start_timeout:
         start_timeout = args.start_timeout
@@ -508,7 +506,7 @@ def _run_static(args):
                                      hosts=args.hosts,
                                      output_filename=args.output_filename,
                                      run_func_mode=args.run_func is not None,
-                                     nics=nics_set)
+                                     nics=args.nics)
 
     # This cache stores the results of checks performed by horovod
     # during the initialization step. It can be disabled by setting
@@ -705,6 +703,9 @@ def _run(args):
         else:
             # Set hosts to localhost if not specified
             args.hosts = 'localhost:{np}'.format(np=args.np)
+
+    # Convert nics into set
+    args.nics = set(args.nics.split(',')) if args.nics else None
 
     if _is_elastic(args):
         return _run_elastic(args)

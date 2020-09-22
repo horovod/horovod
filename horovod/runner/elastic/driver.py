@@ -145,7 +145,8 @@ class ElasticDriver(object):
     def wait_for_available_slots(self, min_np, min_hosts=1):
         extra_message = ' An elastic job also requires that at least two hosts ' \
                         'are available to resolve compatible network interfaces. If you know which interfaces ' \
-                        'are compatible in your network, set `--nic` to skip this check.' if min_hosts > 1 else ''
+                        'are compatible in your network, set `--network-interface` to skip this check.' \
+            if min_hosts > 1 else ''
 
         tmout = timeout.Timeout(
             self._timeout,

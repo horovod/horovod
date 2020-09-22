@@ -5,7 +5,6 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 import torch.utils.data.distributed
 import horovod.torch as hvd
-import os
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
@@ -116,13 +115,6 @@ def metric_average(val, name):
     return avg_tensor.item()
 
 
-def check_rank(epoch):
-    if epoch == 2 and int(os.environ.get('HOROVOD_RANK')) == 0:
-        print('exit rank {}'.format(hvd.rank()))
-        raise RuntimeError('check_rank and exit')
-        # exit(1)
-
-
 @hvd.elastic.run
 def train(state):
     # post synchronization event (worker added, worker removed) init ...
@@ -136,7 +128,6 @@ def train(state):
             if state.batch >= steps_remaining:
                 break
 
-            check_rank(state.epoch)
             if args.cuda:
                 data, target = data.cuda(), target.cuda()
             state.optimizer.zero_grad()
