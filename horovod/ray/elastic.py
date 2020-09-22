@@ -70,6 +70,7 @@ class ElasticRayExecutor:
         settings = ElasticRayExecutor.create_settings(verbose=True)
         executor = ElasticRayExecutor(
             settings, use_gpu=True, cpus_per_slot=2)
+        executor.start()
         executor.run(train_fn)
     """
 
@@ -149,12 +150,12 @@ class ElasticRayExecutor:
         self.rendezvous = RendezvousServer(self.settings.verbose)
         self.driver = ElasticDriver(
             rendezvous=self.rendezvous,
-            discovery=settings.discovery,
-            min_np=settings.min_np,
-            max_np=settings.max_np,
-            timeout=settings.elastic_timeout,
-            reset_limit=settings.reset_limit,
-            verbose=settings.verbose)
+            discovery=self.settings.discovery,
+            min_np=self.settings.min_np,
+            max_np=self.settings.max_np,
+            timeout=self.settings.elastic_timeout,
+            reset_limit=self.settings.reset_limit,
+            verbose=self.settings.verbose)
         handler = create_rendezvous_handler(self.driver)
         global_rendezv_port = self.rendezvous.start(handler)
         self.driver.wait_for_available_slots(self.settings.num_proc)
