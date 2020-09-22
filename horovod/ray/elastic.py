@@ -4,7 +4,7 @@ import time
 import os
 
 from horovod.ray.runner import BaseHorovodWorker
-from horovod.runner.common.util import timeout, hosts
+from horovod.runner.common.util import timeout, hosts, secret
 
 from horovod.runner.http.http_server import RendezvousServer
 from horovod.runner.util import network
@@ -59,6 +59,7 @@ class ElasticRayExecutor:
             ssh_identity_file=ssh_identity_file,
             nics=nics,
             start_timeout=start_timeout,
+            key = secret.make_secret_key() if secret else None,
             **kwargs
             # ssh_port=args.ssh_port,
             # key=secret.make_secret_key(),
@@ -83,12 +84,11 @@ class ElasticRayExecutor:
             verbose=settings.verbose)
 
     def start(self, envs=None):
-        settings = self.settings
         def get_common_interfaces(driver):
             # Host-to-host common interface detection requires at least 2 hosts in an elastic job.
-            min_hosts = _get_min_start_hosts(settings)
-            current_hosts = driver.wait_for_available_slots(settings.num_proc, min_hosts=min_hosts)
-            return driver_service.get_common_interfaces(settings, current_hosts.host_assignment_order)
+            min_hosts = _get_min_start_hosts(self.settings)
+            current_hosts = driver.wait_for_available_slots(self.settings.num_proc, min_hosts=min_hosts)
+            return driver_service.get_common_interfaces(self.settings, current_hosts.host_assignment_order)
 
         self.envs = envs or {}
         handler = create_rendezvous_handler(self.driver)
