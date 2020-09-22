@@ -247,7 +247,7 @@ def train_fn():
 
 
 if __name__ == '__main__':
-    from horovod.ray.elastic import ElasticRayExecutor
+    from horovod.ray import ElasticRayExecutor
     import ray
     ray.init(address="auto")
     print(ray.cluster_resources())

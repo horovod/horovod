@@ -2,7 +2,7 @@ import logging
 import ray
 import time
 import os
-from typing import Callable, List, Any
+from typing import Callable, List, Any, Dict
 
 from horovod.ray.runner import BaseHorovodWorker
 from horovod.runner.common.util import timeout, secret
@@ -29,16 +29,16 @@ class RayHostDiscovery(HostDiscovery):
         self.use_gpu = use_gpu
         self.cpus_per_slot = cpus_per_slot
 
-    def find_available_hosts_and_slots(self) -> dict:
+    def find_available_hosts_and_slots(self) -> Dict[str, int]:
         """Returns a dict mapping <hostname> -> <number of slots>."""
         alive_nodes = [k for k in ray.nodes() if k["alive"]]
         host_mapping = {}
         for node in alive_nodes:
             hostname = node["NodeManagerAddress"]
             resources = node["Resources"]
-            slots = resources["CPU"] // self.cpus_per_slot
+            slots = resources.get("CPU", 0) // self.cpus_per_slot
             if self.use_gpu:
-                slots = min(slots, resources["GPU"])
+                slots = min(slots, resources.get("GPU", 0))
             host_mapping[hostname] = int(slots)
         return host_mapping
 
