@@ -140,6 +140,12 @@ class ElasticRayExecutor:
         self.cpus_per_slot = cpus_per_slot
         self.use_gpu = use_gpu
         self.settings = settings
+        self.driver = None
+        self.rendezvous = None
+        self.env_vars = env_vars or {}
+
+    def start(self):
+        """Starts the Horovod driver and services."""
         self.rendezvous = RendezvousServer(self.settings.verbose)
         self.driver = ElasticDriver(
             rendezvous=self.rendezvous,
@@ -149,8 +155,6 @@ class ElasticRayExecutor:
             timeout=settings.elastic_timeout,
             reset_limit=settings.reset_limit,
             verbose=settings.verbose)
-
-        self.env_vars = env_vars or {}
         handler = create_rendezvous_handler(self.driver)
         global_rendezv_port = self.rendezvous.start(handler)
         self.driver.wait_for_available_slots(self.settings.num_proc)
