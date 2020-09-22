@@ -31,12 +31,13 @@ parser.add_argument('--use-adasum', action='store_true', default=False,
                     help='use adasum algorithm to do reduction')
 
 args = parser.parse_args()
-args.cuda = not args.no_cuda and torch.cuda.is_available()
+
 
 def train_fn(_):
     # Horovod: initialize library.
     hvd.init()
     torch.manual_seed(args.seed)
+    args.cuda = not args.no_cuda and torch.cuda.is_available()
 
     if args.cuda:
         # Horovod: pin GPU to local rank.
@@ -205,9 +206,10 @@ def train_fn(_):
 if __name__ == '__main__':
     from horovod.ray.elastic import ElasticRayExecutor
     import ray
-    ray.init()
+    ray.init(address="auto")
     print(ray.cluster_resources())
-    settings = ElasticRayExecutor.create_settings(nics="lo")
+    settings = ElasticRayExecutor.create_settings(
+        ssh_identity_file=os.path.expanduser("~/ray_bootstrap_key.pem"), verbose=True, nics={"ens3"})
     executor = ElasticRayExecutor(settings, use_gpu=True, cpus_per_slot=2)
-    executor.start({})
+    executor.start()
     executor.run(train_fn)
