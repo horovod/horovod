@@ -44,7 +44,7 @@ parser.add_argument('--batches-per-commit', type=int, default=100,
 parser.add_argument('--batches-per-host-check', type=int, default=10,
                     help='number of batches processed before calling `state.check_host_updates()`; '
                          'this check is very fast compared to state.commit() (which calls this '
-                         'as part of the commit process), but because still incurs some cost due'
+                         'as part of the commit process), but because still incurs some cost due '
                          'to broadcast, so we may not want to perform it every batch.')
 
 # Default settings from https://arxiv.org/abs/1706.02677.
@@ -317,8 +317,8 @@ if __name__ == '__main__':
 
     # Restore from a previous checkpoint, if initial_epoch is specified.
     # Horovod: restore on the first worker which will broadcast weights to other workers.
+    resume_from_epoch = 0
     if hvd.rank() == 0:
-        resume_from_epoch = 0
         for try_epoch in range(args.epochs, 0, -1):
             if os.path.exists(args.checkpoint_format.format(epoch=try_epoch)):
                 resume_from_epoch = try_epoch
@@ -334,7 +334,7 @@ if __name__ == '__main__':
                                    optimizer=optimizer,
                                    train_sampler=train_sampler,
                                    val_sampler=val_sampler,
-                                   epoch=1,
+                                   epoch=resume_from_epoch,
                                    batch=0)
 
     full_train(state)
