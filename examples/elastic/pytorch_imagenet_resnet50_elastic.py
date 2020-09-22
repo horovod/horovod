@@ -84,9 +84,11 @@ def train(state):
             # and commit / check for host updates. Do not check hosts when
             # we commit as it would be redundant.
             state.batch = batch_idx = batch_offset + idx
-            if state.batch % args.batches_per_commit == 0:
+            if args.batches_per_commit > 0 and \
+                    state.batch % args.batches_per_commit == 0:
                 state.commit()
-            elif state.batch % args.batches_per_host_check == 0:
+            elif args.batches_per_host_check > 0 and \
+                    state.batch % args.batches_per_host_check == 0:
                 state.check_host_updates()
 
             adjust_learning_rate(epoch, batch_idx)
