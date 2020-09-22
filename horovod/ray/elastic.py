@@ -60,6 +60,8 @@ class ElasticRayExecutor:
         use_gpu (bool): Whether to use GPU for allocation.
         cpus_per_slot (int): Number of CPU resources to allocate to
             each worker.
+        override_discovery (bool): Whether for the ElasticRayExecutor to
+            automatically provide a discovery mechanism for ElasticSettings.
 
     Example:
 
@@ -122,7 +124,7 @@ class ElasticRayExecutor:
             min_np=min_np,
             max_np=max_np,
             elastic_timeout=elastic_timeout,
-            reset_limit=3,
+            reset_limit=reset_limit,
             num_proc=min_np,
             ssh_identity_file=ssh_identity_file,
             nics=nics,
@@ -135,8 +137,9 @@ class ElasticRayExecutor:
                  settings: ElasticSettings,
                  cpus_per_slot: int = 1,
                  use_gpu: bool = False,
-                 env_vars: dict = None):
-        if not isinstance(settings.discovery, RayHostDiscovery):
+                 env_vars: dict = None,
+                 override_discovery=True):
+        if override_discovery:
             settings.discovery = RayHostDiscovery(use_gpu, cpus_per_slot)
         self.cpus_per_slot = cpus_per_slot
         self.use_gpu = use_gpu
