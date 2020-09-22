@@ -41,6 +41,11 @@ parser.add_argument('--batches-per-commit', type=int, default=100,
                     help='number of batches processed before calling `state.commit()`; '
                          'commits prevent losing progress if an error occurs, but slow '
                          'down training.')
+parser.add_argument('--batches-per-host-check', type=int, default=10,
+                    help='number of batches processed before calling `state.check_host_updates()`; '
+                         'this check is very fast compared to state.commit() (which calls this '
+                         'as part of the commit process), but because still incurs some cost due'
+                         'to broadcast, so we may not want to perform it every batch.')
 
 # Default settings from https://arxiv.org/abs/1706.02677.
 parser.add_argument('--batch-size', type=int, default=32,
@@ -75,9 +80,14 @@ def train(state):
               desc='Train Epoch     #{}'.format(epoch + 1),
               disable=not verbose) as t:
         for idx, (data, target) in enumerate(train_loader):
+            # Elastic Horovod: update the current batch index this epoch
+            # and commit / check for host updates. Do not check hosts when
+            # we commit as it would be redundant.
             state.batch = batch_idx = batch_offset + idx
             if state.batch % args.batches_per_commit == 0:
                 state.commit()
+            elif state.batch % args.batches_per_host_check == 0:
+                state.check_host_updates()
 
             adjust_learning_rate(epoch, batch_idx)
 
