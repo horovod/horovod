@@ -318,18 +318,11 @@ if __name__ == '__main__':
             model.load_state_dict(checkpoint['model'])
             optimizer.load_state_dict(checkpoint['optimizer'])
 
-    # adjust learning rate on reset
-    def on_state_reset():
-        for param_group in optimizer.param_groups:
-            param_group['lr'] = args.lr * hvd.size()
-
-
     state = hvd.elastic.TorchState(model=model,
                                    optimizer=optimizer,
                                    train_sampler=train_sampler,
                                    val_sampler=val_sampler,
                                    epoch=1,
                                    batch=0)
-    state.register_reset_callbacks([on_state_reset])
 
     full_train(state)
