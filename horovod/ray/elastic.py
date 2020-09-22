@@ -10,7 +10,7 @@ from horovod.runner.common.util import timeout, hosts, secret
 
 from horovod.runner.http.http_server import RendezvousServer
 from horovod.runner.util import network
-from horovod.runner.gloo_run import (create_slot_env_vars, create_run_envs,
+from horovod.runner.gloo_run import (create_slot_env_vars, create_run_env_vars,
                                      register_shutdown_event,
                                      _get_min_start_hosts)
 from horovod.runner.driver import driver_service
@@ -23,6 +23,9 @@ logger = logging.getLogger(__name__)
 
 
 class RayHostDiscovery(HostDiscovery):
+    """Uses Ray global state to obtain host mapping.
+
+    Assumes that the whole global state is available for usage."""
     def __init__(self, use_gpu=False, cpus_per_slot=1):
         self.use_gpu = use_gpu
         self.cpus_per_slot = cpus_per_slot
@@ -42,14 +45,64 @@ class RayHostDiscovery(HostDiscovery):
 
 
 class ElasticRayExecutor:
+    """Executor for elastic jobs.
+
+
+
+    Args:
+        settings: Configuration for the elastic job
+            setup. You can use a standard Horovod ElasticSettings
+            object or create one directly from
+            ElasticRayExecutor.create_settings.
+        env_vars (Dict): Environment variables to be set
+            on the actors (worker processes) before initialization.
+
+    Example:
+
+    .. code-block:: python
+
+        import ray
+        ray.init(address="auto")
+        settings = ElasticRayExecutor.create_settings(verbose=True)
+        executor = ElasticRayExecutor(
+            settings, use_gpu=True, cpus_per_slot=2)
+        executor.run(train_fn)
+    """
     @staticmethod
-    def create_settings(min_np=1,
-                        max_np=None,
-                        elastic_timeout=600,
-                        timeout_s=60,
-                        ssh_identity_file=None,
-                        nics=None,
+    def create_settings(min_np: int = 1,
+                        max_np: int = None,
+                        reset_limit: int = None,
+                        elastic_timeout: int = 600,
+                        timeout_s: int = 30,
+                        ssh_identity_file: str = None,
+                        nics: str = None,
                         **kwargs):
+        """Returns a Settings object for ElasticRayExecutor.
+
+        Note that the `discovery` property will be set at runtime.
+
+        Args:
+            min_np (int): Minimum number of processes running for
+                training to continue. If number of available processes dips
+                below this threshold, then training will wait for
+                more instances to become available.
+            max_np (int): Maximum number of training processes,
+                beyond which no additional processes will be created.
+                If not specified, then will be unbounded.
+            reset_limit (int): Maximum number of times that the training
+                job can scale up or down the number of workers after
+                which the job is terminated.
+            elastic_timeout (int): Timeout for elastic initialisation after
+                re-scaling the cluster. The default value is 600 seconds.
+                Alternatively, the environment variable
+                HOROVOD_ELASTIC_TIMEOUT can also be used.'
+            timeout_s (int): Horovod performs all the checks and starts the
+                processes before the specified timeout.
+                The default value is 30 seconds.
+            ssh_identity_file (str): File on the driver from which
+                the identity (private key) is read.
+            nics (set): Network interfaces that can be used for communication.
+        """
         start_timeout = timeout.Timeout(
             timeout_s,
             message="Timed out waiting for {activity}. Please "
@@ -74,7 +127,7 @@ class ElasticRayExecutor:
         return settings
 
     def __init__(self, settings: ElasticSettings, cpus_per_slot: int = 1,
-                 use_gpu: bool = False):
+                 use_gpu: bool = False, env_vars: dict = None):
         if not isinstance(settings.discovery, RayHostDiscovery):
             settings.discovery = RayHostDiscovery(use_gpu, cpus_per_slot)
         self.cpus_per_slot = cpus_per_slot
@@ -90,9 +143,7 @@ class ElasticRayExecutor:
             reset_limit=settings.reset_limit,
             verbose=settings.verbose)
 
-    def start(self, envs: dict = None):
-
-        self.envs = envs or {}
+        self.env_vars = env_vars or {}
         handler = create_rendezvous_handler(self.driver)
         global_rendezv_port = self.rendezvous.start(handler)
         self.driver.wait_for_available_slots(self.settings.num_proc)
@@ -105,10 +156,10 @@ class ElasticRayExecutor:
             self.settings, current_hosts.host_assignment_order)
 
         server_ip = network.get_driver_ip(nics)
-        self.run_envs = create_run_envs(
+        self.run_env_vars = create_run_env_vars(
             server_ip, nics, global_rendezv_port, elastic=True)
 
-    def create_resources(self, hostname: str):
+    def _create_resources(self, hostname: str):
         resources = dict(
             num_cpus=self.cpus_per_slot,
             num_gpus=int(self.use_gpu),
@@ -118,26 +169,25 @@ class ElasticRayExecutor:
     def _create_remote_worker(self, slot_info) -> "ActorHandle":
         hostname = slot_info.hostname
         loaded_worker_cls = self.remote_worker_cls.options(
-            **self.create_resources(hostname))
+            **self._create_resources(hostname))
 
         worker = loaded_worker_cls.remote()
-        worker.update_env_vars.remote(worker_envs)
+        worker.update_env_vars.remote(worker_env_vars)
         worker.update_env_vars.remote(create_slot_env_vars(slot_info))
         visible_devices = ",".join(
             [str(i) for i in range(slot_info.local_size)])
         worker.update_env_vars.remote({
-            "CUDA_VISIBLE_DEVICES":
-            visible_devices
+            "CUDA_VISIBLE_DEVICES": visible_devices
         })
         return worker
 
-    def create_spawn_worker_fn(self, worker_fn: Callable) -> Callable:
+    def _create_spawn_worker_fn(self, worker_fn: Callable) -> Callable:
         self.remote_worker_cls = ray.remote(BaseHorovodWorker)
         # event = register_shutdown_event()
-        worker_envs = {}
-        worker_envs.update(self.run_envs.copy())
-        worker_envs.update(self.envs.copy())
-        worker_envs.update(PYTHONUNBUFFERED="1")
+        worker_env_vars = {}
+        worker_env_vars.update(self.run_env_vars.copy())
+        worker_env_vars.update(self.env_vars.copy())
+        worker_env_vars.update({"PYTHONUNBUFFERED": "1"})
 
         def worker_loop(slot_info, events):
             worker = self._create_remote_worker(slot_info)
@@ -164,8 +214,13 @@ class ElasticRayExecutor:
         return worker_loop
 
     def run(self, worker_fn: Callable):
+        """Executes the provided function on all workers.
+
+        Args:
+            worker_fn: Target function that can be executed.
+        """
         self.driver.start(self.settings.num_proc,
-                          self.create_spawn_worker_fn(worker_fn))
+                          self._create_spawn_worker_fn(worker_fn))
         res = self.driver.get_results()
         self.driver.stop()
 

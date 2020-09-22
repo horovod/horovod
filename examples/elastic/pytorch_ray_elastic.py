@@ -208,8 +208,7 @@ if __name__ == '__main__':
     import ray
     ray.init(address="auto")
     print(ray.cluster_resources())
-    settings = ElasticRayExecutor.create_settings(
-        ssh_identity_file=os.path.expanduser("~/ray_bootstrap_key.pem"), verbose=True)
+    settings = ElasticRayExecutor.create_settings(verbose=True)
     executor = ElasticRayExecutor(settings, use_gpu=True, cpus_per_slot=2)
     executor.start()
     executor.run(train_fn)

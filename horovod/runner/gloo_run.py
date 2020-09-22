@@ -179,7 +179,7 @@ def _exec_command_fn(settings):
 
     return _exec_command
 
-def create_run_envs(server_ip, nics, port, elastic=False):
+def create_run_env_vars(server_ip, nics, port, elastic=False):
     run_envs = {
         'HOROVOD_GLOO_RENDEZVOUS_ADDR': server_ip,
         'HOROVOD_GLOO_RENDEZVOUS_PORT': port,
@@ -195,7 +195,7 @@ def create_run_envs(server_ip, nics, port, elastic=False):
 
 
 def get_run_command(command, server_ip, nics, port, elastic=False):
-    env_vars = create_run_envs(server_ip, nics, port, elastic)
+    env_vars = create_run_env_vars(server_ip, nics, port, elastic)
     env_string = " ".join(
         ["{k}={v}".format(k, str(v)) for k, v in env_vars.items()])
     run_command = (
