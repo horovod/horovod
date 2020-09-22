@@ -1706,7 +1706,8 @@ class SparkTests(unittest.TestCase):
                 model.save_weights(dbfs_ckpt_path)
             else:
                 model.save(dbfs_ckpt_path)
-            serialized_model_dbfs = dbfs_store.read_serialized_keras_model(dbfs_ckpt_path, model)
+            serialized_model_dbfs = dbfs_store.read_serialized_keras_model(dbfs_ckpt_path, model,
+                                                                           custom_objects={})
             reconstructed_model_dbfs = deserialize_keras_model(serialized_model_dbfs)
             if LooseVersion(tensorflow.__version__) >= LooseVersion("2.3.0"):
                 assert reconstructed_model_dbfs.get_config() == model.get_config()
@@ -1719,7 +1720,8 @@ class SparkTests(unittest.TestCase):
                 local_ckpt_path = run_output_dir + "/" + local_store.get_checkpoint_filename()
                 model.save(local_ckpt_path)
                 serialized_model_local = \
-                    local_store.read_serialized_keras_model(local_ckpt_path, model)
+                    local_store.read_serialized_keras_model(local_ckpt_path, model,
+                                                            custom_objects={})
                 reconstructed_model_local = deserialize_keras_model(serialized_model_local)
                 if LooseVersion(tensorflow.__version__) >= LooseVersion("2.3.0"):
                     assert reconstructed_model_local.get_config() == model.get_config()
