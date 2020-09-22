@@ -312,10 +312,11 @@ if __name__ == '__main__':
                 resume_from_epoch = try_epoch
                 break
 
-        filepath = args.checkpoint_format.format(epoch=resume_from_epoch)
-        checkpoint = torch.load(filepath)
-        model.load_state_dict(checkpoint['model'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
+        if resume_from_epoch > 0:
+            filepath = args.checkpoint_format.format(epoch=resume_from_epoch)
+            checkpoint = torch.load(filepath)
+            model.load_state_dict(checkpoint['model'])
+            optimizer.load_state_dict(checkpoint['optimizer'])
 
     # adjust learning rate on reset
     def on_state_reset():
