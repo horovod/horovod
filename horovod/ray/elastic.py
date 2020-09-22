@@ -2,7 +2,7 @@ import logging
 import ray
 import time
 import os
-from typing import Callable
+from typing import Callable, List, Any
 
 from horovod.ray.runner import BaseHorovodWorker
 from horovod.runner.common.util import timeout, secret
@@ -147,6 +147,7 @@ class ElasticRayExecutor:
         self.driver = None
         self.rendezvous = None
         self.env_vars = env_vars or {}
+        self.return_values = []
 
     def start(self):
         """Starts the Horovod driver and services."""
@@ -212,7 +213,8 @@ class ElasticRayExecutor:
             result = None
             while result is None:
                 try:
-                    ray.get(future, timeout=0.1)
+                    retval = ray.get(future, timeout=0.1)
+                    self.return_values.append(retval)
                     # Success
                     result = 0, time.time()
                 except ray.exceptions.GetTimeoutError:
@@ -229,11 +231,14 @@ class ElasticRayExecutor:
 
         return worker_loop
 
-    def run(self, worker_fn: Callable):
+    def run(self, worker_fn: Callable) -> List[Any]:
         """Executes the provided function on all workers.
 
         Args:
             worker_fn: Target elastic function that can be executed.
+
+        Returns:
+            List of return values from every completed worker.
         """
         self.driver.start(self.settings.num_proc,
                           self._create_spawn_worker_fn(worker_fn))
@@ -254,3 +259,4 @@ class ElasticRayExecutor:
                     'The first process '
                     'to do so was:\nProcess name: {name}\nExit code: {code}\n'
                     .format(name=name, code=exit_code))
+        return self.return_values
