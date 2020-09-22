@@ -13,11 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-import copy
+from horovod.common.elastic import run_fn
+from horovod.torch.mpi_ops import init, shutdown
 
-from horovod.common.elastic import run_fn, ObjectState
-from horovod.torch.mpi_ops import init, rank, shutdown
-from horovod.torch.functions import broadcast_object, broadcast_optimizer_state, broadcast_parameters
+from horovod.torch.elastic.sampler import ElasticSampler
+from horovod.torch.elastic.state import TorchState
 
 
 def run(func):
@@ -48,36 +48,8 @@ def _reset():
     init()
 
 
-class TorchState(ObjectState):
-    """State representation of a PyTorch model and optimizer.
-
-    Args:
-        model: PyTorch model.
-        optimizer: PyTorch optimizer.
-        kwargs: Additional properties to sync, will be exposed as attributes of the object.
-    """
-    def __init__(self, model, optimizer, **kwargs):
-        self.model = model
-        self._saved_model_state = copy.deepcopy(model.state_dict())
-
-        self.optimizer = optimizer
-        self._saved_optimizer_state = copy.deepcopy(optimizer.state_dict())
-
-        super(TorchState, self).__init__(bcast_object=broadcast_object,
-                                         get_rank=rank,
-                                         **kwargs)
-
-    def save(self):
-        self._saved_model_state = copy.deepcopy(self.model.state_dict())
-        self._saved_optimizer_state = copy.deepcopy(self.optimizer.state_dict())
-        super(TorchState, self).save()
-
-    def restore(self):
-        self.model.load_state_dict(self._saved_model_state)
-        self.optimizer.load_state_dict(self._saved_optimizer_state)
-        super(TorchState, self).restore()
-
-    def sync(self):
-        broadcast_parameters(self.model.state_dict(), root_rank=0)
-        broadcast_optimizer_state(self.optimizer, root_rank=0)
-        super(TorchState, self).sync()
+__all__ = [
+    'TorchState',
+    'ElasticSampler',
+    'run',
+]
