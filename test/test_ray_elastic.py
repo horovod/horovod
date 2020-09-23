@@ -122,7 +122,7 @@ class TestDiscovery:
 
 
 @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.1)
-@mock.patch("horovod.runner.util.network.get_driver_ip", return_value="host-1")
+@mock.patch("horovod.runner.util.network.get_driver_ip", return_value=ray.services.get_node_ip_address())
 def run_test_fault_tolerance_hosts_added_and_removed(driver_ip_mock):
     logging.basicConfig(level="DEBUG")
     discovery_schedule = [
@@ -146,6 +146,9 @@ def run_test_fault_tolerance_hosts_added_and_removed(driver_ip_mock):
 
     def training_fn():
         import time
+        import horovod.torch as hvd
+        print(os.environ)
+        hvd.init()
         logger.log.remote(("started", os.getpid()))
         for i in range(20):
             logger.log.remote(("training", os.getpid()))

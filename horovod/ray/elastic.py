@@ -191,11 +191,12 @@ class ElasticRayExecutor:
         worker = loaded_worker_cls.remote()
         worker.update_env_vars.remote(worker_env_vars)
         worker.update_env_vars.remote(create_slot_env_vars(slot_info))
-        visible_devices = ",".join(
-            [str(i) for i in range(slot_info.local_size)])
-        worker.update_env_vars.remote({
-            "CUDA_VISIBLE_DEVICES": visible_devices
-        })
+        if self.use_gpu:
+            visible_devices = ",".join(
+                [str(i) for i in range(slot_info.local_size)])
+            worker.update_env_vars.remote({
+                "CUDA_VISIBLE_DEVICES": visible_devices
+            })
         return worker
 
     def _create_spawn_worker_fn(self, worker_fn: Callable) -> Callable:
