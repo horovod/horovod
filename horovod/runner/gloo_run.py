@@ -90,7 +90,7 @@ def _slot_info_to_command_fn(run_command, env):
         """
         env_vars = create_slot_env_vars(slot_info)
         horovod_rendez_env = " ".join(
-            ["{k}={v}".format(k, v) for k, v in env_vars.items()])
+            [f"{k}={str(v)}" for k, v in env_vars.items()])
 
         return '{horovod_env} {env} {run_command}' .format(
             horovod_env=horovod_rendez_env,
@@ -197,7 +197,7 @@ def create_run_env_vars(server_ip, nics, port, elastic=False):
 def get_run_command(command, server_ip, nics, port, elastic=False):
     env_vars = create_run_env_vars(server_ip, nics, port, elastic)
     env_string = " ".join(
-        ["{k}={v}".format(k, str(v)) for k, v in env_vars.items()])
+        [f"{k}={str(v)}" for k, v in env_vars.items()])
     run_command = (
         '{env_string} '
         '{command}'  # expect a lot of environment variables

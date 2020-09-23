@@ -195,7 +195,8 @@ class ElasticRayExecutor:
             visible_devices = ",".join(
                 [str(i) for i in range(slot_info.local_size)])
             worker.update_env_vars.remote({
-                "CUDA_VISIBLE_DEVICES": visible_devices
+                "CUDA_VISIBLE_DEVICES":
+                visible_devices
             })
         return worker
 

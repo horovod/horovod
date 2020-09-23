@@ -136,7 +136,7 @@ def train_fn():
          transforms.Normalize((0.1307, ), (0.3081, ))])
 
     test_dataset = datasets.MNIST(
-        'data-%d' % hvd.rank(), train=False, transforms=transformations)
+        'data-%d' % hvd.rank(), train=False, transform=transformations)
     # Horovod: use DistributedSampler to partition the test data.
     test_sampler = torch.utils.data.distributed.DistributedSampler(
         test_dataset, num_replicas=hvd.size(), rank=hvd.rank())
