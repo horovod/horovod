@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Added Databricks storage `DBFSLocalStore` and support for GPU-aware scheduling to horovod.spark Estimator. ([#2234](https://github.com/horovod/horovod/pull/2234))
 
+- Added Elastic Ray integration. ([#2291](https://github.com/horovod/horovod/pull/2291))
+
 ### Changed
 
 ### Deprecated

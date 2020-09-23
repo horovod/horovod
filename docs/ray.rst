@@ -113,9 +113,9 @@ Elastic Ray Executor
 
 Ray also supports `elastic execution <elastic.rst>`_ via :ref:`the ElasticRayExecutor <horovod_ray_api>`. Similar to default Horovod, the difference between the non-elastic and elastic versions of Ray is that the hosts and number of workers is dynamically determined at runtime.
 
-You must first set up `a Ray cluster <https://docs.ray.io/en/master/cluster/index.html#distributed-ray-overview>`_. Ray clusters can support autoscaling for any cloud provider (AWS, GCP, Azure).
+You must first set up `a Ray cluster`_. Ray clusters can support autoscaling for any cloud provider (AWS, GCP, Azure).
 
-.. code-block:: python
+.. code-block:: bash
 
     # First, run `pip install boto3` and `aws configure`
     #
