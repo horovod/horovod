@@ -225,6 +225,7 @@ class ElasticRayExecutor:
                     else:
                         result = None
                 except Exception:
+                    logger.exception()
                     # Fail
                     result = 1, time.time()
             return result
