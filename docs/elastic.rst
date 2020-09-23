@@ -336,6 +336,52 @@ Instances that fail will be added to a blacklist, as they may have faulty hardwa
 will result in job failure, as it may be the case that the training process cannot make progress.
 
 
+Running on Ray
+~~~~~~~~~~~~~~
+
+Running an elastic training script with Ray is simple and provides additional benefits to existing Horovod Elastic functionality:
+
+* You can execute training from interactive Python environments (i.e., a Jupyter notebook)
+* You can automatically leverage Ray's autoscaler to add/remove spot instances on AWS/GCP/Azure/Kubernetes.
+
+
+To use elastic training with Ray:
+
+.. code-block:: python
+
+    import horovod.torch as hvd
+
+    # Put the Horovod concepts into a single function
+    # This function will be serialized with Cloudpickle
+    def training_fn():
+        hvd.init()
+        model = Model()
+        torch.cuda.set_device(hvd.local_rank())
+
+        @hvd.elastic.run
+        def train(state):
+            for state.epoch in range(state.epoch, epochs):
+                ...
+                state.commit()
+
+
+        state = hvd.elastic.TorchState(model, optimizer, batch=0, epoch=0)
+        state.register_reset_callbacks([on_state_reset])
+        train(state)
+        return
+
+
+    from horovod.ray import ElasticRayExecutor
+    import ray
+
+    ray.init()  # or ray.init(address="auto") if on a Ray cluster
+
+    settings = ElasticRayExecutor.create_settings(verbose=True)
+    executor = ElasticRayExecutor(settings, use_gpu=True, cpus_per_slot=2)
+    executor.start()
+    executor.run(training_fn)
+
+
 Running on Spark
 ~~~~~~~~~~~~~~~~
 
