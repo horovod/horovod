@@ -12,8 +12,8 @@ import ray
 import torch
 
 from horovod.common.util import gloo_built
-from horovod.ray.elastic import (
-    ElasticRayExecutor, RayHostDiscovery)
+from horovod.runner.elastic.discovery import HostDiscovery
+from horovod.ray.elastic import ElasticRayExecutor, RayHostDiscovery
 
 
 
@@ -97,7 +97,7 @@ class TestRayDiscoverySuite:
 #     results = executor.run()
 #     assert len(results) ==
 
-class TestDiscovery:
+class TestDiscovery(HostDiscovery):
     def __init__(self, schedule):
         self._schedule = schedule
         self._generator = self.host_generator()
@@ -110,7 +110,6 @@ class TestDiscovery:
 
     def find_available_hosts_and_slots(self):
         hostlist = next(self._generator)
-        print(hostlist)
         from ray.experimental.dynamic_resources import set_resource
         hosts = {}
         for item in hostlist:
@@ -146,17 +145,28 @@ def run_test_fault_tolerance_hosts_added_and_removed(driver_ip_mock):
 
     def training_fn():
         import time
+        import torch
         import horovod.torch as hvd
-        print(os.environ)
+
         hvd.init()
+
+        model = torch.nn.Sequential(torch.nn.Linear(2, 2))
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
         logger.log.remote(("started", os.getpid()))
-        for i in range(20):
-            logger.log.remote(("training", os.getpid()))
-            time.sleep(1)
-        logger.log.remote(("finished", os.getpid()))
+
+        @hvd.elastic.run
+        def train(state):
+            for i in range(100):
+                logger.log.remote(("training", os.getpid()))
+                time.sleep(1)
+            logger.log.remote(("finished", os.getpid()))
+
+
+        state = hvd.elastic.TorchState(model, optimizer, batch=0, epoch=0, commits=0, rendezvous=0)
+        train(state)
         return True
 
-    settings = ElasticRayExecutor.create_settings(verbose=2, nics={"ens3"})  # todo: determine nic later
+    settings = ElasticRayExecutor.create_settings(min_np=4, verbose=2, nics={"ens3"})  # todo: determine nic later
     settings.discovery = TestDiscovery(discovery_schedule)
     executor = ElasticRayExecutor(settings, cpus_per_slot=1, override_discovery=False)
     executor.start()
