@@ -48,7 +48,6 @@ def train(num_epochs):
 
     # Horovod: add Horovod DistributedOptimizer.
     opt = hvd.DistributedOptimizer(opt)
-    print("compiling")
 
     # Horovod: Specify `experimental_run_tf_function=False` to ensure TensorFlow
     # uses hvd.DistributedOptimizer() to compute gradients.
