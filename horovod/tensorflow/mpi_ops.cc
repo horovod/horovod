@@ -375,6 +375,7 @@ public:
     OP_REQUIRES_OK(context, context->GetAttr("reduce_op", &reduce_op_));
     OP_REQUIRES_OK(context, context->GetAttr("prescale_factor", &prescale_factor_));
     OP_REQUIRES_OK(context, context->GetAttr("postscale_factor", &postscale_factor_));
+    OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -382,6 +383,12 @@ public:
                          done);
 
     auto node_name = name();
+    if (ignore_name_scope_) {
+      auto pos = node_name.find_last_of('/');
+      if (pos != std::string::npos) {
+        node_name = node_name.substr(pos + 1);
+      }
+    }
     auto device = GetDeviceID(context);
     auto tensor = context->input(0);
     horovod::common::ReduceOp reduce_op = static_cast<horovod::common::ReduceOp>(reduce_op_);
@@ -407,6 +414,7 @@ private:
   // Using float since TF does not support double OP attributes
   float prescale_factor_;
   float postscale_factor_;
+  bool ignore_name_scope_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_CPU),
@@ -421,6 +429,7 @@ REGISTER_OP("HorovodAllreduce")
     .Attr("reduce_op: int")
     .Attr("prescale_factor: float")
     .Attr("postscale_factor: float")
+    .Attr("ignore_name_scope: bool = False")
     .Input("tensor: T")
     .Output("sum: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
@@ -443,13 +452,21 @@ Output
 class HorovodAllgatherOp : public AsyncOpKernel {
 public:
   explicit HorovodAllgatherOp(OpKernelConstruction* context)
-      : AsyncOpKernel(context) {}
+      : AsyncOpKernel(context) {
+    OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
+  }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(common::CheckInitialized()),
                          done);
 
     auto node_name = name();
+    if (ignore_name_scope_) {
+      auto pos = node_name.find_last_of('/');
+      if (pos != std::string::npos) {
+        node_name = node_name.substr(pos + 1);
+      }
+    }
     auto device = GetDeviceID(context);
     auto tensor = context->input(0);
     // ReadyEvent makes sure input tensor is ready.  We cannot pre-allocate
@@ -466,6 +483,9 @@ public:
         });
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
+
+private:
+  bool ignore_name_scope_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodAllgather").Device(DEVICE_CPU),
@@ -478,6 +498,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodAllgather").Device(DEVICE_GPU),
 REGISTER_OP("HorovodAllgather")
     .Attr(
         "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
+    .Attr("ignore_name_scope: bool = False")
     .Input("tensor: T")
     .Output("output: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
@@ -504,6 +525,7 @@ public:
   explicit HorovodBroadcastOp(OpKernelConstruction* context)
       : AsyncOpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("root_rank", &root_rank_));
+    OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -511,6 +533,12 @@ public:
                          done);
 
     auto node_name = name();
+    if (ignore_name_scope_) {
+      auto pos = node_name.find_last_of('/');
+      if (pos != std::string::npos) {
+        node_name = node_name.substr(pos + 1);
+      }
+    }
     auto device = GetDeviceID(context);
     auto tensor = context->input(0);
     Tensor* output = nullptr;
@@ -539,6 +567,7 @@ public:
 
 private:
   int root_rank_;
+  bool ignore_name_scope_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodBroadcast").Device(DEVICE_CPU),
@@ -552,6 +581,7 @@ REGISTER_OP("HorovodBroadcast")
     .Attr(
         "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
     .Attr("root_rank: int")
+    .Attr("ignore_name_scope: bool = False")
     .Input("tensor: T")
     .Output("output: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
@@ -724,13 +754,21 @@ Output
 class HorovodAlltoallOp : public AsyncOpKernel {
 public:
   explicit HorovodAlltoallOp(OpKernelConstruction* context)
-      : AsyncOpKernel(context) {}
+      : AsyncOpKernel(context) {
+    OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
+  }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(common::CheckInitialized()),
                          done);
 
     auto node_name = name();
+    if (ignore_name_scope_) {
+      auto pos = node_name.find_last_of('/');
+      if (pos != std::string::npos) {
+        node_name = node_name.substr(pos + 1);
+      }
+    }
     auto device = GetDeviceID(context);
     auto tensor = context->input(0);
     auto splits = context->input(1);
@@ -746,6 +784,8 @@ public:
         });
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
+private:
+  bool ignore_name_scope_;
 }; // namespace tensorflow
 
 REGISTER_KERNEL_BUILDER(Name("HorovodAlltoall").Device(DEVICE_CPU),
@@ -758,6 +798,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodAlltoall").Device(DEVICE_GPU).HostMemory("s
 REGISTER_OP("HorovodAlltoall")
     .Attr(
         "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
+    .Attr("ignore_name_scope: bool = False")
     .Input("tensor: T")
     .Input("splits: int32")
     .Output("output: T")
