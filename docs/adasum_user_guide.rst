@@ -172,7 +172,7 @@ In order to understand the behavior and potential benefits of AdaSum as compared
 
 In order to estimate the coefficients, Stochastic Gradient Descent is used. The training is stopped once the gradients are zero for two consecutive runs. This optimization can be run over a range of learning rates, number of workers and data range (set by x_max). This can also be modified to a cubic optimization problem.
 
-This experiment can be run through the jupyter notebook `adasum_bench.ipynb <../examples/adasum_bench.ipynb>`_, with the models being defined in `adasum_small_model.py <../examples/adasum_small_model.py>`_.
+This experiment can be run through the jupyter notebook `adasum_bench.ipynb <../examples/adasum/adasum_bench.ipynb>`_, with the models being defined in `adasum_small_model.py <../examples/adasum/adasum_small_model.py>`_.
 
 On running experiments with a different number of workers, we can draw the following conclusions for this simple scenario with plain SGD as the optimizer:
  

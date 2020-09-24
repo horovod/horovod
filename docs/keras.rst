@@ -72,7 +72,7 @@ Horovod supports Keras and regular TensorFlow in similar ways. To use Horovod wi
 
           - To use ``keras`` bundled with ``tensorflow`` you must use ``from tensorflow import keras`` instead of ``import keras`` and ``import horovod.tensorflow.keras as hvd`` instead of ``import horovod.keras as hvd`` in the import statements.
 
-See full training `simple <https://github.com/horovod/horovod/blob/master/examples/keras_mnist.py>`_ (shown below) and `advanced <https://github.com/horovod/horovod/blob/master/examples/keras_mnist_advanced.py>`_ examples.
+See full training `simple <https://github.com/horovod/horovod/blob/master/examples/keras/keras_mnist.py>`_ (shown below) and `advanced <https://github.com/horovod/horovod/blob/master/examples/keras/keras_mnist_advanced.py>`_ examples.
 
 
 .. code-block:: python
@@ -173,7 +173,7 @@ See full training `simple <https://github.com/horovod/horovod/blob/master/exampl
     print('Test loss:', score[0])
     print('Test accuracy:', score[1])
 
-TensorFlow v2 Keras Example (from the `MNIST <https://github.com/horovod/horovod/blob/master/examples/tensorflow2_keras_mnist.py>`_ example):
+TensorFlow v2 Keras Example (from the `MNIST <https://github.com/horovod/horovod/blob/master/examples/tensorflow2/tensorflow2_keras_mnist.py>`_ example):
 
 .. code-block:: python
 

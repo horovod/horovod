@@ -2,7 +2,7 @@ Horovod with MXNet
 ==================
 Horovod supports Apache MXNet and regular TensorFlow in similar ways.
 
-See full training `MNIST <https://github.com/horovod/horovod/blob/master/examples/mxnet_mnist.py>`__ and `ImageNet <https://github.com/horovod/horovod/blob/master/examples/mxnet_imagenet_resnet50.py>`__ examples.
+See full training `MNIST <https://github.com/horovod/horovod/blob/master/examples/mxnet/mxnet_mnist.py>`__ and `ImageNet <https://github.com/horovod/horovod/blob/master/examples/mxnet/mxnet_imagenet_resnet50.py>`__ examples.
 The script below provides a simple skeleton of code block based on the Apache MXNet Gluon API.
 
 .. code-block:: python

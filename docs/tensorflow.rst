@@ -123,7 +123,7 @@ TensorFlow v1 Example (see the `examples <https://github.com/horovod/horovod/blo
         # Perform synchronous training.
         mon_sess.run(train_op)
 
-TensorFlow v2 Example (from the `MNIST <https://github.com/horovod/horovod/blob/master/examples/tensorflow2_mnist.py>`_ example):
+TensorFlow v2 Example (from the `MNIST <https://github.com/horovod/horovod/blob/master/examples/tensorflow2/tensorflow2_mnist.py>`_ example):
 
 .. code-block:: python
 
