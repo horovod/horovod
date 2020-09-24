@@ -52,7 +52,8 @@ if tf.__version__.startswith('2.2.'):
 
 def allreduce(tensor, average=None, device_dense='', device_sparse='',
               compression=Compression.none, op=None,
-              prescale_factor=1.0, postscale_factor=1.0):
+              prescale_factor=1.0, postscale_factor=1.0,
+              name=None):
     """Perform an allreduce on a tf.Tensor or tf.IndexedSlices.
 
     This function performs a bandwidth-optimal ring allreduce on the input
@@ -79,6 +80,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
             Defaults to Average if None is given.
         prescale_factor: Multiplicative factor to scale tensor before allreduce.
         postscale_factor: Multiplicative factor to scale tensor after allreduce.
+        name: A name of the allreduce operation
 
     Returns:
         A tensor of the same shape and type as `tensor`, summed across all
@@ -116,7 +118,8 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
             tensor_compressed, ctx = compression.compress(tensor)
             summed_tensor_compressed = _allreduce(tensor_compressed, op=op,
                                                   prescale_factor=prescale_factor,
-                                                  postscale_factor=postscale_factor)
+                                                  postscale_factor=postscale_factor,
+                                                  name=name)
             summed_tensor = compression.decompress(summed_tensor_compressed, ctx)
             if op == Adasum:
                 if 'CPU' not in tensor.device and gpu_available('tensorflow'):
