@@ -252,9 +252,11 @@ def _alltoall_grad(op, grad):
     """
     tensor = op.inputs[0]
     splits = op.inputs[1]
-    recvsplits = tf.cond(tf.equal(tf.size(splits), 0),
-                         lambda : alltoall(tf.ones([size()], dtype=tf.int32) * (tf.shape(tensor)[0] // size()), splits=[1 for _ in range(size())]),
-                         lambda : alltoall(splits, splits=[1 for _ in range(size())]))
+
+    splits = tf.cond(tf.equal(tf.size(splits), 0),
+                     lambda : tf.ones([size()], dtype=tf.int32) * (tf.shape(tensor)[0] // size()),
+                     lambda : splits)
+    recvsplits = alltoall(splits, splits=[1 for _ in range(size())])
     return [alltoall(grad, splits=recvsplits), None]
 
 def join():
