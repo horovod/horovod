@@ -339,7 +339,7 @@ run_spark_integration() {
 
     run_test "${test}" "${queue}" \
       ":spark: Spark Torch MNIST (${test})" \
-      "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
+      "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/spark/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
   fi
 }
 
