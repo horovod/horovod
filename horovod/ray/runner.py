@@ -9,6 +9,9 @@ import logging
 from horovod.runner.common.util import secret, timeout, hosts
 from horovod.runner.driver import driver_service
 from horovod.runner.http.http_server import RendezvousServer
+from horovod.runner.util import network
+
+from horovod.ray.driver_service import _driver_fn
 
 logger = logging.getLogger(__name__)
 
@@ -44,13 +47,14 @@ class BaseHorovodWorker:
     executable = None
 
     def __init__(self, world_rank=0, world_size=1):
+        os.environ["HOROVOD_HOSTNAME"] = self.hostname
         os.environ["HOROVOD_RANK"] = str(world_rank)
         os.environ["HOROVOD_SIZE"] = str(world_size)
 
     def hostname(self) -> str:
         # TODO: This is probably not the right way to retrieve
         # the intended hostname.
-        return ray.services.get_node_ip_address()
+        return str(ray.services.get_node_ip_address())
 
     def update_env_vars(self, env_vars: Dict[str, str]):
         """Update the env vars in the actor process."""
@@ -137,12 +141,11 @@ class NodeColocator:
         remote_cls = remote_cls.options(
             num_cpus=0, num_gpus=0, resources={node_id: 0.01})
 
-        world_rank_start = self.num_slots * self.node_rank
+        rank_start = self.num_slots * self.node_rank
 
         self.workers = [
             remote_cls.remote(world_rank=rank, world_size=self.world_size)
-            for rank in range(world_rank_start, world_rank_start +
-                              self.num_slots)
+            for rank in range(rank_start, rank_start + self.num_slots)
         ]
 
         # Propogate cuda visible devices to the underlying
@@ -164,6 +167,10 @@ class NodeColocator:
 
     def get_workers(self) -> List:
         return self.workers
+
+    def execute(self, func):
+        """Executes an arbitrary function on self."""
+        return func(self)
 
 
 class Coordinator:
@@ -229,17 +236,12 @@ class Coordinator:
         # start global rendezvous server and get port that it is listening on
         self.global_rendezv_port = self.rendezvous.start()
         self.rendezvous.init(host_alloc_plan)
-        # remote_host_names = network.filter_local_addresses()
-        self.nics = driver_service.get_common_interfaces(
-            self.settings, list(self.hostnames_by_rank))
 
         return {
             "HOROVOD_GLOO_RENDEZVOUS_ADDR": ray.services.get_node_ip_address(),
             "HOROVOD_GLOO_RENDEZVOUS_PORT": str(self.global_rendezv_port),
             "HOROVOD_CONTROLLER": "gloo",
             "HOROVOD_CPU_OPERATIONS": "gloo",
-            "HOROVOD_GLOO_IFACE": str(list(self.nics)[0]),  # TODO
-            "NCCL_SOCKET_IFNAME": ",".join(self.nics),  # TDOO
         }
 
 
@@ -325,6 +327,32 @@ class RayExecutor:
         workers = map_blocking(lambda w: w.get_workers.remote(), colocators)
         return sum(workers, [])
 
+    def detect_nics(self):
+        """Decomposed version of driver_service.get_common_interfaces()."""
+        nics = None
+        all_host_names = list(self.coordinator.hostnames_by_rank)
+        remote_host_names = network.filter_local_addresses(all_host_names)
+        if len(remote_host_names) > 0:
+            nics = self.settings.nics
+            if not nics:
+                if self.settings.verbose >= 2:
+                    print('Testing interfaces on all hosts.')
+
+                local_host_names = set(all_host_names) - set(remote_host_names)
+                nics = _driver_fn(self.colocators, all_host_names,
+                                  local_host_names, self.settings)
+
+                if self.settings.verbose >= 2:
+                    print('Interfaces on all hosts were successfully checked.')
+                    print('Common interface found: ' + ' '.join(nics))
+        else:
+            nics = driver_service.get_local_interfaces(self.settings)
+
+        return {
+            "HOROVOD_GLOO_IFACE": list(nics)[0],
+            "NCCL_SOCKET_IFNAME": ",".join(nics),  # TODO
+        }
+
     def start(self,
               executable_cls: type = None,
               executable_args: Optional[List] = None,
@@ -363,17 +391,6 @@ class RayExecutor:
             executable_cls=executable_cls,
             executable_args=executable_args,
             executable_kwargs=executable_kwargs)
-
-        # Update the environment variables.
-        local_hostname = str(ray.services.get_node_ip_address())
-        ray.get([
-            w.update_env_vars.remote(
-                dict(
-                    HOROVOD_HOSTNAME=local_hostname,
-                    HOROVOD_RANK=i,
-                    HOROVOD_SIZE=self.num_workers))
-            for i, w in enumerate(self.workers)
-        ])
         # Get all the hostnames of all workers
         hostnames = map_blocking(lambda w: w.hostname.remote(), self.workers)
         # Register each hostname to the coordinator. assumes the hostname
@@ -388,6 +405,7 @@ class RayExecutor:
 
         coordinator_envs = self.coordinator.establish_rendezvous()
         coordinator_envs.update(extra_env_vars)
+        coordinator_envs.update(self.detect_nics())
 
         map_blocking(lambda w: w.update_env_vars.remote(coordinator_envs),
                      self.workers)
@@ -421,9 +439,10 @@ class RayExecutor:
         """
         args = args or []
         kwargs = kwargs or {}
-        return ray.get(
-            [worker.execute.remote(
-                lambda w: fn(*args, **kwargs)) for worker in self.workers])
+        return ray.get([
+            worker.execute.remote(lambda w: fn(*args, **kwargs))
+            for worker in self.workers
+        ])
 
     def execute_single(self,
                        fn: Callable[["executable_cls"], Any]) -> List[Any]:
