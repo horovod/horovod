@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Removed dependency on SSH access for Ray. ([#2275](https://github.com/horovod/horovod/pull/2275))
+
 ### Deprecated
 
 ### Removed
