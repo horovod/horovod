@@ -3,6 +3,7 @@
 This is currently not run on the Ray CI.
 """
 import os
+import sys
 
 import pytest
 import ray
@@ -11,6 +12,9 @@ import torch
 from horovod.common.util import gloo_built
 from horovod.ray.runner import (
     BaseHorovodWorker, NodeColocator, Coordinator, MiniSettings, RayExecutor)
+
+
+sys.path.append(os.path.dirname(__file__))
 
 
 @pytest.fixture
