@@ -55,6 +55,8 @@ from horovod.spark.task import get_available_devices, gloo_exec_fn, mpirun_exec_
 from horovod.spark.task.task_service import SparkTaskClient
 from horovod.spark.runner import _task_fn
 
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
+
 from spark_common import spark_driver_service, spark_session, spark_task_service, \
     create_test_data_from_schema, create_xor_data, local_store
 
