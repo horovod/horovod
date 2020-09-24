@@ -14,13 +14,13 @@
 # ==============================================================================
 
 import collections
-from distutils.version import LooseVersion
 import logging
+import os
+import sys
 import warnings
 
 import mock
 import numpy as np
-import pytest
 import tensorflow as tf
 
 import pyspark.sql.types as T
@@ -32,6 +32,8 @@ from horovod.spark.common import constants, util
 from horovod.spark.keras import remote
 from horovod.spark.keras.estimator import EstimatorParams
 from horovod.spark.keras.util import _custom_sparse_to_dense_fn, _serialize_param_value, BareKerasUtil, TFKerasUtil
+
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 from common import temppath
 from spark_common import CallbackBackend, create_mnist_data, create_xor_data, local_store, spark_session

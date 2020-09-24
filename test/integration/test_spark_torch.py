@@ -13,10 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
-from distutils.version import LooseVersion
-
 import logging
 import os
+import sys
 import unittest
 import warnings
 
@@ -26,7 +25,6 @@ from pyspark.ml.linalg import VectorUDT
 from pyspark.sql.types import DoubleType, LongType
 
 import mock
-import pytest
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -40,6 +38,8 @@ from horovod.spark.common import constants, util
 from horovod.spark.torch import remote
 from horovod.spark.torch.estimator import EstimatorParams, _torch_param_serialize
 import horovod.torch as hvd
+
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 from common import tempdir
 from spark_common import CallbackBackend, create_xor_data, local_store, spark_session
