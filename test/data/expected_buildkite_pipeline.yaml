@@ -1628,8 +1628,8 @@ steps:
     automatic: true
   agents:
     queue: cpu
-- label: ':muscle: Test MXNet MNIST (test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7)'
-  command: bash -c " OMP_NUM_THREADS=1 \$(cat /mpirun_command) python /horovod/examples/mxnet_mnist.py"
+- label: ':muscle: Test MXNet2 MNIST (test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7)'
+  command: bash -c " OMP_NUM_THREADS=1 \$(cat /mpirun_command) python /horovod/examples/mxnet2_mnist.py"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -1708,8 +1708,8 @@ steps:
     automatic: true
   agents:
     queue: cpu
-- label: ':muscle: Single MXNet MNIST (test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7)'
-  command: bash -c " python /horovod/examples/mxnet_mnist.py --epochs 3"
+- label: ':muscle: Single MXNet2 MNIST (test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7)'
+  command: bash -c " python /horovod/examples/mxnet2_mnist.py --epochs 3"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -2878,8 +2878,8 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-g4
-- label: ':muscle: Test MXNet MNIST (test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7)'
-  command: bash -c " OMP_NUM_THREADS=1 \$(cat /mpirun_command) python /horovod/examples/mxnet_mnist.py"
+- label: ':muscle: Test MXNet2 MNIST (test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7)'
+  command: bash -c " OMP_NUM_THREADS=1 \$(cat /mpirun_command) python /horovod/examples/mxnet2_mnist.py"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:

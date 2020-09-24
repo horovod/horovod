@@ -161,9 +161,15 @@ run_mpi_integration() {
       "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/pytorch_mnist.py\""
   fi
 
-  run_test "${test}" "${queue}" \
-    ":muscle: Test MXNet MNIST (${test})" \
-    "bash -c \"${oneccl_env} OMP_NUM_THREADS=1 \\\$(cat /mpirun_command) python /horovod/examples/mxnet_mnist.py\""
+  if [[ ${test} == *"mxnet2_"* ]] || [[ ${test} == *"mxnethead"* ]]; then
+      run_test "${test}" "${queue}" \
+               ":muscle: Test MXNet2 MNIST (${test})" \
+               "bash -c \"${oneccl_env} OMP_NUM_THREADS=1 \\\$(cat /mpirun_command) python /horovod/examples/mxnet2_mnist.py\""
+  else
+      run_test "${test}" "${queue}" \
+               ":muscle: Test MXNet MNIST (${test})" \
+               "bash -c \"${oneccl_env} OMP_NUM_THREADS=1 \\\$(cat /mpirun_command) python /horovod/examples/mxnet_mnist.py\""
+  fi
 
   # tests that should be executed only with the latest release since they don't test
   # a framework-specific functionality
@@ -263,9 +269,15 @@ run_gloo_integration() {
     ":fire: Test PyTorch MNIST (${test})" \
     "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch_mnist.py"
 
-  run_test "${test}" "${queue}" \
-    ":muscle: Test MXNet MNIST (${test})" \
-    "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet_mnist.py"
+  if [[ ${test} == *"mxnet2_"* ]] || [[ ${test} == *"mxnethead"* ]]; then
+      run_test "${test}" "${queue}" \
+               ":muscle: Test MXNet2 MNIST (${test})" \
+               "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet2_mnist.py"
+  else
+      run_test "${test}" "${queue}" \
+               ":muscle: Test MXNet MNIST (${test})" \
+               "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet_mnist.py"
+  fi
 
   # Elastic
   local elastic_tensorflow="test_elastic_tensorflow.py test_elastic_tensorflow_keras.py"
@@ -348,9 +360,15 @@ run_single_integration() {
     ":fire: Single PyTorch MNIST (${test})" \
     "bash -c \"${oneccl_env} python /horovod/examples/pytorch_mnist.py --epochs 3\""
 
-  run_test "${test}" "${queue}" \
-    ":muscle: Single MXNet MNIST (${test})" \
-    "bash -c \"${oneccl_env} python /horovod/examples/mxnet_mnist.py --epochs 3\""
+  if [[ ${test} == *"mxnet2_"* ]] || [[ ${test} == *"mxnethead"* ]]; then
+      run_test "${test}" "${queue}" \
+               ":muscle: Single MXNet2 MNIST (${test})" \
+               "bash -c \"${oneccl_env} python /horovod/examples/mxnet2_mnist.py --epochs 3\""
+  else
+      run_test "${test}" "${queue}" \
+               ":muscle: Single MXNet MNIST (${test})" \
+               "bash -c \"${oneccl_env} python /horovod/examples/mxnet_mnist.py --epochs 3\""
+  fi
 }
 
 build_docs() {
