@@ -255,6 +255,8 @@ class RayExecutor:
             can be removed.
         cpus_per_slot (int): Number of CPU resources to allocate to
             each worker.
+        gpus_per_slot (int): Number of GPU resources to allocate to
+            each worker.
     """
 
     @classmethod
@@ -283,12 +285,22 @@ class RayExecutor:
                  num_hosts: int = 1,
                  num_slots: int = 1,
                  cpus_per_slot: int = 1,
-                 use_gpu: bool = False):
+                 use_gpu: bool = False,
+                 gpus_per_slot: Optional[int] = None):
+
+        if gpus_per_slot and not use_gpu:
+            raise ValueError("gpus_per_slot is set, but use_gpu is False. "
+                             "use_gpu must be True if gpus_per_slot is set. ")
+        if use_gpu and gpus_per_slot < 1:
+            raise ValueError(
+                f"gpus_per_slot must be >= 1: Got {gpus_per_slot}.")
+
         self.settings = settings
         self.num_hosts = num_hosts
         self.num_slots = num_slots
         self.cpus_per_slot = cpus_per_slot
         self.use_gpu = use_gpu
+        self.gpus_per_slot = gpus_per_slot or 1
 
     @property
     def num_workers(self):
@@ -352,7 +364,7 @@ class RayExecutor:
 
         def resources_per_host():
             num_cpus = self.cpus_per_slot * self.num_slots
-            num_gpus = self.num_slots * int(self.use_gpu)
+            num_gpus = self.gpus_per_slot * self.num_slots * int(self.use_gpu)
             return dict(num_cpus=num_cpus, num_gpus=num_gpus)
 
         self.coordinator = Coordinator(self.settings)

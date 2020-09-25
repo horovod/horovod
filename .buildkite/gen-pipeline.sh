@@ -110,7 +110,7 @@ run_mpi_pytest() {
   local excluded_tests="| sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g'"
 
   # Spark and Run test does not need to be executed with horovodrun, but we still run it below.
-  local exclude_standalone_test="| sed 's/test_spark.py//g' | sed 's/test_run.py//g' | sed 's/test_ray.py//g'"
+  local exclude_standalone_test="| sed 's/test_spark.py//g' | sed 's/test_run.py//g' | sed 's/test_ray.py//g' | sed 's/test_ray_elastic.py//g'"
   local standalone_tests="test_spark.py test_run.py"
 
   # pytests have 4x GPU use cases and require a separate queue
@@ -219,8 +219,8 @@ run_gloo_pytest() {
   local excluded_tests="| sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g'"
 
   # Spark and Run test does not need to be executed with horovodrun, but we still run it below.
-  local exclude_standalone_test="| sed 's/test_spark.py//g' | sed 's/test_run.py//g' | sed 's/test_ray.py//g'"
-  local standalone_tests="test_spark.py test_run.py test_ray.py"
+  local exclude_standalone_test="| sed 's/test_spark.py//g' | sed 's/test_run.py//g' | sed 's/test_ray.py//g' | sed 's/test_ray_elastic.py//g'"
+  local standalone_tests="test_spark.py test_run.py test_ray.py test_ray_elastic.py"
 
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
@@ -396,7 +396,7 @@ for test in ${tests[@]-}; do
     if [[ ${test} == *-gloo* ]]; then
       run_gloo ${test} "cpu"
     fi
-    
+
     #if oneCCL is specified, prepare oneCCL environment
     if [[ ${test} == *oneccl* ]]; then
        oneccl_env="\\\$(cat:/oneccl_env):&&"

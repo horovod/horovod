@@ -2,7 +2,8 @@ import logging
 import ray
 import time
 import os
-from typing import Callable, List, Any, Dict
+import math
+from typing import Callable, List, Any, Dict, Optional
 
 from horovod.ray.runner import BaseHorovodWorker
 from horovod.runner.common.util import timeout, secret
@@ -25,9 +26,10 @@ class RayHostDiscovery(HostDiscovery):
 
     Assumes that the whole global state is available for usage."""
 
-    def __init__(self, use_gpu=False, cpus_per_slot=1):
+    def __init__(self, use_gpu=False, cpus_per_slot=1, gpus_per_slot=1):
         self.use_gpu = use_gpu
         self.cpus_per_slot = cpus_per_slot
+        self.gpus_per_slot = gpus_per_slot
 
     def find_available_hosts_and_slots(self) -> Dict[str, int]:
         """Returns a dict mapping <hostname> -> <number of slots>."""
@@ -38,8 +40,9 @@ class RayHostDiscovery(HostDiscovery):
             resources = node["Resources"]
             slots = resources.get("CPU", 0) // self.cpus_per_slot
             if self.use_gpu:
-                slots = min(slots, resources.get("GPU", 0))
-            host_mapping[hostname] = int(slots)
+                gpu_slots = resources.get("GPU", 0) // self.gpus_per_slot
+                slots = min(slots, gpu_slots)
+            host_mapping[hostname] = int(math.ceil(slots))
         return host_mapping
 
 
@@ -58,6 +61,8 @@ class ElasticRayExecutor:
         env_vars (Dict): Environment variables to be set
             on the actors (worker processes) before initialization.
         use_gpu (bool): Whether to use GPU for allocation.
+        cpus_per_slot (int): Number of GPU resources to allocate to
+            each worker.
         cpus_per_slot (int): Number of CPU resources to allocate to
             each worker.
         override_discovery (bool): Whether for the ElasticRayExecutor to
@@ -136,12 +141,25 @@ class ElasticRayExecutor:
     def __init__(self,
                  settings: ElasticSettings,
                  cpus_per_slot: int = 1,
+                 gpus_per_slot: Optional[int] = None,
                  use_gpu: bool = False,
                  env_vars: dict = None,
                  override_discovery=True):
+        if gpus_per_slot and not use_gpu:
+            raise ValueError("gpus_per_slot is set, but use_gpu is False. "
+                             "use_gpu must be True if gpus_per_slot is set. ")
+        if use_gpu and gpus_per_slot < 1:
+            raise ValueError(
+                f"gpus_per_slot must be >= 1: Got {gpus_per_slot}.")
+
+        gpus_per_slot = gpus_per_slot or 1
         if override_discovery:
-            settings.discovery = RayHostDiscovery(use_gpu, cpus_per_slot)
+            settings.discovery = RayHostDiscovery(
+                use_gpu=use_gpu,
+                cpus_per_slot=cpus_per_slot,
+                gpus_per_slot=gpus_per_slot)
         self.cpus_per_slot = cpus_per_slot
+        self.gpus_per_slot = gpus_per_slot
         self.use_gpu = use_gpu
         self.settings = settings
         self.driver = None
@@ -179,7 +197,7 @@ class ElasticRayExecutor:
     def _create_resources(self, hostname: str):
         resources = dict(
             num_cpus=self.cpus_per_slot,
-            num_gpus=int(self.use_gpu),
+            num_gpus=int(self.use_gpu) * self.gpus_per_slot,
             resources={f"node:{hostname}": 0.01})
         return resources
 
@@ -200,7 +218,8 @@ class ElasticRayExecutor:
             })
         return worker
 
-    def _create_spawn_worker_fn(self, worker_fn: Callable) -> Callable:
+    def _create_spawn_worker_fn(self, return_results: List,
+                                worker_fn: Callable) -> Callable:
         self.remote_worker_cls = ray.remote(BaseHorovodWorker)
         # event = register_shutdown_event()
         worker_env_vars = {}
@@ -215,8 +234,9 @@ class ElasticRayExecutor:
             result = None
             while result is None:
                 try:
+                    #  TODO: make this event driven at some point.
                     retval = ray.get(future, timeout=0.1)
-                    self.return_values.append(retval)
+                    return_results.append((slot_info.rank, retval))
                     # Success
                     result = 0, time.time()
                 except ray.exceptions.GetTimeoutError:
@@ -224,8 +244,6 @@ class ElasticRayExecutor:
                     if any(e.is_set() for e in events):
                         ray.kill(worker)
                         result = 1, time.time()
-                    else:
-                        result = None
                 except Exception as e:
                     logger.exception(str(e))
                     # Fail
@@ -243,8 +261,10 @@ class ElasticRayExecutor:
         Returns:
             List of return values from every completed worker.
         """
-        self.driver.start(self.settings.num_proc,
-                          self._create_spawn_worker_fn(worker_fn))
+        return_values = []
+        self.driver.start(
+            self.settings.num_proc,
+            self._create_spawn_worker_fn(return_values, worker_fn))
         res = self.driver.get_results()
         self.driver.stop()
 
@@ -262,4 +282,8 @@ class ElasticRayExecutor:
                     'The first process '
                     'to do so was:\nProcess name: {name}\nExit code: {code}\n'
                     .format(name=name, code=exit_code))
-        return self.return_values
+
+        return_values = [
+            value for k, value in sorted(return_values, lambda kv: kv[0])
+        ]
+        return return_values
