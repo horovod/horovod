@@ -161,12 +161,12 @@ RUN mkdir -p /work
 RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/rossmann.tgz -O - | tar -xzC /data
 
 # Hack Keras Spark Rossmann Run example to be smaller.
-RUN sed -i "s/x = Dense(1000,/x = Dense(100,/g" /horovod/examples/spark/keras_spark_rossmann_run.py
-RUN sed -i "s/x = Dense(500,/x = Dense(50,/g" /horovod/examples/spark/keras_spark_rossmann_run.py
+RUN sed -i "s/x = Dense(1000,/x = Dense(100,/g" /horovod/examples/spark/keras/keras_spark_rossmann_run.py
+RUN sed -i "s/x = Dense(500,/x = Dense(50,/g" /horovod/examples/spark/keras/keras_spark_rossmann_run.py
 
 # Hack Keras Spark Rossmann Estimator example to be smaller.
-RUN sed -i "s/x = Dense(1000,/x = Dense(100,/g" /horovod/examples/spark/keras_spark_rossmann_estimator.py
-RUN sed -i "s/x = Dense(500,/x = Dense(50,/g" /horovod/examples/spark/keras_spark_rossmann_estimator.py
+RUN sed -i "s/x = Dense(1000,/x = Dense(100,/g" /horovod/examples/spark/keras/keras_spark_rossmann_estimator.py
+RUN sed -i "s/x = Dense(500,/x = Dense(50,/g" /horovod/examples/spark/keras/keras_spark_rossmann_estimator.py
 
 
 # Export HOROVOD_MIXED_INSTALL
