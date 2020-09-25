@@ -304,7 +304,7 @@ run_spark_integration() {
       if [[ ${queue} != *gpu* ]]; then
         run_test "${test}" "${queue}" \
           ":spark: Spark PyTests (${test})" \
-          "bash -c \"cd /horovod/test/integration && pytest --forked -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.spark.integration.xml test_spark.py test_spark_keras.py test_spark_torch.py\""
+          "bash -c \"cd /horovod/test/integration && (ls -1 test_spark*.py | xargs -n 1 /bin/bash /pytest_standalone.sh spark)\""
       fi
     fi
 
