@@ -97,7 +97,7 @@ and local filesystems.
 
 End-to-end example
 ------------------
-`keras_spark_rossmann_estimator.py script <../examples/keras_spark_rossmann_estimator.py>`__ provides
+`keras_spark_rossmann_estimator.py script <../examples/spark/keras/keras_spark_rossmann_estimator.py>`__ provides
 an example of end-to-end data preparation and training of a model for the
 `Rossmann Store Sales <https://www.kaggle.com/c/rossmann-store-sales>`__ Kaggle
 competition. It is inspired by an article `An Introduction to Deep Learning for Tabular Data <https://www.fast.ai/2018/04/29/categorical-embeddings/>`__
@@ -111,7 +111,7 @@ To run the example, be sure to install Horovod with ``[spark]``, then:
 
 .. code-block:: bash
 
-    $ wget https://raw.githubusercontent.com/horovod/horovod/master/examples/keras_spark_rossmann_estimator.py
+    $ wget https://raw.githubusercontent.com/horovod/horovod/master/examples/spark/keras/keras_spark_rossmann_estimator.py
     $ wget http://files.fast.ai/part2/lesson14/rossmann.tgz
     $ tar zxvf rossmann.tgz
     $ python keras_spark_rossmann_estimator.py
@@ -226,12 +226,12 @@ A toy example of running a Horovod job in Spark is provided below:
     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
     >>>
 
-A more complete example can be found in `keras_spark_rossmann_run.py <../examples/keras_spark_rossmann_run.py>`__, which
+A more complete example can be found in `keras_spark_rossmann_run.py <../examples/spark/keras/keras_spark_rossmann_run.py>`__, which
 shows how you can use the low level ``horovod.spark.run`` API to train a model end-to-end in the following steps:
 
 .. code-block:: bash
 
-    $ wget https://raw.githubusercontent.com/horovod/horovod/master/examples/keras_spark_rossmann_run.py
+    $ wget https://raw.githubusercontent.com/horovod/horovod/master/examples/spark/keras/keras_spark_rossmann_run.py
     $ wget http://files.fast.ai/part2/lesson14/rossmann.tgz
     $ tar zxvf rossmann.tgz
     $ python keras_spark_rossmann_run.py
@@ -313,7 +313,7 @@ pin GPU to the assigned GPU from spark.
 
 With the Run API, the function `get_available_devices()` from `horovod.spark.task` will return a list of assigned GPUs
 for the spark task from which `get_available_devices()` is called.
-See `keras_spark3_rossmann.py <../examples/keras_spark3_rossmann.py>`__ for an example of using
+See `keras_spark3_rossmann.py <../examples/spark/keras/keras_spark3_rossmann.py>`__ for an example of using
 `get_available_devices()` with the Run API.
 
 .. inclusion-marker-end-do-not-remove

@@ -60,7 +60,7 @@ To use Horovod with PyTorch, make the following modifications to your training s
 
     <p/>
 
-Example (also see a full training `example <https://github.com/horovod/horovod/blob/master/examples/pytorch_mnist.py>`__):
+Example (also see a full training `example <https://github.com/horovod/horovod/blob/master/examples/pytorch/pytorch_mnist.py>`__):
 
 .. code-block:: python
 

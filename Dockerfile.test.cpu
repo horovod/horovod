@@ -182,43 +182,43 @@ RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazo
 
 # Hack for compatibility of MNIST example with TensorFlow 1.1.0.
 RUN if [[ ${TENSORFLOW_PACKAGE} == "tensorflow==1.1.0" ]]; then \
-        sed -i "s/from tensorflow import keras/from tensorflow.contrib import keras/" /horovod/examples/tensorflow_mnist.py; \
+        sed -i "s/from tensorflow import keras/from tensorflow.contrib import keras/" /horovod/examples/tensorflow/tensorflow_mnist.py; \
     fi
 
 # Hack TensorFlow MNIST example to be smaller.
-RUN sed -i "s/last_step=20000/last_step=100/" /horovod/examples/tensorflow_mnist.py
+RUN sed -i "s/last_step=20000/last_step=100/" /horovod/examples/tensorflow/tensorflow_mnist.py
 
 # Hack TensorFlow Eager MNIST example to be smaller.
-RUN sed -i "s/dataset.take(20000/dataset.take(100/" /horovod/examples/tensorflow_mnist_eager.py
+RUN sed -i "s/dataset.take(20000/dataset.take(100/" /horovod/examples/tensorflow/tensorflow_mnist_eager.py
 
 # Hack TensorFlow 2.0 example to be smaller.
-RUN sed -i "s/dataset.take(10000/dataset.take(100/" /horovod/examples/tensorflow2_mnist.py
+RUN sed -i "s/dataset.take(10000/dataset.take(100/" /horovod/examples/tensorflow2/tensorflow2_mnist.py
 
 # Hack Keras MNIST advanced example to be smaller.
-RUN sed -i "s/'--epochs', type=int, default=24,/'--epochs', type=int, default=9,/" /horovod/examples/keras_mnist_advanced.py
-RUN sed -i "s/model.add(Conv2D(32, kernel_size=(3, 3),/model.add(Conv2D(1, kernel_size=(3, 3),/" /horovod/examples/keras_mnist_advanced.py
-RUN sed -i "s/model.add(Conv2D(64, (3, 3), activation='relu'))//" /horovod/examples/keras_mnist_advanced.py
+RUN sed -i "s/'--epochs', type=int, default=24,/'--epochs', type=int, default=9,/" /horovod/examples/keras/keras_mnist_advanced.py
+RUN sed -i "s/model.add(Conv2D(32, kernel_size=(3, 3),/model.add(Conv2D(1, kernel_size=(3, 3),/" /horovod/examples/keras/keras_mnist_advanced.py
+RUN sed -i "s/model.add(Conv2D(64, (3, 3), activation='relu'))//" /horovod/examples/keras/keras_mnist_advanced.py
 
 # Hack TensorFlow 2.0 Keras MNIST advanced example to be smaller.
-RUN sed -i "s/epochs = .*/epochs = 9/" /horovod/examples/tensorflow2_keras_mnist.py
-RUN sed -i "s/tf.keras.layers.Conv2D(32, \\[3, 3\\],/tf.keras.layers.Conv2D(1, [3, 3],/" /horovod/examples/tensorflow2_keras_mnist.py
-RUN sed -i "s/tf.keras.layers.Conv2D(64, \\[3, 3\\], activation='relu')),//" /horovod/examples/tensorflow2_keras_mnist.py
+RUN sed -i "s/epochs = .*/epochs = 9/" /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
+RUN sed -i "s/tf.keras.layers.Conv2D(32, \\[3, 3\\],/tf.keras.layers.Conv2D(1, [3, 3],/" /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
+RUN sed -i "s/tf.keras.layers.Conv2D(64, \\[3, 3\\], activation='relu')),//" /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
 
 # Hack PyTorch MNIST example to be smaller.
-RUN sed -i "s/'--epochs', type=int, default=10,/'--epochs', type=int, default=2,/" /horovod/examples/pytorch_mnist.py
-RUN sed -i "s/self.fc1 = nn.Linear(320, 50)/self.fc1 = nn.Linear(784, 50)/" /horovod/examples/pytorch_mnist.py
-RUN sed -i "s/x = F.relu(F.max_pool2d(self.conv1(x), 2))//" /horovod/examples/pytorch_mnist.py
-RUN sed -i "s/x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))//" /horovod/examples/pytorch_mnist.py
-RUN sed -i "s/x = x.view(-1, 320)/x = x.view(-1, 784)/" /horovod/examples/pytorch_mnist.py
+RUN sed -i "s/'--epochs', type=int, default=10,/'--epochs', type=int, default=2,/" /horovod/examples/pytorch/pytorch_mnist.py
+RUN sed -i "s/self.fc1 = nn.Linear(320, 50)/self.fc1 = nn.Linear(784, 50)/" /horovod/examples/pytorch/pytorch_mnist.py
+RUN sed -i "s/x = F.relu(F.max_pool2d(self.conv1(x), 2))//" /horovod/examples/pytorch/pytorch_mnist.py
+RUN sed -i "s/x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))//" /horovod/examples/pytorch/pytorch_mnist.py
+RUN sed -i "s/x = x.view(-1, 320)/x = x.view(-1, 784)/" /horovod/examples/pytorch/pytorch_mnist.py
 
 # Prefetch Spark Rossmann dataset.
 RUN mkdir -p /work
 RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/rossmann.tgz -O - | tar -xzC /data
 
 # Hack Keras Spark Rossmann Run example to be smaller.
-RUN sed -i "s/x = Dense(1000,/x = Dense(100,/g" /horovod/examples/keras_spark_rossmann_run.py
-RUN sed -i "s/x = Dense(500,/x = Dense(50,/g" /horovod/examples/keras_spark_rossmann_run.py
+RUN sed -i "s/x = Dense(1000,/x = Dense(100,/g" /horovod/examples/spark/keras/keras_spark_rossmann_run.py
+RUN sed -i "s/x = Dense(500,/x = Dense(50,/g" /horovod/examples/spark/keras/keras_spark_rossmann_run.py
 
 # Hack Keras Spark Rossmann Estimator example to be smaller.
-RUN sed -i "s/x = Dense(1000,/x = Dense(100,/g" /horovod/examples/keras_spark_rossmann_estimator.py
-RUN sed -i "s/x = Dense(500,/x = Dense(50,/g" /horovod/examples/keras_spark_rossmann_estimator.py
+RUN sed -i "s/x = Dense(1000,/x = Dense(100,/g" /horovod/examples/spark/keras/keras_spark_rossmann_estimator.py
+RUN sed -i "s/x = Dense(500,/x = Dense(50,/g" /horovod/examples/spark/keras/keras_spark_rossmann_estimator.py
