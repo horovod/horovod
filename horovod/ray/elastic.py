@@ -165,7 +165,6 @@ class ElasticRayExecutor:
         self.driver = None
         self.rendezvous = None
         self.env_vars = env_vars or {}
-        self.return_values = []
 
     def start(self):
         """Starts the Horovod driver and services."""
