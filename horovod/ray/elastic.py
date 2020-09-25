@@ -1,5 +1,6 @@
 import logging
 import ray
+import ray.exceptions
 import time
 import os
 import math
@@ -19,6 +20,16 @@ from horovod.runner.elastic.discovery import HostDiscovery
 from horovod.runner.elastic.driver import ElasticDriver
 
 logger = logging.getLogger(__name__)
+
+if hasattr(ray.exceptions, "GetTimeoutError"):
+    GetTimeoutError = ray.exceptions.GetTimeoutError
+elif hasattr(ray.exceptions, "RayTimeoutError"):
+    GetTimeoutError = ray.exceptions.RayTimeoutError
+else:
+    raise ImportError("Unable to find Ray Timeout Error class "
+                      "(GetTimeoutError, RayTimeoutError). "
+                      "This is likely due to the Ray version not "
+                      "compatible with Horovod-Ray.")
 
 
 class RayHostDiscovery(HostDiscovery):
@@ -238,7 +249,7 @@ class ElasticRayExecutor:
                     return_results.append((slot_info.rank, retval))
                     # Success
                     result = 0, time.time()
-                except ray.exceptions.GetTimeoutError:
+                except GetTimeoutError:
                     # Timeout
                     if any(e.is_set() for e in events):
                         ray.kill(worker)
