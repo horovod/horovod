@@ -19,8 +19,11 @@ import os
 import sys
 import warnings
 
+from distutils.version import LooseVersion
+
 import mock
 import numpy as np
+import pytest
 import tensorflow as tf
 
 import pyspark.sql.types as T
@@ -69,6 +72,7 @@ def get_mock_fit_fn():
     return fit
 
 
+@pytest.mark.skipif(LooseVersion(tf.__version__) >= LooseVersion('2.0.0'), reason='TensorFlow v1 tests')
 class SparkKerasTests(tf.test.TestCase):
     def __init__(self, *args, **kwargs):
         super(SparkKerasTests, self).__init__(*args, **kwargs)

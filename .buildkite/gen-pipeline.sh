@@ -288,6 +288,12 @@ run_spark_integration() {
 
   # Horovod Spark Estimator tests
   if [[ ${test} != *"mpich"* && ${test} != *"oneccl"* ]]; then
+    if [[ ${queue} != *gpu* ]]; then
+      run_test "${test}" "${queue}" \
+        ":spark: Spark PyTests (${test})" \
+        "bash -c \"cd /horovod/test/integration && (ls -1 test_spark*.py | xargs -n 1 /bin/bash /pytest_standalone.sh spark)\""
+    fi
+
     if [[ ${test} != *"tf2"* && ${test} != *"tfhead"* ]]; then
       run_test "${test}" "${queue}" \
         ":spark: Spark Keras Rossmann Run (${test})" \
@@ -300,12 +306,6 @@ run_spark_integration() {
       run_test "${test}" "${queue}" \
         ":spark: Spark Keras MNIST (${test})" \
         "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/spark/keras/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
-
-      if [[ ${queue} != *gpu* ]]; then
-        run_test "${test}" "${queue}" \
-          ":spark: Spark PyTests (${test})" \
-          "bash -c \"cd /horovod/test/integration && (ls -1 test_spark*.py | xargs -n 1 /bin/bash /pytest_standalone.sh spark)\""
-      fi
     fi
 
     run_test "${test}" "${queue}" \
