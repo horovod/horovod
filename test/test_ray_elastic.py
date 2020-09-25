@@ -133,7 +133,7 @@ class TestRayDiscoverySuite:
         assert sum(mapping.values()) == 0
 
 
-class TestDiscovery(HostDiscovery):
+class SimpleTestDiscovery(HostDiscovery):
     def __init__(self, schedule):
         self._schedule = schedule
         self._generator = self.host_generator()
@@ -220,7 +220,7 @@ def test_fault_tolerance_hosts_added_and_removed(ray_8_cpus):
         nics = list(psutil.net_if_addrs().keys())[0]
 
         settings = ElasticRayExecutor.create_settings(min_np=1, nics={nics})
-        settings.discovery = TestDiscovery(discovery_schedule)
+        settings.discovery = SimpleTestDiscovery(discovery_schedule)
         executor = ElasticRayExecutor(
             settings, cpus_per_slot=1, override_discovery=False)
 
@@ -246,7 +246,7 @@ def test_fault_tolerance_hosts_remove_and_add(ray_8_cpus):
         nics = list(psutil.net_if_addrs().keys())[0]
 
         settings = ElasticRayExecutor.create_settings(min_np=1, nics={nics})
-        settings.discovery = TestDiscovery(discovery_schedule)
+        settings.discovery = SimpleTestDiscovery(discovery_schedule)
         executor = ElasticRayExecutor(
             settings, cpus_per_slot=1, override_discovery=False)
 
@@ -272,7 +272,7 @@ def test_max_np(ray_8_cpus):
 
         settings = ElasticRayExecutor.create_settings(
             min_np=1, max_np=2, nics={nics})
-        settings.discovery = TestDiscovery(discovery_schedule)
+        settings.discovery = SimpleTestDiscovery(discovery_schedule)
         executor = ElasticRayExecutor(
             settings, cpus_per_slot=1, override_discovery=False)
 
@@ -299,7 +299,7 @@ def test_min_np(ray_8_cpus):
 
         settings = ElasticRayExecutor.create_settings(
             min_np=4, max_np=4, nics={nics})
-        settings.discovery = TestDiscovery(discovery_schedule)
+        settings.discovery = SimpleTestDiscovery(discovery_schedule)
         executor = ElasticRayExecutor(
             settings, cpus_per_slot=1, override_discovery=False)
 
@@ -326,7 +326,7 @@ def test_gpu_e2e(ray_8_cpus_gpus):
 
         settings = ElasticRayExecutor.create_settings(
             min_np=4, max_np=4, nics={nics})
-        settings.discovery = TestDiscovery(discovery_schedule)
+        settings.discovery = SimpleTestDiscovery(discovery_schedule)
         executor = ElasticRayExecutor(
             settings, gpus_per_slot=1, use_gpu=True, override_discovery=False)
 

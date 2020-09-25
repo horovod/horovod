@@ -226,7 +226,8 @@ run_gloo_pytest() {
 
   # Spark and Run test does not need to be executed with horovodrun, but we still run it below.
   local exclude_standalone_test="| sed 's/test_spark.py//g' | sed 's/test_run.py//g' | sed 's/test_ray.py//g' | sed 's/test_ray_elastic.py//g'"
-  local standalone_tests="test_spark.py test_run.py test_ray.py test_ray_elastic.py"
+  local standalone_tests="test_spark.py test_run.py"
+  local standalone_ray_tests="test_ray.py test_ray_elastic.py"
 
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
@@ -234,7 +235,7 @@ run_gloo_pytest() {
     5
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests Standalone (${test})" \
-    "bash -c \"cd /horovod/test && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.standalone.xml ${standalone_tests}\"" \
+    "bash -c \"cd /horovod/test && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.standalone.xml ${standalone_tests} && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.standalone.xml ${standalone_ray_tests}\"" \
     5
 
   run_test "${test}" "${queue}" \

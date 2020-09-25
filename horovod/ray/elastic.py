@@ -1,12 +1,9 @@
 import logging
-import ray
-import ray.exceptions
 import time
 import os
 import math
 from typing import Callable, List, Any, Dict, Optional
 
-from horovod.ray.runner import BaseHorovodWorker
 from horovod.runner.common.util import timeout, secret
 
 from horovod.runner.http.http_server import RendezvousServer
@@ -18,6 +15,10 @@ from horovod.runner.elastic.settings import ElasticSettings
 from horovod.runner.elastic.rendezvous import create_rendezvous_handler
 from horovod.runner.elastic.discovery import HostDiscovery
 from horovod.runner.elastic.driver import ElasticDriver
+
+import ray
+import ray.exceptions
+from horovod.ray.runner import BaseHorovodWorker
 
 logger = logging.getLogger(__name__)
 
