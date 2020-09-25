@@ -47,7 +47,7 @@ class RayHostDiscovery(HostDiscovery):
 
 
 class ElasticRayExecutor:
-    """Executor for elastic jobs.
+    """Executor for elastic jobs using Ray.
 
     Leverages the Ray global state to detect available hosts and
     slots. Assumes that the entire Ray cluster is available for
@@ -58,13 +58,13 @@ class ElasticRayExecutor:
             setup. You can use a standard Horovod ElasticSettings
             object or create one directly from
             ElasticRayExecutor.create_settings.
-        env_vars (Dict): Environment variables to be set
-            on the actors (worker processes) before initialization.
         use_gpu (bool): Whether to use GPU for allocation.
-        cpus_per_slot (int): Number of GPU resources to allocate to
-            each worker.
         cpus_per_slot (int): Number of CPU resources to allocate to
             each worker.
+        gpus_per_slot (int): Number of GPU resources to allocate to
+            each worker.
+        env_vars (Dict): Environment variables to be set
+            on the actors (worker processes) before initialization.
         override_discovery (bool): Whether for the ElasticRayExecutor to
             automatically provide a discovery mechanism for ElasticSettings.
 
@@ -140,9 +140,9 @@ class ElasticRayExecutor:
 
     def __init__(self,
                  settings: ElasticSettings,
+                 use_gpu: bool = False,
                  cpus_per_slot: int = 1,
                  gpus_per_slot: Optional[int] = None,
-                 use_gpu: bool = False,
                  env_vars: dict = None,
                  override_discovery=True):
         if gpus_per_slot and not use_gpu:

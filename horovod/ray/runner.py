@@ -251,10 +251,10 @@ class RayExecutor:
             from RayExecutor.create_settings.
         num_hosts (int): Number of machines to execute the job on.
         num_slots (int): Humber of workers to be placed on each machine.
-        use_gpu (bool): Whether to use GPU for allocation. TODO: this
-            can be removed.
         cpus_per_slot (int): Number of CPU resources to allocate to
             each worker.
+        use_gpu (bool): Whether to use GPU for allocation. TODO: this
+            can be removed.
         gpus_per_slot (int): Number of GPU resources to allocate to
             each worker.
     """
