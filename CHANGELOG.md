@@ -16,7 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
-## [0.20.1] - YYYY-MM-DD
+## [0.20.1] - 2020-09-25
 
 ### Added
 
