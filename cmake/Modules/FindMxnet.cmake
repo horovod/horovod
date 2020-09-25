@@ -52,6 +52,9 @@ if (LEN EQUAL "5")
 endif()
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(Mxnet REQUIRED_VARS Mxnet_LIBRARIES VERSION_VAR Mxnet_VERSION)
+if(NOT MXNET_FOUND)
+    return()
+endif()
 
 
 execute_process(COMMAND ${PY_EXE} -c "import mxnet; print(mxnet.library.compiled_with_gcc_cxx11_abi() if hasattr(mxnet, 'library') and hasattr(mxnet.library, 'compiled_with_gcc_cxx11_abi') else 1)"
