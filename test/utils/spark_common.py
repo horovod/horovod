@@ -94,16 +94,13 @@ def spark_session(app, cores=2, gpus=0, max_failures=1, *args):
             yield session
         finally:
             # From: https://github.com/gumartinm/pyspark-shared-spark-session-helper
-            jvm_session = session.spark_session._jvm.SparkSession.getActiveSession().get()   # pylint: disable=W0212
+            jvm_session = session._jvm.SparkSession.getActiveSession().get()   # pylint: disable=W0212
             jvm_session.sharedState().cacheManager().clearCache()
             jvm_session.sessionState().catalog().reset()
 
             session.stop()
-
-            jvm_session = session._jvm.SparkSession.getActiveSession().get()  # pylint: disable=W0212
             jvm_session.clearActiveSession()
             jvm_session.clearDefaultSession()
-
 
 
 def fn():
