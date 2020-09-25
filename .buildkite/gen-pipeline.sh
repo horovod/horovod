@@ -146,24 +146,30 @@ run_mpi_integration() {
   if [[ ${test} != *"tf2_"* ]] && [[ ${test} != *"tfhead"* ]]; then
     run_test "${test}" "${queue}" \
       ":tensorflow: Test TensorFlow MNIST (${test})" \
-      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist.py\""
+      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/tensorflow/tensorflow_mnist.py\""
 
     run_test "${test}" "${queue}" \
       ":tensorflow: Test TensorFlow Eager MNIST (${test})" \
-      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist_eager.py\""
+      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/tensorflow/tensorflow_mnist_eager.py\""
 
     run_test "${test}" "${queue}" \
       ":tensorflow: Test Keras MNIST (${test})" \
-      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/keras_mnist_advanced.py\""
+      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/keras/keras_mnist_advanced.py\""
 
     run_test "${test}" "${queue}" \
       ":fire: Test PyTorch MNIST (${test})" \
-      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/pytorch_mnist.py\""
+      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py\""
   fi
 
-  run_test "${test}" "${queue}" \
-    ":muscle: Test MXNet MNIST (${test})" \
-    "bash -c \"${oneccl_env} OMP_NUM_THREADS=1 \\\$(cat /mpirun_command) python /horovod/examples/mxnet_mnist.py\""
+  if [[ ${test} == *"mxnet2_"* ]] || [[ ${test} == *"mxnethead"* ]]; then
+      run_test "${test}" "${queue}" \
+               ":muscle: Test MXNet2 MNIST (${test})" \
+               "bash -c \"${oneccl_env} OMP_NUM_THREADS=1 \\\$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet2_mnist.py\""
+  else
+      run_test "${test}" "${queue}" \
+               ":muscle: Test MXNet MNIST (${test})" \
+               "bash -c \"${oneccl_env} OMP_NUM_THREADS=1 \\\$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet_mnist.py\""
+  fi
 
   # tests that should be executed only with the latest release since they don't test
   # a framework-specific functionality
@@ -175,10 +181,10 @@ run_mpi_integration() {
     if [[ ${test} == *"openmpi"* ]]; then
       run_test "${test}" "${queue}" \
         ":terminal: Test Horovodrun (${test})" \
-        "horovodrun -np 2 -H localhost:2 python /horovod/examples/tensorflow_mnist.py"
+        "horovodrun -np 2 -H localhost:2 python /horovod/examples/tensorflow/tensorflow_mnist.py"
       run_test "${test}" "${queue}" \
         ":terminal: Test Horovodrun (${test})" \
-        "bash -c \"echo 'localhost slots=2' > hostfile && horovodrun -np 2 -hostfile hostfile python /horovod/examples/mxnet_mnist.py\""
+        "bash -c \"echo 'localhost slots=2' > hostfile && horovodrun -np 2 -hostfile hostfile python /horovod/examples/mxnet/mxnet_mnist.py\""
     fi
   fi
 
@@ -186,11 +192,11 @@ run_mpi_integration() {
   if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
     run_test "${test}" "${queue}" \
       ":tensorflow: Test TensorFlow 2.0 MNIST (${test})" \
-      "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow2_mnist.py\""
+      "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py\""
 
     run_test "${test}" "${queue}" \
       ":tensorflow: Test TensorFlow 2.0 Keras MNIST (${test})" \
-      "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow2_keras_mnist.py\""
+      "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py\""
   fi
 }
 
@@ -244,28 +250,34 @@ run_gloo_integration() {
   if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
     run_test "${test}" "${queue}" \
       ":tensorflow: Test TensorFlow 2.0 MNIST (${test})" \
-      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2_mnist.py"
+      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
 
     run_test "${test}" "${queue}" \
       ":tensorflow: Test TensorFlow 2.0 Keras MNIST (${test})" \
-      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2_keras_mnist.py"
+      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
   else
     run_test "${test}" "${queue}" \
       ":tensorflow: Test TensorFlow MNIST (${test})" \
-      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow_mnist.py"
+      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow/tensorflow_mnist.py"
 
     run_test "${test}" "${queue}" \
       ":tensorflow: Test Keras MNIST (${test})" \
-      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/keras_mnist_advanced.py"
+      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/keras/keras_mnist_advanced.py"
   fi
 
   run_test "${test}" "${queue}" \
     ":fire: Test PyTorch MNIST (${test})" \
-    "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch_mnist.py"
+    "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py"
 
-  run_test "${test}" "${queue}" \
-    ":muscle: Test MXNet MNIST (${test})" \
-    "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet_mnist.py"
+  if [[ ${test} == *"mxnet2_"* ]] || [[ ${test} == *"mxnethead"* ]]; then
+      run_test "${test}" "${queue}" \
+               ":muscle: Test MXNet2 MNIST (${test})" \
+               "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet2_mnist.py"
+  else
+      run_test "${test}" "${queue}" \
+               ":muscle: Test MXNet MNIST (${test})" \
+               "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet_mnist.py"
+  fi
 
   # Elastic
   local elastic_tensorflow="test_elastic_tensorflow.py test_elastic_tensorflow_keras.py"
@@ -308,15 +320,15 @@ run_spark_integration() {
     if [[ ${test} != *"tf2"* && ${test} != *"tfhead"* ]]; then
       run_test "${test}" "${queue}" \
         ":spark: Spark Keras Rossmann Run (${test})" \
-        "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.01\""
+        "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/spark/keras/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.01\""
 
       run_test "${test}" "${queue}" \
         ":spark: Spark Keras Rossmann Estimator (${test})" \
-        "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01\""
+        "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/spark/keras/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01\""
 
       run_test "${test}" "${queue}" \
         ":spark: Spark Keras MNIST (${test})" \
-        "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
+        "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/spark/keras/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
 
       if [[ ${queue} != *gpu* ]]; then
         run_test "${test}" "${queue}" \
@@ -327,7 +339,7 @@ run_spark_integration() {
 
     run_test "${test}" "${queue}" \
       ":spark: Spark Torch MNIST (${test})" \
-      "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
+      "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
   fi
 }
 
@@ -341,16 +353,22 @@ run_single_integration() {
   if [[ ${test} != *"tf2_"* ]] && [[ ${test} != *"tfhead"* ]]; then
     run_test "${test}" "${queue}" \
       ":tensorflow: Single Keras MNIST (${test})" \
-      "bash -c \"${oneccl_env} python /horovod/examples/keras_mnist_advanced.py --epochs 3 --batch-size 64\""
+      "bash -c \"${oneccl_env} python /horovod/examples/keras/keras_mnist_advanced.py --epochs 3 --batch-size 64\""
   fi
 
   run_test "${test}" "${queue}" \
     ":fire: Single PyTorch MNIST (${test})" \
-    "bash -c \"${oneccl_env} python /horovod/examples/pytorch_mnist.py --epochs 3\""
+    "bash -c \"${oneccl_env} python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3\""
 
-  run_test "${test}" "${queue}" \
-    ":muscle: Single MXNet MNIST (${test})" \
-    "bash -c \"${oneccl_env} python /horovod/examples/mxnet_mnist.py --epochs 3\""
+  if [[ ${test} == *"mxnet2_"* ]] || [[ ${test} == *"mxnethead"* ]]; then
+      run_test "${test}" "${queue}" \
+               ":muscle: Single MXNet2 MNIST (${test})" \
+               "bash -c \"${oneccl_env} python /horovod/examples/mxnet/mxnet2_mnist.py --epochs 3\""
+  else
+      run_test "${test}" "${queue}" \
+               ":muscle: Single MXNet MNIST (${test})" \
+               "bash -c \"${oneccl_env} python /horovod/examples/mxnet/mxnet_mnist.py --epochs 3\""
+  fi
 }
 
 build_docs() {

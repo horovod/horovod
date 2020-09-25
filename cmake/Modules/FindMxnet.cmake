@@ -8,6 +8,7 @@
 #  Mxnet_USE_MKLDNN
 #  Mxnet_USE_CUDA
 #  Mxnet_VERSION
+#  Mxnet_CXX11
 
 # Compatible layer for CMake <3.12. Mxnet_ROOT will be accounted in for searching paths and libraries for CMake >=3.12.
 list(APPEND CMAKE_PREFIX_PATH ${Mxnet_ROOT})
@@ -51,5 +52,17 @@ if (LEN EQUAL "5")
 endif()
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(Mxnet REQUIRED_VARS Mxnet_LIBRARIES VERSION_VAR Mxnet_VERSION)
+
+
+execute_process(COMMAND ${PY_EXE} -c "import mxnet; print(mxnet.library.compiled_with_gcc_cxx11_abi() if hasattr(mxnet, 'library') and hasattr(mxnet.library, 'compiled_with_gcc_cxx11_abi') else 1)"
+  OUTPUT_VARIABLE Mxnet_CXX11 OUTPUT_STRIP_TRAILING_WHITESPACE)
+string(TOUPPER ${Mxnet_CXX11} Mxnet_CXX11)
+if (Mxnet_CXX11)
+  set(Mxnet_COMPILE_FLAGS "${Mxnet_COMPILE_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=1")
+else()
+  set(Mxnet_COMPILE_FLAGS "${Mxnet_COMPILE_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
+endif()
+
+mark_as_advanced(Mxnet_INCLUDE_DIRS Mxnet_LIBRARIES Mxnet_COMPILE_FLAGS Mxnet_USE_MKLDNN Mxnet_USE_CUDA Mxnet_VERSION)
 
 mark_as_advanced(Mxnet_INCLUDE_DIRS Mxnet_LIBRARIES Mxnet_COMPILE_FLAGS Mxnet_USE_MKLDNN Mxnet_USE_CUDA Mxnet_VERSION)

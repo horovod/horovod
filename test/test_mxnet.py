@@ -894,6 +894,37 @@ class MXTests(unittest.TestCase):
         except (MXNetError, ValueError):
             pass
 
+    def test_two_trainer(self):
+        """Test using horovod allreduce in MXNet Gluon trainer."""
+        from mxnet import gluon
+        from mxnet.gluon import Block, nn, HybridBlock
+
+        hvd.init()
+        rank = hvd.rank()
+        ctx = mx.cpu(rank)
+
+        net1 = nn.Dense(20, in_units=10)
+        net2 = nn.Dense(30, in_units=10)
+        net1.initialize(ctx=ctx)
+        net2.initialize(ctx=ctx)
+
+        params1 = net1.collect_params()
+        params2 = net2.collect_params()
+        hvd.broadcast_parameters(params1, prefix="net1")
+        hvd.broadcast_parameters(params2, prefix="net2")
+        trainer1 = hvd.DistributedTrainer(params1, 'sgd', {'learning_rate': 0.1}, prefix="net1")
+        trainer2 = hvd.DistributedTrainer(params2, 'sgd', {'learning_rate': 0.1}, prefix="net2")
+
+        for i in range(10):
+            data = mx.nd.ones((5, 10), ctx=ctx)
+            with mx.autograd.record():
+                pred1 = net1(data).sum()
+                pred2 = net2(data).sum()
+            mx.autograd.backward([pred1, pred2])
+            trainer1.step(1.0)
+            trainer2.step(1.0)
+            l = pred1.asscalar() + pred2.asscalar()
+
     def test_horovod_alltoall_rank_error(self):
         """Test that the alltoall returns an error if any dimension besides
         the first is different among the tensors being processed."""
@@ -947,13 +978,12 @@ class MXTests(unittest.TestCase):
             def __init__(self, layer_num=6, **kwargs):
                 super(SimpleNet, self).__init__(**kwargs)
                 self._layer_num = layer_num
-                with self.name_scope():
-                    self.ln_l = nn.HybridSequential()
-                    self.dense_l = nn.HybridSequential()
-                    for i in range(layer_num):
-                        self.dense_l.add(nn.Dense(units=32 + layer_num - 1 - i,
-                            flatten=False))
-                        self.ln_l.add(nn.LayerNorm())
+                self.ln_l = nn.HybridSequential()
+                self.dense_l = nn.HybridSequential()
+                for i in range(layer_num):
+                    self.dense_l.add(nn.Dense(units=32 + layer_num - 1 - i,
+                        flatten=False))
+                    self.ln_l.add(nn.LayerNorm())
 
             def hybrid_forward(self, F, data):
                 """
