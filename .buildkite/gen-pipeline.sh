@@ -90,7 +90,16 @@ run_test() {
   echo "  retry:"
   echo "    automatic: true"
   echo "  agents:"
-  echo "    queue: ${queue}"
+
+  queuearray=($queue)
+  if [[ ${#queuearray[@]} -gt 1 ]]; then
+    echo "    queue:"
+    for q in "${queuearray[@]}"; do
+      echo "    - ${q}"
+    done
+  else
+    echo "    queue: ${queue}"
+  fi
 }
 
 run_mpi_pytest() {
@@ -449,12 +458,12 @@ for test in ${tests[@]-}; do
   if [[ ${test} == *-gpu-* ]] || [[ ${test} == *-mixed-* ]]; then
     # if gloo is specified, run gloo gpu unit tests
     if [[ ${test} == *-gloo* ]]; then
-      run_gloo_pytest ${test} "4x-gpu-g4"
+      run_gloo_pytest ${test} "4x-gpu-g4-dedicated 4x-gpu-g4"
     fi
 
     # if mpi is specified, run mpi gpu unit tests
     if [[ ${test} == *mpi* ]]; then
-      run_mpi_pytest ${test} "4x-gpu-g4"
+      run_mpi_pytest ${test} "4x-gpu-g4-dedicated 4x-gpu-g4"
     fi
   fi
 done
@@ -467,14 +476,14 @@ for test in ${tests[@]-}; do
   if [[ ${test} == *-gpu-* ]] || [[ ${test} == *-mixed-* ]]; then
     # if gloo is specified, run gloo gpu integration tests
     if [[ ${test} == *-gloo* ]]; then
-      run_gloo_integration ${test} "2x-gpu-g4"
+      run_gloo_integration ${test} "2x-gpu-g4-dedicated 2x-gpu-g4"
     fi
 
     # if mpi is specified, run mpi gpu integration tests
     if [[ ${test} == *mpi* ]]; then
-      run_mpi_integration ${test} "2x-gpu-g4"
+      run_mpi_integration ${test} "2x-gpu-g4-dedicated 2x-gpu-g4"
     fi
 
-    run_spark_integration ${test} "2x-gpu-g4"
+    run_spark_integration ${test} "2x-gpu-g4-dedicated 2x-gpu-g4"
   fi
 done
