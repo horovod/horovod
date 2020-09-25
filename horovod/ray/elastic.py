@@ -284,6 +284,6 @@ class ElasticRayExecutor:
                     .format(name=name, code=exit_code))
 
         return_values = [
-            value for k, value in sorted(return_values, lambda kv: kv[0])
+            value for k, value in sorted(return_values, key=lambda kv: kv[0])
         ]
         return return_values
