@@ -107,7 +107,7 @@ run_mpi_pytest() {
   run_test "${test}" "${queue}" \
     ":pytest: MPI Single PyTests (${test})" \
     "bash -c \"${oneccl_env} cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh mpi)\"" \
-    5
+    10
 
   run_test "${test}" "${queue}" \
     ":pytest: MPI Cluster PyTests (${test})" \
@@ -206,7 +206,7 @@ run_gloo_pytest() {
   run_test "${test}" "${queue}" \
     ":pytest: Gloo Single PyTests (${test})" \
     "bash -c \"cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh gloo)\"" \
-    5
+    10
 
   run_test "${test}" "${queue}" \
     ":pytest: Gloo Cluster PyTests (${test})" \
