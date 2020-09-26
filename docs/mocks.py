@@ -55,6 +55,7 @@ MOCK_MODULES = [
     'pyspark.sql.types',
 
     'ray',
+    'ray.exceptions',
 
     'tensorflow',
     'tensorflow.python',

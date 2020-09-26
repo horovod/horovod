@@ -526,7 +526,7 @@ class SparkTests(unittest.TestCase):
 
     """
     Test that horovod.spark.run fails with os.environ as env with mpi.
-    
+
     TODO: figure out why this test sometimes causes hangs in CI
           https://github.com/horovod/horovod/issues/2217
     """
@@ -773,7 +773,7 @@ class SparkTests(unittest.TestCase):
                                 'HOROVOD_LOCAL_RANK={local_rank} '
                                 'HOROVOD_LOCAL_SIZE={local_size} '
                                 'HOROVOD_CROSS_RANK=0 '
-                                'HOROVOD_CROSS_SIZE=1  '
+                                'HOROVOD_CROSS_SIZE=1 '
                                 'PYTHONUNBUFFERED=1 '
                                 'HOROVOD_GLOO_RENDEZVOUS_ADDR=[^ ]+ '
                                 'HOROVOD_GLOO_RENDEZVOUS_PORT=[0-9]+ '

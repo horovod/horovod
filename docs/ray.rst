@@ -21,8 +21,8 @@ Use the extra ``[ray]`` option to install Ray along with Horovod.
 See the Ray documentation for `advanced installation instructions <https://docs.ray.io/en/latest/installation.html>`_.
 
 
-Horovod Ray Job
----------------
+Horovod Ray Executor
+--------------------
 
 The Horovod Ray integration offers a ``RayExecutor`` abstraction (:ref:`docs <horovod_ray_api>`),
 which is a wrapper over a group of `Ray actors (stateful processes) <https://docs.ray.io/en/latest/walkthrough.html#remote-classes-actors>`_.
@@ -108,6 +108,60 @@ A unique feature of Ray is its support for `stateful Actors <https://docs.ray.io
     # `result` will be N copies of the model weights
     assert all(isinstance(res, dict) for res in result)
 
+Elastic Ray Executor
+--------------------
+
+Ray also supports `elastic execution <elastic.rst>`_ via :ref:`the ElasticRayExecutor <horovod_ray_api>`. Similar to default Horovod, the difference between the non-elastic and elastic versions of Ray is that the hosts and number of workers is dynamically determined at runtime.
+
+You must first set up `a Ray cluster`_. Ray clusters can support autoscaling for any cloud provider (AWS, GCP, Azure).
+
+.. code-block:: bash
+
+    # First, run `pip install boto3` and `aws configure`
+    #
+    # Create or update the cluster. When the command finishes, it will print
+    # out the command that can be used to SSH into the cluster head node.
+    $ ray up ray/python/ray/autoscaler/aws/example-full.yaml
+
+After you have a Ray cluster setup, you will need to move parts of your existing elastic Horovod training script into a training function. Specifically,
+the instantiation of your model and the invocation of the ``hvd.elastic.run`` call should be done inside this function.
+
+.. code-block:: python
+
+    import horovod.torch as hvd
+
+    # Put the Horovod concepts into a single function
+    # This function will be serialized with Cloudpickle
+    def training_fn():
+        hvd.init()
+        model = Model()
+        torch.cuda.set_device(hvd.local_rank())
+
+        @hvd.elastic.run
+        def train(state):
+            for state.epoch in range(state.epoch, epochs):
+                ...
+                state.commit()
+
+
+        state = hvd.elastic.TorchState(model, optimizer, batch=0, epoch=0)
+        state.register_reset_callbacks([on_state_reset])
+        train(state)
+        return
+
+You can then attach to the underlying Ray cluster and execute the training function:
+
+.. code-block:: python
+
+    import ray
+    ray.init(address="auto")  # attach to the Ray cluster
+    settings = ElasticRayExecutor.create_settings(verbose=True)
+    executor = ElasticRayExecutor(
+        settings, use_gpu=True, cpus_per_slot=2)
+    executor.start()
+    executor.run(training_fn)
+
+Ray will automatically start remote actors which execute ``training_fn`` on nodes as they become available. Note that ``executor.run`` call will terminate whenever any one of the training functions terminates.
 
 AWS: Cluster Launcher
 ---------------------

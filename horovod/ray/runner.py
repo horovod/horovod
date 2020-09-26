@@ -137,12 +137,11 @@ class NodeColocator:
         remote_cls = remote_cls.options(
             num_cpus=0, num_gpus=0, resources={node_id: 0.01})
 
-        world_rank_start = self.num_slots * self.node_rank
+        rank_start = self.num_slots * self.node_rank
 
         self.workers = [
             remote_cls.remote(world_rank=rank, world_size=self.world_size)
-            for rank in range(world_rank_start, world_rank_start +
-                              self.num_slots)
+            for rank in range(rank_start, rank_start + self.num_slots)
         ]
 
         # Propogate cuda visible devices to the underlying
@@ -252,9 +251,11 @@ class RayExecutor:
             from RayExecutor.create_settings.
         num_hosts (int): Number of machines to execute the job on.
         num_slots (int): Humber of workers to be placed on each machine.
+        cpus_per_slot (int): Number of CPU resources to allocate to
+            each worker.
         use_gpu (bool): Whether to use GPU for allocation. TODO: this
             can be removed.
-        cpus_per_slot (int): Number of CPU resources to allocate to
+        gpus_per_slot (int): Number of GPU resources to allocate to
             each worker.
     """
 
@@ -284,12 +285,22 @@ class RayExecutor:
                  num_hosts: int = 1,
                  num_slots: int = 1,
                  cpus_per_slot: int = 1,
-                 use_gpu: bool = False):
+                 use_gpu: bool = False,
+                 gpus_per_slot: Optional[int] = None):
+
+        if gpus_per_slot and not use_gpu:
+            raise ValueError("gpus_per_slot is set, but use_gpu is False. "
+                             "use_gpu must be True if gpus_per_slot is set. ")
+        if use_gpu and isinstance(gpus_per_slot, int) and gpus_per_slot < 1:
+            raise ValueError(
+                f"gpus_per_slot must be >= 1: Got {gpus_per_slot}.")
+
         self.settings = settings
         self.num_hosts = num_hosts
         self.num_slots = num_slots
         self.cpus_per_slot = cpus_per_slot
         self.use_gpu = use_gpu
+        self.gpus_per_slot = gpus_per_slot or 1
 
     @property
     def num_workers(self):
@@ -353,7 +364,7 @@ class RayExecutor:
 
         def resources_per_host():
             num_cpus = self.cpus_per_slot * self.num_slots
-            num_gpus = self.num_slots * int(self.use_gpu)
+            num_gpus = self.gpus_per_slot * self.num_slots * int(self.use_gpu)
             return dict(num_cpus=num_cpus, num_gpus=num_gpus)
 
         self.coordinator = Coordinator(self.settings)
@@ -421,9 +432,10 @@ class RayExecutor:
         """
         args = args or []
         kwargs = kwargs or {}
-        return ray.get(
-            [worker.execute.remote(
-                lambda w: fn(*args, **kwargs)) for worker in self.workers])
+        return ray.get([
+            worker.execute.remote(lambda w: fn(*args, **kwargs))
+            for worker in self.workers
+        ])
 
     def execute_single(self,
                        fn: Callable[["executable_cls"], Any]) -> List[Any]:
