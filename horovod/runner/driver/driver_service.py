@@ -119,6 +119,44 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
                                            args_list,
                                            block_until_all_done=False)
 
+def _run_probe(driver, settings, num_hosts):
+       # wait for all the hosts to register with the service service.
+    if settings.verbose >= 2:
+        print('Waiting for the hosts to acknowledge.')
+    driver.wait_for_initial_registration(settings.start_timeout)
+    tasks = [
+        task_service.HorovodRunTaskClient(
+            index,
+            driver.task_addresses_for_driver(index),
+            settings.key,
+            settings.verbose) for index in range(
+            num_hosts)]
+    # Notify all the drivers that the initial registration is complete.
+    for task in tasks:
+        task.notify_initial_registration_complete()
+    if settings.verbose >= 2:
+        print('Notified all the hosts that the registration is complete.')
+    # Each worker should probe the interfaces of the next worker in a ring
+    # manner and filter only the routed ones -- it should filter out
+    # interfaces that are not really connected to any external networks
+    # such as lo0 with address 127.0.0.1.
+    if settings.verbose >= 2:
+        print('Waiting for hosts to perform host-to-host interface checking.')
+    driver.wait_for_task_to_task_address_updates(settings.start_timeout)
+    if settings.verbose >= 2:
+        print('Host-to-host interface checking successful.')
+    # Determine a set of common interfaces for task-to-task communication.
+    nics = set(driver.task_addresses_for_tasks(0).keys())
+    for index in range(1, num_hosts):
+        nics.intersection_update(
+            driver.task_addresses_for_tasks(index).keys())
+    if not nics:
+        raise Exception(
+            'Unable to find a set of common task-to-task communication interfaces: %s'
+            % [(index, driver.task_addresses_for_tasks(index))
+               for index in range(num_hosts)])
+    return nics
+
 
 @cache.use_cache()
 def _driver_fn(all_host_names, local_host_names, settings):
@@ -150,44 +188,31 @@ def _driver_fn(all_host_names, local_host_names, settings):
     if settings.verbose >= 2:
         print('Attempted to launch horovod task servers.')
     try:
-        # wait for all the hosts to register with the service service.
-        if settings.verbose >= 2:
-            print('Waiting for the hosts to acknowledge.')
-        driver.wait_for_initial_registration(settings.start_timeout)
-        tasks = [
-            task_service.HorovodRunTaskClient(
-                index,
-                driver.task_addresses_for_driver(index),
-                settings.key,
-                settings.verbose) for index in range(
-                num_hosts)]
-        # Notify all the drivers that the initial registration is complete.
-        for task in tasks:
-            task.notify_initial_registration_complete()
-        if settings.verbose >= 2:
-            print('Notified all the hosts that the registration is complete.')
-        # Each worker should probe the interfaces of the next worker in a ring
-        # manner and filter only the routed ones -- it should filter out
-        # interfaces that are not really connected to any external networks
-        # such as lo0 with address 127.0.0.1.
-        if settings.verbose >= 2:
-            print('Waiting for hosts to perform host-to-host interface checking.')
-        driver.wait_for_task_to_task_address_updates(settings.start_timeout)
-        if settings.verbose >= 2:
-            print('Host-to-host interface checking successful.')
-        # Determine a set of common interfaces for task-to-task communication.
-        nics = set(driver.task_addresses_for_tasks(0).keys())
-        for index in range(1, num_hosts):
-            nics.intersection_update(
-                driver.task_addresses_for_tasks(index).keys())
-        if not nics:
-            raise Exception(
-                'Unable to find a set of common task-to-task communication interfaces: %s'
-                % [(index, driver.task_addresses_for_tasks(index))
-                   for index in range(num_hosts)])
-        return nics
+        return _run_probe(driver, settings, num_hosts)
     finally:
         driver.shutdown()
+
+def get_local_interfaces(settings):
+    if settings.verbose >= 2:
+        print('All hosts are local, finding the interfaces '
+              'with address 127.0.0.1')
+    # If all the given hosts are local, find the interfaces with address
+    # 127.0.0.1
+    nics = set()
+    for iface, addrs in net_if_addrs().items():
+        if settings.nics and iface not in settings.nics:
+            continue
+        for addr in addrs:
+            if addr.family == AF_INET and addr.address == '127.0.0.1':
+                nics.add(iface)
+                break
+
+    if len(nics) == 0:
+        raise ValueError('No interface is found for address 127.0.0.1.')
+
+    if settings.verbose >= 2:
+        print('Local interface found ' + ' '.join(nics))
+    return nics
 
 
 def get_common_interfaces(settings, all_host_names, remote_host_names=None, fn_cache=None):
@@ -231,23 +256,5 @@ def get_common_interfaces(settings, all_host_names, remote_host_names=None, fn_c
                 print('Common interface found: ' + ' '.join(nics))
 
     else:
-        if settings.verbose >= 2:
-            print('All hosts are local, finding the interfaces '
-                  'with address 127.0.0.1')
-        # If all the given hosts are local, find the interfaces with address
-        # 127.0.0.1
-        nics = set()
-        for iface, addrs in net_if_addrs().items():
-            if settings.nics and iface not in settings.nics:
-                continue
-            for addr in addrs:
-                if addr.family == AF_INET and addr.address == '127.0.0.1':
-                    nics.add(iface)
-                    break
-
-        if len(nics) == 0:
-            raise ValueError('No interface is found for address 127.0.0.1.')
-
-        if settings.verbose >= 2:
-            print('Local interface found ' + ' '.join(nics))
+        nics = get_local_interfaces(settings)
     return nics
