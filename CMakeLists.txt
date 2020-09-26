@@ -66,15 +66,12 @@ endif()
 
 # Add default project CXX flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -fPIC -Wall -ftree-vectorize")
-if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fstandalone-debug")
-  endif()
-endif()
-if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
-endif()
+
+# RelWithDebInfo uses -O2, prefer performance over debug info in RelWithDebInfo build type
+string(REPLACE "-O2" "-O3" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
+string(REPLACE "-O2" "-O3" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+string(REPLACE "-O2" "-O3" CMAKE_CUDA_FLAGS_RELWITHDEBINFO "${CMAKE_CUDA_FLAGS_RELWITHDEBINFO}")
+
 # Add architecture specific optimization flags
 set(ARCH_FLAGS "-mf16c" "-mavx" "-mfma")
 set_build_arch_flags("${ARCH_FLAGS}")
@@ -289,7 +286,7 @@ endif()
 
 # if we need compatible c++ abi
 # Duplicate gloo folder and add it as a new sub-project
-if(HAVE_GLOO AND ((DEFINED Tensorflow_CXX11 AND NOT Tensorflow_CXX11) OR (DEFINED Pytorch_CXX11 AND NOT Pytorch_CXX11)))
+if(HAVE_GLOO AND ((DEFINED Tensorflow_CXX11 AND NOT Tensorflow_CXX11) OR (DEFINED Pytorch_CXX11 AND NOT Pytorch_CXX11) OR (DEFINED Mxnet_CXX11 AND NOT Mxnet_CXX11)))
     file(COPY ${PROJECT_SOURCE_DIR}/third_party/gloo/ DESTINATION ${PROJECT_SOURCE_DIR}/third_party/compatible_gloo)
     file(READ ${PROJECT_SOURCE_DIR}/third_party/compatible_gloo/gloo/CMakeLists.txt GLOO_CMAKE)
     string(REPLACE "gloo " "compatible_gloo " GLOO_CMAKE "${GLOO_CMAKE}")

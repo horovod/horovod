@@ -130,7 +130,7 @@
 
    The derived work can be found in the files:
 
-        - examples/keras_spark_rossmann.py
+        - examples/spark/keras/keras_spark_rossmann_run.py
 
    elnormous/HTTPRequest
    Copyright (c) 2017, Elviss Strazdiņš
