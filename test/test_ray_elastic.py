@@ -32,6 +32,9 @@ def ray_8_cpus():
 
 @pytest.fixture
 def ray_8_cpus_gpus():
+    if "CUDA_VISIBLE_DEVICES" in os.environ:
+        if len(os.environ["CUDA_VISIBLE_DEVICES"].split(",")) < 8:
+            pytest.skip("Avoiding mismatched GPU machine.")
     ray.init(num_cpus=8, num_gpus=8)
     yield
     # The code after the yield will run as teardown code.
