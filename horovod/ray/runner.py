@@ -51,6 +51,7 @@ class BaseHorovodWorker:
         os.environ["HOROVOD_RANK"] = str(world_rank)
         os.environ["HOROVOD_SIZE"] = str(world_size)
 
+    @property
     def hostname(self) -> str:
         # TODO: This is probably not the right way to retrieve
         # the intended hostname.
