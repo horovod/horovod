@@ -291,7 +291,7 @@ class RayExecutor:
         if gpus_per_slot and not use_gpu:
             raise ValueError("gpus_per_slot is set, but use_gpu is False. "
                              "use_gpu must be True if gpus_per_slot is set. ")
-        if use_gpu and gpus_per_slot < 1:
+        if use_gpu and isinstance(gpus_per_slot, int) and gpus_per_slot < 1:
             raise ValueError(
                 f"gpus_per_slot must be >= 1: Got {gpus_per_slot}.")
 
