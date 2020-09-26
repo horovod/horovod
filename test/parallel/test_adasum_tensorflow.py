@@ -21,6 +21,10 @@ import warnings
 import horovod.tensorflow as hvd
 import math
 import copy
+import platform
+
+import pytest
+
 
 def adasum_reference_operation(a,b):
     assert a.size == b.size
@@ -68,12 +72,15 @@ else:
     # Specifies the config to use with eager execution. Does not preclude
     # tests from running in the graph mode.
     tf.enable_eager_execution(config=config)
-class MPITests(tf.test.TestCase):
+
+
+@pytest.mark.skipif(platform.system() == 'Darwin', reason='Adasum is not supported on macOS')
+class TensorFlowAdasumTests(tf.test.TestCase):
     """
     Tests for ops in horovod.tensorflow.
     """
     def __init__(self, *args, **kwargs):
-        super(MPITests, self).__init__(*args, **kwargs)
+        super(TensorFlowAdasumTests, self).__init__(*args, **kwargs)
         warnings.simplefilter('module')
         if hasattr(tf, 'contrib') and hasattr(tf.contrib, 'eager'):
             self.tfe = tf.contrib.eager

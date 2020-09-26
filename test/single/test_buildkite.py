@@ -23,9 +23,13 @@ from shutil import copy
 from common import tempdir
 from horovod.runner.common.util import safe_shell_exec
 
-# when you move this file, adjust this path to .buildkite in parent dir
-sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, '.buildkite'))
+# NOTE: when this file is moved, adjust this path to `.buildkite`
+BUILDKITE_ROOT = os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, '.buildkite')
+sys.path.append(BUILDKITE_ROOT)
+
 from get_changed_code_files import is_code_file
+
+GEN_PIPELINE_FNAME = os.path.join(BUILDKITE_ROOT, 'gen-pipeline.sh')
 
 
 class BuildKiteTests(unittest.TestCase):
@@ -50,21 +54,22 @@ class BuildKiteTests(unittest.TestCase):
     """
     Tests the generated buildkite pipeline.
     
-    Compares output of .buildkite/gen_pipeline.sh with test/data/expected_buildkite_pipeline.yaml.
+    Compares output of .buildkite/gen-pipeline.sh with test/single/data/expected_buildkite_pipeline.yaml.
     To see the changes in the output, run the following in your Horovod project root:
     
-        BUILDKITE_PIPELINE_SLUG=SLUG BUILDKITE_BRANCH=BRANCH .buildkite/gen-pipeline.sh > test/data/expected_buildkite_pipeline.yaml
+        BUILDKITE_PIPELINE_SLUG=SLUG BUILDKITE_BRANCH=BRANCH .buildkite/gen-pipeline.sh > test/single/data/expected_buildkite_pipeline.yaml
     
     Then run `git diff` to see the changes in the generated pipeline YAML.
-    Commit `test/data/expected_buildkite_pipeline.yaml` to get those changes into your PR.
+    Commit `test/single/data/expected_buildkite_pipeline.yaml` to get those changes into your PR.
     """
     def test_gen_pipeline(self):
-        with open('data/expected_buildkite_pipeline.yaml', 'r') as f:
+        expected_filename = os.path.join(os.path.dirname(__file__), 'data/expected_buildkite_pipeline.yaml')
+        with open(expected_filename, 'r') as f:
             lines = f.readlines()
             expected_pipeline = ''.join(lines)
 
         gen_pipeline_env = dict(BUILDKITE_PIPELINE_SLUG='SLUG', BUILDKITE_BRANCH='BRANCH')
-        gen_pipeline_cmd = '../.buildkite/gen-pipeline.sh'
+        gen_pipeline_cmd = GEN_PIPELINE_FNAME
 
         exit_code, actual_pipeline, gen_pipeline_log = self._run(gen_pipeline_cmd, gen_pipeline_env)
 
@@ -76,7 +81,8 @@ class BuildKiteTests(unittest.TestCase):
     Tests the given command produces the full pipeline.
     """
     def do_test_gen_full_pipeline(self, cmd, env=dict()):
-        with open('data/expected_buildkite_pipeline.yaml', 'r') as f:
+        expected_filename = os.path.join(os.path.dirname(__file__), 'data/expected_buildkite_pipeline.yaml')
+        with open(expected_filename, 'r') as f:
             lines = f.readlines()
             expected_pipeline = ''.join(lines)
 
@@ -98,7 +104,7 @@ class BuildKiteTests(unittest.TestCase):
     def test_gen_pipeline_with_code_changes(self):
         with tempdir() as dir:
             tmp_gen_pipeline_sh = os.path.join(dir, 'gen-pipeline.sh')
-            copy('../.buildkite/gen-pipeline.sh', tmp_gen_pipeline_sh)
+            copy(GEN_PIPELINE_FNAME, tmp_gen_pipeline_sh)
 
             for filename in ['.buildkite/gen-pipeline.sh',
                              'cmake/file',
@@ -121,7 +127,7 @@ class BuildKiteTests(unittest.TestCase):
     def test_gen_pipeline_with_non_code_changes(self):
         with tempdir() as dir:
             tmp_gen_pipeline_sh = os.path.join(dir, 'gen-pipeline.sh')
-            copy('../.buildkite/gen-pipeline.sh', tmp_gen_pipeline_sh)
+            copy(GEN_PIPELINE_FNAME, tmp_gen_pipeline_sh)
 
             with open(os.path.join(dir, 'get_changed_code_files.py'), 'w') as py:
                 py.write("pass")
@@ -152,7 +158,7 @@ class BuildKiteTests(unittest.TestCase):
     def test_gen_pipeline_on_default_branch(self):
         with tempdir() as dir:
             tmp_gen_pipeline_sh = os.path.join(dir, 'gen-pipeline.sh')
-            copy('../.buildkite/gen-pipeline.sh', tmp_gen_pipeline_sh)
+            copy(GEN_PIPELINE_FNAME, tmp_gen_pipeline_sh)
 
             with open(os.path.join(dir, 'get_changed_code_files.py'), 'w') as py:
                 py.write("pass")
@@ -170,7 +176,7 @@ class BuildKiteTests(unittest.TestCase):
     def test_gen_pipeline_with_failing_py(self):
         with tempdir() as dir:
             tmp_gen_pipeline_sh = os.path.join(dir, 'gen-pipeline.sh')
-            copy('../.buildkite/gen-pipeline.sh', tmp_gen_pipeline_sh)
+            copy(GEN_PIPELINE_FNAME, tmp_gen_pipeline_sh)
 
             with open(os.path.join(dir, 'get_changed_code_files.py'), 'w') as py:
                 py.write('import sys\n')

@@ -15,12 +15,15 @@
 # =============================================================================
 
 import contextlib
+import multiprocessing
 import os
 import shutil
 import sys
 import tempfile
 import time
+import traceback
 
+import cloudpickle
 import mock
 
 from horovod.runner.util.threads import in_thread
@@ -194,3 +197,34 @@ def lsf_and_jsrun(lsf_exists, jsrun_installed):
     with mock.patch("horovod.runner.launch.lsf.LSFUtils.using_lsf", return_value=lsf_exists) as u:
         with mock.patch("horovod.runner.launch.is_jsrun_installed", return_value=jsrun_installed) as i:
             yield u, i
+
+
+def _subproc_wrapper(fn, queue, *args, **kwargs):
+    fn = cloudpickle.loads(fn)
+    try:
+        results = fn(*args, **kwargs)
+    except Exception as e:
+        traceback.print_exc(file=sys.stderr)
+        results = e
+    queue.put(results)
+
+
+def spawn(fn):
+    def wrapped_fn(*args, **kwargs):
+        ctx = multiprocessing.get_context('spawn')
+        queue = ctx.Queue()
+
+        p = ctx.Process(
+            target=_subproc_wrapper,
+            args=(cloudpickle.dumps(fn), queue, *args),
+            kwargs=kwargs)
+
+        p.start()
+        p.join()
+        results = queue.get()
+        if isinstance(results, Exception):
+            raise RuntimeError(f'Spawned subprocess raised {type(results).__name__}, '
+                               f'check log output above for stack trace.')
+        return results
+
+    return wrapped_fn

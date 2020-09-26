@@ -175,6 +175,7 @@ setup(name='horovod',
           'spark': spark_require_list,
           'ray': ray_require_list,
           'dev': dev_require_list,
+          'test': test_require_list,
       },
       # not used by pip since 19.0: https://github.com/pypa/pip/issues/4187#issuecomment-415067034
       # here for completeness as pip install needs some of these via -f for versions with '+cpu'

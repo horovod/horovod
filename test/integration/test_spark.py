@@ -55,10 +55,12 @@ from horovod.spark.task import get_available_devices, gloo_exec_fn, mpirun_exec_
 from horovod.spark.task.task_service import SparkTaskClient
 from horovod.spark.runner import _task_fn
 
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
+
 from spark_common import spark_driver_service, spark_session, spark_task_service, \
     create_test_data_from_schema, create_xor_data, local_store
 
-from common import is_built, mpi_implementation_flags, tempdir, override_env, undo, delay
+from common import is_built, mpi_implementation_flags, tempdir, override_env, undo, delay, spawn
 
 
 # Spark will fail to initialize correctly locally on Mac OS without this
@@ -68,6 +70,20 @@ if platform.system() == 'Darwin':
 
 def fn(result=0):
     return result
+
+
+@spawn
+def run_get_available_devices():
+    # Run this test in an isolated "spawned" environment because creating a local-cluster
+    # leads to errors that cause downstream tests to stall:
+    # https://issues.apache.org/jira/browse/SPARK-31922
+    def fn():
+        hvd.init()
+        devices = get_available_devices()
+        return devices, hvd.local_rank()
+
+    with spark_session('test_get_available_devices', gpus=2):
+        return horovod.spark.run(fn, env={'PATH': os.environ.get('PATH')}, verbose=0)
 
 
 class SparkTests(unittest.TestCase):
@@ -1644,14 +1660,8 @@ class SparkTests(unittest.TestCase):
     @pytest.mark.skipif(LooseVersion(pyspark.__version__) < LooseVersion('3.0.0'),
                         reason='get_available_devices only supported in Spark 3.0 and above')
     def test_get_available_devices(self):
-        def fn():
-            hvd.init()
-            devices = get_available_devices()
-            return devices, hvd.local_rank()
-
-        with spark_session('test_get_available_devices', gpus=2):
-            res = horovod.spark.run(fn, env={'PATH': os.environ.get('PATH')}, verbose=0)
-            self.assertListEqual([(['1'], 0), (['0'], 1)], res)
+        res = run_get_available_devices()
+        self.assertListEqual([(['1'], 0), (['0'], 1)], res)
 
     def test_to_list(self):
         none_output = util.to_list(None, 1)

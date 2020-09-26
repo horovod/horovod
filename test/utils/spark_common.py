@@ -17,6 +17,10 @@ import contextlib
 import os
 import platform
 import stat
+import uuid
+
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import VectorAssembler
@@ -55,45 +59,54 @@ def spark_session(app, cores=2, gpus=0, max_failures=1, *args):
     from pyspark import SparkConf
     from pyspark.sql import SparkSession
 
-    # start a single worker with given cores when gpus are present
-    # max failures are ignored when gpus in that case
-    master = 'local-cluster[1,{},1024]'.format(cores) if gpus > 0 \
-        else 'local[{},{}]'.format(cores, max_failures)
-    conf = SparkConf().setAppName(app).setMaster(master)
-    conf = conf.setAll([
-        ('spark.ui.showConsoleProgress', 'false'),
-        ('spark.test.home', os.environ.get('SPARK_HOME')),
-        ('spark.locality.wait', '0'),
-    ])
+    with TemporaryDirectory() as tmpdir:
+        metastore_path = os.path.join(tmpdir, 'metastore')
 
-    with temppath() as temp_filename:
-        if gpus > 0:
-            with open(temp_filename, 'wb') as temp_file:
-                addresses = ', '.join('\\"{}\\"'.format(i) for i in range(gpus))
-                temp_file.write(b'echo {\\"name\\": \\"gpu\\", \\"addresses\\": [' +
-                                addresses.encode('ascii') + b']}')
+        # start a single worker with given cores when gpus are present
+        # max failures are ignored when gpus in that case
+        master = 'local-cluster[1,{},1024]'.format(cores) if gpus > 0 \
+            else 'local[{},{}]'.format(cores, max_failures)
+        conf = SparkConf().setAppName(app).setMaster(master)
+        conf = conf.setAll([
+            ('spark.ui.showConsoleProgress', 'false'),
+            ('spark.test.home', os.environ.get('SPARK_HOME')),
+            ('spark.locality.wait', '0'),
+            ('spark.unsafe.exceptionOnMemoryLeak', 'true'),
+            ('spark.ui.enabled', 'false'),
+            ('spark.local.dir', os.path.join(tmpdir, 'tmp')),
+            ('spark.sql.warehouse.dir', os.path.join(tmpdir, 'warehouse')),
+            ('javax.jdo.option.ConnectionURL',
+             f'jdbc:derby:;databaseName={metastore_path};create=true'),
+        ])
 
-            os.chmod(temp_file.name, stat.S_IRWXU | stat.S_IXGRP | stat.S_IRGRP |
-                     stat.S_IROTH | stat.S_IXOTH)
+        with temppath() as temp_filename:
+            if gpus > 0:
+                with open(temp_filename, 'wb') as temp_file:
+                    addresses = ', '.join('\\"{}\\"'.format(i) for i in range(gpus))
+                    temp_file.write(b'echo {\\"name\\": \\"gpu\\", \\"addresses\\": [' +
+                                    addresses.encode('ascii') + b']}')
 
-            # the single worker takes all gpus discovered, and a single executor will get them
-            # each task on that executor will get a single gpu
-            conf = conf.setAll([
-                ('spark.worker.resource.gpu.discoveryScript', temp_filename),
-                ('spark.worker.resource.gpu.amount', str(gpus)),
-                ('spark.task.resource.gpu.amount', '1'),
-                ('spark.executor.resource.gpu.amount', str(gpus))
-            ])
+                os.chmod(temp_file.name, stat.S_IRWXU | stat.S_IXGRP | stat.S_IRGRP |
+                         stat.S_IROTH | stat.S_IXOTH)
 
-        session = SparkSession \
-            .builder \
-            .config(conf=conf) \
-            .getOrCreate()
+                # the single worker takes all gpus discovered, and a single executor will get them
+                # each task on that executor will get a single gpu
+                conf = conf.setAll([
+                    ('spark.worker.resource.gpu.discoveryScript', temp_filename),
+                    ('spark.worker.resource.gpu.amount', str(gpus)),
+                    ('spark.task.resource.gpu.amount', '1'),
+                    ('spark.executor.resource.gpu.amount', str(gpus)),
+                ])
 
-        try:
-            yield session
-        finally:
-            session.stop()
+            session = SparkSession \
+                .builder \
+                .config(conf=conf) \
+                .getOrCreate()
+
+            try:
+                yield session
+            finally:
+                session.stop()
 
 
 def fn():

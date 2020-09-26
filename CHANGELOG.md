@@ -24,7 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
-- Fixed building Horovod without HOROVOD_WITHOUT_MXNET when MXNet is not installed. (([#2334](https://github.com/horovod/horovod/pull/2334)))
+- Fixed building Horovod without HOROVOD_WITHOUT_MXNET when MXNet is not installed. ([#2334](https://github.com/horovod/horovod/pull/2334))
 
 ## [0.20.1] - 2020-09-25
 

@@ -54,7 +54,9 @@ RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
 RUN pip install -U --force pip setuptools requests pytest mock pytest-forked parameterized
 RUN echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.\$1.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.\$2.xml \${@:2} > /pytest.sh
-RUN cat /pytest.sh
+RUN echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.\$1.standalone.\$2.xml \${@:2} > /pytest_standalone.sh
+RUN chmod a+x /pytest.sh
+RUN chmod a+x /pytest_standalone.sh
 
 # Install Spark stand-alone cluster.
 RUN if [[ -n ${SPARK_PACKAGE} ]]; then \
