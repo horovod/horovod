@@ -188,7 +188,7 @@ def _driver_fn(all_host_names, local_host_names, settings):
     if settings.verbose >= 2:
         print('Attempted to launch horovod task servers.')
     try:
-        _run_probe(driver, settings, num_hosts)
+        return _run_probe(driver, settings, num_hosts)
     finally:
         driver.shutdown()
 
