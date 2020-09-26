@@ -24,6 +24,8 @@
 #include <mutex>
 #include <queue>
 #include <unordered_map>
+#else
+#include <stdexcept>
 #endif
 
 #include "ready_event.h"
