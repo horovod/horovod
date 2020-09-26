@@ -567,7 +567,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1175,7 +1175,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1383,7 +1383,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1992,7 +1992,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2040,7 +2040,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:

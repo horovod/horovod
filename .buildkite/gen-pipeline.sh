@@ -236,7 +236,7 @@ run_gloo_pytest() {
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests Standalone (${test})" \
     "bash -c \"cd /horovod/test && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.standalone.xml ${standalone_tests} && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.standalone.xml ${standalone_ray_tests}\"" \
-    5
+    10
 
   run_test "${test}" "${queue}" \
     ":pytest: Run Cluster PyTests (${test})" \
