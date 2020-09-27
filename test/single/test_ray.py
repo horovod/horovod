@@ -5,14 +5,15 @@ This is currently not run on the Ray CI.
 import os
 import sys
 
+import socket
 import pytest
 import ray
+from ray import services
 import torch
 
 from horovod.common.util import gloo_built
-from horovod.ray.runner import (
-    BaseHorovodWorker, NodeColocator, Coordinator, MiniSettings, RayExecutor)
-
+from horovod.ray.runner import (BaseHorovodWorker, NodeColocator, Coordinator,
+                                MiniSettings, RayExecutor)
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -94,13 +95,15 @@ def test_colocator(tmpdir, ray_start_6_cpus):
         [h.hostname.remote() for h in worker_handles]))) == 1
 
     resources = ray.available_resources()
-    ip_address = ray.services.get_node_ip_address()
+    ip_address = services.get_node_ip_address()
     assert resources.get("CPU", 0) == 2, resources
     assert resources.get(f"node:{ip_address}", 0) == 1 - 4 * 0.01
 
 
-@pytest.mark.skipif(torch.cuda.device_count() < 4, reason='GPU colocator test requires 4 GPUs')
-@pytest.mark.skipif(not torch.cuda.is_available(), reason='GPU colocator test requires CUDA')
+@pytest.mark.skipif(
+    torch.cuda.device_count() < 4, reason='GPU colocator test requires 4 GPUs')
+@pytest.mark.skipif(
+    not torch.cuda.is_available(), reason='GPU colocator test requires CUDA')
 def test_colocator_gpu(tmpdir, ray_start_4_cpus_4_gpus):
     SetColocator = NodeColocator.options(num_cpus=4, num_gpus=4)
     colocator = SetColocator.remote(
@@ -110,7 +113,7 @@ def test_colocator_gpu(tmpdir, ray_start_4_cpus_4_gpus):
     assert len(set(ray.get(
         [h.hostname.remote() for h in worker_handles]))) == 1
     resources = ray.available_resources()
-    ip_address = ray.services.get_node_ip_address()
+    ip_address = services.get_node_ip_address()
     assert resources.get("CPU", 0) == 0, resources
     assert resources.get("GPU", 0) == 0, resources
     assert resources.get(f"node:{ip_address}", 0) == 1 - 4 * 0.01
@@ -124,7 +127,7 @@ def test_horovod_mixin(ray_start_2_cpus):
     class Test(BaseHorovodWorker):
         pass
 
-    assert Test().hostname() == ray.services.get_node_ip_address()
+    assert Test().hostname() == socket.gethostname()
     actor = ray.remote(BaseHorovodWorker).remote()
     DUMMY_VALUE = 1123123
     actor.update_env_vars.remote({"TEST": DUMMY_VALUE})
@@ -136,13 +139,14 @@ def test_local(ray_start_4_cpus):
     setting = RayExecutor.create_settings(timeout_s=30)
     hjob = RayExecutor(setting, num_hosts=1, num_slots=4)
     hjob.start()
-    hostnames = hjob.execute(lambda _: ray.services.get_node_ip_address())
+    hostnames = hjob.execute(lambda _: socket.gethostname())
     assert len(set(hostnames)) == 1, hostnames
     hjob.shutdown()
     assert check_resources(original_resources)
 
 
-@pytest.mark.skipif(not gloo_built(), reason='Gloo is required for Ray integration')
+@pytest.mark.skipif(
+    not gloo_built(), reason='Gloo is required for Ray integration')
 def test_ray_init(ray_start_4_cpus):
     original_resources = ray.available_resources()
 
@@ -161,9 +165,9 @@ def test_ray_init(ray_start_4_cpus):
     assert check_resources(original_resources)
 
 
-@pytest.mark.skipif(not gloo_built(), reason='Gloo is required for Ray integration')
+@pytest.mark.skipif(
+    not gloo_built(), reason='Gloo is required for Ray integration')
 def test_ray_exec_func(ray_start_4_cpus):
-
     def simple_fn(num_epochs):
         import horovod.torch as hvd
         hvd.init()
@@ -178,8 +182,7 @@ def test_ray_exec_func(ray_start_4_cpus):
     hjob.shutdown()
 
 
-def _train(batch_size=32,
-           batch_per_iter=10):
+def _train(batch_size=32, batch_per_iter=10):
     import torch.backends.cudnn as cudnn
     import torch.nn.functional as F
     import torch.optim as optim
@@ -215,7 +218,8 @@ def _train(batch_size=32,
     time = timeit.timeit(benchmark_step, number=batch_per_iter)
 
 
-@pytest.mark.skipif(not gloo_built(), reason='Gloo is required for Ray integration')
+@pytest.mark.skipif(
+    not gloo_built(), reason='Gloo is required for Ray integration')
 def test_horovod_train(ray_start_4_cpus):
     def simple_fn(worker):
         _train()
