@@ -56,6 +56,7 @@ MOCK_MODULES = [
 
     'ray',
     'ray.exceptions',
+    'ray.services',
 
     'tensorflow',
     'tensorflow.python',

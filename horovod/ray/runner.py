@@ -1,8 +1,10 @@
 import ray
+from ray import services
 
 from collections import defaultdict
 from dataclasses import dataclass
 import os
+import socket
 from typing import Dict, Callable, Any, Optional, List
 import logging
 
@@ -54,7 +56,7 @@ class BaseHorovodWorker:
     def hostname(self) -> str:
         # TODO: This is probably not the right way to retrieve
         # the intended hostname.
-        return str(ray.services.get_node_ip_address())
+        return socket.gethostname()
 
     def update_env_vars(self, env_vars: Dict[str, str]):
         """Update the env vars in the actor process."""
@@ -136,7 +138,7 @@ class NodeColocator:
         # Create a node ip resource label so that we can pin
         # all of the child actors to the same node. This ensures
         # colocation and balanced training.
-        node_id = f"node:{ray.services.get_node_ip_address()}"
+        node_id = f"node:{services.get_node_ip_address()}"
         remote_cls = ray.remote(BaseHorovodWorker)
         remote_cls = remote_cls.options(
             num_cpus=0, num_gpus=0, resources={node_id: 0.01})
@@ -238,7 +240,7 @@ class Coordinator:
         self.rendezvous.init(host_alloc_plan)
 
         return {
-            "HOROVOD_GLOO_RENDEZVOUS_ADDR": ray.services.get_node_ip_address(),
+            "HOROVOD_GLOO_RENDEZVOUS_ADDR": services.get_node_ip_address(),
             "HOROVOD_GLOO_RENDEZVOUS_PORT": str(self.global_rendezv_port),
             "HOROVOD_CONTROLLER": "gloo",
             "HOROVOD_CPU_OPERATIONS": "gloo",

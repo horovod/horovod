@@ -161,7 +161,7 @@ You can then attach to the underlying Ray cluster and execute the training funct
     executor.start()
     executor.run(training_fn)
 
-Ray will automatically start remote actors which execute ``training_fn`` on nodes as they become available. Note that ``executor.run`` call will terminate whenever any one of the training functions terminates.
+Ray will automatically start remote actors which execute ``training_fn`` on nodes as they become available. Note that ``executor.run`` call will terminate whenever any one of the training functions terminates successfully, or if all workers fail.
 
 AWS: Cluster Launcher
 ---------------------

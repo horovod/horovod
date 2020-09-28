@@ -5,6 +5,7 @@ This is currently not run on the Ray CI.
 from contextlib import contextmanager
 import psutil
 import os
+import socket
 
 import mock
 import pytest
@@ -207,7 +208,7 @@ def fault_tolerance_patches():
             0.1):
         with mock.patch(
                 "horovod.runner.util.network.get_driver_ip",
-                return_value=ray.services.get_node_ip_address()):
+                return_value=socket.gethostbyname(socket.gethostname())):
             yield
 
 
