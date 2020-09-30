@@ -8,17 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- Added Elastic Ray integration. ([#2291](https://github.com/horovod/horovod/pull/2291))
-
 ### Changed
-
-- Removed dependency on SSH access for Ray. ([#2275](https://github.com/horovod/horovod/pull/2275))
 
 ### Deprecated
 
 ### Removed
 
 ### Fixed
+
+## [0.20.3] - 2020-10-01
+
+### Added
+
+- Added Elastic Ray integration. ([#2291](https://github.com/horovod/horovod/pull/2291))
+
+### Changed
+
+- Removed dependency on SSH access for Ray. ([#2275](https://github.com/horovod/horovod/pull/2275))
 
 ## [0.20.2] - 2020-09-25
 
