@@ -59,6 +59,10 @@ public:
   void SetPendingTimelineFile(std::string filename);
   TimelineWriter();
 
+  // Similar to healthy, but allows queue to be drained before closing when set
+  // to false.
+  std::atomic_bool active_{false};
+
 private:
   void DoWriteEvent(const TimelineRecord& r);
   void DoWriteMarker(const TimelineRecord& r);
@@ -70,10 +74,6 @@ private:
   // Are we healthy?  Queue no longer accepts new work items and stops draining
   // immediately when false.
   std::atomic_bool healthy_{false};
-
-  // Similar to healthy, but allows queue to be drained before closing when set
-  // to false.
-  std::atomic_bool active_{false};
 
   bool pending_status_;
 
