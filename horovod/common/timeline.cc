@@ -186,6 +186,11 @@ void TimelineWriter::EnqueueWriteEvent(const std::string& tensor_name,
                                        char phase, const std::string& op_name,
                                        const std::string& args,
                                        long ts_micros) {
+  {
+    std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
+    if (!active_ || !healthy_)
+      return;
+  }
   TimelineRecord r{};
   r.type = TimelineRecordType::EVENT;
   r.tensor_name = tensor_name;
@@ -193,26 +198,22 @@ void TimelineWriter::EnqueueWriteEvent(const std::string& tensor_name,
   r.op_name = op_name;
   r.args = args;
   r.ts_micros = ts_micros;
-  {
-    std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
-    if (!active_ || !healthy_)
-      return;
-  }
   while (healthy_ && active_ && !record_queue_.push(r))
     ;
 }
 
 void TimelineWriter::EnqueueWriteMarker(const std::string& name,
                                         long ts_micros) {
-  TimelineRecord r{};
-  r.type = TimelineRecordType::MARKER;
-  r.marker_name = name;
-  r.ts_micros = ts_micros;
   {
     std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
     if (!active_ || !healthy_)
       return;
   }
+  TimelineRecord r{};
+  r.type = TimelineRecordType::MARKER;
+  r.marker_name = name;
+  r.ts_micros = ts_micros;
+
   while (healthy_ && active_ && !record_queue_.push(r))
     ;
 }
@@ -374,18 +375,24 @@ long Timeline::TimeSinceStartMicros() const {
 // Write event to the Horovod Timeline file.
 void Timeline::WriteEvent(const std::string& tensor_name, const char phase,
                           const std::string& op_name, const std::string& args) {
+  if (!initialized_ || !writer_.active_) {
+    return;
+  }
   auto ts_micros = TimeSinceStartMicros();
   writer_.EnqueueWriteEvent(tensor_name, phase, op_name, args, ts_micros);
 }
 
 void Timeline::WriteMarker(const std::string& name) {
+  if (!initialized_ || !writer_.active_) {
+    return;
+  }
   auto ts_micros = TimeSinceStartMicros();
   writer_.EnqueueWriteMarker(name, ts_micros);
 }
 
 void Timeline::NegotiateStart(const std::string& tensor_name,
                               const Request::RequestType request_type) {
-  if (!initialized_) {
+  if (!initialized_ || !writer_.active_) {
     return;
   }
 
@@ -408,7 +415,7 @@ void Timeline::NegotiateStart(const std::string& tensor_name,
 
 void Timeline::NegotiateRankReady(const std::string& tensor_name,
                                   const int rank) {
-  if (!initialized_) {
+  if (!initialized_ || !writer_.active_) {
     return;
   }
 
@@ -418,7 +425,7 @@ void Timeline::NegotiateRankReady(const std::string& tensor_name,
 }
 
 void Timeline::NegotiateEnd(const std::string& tensor_name) {
-  if (!initialized_) {
+  if (!initialized_ || !writer_.active_) {
     return;
   }
 
@@ -430,7 +437,7 @@ void Timeline::NegotiateEnd(const std::string& tensor_name) {
 
 void Timeline::Start(const std::string& tensor_name,
                      const Response::ResponseType response_type) {
-  if (!initialized_) {
+  if (!initialized_ || !writer_.active_) {
     return;
   }
 
@@ -443,6 +450,9 @@ void Timeline::Start(const std::string& tensor_name,
 
 void Timeline::ActivityStartAll(const std::vector<TensorTableEntry>& entries,
                                 const std::string& activity) {
+  if (!initialized_ || !writer_.active_) {
+    return;
+  }
   for (auto& e : entries) {
     ActivityStart(e.tensor_name, activity);
   }
@@ -450,7 +460,7 @@ void Timeline::ActivityStartAll(const std::vector<TensorTableEntry>& entries,
 
 void Timeline::ActivityStart(const std::string& tensor_name,
                              const std::string& activity) {
-  if (!initialized_) {
+  if (!initialized_ || !writer_.active_) {
     return;
   }
 
@@ -467,7 +477,7 @@ void Timeline::ActivityEndAll(const std::vector<TensorTableEntry>& entries) {
 }
 
 void Timeline::ActivityEnd(const std::string& tensor_name) {
-  if (!initialized_) {
+  if (!initialized_ || !writer_.active_) {
     return;
   }
 
@@ -479,7 +489,7 @@ void Timeline::ActivityEnd(const std::string& tensor_name) {
 
 void Timeline::End(const std::string& tensor_name,
                    const std::shared_ptr<Tensor> tensor) {
-  if (!initialized_) {
+  if (!initialized_ || !writer_.active_) {
     return;
   }
 
@@ -499,7 +509,7 @@ void Timeline::End(const std::string& tensor_name,
 }
 
 void Timeline::MarkCycleStart() {
-  if (!initialized_) {
+  if (!initialized_ || !writer_.active_) {
     return;
   }
 
