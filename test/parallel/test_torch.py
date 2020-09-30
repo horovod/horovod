@@ -1314,7 +1314,7 @@ class TorchTests(unittest.TestCase):
                subclass != torch.optim.LBFGS and
                subclass != torch.optim.SparseAdam
         ]
-        optimizers.sort()
+        optimizers.sort(key=lambda tup: tup[0])
 
         opt_params_list = [
             dict(lr=0.2, momentum=0.9, weight_decay=0.1, centered=True),
@@ -1446,7 +1446,7 @@ class TorchTests(unittest.TestCase):
                subclass != torch.optim.LBFGS and
                subclass != torch.optim.SparseAdam
         ]
-        optimizers.sort()
+        optimizers.sort(key=lambda tup: tup[0])
 
         for _, opt_class in optimizers:
             model, optimizer = create_model(opt_class)
@@ -1620,7 +1620,7 @@ class TorchTests(unittest.TestCase):
                subclass != torch.optim.LBFGS and
                subclass != torch.optim.SparseAdam
         ]
-        optimizers.sort()
+        optimizers.sort(key=lambda tup: tup[0])
 
         opt_params_list = [
             dict(lr=0.2, momentum=0.9, weight_decay=0.1, centered=True),
