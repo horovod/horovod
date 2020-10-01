@@ -473,6 +473,7 @@ class KerasModel(HorovodModel, KerasEstimatorParamsReadable,
         feature_cols = self.getFeatureColumns()
         custom_objects = self.getCustomObjects()
         metadata = self._get_metadata()
+        sample_ratio = self.getSampleRatio()
 
         pin_cpu = remote._pin_cpu_fn()
 
@@ -541,4 +542,4 @@ class KerasModel(HorovodModel, KerasEstimatorParamsReadable,
 
                 yield Row(**fields)
 
-        return df.rdd.mapPartitions(predict).toDF()
+        return df.rdd.mapPartitions(predict).toDF(sampleRatio=sample_ratio)

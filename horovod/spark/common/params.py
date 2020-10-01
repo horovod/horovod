@@ -320,6 +320,9 @@ class ModelParams(HasOutputCols):
     _metadata = Param(Params._dummy(), '_metadata',
                       'metadata contains the shape and type of input and output')
 
+    sample_ratio = Param(Params._dummy(), 'sample_ratio',
+                         'ratio of the data to be used to determine the schema of dataframe')
+
     def __init__(self):
         super(ModelParams, self).__init__()
 
@@ -360,6 +363,12 @@ class ModelParams(HasOutputCols):
 
     def getRunId(self):
         return self.getOrDefault(self.run_id)
+
+    def getSampleRatio(self):
+        return self.getOrDefault(self.sample_ratio)
+
+    def setSampleRatio(self, value):
+        return self._set(sample_ratio=value)
 
     # copied from https://github.com/apache/spark/tree/master/python/pyspark/ml/param/shared.py
     # has been removed from pyspark.ml.param.HasOutputCol in pyspark 3.0.0

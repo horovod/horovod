@@ -398,6 +398,7 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
         output_cols = self.getOutputCols()
         feature_cols = self.getFeatureColumns()
         metadata = self._get_metadata()
+        sample_ratio = self.getSampleRatio()
 
         def predict(rows):
             from pyspark import Row
@@ -447,4 +448,4 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
 
                 yield Row(**fields)
 
-        return df.rdd.mapPartitions(predict).toDF()
+        return df.rdd.mapPartitions(predict).toDF(sampleRatio=sample_ratio)

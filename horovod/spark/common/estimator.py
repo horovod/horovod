@@ -94,6 +94,12 @@ class HorovodEstimator(Estimator, EstimatorParams):
 
 
 class HorovodModel(Model, ModelParams):
+
+    def __init__(self):
+        super(HorovodModel, self).__init__()
+
+        self._setDefault(sample_ratio=0.05)
+
     def transform(self, df, params=None):
         """
         Transforms the input dataset with prediction columns representing model predictions.
