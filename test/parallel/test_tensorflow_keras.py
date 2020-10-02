@@ -40,16 +40,17 @@ class TfKerasTests(tf.test.TestCase):
         warnings.simplefilter('module')
         hvd.init()
 
-        self.config = tf.ConfigProto()
+        self.config = tf.compat.v1.ConfigProto()
         self.config.gpu_options.allow_growth = True
         self.config.gpu_options.visible_device_list = str(hvd.local_rank())
 
-    def test_train_model(self):
+    def train_model(self, backward_passes_per_step):
         with self.test_session(config=self.config) as sess:
             K.set_session(sess)
 
             opt = keras.optimizers.RMSprop(lr=0.0001)
-            opt = hvd.DistributedOptimizer(opt)
+            opt = hvd.DistributedOptimizer(
+                opt, backward_passes_per_step=backward_passes_per_step)
 
             model = keras.models.Sequential()
             model.add(keras.layers.Dense(2, input_shape=(3,)))
@@ -76,6 +77,12 @@ class TfKerasTests(tf.test.TestCase):
                                 verbose=0,
                                 workers=4,
                                 initial_epoch=1)
+
+    def test_train_model(self):
+        self.train_model(backward_passes_per_step=1)
+
+    def test_train_model_with_gradient_aggregation(self):
+        self.train_model(backward_passes_per_step=2)
 
     def test_sparse_as_dense(self):
         with self.test_session(config=self.config) as sess:
@@ -342,3 +349,35 @@ class TfKerasTests(tf.test.TestCase):
                 self.assertAllClose(w1, w2)
             assert state.batch == 21
             assert state.epoch == 11
+
+    def test_gradient_aggregation(self):
+        with self.test_session(config=self.config) as sess:
+            K.set_session(sess)
+            session = tf.compat.v1.keras.backend.get_session(op_input_list=())
+
+            backward_passes_per_step = 4
+            hvd_optimizer = hvd.DistributedOptimizer(
+                optimizer=keras.optimizers.RMSprop(lr=0.0001),
+                backward_passes_per_step=backward_passes_per_step,
+            )
+
+            def compute_expected_value(batch_id):
+                gradients_aggregated = (batch_id + 1) % backward_passes_per_step == 0
+                if gradients_aggregated:
+                    all_reduced_grads = 0.0
+                    for _ in range(backward_passes_per_step):
+                        grads_for_batch = 0.0
+                        for rank in range(hvd.size()):
+                            grads_for_batch += rank
+                        grads_for_batch /= float(backward_passes_per_step)
+                        all_reduced_grads += grads_for_batch / float(hvd.size())
+                    return all_reduced_grads
+                else:
+                    non_aggregated_grads = hvd.rank()
+                    return non_aggregated_grads
+
+            grads = [tf.constant([float(hvd.rank())])]
+            op = hvd_optimizer._allreduce(grads)
+            for idx in range(10):
+                value = session.run(op)[0][0]
+                assert value == compute_expected_value(idx)
