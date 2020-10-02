@@ -23,6 +23,7 @@ import time
 from pyspark import keyword_only
 from pyspark.ml.param.shared import Param, Params
 from pyspark.ml.util import MLWritable, MLReadable
+from pyspark.sql import SparkSession
 
 from horovod.runner.common.util import codec
 from horovod.spark.common import util
@@ -447,4 +448,20 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
 
                 yield Row(**fields)
 
-        return df.rdd.mapPartitions(predict).toDF()
+        def get_cols(row):
+            from pyspark import Row
+            fields = row.asDict()
+            new_fields = {}
+            for col in output_cols:
+                new_fields[col] = fields[col]
+            yield Row(**new_fields)
+
+        output_cols_df = df.limit(1000).rdd.mapPartitions(predict).flatMap(get_cols).toDF()
+
+        final_df_schema = copy.deepcopy(df.schema)
+        for field in output_cols_df.schema:
+            final_df_schema.add(field)
+
+        spark = SparkSession._instantiatedSession
+        predict_rdd = df.rdd.mapPartitions(predict)
+        return spark.createDataFrame(predict_rdd, final_df_schema)
