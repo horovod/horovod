@@ -16,6 +16,8 @@
 #if HAVE_GPU
 #include "cuda_runtime.h"
 #include <THC/THC.h>
+#else
+#include <stdexcept>
 #endif
 
 #include "../common/common.h"
