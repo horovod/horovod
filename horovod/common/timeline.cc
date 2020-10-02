@@ -79,6 +79,7 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
       return;
     }
     if (file_.is_open()) {
+      file_.flush();
       file_.close();
       LOG(INFO) << "Closed timeline file:" << cur_filename_;
     }
@@ -177,6 +178,7 @@ void TimelineWriter::Shutdown() {
   }
 
   if (cur_filename_ != "" && file_.is_open()) {
+    file_.flush();
     file_.close();
   }
   tensor_table_.clear();
