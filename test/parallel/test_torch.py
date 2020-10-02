@@ -2140,6 +2140,7 @@ class TorchTests(unittest.TestCase):
             # Make sure that last stop timeline has been processed.
             hvd.start_timeline(fname5, mark_cycles=False)
             hvd.start_timeline(fname5, mark_cycles=False)
+            time.sleep(0.2)
             hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce').numpy()
             hvd.stop_timeline()
             check_file(fname5, check_cycle=False)

@@ -34,6 +34,11 @@ TimelineWriter::TimelineWriter() {
 void TimelineWriter::SetPendingTimelineFile(std::string filename) {
   {
     std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
+    if (cur_filename_ == filename) {
+      LOG(INFO) << "Current filename for timeline is same as new filename. "
+                   "Returning.";
+      return;
+    }
     new_pending_filename_ = filename;
     pending_status_ = true;
   }
@@ -101,31 +106,6 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
                  "passed is empty string";
     return;
   }
-  // if newfile is same as existing file, it should be no-op and we can continue
-  // writing in existing file.
-  if (cur_filename_ == filename) {
-    if (file_.good()) {
-      LOG(INFO) << "Timeline cur_filename_ is same as existing filename:"
-                << filename << " Set active and healthy to true";
-      cur_filename_ = filename;
-      new_pending_filename_ = cur_filename_;
-      is_new_file_ = false;
-      healthy_ = true;
-      active_ = true;
-      pending_status_ = false;
-      return;
-    } else {
-      LOG(ERROR) << "Filename:" << filename
-                 << " is not good. Setting healthy to true and active to false "
-                    "since file is not good";
-      cur_filename_ = filename;
-      new_pending_filename_ = cur_filename_;
-      healthy_ = true;
-      active_ = false;
-      return;
-    }
-  }
-
   // all other cases, need to create a new file
   file_.open(filename, std::ios::out | std::ios::trunc);
   if (file_.good()) {
