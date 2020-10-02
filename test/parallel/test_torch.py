@@ -2087,8 +2087,6 @@ class TorchTests(unittest.TestCase):
                 with open(fname, 'r') as timeline_file:
                     timeline_text = timeline_file.read()
                     assert 'allreduce.test_allreduce' in timeline_text, timeline_text
-                    assert 'NEGOTIATE_ALLREDUCE' in timeline_text, timeline_text
-                    assert 'ALLREDUCE' in timeline_text, timeline_text
                     assert 'start_time_since_epoch_in_micros' in timeline_text, timeline_text
                     json_obj = json.loads(timeline_text)
                     assert json_obj is not None
