@@ -5,8 +5,8 @@ def apply_op_to_not_none_tensors(tensor_op, tensors, *args):
     return [
         tensor_op(
             tensor,
-            *
-            args) if tensor is not None else tensor for tensor in tensors]
+            *args
+        ) if tensor is not None else tensor for tensor in tensors]
 
 
 def get_not_none_from_list(tensor_list):
@@ -20,13 +20,16 @@ class LocalGradientAggregationHelper:
     backward_passes_per_step. Only supports graph mode execution.
     """
 
+    _OPTIMIZER_TYPE_KERAS = "optimizer_type_keras"
+
     def __init__(
             self,
             backward_passes_per_step,
             allreduce_func,
             sparse_as_dense,
             average_aggregated_gradients,
-            rank):
+            rank,
+            optimizer_type):
         self._allreduce_grads = allreduce_func
 
         # backward_passes_per_step controls how often gradient updates are
@@ -49,6 +52,7 @@ class LocalGradientAggregationHelper:
 
         self.sparse_as_dense = sparse_as_dense
         self.rank = rank
+        self.optimizer_type = optimizer_type
 
         # Contains the mapping of indexes of grad updates that are not None to their index in
         # locally_aggregated_grads which only contains not None gradients. When performing
@@ -57,12 +61,11 @@ class LocalGradientAggregationHelper:
         self.not_none_indexes = {}
         self.num_none_grad_updates = 0
 
-    def init_aggregation_vars(self, grads, sess=None):
+    def _init_aggregation_vars(self, grads):
         """
         Initializes the counter that is used when to communicate and aggregate gradients
         and the tensorflow variables that store the locally aggregated gradients.
         """
-
         variable_scope_name = "aggregation_variables_" + str(self.rank)
         with tf.compat.v1.variable_scope(variable_scope_name, reuse=tf.compat.v1.AUTO_REUSE):
             self.counter = tf.compat.v1.get_variable(
@@ -105,11 +108,12 @@ class LocalGradientAggregationHelper:
         # We expect to get a `sess` when we need to manually do a `sess.run(...)`
         # for the variables to be initialized. This is the `tf.keras`
         # optimizers.
-        if sess:
+        if self.optimizer_type == self._OPTIMIZER_TYPE_KERAS:
+            session = tf.compat.v1.keras.backend.get_session(op_input_list=())
             vars_init_op = tf.compat.v1.variables_initializer(
                 [self.counter, *get_not_none_from_list(self.locally_aggregated_grads)]
             )
-            sess.run(vars_init_op)
+            session.run(vars_init_op)
 
     def _clear_grads(self):
         clear_ops_list = []
@@ -171,6 +175,8 @@ class LocalGradientAggregationHelper:
         performs cross-machine communication every backward_passes_per_step
         times it is called.
         """
+        self._init_aggregation_vars(grads)
+
         # Clear the locally aggregated gradients when the counter is at zero.
         clear_op = tf.cond(
             tf.equal(

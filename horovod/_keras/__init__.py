@@ -54,7 +54,8 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                     allreduce_func=self._allreduce_grads,
                     sparse_as_dense=sparse_as_dense,
                     average_aggregated_gradients=average_aggregated_gradients,
-                    rank=rank()
+                    rank=rank(),
+                    optimizer_type=LocalGradientAggregationHelper._OPTIMIZER_TYPE_KERAS,
                 )
 
             super(self.__class__, self).__init__(**kwargs)
@@ -84,10 +85,6 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
             self._aggregated_gradients = True
 
             if self._agg_helper:
-                self._agg_helper.init_aggregation_vars(
-                    grads,
-                    sess=tf.compat.v1.keras.backend.get_session(op_input_list=()),
-                )
                 return self._agg_helper.compute_gradients(tuple(grads))
             else:
                 return self._allreduce_grads(grads)
