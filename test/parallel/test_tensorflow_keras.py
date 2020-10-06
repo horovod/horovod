@@ -15,6 +15,7 @@
 
 """Tests for horovod.tensorflow.keras."""
 
+import math
 import numpy as np
 import pytest
 import tensorflow as tf
@@ -23,6 +24,7 @@ import warnings
 from distutils.version import LooseVersion
 from tensorflow import keras
 from tensorflow.python.keras import backend as K
+from tensorflow.python.keras.optimizer_v2 import optimizer_v2
 
 import horovod.tensorflow.keras as hvd
 
@@ -352,32 +354,58 @@ class TfKerasTests(tf.test.TestCase):
 
     def test_gradient_aggregation(self):
         with self.test_session(config=self.config) as sess:
+
+            class TestingOptimizer(optimizer_v2.OptimizerV2):
+                """
+                Custom optimizer we use for testing gradient aggregation.
+                """
+                def get_config(self):
+                    config = super(TestingOptimizer, self).get_config()
+                    return config
+
+                def _create_slots(self, var_list):
+                    pass
+
+                def _resource_apply_dense(self, grad, var, apply_state=None):
+                    return var.assign_add(grad)
+
             K.set_session(sess)
             session = tf.compat.v1.keras.backend.get_session(op_input_list=())
 
             backward_passes_per_step = 4
             hvd_optimizer = hvd.DistributedOptimizer(
-                optimizer=keras.optimizers.RMSprop(lr=0.0001),
+                optimizer=TestingOptimizer("test"),
                 backward_passes_per_step=backward_passes_per_step,
             )
+            iterations = hvd_optimizer.iterations
+            session.run(iterations.initializer)
 
             def compute_expected_value(batch_id):
-                gradients_aggregated = (batch_id + 1) % backward_passes_per_step == 0
-                if gradients_aggregated:
-                    all_reduced_grads = 0.0
-                    for _ in range(backward_passes_per_step):
-                        grads_for_batch = 0.0
-                        for rank in range(hvd.size()):
-                            grads_for_batch += rank
-                        grads_for_batch /= float(backward_passes_per_step)
-                        all_reduced_grads += grads_for_batch / float(hvd.size())
-                    return all_reduced_grads
-                else:
-                    non_aggregated_grads = hvd.rank()
-                    return non_aggregated_grads
+                sum_per_aggregation = 0.0
+                for _ in range(backward_passes_per_step):
+                    grads_for_batch = 0.0
+                    for rank in range(hvd.size()):
+                        grads_for_batch += rank
+
+                    # Apply `average_aggregated_gradients`.
+                    grads_for_batch /= float(backward_passes_per_step)
+
+                    # Averages across workers.
+                    sum_per_aggregation += grads_for_batch / float(hvd.size())
+
+                aggregations_completed = math.floor((batch_id + 1) / backward_passes_per_step)
+                return aggregations_completed * sum_per_aggregation
 
             grads = [tf.constant([float(hvd.rank())])]
-            op = hvd_optimizer._allreduce(grads)
+            variables = [tf.Variable([0.0])]
+            session.run(variables[0].initializer)
+
+            allreduce_op = hvd_optimizer._allreduce(grads)
+            grads_and_vars = [(allreduce_op[0], variables[0])]
+            apply_grads_op = hvd_optimizer.apply_gradients(grads_and_vars)
+
             for idx in range(10):
-                value = session.run(op)[0][0]
-                assert value == compute_expected_value(idx)
+                _ = session.run(apply_grads_op)
+
+                assert idx + 1 == session.run(hvd_optimizer.iterations)
+                assert session.run(variables[0].read_value()) == compute_expected_value(idx)
