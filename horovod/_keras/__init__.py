@@ -17,7 +17,7 @@ from distutils.version import LooseVersion
 
 import horovod.tensorflow as hvd
 import tensorflow as tf
-from horovod.common.gradient_aggregation import LocalGradientAggregationHelper
+from horovod.tensorflow.gradient_aggregation import LocalGradientAggregationHelper
 from horovod.tensorflow.mpi_ops import rank
 
 

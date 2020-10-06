@@ -20,7 +20,6 @@ import os
 import warnings
 
 from horovod.common.util import check_extension, gpu_available
-from horovod.common.gradient_aggregation import LocalGradientAggregationHelper
 
 check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
 
