@@ -93,6 +93,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
             if self._agg_helper:
                 results = self._agg_helper.apply_gradients(
                     lambda: super(self.__class__, self).apply_gradients(*args, **kwargs),
+                    self,
                     *args,
                     **kwargs,
                 )

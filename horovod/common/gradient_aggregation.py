@@ -179,11 +179,10 @@ class LocalGradientAggregationHelper:
 
         # Clear the locally aggregated gradients when the counter is at zero.
         clear_op = tf.cond(
-            tf.equal(
-                self.counter,
-                0),
-            lambda: self._clear_grads(),
-            tf.no_op)
+            pred=tf.equal(self.counter, 0),
+            true_fn=lambda: self._clear_grads(),
+            false_fn=tf.no_op
+        )
 
         # Add new gradients to the locally aggregated gradients.
         with tf.control_dependencies([clear_op]):
@@ -224,7 +223,7 @@ class LocalGradientAggregationHelper:
         # that were submitted as the updates (the input).
         return allreduced_grads
 
-    def apply_gradients(self, apply_grads_closure, *args, **kwargs):
+    def apply_gradients(self, apply_grads_closure, optimizer, *args, **kwargs):
         """
         Apply updates every backward_passes_per_step, which lines up with
         the batches on which we communicated the locally aggregated gradients.
@@ -244,14 +243,24 @@ class LocalGradientAggregationHelper:
                 read_value=False
             )
 
+        # Increment global step on iterations where we don't call `apply_gradients()`.
         cond_increment_global_step_counter = tf.cond(
-            tf.equal(self.counter, 0), tf.no_op, increment_global_step_counter)
+            pred=tf.equal(self.counter, 0),
+            true_fn=tf.no_op,
+            false_fn=increment_global_step_counter,
+        )
         flattended_args0.append(cond_increment_global_step_counter)
+
+        # If optimizer tracks iterations, we increment it on steps where we
+        # are not going to call `apply_gradients()`.
+        def increment_optimizer_iteration():
+            if hasattr(optimizer, "_iterations") and optimizer._iterations is not None:
+                return optimizer._iterations.assign_add(1).op
+            return tf.no_op()
 
         with tf.control_dependencies([tf.group(*get_not_none_from_list(flattended_args0))]):
             return tf.cond(
-                tf.equal(
-                    self.counter,
-                    0),
-                apply_grads_closure,
-                tf.no_op)
+                pred=tf.equal(self.counter, 0),
+                true_fn=apply_grads_closure,
+                false_fn=increment_optimizer_iteration,
+            )
