@@ -434,7 +434,7 @@ if _LegacyOptimizer is not None:
 
 def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='',
                          device_sparse='', compression=Compression.none,
-                         backward_passes_per_step=1, sparse_as_dense=False,
+                         sparse_as_dense=False, backward_passes_per_step=1,
                          op=Average, gradient_predivide_factor=1.0,
                          average_aggregated_gradients=True):
     """Construct a new DistributedOptimizer, which uses another optimizer

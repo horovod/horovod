@@ -35,7 +35,8 @@ class LocalGradientAggregationHelper:
         # backward_passes_per_step controls how often gradient updates are
         # synchronized.
         self.backward_passes_per_step = backward_passes_per_step
-        assert self.backward_passes_per_step > 0
+        if self.backward_passes_per_step <= 0:
+            raise ValueError("backward_passes_per_step must be > 0")
 
         # average_aggregated_gradients controls whether gradient updates that are
         # aggregated, should be divided by `backward_passes_per_step`.
@@ -77,7 +78,7 @@ class LocalGradientAggregationHelper:
                 if self.sparse_as_dense and isinstance(grad, tf.IndexedSlices):
                     grad = tf.convert_to_tensor(grad)
                 elif isinstance(grad, tf.IndexedSlices):
-                    raise AssertionError(
+                    raise ValueError(
                         "IndexedSlices are not supported when "
                         "`backward_passes_per_step` > 1 and "
                         "`sparse_as_dense` is False."
@@ -127,7 +128,7 @@ class LocalGradientAggregationHelper:
         grads = get_not_none_from_list(grads)
         assert len(grads) == len(self.locally_aggregated_grads)
 
-        # Apply new gradient updates to the locally copy.
+        # Apply new gradient updates to the local copy.
         for idx, grad in enumerate(grads):
             if self.sparse_as_dense and isinstance(grad, tf.IndexedSlices):
                 grad = tf.convert_to_tensor(grad)
