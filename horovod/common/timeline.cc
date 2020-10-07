@@ -128,7 +128,7 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
 void TimelineWriter::Initialize(
     std::string file_name, std::chrono::steady_clock::time_point start_time_) {
   std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
-  if (healthy_)
+  if (healthy_.fetch_and(true))
     return;
 
   SetTimelineFile(file_name);
@@ -164,13 +164,14 @@ void TimelineWriter::Shutdown() {
   tensor_table_.clear();
 }
 
+void TimelineWriter::active() { return active_.fetch_and(1); }
 void TimelineWriter::EnqueueWriteEvent(const std::string& tensor_name,
                                        char phase, const std::string& op_name,
                                        const std::string& args,
                                        long ts_micros) {
   {
     std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
-    if (!active_ || !healthy_)
+    if (!active() || !healthy_)
       return;
   }
   TimelineRecord r{};
@@ -180,7 +181,7 @@ void TimelineWriter::EnqueueWriteEvent(const std::string& tensor_name,
   r.op_name = op_name;
   r.args = args;
   r.ts_micros = ts_micros;
-  while (healthy_ && active_ && !record_queue_.push(r))
+  while (healthy_ && active() && !record_queue_.push(r))
     ;
 }
 
@@ -188,7 +189,7 @@ void TimelineWriter::EnqueueWriteMarker(const std::string& name,
                                         long ts_micros) {
   {
     std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
-    if (!active_ || !healthy_)
+    if (!active() || !healthy_)
       return;
   }
   TimelineRecord r{};
@@ -196,7 +197,7 @@ void TimelineWriter::EnqueueWriteMarker(const std::string& name,
   r.marker_name = name;
   r.ts_micros = ts_micros;
 
-  while (healthy_ && active_ && !record_queue_.push(r))
+  while (healthy_ && active() && !record_queue_.push(r))
     ;
 }
 
@@ -309,7 +310,7 @@ void TimelineWriter::WriterLoop() {
       // check if we need to call SetTimeLineFile
       if (pending_status_)
         SetTimelineFile(PendingTimelineFile());
-      if (active_ && !file_.good()) {
+      if (active() && !file_.good()) {
         LOG(ERROR) << "Error writing to the Horovod Timeline after it was "
                       "successfully opened, will stop writing the timeline."
                    << " eofbit:" << file_.eof() << " failbit:" << file_.fail()
@@ -357,7 +358,7 @@ long Timeline::TimeSinceStartMicros() const {
 // Write event to the Horovod Timeline file.
 void Timeline::WriteEvent(const std::string& tensor_name, const char phase,
                           const std::string& op_name, const std::string& args) {
-  if (!initialized_ || !writer_.active_) {
+  if (!initialized_ || !writer_.active()) {
     return;
   }
   auto ts_micros = TimeSinceStartMicros();
@@ -365,7 +366,7 @@ void Timeline::WriteEvent(const std::string& tensor_name, const char phase,
 }
 
 void Timeline::WriteMarker(const std::string& name) {
-  if (!initialized_ || !writer_.active_) {
+  if (!initialized_ || !writer_.active()) {
     return;
   }
   auto ts_micros = TimeSinceStartMicros();
@@ -374,7 +375,7 @@ void Timeline::WriteMarker(const std::string& name) {
 
 void Timeline::NegotiateStart(const std::string& tensor_name,
                               const Request::RequestType request_type) {
-  if (!initialized_ || !writer_.active_) {
+  if (!initialized_ || !writer_.active()) {
     return;
   }
 
@@ -397,7 +398,7 @@ void Timeline::NegotiateStart(const std::string& tensor_name,
 
 void Timeline::NegotiateRankReady(const std::string& tensor_name,
                                   const int rank) {
-  if (!initialized_ || !writer_.active_) {
+  if (!initialized_ || !writer_.active()) {
     return;
   }
 
@@ -407,7 +408,7 @@ void Timeline::NegotiateRankReady(const std::string& tensor_name,
 }
 
 void Timeline::NegotiateEnd(const std::string& tensor_name) {
-  if (!initialized_ || !writer_.active_) {
+  if (!initialized_ || !writer_.active()) {
     return;
   }
 
@@ -419,7 +420,7 @@ void Timeline::NegotiateEnd(const std::string& tensor_name) {
 
 void Timeline::Start(const std::string& tensor_name,
                      const Response::ResponseType response_type) {
-  if (!initialized_ || !writer_.active_) {
+  if (!initialized_ || !writer_.active()) {
     return;
   }
 
@@ -432,7 +433,7 @@ void Timeline::Start(const std::string& tensor_name,
 
 void Timeline::ActivityStartAll(const std::vector<TensorTableEntry>& entries,
                                 const std::string& activity) {
-  if (!initialized_ || !writer_.active_) {
+  if (!initialized_ || !writer_.active()) {
     return;
   }
   for (auto& e : entries) {
@@ -442,7 +443,7 @@ void Timeline::ActivityStartAll(const std::vector<TensorTableEntry>& entries,
 
 void Timeline::ActivityStart(const std::string& tensor_name,
                              const std::string& activity) {
-  if (!initialized_ || !writer_.active_) {
+  if (!initialized_ || !writer_.active()) {
     return;
   }
 
@@ -459,7 +460,7 @@ void Timeline::ActivityEndAll(const std::vector<TensorTableEntry>& entries) {
 }
 
 void Timeline::ActivityEnd(const std::string& tensor_name) {
-  if (!initialized_ || !writer_.active_) {
+  if (!initialized_ || !writer_.active()) {
     return;
   }
 
@@ -471,7 +472,7 @@ void Timeline::ActivityEnd(const std::string& tensor_name) {
 
 void Timeline::End(const std::string& tensor_name,
                    const std::shared_ptr<Tensor> tensor) {
-  if (!initialized_ || !writer_.active_) {
+  if (!initialized_ || !writer_.active()) {
     return;
   }
 
@@ -491,7 +492,7 @@ void Timeline::End(const std::string& tensor_name,
 }
 
 void Timeline::MarkCycleStart() {
-  if (!initialized_ || !writer_.active_) {
+  if (!initialized_ || !writer_.active()) {
     return;
   }
 

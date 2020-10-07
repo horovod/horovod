@@ -57,6 +57,7 @@ public:
                          long ts_micros);
   void EnqueueWriteMarker(const std::string& name, long ts_micros);
   void SetPendingTimelineFile(std::string filename);
+  bool active();
   TimelineWriter();
 
   // Similar to healthy, but allows queue to be drained before closing when set
