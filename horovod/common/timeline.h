@@ -107,7 +107,7 @@ class Timeline {
 public:
   void Initialize(std::string file_name, unsigned int horovod_size);
   void Shutdown();
-  inline bool Initialized() const { return initialized_.fetch_and(true); }
+  inline bool Initialized() { return initialized_.fetch_and(true); }
   void NegotiateStart(const std::string& tensor_name,
                       Request::RequestType request_type);
   void NegotiateRankReady(const std::string& tensor_name, int rank);
