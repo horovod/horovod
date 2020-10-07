@@ -50,14 +50,13 @@ public:
   void Initialize(std::string file_name,
                   std::chrono::steady_clock::time_point start_time_);
   void Shutdown();
-  inline bool IsHealthy() const { return healthy_; }
-  inline bool Active() const { return active_; }
   void EnqueueWriteEvent(const std::string& tensor_name, char phase,
                          const std::string& op_name, const std::string& args,
                          long ts_micros);
   void EnqueueWriteMarker(const std::string& name, long ts_micros);
   void SetPendingTimelineFile(std::string filename);
   bool active();
+  bool healthy();
   TimelineWriter();
 
   // Similar to healthy, but allows queue to be drained before closing when set
@@ -108,7 +107,7 @@ class Timeline {
 public:
   void Initialize(std::string file_name, unsigned int horovod_size);
   void Shutdown();
-  inline bool Initialized() const { return initialized_; }
+  inline bool Initialized() const { return initialized_.fetch_and(true); }
   void NegotiateStart(const std::string& tensor_name,
                       Request::RequestType request_type);
   void NegotiateRankReady(const std::string& tensor_name, int rank);
