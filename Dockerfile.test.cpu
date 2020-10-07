@@ -88,11 +88,13 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
             chmod +x /usr/local/oneccl/bin/mpigxx && \
             cp /tmp/oneCCL-master/mpi/lib/libmpicxx.so /usr/local/oneccl/lib && \
             chmod +x /usr/local/oneccl/lib/libmpicxx.so && \
+            cp /tmp/oneCCL-master/mpi/lib/libmpifort.so /usr/local/oneccl/lib && \
+            chmod +x /usr/local/oneccl/lib/libmpifort.so && \
             sed -i 's/if \[ -z \"\${I_MPI_ROOT}\" \]/if [ -z \"${I_MPI_ROOT:-}\" ]/g' /usr/local/oneccl/env/setvars.sh && \
             sed -i 's/ \$1/ \${1:-}/g' /usr/local/oneccl/env/setvars.sh && \
             echo ". /usr/local/oneccl/env/setvars.sh" > /oneccl_env && \
             chmod +x /oneccl_env && \
-            echo "export CCL_ATL_TRANSPORT=ofi; export CCL_ATL_SHM=0; \
+            echo "export CCL_ATL_TRANSPORT=ofi; \
                   echo \"\$(env)\"; \
                   echo \"mpirun is \$(which mpirun)\"; \
                   echo \"LD_LIBRARY_PATH is \$(echo \$LD_LIBRARY_PATH)\"; \
@@ -100,8 +102,7 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
                   mpirun -np 2 -hosts localhost \$@" > /mpirun_command_ofi && \
             chmod +x /mpirun_command_ofi && \
             cp /mpirun_command_ofi /mpirun_command_mpi && \
-            sed -i 's/export CCL_ATL_TRANSPORT=ofi;//g' /mpirun_command_mpi && \
-            sed -i 's/export CCL_ATL_SHM=0;//g' /mpirun_command_mpi && \
+            sed -i 's/export CCL_ATL_TRANSPORT=ofi;/export CCL_ATL_TRANSPORT=mpi;/g' /mpirun_command_mpi && \
             echo "-L/usr/local/oneccl/lib -lmpi -I/usr/local/oneccl/include" > /mpicc_oneccl && \
             chmod +x /mpicc_oneccl && \
             echo "/mpirun_command_mpi" > /mpirun_command; \

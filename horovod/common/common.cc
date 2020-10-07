@@ -156,12 +156,12 @@ void parse_and_set_affinity(const char* affinity, int local_size, int local_rank
   char* affinity_copy = (char*)calloc(affinity_len + 1, sizeof(char));
   memcpy(affinity_copy, affinity, affinity_len);
   char* tmp = affinity_copy;
-  char *endptr;
+  char* endptr;
 
   std::vector<int> core_ids(local_size);
   int count = 0;
 
-  while (*tmp != 0 && count < local_size) {
+  while (tmp && count < local_size) {
     auto core_id_str = strsep(&tmp, ",");
     errno = 0;
     auto core_id = std::strtol(core_id_str, &endptr, 10);
