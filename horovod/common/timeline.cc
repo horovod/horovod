@@ -79,7 +79,7 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
     if (!record_queue_.empty()) {
       LOG(DEBUG) << " SetTimelineFile is no-op as there are events in "
                     "record_queue. Will allow those events to be dumped.";
-      active_.exchange(false);
+      active_.exchange(0);
       // Give chance to dump existing event
       return;
     }
@@ -94,8 +94,8 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
   // stopping timeline
   if (filename == "") {
 
-    healthy_.exchange(true);
-    active_.exchange(false);
+    healthy_.exchange(1);
+    active_.exchange(0);
     cur_filename_ = filename;
     new_pending_filename_ = cur_filename_;
     // empty filename is special which tells that init the timeline but don't
@@ -114,13 +114,13 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
     cur_filename_ = filename;
     new_pending_filename_ = cur_filename_;
     is_new_file_ = true;
-    healthy_.exchange(true);
-    active_.exchange(true);
+    healthy_.exchange(1);
+    active_.exchange(1);
   } else {
     LOG(ERROR) << "Error opening the Horovod Timeline file " << filename
                << ", will not write a timeline.";
-    healthy_.exchange(true);
-    active_.exchange(false);
+    healthy_.exchange(1);
+    active_.exchange(0);
   }
   pending_status_ = false;
 }
@@ -146,8 +146,8 @@ void TimelineWriter::Initialize(
 }
 
 void TimelineWriter::Shutdown() {
-  active_.exchange(false);
-  healthy_.exchange(false);
+  active_.exchange(0);
+  healthy_.exchange(0);
   try {
     if (writer_thread_.joinable()) {
       writer_thread_.join();
@@ -316,7 +316,7 @@ void TimelineWriter::WriterLoop() {
                       "successfully opened, will stop writing the timeline."
                    << " eofbit:" << file_.eof() << " failbit:" << file_.fail()
                    << " badbit" << file_.bad() << "\n";
-        active_.exchange(false);
+        active_.exchange(0);
       }
     }
     // Allow scheduler to schedule other work for this core.
@@ -345,7 +345,7 @@ void Timeline::Initialize(std::string file_name, unsigned int horovod_size) {
 
 void Timeline::Shutdown() {
   std::lock_guard<std::recursive_mutex> guard(mutex_);
-  initialized_.exchange(false);
+  initialized_.exchange(0);
   writer_.Shutdown();
   tensor_states_.clear();
 }
