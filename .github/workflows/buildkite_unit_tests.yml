@@ -4,13 +4,29 @@ on:
     branches: "**"
     tags-ignore: "**"
 
+  # This refers to pull_request events running in the target (base) repo
+  # https://docs.github.com/en/actions/reference/events-that-trigger-workflows#pull_request_target
+  # By default runs on these activity types only: opened, synchronize, reopened
+  pull_request_target:
+    branches: "**"
+
 jobs:
   # buildkite does not run tests when there are no code changes, unless master is build
   # downloading unit tests only works in the horovod repository
   buildkite:
     name: "Buildkite Unit Tests"
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'horovod'
+    # this workflow only runs
+    # - when a secrets.BUILDKITE_TOKEN is defined (i.e. in 'horovod/horovod' repo, not in forks)
+    #   we cannot test for secrets here, so we test for github.repository
+    #   https://github.community/t/how-can-i-test-if-secrets-are-available-in-an-action/17911/7
+    # AND
+    # - on push events OR on pull_request_target events for pull requests from forks
+    if: >
+      github.repository == 'horovod/horovod' && (
+        github.event_name == 'push' ||
+        github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+      )
 
     steps:
     - name: Checkout Git
@@ -53,19 +69,20 @@ jobs:
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
+        ignore_build_states: canceled
+        ignore_job_states: timed_out
         output_path: test-results
         log_level: DEBUG
-      continue-on-error: true
 
     - name: Unit Test Results
+      id: results
       uses: EnricoMi/publish-unit-test-result-action@master
-      if: steps.download.outcome != 'skipped'
+      if: steps.download.outcome != 'skipped' && steps.download.outputs.build-state != 'canceled'
       with:
         check_name: Unit Test Results
         github_token: ${{ secrets.GITHUB_TOKEN }}
         files: "test-results/**/*.xml"
         log_level: DEBUG
-      continue-on-error: true
 
     - name: Upload Test Results
       uses: actions/upload-artifact@v2
