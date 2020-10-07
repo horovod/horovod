@@ -133,7 +133,7 @@ private:
 
   // Boolean flag indicating whether Timeline was initialized (and thus should
   // be recorded).
-  bool initialized_ = false;
+  std::atomic_bool initialized_{false};
 
   // Timeline writer.
   TimelineWriter writer_;
