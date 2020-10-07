@@ -164,8 +164,8 @@ void TimelineWriter::Shutdown() {
   tensor_table_.clear();
 }
 
-void TimelineWriter::active() { return active_.fetch_and(true); }
-void TimelineWriter::healthy() { return healthy_.fetch_and(true); }
+short TimelineWriter::active() { return active_.fetch_and(1); }
+short TimelineWriter::healthy() { return healthy_.fetch_and(1); }
 void TimelineWriter::EnqueueWriteEvent(const std::string& tensor_name,
                                        char phase, const std::string& op_name,
                                        const std::string& args,
