@@ -119,6 +119,8 @@ Guides
 
    mpi_include
 
+   oneccl_include
+
    conda_include
 
    docker_include

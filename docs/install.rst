@@ -190,7 +190,7 @@ oneCCL
 ~~~~~~
 
 oneCCL is an Intel library for accelerated collective operations on CPU. See
-`Horovod with Intel(R) oneCCL <oneccl.md>`_ for more details.
+`Horovod with Intel(R) oneCCL <oneccl.rst>`_ for more details.
 
 Set ``HOROVOD_CPU_OPERATIONS=CCL`` to use oneCCL.
 
