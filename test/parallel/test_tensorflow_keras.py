@@ -52,7 +52,9 @@ class TfKerasTests(tf.test.TestCase):
 
             opt = keras.optimizers.RMSprop(lr=0.0001)
             opt = hvd.DistributedOptimizer(
-                opt, backward_passes_per_step=backward_passes_per_step)
+                opt,
+                backward_passes_per_step=backward_passes_per_step,
+                average_aggregated_gradients=True)
 
             model = keras.models.Sequential()
             model.add(keras.layers.Dense(2, input_shape=(3,)))
@@ -376,6 +378,7 @@ class TfKerasTests(tf.test.TestCase):
             hvd_optimizer = hvd.DistributedOptimizer(
                 optimizer=TestingOptimizer("test"),
                 backward_passes_per_step=backward_passes_per_step,
+                average_aggregated_gradients=True,
             )
             iterations = hvd_optimizer.iterations
             session.run(iterations.initializer)

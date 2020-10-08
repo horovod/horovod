@@ -52,7 +52,7 @@ def DistributedOptimizer(optimizer, name=None,
                          gradient_predivide_factor=1.0,
                          op=Average,
                          backward_passes_per_step=1,
-                         average_aggregated_gradients=True):
+                         average_aggregated_gradients=False):
     """
     An optimizer that wraps another keras.optimizers.Optimizer, using an allreduce to
     average gradient values before applying gradients to model weights.
