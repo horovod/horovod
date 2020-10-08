@@ -45,15 +45,12 @@ else()
     set(Pytorch_EXT "CppExtension")
 endif()
 
-execute_process(COMMAND ${PY_EXE} -c "from torch.utils.cpp_extension import ${Pytorch_EXT} as ext; e = ext('', []); print(';'.join(e.include_dirs))"
+execute_process(COMMAND ${PY_EXE} -c "import os,sys; sys.stdout=sys.stderr=open(os.devnull,'w'); from torch.utils.cpp_extension import ${Pytorch_EXT} as ext; e = ext('', []); print(';'.join(e.include_dirs), file=sys.__stdout__)"
                 OUTPUT_VARIABLE Pytorch_INCLUDE_DIRS OUTPUT_STRIP_TRAILING_WHITESPACE)
-string(REGEX REPLACE "No CUDA runtime[^\n]*\n?" "" Pytorch_INCLUDE_DIRS "${Pytorch_INCLUDE_DIRS}")
-execute_process(COMMAND ${PY_EXE} -c "from torch.utils.cpp_extension import ${Pytorch_EXT} as ext; e = ext('', []); print(';'.join(e.library_dirs))"
+execute_process(COMMAND ${PY_EXE} -c "import os,sys; sys.stdout=sys.stderr=open(os.devnull,'w'); from torch.utils.cpp_extension import ${Pytorch_EXT} as ext; e = ext('', []); print(';'.join(e.library_dirs), file=sys.__stdout__)"
                 OUTPUT_VARIABLE Pytorch_LIBRARY_DIRS OUTPUT_STRIP_TRAILING_WHITESPACE)
-string(REGEX REPLACE "No CUDA runtime[^\n]*\n?" "" Pytorch_LIBRARY_DIRS "${Pytorch_LIBRARY_DIRS}")
-execute_process(COMMAND ${PY_EXE} -c "from torch.utils.cpp_extension import ${Pytorch_EXT} as ext; e = ext('', []); print(';'.join(e.libraries))"
+execute_process(COMMAND ${PY_EXE} -c "import os,sys; sys.stdout=sys.stderr=open(os.devnull,'w'); from torch.utils.cpp_extension import ${Pytorch_EXT} as ext; e = ext('', []); print(';'.join(e.libraries), file=sys.__stdout__)"
                 OUTPUT_VARIABLE _Pytorch_LIBRARIES OUTPUT_STRIP_TRAILING_WHITESPACE)
-string(REGEX REPLACE "No CUDA runtime[^\n]*\n?" "" _Pytorch_LIBRARIES "${_Pytorch_LIBRARIES}")
 
 foreach(_LIB IN LISTS _Pytorch_LIBRARIES)
     find_library(FOUND_LIB_${_LIB}
