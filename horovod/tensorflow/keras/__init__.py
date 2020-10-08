@@ -30,7 +30,7 @@ from horovod.tensorflow import local_rank
 from horovod.tensorflow import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.tensorflow import gloo_enabled, gloo_built
 from horovod.tensorflow import nccl_built, ddl_built, ccl_built, cuda_built, rocm_built
-from horovod.tensorflow import Compression
+from horovod.tensorflow import Average, Compression, Sum
 
 import horovod._keras as _impl
 from horovod.tensorflow.keras import callbacks, elastic
@@ -50,6 +50,7 @@ def DistributedOptimizer(optimizer, name=None,
                          compression=Compression.none,
                          sparse_as_dense=False,
                          gradient_predivide_factor=1.0,
+                         op=Average,
                          backward_passes_per_step=1,
                          average_aggregated_gradients=True):
     """
@@ -76,17 +77,22 @@ def DistributedOptimizer(optimizer, name=None,
                                    before and after the sum. Gradients are scaled by
                                    1.0 / gradient_predivide_factor before the sum and
                                    gradient_predivide_factor / size after the sum.
+        op: The reduction operation to use when combining gradients across
+            different ranks. Defaults to Average.
         backward_passes_per_step: Number of backward passes to perform before calling
                                   hvd.allreduce. This allows accumulating updates over
                                   multiple mini-batches before reducing and applying them.
         average_aggregated_gradients: Whether to average the aggregated gradients that
                                       have been accumulated over multiple mini-batches.
                                       If true divides gradient updates by
-                                      backward_passes_per_step
+                                      backward_passes_per_step.
                                       Only applicable for backward_passes_per_step > 1.
     """
     if gradient_predivide_factor != 1.0 and rocm_built():
             raise ValueError('gradient_predivide_factor not supported yet with ROCm')
+
+    if op != Average and op != Sum:
+        raise ValueError('op currently only supports Average and Sum')
 
     return _impl.create_distributed_optimizer(
         keras=keras,
@@ -97,8 +103,9 @@ def DistributedOptimizer(optimizer, name=None,
         compression=compression,
         sparse_as_dense=sparse_as_dense,
         gradient_predivide_factor=gradient_predivide_factor,
+        op=op,
         backward_passes_per_step=backward_passes_per_step,
-        average_aggregated_gradients=average_aggregated_gradients
+        average_aggregated_gradients=average_aggregated_gradients,
     )
 
 

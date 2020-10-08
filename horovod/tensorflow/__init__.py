@@ -436,7 +436,7 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
                          device_sparse='', compression=Compression.none,
                          sparse_as_dense=False, backward_passes_per_step=1,
                          op=Average, gradient_predivide_factor=1.0,
-                         average_aggregated_gradients=True):
+                         average_aggregated_gradients=False):
     """Construct a new DistributedOptimizer, which uses another optimizer
     under the hood for computing single-process gradient values and
     applying gradient updates after the gradient values have been combined
@@ -480,7 +480,7 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
         gradient_predivide_factor / size after the sum.
       average_aggregated_gradients:
         Whether to average the aggregated gradients that have been accumulated
-        over multiple mini-batches. If true divide gradients by
+        over multiple mini-batches. If true divides gradients updates by
         backward_passes_per_step. Only applicable for backward_passes_per_step > 1.
     """
     if gradient_predivide_factor != 1.0:

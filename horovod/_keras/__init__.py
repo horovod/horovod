@@ -26,7 +26,8 @@ _PRE_TF_2_4_0 = LooseVersion(tf.__version__) < LooseVersion('2.4.0')
 
 def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sparse,
                                  compression, sparse_as_dense, gradient_predivide_factor,
-                                 backward_passes_per_step=1, average_aggregated_gradients=True):
+                                 op, backward_passes_per_step=1,
+                                 average_aggregated_gradients=True):
     class _DistributedOptimizer(keras.optimizers.Optimizer):
         _HAS_AGGREGATE_GRAD = True
 
@@ -40,7 +41,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                 device_sparse,
                 compression,
                 sparse_as_dense,
-                hvd.Average,
+                op,
                 gradient_predivide_factor)
 
             self._agg_helper = None
