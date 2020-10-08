@@ -69,7 +69,7 @@ jobs:
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
-        ignore_build_states: canceled
+        ignore_build_states: blocked,canceled,skipped,not_run
         ignore_job_states: timed_out
         output_path: test-results
         log_level: DEBUG
