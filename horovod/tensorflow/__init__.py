@@ -489,6 +489,9 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
         if op != Average:
             raise ValueError('gradient_predivide_factor not supported with op != Average')
 
+    if op == Adasum and average_aggregated_gradients:
+        raise ValueError('Adasum does not support average_aggregated_gradients == True')
+
     if isinstance(optimizer, _LegacyOptimizer):
         if op == Adasum:
             return _DistributedAdasumOptimizer(optimizer, name, use_locking, device_dense,
