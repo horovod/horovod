@@ -435,7 +435,8 @@ if _LegacyOptimizer is not None:
 def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='',
                          device_sparse='', compression=Compression.none,
                          sparse_as_dense=False, backward_passes_per_step=1,
-                         op=Average, gradient_predivide_factor=1.0):
+                         op=Average, gradient_predivide_factor=1.0,
+                         average_aggregated_gradients=False):
     """Construct a new DistributedOptimizer, which uses another optimizer
     under the hood for computing single-process gradient values and
     applying gradient updates after the gradient values have been combined
@@ -477,6 +478,10 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
         before and after the sum. Gradients are scaled by
         1.0 / gradient_predivide_factor before the sum and
         gradient_predivide_factor / size after the sum.
+      average_aggregated_gradients:
+        Whether to average the aggregated gradients that have been accumulated
+        over multiple mini-batches. If true divides gradients updates by
+        backward_passes_per_step. Only applicable for backward_passes_per_step > 1.
     """
     if gradient_predivide_factor != 1.0:
         if rocm_built():
@@ -484,25 +489,44 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
         if op != Average:
             raise ValueError('gradient_predivide_factor not supported with op != Average')
 
+    if op == Adasum and average_aggregated_gradients:
+        raise ValueError('Adasum does not support average_aggregated_gradients == True')
+
     if isinstance(optimizer, _LegacyOptimizer):
         if op == Adasum:
             return _DistributedAdasumOptimizer(optimizer, name, use_locking, device_dense,
                                             device_sparse, compression, backward_passes_per_step)
         else:
             if backward_passes_per_step > 1:
-                raise ValueError('backward_passes_per_step>1 is not supported yet with '
-                                 'op != Adasum')
-            return _DistributedOptimizer(optimizer, name, use_locking, device_dense,
-                                        device_sparse, compression, sparse_as_dense, op,
-                                        gradient_predivide_factor)
+                raise ValueError('backward_passes_per_step > 1 is not supported yet with '
+                                 'op != Adasum for Tensorflow optimizers.')
+            return _DistributedOptimizer(
+                optimizer=optimizer,
+                name=name,
+                use_locking=use_locking,
+                device_dense=device_dense,
+                device_sparse=device_sparse,
+                compression=compression,
+                sparse_as_dense=sparse_as_dense,
+                op=op,
+                gradient_predivide_factor=gradient_predivide_factor,
+            )
     elif isinstance(optimizer, tf.keras.optimizers.Optimizer):
         if op == Adasum:
             raise ValueError('op == Adasum is not supported yet with Keras')
-        if backward_passes_per_step > 1:
-            raise ValueError('backward_passes_per_step > 1 is not supported yet with Keras')
+
         import horovod.tensorflow.keras as hvd_k
-        return hvd_k.DistributedOptimizer(optimizer, name, device_dense, device_sparse,
-                                          compression, sparse_as_dense, gradient_predivide_factor)
+        return hvd_k.DistributedOptimizer(
+            optimizer=optimizer,
+            name=name,
+            device_dense=device_dense,
+            device_sparse=device_sparse,
+            compression=compression,
+            sparse_as_dense=sparse_as_dense,
+            gradient_predivide_factor=gradient_predivide_factor,
+            backward_passes_per_step=backward_passes_per_step,
+            average_aggregated_gradients=average_aggregated_gradients,
+        )
     else:
         raise ValueError('Provided optimizer doesn\'t inherit from either legacy '
                          'TensorFlow or Keras optimizer: %s' % optimizer)
