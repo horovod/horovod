@@ -48,7 +48,7 @@ Real data benchmarks
 The benchmark instructions above are for the synthetic data benchmark.
 
 To run the benchmark on a real data, you need to download the `ImageNet dataset <http://image-net.org/download-images>`__
-and convert it using the TFRecord `preprocessing script <https://github.com/tensorflow/models/blob/master/research/inception/inception/data/download_and_preprocess_imagenet.sh>`__.
+and convert it using the TFRecord `preprocessing script <https://github.com/tensorflow/models/blob/master/research/slim/datasets/download_and_convert_imagenet.sh>`__.
 
 Now, simply add ``--data_dir /path/to/imagenet/tfrecords --data_name imagenet --num_batches=2000`` to your training command:
 
@@ -67,9 +67,9 @@ Now, simply add ``--data_dir /path/to/imagenet/tfrecords --data_name imagenet --
 Horovod synthetic benchmarks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Horovod also comes with out-of-the-box benchmarking support for
-`TensorFlow v1 <https://github.com/horovod/horovod/tree/master/examples/tensorflow_synthetic_benchmark.py>`__,
-`TensorFlow v2 <https://github.com/horovod/horovod/tree/master/examples/tensorflow2_synthetic_benchmark.py>`__, and
-`PyTorch <https://github.com/horovod/horovod/tree/master/examples/pytorch_synthetic_benchmark.py>`__.
+`TensorFlow v1 <https://github.com/horovod/horovod/blob/master/examples/tensorflow/tensorflow_synthetic_benchmark.py>`__,
+`TensorFlow v2 <https://github.com/horovod/horovod/blob/master/examples/tensorflow2/tensorflow2_synthetic_benchmark.py>`__, and
+`PyTorch <https://github.com/horovod/horovod/blob/master/examples/pytorch/pytorch_synthetic_benchmark.py>`__.
 
 These benchmarks allow you to measure Horovod's performance and scalability in your environment, as well as try advanced
 Horovod features like gradient compression:
