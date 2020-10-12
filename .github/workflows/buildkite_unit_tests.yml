@@ -29,18 +29,24 @@ jobs:
       )
 
     steps:
+    - name: Condition
+      id: check-for-changes-needed
+      # 'Check for commit changes' is not needed for push to master
+      if: ( ! ( github.event_name == 'push' && github.ref == 'refs/heads/master' ) )
+      run: echo "Will have to 'Check for commit changes'"
+
     - name: Checkout Git
       uses: actions/checkout@v2
-      if: github.ref != 'refs/heads/master'
+      if: steps.check-for-changes-needed.outcome != 'skipped'
 
     - name: Setup Python
       uses: actions/setup-python@v2
-      if: github.ref != 'refs/heads/master'
+      if: steps.check-for-changes-needed.outcome != 'skipped'
       with:
         python-version: '3'
 
     - name: Install Python Dependencies
-      if: github.ref != 'refs/heads/master'
+      if: steps.check-for-changes-needed.outcome != 'skipped'
       run: |
         python -m pip install --upgrade --force --no-cache-dir pip
         pip install --force --no-cache-dir requests
@@ -51,9 +57,9 @@ jobs:
         BUILDKITE_COMMIT: ${{ github.sha }}
         BUILDKITE_PIPELINE_DEFAULT_BRANCH: master
       run: |
-        if [[ "${{ github.ref }}" == "refs/heads/master" ]]
+        if [[ "${{ steps.check-for-changes-needed.outcome }}" == "skipped" ]]
         then
-          echo "::set-output name=changed-code-files::this is master"
+          echo "::set-output name=changed-code-files::this is a push to master"
         else
           files=$(python .buildkite/get_changed_code_files.py || echo failure)
           echo changed code files: $files
