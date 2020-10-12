@@ -23,6 +23,7 @@ import time
 from pyspark import keyword_only
 from pyspark.ml.param.shared import Param, Params
 from pyspark.ml.util import MLWritable, MLReadable
+from pyspark.sql import SparkSession
 
 from horovod.runner.common.util import codec
 from horovod.spark.common import util
@@ -447,4 +448,13 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
 
                 yield Row(**fields)
 
-        return df.rdd.mapPartitions(predict).toDF()
+        spark0 = SparkSession._instantiatedSession
+
+        # Get a limited DF and make predictions and get the schema of the final DF
+        limited_pred_rdd = df.limit(10000).rdd.mapPartitions(predict)
+        limited_pred_df = spark0.createDataFrame(limited_pred_rdd, samplingRatio=1)
+        final_output_schema = limited_pred_df.schema
+
+        pred_rdd = df.rdd.mapPartitions(predict)
+        # Use the schema from previous section to construct the final DF with prediction
+        return spark0.createDataFrame(pred_rdd, schema=final_output_schema)
