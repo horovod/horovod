@@ -15,6 +15,7 @@
 
 """Tests for horovod.tensorflow.keras in TensorFlow 2."""
 
+import math
 import tensorflow as tf
 import numpy as np
 import warnings
@@ -24,8 +25,12 @@ from distutils.version import LooseVersion
 import pytest
 
 from tensorflow import keras
+from tensorflow.python.keras.optimizer_v2 import optimizer_v2
 
 import horovod.tensorflow.keras as hvd
+
+
+_PRE_TF_2_4_0 = LooseVersion(tf.__version__) < LooseVersion("2.4.0")
 
 
 @pytest.mark.skipif(LooseVersion(tf.__version__) < LooseVersion('2.0.0'), reason='TensorFlow v2 tests')
@@ -156,3 +161,55 @@ class Tf2KerasTests(tf.test.TestCase):
             self.assertAllClose(w1, w2)
         assert state.batch == 21
         assert state.epoch == 11
+
+    def test_gradient_aggregation(self):
+        class TestingOptimizer(optimizer_v2.OptimizerV2):
+            """
+            Custom optimizer we use for testing gradient aggregation.
+            """
+            def get_config(self):
+                config = super(TestingOptimizer, self).get_config()
+                return config
+
+            def _resource_apply_dense(self, grad, var, apply_state=None):
+                return var.assign_add(grad)
+
+        backward_passes_per_step = 4
+        hvd_optimizer = hvd.DistributedOptimizer(
+            optimizer=TestingOptimizer("test"),
+            backward_passes_per_step=backward_passes_per_step,
+            average_aggregated_gradients=True,
+        )
+        _ = hvd_optimizer.iterations
+
+        def compute_expected_value(batch_id):
+            sum_per_aggregation = 0.0
+            for _ in range(backward_passes_per_step):
+                grads_for_batch = 0.0
+                for rank in range(hvd.size()):
+                    grads_for_batch += rank
+
+                # Apply `average_aggregated_gradients`.
+                grads_for_batch /= float(backward_passes_per_step)
+
+                # Averages across workers.
+                sum_per_aggregation += grads_for_batch / float(hvd.size())
+
+            aggregations_completed = math.floor((batch_id + 1) / backward_passes_per_step)
+            return aggregations_completed * sum_per_aggregation
+
+        gradients = [tf.constant([float(hvd.rank())])]
+        variables = [tf.Variable([0.0])]
+        for idx in range(10):
+            if _PRE_TF_2_4_0:
+                # In TF < 2.4 `_aggregate_gradients()` is called outside of `apply_gradients()`.
+                updated_gradients = hvd_optimizer._aggregate_gradients(zip(gradients, variables))
+                hvd_optimizer.apply_gradients(
+                    zip(updated_gradients, variables), experimental_aggregate_gradients=False
+                )
+            else:
+                hvd_optimizer.apply_gradients(zip(gradients, variables))
+
+            updated_variable_value = variables[0][0].numpy()
+            assert updated_variable_value == compute_expected_value(idx)
+            assert idx + 1 == hvd_optimizer.iterations.numpy()
