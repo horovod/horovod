@@ -545,9 +545,15 @@ class KerasModel(HorovodModel, KerasEstimatorParamsReadable,
         spark0 = SparkSession._instantiatedSession
 
         # Get a limited DF and make predictions and get the schema of the final DF
-        limited_pred_rdd = df.limit(10000).rdd.mapPartitions(predict)
+        limited_pred_rdd = df.limit(100000).rdd.mapPartitions(predict)
         limited_pred_df = spark0.createDataFrame(limited_pred_rdd, samplingRatio=1)
         final_output_schema = limited_pred_df.schema
+
+        nullables = {field.name: field.nullable for field in df.schema.fields}
+
+        for field in final_output_schema.fields:
+            if field.name in nullables:
+                field.nullable = nullables[field.name]
 
         pred_rdd = df.rdd.mapPartitions(predict)
         # Use the schema from previous section to construct the final DF with prediction
