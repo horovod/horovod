@@ -100,7 +100,8 @@ void ScaleBufferCudaImpl(const void* fused_input_data, void* buffer_data, const 
       __half scale_factor_half = __float2half((float) scale_factor);
       if ((size_t) fused_input_data % 4 == 0 && (size_t) buffer_data % 4 == 0) {
         // If alignment allows, use half2 specialized kernel
-        int64_t blocks_h2 = (num_elements / 2 + NTHREADS_SCALE_BUFFER_KERNEL - 1) / NTHREADS_SCALE_BUFFER_KERNEL;
+        int64_t num_elements_h2 = (num_elements + 1) / 2;
+        int64_t blocks_h2 = (num_elements_h2 + NTHREADS_SCALE_BUFFER_KERNEL - 1) / NTHREADS_SCALE_BUFFER_KERNEL;
         scale_buffer_half2_k<<<blocks_h2, threads, 0, stream>>>((const __half*) fused_input_data, (__half*) buffer_data,
                                                           num_elements, scale_factor_half);
       } else {
