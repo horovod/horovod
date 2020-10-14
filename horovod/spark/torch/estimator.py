@@ -455,16 +455,11 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
         limited_pred_df = spark0.createDataFrame(limited_pred_rdd, samplingRatio=1)
         final_output_schema = limited_pred_df.schema
 
-        print("df.schema", df.schema)
-        print("final_output_schema", final_output_schema)
-
         nullables = {field.name: field.nullable for field in df.schema.fields}
 
         for field in final_output_schema.fields:
             if field.name in nullables:
                 field.nullable = nullables[field.name]
-
-        print("final_output_schema after", final_output_schema)
 
         pred_rdd = df.rdd.mapPartitions(predict)
         # Use the schema from previous section to construct the final DF with prediction
