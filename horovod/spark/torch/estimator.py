@@ -455,8 +455,10 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
         limited_pred_df = spark0.createDataFrame(limited_pred_rdd, samplingRatio=1)
         final_output_schema = limited_pred_df.schema
 
+        # Spark has to infer whether a filed is nullable or not from a limited number of samples.
+        # It does not always get it right. We copy the nullable boolean variable for the fields
+        # from the original dataframe to the final DF schema.
         nullables = {field.name: field.nullable for field in df.schema.fields}
-
         for field in final_output_schema.fields:
             if field.name in nullables:
                 field.nullable = nullables[field.name]
