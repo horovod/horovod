@@ -26,6 +26,8 @@ from distutils.version import LooseVersion
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from horovod.spark.common.util import is_databricks
+
 
 class Store(object):
     """
@@ -142,6 +144,8 @@ class Store(object):
     def create(prefix_path, *args, **kwargs):
         if HDFSStore.matches(prefix_path):
             return HDFSStore(prefix_path, *args, **kwargs)
+        elif is_databricks() and (prefix_path.startswith("dbfs:/") or prefix_path.startswith("/dbfs/")):
+            return DBFSLocalStore(prefix_path, *args, **kwargs)
         else:
             return LocalStore(prefix_path, *args, **kwargs)
 
@@ -453,13 +457,12 @@ class DBFSLocalStore(LocalStore):
     """Uses Databricks File System (DBFS) local file APIs as a store of intermediate data and
     training artifacts.
 
-    Initialized from a `prefix_path` starts with `/dbfs/...`, see
+    Initialized from a `prefix_path` starts with `/dbfs/...` or `dbfs:/...`, see
     https://docs.databricks.com/data/databricks-file-system.html#local-file-apis.
-
-    Note that DBFSLocalStore cannot be created via Store.create("/dbfs/..."), which will create a
-    LocalStore instead.
     """
     def __init__(self, prefix_path, *args, **kwargs):
+        if prefix_path.startswith("dbfs:/"):
+            prefix_path = "/dbfs" + prefix_path[5:]
         if not prefix_path.startswith("/dbfs/"):
             warnings.warn("The provided prefix_path might be ephemeral: {} Please provide a "
                           "`prefix_path` starting with `/dbfs/...`".format(prefix_path))
@@ -472,7 +475,7 @@ class DBFSLocalStore(LocalStore):
 
     def read_serialized_keras_model(self, ckpt_path, model, custom_objects):
         """
-        Returns serialized keras model. On Databricks, only TFKeras is supported, not BareKeras.
+        Returns serialized keras model.
         The parameter `model` is for providing the model structure when the checkpoint file only
         contains model weights.
         """
