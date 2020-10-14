@@ -31,6 +31,7 @@ import horovod.tensorflow.keras as hvd
 
 
 _PRE_TF_2_4_0 = LooseVersion(tf.__version__) < LooseVersion("2.4.0")
+_PRE_TF_2_2_0 = LooseVersion(tf.__version__) < LooseVersion("2.2.0")
 
 
 @pytest.mark.skipif(LooseVersion(tf.__version__) < LooseVersion('2.0.0'), reason='TensorFlow v2 tests')
@@ -171,6 +172,10 @@ class Tf2KerasTests(tf.test.TestCase):
                 config = super(TestingOptimizer, self).get_config()
                 return config
 
+            def _create_slots(self, var_list):
+                # Only needed for TF < 2.2.
+                pass
+
             def _resource_apply_dense(self, grad, var, apply_state=None):
                 return var.assign_add(grad)
 
@@ -201,11 +206,20 @@ class Tf2KerasTests(tf.test.TestCase):
         gradients = [tf.constant([float(hvd.rank())])]
         variables = [tf.Variable([0.0])]
         for idx in range(10):
-            if _PRE_TF_2_4_0:
-                # In TF < 2.4 `_aggregate_gradients()` is called outside of `apply_gradients()`.
-                updated_gradients = hvd_optimizer._aggregate_gradients(zip(gradients, variables))
+            if _PRE_TF_2_2_0:
+                updated_gradients = hvd_optimizer._allreduce(gradients)
+                hvd_optimizer.apply_gradients(zip(updated_gradients, variables))
+            elif _PRE_TF_2_4_0:
+                # In 2.2 and 2.3 the horovod optimizer sets `_HAS_AGGREGATE_GRAD = True`.
+                # This configures tf.keras to call `_aggregate_gradients()` outside of
+                # `apply_gradients()` and to set `experimental_aggregate_gradients` to
+                # False when calling `apply_gradients()` to prevent it from calling
+                # `_aggregate_gradients()` again.
+                updated_gradients = hvd_optimizer._aggregate_gradients(
+                    zip(gradients, variables))
                 hvd_optimizer.apply_gradients(
-                    zip(updated_gradients, variables), experimental_aggregate_gradients=False
+                    zip(updated_gradients, variables),
+                    experimental_aggregate_gradients=False
                 )
             else:
                 hvd_optimizer.apply_gradients(zip(gradients, variables))
