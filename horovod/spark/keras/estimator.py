@@ -544,7 +544,7 @@ class KerasModel(HorovodModel, KerasEstimatorParamsReadable,
 
         spark0 = SparkSession._instantiatedSession
 
-        # Get a limited DF and make predictions and get the schema of the final DF
+        # Get a limited DF and make predictions and get the schema of the final DF 
         limited_pred_rdd = df.limit(100000).rdd.mapPartitions(predict)
         limited_pred_df = spark0.createDataFrame(limited_pred_rdd, samplingRatio=1)
         final_output_schema = limited_pred_df.schema
