@@ -144,7 +144,7 @@ class Store(object):
     def create(prefix_path, *args, **kwargs):
         if HDFSStore.matches(prefix_path):
             return HDFSStore(prefix_path, *args, **kwargs)
-        elif is_databricks() and (prefix_path.startswith("dbfs:/") or prefix_path.startswith("/dbfs/")):
+        elif is_databricks() and DBFSLocalStore.matches(prefix_path):
             return DBFSLocalStore(prefix_path, *args, **kwargs)
         else:
             return LocalStore(prefix_path, *args, **kwargs)
@@ -457,16 +457,29 @@ class DBFSLocalStore(LocalStore):
     """Uses Databricks File System (DBFS) local file APIs as a store of intermediate data and
     training artifacts.
 
-    Initialized from a `prefix_path` starts with `/dbfs/...` or `dbfs:/...`, see
+    Initialized from a `prefix_path` starts with `/dbfs/...`, `file:///dbfs/...` or `dbfs:/...`, see
     https://docs.databricks.com/data/databricks-file-system.html#local-file-apis.
     """
     def __init__(self, prefix_path, *args, **kwargs):
-        if prefix_path.startswith("dbfs:/"):
-            prefix_path = "/dbfs" + prefix_path[5:]
+        prefix_path = self.get_localized_path(prefix_path)
         if not prefix_path.startswith("/dbfs/"):
             warnings.warn("The provided prefix_path might be ephemeral: {} Please provide a "
                           "`prefix_path` starting with `/dbfs/...`".format(prefix_path))
         super(DBFSLocalStore, self).__init__(prefix_path, *args, **kwargs)
+
+    @classmethod
+    def matches(cls, path):
+        return path.startswith("dbfs:/") or path.startswith("/dbfs/") or path.startswith("file:///dbfs/")
+
+    def get_localized_path(self, path):
+        """
+        Normalize the path to the form `/dbfs/...`
+        """
+        if path.startswith("dbfs:/"):
+            return "/dbfs" + path[5:]
+        if path.startswith("file:///dbfs/"):
+            return path[7:]
+        return path
 
     def get_checkpoint_filename(self):
         # Use the default Tensorflow SavedModel format in TF 2.x. In TF 1.x, the SavedModel format

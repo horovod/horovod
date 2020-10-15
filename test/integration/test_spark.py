@@ -1701,6 +1701,8 @@ class SparkTests(unittest.TestCase):
             assert isinstance(dbfs_local_store, DBFSLocalStore)
             dbfs_local_store = Store.create("dbfs:/tmp/test_local_dir2")
             assert isinstance(dbfs_local_store, DBFSLocalStore)
+            dbfs_local_store = Store.create("file:///dbfs/tmp/test_local_dir3")
+            assert isinstance(dbfs_local_store, DBFSLocalStore)
         finally:
             if "DATABRICKS_RUNTIME_VERSION" in os.environ:
                 del os.environ["DATABRICKS_RUNTIME_VERSION"]
