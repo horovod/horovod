@@ -18,6 +18,7 @@ from distutils.version import LooseVersion
 import horovod.tensorflow as hvd
 import tensorflow as tf
 from horovod.tensorflow.gradient_aggregation import LocalGradientAggregationHelper
+from horovod.tensorflow.gradient_aggregation_eager import LocalGradientAggregationHelperEager
 from horovod.tensorflow.mpi_ops import rank
 
 
@@ -47,17 +48,21 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
             self._agg_helper = None
             if backward_passes_per_step > 1:
                 if hvd._executing_eagerly():
-                    raise ValueError('backward_passes_per_step > 1 is not supported yet for '
-                                     'eager execution')
-
-                self._agg_helper = LocalGradientAggregationHelper(
-                    backward_passes_per_step=backward_passes_per_step,
-                    allreduce_func=self._allreduce_grads,
-                    sparse_as_dense=sparse_as_dense,
-                    average_aggregated_gradients=average_aggregated_gradients,
-                    rank=rank(),
-                    optimizer_type=LocalGradientAggregationHelper._OPTIMIZER_TYPE_KERAS,
-                )
+                    self._agg_helper = LocalGradientAggregationHelperEager(
+                        backward_passes_per_step=backward_passes_per_step,
+                        allreduce_func=self._allreduce_grads,
+                        sparse_as_dense=sparse_as_dense,
+                        average_aggregated_gradients=average_aggregated_gradients,
+                    )
+                else:
+                    self._agg_helper = LocalGradientAggregationHelper(
+                        backward_passes_per_step=backward_passes_per_step,
+                        allreduce_func=self._allreduce_grads,
+                        sparse_as_dense=sparse_as_dense,
+                        average_aggregated_gradients=average_aggregated_gradients,
+                        rank=rank(),
+                        optimizer_type=LocalGradientAggregationHelper._OPTIMIZER_TYPE_KERAS,
+                    )
 
             super(self.__class__, self).__init__(**kwargs)
 
