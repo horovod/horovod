@@ -5,6 +5,17 @@ if(POLICY CMP0074)
     cmake_policy(SET CMP0074 NEW)
 endif()
 
+if(${CMAKE_VERSION} VERSION_GREATER "3.4.0") 
+  find_program(CCACHE_PROGRAM ccache)
+  if(CCACHE_PROGRAM)
+    set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+    set(CMAKE_CUDA_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+  else()
+    message(STATUS "Could not find CCache. Consider installing CCache to speed up compilation.")
+  endif()
+endif()
+
 project(horovod CXX)
 
 set(CMAKE_CXX_STANDARD 11)
