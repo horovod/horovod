@@ -506,7 +506,8 @@ def _run_static(args):
                                      hosts=args.hosts,
                                      output_filename=args.output_filename,
                                      run_func_mode=args.run_func is not None,
-                                     nics=args.nics)
+                                     nics=args.nics,
+                                     log_hide_timestamp=args.log_hide_timestamp)
 
     # This cache stores the results of checks performed by horovod
     # during the initialization step. It can be disabled by setting
@@ -610,7 +611,8 @@ def _run_elastic(args):
                                                 start_timeout=tmout,
                                                 output_filename=args.output_filename,
                                                 run_func_mode=args.run_func is not None,
-                                                nics=args.nics)
+                                                nics=args.nics,
+                                                log_hide_timestamp=args.log_hide_timestamp)
 
     if not gloo_built(verbose=(settings.verbose >= 2)):
         raise ValueError('Gloo support is required to use elastic training, but has not been built.  Ensure CMake is '

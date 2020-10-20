@@ -163,7 +163,12 @@ def _exec_command_fn(settings):
             stderr = MultiFile([sys.stderr, stderr_file])
 
         try:
-            exit_code = safe_shell_exec.execute(command, index=index, stdout=stdout, stderr=stderr, events=events)
+            exit_code = safe_shell_exec.execute(command,
+                                                index=index,
+                                                stdout=stdout,
+                                                stderr=stderr,
+                                                events=events,
+                                                hide_timestamp=settings.log_hide_timestamp)
             if exit_code != 0:
                 print('Process {idx} exit with status code {ec}.'.format(idx=index, ec=exit_code))
         except Exception as e:
