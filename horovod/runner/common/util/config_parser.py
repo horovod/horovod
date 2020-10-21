@@ -118,7 +118,7 @@ def set_args_from_config(args, config, override_args):
     logging = config.get('logging')
     if logging:
         _set_arg_from_config(args, 'level', override_args, logging, arg_prefix='log_')
-        _set_arg_from_config(args, 'hide_timestamp', override_args, logging, arg_prefix='log_')
+        _set_arg_from_config(args, 'with_timestamp', override_args, logging, arg_prefix='log_')
 
 
 def _validate_arg_nonnegative(args, arg_name):
@@ -194,6 +194,6 @@ def set_env_from_args(env, args):
 
     # Logging
     _add_arg_to_env(env, HOROVOD_LOG_LEVEL, args.log_level)
-    _add_arg_to_env(env, HOROVOD_LOG_HIDE_TIME, args.log_hide_timestamp, identity)
+    _add_arg_to_env(env, HOROVOD_LOG_HIDE_TIME, args.log_with_timestamp, identity)
 
     return env
