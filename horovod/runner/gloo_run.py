@@ -168,7 +168,7 @@ def _exec_command_fn(settings):
                                                 stdout=stdout,
                                                 stderr=stderr,
                                                 events=events,
-                                                hide_timestamp=settings.log_hide_timestamp)
+                                                timestamp_output=settings.timestamp_output)
             if exit_code != 0:
                 print('Process {idx} exit with status code {ec}.'.format(idx=index, ec=exit_code))
         except Exception as e:

@@ -427,9 +427,11 @@ def parse_args():
                                help='Minimum level to log to stderr from the Horovod backend. (default: WARNING).')
     group_logging_timestamp = group_logging.add_mutually_exclusive_group()
     group_logging_timestamp.add_argument('--log-hide-timestamp', action=make_override_true_action(override_args),
-                                         help='Hide the timestamp from Horovod log messages.')
+                                         help='Hide the timestamp from Horovod internal log messages.')
     group_logging_timestamp.add_argument('--no-log-hide-timestamp', dest='log_hide_timestamp',
                                          action=make_override_false_action(override_args), help=argparse.SUPPRESS)
+    group_logging_timestamp.add_argument('--timestamp-output', action='store_true',
+                                         help='Timestamp each line of output to stdout, stderr, and stddiag.')
 
     group_hosts_parent = parser.add_argument_group('host arguments')
     group_hosts = group_hosts_parent.add_mutually_exclusive_group()
@@ -507,7 +509,7 @@ def _run_static(args):
                                      output_filename=args.output_filename,
                                      run_func_mode=args.run_func is not None,
                                      nics=args.nics,
-                                     log_hide_timestamp=args.log_hide_timestamp)
+                                     timestamp_output=args.timestamp_output)
 
     # This cache stores the results of checks performed by horovod
     # during the initialization step. It can be disabled by setting
@@ -612,7 +614,7 @@ def _run_elastic(args):
                                                 output_filename=args.output_filename,
                                                 run_func_mode=args.run_func is not None,
                                                 nics=args.nics,
-                                                log_hide_timestamp=args.log_hide_timestamp)
+                                                timestamp_output=args.timestamp_output)
 
     if not gloo_built(verbose=(settings.verbose >= 2)):
         raise ValueError('Gloo support is required to use elastic training, but has not been built.  Ensure CMake is '
