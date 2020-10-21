@@ -652,7 +652,7 @@ def _run_elastic(args):
                                                 output_filename=args.output_filename,
                                                 run_func_mode=args.run_func is not None,
                                                 nics=args.nics,
-                                                timestamp_output=args.timestamp_output)
+                                                prefix_output_with_timestamp=args.prefix_output_with_timestamp)
 
     if not gloo_built(verbose=(settings.verbose >= 2)):
         raise ValueError('Gloo support is required to use elastic training, but has not been built.  Ensure CMake is '
