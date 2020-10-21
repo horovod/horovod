@@ -98,7 +98,7 @@ services:
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
         TENSORFLOW_PACKAGE: tf-nightly==2.4.0.dev20201016
-        KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
+        KERAS_PACKAGE: keras==2.4.3
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: torchvision==0.6.0.dev20200413
         MXNET_PACKAGE: mxnet-nightly
@@ -228,7 +228,7 @@ services:
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
         TENSORFLOW_PACKAGE: tf-nightly-gpu==2.4.0.dev20201016
-        KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
+        KERAS_PACKAGE: keras==2.4.3
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: torchvision==0.6.0.dev20200413
         MXNET_PACKAGE: mxnet-nightly
