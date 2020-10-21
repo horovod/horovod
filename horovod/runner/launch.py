@@ -459,7 +459,8 @@ def parse_args():
     group_logging_timestamp.add_argument('--log-without-timestamp', dest='log_with_timestamp',
                                          action=make_override_false_action(override_args), 
                                          help='Hide the timestamp from Horovod internal log messages.')
-    group_logging_timestamp.add_argument('--timestamp-output', action='store_true',
+    group_logging_timestamp.add_argument('-prefix-timestamp', '--prefix-output-with-timestamp', action='store_true',
+                                         dest='prefix_output_with_timestamp',
                                          help='Timestamp each line of output to stdout, stderr, and stddiag.')
     group_logging_timestamp.add_argument('--log-hide-timestamp', 
                                          dest='log_with_timestamp',
@@ -546,7 +547,7 @@ def _run_static(args):
                                      output_filename=args.output_filename,
                                      run_func_mode=args.run_func is not None,
                                      nics=args.nics,
-                                     timestamp_output=args.timestamp_output)
+                                     prefix_output_with_timestamp=args.prefix_output_with_timestamp)
 
     # This cache stores the results of checks performed by horovod
     # during the initialization step. It can be disabled by setting
