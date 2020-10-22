@@ -99,4 +99,27 @@ and enable the IPC_LOCK capability for memory registration:
 You need to specify these additional configuration options on primary and secondary workers.
 
 
+Running containers with different ports
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``horovodrun`` uses SSH to launch processes on the workers. When using Docker, it may be the case that different containers
+are placed on the same host with different ports.  In such cases, you can configure your 
+`~/.ssh/config <https://linuxize.com/post/using-the-ssh-config-file>`__ file to assign custom host names and ports for 
+each container:
+
+.. code-block:: bash
+
+   Host host1
+    HostName 192.168.1.10
+    Port 1234
+
+   Host host2
+    HostName 192.168.1.10
+    Port 2345 
+
+Now you can use ``horovodrun`` directly as though each container were a separate host with its own IP:
+
+.. code-block:: bash
+
+    $ horovodrun -np 8 -H host1:4,host2:4 python keras_mnist_advanced.py
+
 .. inclusion-marker-end-do-not-remove
