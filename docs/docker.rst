@@ -115,7 +115,7 @@ To run in situations without a common SSH port (e.g., multiple containers on the
           HostName 192.168.1.10
           Port 2345 
 
-2. Use hordovodrun directly as though each container were a separate host with its own IP
+2. Use ``horovodrun`` directly as though each container were a separate host with its own IP
    
    .. code-block:: bash
 
