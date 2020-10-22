@@ -99,4 +99,26 @@ and enable the IPC_LOCK capability for memory registration:
 You need to specify these additional configuration options on primary and secondary workers.
 
 
+Running containers with different ports
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+To run in situations without a common SSH port (e.g., multiple containers on the same host):
+
+1. Configure your `~/.ssh/config <https://linuxize.com/post/using-the-ssh-config-file>`__ file to assign custom host names and ports for each container
+
+   .. code-block:: bash
+
+        Host host1
+          HostName 192.168.1.10
+          Port 1234
+
+        Host host2
+          HostName 192.168.1.10
+          Port 2345 
+
+2. Use ``horovodrun`` directly as though each container were a separate host with its own IP
+   
+   .. code-block:: bash
+
+        $ horovodrun -np 8 -H host1:4,host2:4 python keras_mnist_advanced.py
+
 .. inclusion-marker-end-do-not-remove
