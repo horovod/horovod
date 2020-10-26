@@ -15,13 +15,13 @@
 
 import multiprocessing
 import os
-import psutil
-import re
 import signal
 import subprocess
 import sys
 import threading
 import time
+
+import psutil
 
 from horovod.runner.util.threads import in_thread, on_event
 
@@ -78,7 +78,20 @@ def terminate_executor_shell_and_children(pid):
             pass
 
 
-def forward_stream(src_stream, dst_stream, prefix, index, prefix_output_with_timestamp):
+def prefix_stream(src_stream, dst_stream, prefix, index, prefix_output_with_timestamp):
+    """
+    Prefixes the given source stream with timestamp, a prefix and an index.
+    Each line of the source stream will be prefix in the format, if index and prefix are not None:
+        {time}[{index}]<{prefix}>:{line}
+    Both streams, src_stream and dst_stream must be a text stream.
+
+    :param src_stream: source text stream
+    :param dst_stream: destination stream
+    :param prefix: prefix string
+    :param index: index value
+    :param prefix_output_with_timestamp: prefix lines in dst_stream with timestamp
+    :return: None
+    """
     def prepend_context(line, rank, prefix):
         localtime = time.asctime(time.localtime(time.time())) if prefix_output_with_timestamp else ''
         return '{time}[{rank}]<{prefix}>:{line}'.format(
@@ -89,32 +102,18 @@ def forward_stream(src_stream, dst_stream, prefix, index, prefix_output_with_tim
         )
 
     def write(text):
-        if index is not None:
+        if index is not None and prefix is not None:
             text = prepend_context(text, index, prefix)
         dst_stream.write(text)
         dst_stream.flush()
 
-    line_buffer = ''
-    while True:
-        text = os.read(src_stream.fileno(), 1000)
-        if text is None:
-            break
+    line = src_stream.readline()
+    if not isinstance(line, str):
+        raise ValueError('Source stream must to be a text stream')
 
-        if not isinstance(text, str):
-            text = text.decode('utf-8')
-
-        if not text:
-            break
-
-        for line in re.split('([\r\n])', text):
-            line_buffer += line
-            if line == '\r' or line == '\n':
-                write(line_buffer)
-                line_buffer = ''
-
-    # flush the line buffer if it is not empty
-    if len(line_buffer):
-        write(line_buffer)
+    while line:
+        write(line)
+        line = src_stream.readline()
 
     src_stream.close()
 
@@ -160,6 +159,21 @@ def _create_event(ctx):
 
 
 def execute(command, env=None, stdout=None, stderr=None, index=None, events=None, prefix_output_with_timestamp=False):
+    """
+    Execute the given command and forward stdout and stderr of the command to the given
+    stdout and stderr text streams, or sys.stdout and sys.stderr, respectively, if None given.
+    Prefixes each line with index if not None and timestamp if prefix_output_with_timestamp is True.
+    The command will be terminated when any of the given events are set.
+
+    :param command: command to execute
+    :param env: environment variables to execute command with
+    :param stdout: stdout text stream, sys.stdout if None
+    :param stderr: stderr text stream, sys.stderr if None
+    :param index: index used to prepend text streams
+    :param events: events to terminate the command
+    :param prefix_output_with_timestamp: prepend text streams with timestamp if True
+    :return: command's exit code
+    """
     ctx = multiprocessing.get_context('spawn')
 
     # When this event is set, signal to middleman to terminate its children and exit.
@@ -195,31 +209,35 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
     if stderr is None:
         stderr = sys.stderr
 
-    stdout_fwd = in_thread(target=forward_stream, args=(stdout_r, stdout, 'stdout', index, prefix_output_with_timestamp))
-    stderr_fwd = in_thread(target=forward_stream, args=(stderr_r, stderr, 'stderr', index, prefix_output_with_timestamp))
+    # turn Pipe Connections stdout_r and stderr_r into byte streams
+    with os.fdopen(stdout_r.fileno(), 'rt', closefd=False) as stdout_r_text, \
+        os.fdopen(stderr_r.fileno(), 'rt', closefd=False) as stderr_r_text:
 
-    # TODO: Currently this requires explicitly declaration of the events and signal handler to set
-    #  the event (gloo_run.py:_launch_jobs()). Need to figure out a generalized way to hide this behind
-    #  interfaces.
-    stop = threading.Event()
-    events = events or []
-    for event in events:
-        on_event(event, exit_event.set, stop=stop, silent=True)
+        stdout_fwd = in_thread(target=prefix_stream, args=(stdout_r_text, stdout, 'stdout', index, prefix_output_with_timestamp))
+        stderr_fwd = in_thread(target=prefix_stream, args=(stderr_r_text, stderr, 'stderr', index, prefix_output_with_timestamp))
 
-    try:
-        middleman.join()
-    except:
-        # interrupted, send middleman TERM signal which will terminate children
-        exit_event.set()
-        while True:
-            try:
-                middleman.join()
-                break
-            except:
-                # interrupted, wait for middleman to finish
-                pass
-    finally:
-        stop.set()
+        # TODO: Currently this requires explicitly declaration of the events and signal handler to set
+        #  the event (gloo_run.py:_launch_jobs()). Need to figure out a generalized way to hide this behind
+        #  interfaces.
+        stop = threading.Event()
+        events = events or []
+        for event in events:
+            on_event(event, exit_event.set, stop=stop, silent=True)
+
+        try:
+            middleman.join()
+        except:
+            # interrupted, send middleman TERM signal which will terminate children
+            exit_event.set()
+            while True:
+                try:
+                    middleman.join()
+                    break
+                except:
+                    # interrupted, wait for middleman to finish
+                    pass
+        finally:
+            stop.set()
 
     stdout_fwd.join()
     stderr_fwd.join()

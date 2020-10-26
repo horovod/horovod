@@ -24,27 +24,25 @@ import time
 import unittest
 import warnings
 
+import mock
 import psutil
 import pytest
-import mock
-
+from common import is_built, lsf_and_jsrun, override_args, override_env, temppath, delay, wait
 from mock import MagicMock
 
 import horovod
+from horovod.runner import _HorovodArgs
 from horovod.runner.common.util import config_parser, hosts, safe_shell_exec, secret, \
     settings as hvd_settings, timeout
-from horovod.runner import _HorovodArgs
 from horovod.runner.common.util.host_hash import _hash, host_hash
 from horovod.runner.common.util.hosts import SlotInfo, get_host_assignments, parse_hosts
 from horovod.runner.gloo_run import gloo_run
 from horovod.runner.js_run import js_run, generate_jsrun_rankfile
-from horovod.runner.mpi_run import _get_mpi_implementation, _get_mpi_implementation_flags,\
-    _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_available, mpi_run,\
-    _OMPI_IMPL, _SMPI_IMPL, _MPICH_IMPL, _UNKNOWN_IMPL, _MISSING_IMPL
 from horovod.runner.launch import gloo_built, parse_args, run_controller, _run
+from horovod.runner.mpi_run import _get_mpi_implementation, _get_mpi_implementation_flags, \
+    _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_available, mpi_run, \
+    _OMPI_IMPL, _SMPI_IMPL, _MPICH_IMPL, _UNKNOWN_IMPL, _MISSING_IMPL
 from horovod.runner.util.threads import in_thread, on_event
-
-from common import is_built, lsf_and_jsrun, override_args, override_env, temppath, delay, wait
 
 
 class RunTests(unittest.TestCase):
@@ -342,6 +340,17 @@ class RunTests(unittest.TestCase):
         with pytest.raises(ValueError, match="^Stop event must be given for non-daemon event thread$"):
             on_event(event, fn, stop=None, daemon=False)
         fn.assert_not_called()
+
+    def test_prefix_stream_with_bytes(self):
+        with self.assertRaises(ValueError):
+            safe_shell_exec.prefix_stream(io.BytesIO('█'.encode('utf8')), io.StringIO(), 'prefix', 123, False)
+
+    def test_prefix_stream_with_string(self):
+        string = '█'*1000
+        stream = io.StringIO(string)
+        dst = io.StringIO()
+        safe_shell_exec.prefix_stream(stream, dst, 'prefix', 123, False)
+        self.assertEqual('[123]<prefix>:' + string, dst.getvalue())
 
     def test_safe_shell_exec_captures_stdout(self):
         self.do_test_safe_shell_exec('echo hello', 0, 'hello\n', '')
