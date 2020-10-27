@@ -39,6 +39,7 @@ from horovod.tensorflow.mpi_ops import handle_average_backwards_compatibility, c
 from horovod.tensorflow.util import _executing_eagerly, _make_subgraph, _cache
 from horovod.tensorflow.mpi_ops import join
 from horovod.tensorflow.sync_batch_norm import SyncBatchNormalization
+from horovod.tensorflow.gradient_aggregation import LocalGradientAggregationHelper
 
 import tensorflow as tf
 
@@ -296,7 +297,8 @@ if _LegacyOptimizer is not None:
 
         def __init__(self, optimizer, name=None, use_locking=False, device_dense='',
                     device_sparse='', compression=Compression.none,
-                    sparse_as_dense=False, op=Average, gradient_predivide_factor=1.0):
+                    sparse_as_dense=False, op=Average, gradient_predivide_factor=1.0,
+                    backward_passes_per_step=1, average_aggregated_gradients=False):
             if name is None:
                 name = "Distributed{}".format(type(optimizer).__name__)
             super(_DistributedOptimizer, self).__init__(name=name, use_locking=use_locking)
@@ -305,6 +307,23 @@ if _LegacyOptimizer is not None:
             self._allreduce_grads = _make_allreduce_grads_fn(
                 name, device_dense, device_sparse, compression, sparse_as_dense, op,
                 gradient_predivide_factor)
+
+            self._agg_helper = None
+            if backward_passes_per_step > 1:
+                if _executing_eagerly():
+                    raise ValueError(
+                        "backward_passes_per_step > 1 is not yet supported "
+                        "for _LegacyOptimizer with eager execution."
+                    )
+
+                self._agg_helper = LocalGradientAggregationHelper(
+                    backward_passes_per_step=backward_passes_per_step,
+                    allreduce_func=self._allreduce_grads,
+                    sparse_as_dense=sparse_as_dense,
+                    average_aggregated_gradients=average_aggregated_gradients,
+                    rank=rank(),
+                    optimizer_type=LocalGradientAggregationHelper._OPTIMIZER_TYPE_LEGACY,
+                )
 
         def compute_gradients(self, *args, **kwargs):
             """Compute gradients of all trainable variables.
@@ -316,11 +335,22 @@ if _LegacyOptimizer is not None:
             """
             gradients = self._optimizer.compute_gradients(*args, **kwargs)
             grads, vars = zip(*gradients)
-            avg_grads = self._allreduce_grads(grads)
+            if self._agg_helper:
+                avg_grads = self._agg_helper.compute_gradients(grads)
+            else:
+                avg_grads = self._allreduce_grads(grads)
             return list(zip(avg_grads, vars))
 
         def apply_gradients(self, *args, **kwargs):
             """Calls this same method on the underlying optimizer."""
+            if self._agg_helper:
+                return self._agg_helper.apply_gradients(
+                    lambda: self._optimizer.apply_gradients(*args, **kwargs),
+                    self._optimizer,
+                    *args,
+                    **kwargs,
+                )
+
             return self._optimizer.apply_gradients(*args, **kwargs)
 
         def get_slot(self, *args, **kwargs):
@@ -496,21 +526,20 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
         if op == Adasum:
             return _DistributedAdasumOptimizer(optimizer, name, use_locking, device_dense,
                                             device_sparse, compression, backward_passes_per_step)
-        else:
-            if backward_passes_per_step > 1:
-                raise ValueError('backward_passes_per_step > 1 is not supported yet with '
-                                 'op != Adasum for Tensorflow optimizers.')
-            return _DistributedOptimizer(
-                optimizer=optimizer,
-                name=name,
-                use_locking=use_locking,
-                device_dense=device_dense,
-                device_sparse=device_sparse,
-                compression=compression,
-                sparse_as_dense=sparse_as_dense,
-                op=op,
-                gradient_predivide_factor=gradient_predivide_factor,
-            )
+
+        return _DistributedOptimizer(
+            optimizer=optimizer,
+            name=name,
+            use_locking=use_locking,
+            device_dense=device_dense,
+            device_sparse=device_sparse,
+            compression=compression,
+            sparse_as_dense=sparse_as_dense,
+            op=op,
+            gradient_predivide_factor=gradient_predivide_factor,
+            backward_passes_per_step=backward_passes_per_step,
+            average_aggregated_gradients=average_aggregated_gradients,
+        )
     elif isinstance(optimizer, tf.keras.optimizers.Optimizer):
         if op == Adasum:
             raise ValueError('op == Adasum is not supported yet with Keras')
