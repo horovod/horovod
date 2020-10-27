@@ -204,7 +204,7 @@ class RunTests(unittest.TestCase):
 
             # Logging
             self.assertEqual(args.log_level, 'INFO')
-            self.assertTrue(args.log_hide_timestamp)
+            self.assertFalse(args.log_with_timestamp)
 
     def test_config_file_override_args(self):
         config_filename = os.path.join(os.path.dirname(__file__), 'data/config.test.yaml')

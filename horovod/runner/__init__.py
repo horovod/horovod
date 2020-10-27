@@ -74,7 +74,8 @@ class _HorovodArgs(object):
 
         # logging arguments
         self.log_level = None
-        self.log_hide_timestamp = None
+        self.log_with_timestamp = None
+        self.prefix_output_with_timestamp = None
 
         # host arguments
         self.hosts = None

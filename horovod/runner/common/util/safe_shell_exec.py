@@ -78,9 +78,9 @@ def terminate_executor_shell_and_children(pid):
             pass
 
 
-def forward_stream(src_stream, dst_stream, prefix, index):
+def forward_stream(src_stream, dst_stream, prefix, index, prefix_output_with_timestamp):
     def prepend_context(line, rank, prefix):
-        localtime = time.asctime(time.localtime(time.time()))
+        localtime = time.asctime(time.localtime(time.time())) if prefix_output_with_timestamp else ''
         return '{time}[{rank}]<{prefix}>:{line}'.format(
             time=localtime,
             rank=str(rank),
@@ -159,7 +159,7 @@ def _create_event(ctx):
     return ctx.Event()
 
 
-def execute(command, env=None, stdout=None, stderr=None, index=None, events=None):
+def execute(command, env=None, stdout=None, stderr=None, index=None, events=None, prefix_output_with_timestamp=False):
     ctx = multiprocessing.get_context('spawn')
 
     # When this event is set, signal to middleman to terminate its children and exit.
@@ -195,8 +195,8 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
     if stderr is None:
         stderr = sys.stderr
 
-    stdout_fwd = in_thread(target=forward_stream, args=(stdout_r, stdout, 'stdout', index))
-    stderr_fwd = in_thread(target=forward_stream, args=(stderr_r, stderr, 'stderr', index))
+    stdout_fwd = in_thread(target=forward_stream, args=(stdout_r, stdout, 'stdout', index, prefix_output_with_timestamp))
+    stderr_fwd = in_thread(target=forward_stream, args=(stderr_r, stderr, 'stderr', index, prefix_output_with_timestamp))
 
     # TODO: Currently this requires explicitly declaration of the events and signal handler to set
     #  the event (gloo_run.py:_launch_jobs()). Need to figure out a generalized way to hide this behind

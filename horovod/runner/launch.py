@@ -20,6 +20,7 @@ import io
 import os
 import sys
 import textwrap
+import warnings
 
 import yaml
 
@@ -207,6 +208,32 @@ def make_override_true_action(override_args):
 
 def make_override_false_action(override_args):
     return make_override_bool_action(override_args, False)
+
+
+def make_deprecated_bool_action(override_args, bool_value, replacement_option):
+    class StoreOverrideBoolAction(argparse.Action):
+        def __init__(self,
+                     option_strings,
+                     dest,
+                     required=False,
+                     help=None):
+            super(StoreOverrideBoolAction, self).__init__(
+                option_strings=option_strings,
+                dest=dest,
+                const=bool_value,
+                nargs=0,
+                default=None,
+                required=required,
+                help=help)
+
+        def __call__(self, parser, args, values, option_string=None):
+            deprecated_option = '|'.join(self.option_strings)
+            warnings.warn(f'Argument {deprecated_option} has been replaced by {replacement_option} and will be removed in v0.21.0',
+                          DeprecationWarning)
+            override_args.add(self.dest)
+            setattr(args, self.dest, self.const)
+
+    return StoreOverrideBoolAction
 
 
 def parse_args():
@@ -426,10 +453,23 @@ def parse_args():
                                choices=config_parser.LOG_LEVELS,
                                help='Minimum level to log to stderr from the Horovod backend. (default: WARNING).')
     group_logging_timestamp = group_logging.add_mutually_exclusive_group()
-    group_logging_timestamp.add_argument('--log-hide-timestamp', action=make_override_true_action(override_args),
-                                         help='Hide the timestamp from Horovod log messages.')
-    group_logging_timestamp.add_argument('--no-log-hide-timestamp', dest='log_hide_timestamp',
-                                         action=make_override_false_action(override_args), help=argparse.SUPPRESS)
+    group_logging_timestamp.add_argument('--log-with-timestamp', 
+                                         action=make_override_true_action(override_args),
+                                         help=argparse.SUPPRESS)
+    group_logging_timestamp.add_argument('--log-without-timestamp', dest='log_with_timestamp',
+                                         action=make_override_false_action(override_args), 
+                                         help='Hide the timestamp from Horovod internal log messages.')
+    group_logging_timestamp.add_argument('-prefix-timestamp', '--prefix-output-with-timestamp', action='store_true',
+                                         dest='prefix_output_with_timestamp',
+                                         help='Timestamp each line of output to stdout, stderr, and stddiag.')
+    group_logging_timestamp.add_argument('--log-hide-timestamp', 
+                                         dest='log_with_timestamp',
+                                         action=make_deprecated_bool_action(override_args, False, '--log-without-timestamp'),
+                                         help=argparse.SUPPRESS)
+    group_logging_timestamp.add_argument('--no-log-hide-timestamp', 
+                                         dest='log_with_timestamp',
+                                         action=make_deprecated_bool_action(override_args, True, '--log-with-timestamp'),
+                                         help=argparse.SUPPRESS)                                     
 
     group_hosts_parent = parser.add_argument_group('host arguments')
     group_hosts = group_hosts_parent.add_mutually_exclusive_group()
@@ -506,7 +546,8 @@ def _run_static(args):
                                      hosts=args.hosts,
                                      output_filename=args.output_filename,
                                      run_func_mode=args.run_func is not None,
-                                     nics=args.nics)
+                                     nics=args.nics,
+                                     prefix_output_with_timestamp=args.prefix_output_with_timestamp)
 
     # This cache stores the results of checks performed by horovod
     # during the initialization step. It can be disabled by setting
@@ -610,7 +651,8 @@ def _run_elastic(args):
                                                 start_timeout=tmout,
                                                 output_filename=args.output_filename,
                                                 run_func_mode=args.run_func is not None,
-                                                nics=args.nics)
+                                                nics=args.nics,
+                                                prefix_output_with_timestamp=args.prefix_output_with_timestamp)
 
     if not gloo_built(verbose=(settings.verbose >= 2)):
         raise ValueError('Gloo support is required to use elastic training, but has not been built.  Ensure CMake is '
