@@ -111,7 +111,7 @@ def cnn_model_fn(features, labels, mode):
             learning_rate=0.001 * hvd.size(), momentum=0.9)
 
         # Horovod: add Horovod Distributed Optimizer.
-        optimizer = hvd.DistributedOptimizer(optimizer)
+        optimizer = hvd.DistributedOptimizer(optimizer, backward_passes_per_step=1)
 
         train_op = optimizer.minimize(
             loss=loss,
