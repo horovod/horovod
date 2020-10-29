@@ -292,11 +292,17 @@ Environment knobs
 
 Horovod on Databricks
 ------------------------------
-To run Horovod in Spark on Databricks, use `DBFSLocalStore` as the store object:
+To run Horovod in Spark on Databricks, create a Store instance with a DBFS path in one of the following patterns:
+
+* `/dbfs/...`
+* `dbfs:/...`
+* `file:///dbfs/...`
 
 .. code-block:: python
 
-    store = DBFSLocalStore(prefix_path='/dbfs/...')
+    store = Store.create(dbfs_path)
+    # or explicitly using DBFSLocalStore
+    store = DBFSLocalStore(dbfs_path)
 
 The `DBFSLocalStore` uses Databricks File System (DBFS) local file APIs
 (`AWS <https://docs.databricks.com/data/databricks-file-system.html#local-file-apis>`__ |
