@@ -21,6 +21,7 @@ class LocalGradientAggregationHelper:
     """
 
     _OPTIMIZER_TYPE_KERAS = "optimizer_type_keras"
+    _OPTIMIZER_TYPE_LEGACY = "optimizer_type_legacy"
 
     def __init__(
             self,

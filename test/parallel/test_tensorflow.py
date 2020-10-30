@@ -23,6 +23,8 @@ from distutils.version import LooseVersion
 import itertools
 import numpy as np
 import os
+import math
+import pytest
 import tensorflow as tf
 from horovod.tensorflow.util import _executing_eagerly
 from tensorflow.python.framework import ops
@@ -2641,6 +2643,60 @@ class TensorFlowTests(tf.test.TestCase):
                 self.assertAllClose(sync_bn_out, np.expand_dims(bn_out[hvd.rank()], 0))
                 self.assertAllClose(self.evaluate(sync_bn.moving_mean), self.evaluate(bn.moving_mean))
                 self.assertAllClose(self.evaluate(sync_bn.moving_variance), self.evaluate(bn.moving_variance))
+
+    def test_local_gradient_aggregation(self):
+        """Test that local gradient aggregation works as expected."""
+
+        if _executing_eagerly() or not hasattr(tf, 'ConfigProto'):
+            pytest.skip("Gradient aggregation for Legacy Optimizer only support graph mode.")
+
+        hvd.init()
+        with self.test_session(config=config) as sess:
+
+            class TestOptimizer(tf.compat.v1.train.Optimizer):
+                def __init__(self, *args, **kwargs):
+                    super().__init__(*args, **kwargs)
+                    self.variable = tf.Variable([0.0])
+
+                def compute_gradients(self, *args, **kwargs):
+                    return [(tf.constant([float(hvd.rank())]), self.variable)]
+
+                def _apply_dense(self, grad, var):
+                    return var.assign_add(grad)
+
+            backward_passes_per_step = 4
+            opt = TestOptimizer(name="test", use_locking=False)
+            opt = hvd.DistributedOptimizer(
+                optimizer=opt,
+                backward_passes_per_step=backward_passes_per_step,
+                average_aggregated_gradients=True,
+            )
+
+            grads_and_vars = opt.compute_gradients()
+            update_op = opt.apply_gradients(grads_and_vars)
+            sess.run(tf.compat.v1.global_variables_initializer())
+
+            def compute_expected_value(batch_id):
+                sum_per_aggregation = 0.0
+                for _ in range(backward_passes_per_step):
+                    grads_for_batch = 0.0
+                    for rank in range(hvd.size()):
+                        grads_for_batch += rank
+
+                    # Apply `average_aggregated_gradients`.
+                    grads_for_batch /= float(backward_passes_per_step)
+
+                    # Averages across workers.
+                    sum_per_aggregation += grads_for_batch / float(hvd.size())
+
+                aggregations_completed = math.floor((batch_id + 1) / backward_passes_per_step)
+                return aggregations_completed * sum_per_aggregation
+
+            for idx in range(10):
+                _ = sess.run(update_op)
+                computed_value = sess.run(opt._optimizer.variable.read_value())[0]
+                assert computed_value == compute_expected_value(idx)
+
 
 from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
 run_all_in_graph_and_eager_modes(TensorFlowTests)
