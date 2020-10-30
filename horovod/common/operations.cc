@@ -273,6 +273,7 @@ void PerformOperation(Response response, HorovodGlobalState& state) {
           [&]() { timeline.ActivityStartAll(entries, INIT_FUSION_BUFFER); },
           [&]() { timeline.ActivityEndAll(entries); });
       if (!status.ok()) {
+        LOG(DEBUG, horovod_global.controller->GetRank()) << "InitializeBuffer Failed";
         for (auto& e : entries) {
           timeline.End(e.tensor_name, nullptr);
           // Callback can be null if the rank sent Join request.
@@ -315,6 +316,7 @@ void PerformOperation(Response response, HorovodGlobalState& state) {
   try {
     status = op_manager->ExecuteOperation(entries, response);
   } catch (const std::exception& ex) {
+    LOG(DEBUG, horovod_global.controller->GetRank()) << "ExecuteOperation Failed";
     status = Status::UnknownError(ex.what());
   }
 
