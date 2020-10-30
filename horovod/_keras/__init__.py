@@ -97,6 +97,15 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
 
         def apply_gradients(self, *args, **kwargs):
             if self._agg_helper:
+                if isinstance(args[0], zip):
+                    # If grad_and_vars are passed in as a zip object
+                    # convert to a list. This is necessary for TF2.4+
+                    # b/c args[0] is used in both conditional branches
+                    # inside _agg_helper.apply_gradients().
+                    args = list(args)
+                    args[0] = list(args[0])
+                    args = tuple(args)
+
                 results = self._agg_helper.apply_gradients(
                     lambda: super(self.__class__, self).apply_gradients(*args, **kwargs),
                     self,

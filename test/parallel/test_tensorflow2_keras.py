@@ -203,12 +203,18 @@ class Tf2KerasTests(tf.test.TestCase):
             aggregations_completed = math.floor((batch_id + 1) / backward_passes_per_step)
             return aggregations_completed * sum_per_aggregation
 
+        @tf.function
+        def apply_gradients_in_tf_function(gradient_updates, model_variables, **kwargs):
+            # Apply gradient updates in tf.function to reproduce how it is
+            # done inside `model.fit()`.
+            hvd_optimizer.apply_gradients(zip(gradient_updates, model_variables), **kwargs)
+
         gradients = [tf.constant([float(hvd.rank())])]
         variables = [tf.Variable([0.0])]
         for idx in range(10):
             if _PRE_TF_2_2_0:
                 updated_gradients = hvd_optimizer._allreduce(gradients)
-                hvd_optimizer.apply_gradients(zip(updated_gradients, variables))
+                apply_gradients_in_tf_function(updated_gradients, variables)
             elif _PRE_TF_2_4_0:
                 # In 2.2 and 2.3 the horovod optimizer sets `_HAS_AGGREGATE_GRAD = True`.
                 # This configures tf.keras to call `_aggregate_gradients()` outside of
@@ -217,12 +223,12 @@ class Tf2KerasTests(tf.test.TestCase):
                 # `_aggregate_gradients()` again.
                 updated_gradients = hvd_optimizer._aggregate_gradients(
                     zip(gradients, variables))
-                hvd_optimizer.apply_gradients(
-                    zip(updated_gradients, variables),
+                apply_gradients_in_tf_function(
+                    updated_gradients, variables,
                     experimental_aggregate_gradients=False
                 )
             else:
-                hvd_optimizer.apply_gradients(zip(gradients, variables))
+                apply_gradients_in_tf_function(gradients, variables)
 
             updated_variable_value = variables[0][0].numpy()
             assert updated_variable_value == compute_expected_value(idx)
