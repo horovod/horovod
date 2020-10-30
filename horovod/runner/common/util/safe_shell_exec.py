@@ -15,6 +15,7 @@
 
 import multiprocessing
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -107,13 +108,27 @@ def prefix_stream(src_stream, dst_stream, prefix, index, prefix_output_with_time
         dst_stream.write(text)
         dst_stream.flush()
 
-    line = src_stream.readline()
-    if not isinstance(line, str):
-        raise ValueError('Source stream must to be a text stream')
+    line_buffer = ''
+    while True:
+        # if we could read all available characters up to 1000,
+        # but not waiting for more if there are less, we would do that here
+        text = src_stream.read(1)
 
-    while line:
-        write(line)
-        line = src_stream.readline()
+        if not isinstance(text, str):
+            raise ValueError('Source stream must to be a text stream')
+
+        if not text:
+            break
+
+        for line in re.split('([\r\n])', text):
+            line_buffer += line
+            if line == '\r' or line == '\n':
+                write(line_buffer)
+                line_buffer = ''
+
+    # flush the line buffer if it is not empty
+    if line_buffer:
+        write(line_buffer)
 
     src_stream.close()
 
@@ -210,8 +225,8 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
         stderr = sys.stderr
 
     # turn Pipe Connections stdout_r and stderr_r into byte streams
-    with os.fdopen(stdout_r.fileno(), 'rt', closefd=False) as stdout_r_text, \
-        os.fdopen(stderr_r.fileno(), 'rt', closefd=False) as stderr_r_text:
+    with os.fdopen(stdout_r.fileno(), 'rt', newline='', closefd=False) as stdout_r_text, \
+        os.fdopen(stderr_r.fileno(), 'rt', newline='', closefd=False) as stderr_r_text:
 
         stdout_fwd = in_thread(target=prefix_stream, args=(stdout_r_text, stdout, 'stdout', index, prefix_output_with_timestamp))
         stderr_fwd = in_thread(target=prefix_stream, args=(stderr_r_text, stderr, 'stderr', index, prefix_output_with_timestamp))
@@ -238,6 +253,9 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
                     pass
         finally:
             stop.set()
+
+    stdout_r.close()
+    stderr_r.close()
 
     stdout_fwd.join()
     stderr_fwd.join()
