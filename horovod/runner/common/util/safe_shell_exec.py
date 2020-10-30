@@ -84,47 +84,56 @@ def prefix_stream(src_stream, dst_stream, prefix, index, prefix_output_with_time
     Prefixes the given source stream with timestamp, a prefix and an index.
     Each line of the source stream will be prefix in the format, if index and prefix are not None:
         {time}[{index}]<{prefix}>:{line}
-    Both streams, src_stream and dst_stream must be a text stream.
+    Both streams, src_stream and dst_stream must be utf8 byte streams.
 
-    :param src_stream: source text stream
-    :param dst_stream: destination stream
+    :param src_stream: source byte stream
+    :param dst_stream: destination byte stream
     :param prefix: prefix string
     :param index: index value
     :param prefix_output_with_timestamp: prefix lines in dst_stream with timestamp
     :return: None
     """
-    def prepend_context(line, rank, prefix):
+    def get_context(rank, prefix):
         localtime = time.asctime(time.localtime(time.time())) if prefix_output_with_timestamp else ''
-        return '{time}[{rank}]<{prefix}>:{line}'.format(
+        return '{time}[{rank}]<{prefix}>:'.format(
             time=localtime,
             rank=str(rank),
-            prefix=prefix,
-            line=line
+            prefix=prefix
         )
 
     def write(text):
         if index is not None and prefix is not None:
-            text = prepend_context(text, index, prefix)
+            context = get_context(index, prefix)
+            dst_stream.write(context.encode('utf8'))
         dst_stream.write(text)
         dst_stream.flush()
 
-    line_buffer = ''
+    line_buffer = b''
     while True:
         # if we could read all available characters up to 1000,
         # but not waiting for more if there are less, we would do that here
-        text = src_stream.read(1)
+        text = os.read(src_stream.fileno(), 1000)
 
-        if not isinstance(text, str):
-            raise ValueError('Source stream must to be a text stream')
+        if not isinstance(text, bytes):
+            raise ValueError('Source stream must to be a byte stream')
 
         if not text:
             break
 
-        for line in re.split('([\r\n])', text):
+        def intersperse(lst, item):
+            result = [item] * (len(lst) * 2 - 1)
+            result[0::2] = lst
+            return result
+
+        lines = intersperse(text.split(b'\r'), b'\r')
+        lines = [lline
+                 for line in lines
+                 for lline in intersperse(line.split(b'\n'), b'\n')]
+        for line in lines:
             line_buffer += line
-            if line == '\r' or line == '\n':
+            if line == b'\r' or line == b'\n':
                 write(line_buffer)
-                line_buffer = ''
+                line_buffer = b''
 
     # flush the line buffer if it is not empty
     if line_buffer:
@@ -219,40 +228,37 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
     # Redirect command stdout & stderr to provided streams or sys.stdout/sys.stderr.
     # This is useful for Jupyter Notebook that uses custom sys.stdout/sys.stderr or
     # for redirecting to a file on disk.
+    # We need byte streams, stdout / stderr are text streams so we take the underlying byte streams
     if stdout is None:
-        stdout = sys.stdout
+        stdout = sys.stdout.buffer
     if stderr is None:
-        stderr = sys.stderr
+        stderr = sys.stderr.buffer
 
-    # turn Pipe Connections stdout_r and stderr_r into byte streams
-    with os.fdopen(stdout_r.fileno(), 'rt', newline='', closefd=False) as stdout_r_text, \
-        os.fdopen(stderr_r.fileno(), 'rt', newline='', closefd=False) as stderr_r_text:
+    stdout_fwd = in_thread(target=prefix_stream, args=(stdout_r, stdout, 'stdout', index, prefix_output_with_timestamp))
+    stderr_fwd = in_thread(target=prefix_stream, args=(stderr_r, stderr, 'stderr', index, prefix_output_with_timestamp))
 
-        stdout_fwd = in_thread(target=prefix_stream, args=(stdout_r_text, stdout, 'stdout', index, prefix_output_with_timestamp))
-        stderr_fwd = in_thread(target=prefix_stream, args=(stderr_r_text, stderr, 'stderr', index, prefix_output_with_timestamp))
+    # TODO: Currently this requires explicitly declaration of the events and signal handler to set
+    #  the event (gloo_run.py:_launch_jobs()). Need to figure out a generalized way to hide this behind
+    #  interfaces.
+    stop = threading.Event()
+    events = events or []
+    for event in events:
+        on_event(event, exit_event.set, stop=stop, silent=True)
 
-        # TODO: Currently this requires explicitly declaration of the events and signal handler to set
-        #  the event (gloo_run.py:_launch_jobs()). Need to figure out a generalized way to hide this behind
-        #  interfaces.
-        stop = threading.Event()
-        events = events or []
-        for event in events:
-            on_event(event, exit_event.set, stop=stop, silent=True)
-
-        try:
-            middleman.join()
-        except:
-            # interrupted, send middleman TERM signal which will terminate children
-            exit_event.set()
-            while True:
-                try:
-                    middleman.join()
-                    break
-                except:
-                    # interrupted, wait for middleman to finish
-                    pass
-        finally:
-            stop.set()
+    try:
+        middleman.join()
+    except:
+        # interrupted, send middleman TERM signal which will terminate children
+        exit_event.set()
+        while True:
+            try:
+                middleman.join()
+                break
+            except:
+                # interrupted, wait for middleman to finish
+                pass
+    finally:
+        stop.set()
 
     stdout_r.close()
     stderr_r.close()

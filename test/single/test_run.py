@@ -402,7 +402,6 @@ class RunTests(unittest.TestCase):
     def test_prefix_stream_with_pipe_stream(self):
         def write(connection, *texts: str):
             with os.fdopen(connection.fileno(), 'wt', newline='', closefd=False) as stream:
-                stream.readable()
                 for text in list(texts):
                     stream.write(text)
                     stream.flush()
@@ -410,13 +409,12 @@ class RunTests(unittest.TestCase):
             connection.close()
 
         (r, w) = multiprocessing.get_context('spawn').Pipe()
-        with os.fdopen(r.fileno(), 'rt', newline='', closefd=False) as r_stream:
-            in_thread(write, (w, 'first line\r', 'first ', 'line ', 'again\n', 'second line\nmore ', 'lines'))
-            self.do_test_prefix_stream(r_stream, prefix='prefix', index=123, timestamp=False,
-                                       expected='[123]<prefix>:first line\r'
-                                                '[123]<prefix>:first line again\n'
-                                                '[123]<prefix>:second line\n'
-                                                '[123]<prefix>:more lines')
+        in_thread(write, (w, 'first line\r', 'first ', 'line ', 'again\n', 'second line\nmore ', 'lines'))
+        self.do_test_prefix_stream(r, prefix='prefix', index=123, timestamp=True,
+                                   expected='Mon Jan 20 12:00:01 2020[123]<prefix>:first line\r'
+                                            'Mon Jan 20 12:00:02 2020[123]<prefix>:first line again\n'
+                                            'Mon Jan 20 12:00:03 2020[123]<prefix>:second line\n'
+                                            'Mon Jan 20 12:00:04 2020[123]<prefix>:more lines')
 
     def do_test_prefix_stream(self, string_or_stream, prefix, index, timestamp, expected):
         # control the time used to prepend the timestamp
@@ -427,20 +425,24 @@ class RunTests(unittest.TestCase):
 
             def time(self, seconds):
                 from time import gmtime
+                print(seconds)
                 self._time = self._time + 1
                 return gmtime(self._time)
 
         if isinstance(string_or_stream, str):
-            src = io.StringIO(string_or_stream)
+            (src, w) = multiprocessing.get_context('spawn').Pipe()
+            with os.fdopen(w.fileno(), 'wt', newline='', closefd=False) as stream:
+                stream.write(string_or_stream)
+            w.close()
         else:
             src = string_or_stream
 
-        dst = io.StringIO()
+        dst = io.BytesIO()
         with mock.patch('horovod.runner.common.util.safe_shell_exec.time.localtime',
                         side_effect=MockTime().time):
             safe_shell_exec.prefix_stream(src, dst, prefix=prefix, index=index,
                                           prefix_output_with_timestamp=timestamp)
-        self.assertEqual(expected, dst.getvalue())
+        self.assertEqual(expected, dst.getvalue().decode('utf8'))
 
     def test_safe_shell_exec_captures_stdout(self):
         self.do_test_safe_shell_exec('echo hello', 0, 'hello\n', '')
@@ -505,14 +507,14 @@ class RunTests(unittest.TestCase):
             self.assertFalse(child.is_running())
 
     def do_test_safe_shell_exec(self, cmd, expected_exit_code, expected_stdout, expected_stderr, event=None):
-        stdout = io.StringIO()
-        stderr = io.StringIO()
+        stdout = io.BytesIO()
+        stderr = io.BytesIO()
         res = safe_shell_exec.execute(cmd, stdout=stdout, stderr=stderr, events=[event] if event else None)
         self.assertEqual(expected_exit_code, res)
         if expected_stdout is not None:
-            self.assertEqual(expected_stdout, stdout.getvalue())
+            self.assertEqual(expected_stdout, stdout.getvalue().decode('utf8'))
         if expected_stderr is not None:
-            self.assertEqual(expected_stderr, stderr.getvalue())
+            self.assertEqual(expected_stderr, stderr.getvalue().decode('utf8'))
 
     def test_hash(self):
         hash = _hash("test string")
