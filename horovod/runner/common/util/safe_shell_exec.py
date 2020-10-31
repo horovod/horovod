@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import codecs
 import multiprocessing
 import os
 import re
@@ -79,15 +80,15 @@ def terminate_executor_shell_and_children(pid):
             pass
 
 
-def prefix_stream(src_stream, dst_stream, prefix, index, prefix_output_with_timestamp):
+def prefix_connection(src_connection, dst_stream, prefix, index, prefix_output_with_timestamp):
     """
-    Prefixes the given source stream with timestamp, a prefix and an index.
+    Prefixes the given source connection with timestamp, a prefix and an index.
     Each line of the source stream will be prefix in the format, if index and prefix are not None:
         {time}[{index}]<{prefix}>:{line}
-    Both streams, src_stream and dst_stream must be utf8 byte streams.
+    The dst_stream must be text streams.
 
-    :param src_stream: source byte stream
-    :param dst_stream: destination byte stream
+    :param src_connection: source pipe connection
+    :param dst_stream: destination text stream
     :param prefix: prefix string
     :param index: index value
     :param prefix_output_with_timestamp: prefix lines in dst_stream with timestamp
@@ -104,42 +105,44 @@ def prefix_stream(src_stream, dst_stream, prefix, index, prefix_output_with_time
     def write(text):
         if index is not None and prefix is not None:
             context = get_context(index, prefix)
-            dst_stream.write(context.encode('utf8'))
+            dst_stream.write(context)
         dst_stream.write(text)
         dst_stream.flush()
 
-    line_buffer = b''
+    # the incremental encoder allows us to decode chunks of utf8 bytes
+    # with utf8 characters spread across the boundary chunks
+    decoder = codecs.getincrementaldecoder('utf8')()
+
+    line_buffer = ''
     while True:
-        # if we could read all available characters up to 1000,
-        # but not waiting for more if there are less, we would do that here
-        text = os.read(src_stream.fileno(), 1000)
+        # read at most that many bytes, but do not wait until that many bytes become available
+        # waits for the first bytes so this is not a busy loop
+        buf = os.read(src_connection.fileno(), 1000)
 
-        if not isinstance(text, bytes):
-            raise ValueError('Source stream must to be a byte stream')
+        # turn the bytes into string decoding them as utf8
+        # we need to use an incremental decoder as characters can span multiple bytes
+        # where the last character might not be completely in buf
+        # see https://github.com/horovod/horovod/issues/2367
+        text = decoder.decode(buf or b'', final=not buf)
 
-        if not text:
+        # write line_buffer out when we reach an \n or \r
+        # the latter is used to update the current line (e.g. progress bar)
+        # which we want to flush out (and prefix) as soon as possible
+        for line in re.split('([\r\n])', text):
+            line_buffer += line
+            if line == '\r' or line == '\n':
+                write(line_buffer)
+                line_buffer = ''
+
+        # not an empty text indicates EOF but an empty buf
+        if not buf:
             break
 
-        def intersperse(lst, item):
-            result = [item] * (len(lst) * 2 - 1)
-            result[0::2] = lst
-            return result
-
-        lines = intersperse(text.split(b'\r'), b'\r')
-        lines = [lline
-                 for line in lines
-                 for lline in intersperse(line.split(b'\n'), b'\n')]
-        for line in lines:
-            line_buffer += line
-            if line == b'\r' or line == b'\n':
-                write(line_buffer)
-                line_buffer = b''
-
     # flush the line buffer if it is not empty
-    if line_buffer:
+    if len(line_buffer):
         write(line_buffer)
 
-    src_stream.close()
+    src_connection.close()
 
 
 def _exec_middleman(command, env, exit_event, stdout, stderr, rw):
@@ -228,14 +231,13 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
     # Redirect command stdout & stderr to provided streams or sys.stdout/sys.stderr.
     # This is useful for Jupyter Notebook that uses custom sys.stdout/sys.stderr or
     # for redirecting to a file on disk.
-    # We need byte streams, stdout / stderr are text streams so we take the underlying byte streams
     if stdout is None:
-        stdout = sys.stdout.buffer
+        stdout = sys.stdout
     if stderr is None:
-        stderr = sys.stderr.buffer
+        stderr = sys.stderr
 
-    stdout_fwd = in_thread(target=prefix_stream, args=(stdout_r, stdout, 'stdout', index, prefix_output_with_timestamp))
-    stderr_fwd = in_thread(target=prefix_stream, args=(stderr_r, stderr, 'stderr', index, prefix_output_with_timestamp))
+    stdout_fwd = in_thread(target=prefix_connection, args=(stdout_r, stdout, 'stdout', index, prefix_output_with_timestamp))
+    stderr_fwd = in_thread(target=prefix_connection, args=(stderr_r, stderr, 'stderr', index, prefix_output_with_timestamp))
 
     # TODO: Currently this requires explicitly declaration of the events and signal handler to set
     #  the event (gloo_run.py:_launch_jobs()). Need to figure out a generalized way to hide this behind
@@ -259,9 +261,6 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
                 pass
     finally:
         stop.set()
-
-    stdout_r.close()
-    stderr_r.close()
 
     stdout_fwd.join()
     stderr_fwd.join()
