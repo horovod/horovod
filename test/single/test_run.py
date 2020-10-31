@@ -347,8 +347,20 @@ class RunTests(unittest.TestCase):
         string = 'first line\nsecond line\nmore lines\n'
         self.do_test_prefix_connection(string, prefix='prefix', index=123,
                                        expected='[123]<prefix>:first line\n'
-                                            '[123]<prefix>:second line\n'
-                                            '[123]<prefix>:more lines\n')
+                                                '[123]<prefix>:second line\n'
+                                                '[123]<prefix>:more lines\n')
+
+    def test_prefix_connection_with_unicode(self):
+        string = '∀∁∂∃∄∅∆∇∈∉∊∋∌∍∎∏∐∑\n⌚⌛⛄✅…\n'
+        self.do_test_prefix_connection(string, prefix='prefix', index=123,
+                                       expected='[123]<prefix>:∀∁∂∃∄∅∆∇∈∉∊∋∌∍∎∏∐∑\n'
+                                                '[123]<prefix>:⌚⌛⛄✅…\n')
+
+    def test_prefix_connection_with_multibyte_unicode(self):
+        string = '█'*1000 + '\n' + '█'*1000 + '\n'
+        self.do_test_prefix_connection(string, prefix='prefix', index=123,
+                                       expected='[123]<prefix>:' + '█'*1000 + '\n' +
+                                                '[123]<prefix>:' + '█'*1000 + '\n')
 
     def test_prefix_connection_with_timestamp(self):
         string = 'first line\nsecond line\nmore lines\n'
@@ -365,12 +377,6 @@ class RunTests(unittest.TestCase):
                                        expected='[123]<prefix>:first line\n'
                                             '[123]<prefix>:second line\n'
                                             '[123]<prefix>:more lines')
-
-    def test_prefix_connection_with_multibyte_unicode(self):
-        string = '█'*1000 + '\n' + '█'*1000 + '\n'
-        self.do_test_prefix_connection(string, prefix='prefix', index=123,
-                                       expected='[123]<prefix>:' + '█'*1000 + '\n' +
-                                            '[123]<prefix>:' + '█'*1000 + '\n')
 
     def test_prefix_connection_without_index(self):
         string = 'first line\nsecond line\nmore lines\n'
@@ -398,7 +404,7 @@ class RunTests(unittest.TestCase):
     def do_test_prefix_connection(self, string, prefix, index, expected, timestamp=False):
         # create a Pipe Connection and populate it with string
         (connection, w) = multiprocessing.get_context('spawn').Pipe()
-        with os.fdopen(w.fileno(), 'wt', newline='', closefd=False) as stream:
+        with os.fdopen(w.fileno(), 'wt', encoding='utf8', newline='', closefd=False) as stream:
             stream.write(string)
         w.close()
 
@@ -416,7 +422,6 @@ class RunTests(unittest.TestCase):
 
             def time(self, seconds):
                 from time import gmtime
-                print(seconds)
                 self._time = self._time + 1
                 return gmtime(self._time)
 
@@ -461,7 +466,7 @@ class RunTests(unittest.TestCase):
                 logging.info('continuing writing')
 
             try:
-                with os.fdopen(write_connection.fileno(), 'wt', newline='', closefd=False) as stream:
+                with os.fdopen(write_connection.fileno(), 'wt', encoding='utf8', newline='', closefd=False) as stream:
                     for text in ['first line\r',
                                  'first ', 'line ', 'again\n',
                                  'second line\nmore ', 'lines']:
@@ -502,7 +507,7 @@ class RunTests(unittest.TestCase):
         (r, dst_con) = multiprocessing.get_context('spawn').Pipe()
         reader_thread = in_thread(reader, (r,))
 
-        with os.fdopen(dst_con.fileno(), 'wt', newline='', closefd=False) as dst:
+        with os.fdopen(dst_con.fileno(), 'wt', encoding='utf8', newline='', closefd=False) as dst:
             safe_shell_exec.prefix_connection(connection, dst, prefix=prefix, index=index,
                                               prefix_output_with_timestamp=False)
 
