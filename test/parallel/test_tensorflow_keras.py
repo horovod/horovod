@@ -16,13 +16,12 @@
 """Tests for horovod.tensorflow.keras."""
 
 import math
-import tempfile
-import warnings
-from distutils.version import LooseVersion
-
 import numpy as np
 import pytest
 import tensorflow as tf
+import warnings
+
+from distutils.version import LooseVersion
 from tensorflow import keras
 from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.optimizer_v2 import optimizer_v2
@@ -126,11 +125,10 @@ class TfKerasTests(tf.test.TestCase):
             y = np.random.random((1, 3, 3))
             model.train_on_batch(x, y)
 
-            with tempfile.TemporaryFile() as fp:
-                model.save(fp)
-                fp.seek(0)
+            with temppath() as fname:
+                model.save(fname)
 
-                new_model = hvd.load_model(fp)
+                new_model = hvd.load_model(fname)
                 new_opt = new_model.optimizer
 
             self.assertEqual(type(new_opt).__module__, 'horovod._keras')
