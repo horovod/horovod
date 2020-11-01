@@ -107,7 +107,8 @@ dev_require_list = ['tensorflow-cpu==1.15.0',
                     'pyspark==2.4.7']
 
 # python packages required only to run tests
-test_require_list = ['mock', 'pytest', 'pytest-forked', 'parameterized']
+# Pin h5py: https://github.com/h5py/h5py/issues/1732
+test_require_list = ['mock', 'pytest', 'pytest-forked', 'parameterized', 'h5py<3']
 
 # framework dependencies
 tensorflow_require_list = ['tensorflow']
