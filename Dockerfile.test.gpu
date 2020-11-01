@@ -99,8 +99,9 @@ COPY . /horovod
 RUN pip install ${TENSORFLOW_PACKAGE}
 
 # Install Keras.
+# Pin h5py: https://github.com/h5py/h5py/issues/1732
 # Pin scipy<1.4.0: https://github.com/scipy/scipy/issues/11237
-RUN pip install ${KERAS_PACKAGE} h5py "scipy<1.4.0" "pandas<1.1.0"
+RUN pip install ${KERAS_PACKAGE} "h5py<3" "scipy<1.4.0" "pandas<1.1.0"
 RUN mkdir -p ~/.keras
 RUN ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
     python -c "from keras.datasets import mnist; mnist.load_data()" && \
