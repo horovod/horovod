@@ -357,10 +357,11 @@ class RunTests(unittest.TestCase):
                                                 '[123]<prefix>:⌚⌛⛄✅…\n')
 
     def test_prefix_connection_with_multibyte_unicode(self):
-        string = '█'*1000 + '\n' + '█'*1000 + '\n'
+        block = '█▓▒░▒▓'*1000
+        string = block + '\n' + block + '\n'
         self.do_test_prefix_connection(string, prefix='prefix', index=123,
-                                       expected='[123]<prefix>:' + '█'*1000 + '\n' +
-                                                '[123]<prefix>:' + '█'*1000 + '\n')
+                                       expected='[123]<prefix>:' + block + '\n' +
+                                                '[123]<prefix>:' + block + '\n')
 
     def test_prefix_connection_with_timestamp(self):
         string = 'first line\nsecond line\nmore lines\n'
@@ -370,6 +371,11 @@ class RunTests(unittest.TestCase):
                      'Mon Jan 20 12:00:02 2020[123]<prefix>:second line\n'
                      'Mon Jan 20 12:00:03 2020[123]<prefix>:more lines\n'
         )
+
+    def test_prefix_connection_with_timestamp_without_index(self):
+        string = 'first line\nsecond line\nmore lines\n'
+        self.do_test_prefix_connection_with_timestamp(string, prefix=None, index=None,
+                                                      expected=string)
 
     def test_prefix_connection_without_trailing_newline(self):
         string = 'first line\nsecond line\nmore lines'

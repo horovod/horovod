@@ -83,7 +83,7 @@ def terminate_executor_shell_and_children(pid):
 def prefix_connection(src_connection, dst_stream, prefix, index, prefix_output_with_timestamp):
     """
     Prefixes the given source connection with timestamp, a prefix and an index.
-    Each line of the source stream will be prefix in the format, if index and prefix are not None:
+    Each line of the source will be prefix in this format, if index and prefix are not None:
         {time}[{index}]<{prefix}>:{line}
     The dst_stream must be text streams.
 
@@ -160,7 +160,7 @@ def _exec_middleman(command, env, exit_event, stdout, stderr, rw):
                                       stdout=stdout_w, stderr=stderr_w)
 
     # we don't bother stopping the on_event thread, this process sys.exits soon
-    # so the on_event thread has to be a deamon thread
+    # so the on_event thread has to be a daemon thread
     on_event(exit_event, terminate_executor_shell_and_children, args=(executor_shell.pid,), daemon=True)
 
     def kill_executor_children_if_parent_dies():
@@ -185,11 +185,13 @@ def _create_event(ctx):
     return ctx.Event()
 
 
-def execute(command, env=None, stdout=None, stderr=None, index=None, events=None, prefix_output_with_timestamp=False):
+def execute(command, env=None, stdout=None, stderr=None, index=None, events=None,
+            prefix_output_with_timestamp=False):
     """
     Execute the given command and forward stdout and stderr of the command to the given
     stdout and stderr text streams, or sys.stdout and sys.stderr, respectively, if None given.
-    Prefixes each line with index if not None and timestamp if prefix_output_with_timestamp is True.
+    Prefixes each line with index and timestamp if index is not None. The timestamp
+    can be disabled with prefix_output_with_timestamp set False.
     The command will be terminated when any of the given events are set.
 
     :param command: command to execute
