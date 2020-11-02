@@ -16,6 +16,8 @@
 import copy
 import io
 import itertools
+import logging
+import multiprocessing
 import os
 import subprocess
 import sys
@@ -24,27 +26,25 @@ import time
 import unittest
 import warnings
 
+import mock
 import psutil
 import pytest
-import mock
-
+from common import is_built, lsf_and_jsrun, override_args, override_env, temppath, delay, wait
 from mock import MagicMock
 
 import horovod
+from horovod.runner import _HorovodArgs
 from horovod.runner.common.util import config_parser, hosts, safe_shell_exec, secret, \
     settings as hvd_settings, timeout
-from horovod.runner import _HorovodArgs
 from horovod.runner.common.util.host_hash import _hash, host_hash
 from horovod.runner.common.util.hosts import SlotInfo, get_host_assignments, parse_hosts
 from horovod.runner.gloo_run import gloo_run
 from horovod.runner.js_run import js_run, generate_jsrun_rankfile
-from horovod.runner.mpi_run import _get_mpi_implementation, _get_mpi_implementation_flags,\
-    _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_available, mpi_run,\
-    _OMPI_IMPL, _SMPI_IMPL, _MPICH_IMPL, _UNKNOWN_IMPL, _MISSING_IMPL
 from horovod.runner.launch import gloo_built, parse_args, run_controller, _run
+from horovod.runner.mpi_run import _get_mpi_implementation, _get_mpi_implementation_flags, \
+    _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_available, mpi_run, \
+    _OMPI_IMPL, _SMPI_IMPL, _MPICH_IMPL, _UNKNOWN_IMPL, _MISSING_IMPL
 from horovod.runner.util.threads import in_thread, on_event
-
-from common import is_built, lsf_and_jsrun, override_args, override_env, temppath, delay, wait
 
 
 class RunTests(unittest.TestCase):
@@ -342,6 +342,186 @@ class RunTests(unittest.TestCase):
         with pytest.raises(ValueError, match="^Stop event must be given for non-daemon event thread$"):
             on_event(event, fn, stop=None, daemon=False)
         fn.assert_not_called()
+
+    def test_prefix_connection(self):
+        string = 'first line\nsecond line\nmore lines\n'
+        self.do_test_prefix_connection(string, prefix='prefix', index=123,
+                                       expected='[123]<prefix>:first line\n'
+                                                '[123]<prefix>:second line\n'
+                                                '[123]<prefix>:more lines\n')
+
+    def test_prefix_connection_with_unicode(self):
+        string = '∀∁∂∃∄∅∆∇∈∉∊∋∌∍∎∏∐∑\n⌚⌛⛄✅…\n'
+        self.do_test_prefix_connection(string, prefix='prefix', index=123,
+                                       expected='[123]<prefix>:∀∁∂∃∄∅∆∇∈∉∊∋∌∍∎∏∐∑\n'
+                                                '[123]<prefix>:⌚⌛⛄✅…\n')
+
+    def test_prefix_connection_with_multibyte_unicode(self):
+        block = '█▓▒░▒▓'*1000
+        string = block + '\n' + block + '\n'
+        self.do_test_prefix_connection(string, prefix='prefix', index=123,
+                                       expected='[123]<prefix>:' + block + '\n' +
+                                                '[123]<prefix>:' + block + '\n')
+
+    def test_prefix_connection_with_timestamp(self):
+        string = 'first line\nsecond line\nmore lines\n'
+        self.do_test_prefix_connection_with_timestamp(
+            string, prefix='prefix', index=123,
+            expected='Mon Jan 20 12:00:01 2020[123]<prefix>:first line\n'
+                     'Mon Jan 20 12:00:02 2020[123]<prefix>:second line\n'
+                     'Mon Jan 20 12:00:03 2020[123]<prefix>:more lines\n'
+        )
+
+    def test_prefix_connection_with_timestamp_without_index(self):
+        string = 'first line\nsecond line\nmore lines\n'
+        self.do_test_prefix_connection_with_timestamp(string, prefix=None, index=None,
+                                                      expected=string)
+
+    def test_prefix_connection_without_trailing_newline(self):
+        string = 'first line\nsecond line\nmore lines'
+        self.do_test_prefix_connection(string, prefix='prefix', index=123,
+                                       expected='[123]<prefix>:first line\n'
+                                            '[123]<prefix>:second line\n'
+                                            '[123]<prefix>:more lines')
+
+    def test_prefix_connection_without_index(self):
+        string = 'first line\nsecond line\nmore lines\n'
+        self.do_test_prefix_connection(string, prefix='prefix', index=None, expected=string)
+
+    def test_prefix_connection_without_prefix(self):
+        string = 'first line\nsecond line\nmore lines\n'
+        self.do_test_prefix_connection(string, prefix=None, index=123, expected=string)
+
+    def test_prefix_connection_with_carriage_return(self):
+        string = 'first line\rfirst line again\nsecond line\n'
+        self.do_test_prefix_connection(string, prefix='prefix', index=123,
+                                       expected='[123]<prefix>:first line\r'
+                                            '[123]<prefix>:first line again\n'
+                                            '[123]<prefix>:second line\n')
+
+    def test_prefix_connection_with_carriage_return_without_index(self):
+        string = 'first line\rfirst line again\nsecond line\n'
+        self.do_test_prefix_connection(string, prefix='prefix', index=None, expected=string)
+
+    def test_prefix_connection_with_carriage_return_without_prefix(self):
+        string = 'first line\rfirst line again\nsecond line\n'
+        self.do_test_prefix_connection(string, prefix=None, index=123, expected=string)
+
+    def do_test_prefix_connection(self, string, prefix, index, expected, timestamp=False):
+        # create a Pipe Connection and populate it with string
+        (connection, w) = multiprocessing.get_context('spawn').Pipe()
+        with os.fdopen(w.fileno(), 'wt', encoding='utf8', newline='', closefd=False) as stream:
+            stream.write(string)
+        w.close()
+
+        dst = io.StringIO()
+        safe_shell_exec.prefix_connection(connection, dst, prefix=prefix, index=index,
+                                          prefix_output_with_timestamp=timestamp)
+        self.assertEqual(expected, dst.getvalue())
+
+    def do_test_prefix_connection_with_timestamp(self, string_or_connection, prefix, index, expected):
+        # control the time used to prepend the timestamp
+        class MockTime:
+            def __init__(self):
+                # start at 2020-01-20 12:00:00
+                self._time = 1579521600
+
+            def time(self, seconds):
+                from time import gmtime
+                self._time = self._time + 1
+                return gmtime(self._time)
+
+        with mock.patch('horovod.runner.common.util.safe_shell_exec.time.localtime',
+                        side_effect=MockTime().time):
+            self.do_test_prefix_connection(string_or_connection, prefix, index, expected, timestamp=True)
+
+    def test_prefix_connection_does_stream(self):
+        index = 123
+        prefix = 'prefix'
+        expected = '[123]<prefix>:first line\r' \
+                   '[123]<prefix>:first line again\n' \
+                   '[123]<prefix>:second line\n' \
+                   '[123]<prefix>:more lines'
+
+        timeout = 0.2
+        barrier = multiprocessing.Barrier(2, timeout=timeout)
+
+        def writer(write_connection):
+            def write(stream, text):
+                stream.write(text)
+                logging.info('wrote: {}'.format(text))
+                stream.flush()
+
+                # are we expecting the reader to read something
+                logging.info('waiting for reader')
+                if '\r' in text or '\n' in text:
+                    # yes, barrier should not timeout
+                    try:
+                        barrier.wait()
+                    except threading.BrokenBarrierError:
+                        self.fail('reader side should have read something from the stream')
+                else:
+                    # no, barrier should timeout
+                    try:
+                        barrier.wait()
+                        self.fail('reader side should not have read anything from the stream')
+                    except threading.BrokenBarrierError:
+                        logging.info('reader did not read')
+                        barrier.reset()
+                        pass
+                logging.info('continuing writing')
+
+            try:
+                with os.fdopen(write_connection.fileno(), 'wt', encoding='utf8', newline='', closefd=False) as stream:
+                    for text in ['first line\r',
+                                 'first ', 'line ', 'again\n',
+                                 'second line\nmore ', 'lines']:
+                        write(stream, text)
+            finally:
+                write_connection.close()
+
+        actual = []
+        do_read = True
+
+        def reader(read_connection):
+            try:
+                while do_read:
+                    text = os.read(read_connection.fileno(), 1000)
+                    if not text:
+                        break
+                    text = text.decode('utf8')
+                    actual.append(text)
+                    logging.info('read: {}'.format(text))
+                    logging.info('waiting for writer')
+                    try:
+                        barrier.wait()
+                    except threading.BrokenBarrierError as e:
+                        if do_read:
+                            raise e
+                        break
+                    logging.info('continuing reading')
+            finally:
+                read_connection.close()
+
+        # one thread writes into the w side of this pipe
+        # prefix_connection reads on the other end of this pipe
+        (connection, w) = multiprocessing.get_context('spawn').Pipe()
+        writer_thread = in_thread(writer, (w,))
+
+        # prefix_connection writes to the write side of this Pipe (opened as a text stream)
+        # another thread reads from the r side of this pipe
+        (r, dst_con) = multiprocessing.get_context('spawn').Pipe()
+        reader_thread = in_thread(reader, (r,))
+
+        with os.fdopen(dst_con.fileno(), 'wt', encoding='utf8', newline='', closefd=False) as dst:
+            safe_shell_exec.prefix_connection(connection, dst, prefix=prefix, index=index,
+                                              prefix_output_with_timestamp=False)
+
+        writer_thread.join(2*timeout)
+        do_read = False
+        reader_thread.join(2*timeout)
+
+        self.assertEqual(expected, ''.join(actual))
 
     def test_safe_shell_exec_captures_stdout(self):
         self.do_test_safe_shell_exec('echo hello', 0, 'hello\n', '')
