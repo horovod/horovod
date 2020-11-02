@@ -2079,7 +2079,6 @@ class TorchTests(unittest.TestCase):
             assert torch.allclose(hvd.allreduce(sync_bn.bias.grad, name='sync_bn.bias.grad'), bn.bias.grad, 1e-6)
             assert torch.allclose(hvd.allreduce(ts1.grad, name='ts1.grad'), ts2.grad, 1e-6)
 
-    @pytest.mark.skip(reason='https://github.com/horovod/horovod/issues/2330')
     def test_timeline_api(self):
         hvd.init()
 
@@ -2088,9 +2087,9 @@ class TorchTests(unittest.TestCase):
                 with open(fname, 'r') as timeline_file:
                     timeline_text = timeline_file.read()
                     assert 'allreduce.test_allreduce' in timeline_text, timeline_text
+                    assert 'start_time_since_epoch_in_micros' in timeline_text, timeline_text
                     assert 'NEGOTIATE_ALLREDUCE' in timeline_text, timeline_text
                     assert 'ALLREDUCE' in timeline_text, timeline_text
-                    assert 'start_time_since_epoch_in_micros' in timeline_text, timeline_text
                     json_obj = json.loads(timeline_text)
                     assert json_obj is not None
                     if check_cycle:
@@ -2098,7 +2097,7 @@ class TorchTests(unittest.TestCase):
 
         with temppath() as fname1:
             hvd.start_timeline(fname1, mark_cycles=True)
-            hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
+            hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce').numpy();
             # stop timeline will immediately stop events to be registered in timeline. We are providing some time
             # before calling stop so that mark_cycle events can be registered in timeline file.
             time.sleep(0.2)
@@ -2109,7 +2108,8 @@ class TorchTests(unittest.TestCase):
         # Test resuming with a different filename.
         with temppath() as fname2:
             hvd.start_timeline(fname2, mark_cycles=True)
-            hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
+            time.sleep(0.2)
+            hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce').numpy();
             # stop timeline will immediately stop events to be registered in timeline. We are providing some time
             # before calling stop so that cycle events can be registered in timeline file.
             time.sleep(0.2)
@@ -2120,7 +2120,8 @@ class TorchTests(unittest.TestCase):
         with temppath() as fname3:
             # Make sure that last stop timeline has been processed.
             hvd.start_timeline(fname3, mark_cycles=False)
-            hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
+            time.sleep(0.2)
+            hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce').numpy();
             # stop timeline will immediately stop events to be registered in timeline. We are providing some time
             # before calling stop so that events can be registered in timeline file.
             hvd.stop_timeline()
@@ -2130,7 +2131,8 @@ class TorchTests(unittest.TestCase):
         with temppath() as fname4:
             # Make sure that last stop timeline has been processed.
             hvd.start_timeline(fname4, mark_cycles=True)
-            hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
+            time.sleep(0.2)
+            hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce').numpy();
             # stop timeline will immediately stop events to be registered in timeline. We are providing some time
             # before calling stop so that cycle events can be registered in timeline file.
             time.sleep(0.2)
@@ -2141,7 +2143,10 @@ class TorchTests(unittest.TestCase):
             # Make sure that last stop timeline has been processed.
             hvd.start_timeline(fname5, mark_cycles=False)
             hvd.start_timeline(fname5, mark_cycles=False)
-            hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
+            time.sleep(0.2)
+            hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce').numpy()
+            hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce').numpy()
+            time.sleep(0.2)
             hvd.stop_timeline()
             check_file(fname5, check_cycle=False)
 

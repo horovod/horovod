@@ -423,9 +423,12 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     state.timeline.Initialize(horovod_timeline,
                               static_cast<unsigned int>(size));
   }
-  if (horovod_timeline != "") {
-      should_enable_timeline = true;
+
+  should_enable_timeline = true;
+  if (horovod_timeline == "DISABLED") {
+    should_enable_timeline = false;
   }
+
   state.controller->SetTimelineEnabled(should_enable_timeline);
 
   ParseStallInspectorFromEnv(state.controller->GetStallInspector());
@@ -590,8 +593,8 @@ bool RunLoopOnce(HorovodGlobalState& state) {
   auto response_list =
       state.controller->ComputeResponseList(horovod_global.shut_down, state);
 
-  state.mark_cycles_in_timeline = state.controller->MarkCyclesInTimelinePending();
-  state.controller->SynchronizeTimelineEnabled();
+  state.mark_cycles_in_timeline =
+      state.controller->MarkCyclesInTimelinePending();
 
   // Get tensor name and size data for autotuning.
   int64_t total_tensor_size = 0;
@@ -719,21 +722,11 @@ bool horovod_start_timeline(const char* file_name, bool mark_cycles) {
     return false;
   }
   bool is_coordinator = horovod_global.controller->IsCoordinator();
-  if(horovod_global.controller->TimelineEnabledPending()){
-    LOG(INFO) << " Timeline is already enabled. Please stop timeline before restarting it.";
-    return true;
-  }
   if (is_coordinator) {
     horovod_global.timeline.Initialize(std::string(file_name), horovod_global.controller->GetSize());
     horovod_global.timeline.SetPendingTimelineFile(std::string(file_name));
   }
-  horovod_global.controller->SetTimelineEnabledPending(true);
   horovod_global.controller->SetMarkCyclesInTimelinePending(mark_cycles);
-  // block until timeline is started
-  while(! horovod_global.controller->TimeLineEnabled()){
-    LOG(DEBUG)<< " Start timeline not yet synchronized.";
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-  }
   return true;
 }
 
@@ -748,12 +741,6 @@ bool horovod_stop_timeline() {
   bool is_coordinator = horovod_global.controller->IsCoordinator();
   if (is_coordinator) {
       horovod_global.timeline.SetPendingTimelineFile(std::string(""));
-  }
-  horovod_global.controller->SetTimelineEnabledPending(false);
-  horovod_global.controller->SetMarkCyclesInTimelinePending(false);
-  while(horovod_global.controller->TimeLineEnabled()){
-    LOG(DEBUG)<< " Stop timeline not yet synchronized.";
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
   return true;
 }
