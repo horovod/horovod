@@ -2675,6 +2675,7 @@ class TensorFlowTests(tf.test.TestCase):
             grads_and_vars = opt.compute_gradients()
             update_op = opt.apply_gradients(grads_and_vars)
             sess.run(tf.compat.v1.global_variables_initializer())
+            sess.run(tf.compat.v1.local_variables_initializer())
 
             def compute_expected_value(batch_id):
                 sum_per_aggregation = 0.0
