@@ -73,6 +73,7 @@ class LocalGradientAggregationHelper:
             self.counter = tf.compat.v1.get_variable(
                 "aggregation_counter", shape=(), dtype=tf.int32,
                 trainable=False, initializer=tf.compat.v1.zeros_initializer(),
+                collections=[tf.compat.v1.GraphKeys.LOCAL_VARIABLES],
             )
             for idx, grad in enumerate(grads):
                 # Handle IndexedSlices.
