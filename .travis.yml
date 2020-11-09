@@ -18,7 +18,7 @@ jobs:
         - KERAS=2.2.4
         - PYTORCH=1.2.0
         - TORCHVISION=0.4.1
-        - MXNET=1.5.0
+        - MXNET=1.6.0
     - env:
         - HOROVOD_WITH_GLOO=1
         - HOROVOD_WITHOUT_MPI=1
@@ -26,7 +26,7 @@ jobs:
         - KERAS=2.3.1
         - PYTORCH=1.5.0
         - TORCHVISION=0.6.0
-        - MXNET=1.5.0
+        - MXNET=1.6.0
     - env:
         - HOROVOD_WITH_GLOO=1
         - HOROVOD_WITH_MPI=1
@@ -34,7 +34,7 @@ jobs:
         - KERAS=2.3.1
         - PYTORCH=1.6.0
         - TORCHVISION=0.7.0
-        - MXNET=1.5.0
+        - MXNET=1.6.0
 before_install:
   - export PATH=$(pyenv root)/shims:$PATH
   - pyenv install 3.7.7
