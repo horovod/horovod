@@ -19,7 +19,7 @@ function build_one()
     fi
 
     tag=horovod-build-py${py}-${device}:$(date +%Y%m%d-%H%M%S)
-    docker build -f Dockerfile.${device} -t ${tag} --build-arg python=${py} --no-cache .
+    docker build -f Dockerfile.${device} -t ${tag} --build-arg python=${py} .
     horovod_version=$(docker run --rm ${tag} pip show horovod | grep Version | awk '{print $2}')
     tensorflow_version=$(docker run --rm ${tag} pip show ${tensorflow_pkg} | grep Version | awk '{print $2}')
     pytorch_version=$(docker run --rm ${tag} pip show torch | grep Version | sed 's/+/ /g' | awk '{print $2}')
@@ -30,12 +30,12 @@ function build_one()
 }
 
 # clear upstream images, ok to fail if images do not exist
-docker rmi $(cat Dockerfile.cpu | grep FROM | awk '{print $2}') || true
-docker rmi $(cat Dockerfile.gpu | grep FROM | awk '{print $2}') || true
+# docker rmi $(cat Dockerfile.cpu | grep FROM | awk '{print $2}') || true
+# docker rmi $(cat Dockerfile.gpu | grep FROM | awk '{print $2}') || true
 
 # build for cpu and gpu
 build_one 3.7 cpu
-build_one 3.7 gpu
+# build_one 3.7 gpu
 
 # print recent images
 docker images horovod/horovod
