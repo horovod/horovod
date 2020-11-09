@@ -103,7 +103,7 @@ dev_require_list = ['tensorflow-cpu==1.15.0',
                     'keras==2.2.4',
                     'torch==1.2.0',
                     'torchvision==0.4.0',
-                    'mxnet==1.5.0',
+                    'mxnet==1.6.0',
                     'pyspark==2.4.7']
 
 # python packages required only to run tests
