@@ -5,9 +5,9 @@ Distributed Hyperparameter Search
 
 Horovod's data parallelism training capabilities allows you to scale out and speed up the workload of training a deep learning model. However, simply using 2x more workers does not necessarily mean the model will obtain the same accuracy in 2x less time.
 
-To address this, you will often need to re-tune hyperparameters when training at scale, as many hyperparameters exhibit different behaviors at larger scales.
+To address this, you often need to re-tune hyperparameters when training at scale, as many hyperparameters exhibit different behaviors at larger scales.
 
-To address this issue, Horovod offers a `Ray Tune`_ integration to enable parallel hyperparameter tuning with distributed training.
+Horovod offers a `Ray Tune`_ integration to enable parallel hyperparameter tuning with distributed training.
 
 .. image:: media/tune.png
     :align: center
@@ -17,13 +17,13 @@ To address this issue, Horovod offers a `Ray Tune`_ integration to enable parall
 
 **By the end of this guide, you will learn:**
 
-* How you can set up `Ray Tune`_ and Horovod to tune your hyperparameters
+* How to set up `Ray Tune`_ and Horovod to tune your hyperparameters
 * Typical hyperparameters to configure for distributed training
 
 Horovod + Ray Tune
 ------------------
 
-You can leverage `Ray Tune`_ with Horovod to combine distributed hyperparameter tuning with distributed training. Here is an example demonstrating basic usage:
+Leverage `Ray Tune`_ with Horovod to combine distributed hyperparameter tuning with distributed training. Here is an example demonstrating basic usage:
 
 .. code-block:: python
 
@@ -50,14 +50,12 @@ You can leverage `Ray Tune`_ with Horovod to combine distributed hyperparameter 
     )
     print(analysis.best_config)
 
-Not only is the interface very simple, it is also packed with features.
-
 Basic setup
 -----------
 
 Use Ray Tune's `DistributedTrainableCreator`_ function to adapt your Horovod training function to be compatible with Ray Tune.
 
-`DistributedTrainableCreator`_ exposes ``num_hosts``, ``num_slots``, ``use_gpu`` and ``num_cpus_per_slot`` - these parameters allow you to specify the resource allocation of a single "trial" (or "Trainable") which itself can be a distributed training job.
+`DistributedTrainableCreator`_ exposes ``num_hosts``, ``num_slots``, ``use_gpu``, and ``num_cpus_per_slot``. Use these parameters to specify the resource allocation of a single "trial" (or "Trainable") which itself can be a distributed training job.
 
 
 .. code-block:: python
@@ -78,7 +76,7 @@ Optimization of hyperparameters
 
 `Ray Tune`_ is able to orchestrate complex computational patterns with the `Ray Actor API <https://docs.ray.io/en/latest/actors.html>`__. For hyperparameter tuning, `Ray Tune`_ is able to conduct `parallel bayesian optimization <https://docs.ray.io/en/latest/tune/api_docs/suggestion.html>`__ and `Population Based Training <https://docs.ray.io/en/latest/tune/api_docs/schedulers.html>`__ on a group of distributed models.
 
-The user may need to implement model checkpointing (which is usually easy to do). The rest of the optimization process can be easily configured with just a couple lines of code.
+The user may need to implement model checkpointing. The rest of the optimization process can be configured with just a couple lines of code.
 
 .. code-block:: python
 
@@ -105,7 +103,7 @@ The user may need to implement model checkpointing (which is usually easy to do)
 
 Tune has a native interface for `specifying search spaces <https://docs.ray.io/en/master/tune/api_docs/search_space.html#tune-search-space>`__. You can specify the search space via ``tune.run(config=...)``.
 
-Thereby, you can either use the ``tune.grid_search`` primitive to specify an axis of a grid search...
+Thereby, either use the ``tune.grid_search`` primitive to specify an axis of a grid search...
 
 .. code-block:: python
 
@@ -131,7 +129,7 @@ Read more about Tune's `Search Space API <https://docs.ray.io/en/master/tune/api
 
 **Analyzing Results**
 
-``tune.run`` returns an `Analysis <https://docs.ray.io/en/master/tune/api_docs/analysis.html>`__ object which has methods you can use for analyzing your training.
+``tune.run`` returns an `Analysis <https://docs.ray.io/en/master/tune/api_docs/analysis.html>`__ object which has methods for analyzing your training.
 
 .. code-block:: python
 
@@ -145,23 +143,21 @@ Read more about Tune's `Search Space API <https://docs.ray.io/en/master/tune/api
     best_result_df = analysis.best_result_df  # Get best result as pandas dataframe
 
 
+Set up a tuning cluster
+-----------------------
 
-
-Setting up a tuning cluster
----------------------------
-
-You can easily leverage `Ray Tune`_ with Horovod on a laptop, single machine with multiple GPUs, or across multiple machines. To run on a single machine, you can execute your python script as-is (for example, `horovod_simple.py <https://docs.ray.io/en/latest/tune/examples/horovod_simple.html>`__, assuming Ray and Horovod are installed properly):
+Leverage `Ray Tune`_ with Horovod on a laptop, single machine with multiple GPUs, or across multiple machines. To run on a single machine, execute your Python script as-is (for example, `horovod_simple.py <https://docs.ray.io/en/latest/tune/examples/horovod_simple.html>`__, assuming Ray and Horovod are installed properly):
 
 .. code-block:: bash
 
     python horovod_simple.py
 
 
-To leverage a distributed hyperparameter tuning setup with `Ray Tune`_ + Horovod, you’ll need to install Ray and set up a `Ray cluster <https://docs.ray.io/en/latest/cluster/index.html>`__. Ray clusters are started with the `Ray Cluster Launcher <https://docs.ray.io/en/latest/cluster/launcher.html>`__ or manually.
+To leverage a distributed hyperparameter tuning setup with `Ray Tune`_ + Horovod, install Ray and set up a `Ray cluster <https://docs.ray.io/en/latest/cluster/index.html>`__. Start a Ray cluster with the `Ray Cluster Launcher <https://docs.ray.io/en/latest/cluster/launcher.html>`__ or manually.
 
-Below, we’ll use the `Ray cluster launcher <https://docs.ray.io/en/latest/cluster/launcher.html>`__, but you can start Ray on any list of nodes, on any cluster manager or cloud provider.
+Below, we’ll use the `Ray Cluster Launcher <https://docs.ray.io/en/latest/cluster/launcher.html>`__, but you can start Ray on any list of nodes, on any cluster manager or cloud provider.
 
-You’ll first want to specify a configuration file. Below we have an example of using AWS EC2, but you can easily launch the cluster on any cloud provider:
+First, specify a configuration file. Below we have an example of using AWS EC2, but you can launch the cluster on any cloud provider:
 
 .. code-block:: yaml
 
@@ -179,7 +175,7 @@ You’ll first want to specify a configuration file. Below we have an example of
     setup_commands: # Set up each node.
         - HOROVOD_WITH_GLOO=1 HOROVOD_GPU_OPERATIONS=NCCL pip install horovod[ray]
 
-You can then run ``ray up ray_cluster.yaml``, and a cluster of 4 nodes (1 head node + 3 worker nodes) will be automatically started for you with Ray.
+Run ``ray up ray_cluster.yaml``, and a cluster of 4 nodes (1 head node + 3 worker nodes) will be automatically started with Ray.
 
 .. code-block:: bash
 
@@ -228,7 +224,7 @@ Underneath the hood, `Ray Tune`_ will launch multiple "`trials <https://docs.ray
 
 Training actors will each hold a copy of the model and will create a communication group for Horovod allreduce. Training will execute on each actor, reporting intermediate metrics back to Tune.
 
-This API requires gloo as the underlying communication primitive. You will need to install Horovod with ``HOROVOD_WITH_GLOO`` `enabled <https://horovod.readthedocs.io/en/stable/install_include.html#gloo>`__.
+This API requires gloo as the underlying communication primitive. Be sure to install Horovod with ``HOROVOD_WITH_GLOO`` `enabled <https://horovod.readthedocs.io/en/stable/install_include.html#gloo>`__.
 
 
 Common Hyperparameters
