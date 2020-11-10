@@ -148,10 +148,7 @@ Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     buffer_len = (size_t) first_entry.output->size();
   }
 
-  int64_t num_elements = 0;
-  for (auto& e : entries) {
-    num_elements += e.tensor->shape().num_elements();
-  }
+  int64_t num_elements = buffer_len / DataType_Size(first_entry.tensor->dtype());
 
   if (response.prescale_factor() != 1.0) {
     // Execute prescaling op
@@ -221,10 +218,7 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     buffer_len = (size_t) first_entry.output->size();
   }
 
-  int64_t num_elements = 0;
-  for (auto& e : entries) {
-    num_elements += e.tensor->shape().num_elements();
-  }
+  int64_t num_elements = buffer_len / DataType_Size(first_entry.tensor->dtype());
 
   if (response.prescale_factor() != 1.0) {
     // Execute prescaling op

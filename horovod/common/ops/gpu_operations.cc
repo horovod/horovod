@@ -15,6 +15,9 @@
 // =============================================================================
 
 #include "gpu_operations.h"
+#if HAVE_CUDA
+#include "cuda/cuda_kernels.h"
+#endif
 
 #include <thread>
 
@@ -95,12 +98,106 @@ bool GPUAllreduce::Enabled(const ParameterManager& param_manager,
   return entries[0].device != CPU_DEVICE_ID;
 }
 
+#if HAVE_CUDA
+void GPUAllreduce::MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
+                                        void*& buffer_data, size_t& buffer_len) {
+  // Access the fusion buffer.
+  auto& first_entry = entries[0];
+  auto buffer = global_state_->fusion_buffer.GetBuffer(
+      first_entry.device, first_entry.context->framework(), global_state_->current_nccl_stream);
+  buffer_data = const_cast<void*>(buffer->AccessData(first_entry.context));
+
+  if (global_state_->batch_d2d_memcopies) {
+    int64_t offset = 0;
+    int idx = 0;
+    int count = 0;
+
+    BatchedD2DParams d2d_params;
+    auto& first_entry = entries[0];
+    for (auto& e : entries) {
+      void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
+
+      // Set input/output pointers and sizes
+      d2d_params.out[idx % BATCHED_D2D_CAPACITY] = buffer_data_at_offset;
+      d2d_params.in[idx % BATCHED_D2D_CAPACITY] = (void*) e.tensor->data();
+      d2d_params.sizes[idx % BATCHED_D2D_CAPACITY] = e.tensor->size();
+
+      offset += BATCHED_D2D_PADDING * ((e.tensor->size() + BATCHED_D2D_PADDING - 1) / BATCHED_D2D_PADDING);
+      idx++;
+      count++;
+
+      if (idx % BATCHED_D2D_CAPACITY == 0 || idx == (int) entries.size()) {
+        // Perform batched d2d memcpy
+        BatchedD2DMemcpyCudaImpl(d2d_params, count, gpu_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
+        gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl", cudaGetLastError());
+        count = 0;
+      }
+    }
+    buffer_len = (size_t)offset;
+
+  } else {
+    int64_t offset = 0;
+    for (auto& e : entries) {
+      void* buffer_data_at_offset = (uint8_t*) buffer_data + offset;
+      MemcpyEntryInFusionBuffer(entries, e, buffer_data_at_offset);
+      offset += e.tensor->size();
+    }
+
+    buffer_len = (size_t) offset;
+  }
+
+  // Set the input data to originate from the buffer.
+  fused_input_data = buffer_data;
+}
+#endif
+
+
 void GPUAllreduce::MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
                                              const TensorTableEntry& e, void* buffer_data_at_offset) {
   auto& first_entry = entries[0];
   gpu_context_->MemcpyAsyncD2D(buffer_data_at_offset, e.tensor->data(), (size_t) e.tensor->size(),
                                gpu_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
 }
+
+#if HAVE_CUDA
+void GPUAllreduce::MemcpyOutFusionBuffer(const void* buffer_data, std::vector<TensorTableEntry>& entries) {
+  if (global_state_->batch_d2d_memcopies) {
+    int64_t offset = 0;
+    int idx = 0;
+    int count = 0;
+
+    BatchedD2DParams d2d_params;
+    auto& first_entry = entries[0];
+    for (auto& e : entries) {
+      void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
+
+      // Set input/output pointers and sizes
+      d2d_params.out[idx % BATCHED_D2D_CAPACITY] = (void*)(e.output->data());
+      d2d_params.in[idx % BATCHED_D2D_CAPACITY] = buffer_data_at_offset;
+      d2d_params.sizes[idx % BATCHED_D2D_CAPACITY] = e.tensor->size();
+
+      offset += BATCHED_D2D_PADDING * ((e.tensor->size() + BATCHED_D2D_PADDING - 1) / BATCHED_D2D_PADDING);
+      idx++;
+      count++;
+
+      if (idx % BATCHED_D2D_CAPACITY == 0 || idx == (int) entries.size()) {
+        // Perform batched d2d memcpy
+        BatchedD2DMemcpyCudaImpl(d2d_params, count, gpu_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
+        gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl", cudaGetLastError());
+        count = 0;
+      }
+    }
+
+  } else {
+    int64_t offset = 0;
+    for (auto& e : entries) {
+      void* buffer_data_at_offset = (uint8_t*) buffer_data + offset;
+      MemcpyEntryOutFusionBuffer(entries, buffer_data_at_offset, e);
+      offset += e.tensor->size();
+    }
+  }
+}
+#endif
 
 void GPUAllreduce::MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
                                                const void* buffer_data_at_offset, TensorTableEntry& e) {
