@@ -49,8 +49,9 @@ void HTTPStore::wait(const std::vector<std::string>& keys,
     const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::steady_clock::now() - start);
     if (timeout != gloo::kNoTimeout && elapsed > timeout) {
-      GLOO_THROW_IO_EXCEPTION(GLOO_ERROR_MSG("Wait timeout for key(s): ",
-                                             ::gloo::MakeString(keys)));
+      auto timeout_seconds = std::chrono::duration_cast<std::chrono::seconds>(timeout);
+      GLOO_THROW_IO_EXCEPTION(GLOO_ERROR_MSG("Wait timeout after ", std::to_string(timeout_seconds.count()),
+                                             " seconds for key(s): ", ::gloo::MakeString(keys)));
     }
     /* sleep override */
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
