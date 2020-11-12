@@ -18,6 +18,7 @@ import time
 
 class Timeout(object):
     def __init__(self, timeout, message):
+        self._timeout = timeout
         self._timeout_at = time.time() + timeout
         self._message = message
 
@@ -29,4 +30,10 @@ class Timeout(object):
 
     def check_time_out_for(self, activity):
         if self.timed_out():
-            raise Exception(self._message.format(activity=activity))
+            raise Exception(
+                '{}{} Timeout after {} seconds.'.format(
+                    self._message.format(activity=activity),
+                    '.' if not self._message.rstrip().endswith('.') else '',
+                    self._timeout
+                )
+            )

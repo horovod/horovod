@@ -14,6 +14,7 @@
 // ============================================================================
 
 #include "memory_store.h"
+#include "gloo_context.h"
 
 #include <chrono>
 #include <thread>
@@ -47,8 +48,11 @@ void MemoryStore::wait(const std::vector<std::string>& keys,
       auto now = std::chrono::steady_clock::now();
       const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - start);
       if (timeout != gloo::kNoTimeout && elapsed > timeout) {
-        GLOO_THROW_IO_EXCEPTION(GLOO_ERROR_MSG("Wait timeout for key(s): ",
-                                               ::gloo::MakeString(keys)));
+        auto timeout_seconds = std::chrono::duration_cast<std::chrono::seconds>(timeout);
+        GLOO_THROW_IO_EXCEPTION(GLOO_ERROR_MSG("Wait timeout after ", std::to_string(timeout_seconds.count()),
+                                               " seconds for key(s): ", ::gloo::MakeString(keys),
+                                               ". You may want to increase the timeout via ",
+                                               HOROVOD_GLOO_TIMEOUT_SECONDS));
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
