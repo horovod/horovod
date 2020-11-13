@@ -504,12 +504,12 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
            "allgather and hierarchical allreduce.";
   }
 
-  // Set flag to enable use of batched memcopy kernel on GPU
+  // Set flag to control use of batched memcopy kernel on GPU
   auto horovod_batch_d2d_memcopies =
       std::getenv(HOROVOD_BATCH_D2D_MEMCOPIES);
   if (horovod_batch_d2d_memcopies != nullptr &&
-      std::strtol(horovod_batch_d2d_memcopies, nullptr, 10) > 0) {
-    state.batch_d2d_memcopies = true;
+      std::strtol(horovod_batch_d2d_memcopies, nullptr, 10) == 0) {
+    state.batch_d2d_memcopies = false;
   }
 
   // Enable auto-tuning.
