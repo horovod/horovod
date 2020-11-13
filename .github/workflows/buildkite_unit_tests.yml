@@ -16,6 +16,8 @@ jobs:
   buildkite:
     name: "Buildkite Unit Tests"
     runs-on: ubuntu-latest
+    # Buildkite Horovod builds can take up to 8 hours, we give it 12 hours here to finish
+    timeout-minutes: 720
     # this workflow only runs
     # - when a secrets.BUILDKITE_TOKEN is defined (i.e. in 'horovod/horovod' repo, not in forks)
     #   we cannot test for secrets here, so we test for github.repository
@@ -78,7 +80,7 @@ jobs:
         ignore_build_states: blocked,canceled,skipped,not_run
         ignore_job_states: timed_out
         output_path: test-results
-        log_level: DEBUG
+        log_level: INFO
 
     - name: Unit Test Results
       id: results
@@ -90,7 +92,7 @@ jobs:
         check_name: Unit Test Results
         github_token: ${{ secrets.GITHUB_TOKEN }}
         files: "test-results/**/*.xml"
-        log_level: DEBUG
+        log_level: INFO
 
     - name: Upload Test Results
       uses: actions/upload-artifact@v2
