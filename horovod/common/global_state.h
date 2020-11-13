@@ -111,7 +111,7 @@ struct HorovodGlobalState {
   int64_t adasum_mpi_chunk_size = 1<<30;
 
   // Enable use of batched d2d memcopy kernel on GPU
-  bool batch_d2d_memcopies = false;
+  bool batch_d2d_memcopies = true;
 
   ~HorovodGlobalState() {
     // Make sure that the destructor of the background thread is safe to
