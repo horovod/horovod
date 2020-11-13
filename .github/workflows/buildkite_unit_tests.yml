@@ -16,6 +16,8 @@ jobs:
   buildkite:
     name: "Buildkite Unit Tests"
     runs-on: ubuntu-latest
+    # Buildkite Horovod builds can take up to 8 hours, we give it 12 hours here to finish
+    timeout-minutes: 720
     # this workflow only runs
     # - when a secrets.BUILDKITE_TOKEN is defined (i.e. in 'horovod/horovod' repo, not in forks)
     #   we cannot test for secrets here, so we test for github.repository
