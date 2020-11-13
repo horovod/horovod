@@ -21,6 +21,68 @@
 namespace horovod {
 namespace common {
 
+template<typename T, int blocks_per_copy>
+__device__ void batched_memcpy_d(size_t idx, const void* in, void* out, size_t size) {
+
+  const T* input = reinterpret_cast<const T *>(in);
+  T* output = reinterpret_cast<T *>(out);
+  const size_t num_elements = size / sizeof(T);
+
+  for (size_t i = idx; i < num_elements; i += blockDim.x * blocks_per_copy) {
+    output[i] = input[i];
+  }
+
+  // Deal with any remaining bytes
+  size_t remainder = size % sizeof(T);
+  if (remainder > 0 && idx < remainder) {
+    const unsigned char* input_r = reinterpret_cast<const unsigned char *>(input + num_elements);
+    unsigned char* output_r = reinterpret_cast<unsigned char *>(output + num_elements);
+    output_r[idx] = input_r[idx];
+  }
+}
+
+template<int blocks_per_copy>
+__global__ void batched_memcpy_k(BatchedD2DParams params) {
+  const size_t idx = blockDim.x * (blockIdx.x % blocks_per_copy) + threadIdx.x;
+
+  const size_t size = params.sizes[blockIdx.x / blocks_per_copy];
+  const void* input = params.in[blockIdx.x / blocks_per_copy];
+  void* output = params.out[blockIdx.x / blocks_per_copy];
+
+  // Check alignment relative to 16 bytes
+  size_t align_in = reinterpret_cast<size_t>(input) % BATCHED_D2D_PADDING;
+  size_t align_out = reinterpret_cast<size_t>(output) % BATCHED_D2D_PADDING;
+
+  // Select load/store size based on the misaligned buffer
+  size_t align = (align_out == 0) ? align_in : align_out;
+  if (align_in && align_out) {
+    // If both are misaligned, use unsigned char (this should not occur
+    // as fusion buffer locations should be aligned by applying BATCH_D2D_PADDING
+    // during construction.)
+    align = 1;
+  }
+
+  if (align % 16 == 0) {
+    batched_memcpy_d<ulonglong2, blocks_per_copy>(idx, input, output, size);
+  } else if (align % 8 == 0) {
+    batched_memcpy_d<unsigned long long, blocks_per_copy>(idx, input, output, size);
+  } else if (align % 4 == 0) {
+    batched_memcpy_d<unsigned int, blocks_per_copy>(idx, input, output, size);
+  } else if (align % 2 == 0) {
+    batched_memcpy_d<unsigned short, blocks_per_copy>(idx, input, output, size);
+  } else {
+    batched_memcpy_d<unsigned char, blocks_per_copy>(idx, input, output, size);
+  }
+}
+
+#define NTHREADS_D2D_KERNEL 1024
+#define BLOCKS_PER_COPY_D2D_KERNEL 8
+void BatchedD2DMemcpyCudaImpl(BatchedD2DParams& params, int num_copies, cudaStream_t stream)
+{
+   batched_memcpy_k<BLOCKS_PER_COPY_D2D_KERNEL><<<num_copies * BLOCKS_PER_COPY_D2D_KERNEL,
+                                                  NTHREADS_D2D_KERNEL, 0, stream>>>(params);
+}
+
 template<typename T, typename TS>
 __global__ void scale_buffer_k(const T* input, T* output, int64_t num_elements, const TS scale_factor) {
 

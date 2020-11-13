@@ -34,7 +34,6 @@ Status MPI_GPUAllreduce::Execute(std::vector<TensorTableEntry>& entries, const R
   const void* fused_input_data;
   void* buffer_data;
   size_t buffer_len;
-  int64_t num_elements = NumElements(entries);
 
   // Copy memory into the fusion buffer.
   auto& timeline = global_state_->timeline;
@@ -50,6 +49,8 @@ Status MPI_GPUAllreduce::Execute(std::vector<TensorTableEntry>& entries, const R
     buffer_data = (void*) first_entry.output->data();
     buffer_len = (size_t) first_entry.output->size();
   }
+
+  int64_t num_elements = buffer_len / DataType_Size(first_entry.tensor->dtype());
 
   if (response.prescale_factor() != 1.0) {
     // Execute prescaling op

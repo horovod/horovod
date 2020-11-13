@@ -27,6 +27,11 @@
 #include "logging.h"
 #include "operations.h"
 
+#if HAVE_CUDA
+#include "ops/cuda/cuda_kernels.h"
+#endif
+
+
 namespace horovod {
 namespace common {
 
@@ -199,7 +204,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
     }
 
     // Fuse responses as normal.
-    response_list = FuseResponses(responses);
+    response_list = FuseResponses(responses, state);
     response_list.set_shutdown(cache_coordinator.should_shut_down());
   } else {
     // There are uncached messages coming in, need communication to figure out
@@ -306,7 +311,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
         responses.push_back(std::move(join_response));
         state.joined_size = 0;
       }
-      response_list = FuseResponses(responses);
+      response_list = FuseResponses(responses, state);
       response_list.set_shutdown(should_shut_down);
 
       // Broadcast final results to other ranks.
@@ -683,7 +688,8 @@ void Controller::CoordinateCacheAndState(CacheCoordinator& cache_coordinator) {
   }
 }
 
-ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
+ResponseList Controller::FuseResponses(std::deque<Response>& responses,
+                                       HorovodGlobalState& state) {
   ResponseList response_list;
   while (!responses.empty()) {
 
@@ -696,6 +702,12 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
       // Attempt to add more responses to this fused response.
 
       tensor_size = response.tensor_sizes()[0] * GetTypeSize(response.tensor_type());
+#if HAVE_CUDA
+      if (state.batch_d2d_memcopies) {
+        // Add 16 byte pad for batched memcpy op
+        tensor_size = BATCHED_D2D_PADDING * ((tensor_size + BATCHED_D2D_PADDING - 1) / BATCHED_D2D_PADDING);
+      }
+#endif
       std::deque<Response> skipped_responses;
       int64_t skipped_size = 0;
       while (!responses.empty()) {
@@ -706,6 +718,14 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
                                       ? 0
                                       : new_response.tensor_sizes()[0] *
                                         GetTypeSize(new_response.tensor_type());
+
+#if HAVE_CUDA
+        if (state.batch_d2d_memcopies) {
+          // Add 16 byte pad for batched memcpy op
+          new_tensor_size = BATCHED_D2D_PADDING * ((new_tensor_size + BATCHED_D2D_PADDING - 1) / BATCHED_D2D_PADDING);
+        }
+#endif
+
         if (response.response_type() == new_response.response_type() &&
             response.devices() == new_response.devices() &&
             response.tensor_type() == new_response.tensor_type() &&
