@@ -1,6 +1,6 @@
 // Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 // Modifications copyright (C) 2019 Uber Technologies, Inc.
-// Modifications copyright (C) 2019 Intel Corporation
+// Modifications copyright (C) 2020 Intel Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,255 +17,436 @@
 
 #include "ccl_operations.h"
 
-#include "../logging.h"
-
-#define CCL_CALL(expr)                                                      \
-  do {                                                                      \
-        ccl_status_t status = expr;                                         \
-        if (status != ccl_status_success)                                   \
-        {                                                                   \
-           throw std::runtime_error(__FUNCTION__ + std::string(" failed."));\
-        }                                                                   \
-  } while (0)
-
-
 namespace horovod {
-namespace common {
+    namespace common {
 
-ccl_datatype_t GetCCLDataType(const std::shared_ptr<Tensor>& tensor) {
-  switch (tensor->dtype()) {
-  case HOROVOD_FLOAT32:
-    return ccl_dtype_float;
-  case HOROVOD_FLOAT64:
-    return ccl_dtype_double;
-  case HOROVOD_INT32:
-    return ccl_dtype_int;
-  case HOROVOD_INT64:
-    return ccl_dtype_int64;
-  default:
-    throw std::logic_error("Type " + DataType_Name(tensor->dtype()) +
-                           " is not supported in CCL.");
-  }
-}
+        // ************************************************************************************
+        // ************************************************************************************
 
-void CCLContext::Init() {
+        // We keep a map of CCL specifics like stream and communicator.
+        // We assume the communication network/communicator per device stays
+        // unmodified during an enablement of the CCLContext.
+        struct ccl4hvd {
+            ccl::stream       stream_;
+            ccl::communicator comm_;
+        };
 
-  LOG(DEBUG) << "Background thread start";
+        // We assume there is only a single thread executing the CollOps.
+        class CCLOpContext {
+        public:
+            // We use this for temporarily storing the queue between calls
+            // This safes us from changing the API of existing classes elsewhere
+            ccl4hvd * curr_;
 
-  // Initialize CCL
-  ccl_init();
-}
+        private:
+            std::unordered_map<int, ccl4hvd> contexts_;
+            // CCL's KVS
+            std::shared_ptr<ccl::kvs> kvs_;
 
-void CCLContext::Finalize() {
-  LOG(DEBUG) << "Background thread destroy";
+            // Initialize CCL's kvs and broadcast to all peers.
+            // We use HVD's controller for the broadcast.
+            void InitKVS(const HorovodGlobalState* global_state) {
+                if (global_state->controller->GetRank() == 0) {
+                    this->kvs_ = ccl::create_main_kvs();
+                    auto main_addr = this->kvs_->get_address();
+                    global_state->controller->Bcast((void*)main_addr.data(), main_addr.size(),
+                                                    0, Communicator::GLOBAL);
+                } else {
+                    ccl::kvs::address_type main_addr;
+                    global_state->controller->Bcast((void*)main_addr.data(), main_addr.size(),
+                                                    0, Communicator::GLOBAL);
+                    this->kvs_ = ccl::create_kvs(main_addr);
+                }
+            }
 
-  // Finalize CCL
-  ccl_finalize();
-}
+        public:
+            // Return stream/communicator (by const reference) for given TensorTableEntry.
+            // We keep one struct per device/host.
+            // We memoize them in a map. If for the given e.device we already have a struct we simply return it.
+            // Otherwise we initialize kvs if needed, create a new struct, store and return it.
+            // Before returning the looked-up/new struct we also set the curr_ pointer.
+            const ccl4hvd & GetCCL4HVD(const TensorTableEntry & e, const HorovodGlobalState* global_state) {
+                auto resit = this->contexts_.find(e.device);
+                
+                if(resit == this->contexts_.end()) {
+                    // not found
+                    if(!this->kvs_) this->InitKVS(global_state);
 
-CCLAllreduce::CCLAllreduce(CCLContext* ccl_context, HorovodGlobalState* global_state)
-    : AllreduceOp(global_state), ccl_context_(ccl_context) {}
+                    auto rank = global_state->controller->GetRank();
+                    auto size = global_state->controller->GetSize();
 
-Status CCLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
-  auto& first_entry = entries[0];
+                    assert(e.device == CPU_DEVICE_ID);
+                    auto stream  = ccl::create_stream();
+                    auto device  = ccl::create_device();
+                    auto context = ccl::create_context();
+                    resit = this->contexts_.emplace(
+                        std::make_pair(e.device,
+                                       ccl4hvd{stream,
+                                               ccl::create_communicator(size, rank,
+                                                                        device, context,
+                                                                        this->kvs_)})).first;
+                }
+                // temporarily store the ctxt.
+                this->curr_ = &resit->second;
+                return *this->curr_;
+            }
 
-  const void* fused_input_data;
-  void* buffer_data;
-  size_t buffer_len;
-  int64_t num_elements = NumElements(entries);
+            // wait for all events in queue
+            inline void wait()
+            {
+            }
 
-  // Copy memory into the fusion buffer.
-  auto& timeline = global_state_->timeline;
-  if (entries.size() > 1) {
-    timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
-    MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
-    timeline.ActivityEndAll(entries);
-  } else {
-    fused_input_data = first_entry.tensor->data();
-    buffer_data = (void*) first_entry.output->data();
-    buffer_len = (size_t) first_entry.output->size();
-  }
+            typedef void* event_t;
 
-  if (response.prescale_factor() != 1.0) {
-    // Execute prescaling op
-    ScaleBuffer(response.prescale_factor(), entries, fused_input_data, buffer_data, num_elements);
-    fused_input_data = buffer_data; // for unfused, scale is done out of place
-  }
+            inline event_t do_memcpy(void * dstBuffer,
+                                     size_t dstSize,
+                                     const void * srcBuffer,
+                                     size_t srcSize) {
+                if(dstSize < srcSize) {
+                    throw std::logic_error("Cannot copy larger buffer into smaller.");
+                }
+                std::memcpy(dstBuffer, srcBuffer, srcSize);
+                return nullptr;
+            }
+        }; // class CCLOpContext
 
-  // Do allreduce.
-  timeline.ActivityStartAll(entries, CCL_ALLREDUCE);
-  const void* sendbuf = entries.size() > 1 || fused_input_data == buffer_data
-                        ? buffer_data : fused_input_data;
-  ccl_request_t ccl_req;
-  CCL_CALL(ccl_allreduce((void*)sendbuf, buffer_data, num_elements, GetCCLDataType(first_entry.tensor),
-                         ccl_reduction_sum, nullptr /*attr*/, nullptr /*comm*/, nullptr /*stream*/, &ccl_req));
-  CCL_CALL(ccl_wait(ccl_req));
-  timeline.ActivityEndAll(entries);
+        // ************************************************************************************
+        // ************************************************************************************
 
-  if (response.postscale_factor() != 1.0) {
-    // Execute postscaling op
-    ScaleBuffer(response.postscale_factor(), entries, buffer_data, buffer_data, num_elements);
-  }
+        CCLContext::CCLContext()
+            : opctxt_(nullptr) {
+        }
 
-  // Copy memory out of the fusion buffer.
-  if (entries.size() > 1) {
-    timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
-    MemcpyOutFusionBuffer(buffer_data, entries);
-    timeline.ActivityEndAll(entries);
-  }
+        void CCLContext::Initialize() {
+            ccl::init();
+            opctxt_ = NewOpContext();
+            LOG(DEBUG) << "CCL context initialized.";
+        }
 
-  return Status::OK();
-}
+        void CCLContext::Finalize() {
+            if(opctxt_) {
+                delete opctxt_;
+                opctxt_ = nullptr;
+            }
+            LOG(DEBUG) << "CCL context finalized.";
+        }
 
-bool CCLAllreduce::Enabled(const ParameterManager& param_manager,
-                           const std::vector<TensorTableEntry>& entries,
-                           const Response& response) const {
-  return true;
-}
+        CCLOpContext * CCLContext::NewOpContext() {
+            return new CCLOpContext();
+        }
 
-void CCLAllreduce::MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                             const TensorTableEntry& e, void* buffer_data_at_offset) {
-  std::memcpy(buffer_data_at_offset, e.tensor->data(),
-              (size_t) e.tensor->size());
-}
+        // ************************************************************************************
+        // ************************************************************************************
 
-void CCLAllreduce::MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                              const void* buffer_data_at_offset, TensorTableEntry& e) {
-  std::memcpy((void*) e.output->data(), buffer_data_at_offset,
-              (size_t) e.tensor->size());
-}
+        namespace {
 
-CCLAllgather::CCLAllgather(CCLContext* ccl_context, HorovodGlobalState* global_state)
-    : AllgatherOp(global_state), ccl_context_(ccl_context) {}
+            inline ccl::datatype GetCCLDataType(const std::shared_ptr<Tensor>& tensor) {
+                switch (tensor->dtype()) {
+                case HOROVOD_UINT8:
+    		    return ccl::datatype::uint8;
+                case HOROVOD_INT8:
+                    return ccl::datatype::int8;
+                case HOROVOD_UINT16:
+                    return ccl::datatype::uint16;
+                case HOROVOD_INT16:
+                    return ccl::datatype::int16;
+                case HOROVOD_FLOAT32:
+                    return ccl::datatype::float32;
+                case HOROVOD_FLOAT64:
+                    return ccl::datatype::float64;
+                case HOROVOD_INT32:
+                    return ccl::datatype::int32;
+                case HOROVOD_INT64:
+                    return ccl::datatype::int64;
+                default:
+                    throw std::logic_error("Type " + DataType_Name(tensor->dtype()) +
+                                           " is not supported in CCL.");
+                }
+            }
 
-bool CCLAllgather::Enabled(const ParameterManager& param_manager,
-                           const std::vector<TensorTableEntry>& entries,
-                           const Response& response) const {
-  return true;
-}
+            // ************************************************************************************
+            // ************************************************************************************
 
-Status CCLAllgather::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
-  auto& timeline = global_state_->timeline;
 
-  // Sizes of subcomponents of each entry from all ranks
-  auto** entry_component_sizes = new int64_t* [entries.size()];
+            // used in single-rank shortcuts for allgather/broadcast: simply copy input to output tensor
+            Status cpyIn2Out(std::vector<TensorTableEntry>& entries, CCLOpContext * opctxt) {
+                for(auto& e : entries) {
+                    if(e.output->data() != e.tensor->data()) {
+                        auto sz = e.tensor->size();
+                        opctxt->do_memcpy(const_cast<void *>(e.output->data()), sz, e.tensor->data(), sz);
+                    }
+                }
+                opctxt->wait();
+                return Status::OK();
+            }
 
-  // Offset of each subcomponent of every entry in the final buffer after
-  // allgatherv
-  auto** entry_component_offsets = new int64_t* [entries.size()];
+            // copy a single tensor from a buffer
+            // do *not* wait for completition if on a device
+            inline void memcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                                   const void* buffer_data_at_offset, TensorTableEntry& e,
+                                                   size_t entry_size, int64_t entry_offset,
+                                                   CCLOpContext * opctxt) {
+                int8_t * outp = reinterpret_cast<int8_t*>(const_cast<void*>(e.output->data()));
+                opctxt->do_memcpy(outp+entry_offset, e.output->size()-entry_offset,
+                                  buffer_data_at_offset, entry_size);
+            }
 
-  int global_size = global_state_->controller->GetSize();
-  auto* recvcounts = new int[global_size]();
-  auto* displcmnts = new int[global_size]();
+        } // namespace
 
-  for (size_t ec = 0; ec < entries.size(); ++ec) {
-    entry_component_sizes[ec] = new int64_t[global_size]();
-    entry_component_offsets[ec] = new int64_t[global_size]();
-  }
+        // ************************************************************************************
+        // ************************************************************************************
 
-  auto& first_entry = entries[0];
+        // Convenience API called by AllreduceOp
+        // do *not* wait for completition if on a device
+        void CCLAllreduce::MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                                     const TensorTableEntry& e, void* buffer_data_at_offset) {
+                this->ccl_context_->opctxt_->do_memcpy(buffer_data_at_offset, e.tensor->size(),
+                                                       e.tensor->data(), e.tensor->size());
+        }
 
-  timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
-  Status status = AllocateOutput(entries, response, entry_component_sizes, recvcounts);
-  if (!status.ok()) {
-    /* Cleanup */
-    for (size_t ec = 0; ec < entries.size(); ++ec) {
-      delete[] entry_component_sizes[ec];
-      delete[] entry_component_offsets[ec];
-    }
-    delete[] entry_component_sizes;
-    delete[] entry_component_offsets;
-    delete[] recvcounts;
-    delete[] displcmnts;
-    return status;
-  }
-  timeline.ActivityEndAll(entries);
+        // Convenience API called by AllreduceOp
+        // do *not* wait for completition if on a device
+        void CCLAllreduce::MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                                      const void* buffer_data_at_offset, TensorTableEntry& e) {
+            memcpyEntryOutFusionBuffer(entries, buffer_data_at_offset, e, e.tensor->size(),
+                                       0, this->ccl_context_->opctxt_);
+        }
 
-  SetDisplacements(recvcounts, displcmnts);
-  SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts, entry_component_offsets);
+        void CCLAllreduce::ScaleBuffer(double scale_factor, const std::vector<TensorTableEntry>& entries,
+                                       const void* fused_input_data, void* buffer_data,
+                                       int64_t num_elements) {
+            AllreduceOp::ScaleBuffer(scale_factor, entries, fused_input_data, buffer_data, num_elements);
+        }
 
-  int element_size = global_state_->controller->GetTypeSize(first_entry.tensor->dtype());
+        Status CCLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+            auto& first_entry = entries[0];
+            LOG(DEBUG) << "CCLAllreduce::Execute #entries: " << entries.size()
+                       << " device " << first_entry.device;
 
-  const void* sendbuf = nullptr;
-  void* buffer_data;
-  int64_t total_num_elements = NumElements(entries);
+            auto & c4h = this->ccl_context_->opctxt_->GetCCL4HVD(first_entry, global_state_);
 
-  if (entries.size() > 1) {
-    timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
-    MemcpyInFusionBuffer(entries, displcmnts, element_size, buffer_data);
-    timeline.ActivityEndAll(entries);
-  } else {
-    sendbuf = first_entry.tensor->data();
-    buffer_data = (void*) first_entry.output->data();
-  }
+            const void* fused_input_data;
+            void* buffer_data;
+            size_t buffer_len;
+            int64_t num_elements = NumElements(entries);
 
-  auto* rcounts = new uint64_t[global_size]();
-  for (unsigned int rc = 0; rc < global_size; rc++) {
-    rcounts[rc] = recvcounts[rc] * element_size;
-  }
+            // Copy memory into the fusion buffer.
+            auto& timeline = global_state_->timeline;
+            if (entries.size() > 1) {
+                timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
+                MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
+                this->ccl_context_->opctxt_->wait();
+                timeline.ActivityEndAll(entries);
+            } else {
+                fused_input_data = first_entry.tensor->data();
+                buffer_data = const_cast<void*>(first_entry.output->data());
+                buffer_len = (size_t) first_entry.output->size();
+            }
 
-  global_state_->timeline.ActivityStartAll(entries, CCL_ALLGATHER);
-  ccl_request_t ccl_req;
-  CCL_CALL(ccl_allgatherv(sendbuf != nullptr ? (void*)sendbuf : buffer_data,
-           total_num_elements * element_size, buffer_data, rcounts, ccl_dtype_char,
-           nullptr /*attr*/, nullptr /*comm*/, nullptr /*stream*/, &ccl_req));
-  CCL_CALL(ccl_wait(ccl_req));
-  global_state_->timeline.ActivityEndAll(entries);
+            if (response.prescale_factor() != 1.0) {
+                // Execute prescaling op
+                ScaleBuffer(response.prescale_factor(), entries, fused_input_data, buffer_data, num_elements);
+                fused_input_data = buffer_data; // for unfused, scale is done out of place
+            }
 
-  if (entries.size() > 1) {
-    timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
-    MemcpyOutFusionBuffer(entry_component_offsets, entry_component_sizes,
-                          buffer_data, element_size, entries);
-    timeline.ActivityEndAll(entries);
-  }
+            // Do allreduce.
+            timeline.ActivityStartAll(entries, CCL_ALLREDUCE);
+            const void* sendbuf = entries.size() > 1 || fused_input_data == buffer_data
+                ? buffer_data : fused_input_data;
+            ccl::allreduce((void*)sendbuf, buffer_data, num_elements, GetCCLDataType(first_entry.tensor),
+                           ccl::reduction::sum, c4h.comm_, c4h.stream_).wait();
+            timeline.ActivityEndAll(entries);
 
-  delete[] rcounts;
-  delete[] recvcounts;
-  delete[] displcmnts;
+            if (response.postscale_factor() != 1.0) {
+                // Execute postscaling op
+                ScaleBuffer(response.postscale_factor(), entries, buffer_data, buffer_data, num_elements);
+            }
 
-  for (size_t ec = 0; ec < entries.size(); ++ec) {
-    delete[] entry_component_sizes[ec];
-    delete[] entry_component_offsets[ec];
-  }
-  delete[] entry_component_sizes;
-  delete[] entry_component_offsets;
+            // Copy memory out of the fusion buffer.
+            if(entries.size() > 1) {
+                timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
+                MemcpyOutFusionBuffer(buffer_data, entries);
+                this->ccl_context_->opctxt_->wait();
+                timeline.ActivityEndAll(entries);
+            }
 
-  return Status::OK();
-}
+            LOG(DEBUG) << "done CCLAllreduce::Execute";
+            return Status::OK();
+        }
 
-CCLBroadcast::CCLBroadcast(CCLContext* ccl_context, HorovodGlobalState* global_state)
-    : BroadcastOp(global_state), ccl_context_(ccl_context) {}
+        // ************************************************************************************
+        // ************************************************************************************
 
-Status CCLBroadcast::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
-  assert(entries.size() == 1);
-  auto e = entries[0];
+        // Convenience API called by AllGatherOp
+        // do *not* wait for completition if on a device
+        void CCLAllgather::MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                                     const TensorTableEntry& e,
+                                                     void* buffer_data_at_offset) {
+             this->ccl_context_->opctxt_->do_memcpy(buffer_data_at_offset, e.tensor->size(),
+                                                    e.tensor->data(), e.tensor->size());
+        }
 
-  // On root rank, CCL_Bcast sends data, on other ranks it receives data.
-  void* data_ptr;
-  size_t size;
-  if (global_state_->controller->GetRank() == e.root_rank) {
-    data_ptr = (void*) e.tensor->data();
-    size = e.tensor->size();
-  } else {
-    data_ptr = (void*) e.output->data();
-    size = e.output->size();
-  }
+        // Convenience API called by AllGatherOp
+        // do *not* wait for completition if on a device
+        void CCLAllgather::MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                                      const void* buffer_data_at_offset,
+                                                      TensorTableEntry& e,
+                                                      int64_t entry_offset,
+                                                      size_t entry_size) {
+            memcpyEntryOutFusionBuffer(entries, buffer_data_at_offset, e, entry_size,
+                                       entry_offset, this->ccl_context_->opctxt_);
+        }
 
-  global_state_->timeline.ActivityStartAll(entries, CCL_BCAST);
-  ccl_request_t ccl_req;
-  CCL_CALL(ccl_bcast(data_ptr, size, ccl_dtype_char, e.root_rank, nullptr /*attr*/,
-                     nullptr /*comm*/, nullptr /*stream*/, &ccl_req));
-  CCL_CALL(ccl_wait(ccl_req));
-  global_state_->timeline.ActivityEndAll(entries);
 
-  return Status::OK();
-}
+        Status CCLAllgather::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+            auto& first_entry = entries[0];
+            LOG(DEBUG) << "CCLAllgather::Execute #entries: " << entries.size()
+                       << " device " << first_entry.device;
 
-bool CCLBroadcast::Enabled(const ParameterManager& param_manager,
-                           const std::vector<TensorTableEntry>& entries,
-                           const Response& response) const {
-  return true;
-}
+            auto& timeline = global_state_->timeline;
+            auto & c4h = this->ccl_context_->opctxt_->GetCCL4HVD(first_entry, global_state_);
 
-} // namespace common
+            Status status = Status::OK();
+            // shortcut for single rank
+            if(global_state_->controller->GetSize() == 1) {
+                int64_t** entry_component_sizes = nullptr;
+                int * recvcounts = nullptr;
+                status = AllocateOutput(entries, response, entry_component_sizes, recvcounts);
+                return status.ok() ? cpyIn2Out(entries, this->ccl_context_->opctxt_) : status;
+            }
+
+            // Sizes of subcomponents of each entry from all ranks
+            auto** entry_component_sizes = new int64_t* [entries.size()];
+
+            // Offset of each subcomponent of every entry in the final buffer after
+            // allgatherv
+            auto** entry_component_offsets = new int64_t* [entries.size()];
+
+            int global_size = global_state_->controller->GetSize();
+            auto* recvcounts = new int[global_size]();
+            auto* displcmnts = new int[global_size]();
+
+            for (size_t ec = 0; ec < entries.size(); ++ec) {
+                entry_component_sizes[ec] = new int64_t[global_size]();
+                entry_component_offsets[ec] = new int64_t[global_size]();
+            }
+
+            timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
+            status = AllocateOutput(entries, response, entry_component_sizes, recvcounts);
+            if (status.ok()) {
+                timeline.ActivityEndAll(entries);
+                SetDisplacements(recvcounts, displcmnts);
+                SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts, entry_component_offsets);
+
+                int element_size = global_state_->controller->GetTypeSize(first_entry.tensor->dtype());
+
+                const void * sendbuf = nullptr;
+                void * buffer_data;
+                int64_t num_elements = NumElements(entries);
+                int64_t gather_size = 0;
+
+                if (entries.size() > 1) {
+                    timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
+                    MemcpyInFusionBuffer(entries, displcmnts, element_size, buffer_data);
+                    this->ccl_context_->opctxt_->wait();
+                    timeline.ActivityEndAll(entries);
+                } else {
+                    if(first_entry.tensor->data() == first_entry.output->data()) {
+                        throw std::logic_error("inplace allgather with single entry not implemented yet.");
+                    }
+                    sendbuf = first_entry.tensor->data();
+                    buffer_data = const_cast<void*>(first_entry.output->data());
+                }
+
+                std::vector<size_t> rcounts(global_size);
+                for (unsigned int rc = 0; rc < global_size; rc++) {
+                    rcounts[rc] = recvcounts[rc] * element_size;
+                    gather_size += rcounts[rc];
+                }
+
+                global_state_->timeline.ActivityStartAll(entries, CCL_ALLGATHER);
+                ccl::allgatherv(sendbuf != nullptr ? (void*)sendbuf : buffer_data,
+                                num_elements * element_size, buffer_data, rcounts,
+                                ccl::datatype::int8, c4h.comm_, c4h.stream_).wait();
+                global_state_->timeline.ActivityEndAll(entries);
+
+                if (entries.size() > 1) {
+                    timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
+                    MemcpyOutFusionBuffer(entry_component_offsets, entry_component_sizes,
+                                          buffer_data, element_size, entries);
+                    this->ccl_context_->opctxt_->wait();
+                    timeline.ActivityEndAll(entries);
+                }
+                status = Status::OK();
+            }
+
+            /* Cleanup */
+            for (size_t ec = 0; ec < entries.size(); ++ec) {
+                delete[] entry_component_sizes[ec];
+                delete[] entry_component_offsets[ec];
+            }
+            delete[] entry_component_sizes;
+            delete[] entry_component_offsets;
+            delete[] recvcounts;
+            delete[] displcmnts;
+            return status;
+        }
+
+        // ************************************************************************************
+        // ************************************************************************************
+
+        Status CCLBroadcast::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+            assert(entries.size() == 1);
+            auto& e = entries[0];
+            LOG(DEBUG) << "CCLBroadcast::Execute #entries: " << entries.size()
+                       << " device " << e.device;
+            auto & c4h = this->ccl_context_->opctxt_->GetCCL4HVD(e, global_state_);
+
+            global_state_->timeline.ActivityStartAll(entries, CCL_BCAST);
+
+            // shortcut for single rank
+            if(global_state_->controller->GetSize() > 1) {
+                // On root rank, CCL_Bcast sends data, on other ranks it receives data.
+                const bool amroot = global_state_->controller->GetRank() == e.root_rank;
+                size_t size = e.tensor->size();
+                void * data_ptr = const_cast<void*>((amroot ? e.tensor : e.output)->data());
+
+                ccl::broadcast(data_ptr, size, ccl::datatype::int8, e.root_rank,
+                               c4h.comm_, c4h.stream_).wait();
+            }
+            global_state_->timeline.ActivityEndAll(entries);
+            return Status::OK();
+        }
+
+        // ************************************************************************************
+        // ************************************************************************************
+
+        Status CCLAlltoall::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+            assert(entries.size() == 1);
+            auto e = entries[0];
+            LOG(DEBUG) << "CCLAlltoall::Execute #entries: " << entries.size()
+                       << " device " << e.device;
+            auto & c4h = this->ccl_context_->opctxt_->GetCCL4HVD(e, global_state_);
+
+            global_state_->timeline.ActivityStartAll(entries, CCL_ALLTOALL);
+
+            std::vector<size_t> sdispls, rdispls;
+            std::vector<size_t> sendcounts, recvcounts;
+            Status status = PrepareOutputAndParams(e, sdispls, rdispls, sendcounts, recvcounts);
+            if (!status.ok()) {
+                return status;
+            }
+
+            const void* sendbuf = e.tensor->data();
+            void* buffer_data = (void*) e.output->data();
+
+            ccl::alltoallv(sendbuf, sendcounts, buffer_data, recvcounts,
+                           GetCCLDataType(e.tensor), c4h.comm_, c4h.stream_).wait();
+
+            global_state_->timeline.ActivityEndAll(entries);
+
+            return Status::OK();
+        }
+
+    } // namespace common
 } // namespace horovod
