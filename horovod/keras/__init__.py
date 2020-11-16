@@ -38,7 +38,8 @@ def DistributedOptimizer(optimizer, name=None,
                          compression=Compression.none,
                          sparse_as_dense=False,
                          gradient_predivide_factor=1.0,
-                         op=Average):
+                         op=Average,
+                         num_groups=0):
     """
     An optimizer that wraps another keras.optimizers.Optimizer, using an allreduce to
     average gradient values before applying gradients to model weights.
@@ -65,6 +66,8 @@ def DistributedOptimizer(optimizer, name=None,
                                    gradient_predivide_factor / size after the sum.
         op: The reduction operation to use when combining gradients across
             different ranks. Defaults to Average.
+        num_groups: Number of groups to assign gradient allreduce ops to for explicit
+                    grouping. Defaults to no explicit groups.
     """
     if gradient_predivide_factor != 1.0 and rocm_built():
             raise ValueError('gradient_predivide_factor not supported yet with ROCm')
@@ -82,6 +85,7 @@ def DistributedOptimizer(optimizer, name=None,
         sparse_as_dense=sparse_as_dense,
         gradient_predivide_factor=gradient_predivide_factor,
         op=op,
+        num_groups=num_groups,
     )
 
 

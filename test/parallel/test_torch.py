@@ -644,6 +644,7 @@ class TorchTests(unittest.TestCase):
             tensors = [torch.FloatTensor(*([17] * dim)).random_(-100, 100) for _ in range(5)]
             tensors = [self.cast_and_place(tensor, dtype) for tensor in tensors]
             averaged = hvd.grouped_allreduce(tensors, average=True)
+            tensors, averaged = zip(*[self.convert_cpu_fp16_to_fp32(t, m) for t, m in zip(tensors, averaged)])
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
