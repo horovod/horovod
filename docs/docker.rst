@@ -51,7 +51,7 @@ Running on multiple machines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Here we describe a simple example involving a shared filesystem ``/mnt/share`` using a common port number ``12345`` for the SSH
 daemon that will be run on all the containers. ``/mnt/share/ssh`` contains a typical ``id_rsa``, ``id_rsa.pub`` and ``authorized_keys``
-pair that allows `passwordless authentication <http://www.linuxproblem.org/art_9.html>`__. Additionally a ``config`` is added, in which all workers are defined. An example of a ``config`` can be seen in _`Running containers with different ports`.
+pair that allows `passwordless authentication <http://www.linuxproblem.org/art_9.html>`__. Additionally a ``config`` is added, in which all workers are defined. An example of a ``config`` can be seen in `Running containers with different ports`_.
 
 
 **Note**: These are not hard requirements but they make the example more concise. A shared filesystem can be replaced by ``rsyncing``
