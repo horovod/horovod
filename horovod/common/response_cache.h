@@ -112,6 +112,8 @@ public:
 
   void record_invalid_bit(uint32_t bit);
 
+  void erase_hit(uint32_t bit);
+
   void set_should_shut_down(bool should_shut_down);
 
   void set_uncached_in_queue(bool uncached_in_queue);

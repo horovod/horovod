@@ -449,6 +449,122 @@ Output
     sum:    A tensor with the same shape as `tensor`, summed across all MPI processes.
 )doc");
 
+class HorovodGroupedAllreduceOp : public AsyncOpKernel {
+public:
+  explicit HorovodGroupedAllreduceOp(OpKernelConstruction* context)
+      : AsyncOpKernel(context) {
+    OP_REQUIRES_OK(context, context->GetAttr("reduce_op", &reduce_op_));
+    OP_REQUIRES_OK(context, context->GetAttr("prescale_factor", &prescale_factor_));
+    OP_REQUIRES_OK(context, context->GetAttr("postscale_factor", &postscale_factor_));
+    OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
+    OP_REQUIRES_OK(context, context->GetAttr("num_tensors", &num_tensors_));
+  }
+
+  void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(common::CheckInitialized()),
+                         done);
+
+    auto node_name = name();
+    if (ignore_name_scope_) {
+      auto pos = node_name.find_last_of('/');
+      if (pos != std::string::npos) {
+        node_name = node_name.substr(pos + 1);
+      }
+    }
+    auto device = GetDeviceID(context);
+    horovod::common::ReduceOp reduce_op = static_cast<horovod::common::ReduceOp>(reduce_op_);
+    std::vector<Tensor*> outputs(num_tensors_);
+
+    std::vector<std::shared_ptr<common::ReadyEvent>> ready_events;
+    std::vector<std::shared_ptr<common::OpContext>> hvd_contexts;
+    std::vector<std::shared_ptr<common::Tensor>> hvd_tensors;
+    std::vector<std::shared_ptr<common::Tensor>> hvd_outputs;
+    std::vector<common::StatusCallback> callbacks;
+    std::vector<std::string> names;
+    ready_events.reserve(num_tensors_);
+    hvd_contexts.reserve(num_tensors_);
+    hvd_tensors.reserve(num_tensors_);
+    hvd_outputs.reserve(num_tensors_);
+    callbacks.reserve(num_tensors_);
+    names.reserve(num_tensors_);
+    auto callback_mutex = std::make_shared<std::mutex>();
+    auto callback_count = std::make_shared<int>(0);
+    int num_tensors = num_tensors_;
+
+    for (int i = 0; i < num_tensors_; ++i) {
+        auto tensor = context->input(i);
+        OP_REQUIRES_OK_ASYNC(
+            context, context->allocate_output(i, tensor.shape(), &outputs[i]), done);
+        // ReadyEvent makes sure input tensor is ready, and output is allocated.
+        ready_events.emplace_back(std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context)));
+        hvd_contexts.emplace_back(std::make_shared<TFOpContext>(context));
+        hvd_tensors.emplace_back(std::make_shared<TFTensor>(tensor));
+        names.emplace_back(node_name + "_" + std::to_string(i+1) + "of" + std::to_string(num_tensors));
+        hvd_outputs.emplace_back(std::make_shared<TFTensor>(*outputs[i]));
+        callbacks.emplace_back(
+            [context, done, callback_mutex, callback_count, num_tensors](const common::Status& status) mutable {
+                // Must only invoke callback on last tensor.
+                std::lock_guard<std::mutex> guard(*callback_mutex);
+                (*callback_count)++;
+                if (*callback_count == num_tensors) {
+                    context->SetStatus(ConvertStatus(status));
+                    done();
+                }
+            }
+        );
+    }
+
+    auto enqueue_result = EnqueueTensorAllreduces(
+        hvd_contexts, hvd_tensors, hvd_outputs, ready_events, names, device,
+        callbacks, reduce_op, (double) prescale_factor_, (double) postscale_factor_);
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
+  }
+
+private:
+  int reduce_op_;
+  // Using float since TF does not support double OP attributes
+  float prescale_factor_;
+  float postscale_factor_;
+  bool ignore_name_scope_;
+  int num_tensors_;
+};
+
+REGISTER_KERNEL_BUILDER(Name("HorovodGroupedAllreduce").Device(DEVICE_CPU),
+                        HorovodGroupedAllreduceOp);
+#if HOROVOD_GPU_ALLREDUCE
+REGISTER_KERNEL_BUILDER(Name("HorovodGroupedAllreduce").Device(DEVICE_GPU),
+                        HorovodGroupedAllreduceOp);
+#endif
+
+REGISTER_OP("HorovodGroupedAllreduce")
+    .Attr("T: {int32, int64, float16, float32, float64}")
+    .Attr("reduce_op: int")
+    .Attr("prescale_factor: float")
+    .Attr("postscale_factor: float")
+    .Attr("ignore_name_scope: bool = False")
+    .Attr("num_tensors: int")
+    .Input("tensors: num_tensors*T")
+    .Output("sum: num_tensors*T")
+    .SetShapeFn([](shape_inference::InferenceContext* c) {
+      int num_tensors;
+      for (int i = 0; i < c->num_inputs(); ++i) {
+          c->set_output(i, c->input(i));
+      }
+      return Status::OK();
+    })
+    .Doc(R"doc(
+Perform an MPI Allreduce on a list tensors. All other processes that do a reduction
+on a tensor with the same name must have the same dimension for that tensor.
+Tensors are reduced with other tensors that have the same node name for the
+allreduce.
+
+Arguments
+    tensors:     A list of tensors to reduce.
+
+Output
+    sum:    A list of tensors with the same shape as corresponding tensors in `tensors`, summed across all MPI processes.
+)doc");
+
 class HorovodAllgatherOp : public AsyncOpKernel {
 public:
   explicit HorovodAllgatherOp(OpKernelConstruction* context)

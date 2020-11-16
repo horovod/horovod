@@ -34,6 +34,20 @@ Status TensorQueue::AddToTensorQueue(TensorTableEntry& e, Request& message) {
   return Status::OK();
 }
 
+Status TensorQueue::AddToTensorQueueMulti(std::vector<TensorTableEntry>& entries,
+                                          std::vector<Request>& messages) {
+  std::lock_guard<std::mutex> guard(mutex_);
+
+  for (int i = 0; i < entries.size(); ++i) {
+    if (tensor_table_.find(entries[i].tensor_name) != tensor_table_.end()) {
+      return DUPLICATE_NAME_ERROR;
+    }
+    tensor_table_.emplace(entries[i].tensor_name, std::move(entries[i]));
+    message_queue_.push(std::move(messages[i]));
+  }
+  return Status::OK();
+}
+
 // Put callbacks for each tensor in the callback buffer and clear tensor queue
 void TensorQueue::FinalizeTensorQueue(
     std::vector<StatusCallback>& callbacks_buffer) {
