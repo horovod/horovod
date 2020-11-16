@@ -487,6 +487,8 @@ class MXTests(unittest.TestCase):
                 f'hvd.grouped_allreduce_ produces incorrect results: {hvd.rank()} {count} {dtype} {dim}'
 
     @unittest.skipUnless(has_gpu, "no gpu detected")
+    @pytest.mark.skipif(_skip_enqueue_errors,
+                        reason="Skip enqueue errors for MXNet version < 1.5.0")
     def test_horovod_grouped_allreduce_cpu_gpu_error(self):
         """Test that the grouped allreduce raises an error if the input tensor
            list contains a mix of tensors on CPU and GPU."""
