@@ -51,6 +51,8 @@ CACHE_STALENESS_THRESHOLD_MINUTES = 60
 # Number of attempts for sshing into the hosts
 SSH_ATTEMPTS = 5
 
+SSH_CONNECT_TIMEOUT_S = 10
+
 
 @cache.use_cache()
 def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None, ssh_identity_file=None):
@@ -84,7 +86,8 @@ def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None, ssh_identity_
     args_list = [[get_remote_command(local_command='true',
                                      host=host_address,
                                      port=ssh_port,
-                                     identity_file=ssh_identity_file)]
+                                     identity_file=ssh_identity_file,
+                                     timeout_s=SSH_CONNECT_TIMEOUT_S)]
                  for host_address in host_addresses]
     ssh_exit_codes = \
         threads.execute_function_multithreaded(exec_command,
