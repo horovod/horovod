@@ -50,18 +50,18 @@ You can ignore this message.
 Running on multiple machines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Here we describe a simple example involving a shared filesystem ``/mnt/share`` using a common port number ``12345`` for the SSH
-daemon that will be run on all the containers. ``/mnt/share/ssh`` would contain a typical ``id_rsa`` and ``authorized_keys``
-pair that allows `passwordless authentication <http://www.linuxproblem.org/art_9.html>`__.
+daemon that will be run on all the containers. ``/mnt/share/ssh`` contains a typical ``id_rsa``, ``id_rsa.pub`` and ``authorized_keys``
+pair that allows `passwordless authentication <http://www.linuxproblem.org/art_9.html>`__. Additionally a ``config`` is added, in which all workers are defined. An example of a ``config`` can be seen in :ref:`Run containers with different ports`.
+
 
 **Note**: These are not hard requirements but they make the example more concise. A shared filesystem can be replaced by ``rsyncing``
 SSH configuration and code across machines, and a common SSH port can be replaced by machine-specific ports
 defined in ``/root/.ssh/ssh_config`` file.
 
-Primary worker:
-
 .. code-block:: bash
-
-    host1$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod:latest
+    host1$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod/horovod:latest
+    ssh-keygen
+    cat /root/.ssh/id_rsa.pub > /root/.ssh/authorized_keys
     root@c278c88dd552:/examples# horovodrun -np 16 -H host1:4,host2:4,host3:4,host4:4 -p 12345 python keras_mnist_advanced.py
 
 
@@ -69,19 +69,19 @@ Secondary workers:
 
 .. code-block:: bash
 
-    host2$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod:latest \
+    host2$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod/horovod:latestt \
         bash -c "/usr/sbin/sshd -p 12345; sleep infinity"
 
 
 .. code-block:: bash
 
-    host3$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod:latest \
+    host3$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod/horovod:latest \
         bash -c "/usr/sbin/sshd -p 12345; sleep infinity"
 
 
 .. code-block:: bash
 
-    host4$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod:latest \
+    host4$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod/horovod:latest \
         bash -c "/usr/sbin/sshd -p 12345; sleep infinity"
 
 
@@ -92,7 +92,7 @@ and enable the IPC_LOCK capability for memory registration:
 
 .. code-block:: bash
 
-   $ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh --cap-add=IPC_LOCK --device=/dev/infiniband horovod:latest 
+   $ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh --cap-add=IPC_LOCK --device=/dev/infiniband horovod/horovod:latest
    root@c278c88dd552:/examples# ...
 
 
@@ -109,10 +109,12 @@ To run in situations without a common SSH port (e.g., multiple containers on the
 
         Host host1
           HostName 192.168.1.10
+          User root
           Port 1234
 
         Host host2
           HostName 192.168.1.10
+          User root
           Port 2345 
 
 2. Use ``horovodrun`` directly as though each container were a separate host with its own IP
