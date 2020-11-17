@@ -22,8 +22,8 @@ tests=$(if [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}
   printf "test-cpu-oneccl-ofi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7 "
   printf "test-gpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_7 "
   printf "test-gpu-gloo-py3_6-tf2_0_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_7 "
-  printf "test-gpu-openmpi-gloo-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_6_0-pyspark2_4_7 "
   printf "test-gpu-openmpi-py3_6-tf2_3_1-keras2_3_1-torch1_6_0-mxnet1_6_0-pyspark2_4_7 "
+  printf "test-gpu-openmpi-gloo-py3_6-tf2_4_0-keras2_3_1-torch1_7_0-mxnet1_6_0-pyspark2_4_7 "
   printf "test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7 "
   printf "test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7 "
 fi)
