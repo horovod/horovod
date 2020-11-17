@@ -15,29 +15,37 @@
 # ==============================================================================
 
 import os
-import pytest
 import itertools
 import unittest
-import numpy as np
-import mxnet as mx
-
 from distutils.version import LooseVersion
 
-from mxnet.base import MXNetError
-from mxnet.test_utils import almost_equal, same
-
-import horovod.mxnet as hvd
+import pytest
+import numpy as np
 
 from common import skip_or_fail_gpu_test
 
-has_gpu = mx.context.num_gpus() > 0
+try:
+    import mxnet as mx
+    from mxnet.base import MXNetError
+    from mxnet.test_utils import almost_equal, same
+    import horovod.mxnet as hvd
 
-ccl_supported_types = set(['int32', 'int64', 'float32', 'float64'])
+    has_gpu = mx.context.num_gpus() > 0
 
-# MXNet 1.4.x will kill test MPI process if error occurs during operation enqueue. Skip
-# those tests for versions earlier than 1.5.0.
-_skip_enqueue_errors = LooseVersion(mx.__version__) < LooseVersion('1.5.0')
+    ccl_supported_types = set(['int32', 'int64', 'float32', 'float64'])
 
+    # MXNet 1.4.x will kill test MPI process if error occurs during operation enqueue. Skip
+    # those tests for versions earlier than 1.5.0.
+    _skip_enqueue_errors = LooseVersion(mx.__version__) < LooseVersion('1.5.0')
+
+    HAS_MXNET = True
+except ImportError:
+    has_gpu = False
+    _skip_enqueue_errors = False
+    HAS_MXNET = False
+
+
+@pytest.mark.skipif(not HAS_MXNET, reason='MXNet unavailable')
 class MXTests(unittest.TestCase):
     """
     Tests for ops in horovod.mxnet.

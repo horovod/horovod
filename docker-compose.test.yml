@@ -186,22 +186,6 @@ services:
         MXNET_PACKAGE: mxnet-cu100==1.4.1
         PYSPARK_PACKAGE: pyspark==2.4.7
         SPARK_PACKAGE: spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
-  test-gpu-openmpi-gloo-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_6_0-pyspark2_4_7:
-    extends: test-gpu-base
-    build:
-      args:
-        CUDA_DOCKER_VERSION: 10.1-devel-ubuntu18.04
-        CUDNN_VERSION: 7.6.5.32-1+cuda10.1
-        NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda10.1
-        MPI_KIND: OpenMPI
-        PYTHON_VERSION: 3.6
-        TENSORFLOW_PACKAGE: tensorflow-gpu==2.2.0
-        KERAS_PACKAGE: keras==2.3.1
-        PYTORCH_PACKAGE: torch==1.5.0+cu101
-        TORCHVISION_PACKAGE: torchvision==0.6.0+cu101
-        MXNET_PACKAGE: mxnet-cu101==1.6.0.post0
-        PYSPARK_PACKAGE: pyspark==2.4.7
-        SPARK_PACKAGE: spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
   test-gpu-openmpi-py3_6-tf2_3_1-keras2_3_1-torch1_6_0-mxnet1_6_0-pyspark2_4_7:
     extends: test-gpu-base
     build:
@@ -218,13 +202,29 @@ services:
         MXNET_PACKAGE: mxnet-cu101==1.6.0.post0
         PYSPARK_PACKAGE: pyspark==2.4.7
         SPARK_PACKAGE: spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
+  test-gpu-openmpi-gloo-py3_6-tf2_4_0-keras2_3_1-torch1_7_0-mxnet1_6_0-pyspark2_4_7:
+    extends: test-gpu-base
+    build:
+      args:
+        CUDA_DOCKER_VERSION: 11.0-devel-ubuntu18.04
+        CUDNN_VERSION: 7.6.5.32-1+cuda11.0
+        NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda11.0
+        MPI_KIND: OpenMPI
+        PYTHON_VERSION: 3.6
+        TENSORFLOW_PACKAGE: tensorflow-gpu==2.4.0rc1
+        KERAS_PACKAGE: keras==2.3.1
+        PYTORCH_PACKAGE: torch==1.7.0+cu110
+        TORCHVISION_PACKAGE: torchvision==0.8.1+cu110
+        MXNET_PACKAGE: mxnet-cu101==1.6.0.post0
+        PYSPARK_PACKAGE: pyspark==2.4.7
+        SPARK_PACKAGE: spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
   test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 10.1-devel-ubuntu18.04
-        CUDNN_VERSION: 7.6.5.32-1+cuda10.1
-        NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda10.1
+        CUDA_DOCKER_VERSION: 11.0-devel-ubuntu18.04
+        CUDNN_VERSION: 7.6.5.32-1+cuda11.0
+        NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda11.0
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
         TENSORFLOW_PACKAGE: tf-nightly-gpu
