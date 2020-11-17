@@ -28,6 +28,8 @@ from mxnet.test_utils import almost_equal, same
 
 import horovod.mxnet as hvd
 
+from common import skip_or_fail_gpu_test
+
 has_gpu = mx.context.num_gpus() > 0
 
 ccl_supported_types = set(['int32', 'int64', 'float32', 'float64'])
@@ -51,6 +53,10 @@ class MXTests(unittest.TestCase):
         if 'CCL_ROOT' in os.environ:
            types = [t for t in types if t in ccl_supported_types]
         return types
+
+    def test_gpu_required(self):
+        if not has_gpu:
+            skip_or_fail_gpu_test("No GPUs available")
 
     def test_horovod_allreduce(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""

@@ -99,19 +99,24 @@ run_mpi_pytest() {
   local oneccl_env=${3:-}
   oneccl_env=$(echo ${oneccl_env//:/ })
 
+  test_env=""
+  if [[ ${queue} == *"gpu"* ]]; then
+    test_env="HOROVOD_TEST_GPU=1"
+  fi
+
   # pytests have 4x GPU use cases and require a separate queue
   run_test "${test}" "${queue}" \
     ":pytest: MPI Parallel PyTests (${test})" \
-    "bash -c \"${oneccl_env} cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \\\$(cat /mpirun_command) /bin/bash /pytest.sh mpi)\"" \
+    "bash -c \"${oneccl_env} ${test_env} cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \\\$(cat /mpirun_command) /bin/bash /pytest.sh mpi)\"" \
     5
   run_test "${test}" "${queue}" \
     ":pytest: MPI Single PyTests (${test})" \
-    "bash -c \"${oneccl_env} cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh mpi)\"" \
+    "bash -c \"${oneccl_env} ${test_env} cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh mpi)\"" \
     10
 
   run_test "${test}" "${queue}" \
     ":pytest: MPI Cluster PyTests (${test})" \
-    "bash -c \"${oneccl_env} /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py\""
+    "bash -c \"${oneccl_env} ${test_env} /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py\""
 }
 
 run_mpi_integration() {
@@ -199,18 +204,23 @@ run_gloo_pytest() {
   local test=$1
   local queue=$2
 
+  test_env=""
+  if [[ ${queue} == *"gpu"* ]]; then
+    test_env="HOROVOD_TEST_GPU=1"
+  fi
+
   run_test "${test}" "${queue}" \
     ":pytest: Gloo Parallel PyTests (${test})" \
-    "bash -c \"cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)\"" \
+    "bash -c \"${test_env} cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)\"" \
     5
   run_test "${test}" "${queue}" \
     ":pytest: Gloo Single PyTests (${test})" \
-    "bash -c \"cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh gloo)\"" \
+    "bash -c \"${test_env} cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh gloo)\"" \
     10
 
   run_test "${test}" "${queue}" \
     ":pytest: Gloo Cluster PyTests (${test})" \
-    "bash -c \"/etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py\""
+    "bash -c \"${test_env} /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py\""
 }
 
 run_gloo_integration() {
