@@ -87,8 +87,8 @@ class MetricAverageCallbackImpl(object):
 
 
 class LearningRateScheduleCallbackImpl(object):
-    def __init__(self, backend, multiplier, start_epoch=0, end_epoch=None, staircase=True,
-                 momentum_correction=True, steps_per_epoch=None, initial_lr=None, *args):
+    def __init__(self, backend, initial_lr, multiplier, start_epoch=0, end_epoch=None, staircase=True,
+                 momentum_correction=True, steps_per_epoch=None, *args):
         super(LearningRateScheduleCallbackImpl, self).__init__(*args)
         self.backend = backend
         self.start_epoch = start_epoch
@@ -107,7 +107,7 @@ class LearningRateScheduleCallbackImpl(object):
             self.multiplier = multiplier
 
         if self.initial_lr is None:
-            warnings.warn('Parameter `initial_lr` will be required in v0.21.0', DeprecationWarning)
+            raise ValueError('Parameter `initial_lr` is required')
 
     def _autodetect_steps_per_epoch(self):
         if self.params.get('steps'):
