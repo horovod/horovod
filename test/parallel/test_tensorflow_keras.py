@@ -412,3 +412,42 @@ class TfKerasTests(tf.test.TestCase):
 
                 assert idx + 1 == session.run(hvd_optimizer.iterations)
                 assert session.run(variables[0].read_value()) == compute_expected_value(idx)
+
+    def test_metric_average_callback(self):
+        with self.test_session(config=self.config) as sess:
+            K.set_session(sess)
+
+            opt = tf.keras.optimizers.Adam(0.01)
+            opt = hvd.DistributedOptimizer(opt)
+
+            def test_metric(y_true, y_pred):
+                return hvd.rank()
+
+            model = keras.models.Sequential()
+            model.add(keras.layers.Dense(2, input_shape=(3,)))
+            model.compile(loss=keras.losses.mean_squared_error,
+                          optimizer=opt,
+                          metrics=[test_metric])
+
+            x = np.random.random((1, 3))
+            y = np.random.random((1, 3, 2))
+
+            callbacks = [
+                hvd.callbacks.BroadcastGlobalVariablesCallback(0),
+                hvd.callbacks.MetricAverageCallback(),
+            ]
+
+            train_history = model.fit(
+                x,
+                y,
+                steps_per_epoch=10,
+                callbacks=callbacks,
+                epochs=1
+            )
+
+            expected = sum(range(hvd.size())) / hvd.size()
+            results = train_history.history.get('test_metric')
+
+            assert results is not None, 'no results for test_metric'
+            assert len(results) == 1
+            assert results[0] == expected
