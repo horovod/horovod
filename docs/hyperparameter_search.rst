@@ -262,7 +262,7 @@ As noted in this `Facebook Imagenet Training paper <https://research.fb.com/wp-c
 
 **What are common solutions?**
 
-Goyal et al. (2017) proposes a warm-up schedule, where training usually starts with a small learning rate and gradually increased to match a larger target learning rate. After the warm-up period (usually a few epochs), a regular learning rate schedule is used ("multi-steps", polynomial decay etc). Thus, there are generally three parameters for warmup schedule:
+Goyal et al. (2017) proposes a warm-up schedule, where training usually starts with a small learning rate, and gradually increased to match a larger target learning rate. After the warm-up period (usually a few epochs), a regular learning rate schedule is used ("multi-steps", polynomial decay etc). Thus, there are generally three parameters for warmup schedule:
 
 * Length of warmup (number of epochs)
 * Starting learning rate
