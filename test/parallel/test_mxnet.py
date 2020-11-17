@@ -56,7 +56,7 @@ class MXTests(unittest.TestCase):
 
     def test_gpu_required(self):
         if not has_gpu:
-            skip_or_fail_gpu_test("No GPUs available")
+            skip_or_fail_gpu_test(self, "No GPUs available")
 
     def test_horovod_allreduce(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""

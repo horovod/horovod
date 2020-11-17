@@ -77,7 +77,7 @@ class TorchTests(unittest.TestCase):
 
     def test_gpu_required(self):
         if not torch.cuda.is_available():
-            skip_or_fail_gpu_test("No GPUs available")
+            skip_or_fail_gpu_test(self, "No GPUs available")
 
     @pytest.mark.skipif(platform.system() == 'Darwin', reason='Reinit not supported on macOS')
     def test_horovod_reinit(self):

@@ -106,7 +106,7 @@ class TensorFlowTests(tf.test.TestCase):
 
     def test_gpu_required(self):
         if not tf.test.is_gpu_available(cuda_only=True):
-            skip_or_fail_gpu_test("No GPUs available")
+            skip_or_fail_gpu_test(self, "No GPUs available")
 
     def test_horovod_rank(self):
         """Test that the rank returned by hvd.rank() is correct."""
