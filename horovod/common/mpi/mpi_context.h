@@ -29,7 +29,7 @@ namespace horovod {
 namespace common {
 
 // Base class for managing MPI environment. Can be derived if other frameworks
-// (like DDL) are able to manage MPI environment.
+// are able to manage MPI environment.
 class MPIContextManager {
 public:
   // Initialize MPI environment with required multi-threads support level.

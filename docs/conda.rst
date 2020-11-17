@@ -208,7 +208,6 @@ You should see output similar to the following.::
         [X] Gloo
     Available Tensor Operations:
         [X] NCCL
-        [ ] DDL
         [ ] CCL
         [X] MPI
         [X] Gloo

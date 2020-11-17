@@ -88,9 +88,6 @@ bool horovod_gloo_built();
 // Returns NCCL_VERSION_CODE if NCCL is available, else returns 0.
 int horovod_nccl_built();
 
-// C interface to return flag indicating whether Horovod was compiled with DDL support.
-bool horovod_ddl_built();
-
 // C interface to return flag indicating whether Horovod was compiled with CCL support.
 bool horovod_ccl_built();
 

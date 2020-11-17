@@ -104,7 +104,7 @@ set(HOROVOD_GPU_OPERATIONS $ENV{HOROVOD_GPU_OPERATIONS})
 if(DEFINED HOROVOD_GPU_OPERATIONS AND NOT "${HOROVOD_GPU_OPERATIONS}" MATCHES "^(MPI|NCCL)$")
     message(FATAL_ERROR "HOROVOD_GPU_OPERATIONS=${HOROVOD_GPU_OPERATIONS} is invalid, supported values are '', 'MPI', and 'NCCL'.")
 endif()
-set_gpu_op(HOROVOD_GPU_ALLREDUCE "MPI;NCCL;DDL")
+set_gpu_op(HOROVOD_GPU_ALLREDUCE "MPI;NCCL")
 set_gpu_op(HOROVOD_GPU_ALLGATHER "MPI;NCCL")
 set_gpu_op(HOROVOD_GPU_BROADCAST "MPI;NCCL")
 set_gpu_op(HOROVOD_GPU_ALLTOALL "MPI;NCCL")
@@ -202,17 +202,6 @@ if(HOROVOD_GPU_ALLREDUCE STREQUAL "N" OR HOROVOD_GPU_ALLGATHER STREQUAL "N" OR H
     list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/nccl_operations.cc")
     add_definitions(-DHAVE_NCCL=1)
     set(HAVE_NCCL TRUE)
-endif()
-
-# DDL
-if(HOROVOD_GPU_ALLREDUCE STREQUAL "D")
-    message(DEPRECATION "DDL backend has been deprecated. Please, start using the NCCL backend by building Horovod with "
-                        "'HOROVOD_GPU_OPERATIONS=NCCL'. Will be removed in v0.21.0.")
-    list(APPEND LINKER_LIBS "${CUDA_TOOLKIT_ROOT_DIR}/lib/libddl.so" "${CUDA_TOOLKIT_ROOT_DIR}/lib/libddl_pack.so")
-    list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/mpi/ddl_mpi_context_manager.cc"
-                        "${PROJECT_SOURCE_DIR}/horovod/common/ops/ddl_operations.cc")
-    add_definitions(-DHAVE_DDL=1)
-    set(HAVE_DDL TRUE)
 endif()
 
 # oneCCL

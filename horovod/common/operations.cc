@@ -64,11 +64,6 @@
 #endif
 #endif
 
-#if HAVE_DDL && HAVE_MPI
-#include "mpi/ddl_mpi_context_manager.h"
-#include "ops/ddl_operations.h"
-#endif
-
 #if HAVE_CCL
 #include "ops/ccl_operations.h"
 #endif
@@ -86,7 +81,7 @@
  * whichever hardware-optimized communication libraries are enabled.
  *
  * The primary logic of the allreduce, allgather and broadcast currently
- * support in MPI, NCCL, CUDA/ROCm, Gloo, oneCCL, DDL. The background thread
+ * support in MPI, NCCL, CUDA/ROCm, Gloo, oneCCL. The background thread
  * which facilitates controller operations is run in BackgroundThreadLoop().
  * The provided ops are:
  *      - HorovodAllreduce:
@@ -129,10 +124,6 @@ GPUContext gpu_context;
 NCCLContext nccl_context;
 #endif
 
-#if HAVE_DDL
-DDLContext ddl_context;
-#endif
-
 #if HAVE_CCL
 CCLContext ccl_context;
 #endif
@@ -161,11 +152,6 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new NCCLHierarchicalAllreduce(
             &nccl_context, &mpi_context, &gpu_context, &state)));
-
-#elif HAVE_DDL && HOROVOD_GPU_ALLREDUCE == 'D'
-    allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
-        new DDLAllreduce(&ddl_context, &gpu_context, &state)));
-#endif
 
 #if HOROVOD_GPU_ALLGATHER == 'M'
     allgather_ops.push_back(std::shared_ptr<AllgatherOp>(
@@ -365,13 +351,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
 #if HAVE_MPI
   // Initialize mpi context
-#if HAVE_DDL
-  // If DDL is enabled, let DDL ops manage MPI environment.
-  auto mpi_ctx_manager = DDL_MPIContextManager(ddl_context, gpu_context);
-#else
-  // Otherwise, let MPI ops be in charge.
   auto mpi_ctx_manager = MPIContextManager();
-#endif
   mpi_context.Initialize(state.controller->GetRanks(), mpi_ctx_manager);
 #endif
 
@@ -488,8 +468,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     state.parameter_manager.SetHierarchicalAllreduce(value, true);
   }
 
-#if HOROVOD_GPU_ALLREDUCE != 'N' && HOROVOD_GPU_ALLREDUCE != 'D'
-  // Hierarchical allreduce is not supported without NCCL or DDL
+#if HOROVOD_GPU_ALLREDUCE != 'N'
+  // Hierarchical allreduce is not supported without NCCL
   state.parameter_manager.SetHierarchicalAllreduce(false, true);
 #endif
 
@@ -848,14 +828,6 @@ int horovod_nccl_built() {
   return NCCL_VERSION_CODE;
 #else
   return 0;
-#endif
-}
-
-bool horovod_ddl_built() {
-#if HAVE_DDL
-  return true;
-#else
-  return false;
 #endif
 }
 
