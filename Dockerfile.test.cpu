@@ -186,11 +186,6 @@ RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
 RUN mkdir -p /work
 RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/mnist.bz2 -O /data/mnist.bz2
 
-# Hack for compatibility of MNIST example with TensorFlow 1.1.0.
-RUN if [[ ${TENSORFLOW_PACKAGE} == "tensorflow==1.1.0" ]]; then \
-        sed -i "s/from tensorflow import keras/from tensorflow.contrib import keras/" /horovod/examples/tensorflow/tensorflow_mnist.py; \
-    fi
-
 # Hack TensorFlow MNIST example to be smaller.
 RUN sed -i "s/last_step=20000/last_step=100/" /horovod/examples/tensorflow/tensorflow_mnist.py
 
