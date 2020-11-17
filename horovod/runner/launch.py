@@ -28,7 +28,7 @@ import horovod
 
 from horovod.common.util import (extension_available,
                                  gloo_built, mpi_built,
-                                 nccl_built, ddl_built, ccl_built)
+                                 nccl_built, ccl_built)
 from horovod.runner.common.util import config_parser, hosts, safe_shell_exec, secret, timeout
 from horovod.runner.common.util import settings as hvd_settings
 from horovod.runner.driver import driver_service
@@ -125,7 +125,6 @@ def check_build(verbose):
 
     Available Tensor Operations:
         [{nccl_ops}] NCCL
-        [{ddl_ops}] DDL
         [{ccl_ops}] CCL
         [{mpi_ops}] MPI
         [{gloo_ops}] Gloo\
@@ -137,7 +136,6 @@ def check_build(verbose):
                mpi=get_check(mpi_built(verbose=verbose)),
                gloo=get_check(gloo_built(verbose=verbose)),
                nccl_ops=get_check(nccl_built(verbose=verbose)),
-               ddl_ops=get_check(ddl_built(verbose=verbose)),
                mpi_ops=get_check(mpi_built(verbose=verbose)),
                ccl_ops=get_check(ccl_built(verbose=verbose)),
                gloo_ops=get_check(gloo_built(verbose=verbose)))

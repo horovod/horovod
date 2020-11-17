@@ -29,7 +29,7 @@ from horovod.tensorflow import rank
 from horovod.tensorflow import local_rank
 from horovod.tensorflow import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.tensorflow import gloo_enabled, gloo_built
-from horovod.tensorflow import nccl_built, ddl_built, ccl_built, cuda_built, rocm_built
+from horovod.tensorflow import nccl_built, ccl_built, cuda_built, rocm_built
 from horovod.tensorflow import Average, Compression, Sum
 
 import horovod._keras as _impl
