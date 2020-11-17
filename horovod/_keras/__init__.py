@@ -147,11 +147,12 @@ if hasattr(hvd, 'broadcast_global_variables'):
         return _eval(backend, hvd.broadcast_global_variables(root_rank))
 
 
-def allreduce(backend, value, name, average, prescale_factor, postscale_factor, op, compression):
-    return _eval(backend, hvd.allreduce(tf.constant(value, name=name), average=average,
+def allreduce(backend, value, name, prescale_factor, postscale_factor, op, compression):
+    return _eval(backend, hvd.allreduce(tf.constant(value, name=name),
                                         prescale_factor=prescale_factor,
                                         postscale_factor=postscale_factor,
-                                        op=op, compression=compression))
+                                        op=op,
+                                        compression=compression))
 
 
 def allgather(backend, value, name):

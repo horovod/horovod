@@ -213,32 +213,6 @@ def make_override_false_action(override_args):
     return make_override_bool_action(override_args, False)
 
 
-def make_deprecated_bool_action(override_args, bool_value, replacement_option):
-    class StoreOverrideBoolAction(argparse.Action):
-        def __init__(self,
-                     option_strings,
-                     dest,
-                     required=False,
-                     help=None):
-            super(StoreOverrideBoolAction, self).__init__(
-                option_strings=option_strings,
-                dest=dest,
-                const=bool_value,
-                nargs=0,
-                default=None,
-                required=required,
-                help=help)
-
-        def __call__(self, parser, args, values, option_string=None):
-            deprecated_option = '|'.join(self.option_strings)
-            warnings.warn(f'Argument {deprecated_option} has been replaced by {replacement_option} and will be removed in v0.21.0',
-                          DeprecationWarning)
-            override_args.add(self.dest)
-            setattr(args, self.dest, self.const)
-
-    return StoreOverrideBoolAction
-
-
 def parse_args():
     override_args = set()
 
@@ -465,14 +439,6 @@ def parse_args():
     group_logging_timestamp.add_argument('-prefix-timestamp', '--prefix-output-with-timestamp', action='store_true',
                                          dest='prefix_output_with_timestamp',
                                          help='Timestamp each line of output to stdout, stderr, and stddiag.')
-    group_logging_timestamp.add_argument('--log-hide-timestamp', 
-                                         dest='log_with_timestamp',
-                                         action=make_deprecated_bool_action(override_args, False, '--log-without-timestamp'),
-                                         help=argparse.SUPPRESS)
-    group_logging_timestamp.add_argument('--no-log-hide-timestamp', 
-                                         dest='log_with_timestamp',
-                                         action=make_deprecated_bool_action(override_args, True, '--log-with-timestamp'),
-                                         help=argparse.SUPPRESS)                                     
 
     group_hosts_parent = parser.add_argument_group('host arguments')
     group_hosts = group_hosts_parent.add_mutually_exclusive_group()

@@ -119,7 +119,8 @@ def broadcast_global_variables(root_rank):
     return _impl.broadcast_global_variables(K, root_rank)
 
 
-def allreduce(value, name=None, average=True,
+def allreduce(value,
+              name=None,
               prescale_factor=1.0,
               postscale_factor=1.0,
               op=None,
@@ -131,11 +132,6 @@ def allreduce(value, name=None, average=True,
         value: A tensor-compatible value to reduce.
                The shape of the input must be identical across all ranks.
         name: Optional name for the constants created by this operation.
-        average:
-            .. warning:: .. deprecated:: 0.19.0
-
-               Use `op` instead. Will be removed in v0.21.0.
-
         prescale_factor: Multiplicative factor to scale tensor before allreduce.
         postscale_factor: Multiplicative factor to scale tensor after allreduce.
         op: The reduction operation to combine tensors across different ranks.
@@ -148,7 +144,6 @@ def allreduce(value, name=None, average=True,
         backend=K,
         value=value,
         name=name,
-        average=average,
         prescale_factor=prescale_factor,
         postscale_factor=postscale_factor,
         op=op,

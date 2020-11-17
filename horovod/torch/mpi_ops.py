@@ -22,7 +22,7 @@ import warnings
 
 from horovod.common.basics import HorovodBasics as _HorovodBasics
 from horovod.common.exceptions import HorovodInternalError
-from horovod.common.util import check_installed_version, get_average_backwards_compatibility_fun, gpu_available, num_rank_is_power_2
+from horovod.common.util import check_installed_version, gpu_available, num_rank_is_power_2
 
 from horovod.torch.compression import Compression
 
@@ -67,8 +67,6 @@ Sum = _basics.Sum
 Adasum = _basics.Adasum
 
 is_homogeneous = _basics.is_homogeneous
-
-handle_average_backwards_compatibility = get_average_backwards_compatibility_fun(_basics)
 
 
 # Schema: handle -> input, output
@@ -135,7 +133,7 @@ def _allreduce_async(tensor, output, name, op, prescale_factor, postscale_factor
     return handle
 
 
-def allreduce_async(tensor, average=None, name=None, op=None,
+def allreduce_async(tensor, name=None, op=None,
                     prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs asynchronous averaging or summation of the input tensor
@@ -148,11 +146,6 @@ def allreduce_async(tensor, average=None, name=None, op=None,
 
     Arguments:
         tensor: A tensor to reduce.
-        average:
-            .. warning:: .. deprecated:: 0.19.0
-
-                Use `op` instead. Will be removed in v0.21.0.
-
         name: A name of the reduction operation.
         op: The reduction operation to combine tensors across different
                    ranks. Defaults to Average if None is given.
@@ -163,7 +156,6 @@ def allreduce_async(tensor, average=None, name=None, op=None,
         A handle to the allreduce operation that can be used with `poll()` or
         `synchronize()`.
     """
-    op = handle_average_backwards_compatibility(op, average)
     output = tensor.new(tensor.shape)
     return _allreduce_async(tensor, output, name, op, prescale_factor, postscale_factor)
 
@@ -172,22 +164,22 @@ class HorovodAllreduce(torch.autograd.Function):
     """An autograd function that performs allreduce on a tensor."""
 
     @staticmethod
-    def forward(ctx, tensor, average, name, op, prescale_factor, postscale_factor):
-        ctx.average = average
+    def forward(ctx, tensor, name, op, prescale_factor, postscale_factor):
         ctx.op = op
         ctx.prescale_factor = prescale_factor
         ctx.postscale_factor = postscale_factor
-        handle = allreduce_async(tensor, average, name, op, prescale_factor, postscale_factor)
+        handle = allreduce_async(tensor, name, op, prescale_factor, postscale_factor)
         return synchronize(handle)
 
     @staticmethod
     def backward(ctx, grad_output):
-        return allreduce(grad_output, average=ctx.average, op=ctx.op,
+        return allreduce(grad_output,
+                         op=ctx.op,
                          prescale_factor=ctx.prescale_factor,
                          postscale_factor=ctx.postscale_factor), None, None, None, None, None
 
 
-def allreduce(tensor, average=None, name=None, compression=Compression.none, op=None,
+def allreduce(tensor, name=None, compression=Compression.none, op=None,
               prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs averaging or summation of the input tensor over all the
@@ -204,11 +196,6 @@ def allreduce(tensor, average=None, name=None, compression=Compression.none, op=
 
     Arguments:
         tensor: A tensor to reduce.
-        average:
-            .. warning:: .. deprecated:: 0.19.0
-
-                Use `op` instead. Will be removed in v0.21.0.
-
         name: A name of the reduction operation.
         compression: Compression algorithm used during allreduce to reduce the amount
                      of data sent during the each parameter update step.  Defaults to
@@ -223,12 +210,12 @@ def allreduce(tensor, average=None, name=None, compression=Compression.none, op=
         processes.
     """
     tensor_compressed, ctx = compression.compress(tensor)
-    summed_tensor_compressed = HorovodAllreduce.apply(tensor_compressed, average, name, op,
+    summed_tensor_compressed = HorovodAllreduce.apply(tensor_compressed, name, op,
                                                       prescale_factor, postscale_factor)
     return compression.decompress(summed_tensor_compressed, ctx)
 
 
-def allreduce_async_(tensor, average=None, name=None, op=None,
+def allreduce_async_(tensor, name=None, op=None,
                      prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs asynchronous in-place averaging or summation of the input
@@ -241,11 +228,6 @@ def allreduce_async_(tensor, average=None, name=None, op=None,
 
     Arguments:
         tensor: A tensor to reduce.
-        average:
-            .. warning:: .. deprecated:: 0.19.0
-
-                Use `op` instead. Will be removed in v0.21.0.
-
         name: A name of the reduction operation.
         op: The reduction operation to combine tensors across different ranks. Defaults to
             Average if None is given.
@@ -256,11 +238,10 @@ def allreduce_async_(tensor, average=None, name=None, op=None,
         A handle to the allreduce operation that can be used with `poll()` or
         `synchronize()`.
     """
-    op = handle_average_backwards_compatibility(op, average)
     return _allreduce_async(tensor, tensor, name, op, prescale_factor, postscale_factor)
 
 
-def allreduce_(tensor, average=None, name=None, op=None,
+def allreduce_(tensor, name=None, op=None,
                prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs in-place averaging or summation of the input tensor over
@@ -273,11 +254,6 @@ def allreduce_(tensor, average=None, name=None, op=None,
 
     Arguments:
         tensor: A tensor to reduce.
-        average:
-            .. warning:: .. deprecated:: 0.19.0
-
-                Use `op` instead. Will be removed in v0.21.0.
-
         name: A name of the reduction operation.
         op: The reduction operation to combine tensors across different ranks. Defaults to
             Average if None is given.
@@ -288,7 +264,7 @@ def allreduce_(tensor, average=None, name=None, op=None,
         A tensor of the same shape and type as `tensor`, averaged or summed across all
         processes.
     """
-    handle = allreduce_async_(tensor, average, name, op, prescale_factor, postscale_factor)
+    handle = allreduce_async_(tensor, name, op, prescale_factor, postscale_factor)
     return synchronize(handle)
 
 
@@ -554,7 +530,7 @@ class HorovodAllgather(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        grad_reduced = allreduce(grad_output, average=False)
+        grad_reduced = allreduce(grad_output, op=Sum)
 
         dim_t = torch.IntTensor([ctx.dim])
         dim = allgather(dim_t).view(size())
@@ -639,7 +615,7 @@ class HorovodBroadcast(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        grad_reduced = allreduce(grad_output, average=False)
+        grad_reduced = allreduce(grad_output, op=Sum)
         if rank() != ctx.root_rank:
             grad_reduced *= 0
         return grad_reduced, None, None

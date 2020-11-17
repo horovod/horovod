@@ -219,27 +219,6 @@ def env(**kwargs):
                 del os.environ[k]
 
 
-def get_average_backwards_compatibility_fun(reduce_ops):
-    """
-    Handle backwards compatibility between the old average and the new op parameters.
-    Old code using the average parameter (e.g. hvd.allreduce(tensor, average=False))
-    gets unchanged behavior, but mixing old and new is disallowed (e.g. no
-    hvd.allreduce(tensor, average=False, op=hvd.Adasum)).
-    """
-    def impl(op, average):
-        if op != None:
-            if average != None:
-                raise ValueError('The op parameter supersedes average. Please provide only one of them.')
-            return op
-        elif average != None:
-            warnings.warn('Parameter `average` has been replaced with `op` and will be removed in v0.21.0',
-                          DeprecationWarning)
-            return reduce_ops.Average if average else reduce_ops.Sum
-        else:
-            return reduce_ops.Average
-    return impl
-
-
 def num_rank_is_power_2(num_rank):
     """
     Tests if the given number of ranks is of power of 2. This check is required

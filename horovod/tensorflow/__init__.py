@@ -51,7 +51,7 @@ if tf.__version__.startswith('2.2.'):
   device_compatibility_check.log_device_compatibility_check = lambda policy_name, skip_local: None
 
 
-def allreduce(tensor, average=None, device_dense='', device_sparse='',
+def allreduce(tensor, device_dense='', device_sparse='',
               compression=Compression.none, op=None,
               prescale_factor=1.0, postscale_factor=1.0,
               name=None):
@@ -65,11 +65,6 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
     Arguments:
         tensor: tf.Tensor, tf.Variable, or tf.IndexedSlices to reduce.
                 The shape of the input must be identical across all ranks.
-        average:
-            .. warning:: .. deprecated:: 0.19.0
-
-                Use `op` instead. Will be removed in v0.21.0.
-
         device_dense: Device to be used for dense tensors. Uses GPU by default
                       if Horovod was built with HOROVOD_GPU_OPERATIONS.
         device_sparse: Device to be used for sparse tensors. Uses GPU by default
@@ -87,8 +82,6 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
         A tensor of the same shape and type as `tensor`, summed across all
         processes.
     """
-    op = handle_average_backwards_compatibility(op, average)
-
     if isinstance(tensor, tf.IndexedSlices):
         # TODO: Need to fix this to actuall call Adasum
         if op == Adasum:
