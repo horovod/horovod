@@ -3,7 +3,7 @@
 Distributed Hyperparameter Search
 =================================
 
-Horovod's data parallelism training capabilities allows you to scale out and speed up the workload of training a deep learning model. However, simply using 2x more workers does not necessarily mean the model will obtain the same accuracy in 2x less time.
+Horovod's data parallelism training capabilities allow you to scale out and speed up the workload of training a deep learning model. However, simply using 2x more workers does not necessarily mean the model will obtain the same accuracy in 2x less time.
 
 To address this, you often need to re-tune hyperparameters when training at scale, as many hyperparameters exhibit different behaviors at larger scales.
 
@@ -76,7 +76,7 @@ Optimization of hyperparameters
 
 `Ray Tune`_ is able to orchestrate complex computational patterns with the `Ray Actor API <https://docs.ray.io/en/latest/actors.html>`__. For hyperparameter tuning, `Ray Tune`_ is able to conduct `parallel bayesian optimization <https://docs.ray.io/en/latest/tune/api_docs/suggestion.html>`__ and `Population Based Training <https://docs.ray.io/en/latest/tune/api_docs/schedulers.html>`__ on a group of distributed models.
 
-The user may need to implement model checkpointing. The rest of the optimization process can be configured with just a couple lines of code.
+You may need to implement model checkpointing. The rest of the optimization process can be configured with a couple lines of code.
 
 .. code-block:: python
 
@@ -215,16 +215,16 @@ Run ``ray up ray_cluster.yaml``, and a cluster of 4 nodes (1 head node + 3 worke
 
 After the cluster is up, you can ssh into the head node and run your Tune script there.
 
-Implementation (Underneath the hood)
+Implementation (underneath the hood)
 ------------------------------------
 
-Underneath the hood, `Ray Tune`_ will launch multiple "`trials <https://docs.ray.io/en/latest/tune/key-concepts.html#tune-run-and-trials>`__" in parallel. Each of these trials reference a `set of Ray actors <https://docs.ray.io/en/latest/actors.html>`__. For each trial, there will be 1 “coordinator actor”, and this coordinator actor will manage N training actors. One basic assumption of this implementation is that all sub-workers of a trial will be placed evenly across different machines.
+Underneath the hood, `Ray Tune`_ will launch multiple "`trials <https://docs.ray.io/en/latest/tune/key-concepts.html#tune-run-and-trials>`__" in parallel. Each of these trials reference a `set of Ray actors <https://docs.ray.io/en/latest/actors.html>`__. For each trial, there will be 1 “coordinator actor,” and this coordinator actor will manage N training actors. One basic assumption of this implementation is that all sub-workers of a trial will be placed evenly across different machines.
 
 .. image:: media/tune-horovod.jpg
 
 Training actors will each hold a copy of the model and will create a communication group for Horovod allreduce. Training will execute on each actor, reporting intermediate metrics back to Tune.
 
-This API requires gloo as the underlying communication primitive. Be sure to install Horovod with ``HOROVOD_WITH_GLOO`` `enabled <https://horovod.readthedocs.io/en/stable/install_include.html#gloo>`__.
+This API requires Gloo as the underlying communication primitive. Be sure to install Horovod with ``HOROVOD_WITH_GLOO`` `enabled <https://horovod.readthedocs.io/en/stable/install_include.html#gloo>`__.
 
 
 Common Hyperparameters
@@ -252,20 +252,20 @@ By using data parallelism, it is necessary to scale the batch size along with wo
 
 To leverage a dynamically changing batch size in training, you should either:
 
-* leverage `gradient accumulation <https://gist.github.com/thomwolf/ac7a7da6b1888c2eeac8ac8b9b05d3d3>`__.
+* Leverage `gradient accumulation <https://gist.github.com/thomwolf/ac7a7da6b1888c2eeac8ac8b9b05d3d3>`__
 * Implement your own TrialScheduler to dynamically change the number of workers (coming soon)
 
 Parameter: Learning rate schedules (warmup)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-As noted in this `Facebook Imagenet Training paper <https://research.fb.com/wp-content/uploads/2017/06/imagenet1kin1h5.pdf>`__, the linear scaling rule breaks down when the network is rapidly changing, which commonly occurs in early stages of training. This issue can be addressed with a “warmup”, which is a strategy of using less aggressive learning rates at the start of training.
+As noted in this `Facebook Imagenet Training paper <https://research.fb.com/wp-content/uploads/2017/06/imagenet1kin1h5.pdf>`__, the linear scaling rule breaks down when the network is rapidly changing, which commonly occurs in early stages of training. This issue can be addressed with a "warmup," which is a strategy of using less aggressive learning rates at the start of training.
 
 **What are common solutions?**
 
 Goyal et al. (2017) proposes a warm-up schedule, where training usually starts with a small learning rate and gradually increased to match a larger target learning rate. After the warm-up period (usually a few epochs), a regular learning rate schedule is used ("multi-steps", polynomial decay etc). Thus, there are generally three parameters for warmup schedule:
 
-* length of warmup (number of epochs)
-* starting learning rate
+* Length of warmup (number of epochs)
+* Starting learning rate
 * Peak learning rate
 
 Parameter: Optimizers
