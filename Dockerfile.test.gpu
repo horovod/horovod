@@ -26,7 +26,8 @@ ARG HOROVOD_MXNET_FLAG="HOROVOD_WITH_MXNET=1"
 SHELL ["/bin/bash", "-cu"]
 
 # Install essential packages.
-RUN apt-get update -qq && apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
+RUN CUDNN_MAJOR=$(cut -d '.' -f 1 <<< "${CUDNN_VERSION}"); \
+    apt-get update -qq && apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
         wget \
         ca-certificates \
         cmake \
@@ -36,7 +37,7 @@ RUN apt-get update -qq && apt-get install -y --allow-downgrades --allow-change-h
         build-essential \
         g++-4.8 \
         moreutils \
-        libcudnn7=${CUDNN_VERSION} \
+        libcudnn${CUDNN_MAJOR}=${CUDNN_VERSION} \
         libnccl2=${NCCL_VERSION_OVERRIDE} \
         libnccl-dev=${NCCL_VERSION_OVERRIDE}
 

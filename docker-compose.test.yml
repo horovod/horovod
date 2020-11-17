@@ -207,7 +207,7 @@ services:
     build:
       args:
         CUDA_DOCKER_VERSION: 11.0-devel-ubuntu18.04
-        CUDNN_VERSION: 7.6.5.32-1+cuda11.0
+        CUDNN_VERSION: 8.0.5.39-1+cuda11.0
         NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda11.0
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
@@ -224,7 +224,7 @@ services:
     build:
       args:
         CUDA_DOCKER_VERSION: 11.0-devel-ubuntu18.04
-        CUDNN_VERSION: 7.6.5.32-1+cuda11.0
+        CUDNN_VERSION: 8.0.5.39-1+cuda11.0
         NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda11.0
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
