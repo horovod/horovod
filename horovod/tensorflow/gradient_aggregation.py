@@ -94,12 +94,11 @@ class LocalGradientAggregationHelper:
 
                 # Create shadow variable.
                 grad_aggregation_variable_name = str(idx)
+                zero_grad = tf.zeros(shape=grad.get_shape().as_list(), dtype=grad.dtype)
                 grad_aggregation_variable = tf.compat.v1.get_variable(
                     grad_aggregation_variable_name,
-                    shape=grad.get_shape().as_list(),
                     trainable=False,
-                    initializer=tf.zeros_initializer(),
-                    dtype=grad.dtype,
+                    initializer=zero_grad,
                     collections=[
                         tf.compat.v1.GraphKeys.LOCAL_VARIABLES,
                         "aggregating_collection"],
