@@ -152,6 +152,7 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new NCCLHierarchicalAllreduce(
             &nccl_context, &mpi_context, &gpu_context, &state)));
+#endif
 
 #if HOROVOD_GPU_ALLGATHER == 'M'
     allgather_ops.push_back(std::shared_ptr<AllgatherOp>(
