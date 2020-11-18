@@ -28,7 +28,7 @@ pipeline {
                       conda install -y cmake make
                       set -xe
                       HOROVOD_WITHOUT_MXNET=1 HOROVOD_WITHOUT_GLOO=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 \
-                          HOROVOD_CUDA_HOME=$CONDA_PREFIX HOROVOD_GPU_BROADCAST=NCCL HOROVOD_GPU_ALLREDUCE=NCCL \
+                          HOROVOD_CUDA_HOME=$CONDA_PREFIX HOROVOD_GPU_OPERATIONS=NCCL MAKEFLAGS="-j1" \
                           pip install -v . --no-cache-dir --no-deps
                 '''
             }
