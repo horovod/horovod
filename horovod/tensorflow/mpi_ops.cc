@@ -148,6 +148,7 @@ public:
   virtual const common::TensorShape shape() const override;
   virtual const void* data() const override;
   virtual int64_t size() const override;
+  const void* tensor() const;
 
 protected:
   ::tensorflow::Tensor tensor_;
@@ -255,6 +256,8 @@ const common::TensorShape TFTensor::shape() const {
 }
 
 const void* TFTensor::data() const { return (const void*)tensor_.tensor_data().data(); }
+
+const void* TFTensor::tensor() const { return (const void*)&tensor_; }
 
 int64_t TFTensor::size() const { return (int64_t)tensor_.tensor_data().size(); }
 
