@@ -209,11 +209,11 @@ class RunTests(unittest.TestCase):
     def test_config_file_override_args(self):
         config_filename = os.path.join(os.path.dirname(__file__), 'data/config.test.yaml')
         with override_args('horovodrun', '-np', '2',
-                           '--fusion-threshold-mb', '128',
+                           '--fusion-threshold-mb', '256',
                            '--config-file', config_filename,
                            '--cycle-time-ms', '20',):
             args = parse_args()
-            self.assertEqual(args.fusion_threshold_mb, 128)
+            self.assertEqual(args.fusion_threshold_mb, 256)
             self.assertEqual(args.cycle_time_ms, 20)
 
     def test_validate_config_args(self):
