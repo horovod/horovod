@@ -86,6 +86,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Changed default cycle time from 5ms to 1ms and fusion threshold from 64MB to 128MB. ([#2468](https://github.com/horovod/horovod/pull/2468))
 
+- Removed DDL allreduce implementation. ([#2458](https://github.com/horovod/horovod/pull/2458))
+
+- Removed parameter `average` for `hvd.allreduce` (replaced by `op=Average`). ([#2458](https://github.com/horovod/horovod/pull/2458))
+
+- Removed `--log-hide-timestamp` arg to `horovodrun` (replaced by `--log-without-timestamp`). ([#2458](https://github.com/horovod/horovod/pull/2458))
+
 ### Fixed
 
 - Fixed support for TensorFlow v2.4.0. ([#2381](https://github.com/horovod/horovod/pull/2381))
