@@ -148,6 +148,7 @@ public:
   virtual const common::TensorShape shape() const override;
   virtual const void* data() const override;
   virtual int64_t size() const override;
+  const ::tensorflow::Tensor* tensor() const;
 
 protected:
   ::tensorflow::Tensor tensor_;
@@ -257,6 +258,8 @@ const common::TensorShape TFTensor::shape() const {
 const void* TFTensor::data() const { return (const void*)tensor_.tensor_data().data(); }
 
 int64_t TFTensor::size() const { return (int64_t)tensor_.tensor_data().size(); }
+
+const ::tensorflow::Tensor*  TFTensor::tensor() const { return &tensor_; }
 
 TFOpContext::TFOpContext(OpKernelContext* context) : context_(context) {}
 
