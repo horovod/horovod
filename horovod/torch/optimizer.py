@@ -21,6 +21,8 @@ from contextlib import contextmanager
 
 import torch
 
+from horovod.common.util import split_list
+
 from horovod.torch.compression import Compression
 from horovod.torch.functions import broadcast_object
 from horovod.torch.mpi_ops import allreduce_async_, grouped_allreduce_async_
@@ -122,8 +124,8 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             p_list = sorted(p_list, key=lambda p : p_list_names.index(self._parameter_names.get(p)))
 
             # Form groups
-            d, r = divmod(len(p_list), self._num_groups)
-            p_groups = [tuple(p_list[n * d + min(n, r):(n + 1) * d + min(n + 1, r)]) for n in range(self._num_groups)]
+            p_groups = split_list(p_list, self._num_groups)
+            p_groups = [tuple(p) for p in p_groups]
             for group in p_groups:
               for p in group:
                 self._p_to_group[p] = group

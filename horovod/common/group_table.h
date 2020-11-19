@@ -36,9 +36,7 @@ public:
   const std::vector<std::string>& GetGroupTensorNames(int32_t group_id) const;
   bool empty(void) const;
 
-  int32_t RegisterGroup(const std::vector<std::string>& tensor_names);
   int32_t RegisterGroup(std::vector<std::string>&& tensor_names);
-  void DeregisterGroup(int32_t group_id);
   void DeregisterGroups(const std::vector<std::string>& tensor_names);
 
 private:

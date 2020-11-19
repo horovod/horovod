@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from horovod.common.util import check_extension
+from horovod.common.util import check_extension, split_list
 
 check_extension('horovod.mxnet', 'HOROVOD_WITH_MXNET',
                 __file__, 'mpi_lib')
@@ -60,9 +60,8 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
 
         if isinstance(index, (tuple, list)):
             if (self._num_groups > 0):
-                d, r = divmod(len(grad), self._num_groups)
-                grad_split = [grad[n * d + min(n, r):(n + 1) * d + min(n + 1, r)] for n in range(self._num_groups)]
-                index_split = [index[n * d + min(n, r):(n + 1) * d + min(n + 1, r)] for n in range(self._num_groups)]
+                grad_split = split_list(grad, self._num_groups)
+                index_split = split_list(index, self._num_groups)
 
                 for i, (grads, indices) in enumerate(zip(grad_split, index_split)):
                     grouped_allreduce_(tensors=grads, average=False, name="{}:{}".format(indices[0], indices[-1]), priority=-i,
@@ -157,9 +156,8 @@ class DistributedTrainer(mx.gluon.Trainer):
                     grads.append(param.list_grad()[0])
                     names.append(self._prefix + str(i))
 
-            d, r = divmod(len(grads), self._num_groups)
-            grads_split = [grads[n * d + min(n, r):(n + 1) * d + min(n + 1, r)] for n in range(self._num_groups)]
-            names_split = [names[n * d + min(n, r):(n + 1) * d + min(n + 1, r)] for n in range(self._num_groups)]
+            grads_split = split_list(grads, self._num_groups)
+            names_split = split_list(names, self._num_groups)
 
             for i, (group_grads, group_names) in enumerate(zip(grads_split, names_split)):
                 # For better performance, enqueue groups in separate grouped_allreduce calls by dtype.

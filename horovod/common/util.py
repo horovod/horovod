@@ -244,3 +244,10 @@ def num_rank_is_power_2(num_rank):
     TODO support non-power of 2 ranks.
     """
     return num_rank != 0 and ((num_rank & (num_rank -1)) == 0)
+
+def split_list(l, n):
+    """
+    Splits list l into n approximately even sized chunks.
+    """
+    d, r = divmod(len(l), n)
+    return [l[i * d + min(i, r):(i + 1) * d + min(i + 1, r)] for i in range(n)]

@@ -40,27 +40,6 @@ bool GroupTable::empty(void) const {
   return tensor_name_to_id_.empty();
 }
 
-int32_t GroupTable::RegisterGroup(const std::vector<std::string>& tensor_names) {
-  std::lock_guard<std::mutex> guard(mutex_);
-
-  int32_t group_id;
-  if (!free_ids_.empty()) {
-    // Reuse old group_id
-    group_id = free_ids_.front();
-    free_ids_.pop();
-  } else {
-    // Create a new group_id
-    group_id = next_group_id_++;
-  }
-
-  for (auto& name : tensor_names) {
-    tensor_name_to_id_[name] = group_id;
-  }
-  id_to_tensor_names_[group_id] = tensor_names;
-
-  return group_id;
-}
-
 int32_t GroupTable::RegisterGroup(std::vector<std::string>&& tensor_names) {
   std::lock_guard<std::mutex> guard(mutex_);
 
@@ -80,16 +59,6 @@ int32_t GroupTable::RegisterGroup(std::vector<std::string>&& tensor_names) {
   id_to_tensor_names_.emplace(group_id, std::move(tensor_names));
 
   return group_id;
-}
-
-void GroupTable::DeregisterGroup(int32_t group_id) {
-  std::lock_guard<std::mutex> guard(mutex_);
-  for (auto& entry : id_to_tensor_names_[group_id]) {
-    tensor_name_to_id_.erase(entry);
-  }
-  id_to_tensor_names_.erase(group_id);
-
-  free_ids_.push(group_id);
 }
 
 void GroupTable::DeregisterGroups(const std::vector<std::string>& tensor_names) {

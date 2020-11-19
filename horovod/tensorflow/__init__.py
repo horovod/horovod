@@ -19,7 +19,7 @@
 import os
 import warnings
 
-from horovod.common.util import check_extension, gpu_available
+from horovod.common.util import check_extension, gpu_available, split_list
 
 check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
 
@@ -352,8 +352,7 @@ def _make_allreduce_grads_fn(name, device_dense, device_sparse,
 
             if num_groups > 0:
                 grads_clean = [grad for grad in grads if grad is not None]
-                d, r = divmod(len(grads_clean), num_groups)
-                grads_split = [grads_clean[n * d + min(n, r):(n + 1) * d + min(n + 1, r)] for n in range(num_groups)]
+                grads_split = split_list(grads_clean, num_groups)
 
                 reduce_ops = []
                 for group in grads_split:
