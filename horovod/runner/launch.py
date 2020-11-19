@@ -306,12 +306,12 @@ def parse_args():
                               help='Fusion buffer threshold in MB. This is the maximum amount of '
                                    'tensor data that can be fused together into a single batch '
                                    'during allreduce / allgather. Setting 0 disables tensor fusion. '
-                                   '(default: 64)')
+                                   '(default: 128)')
     group_params.add_argument('--cycle-time-ms', action=make_override_action(override_args), type=float,
                               help='Cycle time in ms. This is the delay between each tensor fusion '
                                    'cycle. The larger the cycle time, the more batching, but the '
                                    'greater latency between each allreduce / allgather operations. '
-                                   '(default: 5')
+                                   '(default: 1')
     group_params.add_argument('--cache-capacity', action=make_override_action(override_args), type=int,
                               help='Maximum number of tensor names that will be cached to reduce amount '
                                    'of coordination required between workers before performing allreduce / '

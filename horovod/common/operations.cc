@@ -439,7 +439,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.mark_cycles_in_timeline = mark_cycles;
 
   // Override Tensor Fusion threshold, if it's set.
-  state.parameter_manager.SetTensorFusionThresholdBytes(64 * 1024 * 1024);
+  state.parameter_manager.SetTensorFusionThresholdBytes(128 * 1024 * 1024);
   auto horovod_fusion_threshold = std::getenv(HOROVOD_FUSION_THRESHOLD);
   if (horovod_fusion_threshold != nullptr) {
     int64_t threshold = std::strtol(horovod_fusion_threshold, nullptr, 10);
@@ -447,7 +447,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
 
   // Override the cycle time.
-  state.parameter_manager.SetCycleTimeMs(5);
+  state.parameter_manager.SetCycleTimeMs(1);
   auto horovod_cycle_time = std::getenv(HOROVOD_CYCLE_TIME);
   if (horovod_cycle_time != nullptr) {
     state.parameter_manager.SetCycleTimeMs(
