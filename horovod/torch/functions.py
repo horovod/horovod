@@ -24,7 +24,6 @@ import torch
 from horovod.torch.mpi_ops import allgather, broadcast_, broadcast_async_
 from horovod.torch.mpi_ops import synchronize
 from horovod.torch.mpi_ops import rank, size
-from horovod.torch.optimizer import DistributedOptimizer
 
 
 def broadcast_parameters(params, root_rank):
@@ -68,6 +67,7 @@ def broadcast_optimizer_state(optimizer, root_rank):
         root_rank: The rank of the process from which the optimizer will be
                    broadcasted to all other processes.
     """
+    from horovod.torch.optimizer import DistributedOptimizer
     if isinstance(optimizer, torch.optim.LBFGS):
         # TODO(travis): L-BFGS cannot be easily supported without serializing
         #  the entire state_dict, as its structure is deeply nested and contains

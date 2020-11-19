@@ -27,8 +27,9 @@ class MPIController : public Controller {
 public:
   MPIController(ResponseCache& response_cache, TensorQueue& tensor_queue,
                 Timeline& timeline, ParameterManager& parameter_manager,
-                MPIContext& mpi_ctx)
-      : Controller(response_cache, tensor_queue, timeline, parameter_manager),
+                GroupTable& group_table, MPIContext& mpi_ctx)
+      : Controller(response_cache, tensor_queue, timeline, parameter_manager,
+                   group_table),
         mpi_ctx_(mpi_ctx) {
     LOG(DEBUG) << "MPI Controller Initialized.";
   }

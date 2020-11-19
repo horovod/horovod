@@ -594,6 +594,179 @@ class TorchTests(unittest.TestCase):
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
 
+    def test_horovod_grouped_allreduce(self):
+        """Test that the grouped allreduce correctly sums 1D, 2D, 3D tensors."""
+        hvd.init()
+        size = hvd.size()
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                     torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor])
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            torch.manual_seed(1234)
+            tensors = [torch.FloatTensor(*([17] * dim)).random_(-100, 100) for _ in range(5)]
+            tensors = [self.cast_and_place(tensor, dtype) for tensor in tensors]
+            summed = hvd.grouped_allreduce(tensors, average=False)
+            tensors, summed = zip(*[self.convert_cpu_fp16_to_fp32(t, s) for t, s in zip(tensors, summed)])
+            multiplied = [tensor * size for tensor in tensors]
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
+                                      torch.cuda.IntTensor, torch.cuda.LongTensor]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+
+            assert all([torch.allclose(t1, t2, threshold) for t1, t2 in zip(summed, multiplied)]), \
+                'hvd.grouped_allreduce produces incorrect results'
+
+    def test_horovod_grouped_allreduce_average(self):
+        """Test that the grouped allreduce correctly averages 1D, 2D, 3D tensors."""
+        hvd.init()
+        size = hvd.size()
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                     torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor])
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            torch.manual_seed(1234)
+            tensors = [torch.FloatTensor(*([17] * dim)).random_(-100, 100) for _ in range(5)]
+            tensors = [self.cast_and_place(tensor, dtype) for tensor in tensors]
+            averaged = hvd.grouped_allreduce(tensors, average=True)
+            tensors, averaged = zip(*[self.convert_cpu_fp16_to_fp32(t, m) for t, m in zip(tensors, averaged)])
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
+                                      torch.cuda.IntTensor, torch.cuda.LongTensor]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+
+            assert all([torch.allclose(t1, t2, threshold) for t1, t2 in zip(averaged, tensors)]), \
+                'hvd.grouped_allreduce produces incorrect results for average'
+
+    def test_horovod_grouped_allreduce_inplace(self):
+        """Test that the grouped allreduce correctly sums 1D, 2D, 3D tensors."""
+        hvd.init()
+        size = hvd.size()
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                     torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor])
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            torch.manual_seed(1234)
+            tensors = [torch.FloatTensor(*([17] * dim)).random_(-100, 100) for _ in range(5)]
+            multiplied = [self.cast_and_place(tensor * size, dtype) for tensor in tensors]
+            tensors = [self.cast_and_place(tensor, dtype) for tensor in tensors]
+            hvd.grouped_allreduce_(tensors, average=False)
+            tensors, multiplied = zip(*[self.convert_cpu_fp16_to_fp32(t, m) for t, m in zip(tensors, multiplied)])
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
+                                      torch.cuda.IntTensor, torch.cuda.LongTensor]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+
+            assert all([torch.allclose(t1, t2, threshold) for t1, t2 in zip(tensors, multiplied)]), \
+                'hvd.grouped_allreduce_ produces incorrect results'
+
+    def test_horovod_grouped_allreduce_cpu_gpu_error(self):
+        """Test that the grouped allreduce raises an error if the input tensor
+        list contains a mix of tensors on CPU and GPU."""
+        # Only do this test if there are GPUs available.
+        if not torch.cuda.is_available():
+            self.skipTest("No GPUs available")
+
+        hvd.init()
+        tensors = [torch.FloatTensor(10) if i % 2 else torch.cuda.FloatTensor(10)  for i in range(5)]
+        try:
+            hvd.grouped_allreduce(tensors, average=False)
+            assert False, 'hvd.allreduce did not throw error'
+        except (torch.FatalError, RuntimeError):
+            pass
+
+    def test_horovod_grouped_allreduce_grad(self):
+        """Test the correctness of the grouped allreduce gradient."""
+        hvd.init()
+        size = hvd.size()
+        # Only Tensors of floating point dtype can require gradients
+        dtypes = [torch.FloatTensor, torch.DoubleTensor]
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor, torch.cuda.HalfTensor]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            torch.manual_seed(1234)
+            tensors = [torch.FloatTensor(*([17] * dim)).random_(-100, 100) for _ in range(5)]
+            tensors = [self.cast_and_place(tensor, dtype) for tensor in tensors]
+            for tensor in tensors:
+                tensor.requires_grad_()
+            summed = hvd.grouped_allreduce(tensors, average=False)
+
+            for s in summed:
+                s.backward(self.cast_and_place(torch.ones([17] * dim), dtype))
+
+            grads_out = [tensor.grad.data.cpu().numpy() for tensor in tensors]
+
+            expected = np.ones([17] * dim) * size
+            for grad_out in grads_out:
+                err = np.linalg.norm(expected - grad_out)
+                self.assertLess(err, 0.00000001,
+                                "gradient %s differs from expected %s, "
+                                "error: %s" % (grad_out, expected, str(err)))
+
+    def test_horovod_allreduce_grad_average(self):
+        """Test the correctness of the allreduce averaged gradient."""
+        hvd.init()
+        # Only Tensors of floating point dtype can require gradients
+        dtypes = [torch.FloatTensor, torch.DoubleTensor]
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor, torch.cuda.HalfTensor]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            torch.manual_seed(1234)
+            tensors = [torch.FloatTensor(*([17] * dim)).random_(-100, 100) for _ in range(5)]
+            tensors = [self.cast_and_place(tensor, dtype) for tensor in tensors]
+            for tensor in tensors:
+                tensor.requires_grad_()
+            summed = hvd.grouped_allreduce(tensors, average=True)
+
+            for s in summed:
+                s.backward(self.cast_and_place(torch.ones([17] * dim), dtype))
+
+            grads_out = [tensor.grad.data.cpu().numpy() for tensor in tensors]
+
+            expected = np.ones([17] * dim)
+            for grad_out in grads_out:
+                err = np.linalg.norm(expected - grad_out)
+                self.assertLess(err, 0.00000001,
+                                "gradient %s differs from expected %s, "
+                                "error: %s" % (grad_out, expected, str(err)))
+
     def test_horovod_allgather(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors."""
         hvd.init()

@@ -146,7 +146,7 @@ def allreduce_async(tensor, average=None, name=None, op=None,
                 Use `op` instead. Will be removed in v0.21.0.
 
         name: A name of the reduction operation.
-        op: The reduction operation to combine tensors across different 
+        op: The reduction operation to combine tensors across different
                    ranks. Defaults to Average if None is given.
         prescale_factor: Multiplicative factor to scale tensor before allreduce.
         postscale_factor: Multiplicative factor to scale tensor after allreduce.
@@ -281,6 +281,221 @@ def allreduce_(tensor, average=None, name=None, op=None,
         processes.
     """
     handle = allreduce_async_(tensor, average, name, op, prescale_factor, postscale_factor)
+    return synchronize(handle)
+
+
+def _grouped_allreduce_function_factory(tensor):
+    return 'horovod_torch_grouped_allreduce_async_' + tensor.type().replace('.', '_')
+
+
+def _grouped_allreduce_async(tensors, outputs, name, op, prescale_factor, postscale_factor):
+    # Set the divisor for reduced gradients to average when necessary
+    if op == Average:
+        if rocm_built():
+            # For ROCm, perform averaging at framework level
+            divisor = size()
+            op = Sum
+        else:
+            divisor = 1
+    elif op == Adasum:
+        if tensors[0].device.type != 'cpu' and gpu_available('torch'):
+            if nccl_built():
+                if not is_homogeneous():
+                    raise NotImplementedError('Running GPU Adasum on heterogeneous cluster is not supported yet.')
+                elif not num_rank_is_power_2(int(size() / local_size())):
+                    raise NotImplementedError('Running GPU Adasum with non-power of 2 nodes is not supported yet.')
+                if rocm_built():
+                    # For ROCm, perform averaging at framework level
+                    divisor = local_size()
+                else:
+                    divisor = 1
+            else:
+                warnings.warn('Adasum reduction does not currently support GPU reduction using MPI. Tensors are '
+                              'copied to CPU memory instead. To use Adasum for GPU reduction, please compile Horovod '
+                              'with HOROVOD_GPU_OPERATIONS=NCCL.')
+                divisor = 1
+        else:
+            if not num_rank_is_power_2(size()):
+                raise NotImplementedError('Running Adasum with non-power of 2 ranks is not supported yet.')
+            divisor = 1
+    else:
+        divisor = 1
+
+    function = _check_function(_grouped_allreduce_function_factory, tensors[0])
+    try:
+        handle = getattr(mpi_lib, function)(tensors, outputs, divisor,
+                                            name.encode() if name is not None else _NULL, op,
+                                            prescale_factor, postscale_factor)
+    except RuntimeError as e:
+        raise HorovodInternalError(e)
+    _handle_map[handle] = (tuple(tensors), tuple(outputs))
+    return handle
+
+
+def grouped_allreduce_async(tensors, average=None, name=None, op=None,
+                            prescale_factor=1.0, postscale_factor=1.0):
+    """
+    A function that performs asynchronous averaging or summation of the input tensor
+    list over all the Horovod processes. The input tensors are not modified.
+
+    The reduction operations are keyed by the base name. If a base name is not
+    provided, an incremented auto-generated base name is used. Reductions are
+    performed across tensors in the same list position. The tensor type and
+    shape must be the same on all Horovod processes for tensors sharing
+    positions in the input tensor list. The reduction will not start until all
+    processes are ready to send and receive the tensors.
+
+    Arguments:
+        tensors: A list of tensors to reduce.
+        average:
+            .. warning:: .. deprecated:: 0.19.0
+
+                Use `op` instead. Will be removed in v0.21.0.
+
+        name: A base name to use for the group reduction operation.
+        op: The reduction operation to combine tensors across different
+                   ranks. Defaults to Average if None is given.
+        prescale_factor: Multiplicative factor to scale tensor before allreduce.
+        postscale_factor: Multiplicative factor to scale tensor after allreduce.
+
+    Returns:
+        A handle to the group allreduce operation that can be used with `poll()` or
+        `synchronize()`.
+    """
+    op = handle_average_backwards_compatibility(op, average)
+    outputs = [t.new(t.shape) for t in tensors]
+    return _grouped_allreduce_async(tensors, outputs, name, op, prescale_factor, postscale_factor)
+
+
+class HorovodGroupedAllreduce(torch.autograd.Function):
+    """An autograd function that performs allreduce on a list of tensors."""
+
+    @staticmethod
+    def forward(ctx, average, name, op, prescale_factor, postscale_factor, *tensors):
+        ctx.average = average
+        ctx.op = op
+        ctx.prescale_factor = prescale_factor
+        ctx.postscale_factor = postscale_factor
+        handle = grouped_allreduce_async(list(tensors), average, name, op, prescale_factor, postscale_factor)
+        return synchronize(handle)
+
+    @staticmethod
+    def backward(ctx, *grad_output):
+        grad_reduced = grouped_allreduce(list(grad_output), average=ctx.average, op=ctx.op,
+                                         prescale_factor=ctx.prescale_factor,
+                                         postscale_factor=ctx.postscale_factor)
+        return (None, None, None, None, None, *grad_reduced)
+
+
+def grouped_allreduce(tensors, average=None, name=None, compression=Compression.none, op=None,
+                      prescale_factor=1.0, postscale_factor=1.0):
+    """
+    A function that performs averaging or summation of the input tensor
+    list over all the Horovod processes. The input tensors are not modified.
+
+    The reduction operations are keyed by the base name. If a base name is not
+    provided, an incremented auto-generated base name is used. Reductions are
+    performed across tensors in the same list position. The tensor type and
+    shape must be the same on all Horovod processes for tensors sharing
+    positions in the input tensor list. The reduction will not start until all
+    processes are ready to send and receive the tensors.
+
+    This acts as a thin wrapper around an autograd function.  If your input
+    tensors require gradients, then calling this function will allow gradients
+    to be computed and backpropagated.
+
+    Arguments:
+        tensors: A list of tensors to reduce.
+        average:
+            .. warning:: .. deprecated:: 0.19.0
+
+                Use `op` instead. Will be removed in v0.21.0.
+
+        name: A base name to use for the group reduction operation.
+        compression: Compression algorithm used during allreduce to reduce the amount
+                     of data sent during the each parameter update step.  Defaults to
+                     not using compression.
+        op: The reduction operation to combine tensors across different ranks. Defaults
+            to Average if None is given.
+        prescale_factor: Multiplicative factor to scale tensor before allreduce.
+        postscale_factor: Multiplicative factor to scale tensor after allreduce.
+
+    Returns:
+        A list containing tensors of the same shape and type as in `tensors`,
+        averaged or summed across all processes.
+    """
+    tensors_compressed, ctxs = zip(*[compression.compress(t) for t in tensors])
+    summed_tensors_compressed = HorovodGroupedAllreduce.apply(average, name, op,
+                                                              prescale_factor, postscale_factor,
+                                                              *tensors_compressed)
+    return [compression.decompress(t, ctx) for t, ctx in zip(summed_tensors_compressed, ctxs)]
+
+
+def grouped_allreduce_async_(tensors, average=None, name=None, op=None,
+                             prescale_factor=1.0, postscale_factor=1.0):
+    """
+    A function that performs asynchronous in-place averaging or summation of the input
+    tensors over all the Horovod processes.
+
+    The reduction operations are keyed by the base name. If a base name is not
+    provided, an incremented auto-generated base name is used. Reductions are
+    performed across tensors in the same list position. The tensor type and
+    shape must be the same on all Horovod processes for tensors sharing
+    positions in the input tensor list. The reduction will not start until all
+    processes are ready to send and receive the tensors.
+
+    Arguments:
+        tensors: A list of tensors to reduce.
+        average:
+            .. warning:: .. deprecated:: 0.19.0
+
+                Use `op` instead. Will be removed in v0.21.0.
+
+        name: A base name to use for the group reduction operation.
+        op: The reduction operation to combine tensors across different ranks. Defaults to
+            Average if None is given.
+        prescale_factor: Multiplicative factor to scale tensor before allreduce.
+        postscale_factor: Multiplicative factor to scale tensor after allreduce.
+
+    Returns:
+        A handle to the group allreduce operation that can be used with `poll()` or
+        `synchronize()`.
+    """
+    op = handle_average_backwards_compatibility(op, average)
+    return _grouped_allreduce_async(tensors, tensors, name, op, prescale_factor, postscale_factor)
+
+
+def grouped_allreduce_(tensors, average=None, name=None, op=None,
+                       prescale_factor=1.0, postscale_factor=1.0):
+    """
+    A function that performs in-place averaging or summation of the input tensors over
+    all the Horovod processes.
+
+    The reduction operations are keyed by the base name. If a base name is not
+    provided, an incremented auto-generated base name is used. Reductions are
+    performed across tensors in the same list position. The tensor type and
+    shape must be the same on all Horovod processes for tensors sharing
+    positions in the input tensor list. The reduction will not start until all
+    processes are ready to send and receive the tensors.
+
+    Arguments:
+        tensors: A list of tensors to reduce.
+        average:
+            .. warning:: .. deprecated:: 0.19.0
+
+                Use `op` instead. Will be removed in v0.21.0.
+
+        name: A base name to use for the group reduction operation.
+        op: The reduction operation to combine tensors across different ranks. Defaults to
+            Average if None is given.
+        prescale_factor: Multiplicative factor to scale tensor before allreduce.
+        postscale_factor: Multiplicative factor to scale tensor after allreduce.
+
+    Returns:
+        A list containing tensors of the same shape and type as in `tensors`,
+        averaged or summed across all processes.
+    """
+    handle = grouped_allreduce_async_(tensors, average, name, op, prescale_factor, postscale_factor)
     return synchronize(handle)
 
 

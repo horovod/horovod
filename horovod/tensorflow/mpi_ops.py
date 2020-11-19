@@ -133,6 +133,54 @@ def _allreduce_grad(op, grad):
                       ignore_name_scope=ignore_name_scope)
 
 
+def _grouped_allreduce(tensors, name=None, op=Sum, prescale_factor=1.0, postscale_factor=1.0,
+                       ignore_name_scope=False):
+    """An op which reduces input tensors over all the Horovod processes. The
+    default reduction is a sum.
+
+    The reduction operation is keyed by the name of the op. The tensor type and
+    shape must be the same on all Horovod processes for a given name. The reduction
+    will not start until all processes are ready to send and receive the tensor.
+
+    The reduction operations are keyed by the name of the op. Reductions are
+    performed across tensors in the same list position. The tensor type and
+    shape must be the same on all Horovod processes for tensors sharing
+    positions in the input tensor list. The reduction will not start until all
+    processes are ready to send and receive the tensors.
+
+    Returns:
+      A list of tensors of the same shape and type as those in `tensors`,
+      summed across all processes.
+    """
+    if name is None and not _executing_eagerly():
+        name = _normalize_name('HorovodGroupedAllreduce_%s_%s' % (tensors[0].name, tensors[-1].name))
+    return MPI_LIB.horovod_grouped_allreduce(tensors, name=name, reduce_op=op,
+                                             prescale_factor=prescale_factor,
+                                             postscale_factor=postscale_factor,
+                                             ignore_name_scope=ignore_name_scope)
+
+
+@ops.RegisterGradient('HorovodGroupedAllreduce')
+def _grouped_allreduce_grad(op, *grads):
+    """Gradient for the grouped allreduce op.
+
+    Args:
+      op: An operation.
+      grads: List of `Tensor` gradients with respect to the outputs of the op.
+
+    Returns:
+      The gradients with respect to the inputs of the op.
+    """
+    reduce_op = op.get_attr('reduce_op')
+    prescale_factor = op.get_attr('prescale_factor')
+    postscale_factor = op.get_attr('postscale_factor')
+    ignore_name_scope = op.get_attr('ignore_name_scope')
+    # TODO(joshr): should this be done as separate allreduce ops?
+    return _grouped_allreduce(list(grads), op=reduce_op, prescale_factor=prescale_factor,
+                      postscale_factor=postscale_factor,
+                      ignore_name_scope=ignore_name_scope)
+
+
 def allgather(tensor, name=None, ignore_name_scope=False):
     """An op which concatenates the input tensor with the same input tensor on
     all other Horovod processes.

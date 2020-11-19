@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "global_state.h"
+#include "group_table.h"
 #include "parameter_manager.h"
 #include "response_cache.h"
 #include "stall_inspector.h"
@@ -36,7 +37,8 @@ using MessageTable = std::unordered_map<std::string, std::vector<Request>>;
 class Controller : public std::enable_shared_from_this<Controller> {
 public:
   Controller(ResponseCache& response_cache, TensorQueue& tensor_queue,
-             Timeline& timeline, ParameterManager& parameter_manager);
+             Timeline& timeline, ParameterManager& parameter_manager,
+             GroupTable& group_table);
 
   Controller(const Controller&) = delete;
 
@@ -155,15 +157,16 @@ protected:
   // also contains error messages in case the submitted Requests were not
   // valid (for example, contained mismatched shapes or types).
   // Constructing the Response, thus, requires a whole lot of error checking.
-  Response ConstructResponse(std::string& name, int joined_size = 0);
+  Response ConstructResponse(const std::string& name, int joined_size = 0);
 
   // Routine to sync cache hit and invalid bit sets across workers.
   // Also determines global shutdown state and whether uncached requests
   // exist on any worker.
   void CoordinateCacheAndState(CacheCoordinator& cache_coordinator);
 
-  ResponseList FuseResponses(std::deque<Response>& responses,
-                             HorovodGlobalState& state);
+  void FuseResponses(std::deque<Response>& responses,
+                     HorovodGlobalState& state,
+                     ResponseList& response_list);
 
   // Return the total byte size of the final allgathered output tensor
   int64_t
@@ -215,6 +218,8 @@ protected:
   ResponseCache& response_cache_;
 
   ParameterManager& parameter_manager_;
+
+  GroupTable& group_table_;
 };
 
 } // namespace common

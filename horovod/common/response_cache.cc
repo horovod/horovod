@@ -304,6 +304,11 @@ void CacheCoordinator::record_invalid_bit(uint32_t bit) {
   invalid_in_queue_ = true;
 }
 
+void CacheCoordinator::erase_hit(uint32_t bit) {
+  assert(!synced_);
+  cache_hits_.erase(bit);
+}
+
 void CacheCoordinator::set_should_shut_down(bool should_shut_down) {
   assert(!synced_);
   should_shut_down_ = should_shut_down;

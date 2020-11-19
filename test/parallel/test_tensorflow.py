@@ -823,6 +823,150 @@ class TensorFlowTests(tf.test.TestCase):
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
 
+    def test_horovod_grouped_allreduce_cpu(self):
+        """Test on CPU that the grouped allreduce correctly sums 1D, 2D, 3D tensors."""
+        hvd.init()
+        size = hvd.size()
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                tensors = [self.random_uniform(
+                    [17] * dim, -100, 100, dtype=dtype) for _ in range(5)]
+                summed = hvd.grouped_allreduce(tensors, average=False)
+            multiplied = [tensor * size for tensor in tensors]
+            max_difference = tf.reduce_max([tf.reduce_max(tf.abs(t1 - t2)) for t1, t2 in zip(summed, multiplied)])
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                self.skipTest("Horovod cluster too large for precise multiplication comparison")
+
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold, "hvd.grouped_allreduce produces incorrect results")
+
+    def test_horovod_grouped_allreduce_gpu(self):
+        """Test on GPU that the grouped allreduce correctly sums 1D, 2D, 3D tensors."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        hvd.init()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%d" % local_rank):
+                tensors = [self.random_uniform(
+                    [17] * dim, -100, 100, dtype=dtype) for _ in range(5)]
+                summed = hvd.grouped_allreduce(tensors, average=False)
+            multiplied = [tensor * size for tensor in tensors]
+            max_difference = tf.reduce_max([tf.reduce_max(tf.abs(t1 - t2)) for t1, t2 in zip(summed, multiplied)])
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                self.skipTest("Horovod cluster too large for precise multiplication comparison")
+
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold, "hvd.grouped_allreduce on GPU produces incorrect results")
+
+    def test_horovod_grouped_allreduce_grad_cpu(self):
+        """Test the correctness of the grouped allreduce gradient on CPU."""
+        hvd.init()
+        size = hvd.size()
+
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                if _executing_eagerly():
+                    tensors = [self.tfe.Variable(self.random_uniform(
+                        [5] * dim, -100, 100, dtype=dtype)) for _ in range(5)]
+                    with tf.GradientTape(persistent=True) as tape:
+                        summed = hvd.grouped_allreduce(tensors, average=False)
+                else:
+                    tensors = [self.random_uniform(
+                        [5] * dim, -100, 100, dtype=dtype) for _ in range(5)]
+                    summed = hvd.grouped_allreduce(tensors, average=False)
+
+                grads_ys = [tf.ones([5] * dim, dtype=dtype) for _ in range(5)]
+                if _executing_eagerly():
+                    grads_out = [tape.gradient(s, t, g) for s, t, g in zip(summed, tensors, grads_ys)]
+                else:
+                    grads = [tf.gradients(s, t, g)[0] for s, t, g in zip(summed, tensors, grads_ys)]
+                    grads_out = [self.evaluate(grad) for grad in grads]
+
+            expected = np.ones([5] * dim) * size
+            for grad_out in grads_out:
+                err = np.linalg.norm(expected - grad_out)
+                self.assertLess(err, 0.00000001,
+                                "gradient %s differs from expected %s, "
+                                "error: %s" % (grad_out, expected, str(err)))
+
+    def test_horovod_grouped_allreduce_grad_gpu(self):
+        """Test the correctness of the grouped allreduce gradient on GPU."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        hvd.init()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%d" % local_rank):
+                if _executing_eagerly():
+                    tensors = [self.tfe.Variable(self.random_uniform(
+                        [5] * dim, -100, 100, dtype=dtype)) for _ in range(5)]
+                    with tf.GradientTape(persistent=True) as tape:
+                        summed = hvd.grouped_allreduce(tensors, average=False)
+                else:
+                    tensors = [self.random_uniform(
+                        [5] * dim, -100, 100, dtype=dtype) for _ in range(5)]
+                    summed = hvd.grouped_allreduce(tensors, average=False)
+
+                grads_ys = [tf.ones([5] * dim, dtype=dtype) for _ in range(5)]
+                if _executing_eagerly():
+                    grads_out = [tape.gradient(s, t, g) for s, t, g in zip(summed, tensors, grads_ys)]
+                else:
+                    grads = [tf.gradients(s, t, g)[0] for s, t, g in zip(summed, tensors, grads_ys)]
+                    grads_out = [self.evaluate(grad) for grad in grads]
+
+            expected = np.ones([5] * dim) * size
+            for grad_out in grads_out:
+                err = np.linalg.norm(expected - grad_out)
+                self.assertLess(err, 0.00000001,
+                                "gradient %s differs from expected %s, "
+                                "error: %s" % (grad_out, expected, str(err)))
+
     def test_horovod_allgather_cpu(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors."""
         hvd.init()
