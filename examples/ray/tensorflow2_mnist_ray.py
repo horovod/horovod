@@ -73,7 +73,7 @@ def train(num_epochs):
         # accuracy. Scale the learning rate `lr = 1.0` ---> `lr = 1.0 * hvd.size()` during
         # the first three epochs. See https://arxiv.org/abs/1706.02677 for details.
         hvd.callbacks.LearningRateWarmupCallback(
-            warmup_epochs=3, initial_lr=scaled_lr, verbose=1),
+            initial_lr=scaled_lr, warmup_epochs=3, verbose=1),
     ]
 
     # Horovod: save checkpoints only on worker 0 to prevent other workers from corrupting them.

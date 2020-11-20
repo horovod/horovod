@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Changed Keras callbacks to require parameter `initial_lr` of `LearningRateScheduleCallback` and `LearningRateWarmupCallback`. ([#2459](https://github.com/horovod/horovod/pull/2459))
+
 - Changed default cycle time from 5ms to 1ms and fusion threshold from 64MB to 128MB. ([#2468](https://github.com/horovod/horovod/pull/2468))
 
 ### Deprecated
