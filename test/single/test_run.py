@@ -170,7 +170,7 @@ class RunTests(unittest.TestCase):
     def test_logging_args(self):
         with override_args('horovodrun', '-np', '2',
                            '--log-level', 'INFO',
-                           '--log-hide-timestamp'):
+                           '--log-without-timestamp'):
             args = parse_args()
             env = {}
             config_parser.set_env_from_args(env, args)
