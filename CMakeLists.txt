@@ -41,9 +41,11 @@ include_directories("third_party/HTTPRequest/include"
         "third_party/boost/static_assert/include"
         "third_party/boost/type_traits/include"
         "third_party/boost/utility/include"
-        "third_party/eigen"
-        "third_party/flatbuffers/include"
         "third_party/lbfgs/include")
+
+# Predefined Eign and Flatbuffers headers path, they could be replaced by tensorflow headers path
+set(EIGEN_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/third_party/eigen")
+set(FLATBUFFERS_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/third_party/flatbuffers/include")
 
 # Sources
 list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/common.cc"
