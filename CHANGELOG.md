@@ -14,7 +14,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Added support for backward_passes_per_step > 1 for TF LegacyOptimizer in graph mode. ([#2401](https://github.com/horovod/horovod/pull/2401))
 
+- Added grouped allreduce to enable more efficient tensor fusion and deterministic training. ([#2453](https://github.com/horovod/horovod/pull/2453))
+
 - Add support for specifying `op` and `compression` in `horovod.tensorflow.keras.allreduce()`. ([#2423](https://github.com/horovod/horovod/pull/2423))
+
+- Adding support for batched D2D memcopy kernel on GPU. ([#2435](https://github.com/horovod/horovod/pull/2435))
+
+- Added schema inference in Spark Estimator without sampling. ([#2373](https://github.com/horovod/horovod/pull/2373))
+
+- Added `Store.create("dbfs:/")` mapping to `DBFSLocalStore("/dbfs/...")`. ([#2376](https://github.com/horovod/horovod/pull/2376))
 
 ### Changed
 
@@ -27,6 +35,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Removed
 
 ### Fixed
+
+- Fixed support for TensorFlow v2.4.0. ([#2381](https://github.com/horovod/horovod/pull/2381))
+
+- Fixed averaging using CUDA half2 implementation one element half buffers. ([#2375](https://github.com/horovod/horovod/pull/2375))
+
+- Fixed `HOROVOD_THREAD_AFFINITY` when using oneCCL. ([#2350](https://github.com/horovod/horovod/pull/2350))
+
+- Added timeout to SSH check in horovodrun to prevent hanging. ([#2448](https://github.com/horovod/horovod/pull/2448))
+
+- Added `HOROVOD_GLOO_TIMEOUT_SECONDS` value to error messages. ([#2436](https://github.com/horovod/horovod/pull/2436))
+
+- Fixed race condition in dynamic timeline API. ([#2341](https://github.com/horovod/horovod/pull/2341))
+
+- Fixed --log-hide-timestamp to apply to driver logs with Gloo. ([#2388](https://github.com/horovod/horovod/pull/2388))
 
 ## [0.20.3] - 2020-10-01
 
