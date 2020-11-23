@@ -52,7 +52,7 @@ if tf.__version__.startswith('2.2.'):
 
 
 def allreduce(tensor, device_dense='', device_sparse='',
-              compression=Compression.none, op=None,
+              compression=Compression.none, op=Average,
               prescale_factor=1.0, postscale_factor=1.0,
               name=None):
     """Perform an allreduce on a tf.Tensor or tf.IndexedSlices.
@@ -147,7 +147,7 @@ def allreduce(tensor, device_dense='', device_sparse='',
         return new_tensor
 
 def grouped_allreduce(tensors, device_dense='', device_sparse='',
-                      compression=Compression.none, op=None,
+                      compression=Compression.none, op=Average,
                       prescale_factor=1.0, postscale_factor=1.0):
     if not tensors:
         return tensors

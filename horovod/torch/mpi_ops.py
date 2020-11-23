@@ -132,7 +132,7 @@ def _allreduce_async(tensor, output, name, op, prescale_factor, postscale_factor
     return handle
 
 
-def allreduce_async(tensor, name=None, op=None,
+def allreduce_async(tensor, name=None, op=Average,
                     prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs asynchronous averaging or summation of the input tensor
@@ -178,7 +178,7 @@ class HorovodAllreduce(torch.autograd.Function):
                          postscale_factor=ctx.postscale_factor), None, None, None, None, None
 
 
-def allreduce(tensor, name=None, compression=Compression.none, op=None,
+def allreduce(tensor, name=None, compression=Compression.none, op=Average,
               prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs averaging or summation of the input tensor over all the
@@ -214,7 +214,7 @@ def allreduce(tensor, name=None, compression=Compression.none, op=None,
     return compression.decompress(summed_tensor_compressed, ctx)
 
 
-def allreduce_async_(tensor, name=None, op=None,
+def allreduce_async_(tensor, name=None, op=Average,
                      prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs asynchronous in-place averaging or summation of the input
@@ -240,7 +240,7 @@ def allreduce_async_(tensor, name=None, op=None,
     return _allreduce_async(tensor, tensor, name, op, prescale_factor, postscale_factor)
 
 
-def allreduce_(tensor, name=None, op=None,
+def allreduce_(tensor, name=None, op=Average,
                prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs in-place averaging or summation of the input tensor over
@@ -315,7 +315,7 @@ def _grouped_allreduce_async(tensors, outputs, name, op, prescale_factor, postsc
     return handle
 
 
-def grouped_allreduce_async(tensors, name=None, op=None,
+def grouped_allreduce_async(tensors, name=None, op=Average,
                             prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs asynchronous averaging or summation of the input tensor
@@ -364,7 +364,7 @@ class HorovodGroupedAllreduce(torch.autograd.Function):
         return (None, None, None, None, None, *grad_reduced)
 
 
-def grouped_allreduce(tensors, name=None, compression=Compression.none, op=None,
+def grouped_allreduce(tensors, name=None, compression=Compression.none, op=Average,
                       prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs averaging or summation of the input tensor
@@ -403,7 +403,7 @@ def grouped_allreduce(tensors, name=None, compression=Compression.none, op=None,
     return [compression.decompress(t, ctx) for t, ctx in zip(summed_tensors_compressed, ctxs)]
 
 
-def grouped_allreduce_async_(tensors, name=None, op=None,
+def grouped_allreduce_async_(tensors, name=None, op=Average,
                              prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs asynchronous in-place averaging or summation of the input
@@ -431,7 +431,7 @@ def grouped_allreduce_async_(tensors, name=None, op=None,
     return _grouped_allreduce_async(tensors, tensors, name, op, prescale_factor, postscale_factor)
 
 
-def grouped_allreduce_(tensors, name=None, op=None,
+def grouped_allreduce_(tensors, name=None, op=Average,
                        prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs in-place averaging or summation of the input tensors over

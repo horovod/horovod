@@ -123,7 +123,7 @@ def allreduce(value,
               name=None,
               prescale_factor=1.0,
               postscale_factor=1.0,
-              op=None,
+              op=Average,
               compression=Compression.none):
     """
     Perform an allreduce on a tensor-compatible value.
