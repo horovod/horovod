@@ -315,7 +315,7 @@ def _grouped_allreduce_async(tensors, outputs, name, op, prescale_factor, postsc
     return handle
 
 
-def grouped_allreduce_async(tensors, average=None, name=None, op=None,
+def grouped_allreduce_async(tensors, name=None, op=None,
                             prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs asynchronous averaging or summation of the input tensor
@@ -330,11 +330,6 @@ def grouped_allreduce_async(tensors, average=None, name=None, op=None,
 
     Arguments:
         tensors: A list of tensors to reduce.
-        average:
-            .. warning:: .. deprecated:: 0.19.0
-
-                Use `op` instead. Will be removed in v0.21.0.
-
         name: A base name to use for the group reduction operation.
         op: The reduction operation to combine tensors across different
                    ranks. Defaults to Average if None is given.
@@ -345,7 +340,6 @@ def grouped_allreduce_async(tensors, average=None, name=None, op=None,
         A handle to the group allreduce operation that can be used with `poll()` or
         `synchronize()`.
     """
-    op = handle_average_backwards_compatibility(op, average)
     outputs = [t.new(t.shape) for t in tensors]
     return _grouped_allreduce_async(tensors, outputs, name, op, prescale_factor, postscale_factor)
 
@@ -354,23 +348,23 @@ class HorovodGroupedAllreduce(torch.autograd.Function):
     """An autograd function that performs allreduce on a list of tensors."""
 
     @staticmethod
-    def forward(ctx, average, name, op, prescale_factor, postscale_factor, *tensors):
-        ctx.average = average
+    def forward(ctx, name, op, prescale_factor, postscale_factor, *tensors):
         ctx.op = op
         ctx.prescale_factor = prescale_factor
         ctx.postscale_factor = postscale_factor
-        handle = grouped_allreduce_async(list(tensors), average, name, op, prescale_factor, postscale_factor)
+        handle = grouped_allreduce_async(list(tensors), name, op, prescale_factor, postscale_factor)
         return synchronize(handle)
 
     @staticmethod
     def backward(ctx, *grad_output):
-        grad_reduced = grouped_allreduce(list(grad_output), average=ctx.average, op=ctx.op,
+        grad_reduced = grouped_allreduce(list(grad_output),
+                                         op=ctx.op,
                                          prescale_factor=ctx.prescale_factor,
                                          postscale_factor=ctx.postscale_factor)
         return (None, None, None, None, None, *grad_reduced)
 
 
-def grouped_allreduce(tensors, average=None, name=None, compression=Compression.none, op=None,
+def grouped_allreduce(tensors, name=None, compression=Compression.none, op=None,
                       prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs averaging or summation of the input tensor
@@ -389,11 +383,6 @@ def grouped_allreduce(tensors, average=None, name=None, compression=Compression.
 
     Arguments:
         tensors: A list of tensors to reduce.
-        average:
-            .. warning:: .. deprecated:: 0.19.0
-
-                Use `op` instead. Will be removed in v0.21.0.
-
         name: A base name to use for the group reduction operation.
         compression: Compression algorithm used during allreduce to reduce the amount
                      of data sent during the each parameter update step.  Defaults to
@@ -408,13 +397,13 @@ def grouped_allreduce(tensors, average=None, name=None, compression=Compression.
         averaged or summed across all processes.
     """
     tensors_compressed, ctxs = zip(*[compression.compress(t) for t in tensors])
-    summed_tensors_compressed = HorovodGroupedAllreduce.apply(average, name, op,
+    summed_tensors_compressed = HorovodGroupedAllreduce.apply(name, op,
                                                               prescale_factor, postscale_factor,
                                                               *tensors_compressed)
     return [compression.decompress(t, ctx) for t, ctx in zip(summed_tensors_compressed, ctxs)]
 
 
-def grouped_allreduce_async_(tensors, average=None, name=None, op=None,
+def grouped_allreduce_async_(tensors, name=None, op=None,
                              prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs asynchronous in-place averaging or summation of the input
@@ -429,11 +418,6 @@ def grouped_allreduce_async_(tensors, average=None, name=None, op=None,
 
     Arguments:
         tensors: A list of tensors to reduce.
-        average:
-            .. warning:: .. deprecated:: 0.19.0
-
-                Use `op` instead. Will be removed in v0.21.0.
-
         name: A base name to use for the group reduction operation.
         op: The reduction operation to combine tensors across different ranks. Defaults to
             Average if None is given.
@@ -444,11 +428,10 @@ def grouped_allreduce_async_(tensors, average=None, name=None, op=None,
         A handle to the group allreduce operation that can be used with `poll()` or
         `synchronize()`.
     """
-    op = handle_average_backwards_compatibility(op, average)
     return _grouped_allreduce_async(tensors, tensors, name, op, prescale_factor, postscale_factor)
 
 
-def grouped_allreduce_(tensors, average=None, name=None, op=None,
+def grouped_allreduce_(tensors, name=None, op=None,
                        prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs in-place averaging or summation of the input tensors over
@@ -463,11 +446,6 @@ def grouped_allreduce_(tensors, average=None, name=None, op=None,
 
     Arguments:
         tensors: A list of tensors to reduce.
-        average:
-            .. warning:: .. deprecated:: 0.19.0
-
-                Use `op` instead. Will be removed in v0.21.0.
-
         name: A base name to use for the group reduction operation.
         op: The reduction operation to combine tensors across different ranks. Defaults to
             Average if None is given.
@@ -478,7 +456,7 @@ def grouped_allreduce_(tensors, average=None, name=None, op=None,
         A list containing tensors of the same shape and type as in `tensors`,
         averaged or summed across all processes.
     """
-    handle = grouped_allreduce_async_(tensors, average, name, op, prescale_factor, postscale_factor)
+    handle = grouped_allreduce_async_(tensors, name, op, prescale_factor, postscale_factor)
     return synchronize(handle)
 
 

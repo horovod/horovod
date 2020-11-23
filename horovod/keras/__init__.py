@@ -99,7 +99,12 @@ def broadcast_global_variables(root_rank):
     return _impl.broadcast_global_variables(K, root_rank)
 
 
-def allreduce(value, name=None, average=True, prescale_factor=1.0, postscale_factor=1.0):
+def allreduce(value,
+              name=None,
+              prescale_factor=1.0,
+              postscale_factor=1.0,
+              op=Average,
+              compression=Compression.none):
     """
     Perform an allreduce on a tensor-compatible value.
 
@@ -107,12 +112,22 @@ def allreduce(value, name=None, average=True, prescale_factor=1.0, postscale_fac
         value: A tensor-compatible value to reduce.
                The shape of the input must be identical across all ranks.
         name: Optional name for the constants created by this operation.
-        average: If True, computes the average over all ranks.
-                 Otherwise, computes the sum over all ranks.
         prescale_factor: Multiplicative factor to scale tensor before allreduce.
         postscale_factor: Multiplicative factor to scale tensor after allreduce.
+        op: The reduction operation to combine tensors across different ranks.
+            Defaults to Average if None is given.
+        compression: Compression algorithm used to reduce the amount of data
+                     sent and received by each worker node.  Defaults to not
+                     using compression.
     """
-    return _impl.allreduce(K, value, name, average, prescale_factor, postscale_factor)
+    return _impl.allreduce(
+        backend=K,
+        value=value,
+        name=name,
+        prescale_factor=prescale_factor,
+        postscale_factor=postscale_factor,
+        op=op,
+        compression=compression)
 
 
 def allgather(value, name=None):

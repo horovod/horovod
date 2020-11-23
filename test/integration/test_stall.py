@@ -14,7 +14,7 @@ def test():
         if hvd.rank() != 0:
             time.sleep(10 * hvd.rank());
         try:
-            summed = hvd.allreduce(tensor, average=False)
+            summed = hvd.allreduce(tensor, op=hvd.Sum)
         except:
             pass
         finally:

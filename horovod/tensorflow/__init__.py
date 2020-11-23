@@ -146,13 +146,11 @@ def allreduce(tensor, device_dense='', device_sparse='',
                     new_tensor = summed_tensor
         return new_tensor
 
-def grouped_allreduce(tensors, average=None, device_dense='', device_sparse='',
+def grouped_allreduce(tensors, device_dense='', device_sparse='',
                       compression=Compression.none, op=None,
                       prescale_factor=1.0, postscale_factor=1.0):
     if not tensors:
         return tensors
-
-    op = handle_average_backwards_compatibility(op, average)
 
     average_in_framework = False
     if rocm_built():

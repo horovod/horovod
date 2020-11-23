@@ -180,7 +180,7 @@ class TensorFlowTests(tf.test.TestCase):
             with tf.device("/cpu:0"):
                 tensor = self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype)
-                summed = hvd.allreduce(tensor, average=False)
+                summed = hvd.allreduce(tensor, op=hvd.Sum)
             multiplied = tensor * size
             max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
@@ -208,7 +208,7 @@ class TensorFlowTests(tf.test.TestCase):
             with tf.device("/cpu:0"):
                 tensor = self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype)
-                averaged = hvd.allreduce(tensor, average=True)
+                averaged = hvd.allreduce(tensor, op=hvd.Average)
             max_difference = tf.reduce_max(tf.abs(tf.cast(averaged, dtype=dtype) - tensor))
 
             # Threshold for floating point equality depends on number of
@@ -237,7 +237,7 @@ class TensorFlowTests(tf.test.TestCase):
             with tf.device("/cpu:0"):
                 tensor = self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype)
-                summed = hvd.allreduce(tensor, average=False)
+                summed = hvd.allreduce(tensor, op=hvd.Sum)
             multiplied = tensor * size
             max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
@@ -274,7 +274,7 @@ class TensorFlowTests(tf.test.TestCase):
                 factor = np.random.uniform()
                 tensor = self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype)
-                summed = hvd.allreduce(tensor, average=False,
+                summed = hvd.allreduce(tensor, op=hvd.Sum,
                                        prescale_factor=factor)
 
                 # Scaling done in FP64 math for integer types, FP32 math for FP16 on CPU
@@ -314,7 +314,7 @@ class TensorFlowTests(tf.test.TestCase):
                 factor = np.random.uniform()
                 tensor = self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype)
-                summed = hvd.allreduce(tensor, average=False,
+                summed = hvd.allreduce(tensor, op=hvd.Sum,
                                        postscale_factor=factor)
 
                 multiplied = tensor * size
@@ -361,7 +361,7 @@ class TensorFlowTests(tf.test.TestCase):
             with tf.device("/gpu:%d" % local_rank):
                 tensor = self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype)
-                summed = hvd.allreduce(tensor, average=False)
+                summed = hvd.allreduce(tensor, op=hvd.Sum)
             multiplied = tensor * size
             max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
@@ -399,7 +399,7 @@ class TensorFlowTests(tf.test.TestCase):
             with tf.device("/gpu:%d" % local_rank):
                 tensor = self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype)
-                averaged = hvd.allreduce(tensor, average=True)
+                averaged = hvd.allreduce(tensor, op=hvd.Average)
             max_difference = tf.reduce_max(tf.abs(tf.cast(averaged, dtype=dtype) - tensor))
 
             # Threshold for floating point equality depends on number of
@@ -441,7 +441,7 @@ class TensorFlowTests(tf.test.TestCase):
             with tf.device("/gpu:%d" % local_rank):
                 tensor = self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype)
-                summed = hvd.allreduce(tensor, average=False)
+                summed = hvd.allreduce(tensor, op=hvd.Sum)
             multiplied = tensor * size
             max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
@@ -492,7 +492,7 @@ class TensorFlowTests(tf.test.TestCase):
             with tf.device("/gpu:%d" % gpu_ids[(iter + local_rank) % 2]):
                 tensor = self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype)
-                summed = hvd.allreduce(tensor, average=False)
+                summed = hvd.allreduce(tensor, op=hvd.Sum)
             multiplied = tensor * size
             max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
@@ -535,7 +535,7 @@ class TensorFlowTests(tf.test.TestCase):
                 factor = np.random.uniform()
                 tensor = self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype)
-                summed = hvd.allreduce(tensor, average=False,
+                summed = hvd.allreduce(tensor, op=hvd.Sum,
                                        prescale_factor=factor)
 
                 # Scaling done in FP64 math for integer types.
@@ -583,7 +583,7 @@ class TensorFlowTests(tf.test.TestCase):
                 factor = np.random.uniform()
                 tensor = self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype)
-                summed = hvd.allreduce(tensor, average=False,
+                summed = hvd.allreduce(tensor, op=hvd.Sum,
                                        postscale_factor=factor)
 
                 multiplied = tensor * size
@@ -694,11 +694,11 @@ class TensorFlowTests(tf.test.TestCase):
                     tensor = self.tfe.Variable(self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype))
                     with tf.GradientTape() as tape:
-                        summed = hvd.allreduce(tensor, average=False)
+                        summed = hvd.allreduce(tensor, op=hvd.Sum)
                 else:
                     tensor = self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype)
-                    summed = hvd.allreduce(tensor, average=False)
+                    summed = hvd.allreduce(tensor, op=hvd.Sum)
 
                 grad_ys = tf.ones([5] * dim)
                 if _executing_eagerly():
@@ -728,11 +728,11 @@ class TensorFlowTests(tf.test.TestCase):
                     tensor = self.tfe.Variable(self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype))
                     with tf.GradientTape() as tape:
-                        averaged = hvd.allreduce(tensor, average=True)
+                        averaged = hvd.allreduce(tensor, op=hvd.Average)
                 else:
                     tensor = self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype)
-                    averaged = hvd.allreduce(tensor, average=True)
+                    averaged = hvd.allreduce(tensor, op=hvd.Average)
 
                 grad_ys = tf.ones([5] * dim, dtype=dtype)
                 if _executing_eagerly():
@@ -771,10 +771,10 @@ class TensorFlowTests(tf.test.TestCase):
                     tensor = self.tfe.Variable(
                         self.random_uniform([5] * dim, -100, 100, dtype=dtype))
                     with tf.GradientTape() as tape:
-                        summed = hvd.allreduce(tensor, average=False)
+                        summed = hvd.allreduce(tensor, op=hvd.Sum)
                 else:
                     tensor = self.random_uniform([5] * dim, -100, 100, dtype=dtype)
-                    summed = hvd.allreduce(tensor, average=False)
+                    summed = hvd.allreduce(tensor, op=hvd.Sum)
 
                 grad_ys = tf.ones([5] * dim)
                 if _executing_eagerly():
@@ -813,10 +813,10 @@ class TensorFlowTests(tf.test.TestCase):
                     tensor = self.tfe.Variable(
                         self.random_uniform([5] * dim, -100, 100, dtype=dtype))
                     with tf.GradientTape() as tape:
-                        averaged = hvd.allreduce(tensor, average=True)
+                        averaged = hvd.allreduce(tensor, op=hvd.Average)
                 else:
                     tensor = self.random_uniform([5] * dim, -100, 100, dtype=dtype)
-                    averaged = hvd.allreduce(tensor, average=True)
+                    averaged = hvd.allreduce(tensor, op=hvd.Average)
 
                 grad_ys = tf.ones([5] * dim, dtype=dtype)
                 if _executing_eagerly():
@@ -841,7 +841,7 @@ class TensorFlowTests(tf.test.TestCase):
             with tf.device("/cpu:0"):
                 tensors = [self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype) for _ in range(5)]
-                summed = hvd.grouped_allreduce(tensors, average=False)
+                summed = hvd.grouped_allreduce(tensors, op=hvd.Sum)
             multiplied = [tensor * size for tensor in tensors]
             max_difference = tf.reduce_max([tf.reduce_max(tf.abs(t1 - t2)) for t1, t2 in zip(summed, multiplied)])
 
@@ -878,7 +878,7 @@ class TensorFlowTests(tf.test.TestCase):
             with tf.device("/gpu:%d" % local_rank):
                 tensors = [self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype) for _ in range(5)]
-                summed = hvd.grouped_allreduce(tensors, average=False)
+                summed = hvd.grouped_allreduce(tensors, op=hvd.Sum)
             multiplied = [tensor * size for tensor in tensors]
             max_difference = tf.reduce_max([tf.reduce_max(tf.abs(t1 - t2)) for t1, t2 in zip(summed, multiplied)])
 
@@ -911,11 +911,11 @@ class TensorFlowTests(tf.test.TestCase):
                     tensors = [self.tfe.Variable(self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype)) for _ in range(5)]
                     with tf.GradientTape(persistent=True) as tape:
-                        summed = hvd.grouped_allreduce(tensors, average=False)
+                        summed = hvd.grouped_allreduce(tensors, op=hvd.Sum)
                 else:
                     tensors = [self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype) for _ in range(5)]
-                    summed = hvd.grouped_allreduce(tensors, average=False)
+                    summed = hvd.grouped_allreduce(tensors, op=hvd.Sum)
 
                 grads_ys = [tf.ones([5] * dim, dtype=dtype) for _ in range(5)]
                 if _executing_eagerly():
@@ -955,11 +955,11 @@ class TensorFlowTests(tf.test.TestCase):
                     tensors = [self.tfe.Variable(self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype)) for _ in range(5)]
                     with tf.GradientTape(persistent=True) as tape:
-                        summed = hvd.grouped_allreduce(tensors, average=False)
+                        summed = hvd.grouped_allreduce(tensors, op=hvd.Sum)
                 else:
                     tensors = [self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype) for _ in range(5)]
-                    summed = hvd.grouped_allreduce(tensors, average=False)
+                    summed = hvd.grouped_allreduce(tensors, op=hvd.Sum)
 
                 grads_ys = [tf.ones([5] * dim, dtype=dtype) for _ in range(5)]
                 if _executing_eagerly():
@@ -2688,7 +2688,7 @@ class TensorFlowTests(tf.test.TestCase):
                 if local_rank == first_join_rank:
                     self.evaluate(hvd.join())
                 else:		
-                    summed = hvd.allreduce(tensor, average=False)
+                    summed = hvd.allreduce(tensor, op=hvd.Sum)
                     multiplied = tensor * (size-1)
                     max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
