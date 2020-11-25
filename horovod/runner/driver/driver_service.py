@@ -25,6 +25,7 @@ from horovod.runner.common.util import codec, safe_shell_exec
 from horovod.runner.task import task_service
 from horovod.runner.util import cache, lsf, network, threads
 from horovod.runner.util.remote import get_remote_command
+from horovod.runner.common.util import hosts
 
 
 class HorovodRunDriverService(driver_service.BasicDriverService):
@@ -119,7 +120,7 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
                                            args_list,
                                            block_until_all_done=False)
 
-def _run_probe(driver, settings, num_hosts):
+def _run_probe(driver, settings, all_host_names, num_hosts):
        # wait for all the hosts to register with the service service.
     if settings.verbose >= 2:
         print('Waiting for the hosts to acknowledge.')
@@ -150,12 +151,23 @@ def _run_probe(driver, settings, num_hosts):
     for index in range(1, num_hosts):
         nics.intersection_update(
             driver.task_addresses_for_tasks(index).keys())
+    if settings.nics:
+        # Intersection update with interfaces in horovod settings
+        nics.intersection_update(settings.nics)
     if not nics:
         raise Exception(
             'Unable to find a set of common task-to-task communication interfaces: %s'
             % [(index, driver.task_addresses_for_tasks(index))
                for index in range(num_hosts)])
-    return nics
+    # For each hostname, store connected interfaces as well
+    host_nic_dict = {}
+    for index in range(num_hosts):
+        connected_nics = set(driver.task_addresses_for_tasks(index).keys())
+        if settings.nics:
+            # Intersection update with interfaces in horovod settings
+            connected_nics.intersection_update(settings.nics)
+        host_nic_dict[all_host_names[index]] = connected_nics
+    return nics,host_nic_dict
 
 
 @cache.use_cache()
@@ -164,8 +176,9 @@ def _driver_fn(all_host_names, local_host_names, settings):
     launches the service service, launches the task service on each worker and
     have them register with the service service. Each worker probes all the
     interfaces of the worker index + 1 (in a ring manner) and only keeps the
-    routed interfaces. Function returns the intersection of the set of all the
-    routed interfaces on all the workers.
+    routed interfaces. Function returns:
+    (1) the intersection of the set of all the routed interfaces on all the workers.
+    (2) the dict of all hostnames and routed interfaces on them.
     :param all_host_names: list of addresses. for example,
         ['worker-0','worker-1']
         ['10.11.11.11', '10.11.11.12']
@@ -174,8 +187,8 @@ def _driver_fn(all_host_names, local_host_names, settings):
     :type local_host_names: set
     :param settings: the object that contains the setting for running horovod
     :type settings: horovod.runner.common.util.settings.Settings
-    :return: example: ['eth0', 'eth1']
-    :rtype: list[string]
+    :return: example: ['eth0', 'eth1'],{'worker0':{'eth0','eth1'.'lo0'},'worker1':{'eth0','eth1','lo1'}}
+    :rtype: list[string],dict{string:set{string}}
     """
     # Launch a TCP server called service service on the host running horovod
     num_hosts = len(all_host_names)
@@ -188,7 +201,7 @@ def _driver_fn(all_host_names, local_host_names, settings):
     if settings.verbose >= 2:
         print('Attempted to launch horovod task servers.')
     try:
-        return _run_probe(driver, settings, num_hosts)
+        return _run_probe(driver, settings, all_host_names, num_hosts)
     finally:
         driver.shutdown()
 
@@ -235,26 +248,31 @@ def get_common_interfaces(settings, all_host_names, remote_host_names=None, fn_c
     if remote_host_names is None:
         remote_host_names = network.filter_local_addresses(all_host_names)
 
+    print("in driver, all host names:", all_host_names)
+    host_nic_dict = {}
     if len(remote_host_names) > 0:
-        if settings.nics:
-            # If args.nics is provided, we will use those interfaces. All the workers
-            # must have at least one of those interfaces available.
-            nics = settings.nics
-        else:
-            # Find the set of common, routed interfaces on all the hosts (remote
-            # and local) and specify it in the args to be used by NCCL. It is
-            # expected that the following function will find at least one interface
-            # otherwise, it will raise an exception.
-            if settings.verbose >= 2:
-                print('Testing interfaces on all the hosts.')
+        # Find the set of common, routed interfaces on all the hosts (remote
+        # and local) and specify it in the args to be used by NCCL. It is
+        # expected that the following function will find at least one interface
+        # otherwise, it will raise an exception.
+        if settings.verbose >= 2:
+            print('Testing interfaces on all the hosts.')
 
-            local_host_names = set(all_host_names) - set(remote_host_names)
-            nics = _driver_fn(all_host_names, local_host_names, settings, fn_cache=fn_cache)
+        local_host_names = set(all_host_names) - set(remote_host_names)
+        nics,host_nic_dict = _driver_fn(all_host_names, local_host_names, settings, fn_cache=fn_cache)
 
-            if settings.verbose >= 2:
-                print('Interfaces on all the hosts were successfully checked.')
-                print('Common interface found: ' + ' '.join(nics))
-
+        if settings.verbose >= 2:
+            print('Interfaces on all the hosts were successfully checked.')
+            print('Common interface found: ' + ' '.join(nics))
     else:
         nics = get_local_interfaces(settings)
+        for host in all_host_names:
+            host_nic_dict[host] = nics
+        if '127.0.0.1' not in host_nic_dict:
+            host_nic_dict['127.0.0.1'] = nics
+
+    # Save hostname-to-nics dict into settings
+    settings.host_nic_dict = host_nic_dict
+    print("in driver:", settings.host_nic_dict)
+
     return nics

@@ -87,7 +87,8 @@ def gloo_run_elastic(settings, driver, env):
     env[secret.HOROVOD_SECRET_KEY] = codec.dumps_base64(settings.key)
 
     # get common interfaces from driver
-    nics = driver.get_common_interfaces()
+    nics,host_nic_dict = driver.get_common_interfaces()
+    settings.host_nic_dict = host_nic_dict
 
     exec_command = _exec_command_fn(driver, settings.key, settings, env)
     rendezvous = SparkRendezvousServer(driver, settings.verbose)

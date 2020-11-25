@@ -193,25 +193,35 @@ class SparkDriverService(driver_service.BasicDriverService):
             self._wait_cond.release()
 
     def get_common_interfaces(self):
-        if self._nics is not None:
-            return self._nics
-
         nics = None
-        if len(self._task_addresses_for_tasks) > 0:
-            # in Elastic Horovod on Spark with auto-scaling
-            # keys in task_addresses are in range(max_np or proc_num)
-            # but not all keys may exist, so we don't do for index in range(proc_num)
-            indices = list(self._task_addresses_for_tasks.keys())
-            nics = set(self._task_addresses_for_tasks[indices[0]].keys())
-            for index in indices[1:]:
-                nics.intersection_update(self._task_addresses_for_tasks[index].keys())
+        host_nic_dict = {}
 
-        if not nics:
-            raise Exception('Unable to find a set of common task-to-task communication interfaces: %s'
-                            % [(index, self._task_addresses_for_tasks[index])
-                               for index in self._task_addresses_for_tasks])
+        if self._nics is not None:
+            nics = self._nics
+        else:
+            if len(self._task_addresses_for_tasks) > 0:
+                # in Elastic Horovod on Spark with auto-scaling
+                # keys in task_addresses are in range(max_np or proc_num)
+                # but not all keys may exist, so we don't do for index in range(proc_num)
+                indices = list(self._task_addresses_for_tasks.keys())
+                nics = set(self._task_addresses_for_tasks[indices[0]].keys())
+                for index in indices[1:]:
+                    nics.intersection_update(self._task_addresses_for_tasks[index].keys())
 
-        return nics
+            if not nics:
+                raise Exception('Unable to find a set of common task-to-task communication interfaces: %s'
+                                % [(index, self._task_addresses_for_tasks[index])
+                                for index in self._task_addresses_for_tasks])
+
+        for hosthash in self.task_host_hash_indices().keys():
+            connected_nics = set()
+            for task_idx in self.task_host_hash_indices()[hosthash]:
+                connected_nics.update(set(self._task_addresses_for_tasks[task_idx].keys()))
+            if self._nics:
+                connected_nics.intersection_update(self._nics)
+            host_nic_dict[hosthash] = connected_nics
+
+        return nics,host_nic_dict
 
     def shutdown_tasks(self):
         self._task_shutdown.set()

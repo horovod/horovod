@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Fixed `HOROVOD_GLOO_IFACE` for each host when setting --network-interface. ([#2482](https://github.com/horovod/horovod/pull/2482))
+
 ## [v0.21.0] - 2020-11-23
 
 ### Added

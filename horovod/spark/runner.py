@@ -148,7 +148,8 @@ def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
 
 
 def _launch_job(use_mpi, use_gloo, settings, driver, env, stdout=None, stderr=None):
-    nics = driver.get_common_interfaces()
+    nics,host_nic_dict = driver.get_common_interfaces()
+    settings.host_nic_dict = host_nic_dict
     run_controller(use_gloo, lambda: gloo_run(settings, nics, driver, env),
                    use_mpi, lambda: mpi_run(settings, nics, driver, env, stdout, stderr),
                    False, lambda: None,

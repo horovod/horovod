@@ -62,6 +62,7 @@ class BaseSettings(object):
         self.nics = nics
         self.elastic = elastic
         self.prefix_output_with_timestamp = prefix_output_with_timestamp
+        self.host_nic_dict = None
 
 
 class Settings(BaseSettings):
