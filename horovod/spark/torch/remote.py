@@ -264,7 +264,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                         return inputs, labels, sample_weights
 
                     def transform_outputs(outputs, labels):
-                        if type(outputs) != tuple and type(outputs) != list:
+                        if not isinstance(outputs, tuple) and not isinstance(outputs,  list):
                             outputs = [outputs]
 
                         # reshape labels to match the output shape of the model
