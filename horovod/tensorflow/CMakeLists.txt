@@ -14,6 +14,25 @@ if(NOT TENSORFLOW_FOUND)
     return()
 endif()
 
+# Overwite Eigen and Flatbuffers headers path if provided in tensorflow or system
+# Search tensorflow path
+find_path(TF_EIGEN_INCLUDE_PATH Eigen/src/Core/EigenBase.h PATHS ${Tensorflow_INCLUDE_DIRS} NO_DEFAULT_PATH)
+if (TF_EIGEN_INCLUDE_PATH STREQUAL "TF_EIGEN_INCLUDE_PATH-NOTFOUND")
+    # If not found, search system path and submodule path
+    find_path(TF_EIGEN_INCLUDE_PATH Eigen/src/Core/EigenBase.h PATHS ${EIGEN_INCLUDE_PATH} REQUIRED)
+endif()
+set(EIGEN_INCLUDE_PATH "${TF_EIGEN_INCLUDE_PATH}" PARENT_SCOPE)
+set(EIGEN_INCLUDE_PATH "${TF_EIGEN_INCLUDE_PATH}")
+
+# Search tensorflow path
+find_path(TF_FLATBUFFERS_INCLUDE_PATH flatbuffers/flatbuffers.h PATHS ${Tensorflow_INCLUDE_DIRS} NO_DEFAULT_PATH)
+if (TF_FLATBUFFERS_INCLUDE_PATH STREQUAL "TF_FLATBUFFERS_INCLUDE_PATH-NOTFOUND")
+    # If not found, search system path and submodule path
+    find_path(TF_FLATBUFFERS_INCLUDE_PATH flatbuffers/flatbuffers.h PATHS ${FLATBUFFERS_INCLUDE_PATH} REQUIRED)
+endif()
+set(FLATBUFFERS_INCLUDE_PATH "${TF_FLATBUFFERS_INCLUDE_PATH}" PARENT_SCOPE)
+set(FLATBUFFERS_INCLUDE_PATH "${TF_FLATBUFFERS_INCLUDE_PATH}")
+
 include_directories(SYSTEM ${Tensorflow_INCLUDE_DIRS})
 list(APPEND TF_LINKER_LIBS ${Tensorflow_LIBRARIES})
 if(HAVE_GLOO)
@@ -41,6 +60,10 @@ list(APPEND TF_SOURCES "${PROJECT_SOURCE_DIR}/horovod/tensorflow/mpi_ops.cc")
 # Create library
 set_output_dir()
 add_library(${TF_TARGET_LIB} SHARED ${SOURCES} ${TF_SOURCES})
+if (NOT EIGEN_INCLUDE_PATH STREQUAL Tensorflow_INCLUDE_DIRS)
+    target_include_directories(${TF_TARGET_LIB} PRIVATE ${EIGEN_INCLUDE_PATH})
+endif()
+target_include_directories(${TF_TARGET_LIB} PRIVATE ${FLATBUFFERS_INCLUDE_PATH})
 target_link_libraries(${TF_TARGET_LIB} ${LINKER_LIBS} ${TF_LINKER_LIBS})
 set_target_properties(${TF_TARGET_LIB} PROPERTIES SUFFIX "${Python_SUFFIX}")
 set_target_properties(${TF_TARGET_LIB} PROPERTIES PREFIX "")

@@ -58,6 +58,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Fixed --log-hide-timestamp to apply to driver logs with Gloo. ([#2388](https://github.com/horovod/horovod/pull/2388))
 
+- Fixed the search order of Eigen and Flatbuffers paths. ([#2473](https://github.com/horovod/horovod/pull/2473))
+
 ## [0.20.3] - 2020-10-01
 
 ### Added

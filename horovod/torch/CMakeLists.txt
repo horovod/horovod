@@ -66,6 +66,8 @@ list(APPEND PYTORCH_SOURCES "${PROJECT_SOURCE_DIR}/horovod/torch/handle_manager.
 # Create library
 set_output_dir()
 add_library(${PYTORCH_TARGET_LIB} SHARED ${SOURCES} ${PYTORCH_SOURCES})
+target_include_directories(${PYTORCH_TARGET_LIB} PRIVATE "${EIGEN_INCLUDE_PATH}")
+target_include_directories(${PYTORCH_TARGET_LIB} PRIVATE "${FLATBUFFERS_INCLUDE_PATH}")
 target_link_libraries(${PYTORCH_TARGET_LIB} ${LINKER_LIBS} ${PYTORCH_LINKER_LIBS})
 set_target_properties(${PYTORCH_TARGET_LIB} PROPERTIES SUFFIX "${Python_SUFFIX}")
 set_target_properties(${PYTORCH_TARGET_LIB} PROPERTIES PREFIX "")
