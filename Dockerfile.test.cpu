@@ -77,7 +77,7 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
     elif [[ ${MPI_KIND} == "ONECCL" ]]; then \
         wget --progress=dot:mega -O /tmp/oneccl.tar.gz https://github.com/shirosankaku/oneCCL/archive/${CCL_PACKAGE}.tar.gz && \
             cd /tmp && tar -zxf oneccl.tar.gz && \
-            mkdir oneCCL-${CCL_PACKAGE}/build && cd oneCCL-${CCL_PACKAGE}/build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local/oneccl -DCMAKE_BUILD_TYPE=Release -DMXNET_BUILD=TRUE && make -j install && \
+            mkdir oneCCL-${CCL_PACKAGE}/build && cd oneCCL-${CCL_PACKAGE}/build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local/oneccl -DCMAKE_BUILD_TYPE=Release && make -j install && \
             cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/include/*.h /usr/local/oneccl/include && \
             cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/bin/mpicc /usr/local/oneccl/bin && \
             chmod +x /usr/local/oneccl/bin/mpicc && \
