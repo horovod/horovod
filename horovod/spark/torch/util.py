@@ -53,7 +53,7 @@ def serialize_fn():
             sys.modules["torch._C._nn"] = torch.nn.functional
 
         if isinstance(model, torch.jit.ScriptModule):
-            # If torch model has is converted to torchScript
+            # If torch model is converted to torchScript
             model = save_into_bio(model, torch.jit.save)
 
         serialized_obj = codec.dumps_base64(model)
