@@ -48,9 +48,9 @@ def _torch_param_serialize(param_name, param_val):
         # We do not serialize backend and store. These params have to be regenerated for each
         # run of the pipeline
         return None
-    elif param_name == EstimatorParams.model.name and isinstance(param_val, torch.jit.ScriptModule):
-        # If torch model has is converted to torchScript
-        param_val = save_into_bio(param_val, torch.jit.save)
+    elif param_name == EstimatorParams.model.name:
+        serialize = serialize_fn()
+        return serialize(param_val)
 
     return codec.dumps_base64(param_val)
 
@@ -74,12 +74,8 @@ class TorchEstimatorParamsReader(HorovodParamsReader):
             if val is None:
                 deserialized_dict[key] = None
             elif key == EstimatorParams.model.name:
-                model = codec.loads_base64(val)
-                if not isinstance(model, torch.nn.Module):
-                    model.seek(0)
-                    bio = io.BytesIO(model.read())
-                    model = torch.jit.load(bio)
-                deserialized_dict[key] = model
+                deserialize = deserialize_fn()
+                deserialized_dict[key] = deserialize(val)
             else:
                 deserialized_dict[key] = codec.loads_base64(val)
         return deserialized_dict
