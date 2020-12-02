@@ -52,6 +52,10 @@ def serialize_fn():
             import torch
             sys.modules["torch._C._nn"] = torch.nn.functional
 
+        if isinstance(model, torch.jit.ScriptModule):
+            # If torch model is converted to torchScript
+            model = save_into_bio(model, torch.jit.save)
+
         serialized_obj = codec.dumps_base64(model)
         return serialized_obj
 
@@ -68,6 +72,12 @@ def deserialize_fn():
             sys.modules["torch._C._nn"] = torch.nn.functional
 
         obj = codec.loads_base64(model_bytes_base64)
+
+        if not isinstance(obj, torch.nn.Module):
+            obj.seek(0)
+            bio = io.BytesIO(obj.read())
+            obj = torch.jit.load(bio)
+
         return obj
 
     return _deserialize
