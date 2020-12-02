@@ -138,7 +138,7 @@ class SparkTests(unittest.TestCase):
             client.register_task_to_task_addresses(0, {'lo': [('127.0.0.1', 31321)], 'eth0': [('192.168.0.1', 31321)]})
             client.register_task_to_task_addresses(1, {'eth1': [('10.0.0.1', 31322)], 'eth0': [('192.168.0.2', 31322)]})
 
-            nics = driver.get_common_interfaces()
+            nics,_ = driver.get_common_interfaces()
             self.assertEqual({'eth0'}, nics)
 
     def test_driver_common_interfaces_from_settings(self):
@@ -151,7 +151,7 @@ class SparkTests(unittest.TestCase):
             client.register_task_to_task_addresses(0, {'eth0': [('192.168.0.1', 31321)]})
             client.register_task_to_task_addresses(1, {'eth1': [('10.0.0.1', 31322)]})
 
-            nics = driver.get_common_interfaces()
+            nics,_ = driver.get_common_interfaces()
             self.assertEqual({nic}, nics)
 
     def test_driver_common_interfaces_fails(self):
