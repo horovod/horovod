@@ -16,7 +16,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-cpu==1.15.0
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: torch==1.2.0+cpu
-        TORCHVISION_PACKAGE: torchvision==0.4.1+cpu
+        TORCHVISION_PACKAGE: torchvision==0.4.0+cpu
         MXNET_PACKAGE: mxnet==1.4.1
         PYSPARK_PACKAGE: pyspark==2.3.2
         SPARK_PACKAGE: spark-2.3.2/spark-2.3.2-bin-hadoop2.7.tgz
@@ -30,7 +30,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-cpu==1.15.0
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: torch==1.2.0+cpu
-        TORCHVISION_PACKAGE: torchvision==0.4.1+cpu
+        TORCHVISION_PACKAGE: torchvision==0.4.0+cpu
         MXNET_PACKAGE: mxnet==1.4.1
         PYSPARK_PACKAGE: pyspark==2.3.2
         SPARK_PACKAGE: spark-2.3.2/spark-2.3.2-bin-hadoop2.7.tgz
