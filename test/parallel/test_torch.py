@@ -75,6 +75,7 @@ class TorchTests(unittest.TestCase):
            types = [t for t in types if t in ccl_supported_types]
         return types
 
+    @pytest.mark.skipif(platform.system() == 'Darwin', reason='Reinit not supported on macOS')
     def test_horovod_reinit(self):
         """Test that Horovod can init -> shutdown -> init successfully."""
         mpi_rank, _ = mpi_env_rank_and_size()
@@ -2252,6 +2253,7 @@ class TorchTests(unittest.TestCase):
             assert torch.allclose(hvd.allreduce(sync_bn.bias.grad, name='sync_bn.bias.grad'), bn.bias.grad, 1e-6)
             assert torch.allclose(hvd.allreduce(ts1.grad, name='ts1.grad'), ts2.grad, 1e-6)
 
+    @pytest.mark.skip(reason='https://github.com/horovod/horovod/issues/2496')
     def test_timeline_api(self):
         hvd.init()
 
