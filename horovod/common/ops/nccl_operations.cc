@@ -498,6 +498,7 @@ Status NCCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
     for (int rc = 1; rc < global_size; ++rc) {
       if (tensor_sizes[ec * global_size + rc] != tensor_sizes[ec * global_size]) {
         same_shape = false;
+        break;
       }
     }
   }
