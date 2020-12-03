@@ -344,6 +344,7 @@ class RayExecutor:
     def detect_nics(self):
         """Decomposed version of driver_service.get_common_interfaces()."""
         nics = None
+        host_nic_dict = {}
         all_host_names = list(self.coordinator.hostnames_by_rank)
         remote_host_names = network.filter_local_addresses(all_host_names)
         if len(remote_host_names) > 0:
@@ -353,19 +354,24 @@ class RayExecutor:
                     print('Testing interfaces on all hosts.')
 
                 local_host_names = set(all_host_names) - set(remote_host_names)
-                nics = _driver_fn(self.colocators, all_host_names,
-                                  local_host_names, self.settings)
+                nics,host_nic_dict = _driver_fn(self.colocators, all_host_names,
+                                                local_host_names, self.settings)
 
                 if self.settings.verbose >= 2:
                     print('Interfaces on all hosts were successfully checked.')
                     print('Common interface found: ' + ' '.join(nics))
         else:
             nics = driver_service.get_local_interfaces(self.settings)
+            
+            for host in all_host_names:
+                host_nic_dict[host] = nics
+            if '127.0.0.1' not in host_nic_dict:
+                host_nic_dict['127.0.0.1'] = nics
 
         return {
-            "HOROVOD_GLOO_IFACE": list(nics)[0],
+        #    "HOROVOD_GLOO_IFACE": list(nics)[0],
             "NCCL_SOCKET_IFNAME": ",".join(nics),  # TODO
-        }
+        },host_nic_dict
 
     def start(self,
               executable_cls: type = None,
@@ -419,10 +425,15 @@ class RayExecutor:
 
         coordinator_envs = self.coordinator.establish_rendezvous()
         coordinator_envs.update(extra_env_vars)
-        coordinator_envs.update(self.detect_nics())
+        nccl_nic,host_nic_dict = self.detect_nics()
+        self.settings.host_nic_dict = host_nic_dict
+        coordinator_envs.update(nccl_nic)
 
         map_blocking(lambda w: w.update_env_vars.remote(coordinator_envs),
                      self.workers)
+        
+        for i,worker in enumerate(self.workers):
+            worker.update_env_vars.remote({"HOROVOD_GLOO_IFACE": list(host_nic_dict[hostnames[i]])[0]})
 
     def execute(self, fn: Callable[["executable_cls"], Any]) -> List[Any]:
         """Executes the provided function on all workers.

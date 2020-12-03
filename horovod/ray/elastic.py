@@ -198,8 +198,9 @@ class ElasticRayExecutor:
         min_hosts = _get_min_start_hosts(self.settings)
         current_hosts = self.driver.wait_for_available_slots(
             self.settings.num_proc, min_hosts=min_hosts)
-        nics = driver_service.get_common_interfaces(
+        nics,host_nic_dict = driver_service.get_common_interfaces(
             self.settings, current_hosts.host_assignment_order)
+        self.settings.host_nic_dict = host_nic_dict
 
         server_ip = network.get_driver_ip(nics)
         self.run_env_vars = create_run_env_vars(
@@ -220,6 +221,7 @@ class ElasticRayExecutor:
         worker = loaded_worker_cls.remote()
         worker.update_env_vars.remote(worker_env_vars)
         worker.update_env_vars.remote(create_slot_env_vars(slot_info))
+        worker.update_env_vars.remote({"HOROVOD_GLOO_IFACE": list(self.settings.host_nic_dic[worker.hostname.remote()])[0]})
         if self.use_gpu:
             visible_devices = ",".join(
                 [str(i) for i in range(slot_info.local_size)])
