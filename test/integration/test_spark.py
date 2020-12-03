@@ -791,11 +791,11 @@ class SparkTests(unittest.TestCase):
                                 'HOROVOD_CROSS_RANK=0 '
                                 'HOROVOD_CROSS_SIZE=1 '
                                 'PYTHONUNBUFFERED=1 '
+                                'HOROVOD_GLOO_IFACE=[^ ]+ '
                                 'HOROVOD_GLOO_RENDEZVOUS_ADDR=[^ ]+ '
                                 'HOROVOD_GLOO_RENDEZVOUS_PORT=[0-9]+ '
                                 'HOROVOD_CONTROLLER=gloo '
                                 'HOROVOD_CPU_OPERATIONS=gloo '
-                                'HOROVOD_GLOO_IFACE=[^ ]+ '
                                 'NCCL_SOCKET_IFNAME=[^ ]+ '
                                 '[^ ]+python[0-9.]* -m horovod.spark.task.gloo_exec_fn '
                                 '[^ ]+ [^ ]+$'.format(rank=alloc_info.rank,
@@ -814,9 +814,9 @@ class SparkTests(unittest.TestCase):
             # for better comparison replace sections in actual_command that change across runs / hosts
             for replacement in ['_HOROVOD_SECRET_KEY=[^ ]+',
                                 'HOROVOD_HOSTNAME=[^ ]+',
+                                'HOROVOD_GLOO_IFACE=[^ ]+',
                                 'HOROVOD_GLOO_RENDEZVOUS_ADDR=[^ ]+',
                                 'HOROVOD_GLOO_RENDEZVOUS_PORT=[0-9]+',
-                                'HOROVOD_GLOO_IFACE=[^ ]+',
                                 'NCCL_SOCKET_IFNAME=[^ ]+',
                                 '[^ ]+python[0-9.]*',
                                 '[^ ]+ [^ ]+$']:
