@@ -222,6 +222,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
         std::make_shared<CCLAllgather>(&ccl_context, &state));
     broadcast_ops.push_back(
         std::make_shared<CCLBroadcast>(&ccl_context, &state));
+    alltoall_ops.push_back(
+        std::make_shared<CCLAlltoall>(&ccl_context, &state));
   }
 #endif
 
@@ -357,7 +359,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 #if HAVE_CCL
   // Initialize ccl context
   if (state.cpu_operation == LibType::CCL) {
-    ccl_context.Init();
+    ccl_context.Initialize();
   }
 #endif
 
