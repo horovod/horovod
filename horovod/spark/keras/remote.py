@@ -100,7 +100,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
 
     def train(serialized_model, train_rows, val_rows, avg_row_size):
         from petastorm import TransformSpec, make_reader, make_batch_reader
-
+        import horovod as _horovod
         k = get_keras()
         k.backend.set_floatx(floatx)
 
@@ -120,8 +120,8 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 serialized_model, lambda x: hvd.load_model(x))
 
         # Horovod: adjust learning rate based on number of processes.
-        k.backend.set_value(model.optimizer.lr,
-                            k.backend.get_value(model.optimizer.lr) * hvd.size())
+        scaled_lr = k.backend.get_value(model.optimizer.lr) * hvd.size()
+        k.backend.set_value(model.optimizer.lr, scaled_lr)
 
         # Verbose mode 1 will print a progress bar
         verbose = user_verbose if hvd.rank() == 0 else 0
@@ -129,6 +129,11 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
         transform_spec = None
         if transformation:
             transform_spec = TransformSpec(transformation)
+
+        # The inital_lr needs to be set to scaled learning rate in the checkpointing callbacks.
+        for callback in user_callbacks:
+            if isinstance(callback, _horovod._keras.callbacks.LearningRateScheduleCallbackImpl):
+                callback.initial_lr = scaled_lr
 
         with remote_store.get_local_output_dir() as run_output_dir:
             callbacks = [
