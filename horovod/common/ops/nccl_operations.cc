@@ -501,6 +501,9 @@ Status NCCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
         break;
       }
     }
+    if (same_shape == false) {
+      break;
+    }
   }
 
   // Do allgather.
