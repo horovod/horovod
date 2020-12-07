@@ -49,7 +49,7 @@ class TFKerasUtil(object):
 
     @staticmethod
     def make_dataset_fn(feature_columns, label_columns, sample_weight_col, metadata,
-                        input_shapes, label_shapes, output_names, batch_size):
+                        input_shapes, label_shapes, output_names):
         # Check if any of the columns are only SparseVector
         has_sparse_col = any(metadata[col]['is_sparse_vector_only']
                              for col in label_columns + feature_columns)
@@ -61,7 +61,7 @@ class TFKerasUtil(object):
             has_sparse_col, sample_weight_col, feature_columns,
             label_columns, input_shapes, label_shapes, output_names)
 
-        def fn(reader, shuffle_buffer_size, is_batch_reader, shuffle=False):
+        def fn(reader, batch_size, shuffle_buffer_size, is_batch_reader, shuffle=False):
             from petastorm.tf_utils import make_petastorm_dataset
 
             dataset = make_petastorm_dataset(reader)
