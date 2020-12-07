@@ -142,9 +142,9 @@ Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
     for (int rc = 0; rc < global_size; ++rc) {
       auto component_size = tensor_sizes[ec * global_size + rc];
       total_entry_dimension_size += component_size;
-      if(recvcounts) recvcounts[rc] += component_size * single_slice_shape.num_elements();
-      if(entry_component_sizes) entry_component_sizes[ec][rc] =
-                                    component_size * single_slice_shape.num_elements();
+      recvcounts[rc] += component_size * single_slice_shape.num_elements();
+      entry_component_sizes[ec][rc] =
+          component_size * single_slice_shape.num_elements();
     }
 
     // Allgather output will have shape of:
