@@ -17,7 +17,6 @@ ARG PYSPARK_PACKAGE=pyspark==2.4.7
 # if SPARK_PACKAGE is a preview version, installs PySpark from the tgz archive
 # see https://archive.apache.org/dist/spark/ for available packages, version must match PYSPARK_PACKAGE
 ARG SPARK_PACKAGE=spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
-ARG CCL_PACKAGE=oneapi-spec-v1.0
 
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-cu"]
@@ -75,21 +74,21 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
             cd /usr/local && tar -zxf /tmp/openmpi-3.0.0-bin.tar.gz && ldconfig && \
             echo "mpirun -allow-run-as-root -np 2 -H localhost:2 -bind-to none -map-by slot -mca mpi_abort_print_stack 1" > /mpirun_command; \
     elif [[ ${MPI_KIND} == "ONECCL" ]]; then \
-        wget --progress=dot:mega -O /tmp/oneccl.tar.gz https://github.com/shirosankaku/oneCCL/archive/${CCL_PACKAGE}.tar.gz && \
+        wget --progress=dot:mega -O /tmp/oneccl.tar.gz https://github.com/oneapi-src/oneCCL/archive/master.tar.gz && \
             cd /tmp && tar -zxf oneccl.tar.gz && \
-            mkdir oneCCL-${CCL_PACKAGE}/build && cd oneCCL-${CCL_PACKAGE}/build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local/oneccl -DCMAKE_BUILD_TYPE=Release && make -j install && \
-            cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/include/*.h /usr/local/oneccl/include && \
-            cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/bin/mpicc /usr/local/oneccl/bin && \
+            mkdir oneCCL-master/build && cd oneCCL-master/build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local/oneccl -DCMAKE_BUILD_TYPE=Release && make -j install && \
+            cp /tmp/oneCCL-master/mpi/include/*.h /usr/local/oneccl/include && \
+            cp /tmp/oneCCL-master/mpi/bin/mpicc /usr/local/oneccl/bin && \
             chmod +x /usr/local/oneccl/bin/mpicc && \
-            cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/bin/mpicxx /usr/local/oneccl/bin && \
+            cp /tmp/oneCCL-master/mpi/bin/mpicxx /usr/local/oneccl/bin && \
             chmod +x /usr/local/oneccl/bin/mpicxx && \
-            cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/bin/mpigcc /usr/local/oneccl/bin && \
+            cp /tmp/oneCCL-master/mpi/bin/mpigcc /usr/local/oneccl/bin && \
             chmod +x /usr/local/oneccl/bin/mpigcc && \
-            cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/bin/mpigxx /usr/local/oneccl/bin && \
+            cp /tmp/oneCCL-master/mpi/bin/mpigxx /usr/local/oneccl/bin && \
             chmod +x /usr/local/oneccl/bin/mpigxx && \
-            cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/lib/libmpicxx.so /usr/local/oneccl/lib && \
+            cp /tmp/oneCCL-master/mpi/lib/libmpicxx.so /usr/local/oneccl/lib && \
             chmod +x /usr/local/oneccl/lib/libmpicxx.so && \
-            cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/lib/libmpifort.so /usr/local/oneccl/lib && \
+            cp /tmp/oneCCL-master/mpi/lib/libmpifort.so /usr/local/oneccl/lib && \
             chmod +x /usr/local/oneccl/lib/libmpifort.so && \
             sed -i 's/if \[ -z \"\${I_MPI_ROOT}\" \]/if [ -z \"${I_MPI_ROOT:-}\" ]/g' /usr/local/oneccl/env/setvars.sh && \
             sed -i 's/ \$1/ \${1:-}/g' /usr/local/oneccl/env/setvars.sh && \
