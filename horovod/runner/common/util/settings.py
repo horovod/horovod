@@ -17,7 +17,7 @@
 class BaseSettings(object):
     def __init__(self, num_proc=None, verbose=0, ssh_port=None, ssh_identity_file=None, extra_mpi_args=None,
                  tcp_flag=None, binding_args=None, key=None, start_timeout=None, output_filename=None,
-                 run_func_mode=None, nics=None, elastic=False):
+                 run_func_mode=None, nics=None, elastic=False, prefix_output_with_timestamp=False):
         """
         :param num_proc: number of horovod processes (-np)
         :type num_proc: int
@@ -45,6 +45,8 @@ class BaseSettings(object):
         :type nics: string
         :param elastic: enable elastic auto-scaling and fault tolerance mode
         :type elastic: boolean
+        :param prefix_output_with_timestamp: shows timestamp in stdout/stderr forwarding on the driver
+        :type prefix_output_with_timestamp: boolean
         """
         self.num_proc = num_proc
         self.verbose = verbose
@@ -59,6 +61,7 @@ class BaseSettings(object):
         self.run_func_mode = run_func_mode
         self.nics = nics
         self.elastic = elastic
+        self.prefix_output_with_timestamp = prefix_output_with_timestamp
 
 
 class Settings(BaseSettings):

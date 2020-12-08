@@ -21,6 +21,7 @@
 #include <thread>
 
 #include "fusion_buffer_manager.h"
+#include "group_table.h"
 #include "parameter_manager.h"
 #include "response_cache.h"
 #include "tensor_queue.h"
@@ -93,6 +94,9 @@ struct HorovodGlobalState {
   // Index of current GPU stream to use
   int current_nccl_stream = 0;
 
+  // Information on registered groups.
+  GroupTable group_table;
+
   // A LibType indicating what framework we are using to perform CPU operations.
   LibType cpu_operation;
 
@@ -109,6 +113,12 @@ struct HorovodGlobalState {
   // Chunk size for MPI send/recv in Adasum allreduce. Some versions of Intel MPI
   // benefit from a smaller chunk size.
   int64_t adasum_mpi_chunk_size = 1<<30;
+
+  // Enable use of batched d2d memcopy kernel on GPU
+  bool batch_d2d_memcopies = true;
+
+  // Flag indicating whether to prohibit groups from fusing
+  bool disable_group_fusion = false;
 
   ~HorovodGlobalState() {
     // Make sure that the destructor of the background thread is safe to

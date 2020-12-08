@@ -199,7 +199,7 @@ class SparkTests(unittest.TestCase):
 
     def test_task_service_wait_for_command_start_with_timeout(self):
         with spark_task_service(0) as (task, client, _):
-            tmout = timeout.Timeout(1.0, 'timed out waiting for {activity}')
+            tmout = timeout.Timeout(1.0, 'Timed out waiting for {activity}.')
             start = time.time()
             d = delay(lambda: client.run_command('true', {}), 0.5)
             task.wait_for_command_start(tmout)
@@ -209,10 +209,10 @@ class SparkTests(unittest.TestCase):
             d.join()
 
         with spark_task_service(0) as (task, client, _):
-            tmout = timeout.Timeout(1.0, 'timed out waiting for {activity}')
+            tmout = timeout.Timeout(1.0, 'Timed out waiting for {activity}.')
             start = time.time()
             d = delay(lambda: client.run_command('true', {}), 1.5)
-            with pytest.raises(Exception, match='^timed out waiting for command to run$'):
+            with pytest.raises(Exception, match='^Timed out waiting for command to run. Timeout after 1.0 seconds.$'):
                 task.wait_for_command_start(tmout)
             duration = time.time() - start
             self.assertGreaterEqual(duration, 1.0)
@@ -1685,13 +1685,27 @@ class SparkTests(unittest.TestCase):
     def test_dbfs_local_store(self):
         import h5py
         import io
+        import os
 
         import tensorflow
         from tensorflow import keras
 
-        # test Store.create will not automatically create DBFSLocalStore
+        # test Store.create will not create DBFSLocalStore on non-databricks environment
         local_store = Store.create("/dbfs/tmp/test_local_dir")
         assert isinstance(local_store, LocalStore)
+
+        # test Store.create will create DBFSLocalStore on databricks environment
+        try:
+            os.environ["DATABRICKS_RUNTIME_VERSION"] = "7.4"
+            dbfs_local_store = Store.create("/dbfs/tmp/test_local_dir1")
+            assert isinstance(dbfs_local_store, DBFSLocalStore)
+            dbfs_local_store = Store.create("dbfs:/tmp/test_local_dir2")
+            assert isinstance(dbfs_local_store, DBFSLocalStore)
+            dbfs_local_store = Store.create("file:///dbfs/tmp/test_local_dir3")
+            assert isinstance(dbfs_local_store, DBFSLocalStore)
+        finally:
+            if "DATABRICKS_RUNTIME_VERSION" in os.environ:
+                del os.environ["DATABRICKS_RUNTIME_VERSION"]
 
         # test get_checkpoint_filename suffix
         # Use a tmp path for testing.

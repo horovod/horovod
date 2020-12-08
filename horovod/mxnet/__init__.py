@@ -13,14 +13,14 @@
 # limitations under the License.
 # ==============================================================================
 
-from horovod.common.util import check_extension
+from horovod.common.util import check_extension, split_list
 
 check_extension('horovod.mxnet', 'HOROVOD_WITH_MXNET',
                 __file__, 'mpi_lib')
 
 from horovod.mxnet.functions import allgather_object, broadcast_object
 from horovod.mxnet.mpi_ops import allgather
-from horovod.mxnet.mpi_ops import allreduce, allreduce_
+from horovod.mxnet.mpi_ops import allreduce, allreduce_, grouped_allreduce, grouped_allreduce_
 from horovod.mxnet.mpi_ops import alltoall
 from horovod.mxnet.mpi_ops import broadcast, broadcast_
 from horovod.mxnet.mpi_ops import init, shutdown
@@ -31,13 +31,14 @@ from horovod.mxnet.mpi_ops import gloo_enabled, gloo_built
 from horovod.mxnet.mpi_ops import nccl_built, ddl_built, ccl_built, cuda_built, rocm_built
 
 import mxnet as mx
+from collections import OrderedDict, defaultdict
 import types
 import warnings
 
 
 # This is where Horovod's DistributedOptimizer wrapper for MXNet goes
 class DistributedOptimizer(mx.optimizer.Optimizer):
-    def __init__(self, optimizer, gradient_predivide_factor=1.0):
+    def __init__(self, optimizer, gradient_predivide_factor=1.0, num_groups=0):
         if gradient_predivide_factor != 1.0 and rocm_built():
             raise ValueError('gradient_predivide_factor not supported yet with ROCm')
 
@@ -46,6 +47,7 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
         # performing average in allreduce, has better performance.
         self._optimizer.rescale_grad *= (gradient_predivide_factor / size())
         self._gradient_predivide_factor = gradient_predivide_factor
+        self._num_groups = num_groups
 
     def __getattr__(self, item):
         return getattr(self._optimizer, item)
@@ -57,10 +59,18 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
         if size() == 1: return
 
         if isinstance(index, (tuple, list)):
-            for i in range(len(index)):
-                allreduce_(grad[i], average=False,
-                           name=str(index[i]), priority=-i,
-                           prescale_factor=1.0 / self._gradient_predivide_factor)
+            if (self._num_groups > 0):
+                grad_split = split_list(grad, self._num_groups)
+                index_split = split_list(index, self._num_groups)
+
+                for i, (grads, indices) in enumerate(zip(grad_split, index_split)):
+                    grouped_allreduce_(tensors=grads, average=False, name="{}:{}".format(indices[0], indices[-1]), priority=-i,
+                                       prescale_factor=1.0 / self._gradient_predivide_factor)
+            else:
+              for i in range(len(index)):
+                  allreduce_(grad[i], average=False,
+                             name=str(index[i]), priority=-i,
+                             prescale_factor=1.0 / self._gradient_predivide_factor)
         else:
             allreduce_(grad, average=False, name=str(index),
                        prescale_factor=1.0 / self._gradient_predivide_factor)
@@ -105,13 +115,22 @@ class DistributedTrainer(mx.gluon.Trainer):
               they must be specified by different prefixes to avoid tensor name collision.
     """
     def __init__(self, params, optimizer, optimizer_params=None,
-                 gradient_predivide_factor=1.0, prefix=None):
+                 gradient_predivide_factor=1.0, prefix=None,
+                 num_groups=0):
         if gradient_predivide_factor != 1.0 and rocm_built():
             raise ValueError('gradient_predivide_factor not supported yet with ROCm')
         if isinstance(optimizer, DistributedOptimizer):
             optimizer = optimizer._optimizer
             warnings.warn("DistributedTrainer does not take DistributedOptimizer "
                           "as its optimizer. We have unwrapped it for you.")
+
+        # To ensure consistent parameter ordering across workers, sort params before
+        # passing to base Trainer constructor. This logic is consistent with trainer.py
+        # since v1.6 but we do it here for backwards compatability
+        if isinstance(params, dict):
+            params = OrderedDict(params)
+        elif isinstance(params, (list, tuple)):
+            params = sorted(params)
 
         super(DistributedTrainer, self).__init__(
             params, optimizer, optimizer_params=optimizer_params, kvstore=None)
@@ -123,19 +142,42 @@ class DistributedTrainer(mx.gluon.Trainer):
         self._gradient_predivide_factor = gradient_predivide_factor
         assert prefix is None or isinstance(prefix, str)
         self._prefix = prefix if prefix else ""
+        self._num_groups = num_groups
 
     def _allreduce_grads(self):
         if size() == 1: return
 
-        # In MXNet 2.0, param.name is no longer unique.
-        # Meanwhile, since horovod requires Python 3.6, there is no need to sort
-        # self._params as enumerating a python dict is always deterministic.
-        for i, param in enumerate(self._params):
-            if param.grad_req != 'null':
-                allreduce_(param.list_grad()[0], average=False,
-                           name=self._prefix + str(i), priority=-i,
-                           prescale_factor=1.0 / self._gradient_predivide_factor)
+        if (self._num_groups > 0):
+            grads = []
+            names = []
 
+            for i, param in enumerate(self._params):
+                if param.grad_req != 'null':
+                    grads.append(param.list_grad()[0])
+                    names.append(self._prefix + str(i))
+
+            grads_split = split_list(grads, self._num_groups)
+            names_split = split_list(names, self._num_groups)
+
+            for i, (group_grads, group_names) in enumerate(zip(grads_split, names_split)):
+                # For better performance, enqueue groups in separate grouped_allreduce calls by dtype.
+                entries_by_dtype = defaultdict(list)
+                for grad, name in zip(group_grads, group_names):
+                    entries_by_dtype[grad.dtype].append((grad, name))
+
+                for entries in entries_by_dtype.values():
+                    grads, names = zip(*entries)
+                    grouped_allreduce_(tensors=grads, average=False, name="{}:{}".format(names[0], names[-1]), priority=-i,
+                                       prescale_factor=1.0 / self._gradient_predivide_factor)
+        else:
+            # In MXNet 2.0, param.name is no longer unique.
+            # Meanwhile, since horovod requires Python 3.6, there is no need to sort
+            # self._params as enumerating a python dict is always deterministic.
+            for i, param in enumerate(self._params):
+                if param.grad_req != 'null':
+                    allreduce_(param.list_grad()[0], average=False,
+                               name=self._prefix + str(i), priority=-i,
+                               prescale_factor=1.0 / self._gradient_predivide_factor)
 
 # Wrapper to inject Horovod broadcast after parameter initialization
 def _append_broadcast_init(param, root_rank, name):

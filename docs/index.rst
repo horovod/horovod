@@ -137,6 +137,8 @@ Guides
 
    timeline_include
 
+   hyperparameter_search_include
+
    autotune_include
 
    troubleshooting_include

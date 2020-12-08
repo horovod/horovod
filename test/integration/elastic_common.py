@@ -17,6 +17,7 @@ import contextlib
 import json
 import os
 import sys
+from typing import Callable
 
 import mock
 import pytest
@@ -64,7 +65,9 @@ def _temp_discovery_script(logfile, discovery_schedule):
         yield discovery_script
 
 
-class BaseElasticTests(object):
+class BaseElasticTests:
+    assertEqual: Callable
+
     def __init__(self, training_script, *args, **kwargs):
         self._training_script = training_script
         super(BaseElasticTests, self).__init__(*args, **kwargs)
@@ -125,20 +128,20 @@ class BaseElasticTests(object):
 
             results = self._run(discovery_schedule, np=np, min_np=min_np, max_np=max_np)
 
-            assert len(results) == 3
+            self.assertEqual(len(results), 3)
 
-            assert results[0]['start_rank'] == 0
-            assert results[0]['size'] == slots
-            assert results[0]['hostname'] == 'localhost'
+            self.assertEqual(results[0]['start_rank'], 0)
+            self.assertEqual(results[0]['size'], slots)
+            self.assertEqual(results[0]['hostname'], 'localhost')
 
-            assert results[1]['start_rank'] == 0
-            assert results[1]['size'] == slots * 2
-            assert results[1]['hostname'] == 'localhost'
+            self.assertEqual(results[1]['start_rank'], 0)
+            self.assertEqual(results[1]['size'], slots * 2)
+            self.assertEqual(results[1]['hostname'], 'localhost')
 
-            assert results[2]['start_rank'] == slots
-            assert results[2]['size'] == slots
-            assert results[2]['hostname'] == '127.0.0.1'
-            assert results[2]['rendezvous'] == 3
+            self.assertEqual(results[2]['start_rank'], slots)
+            self.assertEqual(results[2]['size'], slots)
+            self.assertEqual(results[2]['hostname'], '127.0.0.1')
+            self.assertEqual(results[2]['rendezvous'], 3)
 
     @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     @mock.patch('horovod.runner.gloo_run._get_min_start_hosts', return_value=1)
@@ -154,19 +157,19 @@ class BaseElasticTests(object):
 
             results = self._run(discovery_schedule, exit_schedule=exit_schedule, exit_mode=exit_mode)
 
-            assert len(results) == 3
+            self.assertEqual(len(results), 3)
 
-            assert results[0]['start_rank'] == 0
-            assert results[0]['size'] == 4
-            assert results[0]['rendezvous'] == 1
+            self.assertEqual(results[0]['start_rank'], 0)
+            self.assertEqual(results[0]['size'], 4)
+            self.assertEqual(results[0]['rendezvous'], 1)
 
-            assert results[1]['start_rank'] == 2
-            assert results[1]['size'] == 2
-            assert results[1]['rendezvous'] == 2
+            self.assertEqual(results[1]['start_rank'], 2)
+            self.assertEqual(results[1]['size'], 2)
+            self.assertEqual(results[1]['rendezvous'], 2)
 
-            assert results[2]['start_rank'] == 2
-            assert results[2]['size'] == 2
-            assert results[2]['rendezvous'] == 2
+            self.assertEqual(results[2]['start_rank'], 2)
+            self.assertEqual(results[2]['size'], 2)
+            self.assertEqual(results[2]['rendezvous'], 2)
 
     @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     @mock.patch('horovod.runner.gloo_run._get_min_start_hosts', return_value=1)
@@ -180,19 +183,19 @@ class BaseElasticTests(object):
 
             results = self._run(hosts=hosts, exit_schedule=exit_schedule, exit_mode=exit_mode)
 
-            assert len(results) == 3
+            self.assertEqual(len(results), 3)
 
-            assert results[0]['start_rank'] == 0
-            assert results[0]['size'] == 4
-            assert results[0]['rendezvous'] == 1
+            self.assertEqual(results[0]['start_rank'], 0)
+            self.assertEqual(results[0]['size'], 4)
+            self.assertEqual(results[0]['rendezvous'], 1)
 
-            assert results[1]['start_rank'] == 2
-            assert results[1]['size'] == 2
-            assert results[1]['rendezvous'] == 2
+            self.assertEqual(results[1]['start_rank'], 2)
+            self.assertEqual(results[1]['size'], 2)
+            self.assertEqual(results[1]['rendezvous'], 2)
 
-            assert results[2]['start_rank'] == 2
-            assert results[2]['size'] == 2
-            assert results[2]['rendezvous'] == 2
+            self.assertEqual(results[2]['start_rank'], 2)
+            self.assertEqual(results[2]['size'], 2)
+            self.assertEqual(results[2]['rendezvous'], 2)
 
     @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     @mock.patch('horovod.runner.gloo_run._get_min_start_hosts', return_value=1)
@@ -257,4 +260,4 @@ class BaseElasticTests(object):
 
         # Job should succeed with reset_limit=2
         results = self._run(discovery_schedule, np=2, min_np=2, max_np=4, reset_limit=2)
-        assert len(results) == 3
+        self.assertEqual(len(results), 3)

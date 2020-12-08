@@ -13,15 +13,17 @@
 # limitations under the License.
 # ==============================================================================
 
+import codecs
 import multiprocessing
 import os
-import psutil
 import re
 import signal
 import subprocess
 import sys
 import threading
 import time
+
+import psutil
 
 from horovod.runner.util.threads import in_thread, on_event
 
@@ -78,45 +80,69 @@ def terminate_executor_shell_and_children(pid):
             pass
 
 
-def forward_stream(src_stream, dst_stream, prefix, index):
-    def prepend_context(line, rank, prefix):
-        localtime = time.asctime(time.localtime(time.time()))
-        return '{time}[{rank}]<{prefix}>:{line}'.format(
+def prefix_connection(src_connection, dst_stream, prefix, index, prefix_output_with_timestamp):
+    """
+    Prefixes the given source connection with timestamp, a prefix and an index.
+    Each line of the source will be prefix in this format, if index and prefix are not None:
+        {time}[{index}]<{prefix}>:{line}
+    The dst_stream must be text streams.
+
+    :param src_connection: source pipe connection
+    :param dst_stream: destination text stream
+    :param prefix: prefix string
+    :param index: index value
+    :param prefix_output_with_timestamp: prefix lines in dst_stream with timestamp
+    :return: None
+    """
+    def get_context(rank, prefix):
+        localtime = time.asctime(time.localtime(time.time())) if prefix_output_with_timestamp else ''
+        return '{time}[{rank}]<{prefix}>:'.format(
             time=localtime,
             rank=str(rank),
-            prefix=prefix,
-            line=line
+            prefix=prefix
         )
 
     def write(text):
-        if index is not None:
-            text = prepend_context(text, index, prefix)
+        if index is not None and prefix is not None:
+            context = get_context(index, prefix)
+            dst_stream.write(context)
         dst_stream.write(text)
         dst_stream.flush()
 
+    # the incremental encoder allows us to decode chunks of utf8 bytes
+    # with utf8 characters spread across the boundary chunks
+    decoder = codecs.getincrementaldecoder('utf8')()
+
     line_buffer = ''
     while True:
-        text = os.read(src_stream.fileno(), 1000)
-        if text is None:
-            break
+        # read at most that many bytes, but do not wait until that many bytes become available
+        # waits for the first bytes so this is not a busy loop
+        buf = os.read(src_connection.fileno(), 1000)
 
-        if not isinstance(text, str):
-            text = text.decode('utf-8')
+        # turn the bytes into string decoding them as utf8
+        # we need to use an incremental decoder as characters can span multiple bytes
+        # where the last character might not be completely in buf
+        # see https://github.com/horovod/horovod/issues/2367
+        text = decoder.decode(buf or b'', final=not buf)
 
-        if not text:
-            break
-
+        # write line_buffer out when we reach an \n or \r
+        # the latter is used to update the current line (e.g. progress bar)
+        # which we want to flush out (and prefix) as soon as possible
         for line in re.split('([\r\n])', text):
             line_buffer += line
             if line == '\r' or line == '\n':
                 write(line_buffer)
                 line_buffer = ''
 
+        # not an empty text indicates EOF but an empty buf
+        if not buf:
+            break
+
     # flush the line buffer if it is not empty
     if len(line_buffer):
         write(line_buffer)
 
-    src_stream.close()
+    src_connection.close()
 
 
 def _exec_middleman(command, env, exit_event, stdout, stderr, rw):
@@ -134,7 +160,7 @@ def _exec_middleman(command, env, exit_event, stdout, stderr, rw):
                                       stdout=stdout_w, stderr=stderr_w)
 
     # we don't bother stopping the on_event thread, this process sys.exits soon
-    # so the on_event thread has to be a deamon thread
+    # so the on_event thread has to be a daemon thread
     on_event(exit_event, terminate_executor_shell_and_children, args=(executor_shell.pid,), daemon=True)
 
     def kill_executor_children_if_parent_dies():
@@ -159,7 +185,24 @@ def _create_event(ctx):
     return ctx.Event()
 
 
-def execute(command, env=None, stdout=None, stderr=None, index=None, events=None):
+def execute(command, env=None, stdout=None, stderr=None, index=None, events=None,
+            prefix_output_with_timestamp=False):
+    """
+    Execute the given command and forward stdout and stderr of the command to the given
+    stdout and stderr text streams, or sys.stdout and sys.stderr, respectively, if None given.
+    Prefixes each line with index and timestamp if index is not None. The timestamp
+    can be disabled with prefix_output_with_timestamp set False.
+    The command will be terminated when any of the given events are set.
+
+    :param command: command to execute
+    :param env: environment variables to execute command with
+    :param stdout: stdout text stream, sys.stdout if None
+    :param stderr: stderr text stream, sys.stderr if None
+    :param index: index used to prepend text streams
+    :param events: events to terminate the command
+    :param prefix_output_with_timestamp: prepend text streams with timestamp if True
+    :return: command's exit code
+    """
     ctx = multiprocessing.get_context('spawn')
 
     # When this event is set, signal to middleman to terminate its children and exit.
@@ -195,8 +238,8 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
     if stderr is None:
         stderr = sys.stderr
 
-    stdout_fwd = in_thread(target=forward_stream, args=(stdout_r, stdout, 'stdout', index))
-    stderr_fwd = in_thread(target=forward_stream, args=(stderr_r, stderr, 'stderr', index))
+    stdout_fwd = in_thread(target=prefix_connection, args=(stdout_r, stdout, 'stdout', index, prefix_output_with_timestamp))
+    stderr_fwd = in_thread(target=prefix_connection, args=(stderr_r, stderr, 'stderr', index, prefix_output_with_timestamp))
 
     # TODO: Currently this requires explicitly declaration of the events and signal handler to set
     #  the event (gloo_run.py:_launch_jobs()). Need to figure out a generalized way to hide this behind

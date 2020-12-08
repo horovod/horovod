@@ -43,6 +43,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     num_labels = len(label_columns)
     should_validate = estimator.getValidation()
     batch_size = estimator.getBatchSize()
+    val_batch_size = estimator.getValBatchSize() if estimator.getValBatchSize() else batch_size
     epochs = estimator.getEpochs()
     train_steps_per_epoch = estimator.getTrainStepsPerEpoch()
     validation_steps_per_epoch = estimator.getValidationStepsPerEpoch()
@@ -264,7 +265,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                         return inputs, labels, sample_weights
 
                     def transform_outputs(outputs, labels):
-                        if type(outputs) != tuple and type(outputs) != list:
+                        if not isinstance(outputs, tuple) and not isinstance(outputs,  list):
                             outputs = [outputs]
 
                         # reshape labels to match the output shape of the model
@@ -323,10 +324,10 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                         return aggregate_metrics('train', epoch, train_loss, metric_value_groups)
 
                     if should_validate:
-                        val_loader = BatchedDataLoader(val_reader, batch_size=batch_size)
+                        val_loader = BatchedDataLoader(val_reader, batch_size=val_batch_size)
                         val_loader_iter = iter(val_loader)
                         if validation_steps_per_epoch is None:
-                            validation_steps = int(math.ceil(float(val_rows) / batch_size / hvd.size()))
+                            validation_steps = int(math.ceil(float(val_rows) / val_batch_size / hvd.size()))
                         else:
                             validation_steps = validation_steps_per_epoch
 

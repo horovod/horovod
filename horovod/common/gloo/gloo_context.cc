@@ -46,23 +46,6 @@ constexpr auto CreateDevice = gloo::transport::uv::CreateDevice;
 namespace horovod {
 namespace common {
 
-// Horovod Gloo rendezvous knobs.
-#define HOROVOD_GLOO_TIMEOUT_SECONDS "HOROVOD_GLOO_TIMEOUT_SECONDS"
-#define HOROVOD_GLOO_RENDEZVOUS_ADDR "HOROVOD_GLOO_RENDEZVOUS_ADDR"
-#define HOROVOD_GLOO_RENDEZVOUS_PORT "HOROVOD_GLOO_RENDEZVOUS_PORT"
-#define HOROVOD_GLOO_GLOBAL_PREFIX "global"
-#define HOROVOD_GLOO_LOCAL_PREFIX "local_"
-#define HOROVOD_GLOO_CROSS_PREFIX "cross_"
-#define HOROVOD_GLOO_GET_RANK_AND_SIZE "rank_and_size"
-#define HOROVOD_HOSTNAME "HOROVOD_HOSTNAME"
-#define HOROVOD_RANK "HOROVOD_RANK"
-#define HOROVOD_SIZE "HOROVOD_SIZE"
-#define HOROVOD_LOCAL_RANK "HOROVOD_LOCAL_RANK"
-#define HOROVOD_LOCAL_SIZE "HOROVOD_LOCAL_SIZE"
-#define HOROVOD_CROSS_RANK "HOROVOD_CROSS_RANK"
-#define HOROVOD_CROSS_SIZE "HOROVOD_CROSS_SIZE"
-#define HOROVOD_ELASTIC "HOROVOD_ELASTIC"
-
 int ParseNextInt(std::stringstream& ss) {
   assert(ss.good());
 
@@ -90,7 +73,8 @@ std::shared_ptr<gloo::Context> Rendezvous(const std::string& prefix,
     store.reset(new MemoryStore());
   }
   LOG(DEBUG) << prefix << " rendezvous started for rank=" << rank << ", size=" << size
-             << ", dev={" << dev->str() << "}";
+             << ", dev={" << dev->str() << "}, timeout="
+             << std::to_string(std::chrono::duration_cast<std::chrono::seconds>(timeout).count());
 
   auto context = std::make_shared<gloo::rendezvous::Context>(rank, size);
   context->setTimeout(timeout);

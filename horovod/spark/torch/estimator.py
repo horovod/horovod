@@ -23,6 +23,7 @@ import time
 from pyspark import keyword_only
 from pyspark.ml.param.shared import Param, Params
 from pyspark.ml.util import MLWritable, MLReadable
+from pyspark.sql import SparkSession
 
 from horovod.runner.common.util import codec
 from horovod.spark.common import util
@@ -40,13 +41,16 @@ import torch.utils.data
 
 
 def _torch_param_serialize(param_name, param_val):
+    if param_val is None:
+        return None
+
     if param_name in [EstimatorParams.backend.name, EstimatorParams.store.name]:
         # We do not serialize backend and store. These params have to be regenerated for each
         # run of the pipeline
         return None
-
-    if param_val is None:
-        return None
+    elif param_name == EstimatorParams.model.name:
+        serialize = serialize_fn()
+        return serialize(param_val)
 
     return codec.dumps_base64(param_val)
 
@@ -69,6 +73,9 @@ class TorchEstimatorParamsReader(HorovodParamsReader):
         for key, val in dict_values.items():
             if val is None:
                 deserialized_dict[key] = None
+            elif key == EstimatorParams.model.name:
+                deserialize = deserialize_fn()
+                deserialized_dict[key] = deserialize(val)
             else:
                 deserialized_dict[key] = codec.loads_base64(val)
         return deserialized_dict
@@ -447,4 +454,21 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
 
                 yield Row(**fields)
 
-        return df.rdd.mapPartitions(predict).toDF()
+        spark0 = SparkSession._instantiatedSession
+
+        # Get a limited DF and make predictions and get the schema of the final DF
+        limited_pred_rdd = df.limit(100000).rdd.mapPartitions(predict)
+        limited_pred_df = spark0.createDataFrame(limited_pred_rdd, samplingRatio=1)
+        final_output_schema = limited_pred_df.schema
+
+        # Spark has to infer whether a filed is nullable or not from a limited number of samples.
+        # It does not always get it right. We copy the nullable boolean variable for the fields
+        # from the original dataframe to the final DF schema.
+        nullables = {field.name: field.nullable for field in df.schema.fields}
+        for field in final_output_schema.fields:
+            if field.name in nullables:
+                field.nullable = nullables[field.name]
+
+        pred_rdd = df.rdd.mapPartitions(predict)
+        # Use the schema from previous section to construct the final DF with prediction
+        return spark0.createDataFrame(pred_rdd, schema=final_output_schema)

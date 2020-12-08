@@ -97,7 +97,9 @@ def test_colocator(tmpdir, ray_start_6_cpus):
     resources = ray.available_resources()
     ip_address = services.get_node_ip_address()
     assert resources.get("CPU", 0) == 2, resources
-    assert resources.get(f"node:{ip_address}", 0) == 1 - 4 * 0.01
+
+    # TODO: https://github.com/horovod/horovod/issues/2438
+    # assert resources.get(f"node:{ip_address}", 0) == 1 - 4 * 0.01
 
 
 @pytest.mark.skipif(
@@ -116,7 +118,9 @@ def test_colocator_gpu(tmpdir, ray_start_4_cpus_4_gpus):
     ip_address = services.get_node_ip_address()
     assert resources.get("CPU", 0) == 0, resources
     assert resources.get("GPU", 0) == 0, resources
-    assert resources.get(f"node:{ip_address}", 0) == 1 - 4 * 0.01
+
+    # TODO: https://github.com/horovod/horovod/issues/2438
+    # assert resources.get(f"node:{ip_address}", 0) == 1 - 4 * 0.01
 
     all_envs = ray.get([h.env_vars.remote() for h in worker_handles])
     assert len({ev["CUDA_VISIBLE_DEVICES"] for ev in all_envs}) == 1

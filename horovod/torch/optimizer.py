@@ -21,8 +21,11 @@ from contextlib import contextmanager
 
 import torch
 
+from horovod.common.util import split_list
+
 from horovod.torch.compression import Compression
-from horovod.torch.mpi_ops import allreduce_async_
+from horovod.torch.functions import broadcast_object
+from horovod.torch.mpi_ops import allreduce_async_, grouped_allreduce_async_
 from horovod.torch.mpi_ops import synchronize
 from horovod.torch.mpi_ops import size
 from horovod.torch.mpi_ops import Average, Adasum, Sum
@@ -32,7 +35,8 @@ from horovod.torch.mpi_ops import rocm_built
 class _DistributedOptimizer(torch.optim.Optimizer):
     def __init__(self, params, named_parameters, compression,
                  backward_passes_per_step=1, op=Average,
-                 gradient_predivide_factor=1.0):
+                 gradient_predivide_factor=1.0,
+                 num_groups=0):
         super(self.__class__, self).__init__(params)
         self._compression = compression
 
@@ -74,6 +78,9 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         self._requires_update = set()
         self._synchronized = False
         self._should_synchronize = True
+        self._num_groups = num_groups
+        self._p_to_group = {}
+        self._group_counts = {}
         if size() > 1 or os.environ.get('HOROVOD_ELASTIC') == '1':
             self._register_hooks()
 
@@ -101,6 +108,29 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             self._allreduce_delay[p] = self.backward_passes_per_step
 
     def _register_hooks(self):
+
+        if self._num_groups > 0:
+            p_list = []
+            # Get list of parameters with grads
+            for param_group in self.param_groups:
+                for p in param_group['params']:
+                    if p.requires_grad:
+                        p_list.append(p)
+
+            # To ensure parameter order and group formation is consistent, broadcast p_list order
+            # from rank 0 and use for every worker
+            p_list_names = [self._parameter_names.get(p) for p in p_list]
+            p_list_names = broadcast_object(p_list_names, root_rank=0)
+            p_list = sorted(p_list, key=lambda p : p_list_names.index(self._parameter_names.get(p)))
+
+            # Form groups
+            p_groups = split_list(p_list, self._num_groups)
+            p_groups = [tuple(p) for p in p_groups]
+            for group in p_groups:
+              for p in group:
+                self._p_to_group[p] = group
+              self._group_counts[group] = 0
+
         for param_group in self.param_groups:
             for p in param_group['params']:
                 if p.requires_grad:
@@ -130,6 +160,13 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                                   postscale_factor=postscale_factor)
         return handle, ctx
 
+    def _grouped_allreduce_grad_async(self, ps):
+        name = self._parameter_names.get(ps[0])
+        tensors_compressed, ctxs = zip(*[self._compression.compress(p.grad) for p in ps])
+
+        handle = grouped_allreduce_async_(tensors_compressed, name=name, op=self.op)
+        return handle, ctxs
+
     def _make_hook(self, p):
         def hook(*ignore):
             if p in self._handles and self._handles[p][0] is not None:
@@ -144,12 +181,27 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             handle, ctx = None, None
             self._allreduce_delay[p] -= 1
             if self._allreduce_delay[p] == 0:
-                handle, ctx = self._allreduce_grad_async(p)
+                if self._num_groups > 0:
+                    group = self._p_to_group[p]
+                    self._group_counts[group] += 1
+                    if self._group_counts[group] == len(group):
+                        handle, ctxs = self._grouped_allreduce_grad_async(group)
+                        self._handles[group] = (handle, ctxs)
+                        # Remove any None entries from previous no-op hook calls
+                        for gp in group:
+                            self._handles.pop(gp, None)
+                        self._group_counts[group] = 0
+                        return
+                else:
+                    handle, ctx = self._allreduce_grad_async(p)
             self._handles[p] = (handle, ctx)
         return hook
 
     def synchronize(self):
-        missing_p = self._requires_update - set(self._handles.keys())
+        completed = set()
+        for x in self._handles.keys():
+          completed.update(x) if isinstance(x, tuple) else completed.add(x)
+        missing_p = self._requires_update - completed
         for p in missing_p:
             handle, ctx = self._allreduce_grad_async(p)
             self._handles[p] = (handle, ctx)
@@ -159,9 +211,17 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                 handle, ctx = self._allreduce_grad_async(p)
                 self._handles[p] = (handle, ctx)
         for p, (handle, ctx) in self._handles.items():
-            output = synchronize(handle)
-            self._allreduce_delay[p] = self.backward_passes_per_step
-            p.grad.set_(self._compression.decompress(output, ctx))
+
+            if isinstance(p, tuple):
+                # This was a grouped result, need to unpack
+                outputs = synchronize(handle)
+                for gp, output, gctx in zip(p, outputs, ctx):
+                    self._allreduce_delay[gp] = self.backward_passes_per_step
+                    gp.grad.set_(self._compression.decompress(output, gctx))
+            else:
+                output = synchronize(handle)
+                self._allreduce_delay[p] = self.backward_passes_per_step
+                p.grad.set_(self._compression.decompress(output, ctx))
         self._handles.clear()
 
         self._synchronized = True
@@ -382,7 +442,8 @@ def DistributedOptimizer(optimizer, named_parameters=None,
                          compression=Compression.none,
                          backward_passes_per_step=1,
                          op=Average,
-                         gradient_predivide_factor=1.0):
+                         gradient_predivide_factor=1.0,
+                         num_groups=0):
     """
     An optimizer that wraps another torch.optim.Optimizer, using an allreduce to
     combine gradient values before applying gradients to model weights.
@@ -425,6 +486,8 @@ def DistributedOptimizer(optimizer, named_parameters=None,
                                    before and after the sum. Gradients are scaled by
                                    1.0 / gradient_predivide_factor before the sum and
                                    gradient_predivide_factor / size after the sum.
+        num_groups: Number of groups to assign gradient allreduce ops to for explicit
+                    grouping. Defaults to no explicit groups.
     """
     # We dynamically create a new class that inherits from the optimizer that was passed in.
     # The goal is to override the `step()` method with an allreduce implementation.
@@ -438,7 +501,7 @@ def DistributedOptimizer(optimizer, named_parameters=None,
         cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
                    dict(_DistributedOptimizer.__dict__))
         return cls(optimizer.param_groups, named_parameters, compression, backward_passes_per_step, op,
-                   gradient_predivide_factor)
+                   gradient_predivide_factor, num_groups)
     else:
         cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
                    dict(_DistributedAdasumOptimizer.__dict__))

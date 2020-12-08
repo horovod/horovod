@@ -48,6 +48,8 @@ list(APPEND Mxnet_SOURCES "${PROJECT_SOURCE_DIR}/horovod/mxnet/mpi_ops.cc"
 # Create library
 set_output_dir()
 add_library(${Mxnet_TARGET_LIB} SHARED ${SOURCES} ${Mxnet_SOURCES})
+target_include_directories(${Mxnet_TARGET_LIB} PRIVATE "${EIGEN_INCLUDE_PATH}")
+target_include_directories(${Mxnet_TARGET_LIB} PRIVATE "${FLATBUFFERS_INCLUDE_PATH}")
 target_link_libraries(${Mxnet_TARGET_LIB} ${LINKER_LIBS} ${Mxnet_LINKER_LIBS})
 set_target_properties(${Mxnet_TARGET_LIB} PROPERTIES SUFFIX "${Python_SUFFIX}")
 set_target_properties(${Mxnet_TARGET_LIB} PROPERTIES PREFIX "")

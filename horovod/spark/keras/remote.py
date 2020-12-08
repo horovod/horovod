@@ -40,6 +40,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     feature_columns = estimator.getFeatureCols()
     user_callbacks = estimator.getCallbacks()
     batch_size = estimator.getBatchSize()
+    val_batch_size = estimator.getValBatchSize() if estimator.getValBatchSize() else batch_size
     epochs = estimator.getEpochs()
     train_steps_per_epoch = estimator.getTrainStepsPerEpoch()
     validation_steps_per_epoch = estimator.getValidationStepsPerEpoch()
@@ -71,8 +72,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
         metadata=metadata,
         input_shapes=input_shapes,
         label_shapes=label_shapes if label_shapes else output_shapes,
-        output_names=output_names,
-        batch_size=batch_size)
+        output_names=output_names)
     fit = keras_utils.fit_fn(epochs)
     transformation_fn = estimator.getTransformationFn()
     transformation = transformation_fn if transformation_fn else None
@@ -100,7 +100,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
 
     def train(serialized_model, train_rows, val_rows, avg_row_size):
         from petastorm import TransformSpec, make_reader, make_batch_reader
-
+        import horovod as _horovod
         k = get_keras()
         k.backend.set_floatx(floatx)
 
@@ -120,8 +120,8 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 serialized_model, lambda x: hvd.load_model(x))
 
         # Horovod: adjust learning rate based on number of processes.
-        k.backend.set_value(model.optimizer.lr,
-                            k.backend.get_value(model.optimizer.lr) * hvd.size())
+        scaled_lr = k.backend.get_value(model.optimizer.lr) * hvd.size()
+        k.backend.set_value(model.optimizer.lr, scaled_lr)
 
         # Verbose mode 1 will print a progress bar
         verbose = user_verbose if hvd.rank() == 0 else 0
@@ -129,6 +129,11 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
         transform_spec = None
         if transformation:
             transform_spec = TransformSpec(transformation)
+
+        # The inital_lr needs to be set to scaled learning rate in the checkpointing callbacks.
+        for callback in user_callbacks:
+            if isinstance(callback, _horovod._keras.callbacks.LearningRateScheduleCallbackImpl):
+                callback.initial_lr = scaled_lr
 
         with remote_store.get_local_output_dir() as run_output_dir:
             callbacks = [
@@ -177,10 +182,10 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 steps_per_epoch = train_steps_per_epoch
 
             if validation_steps_per_epoch is None:
-                # math.ceil because if val_rows is smaller than batch_size we still get the at least
-                # one step. float(val_rows) because val_rows/batch_size evaluates to zero before
+                # math.ceil because if val_rows is smaller than val_batch_size we still get the at least
+                # one step. float(val_rows) because val_rows/val_batch_size evaluates to zero before
                 # math.ceil
-                validation_steps = int(math.ceil(float(val_rows) / batch_size / hvd.size())) \
+                validation_steps = int(math.ceil(float(val_rows) / val_batch_size / hvd.size())) \
                     if should_validate else None
             else:
                 validation_steps = validation_steps_per_epoch
@@ -228,9 +233,9 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                                     **reader_factory_kwargs) \
                     if should_validate else empty_batch_reader() as val_reader:
 
-                    train_data = make_dataset(train_reader, shuffle_buffer_size,
+                    train_data = make_dataset(train_reader, batch_size, shuffle_buffer_size,
                                               is_batch_reader, shuffle=True)
-                    val_data = make_dataset(val_reader, shuffle_buffer_size,
+                    val_data = make_dataset(val_reader, val_batch_size, shuffle_buffer_size,
                                             is_batch_reader, shuffle=False) \
                         if val_reader else None
 

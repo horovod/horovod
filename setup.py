@@ -96,19 +96,6 @@ class custom_build_ext(build_ext):
 # python packages required to use horovod in general
 require_list = ['cloudpickle', 'psutil', 'pyyaml', 'dataclasses;python_version<"3.7"']
 
-# python packages required / recommended to develop horovod
-# e.g., set of framework versions pinned for development, keep in sync with Dockerfile.test.cpu
-# NOTE: do not use versions with +cpu or +gpu here as users would need to add --find-links to pip
-dev_require_list = ['tensorflow-cpu==1.15.0',
-                    'keras==2.2.4',
-                    'torch==1.2.0',
-                    'torchvision==0.4.0',
-                    'mxnet==1.5.0',
-                    'pyspark==2.4.7']
-
-# python packages required only to run tests
-test_require_list = ['mock', 'pytest', 'pytest-forked', 'parameterized']
-
 # framework dependencies
 tensorflow_require_list = ['tensorflow']
 tensorflow_cpu_require_list = ['tensorflow-cpu']
@@ -118,7 +105,8 @@ pytorch_require_list = ['torch']
 mxnet_require_list = ['mxnet>=1.4.1']
 pyspark_require_list = ['pyspark>=2.3.2;python_version<"3.8"',
                         'pyspark>=3.0.0;python_version>="3.8"']
-spark_require_list = ['h5py>=2.9', 'numpy', 'petastorm>=0.9.0,!=0.9.3', 'pyarrow>=0.15.0'] + \
+# Pin h5py: https://github.com/h5py/h5py/issues/1732
+spark_require_list = ['h5py<3', 'numpy', 'petastorm>=0.9.0,!=0.9.3', 'pyarrow>=0.15.0'] + \
                      pyspark_require_list
 ray_require_list = ['ray']
 
@@ -129,6 +117,20 @@ all_frameworks_require_list = tensorflow_require_list + \
                               pytorch_require_list + \
                               mxnet_require_list + \
                               spark_require_list
+
+# python packages required / recommended to develop horovod
+# e.g., set of framework versions pinned for development, keep in sync with Dockerfile.test.cpu
+# NOTE: do not use versions with +cpu or +gpu here as users would need to add --find-links to pip
+dev_require_list = ['tensorflow-cpu==1.15.0',
+                    'keras==2.2.4',
+                    'torch==1.2.0',
+                    'torchvision==0.4.0',
+                    'mxnet==1.5.0',
+                    'pyspark==2.4.7'] + spark_require_list
+
+# python packages required only to run tests
+# Pin h5py: https://github.com/h5py/h5py/issues/1732
+test_require_list = ['mock', 'pytest', 'pytest-forked', 'parameterized', 'h5py<3']
 
 # Skip cffi if pytorch extension explicitly disabled
 if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):

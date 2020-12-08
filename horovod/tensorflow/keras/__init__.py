@@ -30,7 +30,7 @@ from horovod.tensorflow import local_rank
 from horovod.tensorflow import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.tensorflow import gloo_enabled, gloo_built
 from horovod.tensorflow import nccl_built, ddl_built, ccl_built, cuda_built, rocm_built
-from horovod.tensorflow import Compression
+from horovod.tensorflow import Average, Compression, Sum
 
 import horovod._keras as _impl
 from horovod.tensorflow.keras import callbacks, elastic
@@ -49,7 +49,10 @@ def DistributedOptimizer(optimizer, name=None,
                          device_dense='', device_sparse='',
                          compression=Compression.none,
                          sparse_as_dense=False,
-                         gradient_predivide_factor=1.0):
+                         gradient_predivide_factor=1.0,
+                         op=Average,
+                         backward_passes_per_step=1,
+                         average_aggregated_gradients=False):
     """
     An optimizer that wraps another keras.optimizers.Optimizer, using an allreduce to
     average gradient values before applying gradients to model weights.
@@ -74,13 +77,36 @@ def DistributedOptimizer(optimizer, name=None,
                                    before and after the sum. Gradients are scaled by
                                    1.0 / gradient_predivide_factor before the sum and
                                    gradient_predivide_factor / size after the sum.
+        op: The reduction operation to use when combining gradients across
+            different ranks. Defaults to Average.
+        backward_passes_per_step: Number of backward passes to perform before calling
+                                  hvd.allreduce. This allows accumulating updates over
+                                  multiple mini-batches before reducing and applying them.
+        average_aggregated_gradients: Whether to average the aggregated gradients that
+                                      have been accumulated over multiple mini-batches.
+                                      If true divides gradient updates by
+                                      backward_passes_per_step.
+                                      Only applicable for backward_passes_per_step > 1.
     """
     if gradient_predivide_factor != 1.0 and rocm_built():
             raise ValueError('gradient_predivide_factor not supported yet with ROCm')
 
-    return _impl.create_distributed_optimizer(keras, optimizer, name,
-                                              device_dense, device_sparse, compression,
-                                              sparse_as_dense, gradient_predivide_factor)
+    if op != Average and op != Sum:
+        raise ValueError('op currently only supports Average and Sum')
+
+    return _impl.create_distributed_optimizer(
+        keras=keras,
+        optimizer=optimizer,
+        name=name,
+        device_dense=device_dense,
+        device_sparse=device_sparse,
+        compression=compression,
+        sparse_as_dense=sparse_as_dense,
+        gradient_predivide_factor=gradient_predivide_factor,
+        op=op,
+        backward_passes_per_step=backward_passes_per_step,
+        average_aggregated_gradients=average_aggregated_gradients,
+    )
 
 
 def broadcast_global_variables(root_rank):
@@ -93,7 +119,11 @@ def broadcast_global_variables(root_rank):
     return _impl.broadcast_global_variables(K, root_rank)
 
 
-def allreduce(value, name=None, average=True, prescale_factor=1.0, postscale_factor=1.0):
+def allreduce(value, name=None, average=True,
+              prescale_factor=1.0,
+              postscale_factor=1.0,
+              op=None,
+              compression=Compression.none):
     """
     Perform an allreduce on a tensor-compatible value.
 
@@ -101,12 +131,28 @@ def allreduce(value, name=None, average=True, prescale_factor=1.0, postscale_fac
         value: A tensor-compatible value to reduce.
                The shape of the input must be identical across all ranks.
         name: Optional name for the constants created by this operation.
-        average: If True, computes the average over all ranks.
-                 Otherwise, computes the sum over all ranks.
+        average:
+            .. warning:: .. deprecated:: 0.19.0
+
+               Use `op` instead. Will be removed in v0.21.0.
+
         prescale_factor: Multiplicative factor to scale tensor before allreduce.
         postscale_factor: Multiplicative factor to scale tensor after allreduce.
+        op: The reduction operation to combine tensors across different ranks.
+            Defaults to Average if None is given.
+        compression: Compression algorithm used to reduce the amount of data
+                     sent and received by each worker node.  Defaults to not
+                     using compression.
     """
-    return _impl.allreduce(K, value, name, average, prescale_factor, postscale_factor)
+    return _impl.allreduce(
+        backend=K,
+        value=value,
+        name=name,
+        average=average,
+        prescale_factor=prescale_factor,
+        postscale_factor=postscale_factor,
+        op=op,
+        compression=compression)
 
 
 def allgather(value, name=None):

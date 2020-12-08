@@ -292,11 +292,17 @@ Environment knobs
 
 Horovod on Databricks
 ------------------------------
-To run Horovod in Spark on Databricks, use `DBFSLocalStore` as the store object:
+To run Horovod in Spark on Databricks, create a Store instance with a DBFS path in one of the following patterns:
+
+* ``/dbfs/...``
+* ``dbfs:/...``
+* ``file:///dbfs/...``
 
 .. code-block:: python
 
-    store = DBFSLocalStore(prefix_path='/dbfs/...')
+    store = Store.create(dbfs_path)
+    # or explicitly using DBFSLocalStore
+    store = DBFSLocalStore(dbfs_path)
 
 The `DBFSLocalStore` uses Databricks File System (DBFS) local file APIs
 (`AWS <https://docs.databricks.com/data/databricks-file-system.html#local-file-apis>`__ |
@@ -308,12 +314,12 @@ Databricks pre-configures GPU-aware scheduling on Databricks Runtime 7.0 ML GPU 
 `Azure <https://docs.microsoft.com/en-us/azure/databricks/clusters/gpu#gpu-scheduling>`__)
 for details.
 
-With the Estimator API, horovod will launch # of tasks on each worker = # of GPUs on each worker, and each task will
+With the Estimator API, horovod will launch ``# of tasks on each worker = # of GPUs on each worker``, and each task will
 pin GPU to the assigned GPU from spark.
 
-With the Run API, the function `get_available_devices()` from `horovod.spark.task` will return a list of assigned GPUs
-for the spark task from which `get_available_devices()` is called.
+With the Run API, the function ``get_available_devices()`` from ``horovod.spark.task`` will return a list of assigned GPUs
+for the spark task from which ``get_available_devices()`` is called.
 See `keras_spark3_rossmann.py <../examples/spark/keras/keras_spark3_rossmann.py>`__ for an example of using
-`get_available_devices()` with the Run API.
+``get_available_devices()`` with the Run API.
 
 .. inclusion-marker-end-do-not-remove

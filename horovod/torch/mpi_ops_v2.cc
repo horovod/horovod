@@ -126,6 +126,138 @@ int DoAllreduceCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int div
   return handle;
 }
 
+int DoGroupedAllreduce(const std::vector<::torch::Tensor>& tensors,
+                       const std::vector<::torch::Tensor>& outputs, int divisor,
+                       const std::string& name, int reduce_op_int,
+                       double prescale_factor, double postscale_factor) {
+  ThrowIfError(common::CheckInitialized());
+
+  auto handle = handle_manager.AllocateHandle();
+  auto device = GetDeviceID(tensors[0]);
+  auto ready_event = RecordReadyEvent(device);
+
+  std::vector<std::shared_ptr<Tensor>> hvd_tensors;
+  std::vector<std::shared_ptr<OpContext>> hvd_contexts;
+  std::vector<std::shared_ptr<Tensor>> hvd_outputs;
+  std::vector<std::shared_ptr<ReadyEvent>> ready_events;
+  std::vector<StatusCallback> callbacks;
+  std::vector<std::string> names;
+
+  auto num_tensors = tensors.size();
+  hvd_tensors.reserve(num_tensors);
+  hvd_contexts.reserve(num_tensors);
+  hvd_outputs.reserve(num_tensors);
+  ready_events.reserve(num_tensors);
+  names.reserve(num_tensors);
+  callbacks.reserve(num_tensors);
+
+  auto base_name = GetOpName("grouped_allreduce", name, handle);
+
+  auto callback_mutex = std::make_shared<std::mutex>();
+  auto callback_count = std::make_shared<int>(0);
+  for (int i = 0; i < num_tensors; ++i) {
+    if (GetDeviceID(tensors[i]) != device) {
+      throw std::logic_error("Tensors in list must be on same device.");
+    }
+    hvd_tensors.emplace_back(std::make_shared<TorchTensor>(tensors[i]));
+    hvd_contexts.emplace_back(std::make_shared<TorchOpContext>(device, outputs[i]));
+    hvd_outputs.emplace_back(std::make_shared<TorchTensor>(outputs[i]));
+    ready_events.emplace_back(ready_event); // Same for all tensors
+    names.emplace_back(base_name + "_" + std::to_string(i+1) + "of" + std::to_string(num_tensors));
+    auto output = outputs[i];
+    callbacks.emplace_back(
+      [handle, divisor, output, callback_mutex, callback_count, num_tensors](const Status& status) mutable {
+        // Will execute in the `device` context.
+        if (divisor > 1) {
+          DivideInPlace(output, divisor);
+        }
+        // Must only call MarkDone on last tensor.
+        std::lock_guard<std::mutex> guard(*callback_mutex);
+        (*callback_count)++;
+        if (*callback_count == num_tensors) {
+          handle_manager.MarkDone(handle, status);
+        }
+      }
+    );
+  }
+
+  ReduceOp reduce_op = static_cast<ReduceOp>(reduce_op_int);
+
+  auto enqueue_result = EnqueueTensorAllreduces(
+      hvd_contexts, hvd_tensors, hvd_outputs, ready_events,
+      names, device, callbacks, reduce_op, prescale_factor, postscale_factor);
+  ThrowIfError(enqueue_result);
+
+  return handle;
+}
+
+int DoGroupedAllreduceCudaOnCPU(const std::vector<::torch::Tensor>& tensors,
+                       const std::vector<::torch::Tensor>& outputs, int divisor,
+                       const std::string& name, int reduce_op_int,
+                       double prescale_factor, double postscale_factor) {
+  ThrowIfError(common::CheckInitialized());
+
+  auto handle = handle_manager.AllocateHandle();
+  auto device = GetDeviceID(tensors[0]);
+
+  std::vector<std::shared_ptr<Tensor>> cpu_buffers;
+  std::vector<std::shared_ptr<OpContext>> hvd_contexts;
+  std::vector<std::shared_ptr<ReadyEvent>> ready_events;
+  std::vector<StatusCallback> callbacks;
+  std::vector<std::string> names;
+
+  auto num_tensors = tensors.size();
+  cpu_buffers.reserve(num_tensors);
+  hvd_contexts.reserve(num_tensors);
+  ready_events.reserve(num_tensors);
+  names.reserve(num_tensors);
+  callbacks.reserve(num_tensors);
+
+  auto base_name = GetOpName("grouped_allreduce", name, handle);
+
+  auto callback_mutex = std::make_shared<std::mutex>();
+  auto callback_count = std::make_shared<int>(0);
+  for (int i = 0; i < num_tensors; ++i) {
+    if (GetDeviceID(tensors[i]) != device) {
+      throw std::logic_error("Tensors in list must be on same device.");
+    }
+    auto cpu_buffer =
+        tensors[i].to(::torch::Device(::torch::kCPU), /*non_blocking=*/true);
+    cpu_buffers.emplace_back(std::make_shared<TorchTensor>(cpu_buffer));
+    hvd_contexts.emplace_back(std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_buffer));
+    ready_events.emplace_back(RecordReadyEvent(device));
+    names.emplace_back(base_name + "_" + std::to_string(i+1) + "of" + std::to_string(num_tensors));
+    auto output = outputs[i];
+    callbacks.emplace_back(
+      [handle, divisor, cpu_buffer, output, device, callback_mutex, callback_count,
+       num_tensors](const Status& status) mutable {
+        // Will execute in the `device` context.
+        if (divisor > 1) {
+          DivideInPlace(output, divisor);
+        }
+        with_device device_guard(device);
+        output.copy_(cpu_buffer);
+
+        // Must only call MarkDone on last tensor.
+        std::lock_guard<std::mutex> guard(*callback_mutex);
+        (*callback_count)++;
+        if (*callback_count == num_tensors) {
+          handle_manager.MarkDone(handle, status);
+        }
+      }
+    );
+  }
+
+  ReduceOp reduce_op = static_cast<ReduceOp>(reduce_op_int);
+
+  auto enqueue_result = EnqueueTensorAllreduces(
+      hvd_contexts, cpu_buffers, cpu_buffers, ready_events,
+      names, device, callbacks, reduce_op, prescale_factor, postscale_factor);
+  ThrowIfError(enqueue_result);
+
+  return handle;
+}
+
 int DoAllgather(::torch::Tensor tensor, ::torch::Tensor output, const std::string& name) {
   ThrowIfError(common::CheckInitialized());
 
@@ -370,6 +502,31 @@ PYBIND11_MODULE(mpi_lib_v2, m) {
         &DoAllreduceCudaOnCPU);
   m.def("horovod_torch_allreduce_async_torch_cuda_DoubleTensor",
         &DoAllreduceCudaOnCPU);
+#endif
+
+  // grouped allreduce
+  m.def("horovod_torch_grouped_allreduce_async_torch_IntTensor", &DoGroupedAllreduce);
+  m.def("horovod_torch_grouped_allreduce_async_torch_LongTensor", &DoGroupedAllreduce);
+  m.def("horovod_torch_grouped_allreduce_async_torch_HalfTensor", &DoGroupedAllreduce);
+  m.def("horovod_torch_grouped_allreduce_async_torch_FloatTensor", &DoGroupedAllreduce);
+  m.def("horovod_torch_grouped_allreduce_async_torch_DoubleTensor", &DoGroupedAllreduce);
+#if HOROVOD_GPU_ALLREDUCE
+  m.def("horovod_torch_grouped_allreduce_async_torch_cuda_IntTensor", &DoGroupedAllreduce);
+  m.def("horovod_torch_grouped_allreduce_async_torch_cuda_LongTensor", &DoGroupedAllreduce);
+  m.def("horovod_torch_grouped_allreduce_async_torch_cuda_HalfTensor", &DoGroupedAllreduce);
+  m.def("horovod_torch_grouped_allreduce_async_torch_cuda_FloatTensor", &DoGroupedAllreduce);
+  m.def("horovod_torch_grouped_allreduce_async_torch_cuda_DoubleTensor", &DoGroupedAllreduce);
+#else
+  m.def("horovod_torch_grouped_allreduce_async_torch_cuda_IntTensor",
+        &DoGroupedAllreduceCudaOnCPU);
+  m.def("horovod_torch_grouped_allreduce_async_torch_cuda_LongTensor",
+        &DoGroupedAllreduceCudaOnCPU);
+  m.def("horovod_torch_grouped_allreduce_async_torch_cuda_HalfTensor",
+        &DoGroupedAllreduceCudaOnCPU);
+  m.def("horovod_torch_grouped_allreduce_async_torch_cuda_FloatTensor",
+        &DoGroupedAllreduceCudaOnCPU);
+  m.def("horovod_torch_grouped_allreduce_async_torch_cuda_DoubleTensor",
+        &DoGroupedAllreduceCudaOnCPU);
 #endif
 
   // allgather

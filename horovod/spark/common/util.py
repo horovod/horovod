@@ -706,3 +706,7 @@ def _get_assigned_gpu_or_default(default):
     else:
         # pin to default GPU index (local rank)
         return default
+
+
+def is_databricks():
+    return "DATABRICKS_RUNTIME_VERSION" in os.environ

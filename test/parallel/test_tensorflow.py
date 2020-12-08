@@ -23,6 +23,8 @@ from distutils.version import LooseVersion
 import itertools
 import numpy as np
 import os
+import math
+import pytest
 import tensorflow as tf
 from horovod.tensorflow.util import _executing_eagerly
 from tensorflow.python.framework import ops
@@ -820,6 +822,150 @@ class TensorFlowTests(tf.test.TestCase):
             self.assertLess(err, 0.00000001,
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
+
+    def test_horovod_grouped_allreduce_cpu(self):
+        """Test on CPU that the grouped allreduce correctly sums 1D, 2D, 3D tensors."""
+        hvd.init()
+        size = hvd.size()
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                tensors = [self.random_uniform(
+                    [17] * dim, -100, 100, dtype=dtype) for _ in range(5)]
+                summed = hvd.grouped_allreduce(tensors, average=False)
+            multiplied = [tensor * size for tensor in tensors]
+            max_difference = tf.reduce_max([tf.reduce_max(tf.abs(t1 - t2)) for t1, t2 in zip(summed, multiplied)])
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                self.skipTest("Horovod cluster too large for precise multiplication comparison")
+
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold, "hvd.grouped_allreduce produces incorrect results")
+
+    def test_horovod_grouped_allreduce_gpu(self):
+        """Test on GPU that the grouped allreduce correctly sums 1D, 2D, 3D tensors."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        hvd.init()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%d" % local_rank):
+                tensors = [self.random_uniform(
+                    [17] * dim, -100, 100, dtype=dtype) for _ in range(5)]
+                summed = hvd.grouped_allreduce(tensors, average=False)
+            multiplied = [tensor * size for tensor in tensors]
+            max_difference = tf.reduce_max([tf.reduce_max(tf.abs(t1 - t2)) for t1, t2 in zip(summed, multiplied)])
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                self.skipTest("Horovod cluster too large for precise multiplication comparison")
+
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold, "hvd.grouped_allreduce on GPU produces incorrect results")
+
+    def test_horovod_grouped_allreduce_grad_cpu(self):
+        """Test the correctness of the grouped allreduce gradient on CPU."""
+        hvd.init()
+        size = hvd.size()
+
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                if _executing_eagerly():
+                    tensors = [self.tfe.Variable(self.random_uniform(
+                        [5] * dim, -100, 100, dtype=dtype)) for _ in range(5)]
+                    with tf.GradientTape(persistent=True) as tape:
+                        summed = hvd.grouped_allreduce(tensors, average=False)
+                else:
+                    tensors = [self.random_uniform(
+                        [5] * dim, -100, 100, dtype=dtype) for _ in range(5)]
+                    summed = hvd.grouped_allreduce(tensors, average=False)
+
+                grads_ys = [tf.ones([5] * dim, dtype=dtype) for _ in range(5)]
+                if _executing_eagerly():
+                    grads_out = [tape.gradient(s, t, g) for s, t, g in zip(summed, tensors, grads_ys)]
+                else:
+                    grads = [tf.gradients(s, t, g)[0] for s, t, g in zip(summed, tensors, grads_ys)]
+                    grads_out = [self.evaluate(grad) for grad in grads]
+
+            expected = np.ones([5] * dim) * size
+            for grad_out in grads_out:
+                err = np.linalg.norm(expected - grad_out)
+                self.assertLess(err, 0.00000001,
+                                "gradient %s differs from expected %s, "
+                                "error: %s" % (grad_out, expected, str(err)))
+
+    def test_horovod_grouped_allreduce_grad_gpu(self):
+        """Test the correctness of the grouped allreduce gradient on GPU."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        hvd.init()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%d" % local_rank):
+                if _executing_eagerly():
+                    tensors = [self.tfe.Variable(self.random_uniform(
+                        [5] * dim, -100, 100, dtype=dtype)) for _ in range(5)]
+                    with tf.GradientTape(persistent=True) as tape:
+                        summed = hvd.grouped_allreduce(tensors, average=False)
+                else:
+                    tensors = [self.random_uniform(
+                        [5] * dim, -100, 100, dtype=dtype) for _ in range(5)]
+                    summed = hvd.grouped_allreduce(tensors, average=False)
+
+                grads_ys = [tf.ones([5] * dim, dtype=dtype) for _ in range(5)]
+                if _executing_eagerly():
+                    grads_out = [tape.gradient(s, t, g) for s, t, g in zip(summed, tensors, grads_ys)]
+                else:
+                    grads = [tf.gradients(s, t, g)[0] for s, t, g in zip(summed, tensors, grads_ys)]
+                    grads_out = [self.evaluate(grad) for grad in grads]
+
+            expected = np.ones([5] * dim) * size
+            for grad_out in grads_out:
+                err = np.linalg.norm(expected - grad_out)
+                self.assertLess(err, 0.00000001,
+                                "gradient %s differs from expected %s, "
+                                "error: %s" % (grad_out, expected, str(err)))
 
     def test_horovod_allgather_cpu(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors."""
@@ -2641,6 +2787,61 @@ class TensorFlowTests(tf.test.TestCase):
                 self.assertAllClose(sync_bn_out, np.expand_dims(bn_out[hvd.rank()], 0))
                 self.assertAllClose(self.evaluate(sync_bn.moving_mean), self.evaluate(bn.moving_mean))
                 self.assertAllClose(self.evaluate(sync_bn.moving_variance), self.evaluate(bn.moving_variance))
+
+    def test_local_gradient_aggregation(self):
+        """Test that local gradient aggregation works as expected."""
+
+        if _executing_eagerly() or not hasattr(tf, 'ConfigProto'):
+            pytest.skip("Gradient aggregation for Legacy Optimizer only support graph mode.")
+
+        hvd.init()
+        with self.test_session(config=config) as sess:
+
+            class TestOptimizer(tf.compat.v1.train.Optimizer):
+                def __init__(self, *args, **kwargs):
+                    super().__init__(*args, **kwargs)
+                    self.variable = tf.Variable([0.0])
+
+                def compute_gradients(self, *args, **kwargs):
+                    return [(tf.constant([float(hvd.rank())]), self.variable)]
+
+                def _apply_dense(self, grad, var):
+                    return var.assign_add(grad)
+
+            backward_passes_per_step = 4
+            opt = TestOptimizer(name="test", use_locking=False)
+            opt = hvd.DistributedOptimizer(
+                optimizer=opt,
+                backward_passes_per_step=backward_passes_per_step,
+                average_aggregated_gradients=True,
+            )
+
+            grads_and_vars = opt.compute_gradients()
+            update_op = opt.apply_gradients(grads_and_vars)
+            sess.run(tf.compat.v1.global_variables_initializer())
+            sess.run(tf.compat.v1.local_variables_initializer())
+
+            def compute_expected_value(batch_id):
+                sum_per_aggregation = 0.0
+                for _ in range(backward_passes_per_step):
+                    grads_for_batch = 0.0
+                    for rank in range(hvd.size()):
+                        grads_for_batch += rank
+
+                    # Apply `average_aggregated_gradients`.
+                    grads_for_batch /= float(backward_passes_per_step)
+
+                    # Averages across workers.
+                    sum_per_aggregation += grads_for_batch / float(hvd.size())
+
+                aggregations_completed = math.floor((batch_id + 1) / backward_passes_per_step)
+                return aggregations_completed * sum_per_aggregation
+
+            for idx in range(10):
+                _ = sess.run(update_op)
+                computed_value = sess.run(opt._optimizer.variable.read_value())[0]
+                assert computed_value == compute_expected_value(idx)
+
 
 from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
 run_all_in_graph_and_eager_modes(TensorFlowTests)

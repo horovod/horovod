@@ -51,7 +51,8 @@ scaled_lr = 0.001 * hvd.size()
 opt = tf.optimizers.Adam(scaled_lr)
 
 # Horovod: add Horovod DistributedOptimizer.
-opt = hvd.DistributedOptimizer(opt)
+opt = hvd.DistributedOptimizer(
+    opt, backward_passes_per_step=1, average_aggregated_gradients=True)
 
 # Horovod: Specify `experimental_run_tf_function=False` to ensure TensorFlow
 # uses hvd.DistributedOptimizer() to compute gradients.
@@ -75,7 +76,7 @@ callbacks = [
     # Horovod: using `lr = 1.0 * hvd.size()` from the very beginning leads to worse final
     # accuracy. Scale the learning rate `lr = 1.0` ---> `lr = 1.0 * hvd.size()` during
     # the first three epochs. See https://arxiv.org/abs/1706.02677 for details.
-    hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=3, initial_lr=scaled_lr, verbose=1),
+    hvd.callbacks.LearningRateWarmupCallback(initial_lr=scaled_lr, warmup_epochs=3, verbose=1),
 ]
 
 # Horovod: save checkpoints only on worker 0 to prevent other workers from corrupting them.

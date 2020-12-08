@@ -115,11 +115,22 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,
                               std::shared_ptr<Tensor> output,
                               std::shared_ptr<ReadyEvent> ready_event,
-                              const std::string name, const int device,
+                              std::string name, const int device,
                               StatusCallback callback,
                               ReduceOp reduce_op = ReduceOp::SUM,
                               double prescale_factor = 1.0,
                               double postscale_factor = 1.0);
+
+Status EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts,
+                               std::vector<std::shared_ptr<Tensor>>& tensors,
+                               std::vector<std::shared_ptr<Tensor>>& outputs,
+                               std::vector<std::shared_ptr<ReadyEvent>>& ready_events,
+                               std::vector<std::string>& names,
+                               const int device,
+                               std::vector<StatusCallback>& callbacks,
+                               ReduceOp reduce_op = ReduceOp::SUM,
+                               double prescale_factor = 1.0,
+                               double postscale_factor = 1.0);
 
 Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,

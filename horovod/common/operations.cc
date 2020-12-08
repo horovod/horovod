@@ -273,6 +273,7 @@ void PerformOperation(Response response, HorovodGlobalState& state) {
           [&]() { timeline.ActivityStartAll(entries, INIT_FUSION_BUFFER); },
           [&]() { timeline.ActivityEndAll(entries); });
       if (!status.ok()) {
+        LOG(DEBUG, horovod_global.controller->GetRank()) << "InitializeBuffer Failed";
         for (auto& e : entries) {
           timeline.End(e.tensor_name, nullptr);
           // Callback can be null if the rank sent Join request.
@@ -315,6 +316,7 @@ void PerformOperation(Response response, HorovodGlobalState& state) {
   try {
     status = op_manager->ExecuteOperation(entries, response);
   } catch (const std::exception& ex) {
+    LOG(DEBUG, horovod_global.controller->GetRank()) << "ExecuteOperation Failed";
     status = Status::UnknownError(ex.what());
   }
 
@@ -421,9 +423,12 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     state.timeline.Initialize(horovod_timeline,
                               static_cast<unsigned int>(size));
   }
-  if (horovod_timeline != "") {
-      should_enable_timeline = true;
+
+  should_enable_timeline = true;
+  if (horovod_timeline == "DISABLED") {
+    should_enable_timeline = false;
   }
+
   state.controller->SetTimelineEnabled(should_enable_timeline);
 
   ParseStallInspectorFromEnv(state.controller->GetStallInspector());
@@ -434,7 +439,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.mark_cycles_in_timeline = mark_cycles;
 
   // Override Tensor Fusion threshold, if it's set.
-  state.parameter_manager.SetTensorFusionThresholdBytes(64 * 1024 * 1024);
+  state.parameter_manager.SetTensorFusionThresholdBytes(128 * 1024 * 1024);
   auto horovod_fusion_threshold = std::getenv(HOROVOD_FUSION_THRESHOLD);
   if (horovod_fusion_threshold != nullptr) {
     int64_t threshold = std::strtol(horovod_fusion_threshold, nullptr, 10);
@@ -442,7 +447,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
 
   // Override the cycle time.
-  state.parameter_manager.SetCycleTimeMs(5);
+  state.parameter_manager.SetCycleTimeMs(1);
   auto horovod_cycle_time = std::getenv(HOROVOD_CYCLE_TIME);
   if (horovod_cycle_time != nullptr) {
     state.parameter_manager.SetCycleTimeMs(
@@ -498,6 +503,17 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
            "number of ranks to each node, or disabling hierarchical "
            "allgather and hierarchical allreduce.";
   }
+
+  // Set flag to control use of batched memcopy kernel on GPU
+  auto horovod_batch_d2d_memcopies =
+      std::getenv(HOROVOD_BATCH_D2D_MEMCOPIES);
+  if (horovod_batch_d2d_memcopies != nullptr &&
+      std::strtol(horovod_batch_d2d_memcopies, nullptr, 10) == 0) {
+    state.batch_d2d_memcopies = false;
+  }
+
+  // Check if group fusion should be disabled
+  SetBoolFromEnv(HOROVOD_DISABLE_GROUP_FUSION, state.disable_group_fusion, true);
 
   // Enable auto-tuning.
   auto horovod_autotune = std::getenv(HOROVOD_AUTOTUNE);
@@ -588,8 +604,8 @@ bool RunLoopOnce(HorovodGlobalState& state) {
   auto response_list =
       state.controller->ComputeResponseList(horovod_global.shut_down, state);
 
-  state.mark_cycles_in_timeline = state.controller->MarkCyclesInTimelinePending();
-  state.controller->SynchronizeTimelineEnabled();
+  state.mark_cycles_in_timeline =
+      state.controller->MarkCyclesInTimelinePending();
 
   // Get tensor name and size data for autotuning.
   int64_t total_tensor_size = 0;
@@ -603,6 +619,11 @@ bool RunLoopOnce(HorovodGlobalState& state) {
   // the same operation.
   int rank = state.controller->GetRank();
   for (auto& response : response_list.responses()) {
+    if (!state.group_table.empty()) {
+      // Deregister any completed groups
+      state.group_table.DeregisterGroups(response.tensor_names());
+    }
+
     LOG(TRACE, rank) << "Performing " << response.tensor_names_string();
     LOG(TRACE, rank) << "Processing " << response.tensor_names().size()
                      << " tensors";
@@ -641,7 +662,8 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
       horovod_global.controller.reset(new MPIController(
           horovod_global.response_cache,
           horovod_global.tensor_queue, horovod_global.timeline,
-          horovod_global.parameter_manager, mpi_context));
+          horovod_global.parameter_manager, horovod_global.group_table,
+          mpi_context));
       horovod_global.controller->SetRanks(ranks, nranks);
     }
 #endif
@@ -657,7 +679,8 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
       horovod_global.controller.reset(new GlooController(
           horovod_global.response_cache,
           horovod_global.tensor_queue, horovod_global.timeline,
-          horovod_global.parameter_manager, gloo_context));
+          horovod_global.parameter_manager, horovod_global.group_table,
+          gloo_context));
     }
 #endif
     // Reset initialization flag
@@ -717,21 +740,11 @@ bool horovod_start_timeline(const char* file_name, bool mark_cycles) {
     return false;
   }
   bool is_coordinator = horovod_global.controller->IsCoordinator();
-  if(horovod_global.controller->TimelineEnabledPending()){
-    LOG(INFO) << " Timeline is already enabled. Please stop timeline before restarting it.";
-    return true;
-  }
   if (is_coordinator) {
     horovod_global.timeline.Initialize(std::string(file_name), horovod_global.controller->GetSize());
     horovod_global.timeline.SetPendingTimelineFile(std::string(file_name));
   }
-  horovod_global.controller->SetTimelineEnabledPending(true);
   horovod_global.controller->SetMarkCyclesInTimelinePending(mark_cycles);
-  // block until timeline is started
-  while(! horovod_global.controller->TimeLineEnabled()){
-    LOG(DEBUG)<< " Start timeline not yet synchronized.";
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-  }
   return true;
 }
 
@@ -746,12 +759,6 @@ bool horovod_stop_timeline() {
   bool is_coordinator = horovod_global.controller->IsCoordinator();
   if (is_coordinator) {
       horovod_global.timeline.SetPendingTimelineFile(std::string(""));
-  }
-  horovod_global.controller->SetTimelineEnabledPending(false);
-  horovod_global.controller->SetMarkCyclesInTimelinePending(false);
-  while(horovod_global.controller->TimeLineEnabled()){
-    LOG(DEBUG)<< " Stop timeline not yet synchronized.";
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
   return true;
 }
@@ -894,11 +901,41 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,
                               std::shared_ptr<Tensor> output,
                               std::shared_ptr<ReadyEvent> ready_event,
-                              const std::string name, const int device,
+                              std::string name, const int device,
                               StatusCallback callback,
                               ReduceOp reduce_op,
                               double prescale_factor,
                               double postscale_factor) {
+  // Wrap inputs in std::vector and pass onto multi tensor implementation
+  std::vector<std::shared_ptr<OpContext>> contexts;
+  std::vector<std::shared_ptr<Tensor>> tensors;
+  std::vector<std::shared_ptr<Tensor>> outputs;
+  std::vector<std::shared_ptr<ReadyEvent>> ready_events;
+  std::vector<std::string> names;
+  std::vector<StatusCallback> callbacks;
+
+  contexts.emplace_back(std::move(context));
+  tensors.emplace_back(std::move(tensor));
+  outputs.emplace_back(std::move(output));
+  ready_events.emplace_back(std::move(ready_event));
+  names.emplace_back(std::move(name));
+  callbacks.emplace_back(std::move(callback));
+
+  return EnqueueTensorAllreduces(contexts, tensors, outputs, ready_events,
+                                 names, device, callbacks, reduce_op,
+                                 prescale_factor, postscale_factor);
+}
+
+Status EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts,
+                               std::vector<std::shared_ptr<Tensor>>& tensors,
+                               std::vector<std::shared_ptr<Tensor>>& outputs,
+                               std::vector<std::shared_ptr<ReadyEvent>>& ready_events,
+                               std::vector<std::string>& names,
+                               const int device,
+                               std::vector<StatusCallback>& callbacks,
+                               ReduceOp reduce_op,
+                               double prescale_factor,
+                               double postscale_factor) {
   Status status;
 
   if (reduce_op == ReduceOp::AVERAGE) {
@@ -917,38 +954,69 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
     }
 #endif
   }
-  Request message;
-  message.set_request_rank(horovod_global.controller->GetRank());
-  message.set_tensor_name(name);
-  message.set_tensor_type(tensor->dtype());
-  message.set_device(device);
-  message.set_prescale_factor(prescale_factor);
-  message.set_postscale_factor(postscale_factor);
-  if (reduce_op == ReduceOp::ADASUM) {
-    message.set_request_type(Request::ADASUM);
-  } else {
-    message.set_request_type(Request::ALLREDUCE);
-  }
-  for (int i = 0; i < tensor->shape().dims(); ++i) {
-    message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
+
+  std::vector<Request> messages;
+  std::vector<TensorTableEntry> entries;
+  messages.reserve(tensors.size());
+  entries.reserve(tensors.size());
+
+  for (int n = 0; n < tensors.size(); ++n) {
+    Request message;
+    message.set_request_rank(horovod_global.controller->GetRank());
+    message.set_tensor_name(names[n]);
+    message.set_tensor_type(tensors[n]->dtype());
+    message.set_device(device);
+    message.set_prescale_factor(prescale_factor);
+    message.set_postscale_factor(postscale_factor);
+
+    if (reduce_op == ReduceOp::ADASUM) {
+      message.set_request_type(Request::ADASUM);
+    } else {
+      message.set_request_type(Request::ALLREDUCE);
+    }
+
+    message.set_tensor_shape(tensors[n]->shape().to_vector());
+    messages.push_back(std::move(message));
+
+    TensorTableEntry e;
+    e.tensor_name = names[n];
+    e.context = std::move(contexts[n]);
+    // input and output can be the same, only move when safe
+    if (tensors[n] != outputs[n]) {
+      e.tensor = std::move(tensors[n]);
+      e.output = std::move(outputs[n]);
+    } else {
+      e.tensor = tensors[n];
+      e.output = outputs[n];
+    }
+    e.ready_event = std::move(ready_events[n]);
+    e.device = device;
+    e.callback = std::move(callbacks[n]);
+
+    entries.push_back(std::move(e));
+
   }
 
-  TensorTableEntry e;
-  e.tensor_name = name;
-  e.context = context;
-  e.tensor = tensor;
-  e.output = output;
-  e.ready_event = ready_event;
-  e.device = device;
-  e.callback = callback;
+  std::string tensors_enqueued;
+  for (const auto& n : names) {
+    tensors_enqueued += n + "; ";
+  }
+  LOG(TRACE) << "Enqueing " << tensors_enqueued;
+
+  // Only create groups larger than 1 tensor, unless disable_group_fusion is requested.
+  // In that case, even single tensor groups are created to enforce disabling fusion.
+  if (tensors.size() > 1 || horovod_global.disable_group_fusion) {
+    auto group_id = horovod_global.group_table.RegisterGroup(std::move(names));
+    for (auto& message : messages) {
+      message.set_group_id(group_id);
+    }
+  }
 
   if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
   }
-  status = horovod_global.tensor_queue.AddToTensorQueue(e, message);
-  if (status.ok()) {
-    LOG(TRACE, horovod_global.controller->GetRank()) << "Enqueued " << name;
-  }
+  status = horovod_global.tensor_queue.AddToTensorQueueMulti(entries, messages);
+
   return status;
 }
 
