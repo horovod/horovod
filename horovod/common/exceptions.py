@@ -28,7 +28,8 @@ class HostsUpdatedInterrupt(RuntimeError):
 
     In elastic mode, this will result in a reset event without a restore to committed state.
     """
-    pass
+    def __init__(self, skip_sync):
+        self.skip_sync = skip_sync
 
 
 def get_version_mismatch_message(name, version, installed_version):

@@ -16,6 +16,8 @@
 import os
 import threading
 
+from enum import IntFlag
+
 from horovod.runner.common.util import network, secret
 from horovod.runner.elastic.rendezvous import PUT_WORKER_ADDRESSES
 from horovod.runner.http.http_client import put_data_into_kvstore
@@ -27,11 +29,18 @@ HOROVOD_GLOO_IFACE = 'HOROVOD_GLOO_IFACE'
 HOROVOD_HOSTNAME = 'HOROVOD_HOSTNAME'
 HOROVOD_LOCAL_RANK = 'HOROVOD_LOCAL_RANK'
 
+class HostUpdateResult(IntFlag):
+    no_update = 0
+    removed = 1
+    added = 2
+    mixed = removed | added
+
 
 class HostsUpdatedRequest(object):
     """Notifies worker that the set of available hosts/slots has changed."""
-    def __init__(self, timestamp):
+    def __init__(self, timestamp, res=HostUpdateResult.no_update):
         self.timestamp = timestamp
+        self.res = res
 
 
 class WorkerNotificationManager(object):
@@ -73,9 +82,9 @@ class WorkerNotificationManager(object):
     def remove_listener(self, listener):
         self._listeners.remove(listener)
 
-    def handle_hosts_updated(self, timestamp):
+    def handle_hosts_updated(self, timestamp, update_res):
         for listener in self._listeners:
-            listener.on_hosts_updated(timestamp)
+            listener.on_hosts_updated(timestamp, update_res)
 
     def _create_id(self, hostname, local_rank):
         return '{}:{}'.format(hostname, local_rank)
@@ -92,7 +101,7 @@ class WorkerNotificationService(network.BasicService):
 
     def _handle(self, req, client_address):
         if isinstance(req, HostsUpdatedRequest):
-            self._manager.handle_hosts_updated(req.timestamp)
+            self._manager.handle_hosts_updated(req.timestamp, req.res)
             return network.AckResponse()
 
         return super(WorkerNotificationService, self)._handle(req, client_address)
@@ -106,5 +115,5 @@ class WorkerNotificationClient(network.BasicClient):
                                                        verbose,
                                                        match_intf=match_intf)
 
-    def notify_hosts_updated(self, timestamp):
-        self._send(HostsUpdatedRequest(timestamp))
+    def notify_hosts_updated(self, timestamp, update_res):
+        self._send(HostsUpdatedRequest(timestamp, update_res))

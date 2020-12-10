@@ -20,6 +20,7 @@ import threading
 from collections import defaultdict
 
 from horovod.runner.common.util import safe_shell_exec
+from horovod.runner.elastic.worker import HostUpdateResult
 
 
 class HostState(object):
@@ -84,6 +85,26 @@ class HostManager(object):
 
     def update_available_hosts(self):
         # TODO(travis): also check for hosts removed from the blacklist in the future
+        def check_update(cur_host_slots, prev_host_slots):
+            res = HostUpdateResult.no_update
+
+            for prev_h in prev_host_slots:
+                if prev_h not in cur_host_slots:
+                    # prev_h is a removed host
+                    res |= HostUpdateResult.removed
+
+            for h in cur_host_slots:
+                if h not in prev_host_slots:
+                    # h is an added host
+                    res |= HostUpdateResult.added
+                elif cur_host_slots[h] > prev_host_slots[h]:
+                    # h has more slots added
+                    res |= HostUpdateResult.added
+                elif cur_host_slots[h] < prev_host_slots[h]:
+                    # h has removed some slots
+                    res |=  HostUpdateResult.removed
+            return res
+
         prev_host_slots = self._current_hosts.host_slots
         prev_host_assignment_order = self._current_hosts.host_assignment_order
         host_slots = self._discovery.find_available_hosts_and_slots()
@@ -92,8 +113,9 @@ class HostManager(object):
             host_assignment_order = HostManager.order_available_hosts(available_hosts, prev_host_assignment_order)
             self._current_hosts = DiscoveredHosts(host_slots=host_slots,
                                                   host_assignment_order=host_assignment_order)
-            return True
-        return False
+            return check_update(self._current_hosts.host_slots, prev_host_slots)
+        else:
+            return HostUpdateResult.no_update
 
     @property
     def current_hosts(self):
