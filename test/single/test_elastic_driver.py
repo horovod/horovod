@@ -24,7 +24,7 @@ from horovod.runner.util import network
 from horovod.runner.elastic.discovery import FixedHosts, HostManager
 from horovod.runner.elastic.driver import ElasticDriver
 from horovod.runner.elastic.rendezvous import create_rendezvous_handler
-from horovod.runner.elastic.worker import WorkerNotificationManager
+from horovod.runner.elastic.worker import HostUpdateResult, WorkerNotificationManager
 from horovod.runner.http.http_server import RendezvousServer
 
 
@@ -309,8 +309,8 @@ class ElasticDriverTests(unittest.TestCase):
             def __init__(self):
                 self.events = []
 
-            def on_hosts_updated(self, timestamp):
-                self.events.append(timestamp)
+            def on_hosts_updated(self, timestamp, res):
+                self.events.append((timestamp, res))
 
         def add_host():
             slots = {'host-1': 2, 'host-2': 2}
@@ -356,9 +356,14 @@ class ElasticDriverTests(unittest.TestCase):
             assert exit_code == 0, name
 
         assert len(rank_results) == 2
-        for rank, timestamps in rank_results.items():
+        for rank, events in rank_results.items():
             expected = 2 if rank == 0 else 0
-            assert len(timestamps) == expected, rank
+            assert len(events) == expected, rank
+            if rank == 0:
+                # First update is an add
+                assert events[0][1] == HostUpdateResult.added
+                # Second update is a removal
+                assert events[1][1] == HostUpdateResult.removed
 
         rendezvous.stop()
 
@@ -405,7 +410,9 @@ class ElasticDriverTests(unittest.TestCase):
         mock_discovery.find_available_hosts_and_slots.side_effect = [
             {'a': 2},
             {'a': 2, 'b': 2},
-            {'b': 2}
+            {'b': 2},
+            {'b': 1, 'c': 1},
+            {'b': 1, 'c': 1}
         ]
         host_manager = HostManager(mock_discovery)
 
@@ -414,7 +421,8 @@ class ElasticDriverTests(unittest.TestCase):
         assert current_hosts.available_hosts == set()
         assert current_hosts.count_available_slots() == 0
 
-        host_manager.update_available_hosts()
+        # From empty to {'a': 2}, it is an add update
+        assert host_manager.update_available_hosts() == HostUpdateResult.added
 
         # First, check that nothing changed with our existing object, which is immutable
         assert current_hosts.available_hosts == set()
@@ -426,15 +434,31 @@ class ElasticDriverTests(unittest.TestCase):
         assert current_hosts.count_available_slots() == 2
 
         # Now check again
-        host_manager.update_available_hosts()
+        # It is an increase update
+        assert host_manager.update_available_hosts() == HostUpdateResult.added
         current_hosts = host_manager.current_hosts
         assert current_hosts.available_hosts == {'a', 'b'}
         assert current_hosts.count_available_slots() == 4
 
         # And again
-        host_manager.update_available_hosts()
+        # It is a removal update
+        assert host_manager.update_available_hosts() == HostUpdateResult.removed
         current_hosts = host_manager.current_hosts
         assert current_hosts.available_hosts == {'b'}
+        assert current_hosts.count_available_slots() == 2
+
+        # Try one more time
+        # It is a mix update
+        assert host_manager.update_available_hosts() == HostUpdateResult.mixed
+        current_hosts = host_manager.current_hosts
+        assert current_hosts.available_hosts == {'b', 'c'}
+        assert current_hosts.count_available_slots() == 2
+
+        # Finally
+        # No change
+        assert host_manager.update_available_hosts() == HostUpdateResult.no_update
+        current_hosts = host_manager.current_hosts
+        assert current_hosts.available_hosts == {'b', 'c'}
         assert current_hosts.count_available_slots() == 2
 
     def test_blacklist_host(self):
