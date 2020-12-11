@@ -129,7 +129,8 @@ void GPUAllreduce::MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& ent
       if (idx % BATCHED_D2D_CAPACITY == 0 || idx == (int) entries.size()) {
         // Perform batched d2d memcpy
         BatchedD2DMemcpyCudaImpl(d2d_params, count, gpu_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
-        gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl", cudaGetLastError());
+        // TODO: https://github.com/horovod/horovod/issues/2230
+        //gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl", cudaGetLastError());
         count = 0;
       }
     }
@@ -183,7 +184,8 @@ void GPUAllreduce::MemcpyOutFusionBuffer(const void* buffer_data, std::vector<Te
       if (idx % BATCHED_D2D_CAPACITY == 0 || idx == (int) entries.size()) {
         // Perform batched d2d memcpy
         BatchedD2DMemcpyCudaImpl(d2d_params, count, gpu_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
-        gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl", cudaGetLastError());
+        // TODO: https://github.com/horovod/horovod/issues/2230
+        //gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl", cudaGetLastError());
         count = 0;
       }
     }
