@@ -289,6 +289,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         optimizer = copy.deepcopy(self.getOptimizer())
 
         model.load_state_dict(best_checkpoint['model'])
+        model.eval()
         optimizer.load_state_dict(best_checkpoint['optimizer'])
 
         return self.get_model_class()(**self._get_model_kwargs(
@@ -396,8 +397,6 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
     # To run locally on OS X, need export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
     def _transform(self, df):
         model_pre_predict = self.getModel()
-        model_pre_predict.eval()
-
         deserialize = deserialize_fn()
         serialize = serialize_fn()
         serialized_model = serialize(model_pre_predict)
