@@ -112,6 +112,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                     or validation split (float) giving percent of data to be randomly selected for validation.
         label_cols: Column names used as labels.  Must be a list with one label for each output of the model.
         batch_size: Number of rows from the DataFrame per batch.
+        val_batch_size: Number of rows from the DataFrame per batch for validation, if not set, will use batch_size.
         epochs: Number of epochs to train.
         verbose: Verbosity level [0, 2] (default: 1).
         shuffle_buffer_size: Optional size of in-memory shuffle buffer in rows. Allocating a larger buffer size
@@ -168,6 +169,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  label_cols=None,
                  callbacks=None,
                  batch_size=None,
+                 val_batch_size=None,
                  epochs=None,
                  verbose=1,
                  shuffle_buffer_size=None,
@@ -287,6 +289,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         optimizer = copy.deepcopy(self.getOptimizer())
 
         model.load_state_dict(best_checkpoint['model'])
+        model.eval()
         optimizer.load_state_dict(best_checkpoint['optimizer'])
 
         return self.get_model_class()(**self._get_model_kwargs(
@@ -394,8 +397,6 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
     # To run locally on OS X, need export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
     def _transform(self, df):
         model_pre_predict = self.getModel()
-        model_pre_predict.eval()
-
         deserialize = deserialize_fn()
         serialize = serialize_fn()
         serialized_model = serialize(model_pre_predict)
