@@ -124,6 +124,10 @@ def train(state):
             if args.discovery_wait > 0 and current_hosts != next_hosts:
                 print('host changes: {} -> {}'.format(current_hosts, next_hosts))
                 start = int(time.time())
+
+                # Reset the last updated timestamp to ensure we still raise HostsUpdatedInterrupt even
+                # if the timestamp from the driver isn't greater than the last (due to time loops).
+                state._last_updated_timestamp = 0
                 while state._host_messages.empty():
                     if int(time.time()) - start > args.discovery_wait:
                         raise TimeoutError('Timed out waiting for notifications from driver.')
