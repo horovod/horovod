@@ -40,8 +40,8 @@ from common import mpi_env_rank_and_size, temppath
 
 _1_5_api = LooseVersion(torch.__version__) >= LooseVersion('1.5.0')
 
-ccl_supported_types = set([torch.CharTensor, torch.IntTensor,
-                           torch.LongTensor, torch.FloatTensor, 
+ccl_supported_types = set([torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
+                           torch.IntTensor, torch.LongTensor, torch.FloatTensor,
                            torch.DoubleTensor])
 
 
@@ -1180,9 +1180,9 @@ class TorchTests(unittest.TestCase):
         if hvd.nccl_built() and hvd.nccl_built() < 2700:
             self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
 
-        dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
-                  torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor,
-                  torch.HalfTensor]
+        dtypes = self.filter_supported_types([torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
+                                              torch.IntTensor, torch.LongTensor, torch.FloatTensor,
+                                              torch.DoubleTensor, torch.HalfTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
                        torch.cuda.IntTensor, torch.cuda.LongTensor,
@@ -1218,9 +1218,9 @@ class TorchTests(unittest.TestCase):
         if hvd.nccl_built() and hvd.nccl_built() < 2700:
             self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
 
-        dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
-                  torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor,
-                  torch.HalfTensor]
+        dtypes = self.filter_supported_types([torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
+                                              torch.IntTensor, torch.LongTensor, torch.FloatTensor,
+                                              torch.DoubleTensor, torch.HalfTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
                        torch.cuda.IntTensor, torch.cuda.LongTensor,
@@ -2084,8 +2084,8 @@ class TorchTests(unittest.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
-        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
-                     torch.FloatTensor, torch.DoubleTensor])
+        dtypes = [torch.IntTensor, torch.LongTensor,
+                  torch.FloatTensor, torch.DoubleTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
