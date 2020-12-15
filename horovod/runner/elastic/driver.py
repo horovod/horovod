@@ -78,12 +78,14 @@ class ElasticDriver(object):
         self._world_size = 0
 
         self._wait_hosts_cond = threading.Condition()
-        self._timeout = timeout or int(os.getenv('HOROVOD_ELASTIC_TIMEOUT', ELASTIC_TIMEOUT_SECS))
+        self._timeout = timeout or int(
+            os.getenv('HOROVOD_ELASTIC_TIMEOUT', ELASTIC_TIMEOUT_SECS))
 
         self._create_worker_fn = None
         self._worker_clients = {}
 
-        self._worker_registry = WorkerStateRegistry(self, self._host_manager, reset_limit=reset_limit)
+        self._worker_registry = WorkerStateRegistry(
+            self, self._host_manager, reset_limit=reset_limit)
         self._results = ResultsRecorder()
         self._shutdown = threading.Event()
 
@@ -123,6 +125,12 @@ class ElasticDriver(object):
     def world_size(self):
         return self._world_size
 
+    def remove_from_host_assignments(self, host):
+        if host in self._host_assignments:
+            for slot in self._host_assignments[host]:
+                del self._worker_clients[(host, slot.local_rank)]
+            del self._host_assignments[host]
+
     def local_size(self, host):
         return len(self._host_assignments[host])
 
@@ -161,9 +169,11 @@ class ElasticDriver(object):
                 if current_hosts.count_available_slots() >= min_np and len(current_hosts.available_hosts) >= min_hosts:
                     return current_hosts
                 if self._shutdown.is_set():
-                    raise RuntimeError('Job has been shutdown, see above error messages for details.')
+                    raise RuntimeError(
+                        'Job has been shutdown, see above error messages for details.')
                 self._wait_hosts_cond.wait(tmout.remaining())
-                tmout.check_time_out_for('minimum number of slots to become available')
+                tmout.check_time_out_for(
+                    'minimum number of slots to become available')
         finally:
             self._wait_hosts_cond.release()
 
@@ -180,7 +190,8 @@ class ElasticDriver(object):
             self._wait_hosts_cond.acquire()
             try:
                 if self._host_manager.update_available_hosts():
-                    self._notify_workers_host_changes(self._host_manager.current_hosts)
+                    self._notify_workers_host_changes(
+                        self._host_manager.current_hosts)
                     self._wait_hosts_cond.notify_all()
             except RuntimeError as e:
                 if first_update:
@@ -199,7 +210,8 @@ class ElasticDriver(object):
         next_host_assignments = {}
         if current_hosts.count_available_slots() >= self._min_np:
             # Assignments are required to be stable via contract
-            next_host_assignments, _ = self._get_host_assignments(current_hosts)
+            next_host_assignments, _ = self._get_host_assignments(
+                current_hosts)
 
         if next_host_assignments == self.host_assignments:
             # Skip notifying workers when host changes would not result in changes of host assignments
@@ -232,7 +244,8 @@ class ElasticDriver(object):
                             for slot_info in slots])
 
         # Adjust the host assignments to account for added / removed hosts
-        host_assignments, host_assignments_list = self._get_host_assignments(current_hosts)
+        host_assignments, host_assignments_list = self._get_host_assignments(
+            current_hosts)
 
         if len(self._host_assignments) > 0:
             # Ensure that at least one previously active host is still assigned, otherwise there is no
@@ -240,7 +253,8 @@ class ElasticDriver(object):
             prev_hosts = self._host_assignments.keys()
             next_hosts = host_assignments.keys()
             if not prev_hosts & next_hosts:
-                raise RuntimeError('No hosts from previous set remaining, unable to broadcast state.')
+                raise RuntimeError(
+                    'No hosts from previous set remaining, unable to broadcast state.')
 
         self._host_assignments = host_assignments
         self._world_size = len(host_assignments_list)
@@ -263,7 +277,8 @@ class ElasticDriver(object):
         # Adjust the host assignments to account for added / removed hosts
         host_list = [hosts.HostInfo(host, current_hosts.get_slots(host))
                      for host in current_hosts.host_assignment_order]
-        host_assignments_list = hosts.get_host_assignments(host_list, self._min_np, self._max_np)
+        host_assignments_list = hosts.get_host_assignments(
+            host_list, self._min_np, self._max_np)
         host_assignments = defaultdict(list)
         for slot_info in host_assignments_list:
             host_assignments[slot_info.hostname].append(slot_info)
@@ -271,7 +286,8 @@ class ElasticDriver(object):
 
     def _start_worker_processes(self, pending_slots):
         for slot_info in pending_slots:
-            logging.info('start worker process: {}[{}]'.format(slot_info.hostname, slot_info.local_rank))
+            logging.info('start worker process: {}[{}]'.format(
+                slot_info.hostname, slot_info.local_rank))
             self._start_worker_process(slot_info)
 
     def _start_worker_process(self, slot_info):
@@ -297,13 +313,14 @@ class ElasticDriver(object):
             return
 
         if exit_code == 0:
-            rendezvous_id = self._worker_registry.record_success(slot_info.hostname, slot_info.local_rank)
+            rendezvous_id = self._worker_registry.record_success(
+                slot_info.hostname, slot_info.local_rank)
         else:
-            rendezvous_id = self._worker_registry.record_failure(slot_info.hostname, slot_info.local_rank)
+            rendezvous_id = self._worker_registry.record_failure(
+                slot_info.hostname, slot_info.local_rank)
 
         if self.finished() and self._worker_registry.last_rendezvous() == rendezvous_id:
             logging.debug('adding results for {}[{}]: ({}, {})'
                           .format(slot_info.hostname, slot_info.local_rank, exit_code, timestamp))
             name = '{}[{}]'.format(slot_info.hostname, slot_info.local_rank)
             self._results.add_result(name, (exit_code, timestamp))
-

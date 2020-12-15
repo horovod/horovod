@@ -53,7 +53,8 @@ class WorkerStateRegistry(object):
             logging.info('reset workers: {}'.format(size))
             self._states.clear()
             self._workers.clear()
-            self._barrier = threading.Barrier(parties=size, action=self._action)
+            self._barrier = threading.Barrier(
+                parties=size, action=self._action)
             self._rendezvous_id += 1
             self._size = size
 
@@ -74,11 +75,13 @@ class WorkerStateRegistry(object):
 
     def _record_state(self, host, slot, state):
         if self._driver.finished():
-            logging.info('driver finished, ignoring registration: {}[{}] = {}'.format(host, slot, state))
+            logging.info('driver finished, ignoring registration: {}[{}] = {}'.format(
+                host, slot, state))
             return self._rendezvous_id
 
         if self._host_manager.is_blacklisted(host):
-            logging.warning('host registers state %s but is already blacklisted, ignoring: %s', state, host)
+            logging.warning(
+                'host registers state %s but is already blacklisted, ignoring: %s', state, host)
             return self._rendezvous_id
 
         key = (host, slot)
@@ -101,7 +104,8 @@ class WorkerStateRegistry(object):
                                   'ignoring (current state is %s)', state, self._states[key])
 
             if key not in self._states or state == FAILURE:
-                logging.info('record state: {}[{}] = {}'.format(host, slot, state))
+                logging.info(
+                    'record state: {}[{}] = {}'.format(host, slot, state))
                 self._states[key] = state
                 self._workers[state].add(key)
 
@@ -127,7 +131,8 @@ class WorkerStateRegistry(object):
                     saved_state = self._states.get(key, state)
                     if saved_state != state:
                         # This worker changed its state, so do not attempt to wait again to avoid double-counting
-                        raise RuntimeError('State {} overridden by {}'.format(state, saved_state))
+                        raise RuntimeError(
+                            'State {} overridden by {}'.format(state, saved_state))
 
     def _action(self):
         self._on_workers_recorded()
@@ -137,13 +142,15 @@ class WorkerStateRegistry(object):
 
         # Check for success state, if any process succeeded, shutdown all other processes
         if self.count(SUCCESS) > 0:
-            logging.info('success count == {} -> stop running'.format(self.count(SUCCESS)))
+            logging.info(
+                'success count == {} -> stop running'.format(self.count(SUCCESS)))
             self._driver.stop()
             return
 
         # Check that all processes failed, indicating that processing should stop
         if self.count(FAILURE) == self._size:
-            logging.error('failure count == {} -> stop running'.format(self._size))
+            logging.error(
+                'failure count == {} -> stop running'.format(self._size))
             self._driver.stop()
             return
 
@@ -151,10 +158,12 @@ class WorkerStateRegistry(object):
         failures = self.get(FAILURE)
         for host, slot in failures:
             self._host_manager.blacklist(host)
+            self._driver.remove_from_host_assignments(host)
 
         # If every active host is blacklisted, then treat this as job failure
         if all([self._host_manager.is_blacklisted(host) for host, slot in self.get_recorded_slots()]):
-            logging.error('blacklisted slots count == {} -> stop running'.format(self._size))
+            logging.error(
+                'blacklisted slots count == {} -> stop running'.format(self._size))
             self._driver.stop()
             return
 
@@ -162,7 +171,8 @@ class WorkerStateRegistry(object):
         if self._reset_limit is not None and self._reset_count >= self._reset_limit:
             logging.error('reset count {} has exceeded limit {} -> stop running'
                           .format(self._reset_count, self._reset_limit))
-            self._driver.stop(error_message=constants.RESET_LIMIT_EXCEEDED_MESSAGE.format(self._reset_limit))
+            self._driver.stop(
+                error_message=constants.RESET_LIMIT_EXCEEDED_MESSAGE.format(self._reset_limit))
             return
 
         try:

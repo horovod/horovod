@@ -16,6 +16,8 @@
 import io
 import logging
 import threading
+import random
+import time
 
 from collections import defaultdict
 
@@ -25,9 +27,8 @@ from horovod.runner.common.util import safe_shell_exec
 class HostState(object):
     def __init__(self):
         self._event = threading.Event()
-
-        # TODO(travis): blacklisted hosts should have a timeout period that increases with each failure
-        self._blacklisted = False
+        self._blacklist_counter = 0
+        self._blacklist_heal_wait_until = 0
 
     def get_event(self):
         if self._event.is_set():
@@ -39,11 +40,23 @@ class HostState(object):
         self._event.set()
 
     def blacklist(self):
-        self._blacklisted = True
+        now=time.time()
+        if self._blacklist_heal_wait_until > now:
+            return
+        self._blacklist_counter = self._blacklist_counter + 1
+        self._blacklist_heal_wait_until = now+min(max(60, 30*(1 << self._blacklist_counter)+random.randint(30, 60)), 600)
         self.set_event()
 
     def is_blacklisted(self):
-        return self._blacklisted
+        return time.time() < self._blacklist_heal_wait_until
+
+    def recovered_from_blacklist(self):
+        if self._blacklist_heal_wait_until > 0:
+            return not self.is_blacklisted()
+        return False
+
+    def reset_blacklist_state(self):
+        self._blacklist_heal_wait_until = 0
 
 
 class DiscoveredHosts(object):
@@ -78,20 +91,30 @@ class DiscoveredHosts(object):
 
 class HostManager(object):
     def __init__(self, discovery):
-        self._current_hosts = DiscoveredHosts(host_slots={}, host_assignment_order=[])
+        self._current_hosts = DiscoveredHosts(
+            host_slots={}, host_assignment_order=[])
         self._hosts_state = defaultdict(HostState)
         self._discovery = discovery
 
     def update_available_hosts(self):
-        # TODO(travis): also check for hosts removed from the blacklist in the future
         prev_host_slots = self._current_hosts.host_slots
         prev_host_assignment_order = self._current_hosts.host_assignment_order
         host_slots = self._discovery.find_available_hosts_and_slots()
-        if prev_host_slots != host_slots:
-            available_hosts = set([host for host in host_slots.keys() if not self._hosts_state[host].is_blacklisted()])
-            host_assignment_order = HostManager.order_available_hosts(available_hosts, prev_host_assignment_order)
+
+        def has_any_recovered_hosts(hosts):
+            return len([host for host in hosts if self._hosts_state[host].recovered_from_blacklist()]) > 0
+
+        # if new host_slots differs from pervious or any previous hosts got unblacklisted, we give it a shot
+        if prev_host_slots != host_slots or has_any_recovered_hosts(host_slots.keys()):
+            available_hosts = set([host for host in host_slots.keys(
+            ) if not self._hosts_state[host].is_blacklisted()])
+            host_assignment_order = HostManager.order_available_hosts(
+                available_hosts, prev_host_assignment_order)
             self._current_hosts = DiscoveredHosts(host_slots=host_slots,
                                                   host_assignment_order=host_assignment_order)
+            for host in host_slots.keys():
+                if self._hosts_state[host].recovered_from_blacklist():
+                    self._hosts_state[host].reset_blacklist_state()
             return True
         return False
 
@@ -113,7 +136,8 @@ class HostManager(object):
     @staticmethod
     def order_available_hosts(available_hosts, prev_host_assignment_order):
         # We need to ensure this list preserves relative order to ensure the oldest hosts are assigned lower ranks.
-        host_assignment_order = [host for host in prev_host_assignment_order if host in available_hosts]
+        host_assignment_order = [
+            host for host in prev_host_assignment_order if host in available_hosts]
         known_hosts = set(host_assignment_order)
         for host in available_hosts:
             if host not in known_hosts:
@@ -135,7 +159,8 @@ class HostDiscoveryScript(HostDiscovery):
 
     def find_available_hosts_and_slots(self):
         stdout = io.StringIO()
-        exit_code = safe_shell_exec.execute(self._discovery_script, stdout=stdout)
+        exit_code = safe_shell_exec.execute(
+            self._discovery_script, stdout=stdout)
         if exit_code != 0:
             raise RuntimeError('Failed to execute discovery script: {}. Exit code: {}'
                                .format(self._discovery_script, exit_code))
@@ -153,12 +178,19 @@ class HostDiscoveryScript(HostDiscovery):
 
 
 class FixedHosts(HostDiscovery):
-    def __init__(self, host_slots):
+    def __init__(self, host_slots, node_health_checker_fn=None):
         super(FixedHosts, self).__init__()
         self._host_slots = host_slots
+        self.node_health_checker_fn = node_health_checker_fn
 
     def find_available_hosts_and_slots(self):
-        return self._host_slots
+        if self.node_health_checker_fn is None:
+            return self._host_slots
+        hosts = {}
+        for h in self._host_slots.keys():
+            if self.node_health_checker_fn(h):
+                hosts[h] = self._host_slots[h]
+        return hosts
 
     def set(self, host_slots):
         self._host_slots = host_slots

@@ -40,7 +40,7 @@ from horovod.runner.mpi_run import mpi_run
 from horovod.runner.js_run import js_run, is_jsrun_installed
 from horovod.runner.http.http_client import read_data_from_kvstore, put_data_into_kvstore
 from horovod.runner.http.http_server import KVStoreServer
-from horovod.runner.util.remote import get_remote_command
+from horovod.runner.util.remote import get_remote_command, get_ssh_command
 
 # Cached information of horovod functions be stored in this directory
 CACHE_FOLDER = os.path.join(os.path.expanduser('~'), '.horovod')
@@ -131,7 +131,8 @@ def check_build(verbose):
         [{gloo_ops}] Gloo\
     '''.format(verbose_newline='\n' if verbose else '',
                version=horovod.__version__,
-               tensorflow=get_check(extension_available('tensorflow', verbose=verbose)),
+               tensorflow=get_check(extension_available(
+                   'tensorflow', verbose=verbose)),
                torch=get_check(extension_available('torch', verbose=verbose)),
                mxnet=get_check(extension_available('mxnet', verbose=verbose)),
                mpi=get_check(mpi_built(verbose=verbose)),
@@ -319,24 +320,28 @@ def parse_args():
 
     group_hierarchical_allreduce = group_params.add_mutually_exclusive_group()
     group_hierarchical_allreduce.add_argument('--hierarchical-allreduce',
-                                              action=make_override_true_action(override_args),
+                                              action=make_override_true_action(
+                                                  override_args),
                                               help='Perform hierarchical allreduce between workers instead of '
                                                    'ring allreduce. Hierarchical allreduce performs a local '
                                                    'allreduce / gather within a host, then a parallel cross allreduce '
                                                    'between equal local ranks across workers, and finally a '
                                                    'local gather.')
     group_hierarchical_allreduce.add_argument('--no-hierarchical-allreduce', dest='hierarchical_allreduce',
-                                              action=make_override_false_action(override_args),
+                                              action=make_override_false_action(
+                                                  override_args),
                                               help='Explicitly disable hierarchical allreduce to prevent autotuning '
                                                    'from adjusting it.')
 
     group_hierarchical_allgather = group_params.add_mutually_exclusive_group()
     group_hierarchical_allgather.add_argument('--hierarchical-allgather',
-                                              action=make_override_true_action(override_args),
+                                              action=make_override_true_action(
+                                                  override_args),
                                               help='Perform hierarchical allgather between workers instead of '
                                                    'ring allgather. See hierarchical allreduce for algorithm details.')
     group_hierarchical_allgather.add_argument('--no-hierarchical-allgather', dest='hierarchical_allgather',
-                                              action=make_override_false_action(override_args),
+                                              action=make_override_false_action(
+                                                  override_args),
                                               help='Explicitly disable hierarchical allgather to prevent autotuning '
                                                    'from adjusting it.')
 
@@ -392,6 +397,8 @@ def parse_args():
     group_elastic.add_argument('--reset-limit', action='store', dest='reset_limit', type=int,
                                help='Maximum number of times that the training job can scale up or down '
                                     'the number of workers after which the job is terminated. (default: None)')
+    group_elastic.add_argument('--host-health-checker-script', action='store', dest='host_health_checker_script',
+                               help='Scripts that used to check health state of node for fixed host discovery')
 
     group_timeline = parser.add_argument_group('timeline arguments')
     group_timeline.add_argument('--timeline-filename', action=make_override_action(override_args),
@@ -456,23 +463,27 @@ def parse_args():
                                choices=config_parser.LOG_LEVELS,
                                help='Minimum level to log to stderr from the Horovod backend. (default: WARNING).')
     group_logging_timestamp = group_logging.add_mutually_exclusive_group()
-    group_logging_timestamp.add_argument('--log-with-timestamp', 
-                                         action=make_override_true_action(override_args),
+    group_logging_timestamp.add_argument('--log-with-timestamp',
+                                         action=make_override_true_action(
+                                             override_args),
                                          help=argparse.SUPPRESS)
     group_logging_timestamp.add_argument('--log-without-timestamp', dest='log_with_timestamp',
-                                         action=make_override_false_action(override_args), 
+                                         action=make_override_false_action(
+                                             override_args),
                                          help='Hide the timestamp from Horovod internal log messages.')
     group_logging_timestamp.add_argument('-prefix-timestamp', '--prefix-output-with-timestamp', action='store_true',
                                          dest='prefix_output_with_timestamp',
                                          help='Timestamp each line of output to stdout, stderr, and stddiag.')
-    group_logging_timestamp.add_argument('--log-hide-timestamp', 
+    group_logging_timestamp.add_argument('--log-hide-timestamp',
                                          dest='log_with_timestamp',
-                                         action=make_deprecated_bool_action(override_args, False, '--log-without-timestamp'),
+                                         action=make_deprecated_bool_action(
+                                             override_args, False, '--log-without-timestamp'),
                                          help=argparse.SUPPRESS)
-    group_logging_timestamp.add_argument('--no-log-hide-timestamp', 
+    group_logging_timestamp.add_argument('--no-log-hide-timestamp',
                                          dest='log_with_timestamp',
-                                         action=make_deprecated_bool_action(override_args, True, '--log-with-timestamp'),
-                                         help=argparse.SUPPRESS)                                     
+                                         action=make_deprecated_bool_action(
+                                             override_args, True, '--log-with-timestamp'),
+                                         help=argparse.SUPPRESS)
 
     group_hosts_parent = parser.add_argument_group('host arguments')
     group_hosts = group_hosts_parent.add_mutually_exclusive_group()
@@ -598,7 +609,8 @@ def _run_static(args):
         put_data_into_kvstore(driver_ip, run_func_server_port,
                               'runfunc', 'func', args.run_func)
 
-        command = [sys.executable, '-m', 'horovod.runner.run_task', str(driver_ip), str(run_func_server_port)]
+        command = [sys.executable, '-m', 'horovod.runner.run_task',
+                   str(driver_ip), str(run_func_server_port)]
 
         try:
             _launch_job(args, settings, nics, command)
@@ -616,17 +628,39 @@ def _run_static(args):
         return None
 
 
+def exec_remote_command(command, host_name, ssh_port, ssh_identity_file):
+    command = get_ssh_command(command, host=host_name,
+                              port=ssh_port, identity_file=ssh_identity_file)
+    try:
+        with open(os.devnull, 'w') as nullstream:
+            exit_code = safe_shell_exec.execute(
+                command, stdout=nullstream, stderr=nullstream)
+    except Exception as e:
+        print('Exception happened during safe_shell_exec, exception '
+              'message: {message}'.format(message=e))
+        exit_code = 1
+    return exit_code == 0
+
+
 def _run_elastic(args):
     # construct host discovery component
     if args.host_discovery_script:
-        discover_hosts = discovery.HostDiscoveryScript(args.host_discovery_script, args.slots)
+        discover_hosts = discovery.HostDiscoveryScript(
+            args.host_discovery_script, args.slots)
     elif args.hosts:
         _, available_host_slots = hosts.parse_hosts_and_slots(args.hosts)
         if len(available_host_slots) < 2:
-            raise ValueError('Cannot run in fault tolerance mode with fewer than 2 hosts.')
-        discover_hosts = discovery.FixedHosts(available_host_slots)
+            raise ValueError(
+                'Cannot run in fault tolerance mode with fewer than 2 hosts.')
+
+        def host_health_checker(host):
+            if len(args.host_health_checker_script) > 0:
+                return exec_remote_command(args.host_health_checker_script, host, args.ssh_port, args.ssh_identity_file)
+        discover_hosts = discovery.FixedHosts(available_host_slots,
+                                              node_health_checker_fn=host_health_checker if args.host_health_checker_script else None)
     else:
-        raise ValueError('One of --host-discovery-script, --hosts, or --hostnames must be provided')
+        raise ValueError(
+            'One of --host-discovery-script, --hosts, or --hostnames must be provided')
 
     # horovodrun has to finish all the checks before this timeout runs out.
     if args.start_timeout:

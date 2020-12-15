@@ -104,7 +104,8 @@ class WorkerNotificationClient(network.BasicClient):
                                                        addresses,
                                                        key,
                                                        verbose,
-                                                       match_intf=match_intf)
+                                                       match_intf=match_intf,
+                                                       send_timeout=60)
 
     def notify_hosts_updated(self, timestamp):
         self._send(HostsUpdatedRequest(timestamp))

@@ -289,13 +289,14 @@ Running with horovodrun
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 Elastic training jobs are started using the ``horovodrun`` command line tool. The major difference when launching
-elastic jobs is that hosts are not specified explicitly, but instead **discovered** at runtime.  The most general way
+elastic jobs is that hosts can be not specified explicitly, but instead **discovered** at runtime.  The most general way
 to allow Horovod to discover available hosts is to provide a ``--host-discovery-script`` when launching the job:
 
 .. code-block:: bash
 
     $ horovodrun -np 8 --host-discovery-script discover_hosts.sh python train.py
 
+It is the host discovery script's responsibility to ensure health of  a discovered host.
 The host discovery script must have user executable permissions, and return one host with its available slots per line
 of the form: ``<hostname>:<slots>``.  For example:
 
@@ -332,8 +333,13 @@ The maximum np can be used to cap the number of processes (to prevent over-utili
 as a reference point for learning rate scales and data partitions (in cases where these need to be held constant
 regardless of the current number of workers).  If unspecified, maximum np also defaults to ``-np``.
 
-Instances that fail will be added to a blacklist, as they may have faulty hardware.  Ranks that fail repeatedly
-will result in job failure, as it may be the case that the training process cannot make progress.
+Although user may specify discovery script for elastic training, using static host slots is still an alternative. In elastic
+ mode, user can specify a health check script via ``--host-health-checker-script`` to filter out available hosts 
+from the static pool.
+
+Instances that fail will be added to a blacklist, as they may have faulty hardware. In case a blacklisted instance can 
+recover, blacklist state can be timeouted, so there is chance a recoverable instance be counting as available slot again.
+Ranks that fail repeatedly will result in job failure, as it may be the case that the training process cannot make progress.
 
 
 Running on Ray
