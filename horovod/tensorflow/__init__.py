@@ -330,10 +330,9 @@ if _SessionRunHook is not None and _get_default_graph is not None:
             session.run(self.bcast_op)
 
 
-@_cache
 def _make_allreduce_grads_fn(name, device_dense, device_sparse,
                              compression, sparse_as_dense, op, gradient_predivide_factor,
-                             num_groups):
+                             num_groups, group_lists=None):
     if op == Average:
         # Split average operation across pre/postscale factors
         # C++ backend will apply additional 1 / size() factor to postscale_factor for op == Average.
@@ -343,16 +342,34 @@ def _make_allreduce_grads_fn(name, device_dense, device_sparse,
         prescale_factor = 1.0
         postscale_factor = 1.0
 
-    def allreduce_grads(grads):
+    def allreduce_grads(grads, vars=None):
         with tf.name_scope(name + "_Allreduce"):
             if sparse_as_dense:
                 grads = [tf.convert_to_tensor(grad)
                          if grad is not None and isinstance(grad, tf.IndexedSlices)
                          else grad for grad in grads]
 
-            if num_groups > 0:
-                grads_clean = [grad for grad in grads if grad is not None]
-                grads_split = split_list(grads_clean, num_groups)
+            if num_groups > 0 or group_lists is not None:
+                if num_groups > 0:
+                    grads_clean = [grad for grad in grads if grad is not None]
+                    grads_split = split_list(grads_clean, num_groups)
+                else:
+                    var_name2grad = {}
+                    for i in range(len(vars)):
+                        var = vars[i]
+                        grad = grads[i]
+                        if grad is not None:
+                            var_name2grad[var.name] = grad
+                    grads_split = []
+                    for group in group_lists:
+                        grad_group = []
+                        for var in group:
+                            if var.name in var_name2grad:
+                                grad_group.append(var_name2grad[var.name])
+                                del var_name2grad[var.name]
+                        grads_split.append(grad_group)
+                    for _, grad in var_name2grad.items():
+                        grads_split.append([grad])
 
                 reduce_ops = []
                 for group in grads_split:
@@ -401,7 +418,7 @@ if _LegacyOptimizer is not None:
                     device_sparse='', compression=Compression.none,
                     sparse_as_dense=False, op=Average, gradient_predivide_factor=1.0,
                     backward_passes_per_step=1, average_aggregated_gradients=False,
-                    num_groups=0):
+                    num_groups=0, group_lists=None):
             if name is None:
                 name = "Distributed{}".format(type(optimizer).__name__)
             super(_DistributedOptimizer, self).__init__(name=name, use_locking=use_locking)
@@ -409,7 +426,7 @@ if _LegacyOptimizer is not None:
             self._optimizer = optimizer
             self._allreduce_grads = _make_allreduce_grads_fn(
                 name, device_dense, device_sparse, compression, sparse_as_dense, op,
-                gradient_predivide_factor, num_groups)
+                gradient_predivide_factor, num_groups, group_lists)
 
             self._agg_helper = None
             if backward_passes_per_step > 1:
@@ -441,7 +458,7 @@ if _LegacyOptimizer is not None:
             if self._agg_helper:
                 avg_grads = self._agg_helper.compute_gradients(grads)
             else:
-                avg_grads = self._allreduce_grads(grads)
+                avg_grads = self._allreduce_grads(grads, vars)
             return list(zip(avg_grads, vars))
 
         def apply_gradients(self, *args, **kwargs):
@@ -570,7 +587,7 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
                          sparse_as_dense=False, backward_passes_per_step=1,
                          op=Average, gradient_predivide_factor=1.0,
                          average_aggregated_gradients=False,
-                         num_groups=0):
+                         num_groups=0, group_lists=None):
     """Construct a new DistributedOptimizer, which uses another optimizer
     under the hood for computing single-process gradient values and
     applying gradient updates after the gradient values have been combined
@@ -619,6 +636,14 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
       num_groups:
         Number of groups to assign gradient allreduce ops to for explicit
         grouping. Defaults to no explicit groups.
+      group_lists:
+        A list of list of tf.Variable for explicit grouping of gradient for
+        allreduce ops. Tensor parameters in the same inner list will be assigned
+        to the same group, while parameter that does not appear in any list will
+        form a group itself.
+        Notice that group_lists must be the same for all ranks, otherwise deadlock
+        may be triggered.
+        group_lists should not be used together with num_groups.
     """
     if gradient_predivide_factor != 1.0:
         if rocm_built():
@@ -628,6 +653,10 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
 
     if op == Adasum and average_aggregated_gradients:
         raise ValueError('Adasum does not support average_aggregated_gradients == True')
+
+    if num_groups > 0 and group_lists is not None:
+        raise ValueError('num_groups and group_lists should not be specified '
+                          'at the same time.')
 
     if isinstance(optimizer, _LegacyOptimizer):
         if op == Adasum:
@@ -646,7 +675,8 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
             gradient_predivide_factor=gradient_predivide_factor,
             backward_passes_per_step=backward_passes_per_step,
             average_aggregated_gradients=average_aggregated_gradients,
-            num_groups=num_groups
+            num_groups=num_groups,
+            group_lists=group_lists
         )
     elif isinstance(optimizer, tf.keras.optimizers.Optimizer):
         if op == Adasum:
@@ -672,7 +702,8 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
 if hasattr(tf, 'GradientTape'):
     class _DistributedGradientTape(tf.GradientTape):
         def __init__(self, tape, device_dense, device_sparse, compression, sparse_as_dense, op,
-                     gradient_predivide_factor, num_groups, persistent=False, watch_accessed_variables=True):
+                     gradient_predivide_factor, num_groups, group_lists, persistent=False,
+                     watch_accessed_variables=True):
             if hasattr(tape, '_watch_accessed_variables'):
                 super(self.__class__, self).__init__(persistent, watch_accessed_variables)
             else:
@@ -681,17 +712,17 @@ if hasattr(tf, 'GradientTape'):
             self._tape = tape
             self._allreduce_grads = _make_allreduce_grads_fn(
                 'DistributedGradientTape', device_dense, device_sparse, compression,
-                sparse_as_dense, op, gradient_predivide_factor, num_groups)
+                sparse_as_dense, op, gradient_predivide_factor, num_groups, group_lists)
 
         def gradient(self, target, sources, output_gradients=None):
             gradients = super(self.__class__, self).gradient(target, sources, output_gradients)
-            return self._allreduce_grads(gradients)
+            return self._allreduce_grads(gradients, sources)
 
 
     def DistributedGradientTape(gradtape, device_dense='', device_sparse='',
                                 compression=Compression.none, sparse_as_dense=False,
                                 op=Average, gradient_predivide_factor=1.0,
-                                num_groups=0):
+                                num_groups=0, group_lists=None):
         """A tape that wraps another tf.GradientTape, using an allreduce to
         combine gradient values before applying gradients to model weights.
 
@@ -723,6 +754,14 @@ if hasattr(tf, 'GradientTape'):
           num_groups:
             Number of groups to assign gradient allreduce ops to for explicit
             grouping. Defaults to no explicit groups.
+          group_lists:
+            A list of list of tf.Variable for explicit grouping of gradient for
+            allreduce ops. Tensor parameters in the same inner list will be assigned
+            to the same group, while parameter that does not appear in any list will
+            form a group itself.
+            Notice that group_lists must be the same for all ranks, otherwise deadlock
+            may be triggered.
+            group_lists should not be used together with num_groups.
         """
         if gradient_predivide_factor != 1.0:
             if rocm_built():
@@ -730,13 +769,17 @@ if hasattr(tf, 'GradientTape'):
             if op != Average:
                 raise ValueError('gradient_predivide_factor not supported with op != Average')
 
+        if num_groups > 0 and group_lists is not None:
+            raise ValueError('num_groups and group_lists should not be specified '
+                            'at the same time.')
+
         cls = type(gradtape.__class__.__name__, (gradtape.__class__,),
                    dict(_DistributedGradientTape.__dict__))
         if hasattr(gradtape, '_watch_accessed_variables'):
             return cls(gradtape._tape, device_dense, device_sparse, compression,
                        sparse_as_dense, op, gradient_predivide_factor, num_groups,
-                       gradtape._persistent, gradtape._watch_accessed_variables)
+                       group_lists, gradtape._persistent, gradtape._watch_accessed_variables)
         else:
             return cls(gradtape._tape, device_dense, device_sparse, compression,
                        sparse_as_dense, op, gradient_predivide_factor, num_groups,
-                       gradtape._persistent)
+                       group_lists, gradtape._persistent)

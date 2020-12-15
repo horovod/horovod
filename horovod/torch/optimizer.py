@@ -36,7 +36,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
     def __init__(self, params, named_parameters, compression,
                  backward_passes_per_step=1, op=Average,
                  gradient_predivide_factor=1.0,
-                 num_groups=0):
+                 num_groups=0, group_lists=None):
         super(self.__class__, self).__init__(params)
         self._compression = compression
 
@@ -78,9 +78,27 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         self._requires_update = set()
         self._synchronized = False
         self._should_synchronize = True
+
+        if num_groups > 0 and group_lists is not None:
+            raise ValueError('num_groups and group_lists should not be specified '
+                             'at the same time.')
         self._num_groups = num_groups
+        if group_lists is not None:
+            grouped_parameter_ids = set()
+            s = ""
+            for l in group_lists:
+                for p in l:
+                    s += "{},".format(p.shape)
+                    if not isinstance(p, torch.Tensor):
+                        raise ValueError('group_lists must consist of torch.Tensor.')
+                    if id(p) in grouped_parameter_ids:
+                        raise ValueError('A parameter can only appear once in group_lists.')
+                    grouped_parameter_ids.add(id(p))
+            print(s)
+        self._group_lists = group_lists
         self._p_to_group = {}
         self._group_counts = {}
+
         if size() > 1 or os.environ.get('HOROVOD_ELASTIC') == '1':
             self._register_hooks()
 
@@ -109,7 +127,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
 
     def _register_hooks(self):
 
-        if self._num_groups > 0:
+        if self._num_groups > 0 or self._group_lists is not None:
             p_list = []
             # Get list of parameters with grads
             for param_group in self.param_groups:
@@ -124,12 +142,25 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             p_list = sorted(p_list, key=lambda p : p_list_names.index(self._parameter_names.get(p)))
 
             # Form groups
-            p_groups = split_list(p_list, self._num_groups)
+            if self._num_groups > 0:
+                p_groups = split_list(p_list, self._num_groups)
+            else:
+                p_groups = []
+                grouped_id = set()
+                p_list_ids = [id(p) for p in p_list]
+                for group in self._group_lists:
+                    p_groups.append([p for p in group if id(p) in p_list_ids])
+                    for p in p_groups[-1]:
+                        grouped_id.add(id(p))
+                for p in p_list:
+                    if id(p) not in grouped_id:
+                        p_groups.append([p])
+
             p_groups = [tuple(p) for p in p_groups]
             for group in p_groups:
-              for p in group:
-                self._p_to_group[p] = group
-              self._group_counts[group] = 0
+                for p in group:
+                    self._p_to_group[p] = group
+                self._group_counts[group] = 0
 
         for param_group in self.param_groups:
             for p in param_group['params']:
@@ -181,7 +212,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             handle, ctx = None, None
             self._allreduce_delay[p] -= 1
             if self._allreduce_delay[p] == 0:
-                if self._num_groups > 0:
+                if self._num_groups > 0 or self._group_lists is not None:
                     group = self._p_to_group[p]
                     self._group_counts[group] += 1
                     if self._group_counts[group] == len(group):
@@ -443,7 +474,7 @@ def DistributedOptimizer(optimizer, named_parameters=None,
                          backward_passes_per_step=1,
                          op=Average,
                          gradient_predivide_factor=1.0,
-                         num_groups=0):
+                         num_groups=0, group_lists=None):
     """
     An optimizer that wraps another torch.optim.Optimizer, using an allreduce to
     combine gradient values before applying gradients to model weights.
@@ -488,6 +519,13 @@ def DistributedOptimizer(optimizer, named_parameters=None,
                                    gradient_predivide_factor / size after the sum.
         num_groups: Number of groups to assign gradient allreduce ops to for explicit
                     grouping. Defaults to no explicit groups.
+        group_lists: A tuple of tuple of torch.Tensor for explicit grouping of gradient for
+                    allreduce ops. Tensor parameters in the same inner list will be assigned
+                    to the same group, while parameter that does not appear in any list will
+                    form a group itself.
+                    Notice that group_lists must be the same for all ranks, otherwise deadlock
+                    may be triggered.
+                    group_lists should not be used together with num_groups.
     """
     # We dynamically create a new class that inherits from the optimizer that was passed in.
     # The goal is to override the `step()` method with an allreduce implementation.
@@ -501,7 +539,7 @@ def DistributedOptimizer(optimizer, named_parameters=None,
         cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
                    dict(_DistributedOptimizer.__dict__))
         return cls(optimizer.param_groups, named_parameters, compression, backward_passes_per_step, op,
-                   gradient_predivide_factor, num_groups)
+                   gradient_predivide_factor, num_groups, group_lists)
     else:
         cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
                    dict(_DistributedAdasumOptimizer.__dict__))
