@@ -186,6 +186,28 @@ def test_ray_exec_func(ray_start_4_cpus):
     hjob.shutdown()
 
 
+@pytest.mark.skipif(
+    not gloo_built(), reason='Gloo is required for Ray integration')
+def test_ray_executable(ray_start_4_cpus):
+    class Executable:
+        def __init__(self, epochs):
+            import horovod.torch as hvd
+            self.hvd = hvd
+            self.epochs = epochs
+            self.hvd.init()
+
+        def rank_epoch(self):
+            return self.hvd.rank() * self.epochs
+
+    setting = RayExecutor.create_settings(timeout_s=30)
+    hjob = RayExecutor(
+        setting, num_hosts=1, num_slots=4, use_gpu=torch.cuda.is_available())
+    hjob.start(executable_cls=Executable, executable_args=[2])
+    result = hjob.execute(lambda w: w.rank_epoch())
+    assert set(result) == {0, 2, 4, 6}
+    hjob.shutdown()
+
+
 def _train(batch_size=32, batch_per_iter=10):
     import torch.backends.cudnn as cudnn
     import torch.nn.functional as F

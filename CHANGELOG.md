@@ -17,6 +17,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - Fixed building Horovod for ROCm PyTorch with newer hipify script. ([#2360](https://github.com/horovod/horovod/pull/2360))
+
+- Fixed "Executable class" support for Ray ([#2510](https://github.com/horovod/horovod/pull/2510))
+
 - Fixed TorchEstimator returning model without switching to eval mode. ([#2517](https://github.com/horovod/horovod/pull/2517))
 
 ## [v0.21.0] - 2020-11-23
