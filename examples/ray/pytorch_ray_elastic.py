@@ -247,11 +247,13 @@ def train_fn():
 
 
 if __name__ == '__main__':
+    import logging
+    logging.basicConfig(level="DEBUG")
     from horovod.ray import ElasticRayExecutor
     import ray
     ray.init(address="auto")
     print(ray.cluster_resources())
     settings = ElasticRayExecutor.create_settings(verbose=True)
-    executor = ElasticRayExecutor(settings, use_gpu=True, cpus_per_slot=2)
+    executor = ElasticRayExecutor(settings, use_gpu=True, cpus_per_slot=1)
     executor.start()
     executor.run(train_fn)

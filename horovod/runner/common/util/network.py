@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
+import pickle
 import psutil
 import queue
 import socket
@@ -66,7 +66,7 @@ class Wire(object):
         self._key = key
 
     def write(self, obj, wfile):
-        message = cloudpickle.dumps(obj)
+        message = cloudpickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)
         digest = secret.compute_digest(self._key, message)
         wfile.write(digest)
         # Pack message length into 4-byte integer.

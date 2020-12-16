@@ -19,6 +19,7 @@ from horovod.runner.elastic.driver import ElasticDriver
 import ray
 import ray.exceptions
 from horovod.ray.runner import BaseHorovodWorker
+from horovod.ray.utils import detect_nics
 
 logger = logging.getLogger(__name__)
 
@@ -160,11 +161,13 @@ class ElasticRayExecutor:
         if gpus_per_slot and not use_gpu:
             raise ValueError("gpus_per_slot is set, but use_gpu is False. "
                              "use_gpu must be True if gpus_per_slot is set. ")
+
+        gpus_per_slot = gpus_per_slot or int(use_gpu)
+
         if use_gpu and gpus_per_slot < 1:
             raise ValueError(
                 f"gpus_per_slot must be >= 1: Got {gpus_per_slot}.")
 
-        gpus_per_slot = gpus_per_slot or 1
         if override_discovery:
             settings.discovery = RayHostDiscovery(
                 use_gpu=use_gpu,
@@ -190,7 +193,10 @@ class ElasticRayExecutor:
             reset_limit=self.settings.reset_limit,
             verbose=self.settings.verbose)
         handler = create_rendezvous_handler(self.driver)
+        logger.debug("[ray] starting rendezvous")
         global_rendezv_port = self.rendezvous.start(handler)
+
+        logger.debug(f"[ray] waiting for {self.settings.num_proc} to start.")
         self.driver.wait_for_available_slots(self.settings.num_proc)
 
         # Host-to-host common interface detection
@@ -198,9 +204,12 @@ class ElasticRayExecutor:
         min_hosts = _get_min_start_hosts(self.settings)
         current_hosts = self.driver.wait_for_available_slots(
             self.settings.num_proc, min_hosts=min_hosts)
-        nics = driver_service.get_common_interfaces(
-            self.settings, current_hosts.host_assignment_order)
-
+        logger.debug("[ray] getting common interfaces")
+        nics = detect_nics(
+            self.settings,
+            all_host_names=current_hosts.host_assignment_order,
+        )
+        logger.debug("[ray] getting driver IP")
         server_ip = network.get_driver_ip(nics)
         self.run_env_vars = create_run_env_vars(
             server_ip, nics, global_rendezv_port, elastic=True)
