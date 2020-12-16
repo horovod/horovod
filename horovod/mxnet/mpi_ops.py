@@ -23,9 +23,17 @@ import os
 import mxnet as mx
 from mxnet.base import c_handle_array, c_str, c_str_array, check_call, string_types
 
-from horovod.common.util import get_ext_suffix
+from horovod.common.util import check_installed_version, get_ext_suffix
 from horovod.common.basics import HorovodBasics as _HorovodBasics
-_basics = _HorovodBasics(__file__, 'mpi_lib')
+
+# Check possible symbol not found error from mxnet version mismatch
+try:
+    _basics = _HorovodBasics(__file__, 'mpi_lib')
+except Exception as e:
+    check_installed_version('mxnet', mx.__version__, e)
+    raise e
+else:
+    check_installed_version('mxnet', mx.__version__)
 
 # import basic methods
 init = _basics.init

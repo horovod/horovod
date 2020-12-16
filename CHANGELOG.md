@@ -26,6 +26,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Remove ssh reliance for Ray elastic training ([#2528](https://github.com/horovod/horovod/pull/2528))
 
+- Fixed error handling for changing framework without reinstalling horovod ([#2529](https://github.com/horovod/horovod/pull/2529))
+
 ## [v0.21.0] - 2020-11-23
 
 ### Added

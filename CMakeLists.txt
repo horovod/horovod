@@ -26,6 +26,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/Modules/")
 include(cmake/Utilities.cmake)
 
+create_metadata()
+
 # 3rd-parties
 include_directories("third_party/HTTPRequest/include"
         "third_party/boost/assert/include"
@@ -293,6 +295,9 @@ add_subdirectory(horovod/tensorflow)
 add_subdirectory(horovod/torch)
 #MXNet
 add_subdirectory(horovod/mxnet)
+
+# Correctly wrap up json format
+file(APPEND "${CMAKE_LIBRARY_OUTPUT_DIRECTORY_ROOT}/metadata.json" "\"dummy\": \"none\"\n}")
 
 # CUDA kernels
 if(HAVE_CUDA OR HAVE_SUB_PROJECT_CUDA)
