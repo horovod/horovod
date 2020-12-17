@@ -100,7 +100,7 @@ services:
         TENSORFLOW_PACKAGE: tf-nightly
         KERAS_PACKAGE: keras==2.4.3
         PYTORCH_PACKAGE: torch-nightly
-        TORCHVISION_PACKAGE: torchvision==0.6.0.dev20200413
+        TORCHVISION_PACKAGE: torchvision
         MXNET_PACKAGE: mxnet-nightly
         PYSPARK_PACKAGE: pyspark==2.4.7
         SPARK_PACKAGE: spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
@@ -230,7 +230,7 @@ services:
         TENSORFLOW_PACKAGE: tf-nightly-gpu
         KERAS_PACKAGE: keras==2.4.3
         PYTORCH_PACKAGE: torch-nightly
-        TORCHVISION_PACKAGE: torchvision==0.6.0.dev20200413
+        TORCHVISION_PACKAGE: torchvision
         MXNET_PACKAGE: mxnet-nightly
         PYSPARK_PACKAGE: pyspark==2.4.7
         SPARK_PACKAGE: spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
