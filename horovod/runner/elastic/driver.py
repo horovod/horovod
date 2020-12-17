@@ -180,15 +180,12 @@ class ElasticDriver(object):
 
     def _discover_hosts(self):
         first_update = True
-        logging.debug("discovering hosts...")
         while not self._shutdown.is_set():
             self._wait_hosts_cond.acquire()
             try:
                 if self._host_manager.update_available_hosts():
                     self._notify_workers_host_changes(self._host_manager.current_hosts)
                     self._wait_hosts_cond.notify_all()
-                else:
-                    logging.debug("not updating available hosts")
             except RuntimeError as e:
                 if first_update:
                     # Misconfiguration, fail the job immediately
