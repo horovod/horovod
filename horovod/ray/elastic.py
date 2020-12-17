@@ -42,6 +42,8 @@ class RayHostDiscovery(HostDiscovery):
         self.use_gpu = use_gpu
         self.cpus_per_slot = cpus_per_slot
         self.gpus_per_slot = gpus_per_slot
+        logger.debug(f"Discovery started with {cpus_per_slot} CPU / "
+                     f"{gpus_per_slot} GPU per slot.")
 
     def find_available_hosts_and_slots(self) -> Dict[str, int]:
         """Returns a dict mapping <hostname> -> <number of slots>."""
@@ -55,6 +57,11 @@ class RayHostDiscovery(HostDiscovery):
                 gpu_slots = resources.get("GPU", 0) // self.gpus_per_slot
                 slots = min(slots, gpu_slots)
             host_mapping[hostname] = int(math.ceil(slots))
+
+        if host_mapping and sum(host_mapping.values()) == 0:
+            logger.info(f"Detected {len(host_mapping)} hosts, but no hosts "
+                        "have available slots.")
+            logger.debug(f"Alive nodes: {alive_nodes}")
         return host_mapping
 
 
