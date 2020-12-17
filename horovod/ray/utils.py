@@ -25,12 +25,12 @@ def _maybe_create_workers(all_host_names: List[str],
             temporary_worker = RemoteDiscoveryActor.options(
                 resources=node_resource, num_cpus=0).remote()
             existing_workers.append(temporary_worker)
-
-    yield existing_workers
-
-    if should_create:
-        for worker in existing_workers:
-            del worker
+    try:
+        yield existing_workers
+    finally:
+        if should_create:
+            for worker in existing_workers:
+                del worker
 
 
 def detect_nics(settings,
