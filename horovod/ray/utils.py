@@ -1,4 +1,4 @@
-from typing import List, Optional, Callable, Any
+from typing import List, Optional, Callable, Any, Dict
 from contextlib import contextmanager
 import ray
 
