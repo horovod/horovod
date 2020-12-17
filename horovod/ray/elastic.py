@@ -10,7 +10,6 @@ from horovod.runner.http.http_server import RendezvousServer
 from horovod.runner.util import network
 from horovod.runner.gloo_run import (create_slot_env_vars, create_run_env_vars,
                                      _get_min_start_hosts)
-from horovod.runner.driver import driver_service
 from horovod.runner.elastic.settings import ElasticSettings
 from horovod.runner.elastic.rendezvous import create_rendezvous_handler
 from horovod.runner.elastic.discovery import HostDiscovery

@@ -9,10 +9,7 @@ from typing import Dict, Callable, Any, Optional, List
 import logging
 
 from horovod.runner.common.util import secret, timeout, hosts
-from horovod.runner.driver import driver_service
 from horovod.runner.http.http_server import RendezvousServer
-from horovod.runner.util import network
-
 from horovod.ray.utils import detect_nics, nics_to_env_var
 
 logger = logging.getLogger(__name__)
@@ -386,8 +383,7 @@ class RayExecutor:
         nics = detect_nics(
             self.settings,
             all_host_names=list(self.coordinator.hostnames_by_rank),
-            node_workers=self.colocators
-        )
+            node_workers=self.colocators)
         coordinator_envs.update(nics_to_env_var(nics))
 
         map_blocking(lambda w: w.update_env_vars.remote(coordinator_envs),
