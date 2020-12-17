@@ -9,11 +9,8 @@ from typing import Dict, Callable, Any, Optional, List
 import logging
 
 from horovod.runner.common.util import secret, timeout, hosts
-from horovod.runner.driver import driver_service
 from horovod.runner.http.http_server import RendezvousServer
-from horovod.runner.util import network
-
-from horovod.ray.driver_service import _driver_fn
+from horovod.ray.utils import detect_nics, nics_to_env_var
 
 logger = logging.getLogger(__name__)
 
@@ -335,32 +332,6 @@ class RayExecutor:
 
         map_blocking(_start_exec, self.workers)
 
-    def detect_nics(self):
-        """Decomposed version of driver_service.get_common_interfaces()."""
-        nics = None
-        all_host_names = list(self.coordinator.hostnames_by_rank)
-        remote_host_names = network.filter_local_addresses(all_host_names)
-        if len(remote_host_names) > 0:
-            nics = self.settings.nics
-            if not nics:
-                if self.settings.verbose >= 2:
-                    print('Testing interfaces on all hosts.')
-
-                local_host_names = set(all_host_names) - set(remote_host_names)
-                nics = _driver_fn(self.colocators, all_host_names,
-                                  local_host_names, self.settings)
-
-                if self.settings.verbose >= 2:
-                    print('Interfaces on all hosts were successfully checked.')
-                    print('Common interface found: ' + ' '.join(nics))
-        else:
-            nics = driver_service.get_local_interfaces(self.settings)
-
-        return {
-            "HOROVOD_GLOO_IFACE": list(nics)[0],
-            "NCCL_SOCKET_IFNAME": ",".join(nics),  # TODO
-        }
-
     def start(self,
               executable_cls: type = None,
               executable_args: Optional[List] = None,
@@ -409,7 +380,11 @@ class RayExecutor:
 
         coordinator_envs = self.coordinator.establish_rendezvous()
         coordinator_envs.update(extra_env_vars)
-        coordinator_envs.update(self.detect_nics())
+        nics = detect_nics(
+            self.settings,
+            all_host_names=list(self.coordinator.hostnames_by_rank),
+            node_workers=self.colocators)
+        coordinator_envs.update(nics_to_env_var(nics))
 
         map_blocking(lambda w: w.update_env_vars.remote(coordinator_envs),
                      self.workers)

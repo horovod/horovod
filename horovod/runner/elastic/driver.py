@@ -158,7 +158,11 @@ class ElasticDriver(object):
         try:
             while True:
                 current_hosts = self._host_manager.current_hosts
-                if current_hosts.count_available_slots() >= min_np and len(current_hosts.available_hosts) >= min_hosts:
+                avail_slots = current_hosts.count_available_slots()
+                logging.debug(f"current available slots: {avail_slots}")
+                avail_hosts = len(current_hosts.available_hosts)
+                logging.debug(f"current available hosts: {avail_hosts}.")
+                if avail_slots >= min_np and avail_hosts >= min_hosts:
                     return current_hosts
                 if self._shutdown.is_set():
                     raise RuntimeError('Job has been shutdown, see above error messages for details.')

@@ -10,7 +10,6 @@ from horovod.runner.http.http_server import RendezvousServer
 from horovod.runner.util import network
 from horovod.runner.gloo_run import (create_slot_env_vars, create_run_env_vars,
                                      _get_min_start_hosts)
-from horovod.runner.driver import driver_service
 from horovod.runner.elastic.settings import ElasticSettings
 from horovod.runner.elastic.rendezvous import create_rendezvous_handler
 from horovod.runner.elastic.discovery import HostDiscovery
@@ -19,6 +18,7 @@ from horovod.runner.elastic.driver import ElasticDriver
 import ray
 import ray.exceptions
 from horovod.ray.runner import BaseHorovodWorker
+from horovod.ray.utils import detect_nics
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,8 @@ class RayHostDiscovery(HostDiscovery):
         self.use_gpu = use_gpu
         self.cpus_per_slot = cpus_per_slot
         self.gpus_per_slot = gpus_per_slot
+        logger.debug(f"Discovery started with {cpus_per_slot} CPU / "
+                     f"{gpus_per_slot} GPU per slot.")
 
     def find_available_hosts_and_slots(self) -> Dict[str, int]:
         """Returns a dict mapping <hostname> -> <number of slots>."""
@@ -55,6 +57,11 @@ class RayHostDiscovery(HostDiscovery):
                 gpu_slots = resources.get("GPU", 0) // self.gpus_per_slot
                 slots = min(slots, gpu_slots)
             host_mapping[hostname] = int(math.ceil(slots))
+
+        if host_mapping and sum(host_mapping.values()) == 0:
+            logger.info(f"Detected {len(host_mapping)} hosts, but no hosts "
+                        "have available slots.")
+            logger.debug(f"Alive nodes: {alive_nodes}")
         return host_mapping
 
 
@@ -160,11 +167,13 @@ class ElasticRayExecutor:
         if gpus_per_slot and not use_gpu:
             raise ValueError("gpus_per_slot is set, but use_gpu is False. "
                              "use_gpu must be True if gpus_per_slot is set. ")
+
+        gpus_per_slot = gpus_per_slot or int(use_gpu)
+
         if use_gpu and gpus_per_slot < 1:
             raise ValueError(
                 f"gpus_per_slot must be >= 1: Got {gpus_per_slot}.")
 
-        gpus_per_slot = gpus_per_slot or 1
         if override_discovery:
             settings.discovery = RayHostDiscovery(
                 use_gpu=use_gpu,
@@ -190,7 +199,10 @@ class ElasticRayExecutor:
             reset_limit=self.settings.reset_limit,
             verbose=self.settings.verbose)
         handler = create_rendezvous_handler(self.driver)
+        logger.debug("[ray] starting rendezvous")
         global_rendezv_port = self.rendezvous.start(handler)
+
+        logger.debug(f"[ray] waiting for {self.settings.num_proc} to start.")
         self.driver.wait_for_available_slots(self.settings.num_proc)
 
         # Host-to-host common interface detection
@@ -198,9 +210,12 @@ class ElasticRayExecutor:
         min_hosts = _get_min_start_hosts(self.settings)
         current_hosts = self.driver.wait_for_available_slots(
             self.settings.num_proc, min_hosts=min_hosts)
-        nics = driver_service.get_common_interfaces(
-            self.settings, current_hosts.host_assignment_order)
-
+        logger.debug("[ray] getting common interfaces")
+        nics = detect_nics(
+            self.settings,
+            all_host_names=current_hosts.host_assignment_order,
+        )
+        logger.debug("[ray] getting driver IP")
         server_ip = network.get_driver_ip(nics)
         self.run_env_vars = create_run_env_vars(
             server_ip, nics, global_rendezv_port, elastic=True)
