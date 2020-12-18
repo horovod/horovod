@@ -2426,7 +2426,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 4x-gpu-g4
+    queue: 4x-gpu-v510
 - label: ':pytest: MPI Single PyTests (test-gpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c " cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh mpi)"
   artifact_paths: "artifacts/**"
@@ -2442,7 +2442,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 4x-gpu-g4
+    queue: 4x-gpu-v510
 - label: ':pytest: MPI Cluster PyTests (test-gpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c " /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
   artifact_paths: "artifacts/**"
@@ -2458,7 +2458,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 4x-gpu-g4
+    queue: 4x-gpu-v510
 - label: ':pytest: Gloo Parallel PyTests (test-gpu-gloo-py3_6-tf2_0_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c "cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
   artifact_paths: "artifacts/**"
@@ -2474,7 +2474,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 4x-gpu-g4
+    queue: 4x-gpu-v510
 - label: ':pytest: Gloo Single PyTests (test-gpu-gloo-py3_6-tf2_0_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c "cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh gloo)"
   artifact_paths: "artifacts/**"
@@ -2490,7 +2490,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 4x-gpu-g4
+    queue: 4x-gpu-v510
 - label: ':pytest: Gloo Cluster PyTests (test-gpu-gloo-py3_6-tf2_0_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c "/etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
   artifact_paths: "artifacts/**"
@@ -2506,7 +2506,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 4x-gpu-g4
+    queue: 4x-gpu-v510
 - label: ':pytest: Gloo Parallel PyTests (test-gpu-openmpi-gloo-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c "cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
   artifact_paths: "artifacts/**"
@@ -2522,7 +2522,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 4x-gpu-g4
+    queue: 4x-gpu-v510
 - label: ':pytest: Gloo Single PyTests (test-gpu-openmpi-gloo-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c "cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh gloo)"
   artifact_paths: "artifacts/**"
@@ -2538,7 +2538,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 4x-gpu-g4
+    queue: 4x-gpu-v510
 - label: ':pytest: Gloo Cluster PyTests (test-gpu-openmpi-gloo-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c "/etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
   artifact_paths: "artifacts/**"
@@ -2554,7 +2554,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 4x-gpu-g4
+    queue: 4x-gpu-v510
 - label: ':pytest: MPI Parallel PyTests (test-gpu-openmpi-gloo-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
   artifact_paths: "artifacts/**"
@@ -2570,7 +2570,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 4x-gpu-g4
+    queue: 4x-gpu-v510
 - label: ':pytest: MPI Single PyTests (test-gpu-openmpi-gloo-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c " cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh mpi)"
   artifact_paths: "artifacts/**"
@@ -2586,7 +2586,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 4x-gpu-g4
+    queue: 4x-gpu-v510
 - label: ':pytest: MPI Cluster PyTests (test-gpu-openmpi-gloo-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c " /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
   artifact_paths: "artifacts/**"
@@ -2602,7 +2602,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 4x-gpu-g4
+    queue: 4x-gpu-v510
 - label: ':pytest: MPI Parallel PyTests (test-gpu-openmpi-py3_6-tf2_3_0-keras2_3_1-torch1_6_0-mxnet1_6_0-pyspark2_4_7)'
   command: bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
   artifact_paths: "artifacts/**"
@@ -2618,7 +2618,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 4x-gpu-g4
+    queue: 4x-gpu-v510
 - label: ':pytest: MPI Single PyTests (test-gpu-openmpi-py3_6-tf2_3_0-keras2_3_1-torch1_6_0-mxnet1_6_0-pyspark2_4_7)'
   command: bash -c " cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh mpi)"
   artifact_paths: "artifacts/**"
@@ -2634,7 +2634,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 4x-gpu-g4
+    queue: 4x-gpu-v510
 - label: ':pytest: MPI Cluster PyTests (test-gpu-openmpi-py3_6-tf2_3_0-keras2_3_1-torch1_6_0-mxnet1_6_0-pyspark2_4_7)'
   command: bash -c " /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
   artifact_paths: "artifacts/**"
@@ -2650,7 +2650,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 4x-gpu-g4
+    queue: 4x-gpu-v510
 - label: ':pytest: MPI Parallel PyTests (test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7)'
   command: bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
   artifact_paths: "artifacts/**"
@@ -2666,7 +2666,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 4x-gpu-g4
+    queue: 4x-gpu-v510
 - label: ':pytest: MPI Single PyTests (test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7)'
   command: bash -c " cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh mpi)"
   artifact_paths: "artifacts/**"
@@ -2682,7 +2682,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 4x-gpu-g4
+    queue: 4x-gpu-v510
 - label: ':pytest: MPI Cluster PyTests (test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7)'
   command: bash -c " /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
   artifact_paths: "artifacts/**"
@@ -2698,7 +2698,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 4x-gpu-g4
+    queue: 4x-gpu-v510
 - label: ':pytest: MPI Parallel PyTests (test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7)'
   command: bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
   artifact_paths: "artifacts/**"
@@ -2714,7 +2714,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 4x-gpu-g4
+    queue: 4x-gpu-v510
 - label: ':pytest: MPI Single PyTests (test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7)'
   command: bash -c " cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh mpi)"
   artifact_paths: "artifacts/**"
@@ -2730,7 +2730,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 4x-gpu-g4
+    queue: 4x-gpu-v510
 - label: ':pytest: MPI Cluster PyTests (test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7)'
   command: bash -c " /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
   artifact_paths: "artifacts/**"
@@ -2746,7 +2746,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 4x-gpu-g4
+    queue: 4x-gpu-v510
 - wait
 - label: ':jupyter: Run PyTests test_interactiverun (test-gpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c "cd /horovod/test && pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.integration.xml integration/test_interactiverun.py"
@@ -2763,7 +2763,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':tensorflow: MPI TensorFlow MNIST (test-gpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow/tensorflow_mnist.py"
   artifact_paths: "artifacts/**"
@@ -2779,7 +2779,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':tensorflow: MPI TensorFlow Eager MNIST (test-gpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow/tensorflow_mnist_eager.py"
   artifact_paths: "artifacts/**"
@@ -2795,7 +2795,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':tensorflow: MPI Keras MNIST (test-gpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/keras/keras_mnist_advanced.py"
   artifact_paths: "artifacts/**"
@@ -2811,7 +2811,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':fire: MPI PyTorch MNIST (test-gpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py"
   artifact_paths: "artifacts/**"
@@ -2827,7 +2827,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':muscle: MPI MXNet MNIST (test-gpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c " OMP_NUM_THREADS=1 \$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet_mnist.py"
   artifact_paths: "artifacts/**"
@@ -2843,7 +2843,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':muscle: MPI Stall (test-gpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c " \$(cat /mpirun_command) python /horovod/test/integration/test_stall.py"
   artifact_paths: "artifacts/**"
@@ -2859,7 +2859,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':terminal: MPI Horovodrun (test-gpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_7)'
   command: horovodrun -np 2 -H localhost:2 python /horovod/examples/tensorflow/tensorflow_mnist.py
   artifact_paths: "artifacts/**"
@@ -2875,7 +2875,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':terminal: MPI Horovodrun (test-gpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c "echo 'localhost slots=2' > hostfile && horovodrun -np 2 -hostfile hostfile python /horovod/examples/mxnet/mxnet_mnist.py"
   artifact_paths: "artifacts/**"
@@ -2891,7 +2891,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':spark: Spark Keras Rossmann Run (test-gpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/spark/keras/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.01"
   artifact_paths: "artifacts/**"
@@ -2907,7 +2907,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':spark: Spark Keras Rossmann Estimator (test-gpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/spark/keras/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01"
   artifact_paths: "artifacts/**"
@@ -2923,7 +2923,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':spark: Spark Keras MNIST (test-gpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/spark/keras/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
@@ -2939,7 +2939,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':spark: Spark Torch MNIST (test-gpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
@@ -2955,7 +2955,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':tensorflow: Gloo TensorFlow 2.0 MNIST (test-gpu-gloo-py3_6-tf2_0_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_7)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
   artifact_paths: "artifacts/**"
@@ -2971,7 +2971,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':tensorflow: Gloo TensorFlow 2.0 Keras MNIST (test-gpu-gloo-py3_6-tf2_0_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_7)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
   artifact_paths: "artifacts/**"
@@ -2987,7 +2987,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':fire: Gloo PyTorch MNIST (test-gpu-gloo-py3_6-tf2_0_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_7)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py
   artifact_paths: "artifacts/**"
@@ -3003,7 +3003,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':muscle: Gloo MXNet MNIST (test-gpu-gloo-py3_6-tf2_0_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_7)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet_mnist.py
   artifact_paths: "artifacts/**"
@@ -3019,7 +3019,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':factory: Elastic Tests (test-gpu-gloo-py3_6-tf2_0_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow2.py"
   artifact_paths: "artifacts/**"
@@ -3035,7 +3035,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':factory: Elastic Spark TensorFlow Tests (test-gpu-gloo-py3_6-tf2_0_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c "cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow2.py"
   artifact_paths: "artifacts/**"
@@ -3051,7 +3051,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':factory: Elastic Spark Torch Tests (test-gpu-gloo-py3_6-tf2_0_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c "cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py"
   artifact_paths: "artifacts/**"
@@ -3067,7 +3067,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':spark: Spark Torch MNIST (test-gpu-gloo-py3_6-tf2_0_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
@@ -3083,7 +3083,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':tensorflow: Gloo TensorFlow 2.0 MNIST (test-gpu-openmpi-gloo-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_4_1-pyspark2_4_7)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
   artifact_paths: "artifacts/**"
@@ -3099,7 +3099,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':tensorflow: Gloo TensorFlow 2.0 Keras MNIST (test-gpu-openmpi-gloo-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_4_1-pyspark2_4_7)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
   artifact_paths: "artifacts/**"
@@ -3115,7 +3115,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':fire: Gloo PyTorch MNIST (test-gpu-openmpi-gloo-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_4_1-pyspark2_4_7)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py
   artifact_paths: "artifacts/**"
@@ -3131,7 +3131,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':muscle: Gloo MXNet MNIST (test-gpu-openmpi-gloo-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_4_1-pyspark2_4_7)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet_mnist.py
   artifact_paths: "artifacts/**"
@@ -3147,7 +3147,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':factory: Elastic Tests (test-gpu-openmpi-gloo-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow2.py"
   artifact_paths: "artifacts/**"
@@ -3163,7 +3163,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':factory: Elastic Spark TensorFlow Tests (test-gpu-openmpi-gloo-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c "cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow2.py"
   artifact_paths: "artifacts/**"
@@ -3179,7 +3179,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':factory: Elastic Spark Torch Tests (test-gpu-openmpi-gloo-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c "cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py"
   artifact_paths: "artifacts/**"
@@ -3195,7 +3195,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':jupyter: Run PyTests test_interactiverun (test-gpu-openmpi-gloo-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c "cd /horovod/test && pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.integration.xml integration/test_interactiverun.py"
   artifact_paths: "artifacts/**"
@@ -3211,7 +3211,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':muscle: MPI MXNet MNIST (test-gpu-openmpi-gloo-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c " OMP_NUM_THREADS=1 \$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet_mnist.py"
   artifact_paths: "artifacts/**"
@@ -3227,7 +3227,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':tensorflow: MPI TensorFlow 2.0 MNIST (test-gpu-openmpi-gloo-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c "\$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
   artifact_paths: "artifacts/**"
@@ -3243,7 +3243,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':tensorflow: MPI TensorFlow 2.0 Keras MNIST (test-gpu-openmpi-gloo-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c "\$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
   artifact_paths: "artifacts/**"
@@ -3259,7 +3259,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':spark: Spark Torch MNIST (test-gpu-openmpi-gloo-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_4_1-pyspark2_4_7)'
   command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
@@ -3275,7 +3275,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':jupyter: Run PyTests test_interactiverun (test-gpu-openmpi-py3_6-tf2_3_0-keras2_3_1-torch1_6_0-mxnet1_6_0-pyspark2_4_7)'
   command: bash -c "cd /horovod/test && pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.integration.xml integration/test_interactiverun.py"
   artifact_paths: "artifacts/**"
@@ -3291,7 +3291,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':muscle: MPI MXNet MNIST (test-gpu-openmpi-py3_6-tf2_3_0-keras2_3_1-torch1_6_0-mxnet1_6_0-pyspark2_4_7)'
   command: bash -c " OMP_NUM_THREADS=1 \$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet_mnist.py"
   artifact_paths: "artifacts/**"
@@ -3307,7 +3307,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':tensorflow: MPI TensorFlow 2.0 MNIST (test-gpu-openmpi-py3_6-tf2_3_0-keras2_3_1-torch1_6_0-mxnet1_6_0-pyspark2_4_7)'
   command: bash -c "\$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
   artifact_paths: "artifacts/**"
@@ -3323,7 +3323,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':tensorflow: MPI TensorFlow 2.0 Keras MNIST (test-gpu-openmpi-py3_6-tf2_3_0-keras2_3_1-torch1_6_0-mxnet1_6_0-pyspark2_4_7)'
   command: bash -c "\$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
   artifact_paths: "artifacts/**"
@@ -3339,7 +3339,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':spark: Spark Torch MNIST (test-gpu-openmpi-py3_6-tf2_3_0-keras2_3_1-torch1_6_0-mxnet1_6_0-pyspark2_4_7)'
   command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
@@ -3355,7 +3355,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':jupyter: Run PyTests test_interactiverun (test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7)'
   command: bash -c "cd /horovod/test && pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.integration.xml integration/test_interactiverun.py"
   artifact_paths: "artifacts/**"
@@ -3371,7 +3371,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':muscle: MPI MXNet2 MNIST (test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7)'
   command: bash -c " OMP_NUM_THREADS=1 \$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet2_mnist.py"
   artifact_paths: "artifacts/**"
@@ -3387,7 +3387,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':tensorflow: MPI TensorFlow 2.0 MNIST (test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7)'
   command: bash -c "\$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
   artifact_paths: "artifacts/**"
@@ -3403,7 +3403,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':tensorflow: MPI TensorFlow 2.0 Keras MNIST (test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7)'
   command: bash -c "\$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
   artifact_paths: "artifacts/**"
@@ -3419,7 +3419,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':spark: Spark Torch MNIST (test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7)'
   command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
@@ -3435,7 +3435,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':jupyter: Run PyTests test_interactiverun (test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7)'
   command: bash -c "cd /horovod/test && pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.integration.xml integration/test_interactiverun.py"
   artifact_paths: "artifacts/**"
@@ -3451,7 +3451,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':tensorflow: MPI TensorFlow MNIST (test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7)'
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow/tensorflow_mnist.py"
   artifact_paths: "artifacts/**"
@@ -3467,7 +3467,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':tensorflow: MPI TensorFlow Eager MNIST (test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7)'
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow/tensorflow_mnist_eager.py"
   artifact_paths: "artifacts/**"
@@ -3483,7 +3483,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':tensorflow: MPI Keras MNIST (test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7)'
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/keras/keras_mnist_advanced.py"
   artifact_paths: "artifacts/**"
@@ -3499,7 +3499,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':fire: MPI PyTorch MNIST (test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7)'
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py"
   artifact_paths: "artifacts/**"
@@ -3515,7 +3515,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':muscle: MPI MXNet MNIST (test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7)'
   command: bash -c " OMP_NUM_THREADS=1 \$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet_mnist.py"
   artifact_paths: "artifacts/**"
@@ -3531,7 +3531,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':muscle: MPI Stall (test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7)'
   command: bash -c " \$(cat /mpirun_command) python /horovod/test/integration/test_stall.py"
   artifact_paths: "artifacts/**"
@@ -3547,7 +3547,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':terminal: MPI Horovodrun (test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7)'
   command: horovodrun -np 2 -H localhost:2 python /horovod/examples/tensorflow/tensorflow_mnist.py
   artifact_paths: "artifacts/**"
@@ -3563,7 +3563,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':terminal: MPI Horovodrun (test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7)'
   command: bash -c "echo 'localhost slots=2' > hostfile && horovodrun -np 2 -hostfile hostfile python /horovod/examples/mxnet/mxnet_mnist.py"
   artifact_paths: "artifacts/**"
@@ -3579,7 +3579,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':spark: Spark Keras Rossmann Run (test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7)'
   command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/spark/keras/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.01"
   artifact_paths: "artifacts/**"
@@ -3595,7 +3595,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':spark: Spark Keras Rossmann Estimator (test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7)'
   command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/spark/keras/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01"
   artifact_paths: "artifacts/**"
@@ -3611,7 +3611,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':spark: Spark Keras MNIST (test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7)'
   command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/spark/keras/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
@@ -3627,7 +3627,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
 - label: ':spark: Spark Torch MNIST (test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7)'
   command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
@@ -3643,4 +3643,4 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: 2x-gpu-g4
+    queue: 2x-gpu-v510
