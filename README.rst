@@ -58,7 +58,7 @@ The goal of Horovod is to make distributed deep learning fast and easy to use.
 Horovod is hosted by the `LF AI & Data Foundation <https://lfdl.io>`_ (LF AI & Data). If you are a company that is deeply
 committed to using open source technologies in artificial intelligence, machine, and deep learning, and want to support
 the communities of open source projects in these domains, consider joining the LF AI & Data Foundation. For details
-about who's involved and how Horovod plays a role, read the LF AI `announcement <https://lfdl.io/press/2018/12/13/lf-deep-learning-welcomes-horovod-distributed-training-framework-as-newest-project/>`_.
+about who's involved and how Horovod plays a role, read the Linux Foundation `announcement <https://lfdl.io/press/2018/12/13/lf-deep-learning-welcomes-horovod-distributed-training-framework-as-newest-project/>`_.
 
 |
 
