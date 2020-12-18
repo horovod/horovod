@@ -72,7 +72,7 @@ jobs:
 
     - name: Download Buildkite Artifacts
       id: download
-      uses: EnricoMi/download-buildkite-artifact-action@master
+      uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1.6
       if: steps.commit-changes.outputs.changed-code-files != ''
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -84,7 +84,7 @@ jobs:
 
     - name: Unit Test Results
       id: results
-      uses: EnricoMi/publish-unit-test-result-action@master
+      uses: docker://ghcr.io/enricomi/publish-unit-test-result-action:v1.6
       if: >
         steps.download.outcome != 'skipped' &&
         ! contains(fromJSON('[''blocked'', ''canceled'', ''skipped'', ''not_run'']'), steps.download.outputs.build-state)
