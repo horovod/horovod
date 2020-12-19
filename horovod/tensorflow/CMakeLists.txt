@@ -14,6 +14,9 @@ if(NOT TENSORFLOW_FOUND)
     return()
 endif()
 
+# Append version number into metadata
+file(APPEND "${CMAKE_LIBRARY_OUTPUT_DIRECTORY_ROOT}/metadata.json" "\"tensorflow\": \"${Tensorflow_VERSION}\",\n")
+
 # Overwite Eigen and Flatbuffers headers path if provided in tensorflow or system
 # Search tensorflow path
 find_path(TF_EIGEN_INCLUDE_PATH Eigen/src/Core/EigenBase.h PATHS ${Tensorflow_INCLUDE_DIRS} NO_DEFAULT_PATH)

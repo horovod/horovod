@@ -14,6 +14,9 @@ if(NOT PYTORCH_FOUND)
     return()
 endif()
 
+# Append version number into metadata
+file(APPEND "${CMAKE_LIBRARY_OUTPUT_DIRECTORY_ROOT}/metadata.json" "\"pytorch\": \"${Pytorch_VERSION}\",\n")
+
 if (HAVE_CUDA AND NOT Pytorch_CUDA)
     message(FATAL_ERROR "Horovod build with GPU support was requested but this PyTorch installation does not support CUDA.")
 elseif (Pytorch_CUDA AND NOT HAVE_CUDA)

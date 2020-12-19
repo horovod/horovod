@@ -29,3 +29,20 @@ class HostsUpdatedInterrupt(RuntimeError):
     In elastic mode, this will result in a reset event without a restore to committed state.
     """
     pass
+
+
+def get_version_mismatch_message(name, version, installed_version):
+    return f'Framework {name} installed with version {installed_version} but found version {version}.\n\
+             This can result in unexpected behavior including runtime errors.\n\
+             Reinstall Horovod using `pip install --no-cache-dir` to build with the new version.'
+
+
+class HorovodVersionMismatchError(Exception):
+    """Internal error raised when the runtime version of a framework mismatches its version at
+    Horovod installation time.
+    """
+    def __init__(self, name, version, installed_version):
+        super().__init__(get_version_mismatch_message(name, version, installed_version))
+        self.name = name
+        self.version = version
+        self.installed_version = installed_version

@@ -15,6 +15,9 @@ if(NOT MXNET_FOUND)
 endif()
 set(Mxnet_CXX11 ${Mxnet_CXX11} PARENT_SCOPE)
 
+# Append version number into metadata
+file(APPEND "${CMAKE_LIBRARY_OUTPUT_DIRECTORY_ROOT}/metadata.json" "\"mxnet\": \"${Mxnet_VERSION}\",\n")
+
 if (HAVE_CUDA AND NOT Mxnet_USE_CUDA)
     message(FATAL_ERROR "Horovod build with GPU support was requested but this MXNet installation does not support CUDA.")
 elseif (Mxnet_USE_CUDA AND NOT HAVE_CUDA)
