@@ -47,6 +47,7 @@ def is_non_code_file(file):
 
 
 if __name__ == "__main__":
+    sys.exit(0)
     logging.getLogger().level = logging.DEBUG
 
     commit = os.environ.get('BUILDKITE_COMMIT')
