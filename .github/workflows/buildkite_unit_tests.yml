@@ -72,8 +72,8 @@ jobs:
 
     - name: Download Buildkite Artifacts
       id: download
-      uses: EnricoMi/download-buildkite-artifact-action@master
-      if: steps.commit-changes.outputs.changed-code-files != ''
+      uses: EnricoMi/download-buildkite-artifact-action@branch-add-more-outputs
+      #if: steps.commit-changes.outputs.changed-code-files != ''
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}

@@ -345,6 +345,7 @@ run_single_integration() {
 build_docs() {
   echo "- label: ':book: Build Docs'"
   echo "  command: 'cd /workdir/docs && pip install -r requirements.txt && make html'"
+  echo "  artifact_paths: \"/workdir/docs/_build/**\""
   echo "  plugins:"
   echo "  - docker#v3.1.0:"
   echo "      image: 'python:3.7'"
