@@ -202,7 +202,7 @@ services:
         MXNET_PACKAGE: mxnet-cu101==1.6.0.post0
         PYSPARK_PACKAGE: pyspark==2.4.7
         SPARK_PACKAGE: spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
-  test-gpu-openmpi-gloo-py3_6-tf2_4_0-keras2_3_1-torch1_7_0-mxnet1_6_0-pyspark2_4_7:
+  test-gpu-openmpi-gloo-py3_6-tf2_4_0-keras2_3_1-torch1_7_1-mxnet1_6_0-pyspark2_4_7:
     extends: test-gpu-base
     build:
       args:
@@ -213,8 +213,8 @@ services:
         PYTHON_VERSION: 3.6
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.4.0
         KERAS_PACKAGE: keras==2.3.1
-        PYTORCH_PACKAGE: torch==1.7.0+cu110
-        TORCHVISION_PACKAGE: torchvision==0.8.1+cu110
+        PYTORCH_PACKAGE: torch==1.7.1+cu110
+        TORCHVISION_PACKAGE: torchvision==0.8.2+cu110
         MXNET_PACKAGE: None  # TODO: re-enable with CUDA 11.0
         HOROVOD_MXNET_FLAG: "HOROVOD_WITHOUT_MXNET=1"
         PYSPARK_PACKAGE: pyspark==2.4.7
