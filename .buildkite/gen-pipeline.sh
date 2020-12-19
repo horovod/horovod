@@ -420,12 +420,12 @@ for test in ${tests[@]-}; do
   if [[ ${test} == *-gpu-* ]] || [[ ${test} == *-mixed-* ]]; then
     # if gloo is specified, run gloo gpu unit tests
     if [[ ${test} == *-gloo* ]]; then
-      run_gloo_pytest ${test} "4x-gpu-g4"
+      run_gloo_pytest ${test} "4x-gpu-v510"
     fi
 
     # if mpi is specified, run mpi gpu unit tests
     if [[ ${test} == *mpi* ]]; then
-      run_mpi_pytest ${test} "4x-gpu-g4"
+      run_mpi_pytest ${test} "4x-gpu-v510"
     fi
   fi
 done
@@ -438,14 +438,14 @@ for test in ${tests[@]-}; do
   if [[ ${test} == *-gpu-* ]] || [[ ${test} == *-mixed-* ]]; then
     # if gloo is specified, run gloo gpu integration tests
     if [[ ${test} == *-gloo* ]]; then
-      run_gloo_integration ${test} "2x-gpu-g4"
+      run_gloo_integration ${test} "2x-gpu-v510"
     fi
 
     # if mpi is specified, run mpi gpu integration tests
     if [[ ${test} == *mpi* ]]; then
-      run_mpi_integration ${test} "2x-gpu-g4"
+      run_mpi_integration ${test} "2x-gpu-v510"
     fi
 
-    run_spark_integration ${test} "2x-gpu-g4"
+    run_spark_integration ${test} "2x-gpu-v510"
   fi
 done

@@ -21,7 +21,7 @@ import numbers
 import time
 
 from pyspark import keyword_only
-from pyspark.ml.param.shared import Param, Params
+from pyspark.ml.param.shared import Param, Params, TypeConverters
 from pyspark.ml.util import MLWritable, MLReadable
 from pyspark.sql import SparkSession
 
@@ -150,6 +150,10 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     train_minibatch_fn = Param(Params._dummy(), 'train_minibatch_fn',
                                'functions that construct the minibatch train function for torch')
 
+    inmemory_cache_all = Param(Params._dummy(), 'inmemory_cache_all',
+                               'Cache the data in memory for training and validation.',
+                               typeConverter=TypeConverters.toBoolean)
+
     @keyword_only
     def __init__(self,
                  num_proc=None,
@@ -181,13 +185,15 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  transformation_fn=None,
                  train_reader_num_workers=None,
                  val_reader_num_workers=None,
-                 label_shapes=None):
+                 label_shapes=None,
+                 inmemory_cache_all=False):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
                          input_shapes=None,
                          train_minibatch_fn=None,
-                         transformation_fn=None)
+                         transformation_fn=None,
+                         inmemory_cache_all=False)
 
         kwargs = self._input_kwargs
 
@@ -213,6 +219,12 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def getLossConstructors(self):
         return self.getOrDefault(self.loss_constructors)
+
+    def setInMemoryCacheAll(self, value):
+        return self._set(inmemory_cache_all=value)
+
+    def getInMemoryCacheAll(self):
+        return self.getOrDefault(self.inmemory_cache_all)
 
     def _get_optimizer(self):
         return self.getOrDefault(self.optimizer)
