@@ -202,7 +202,7 @@ services:
         MXNET_PACKAGE: mxnet-cu101==1.6.0.post0
         PYSPARK_PACKAGE: pyspark==2.4.7
         SPARK_PACKAGE: spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
-  test-gpu-openmpi-gloo-py3_6-tf2_4_0-keras2_3_1-torch1_7_1-mxnet1_6_0-pyspark2_4_7:
+  test-gpu-openmpi-gloo-py3_6-tf2_4_0-keras2_3_1-torch1_7_1-mxnethead-pyspark2_4_7:
     extends: test-gpu-base
     build:
       args:
