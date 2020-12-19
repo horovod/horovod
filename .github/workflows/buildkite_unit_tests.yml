@@ -82,6 +82,18 @@ jobs:
         output_path: test-results
         log_level: INFO
 
+    - name: Download Debug
+      if: always()
+      run: |
+        echo build-number: ${{ steps.download.outputs.build-number }}
+        echo build-state: ${{ steps.download.outputs.build-state }}
+        echo download-state: ${{ steps.download.outputs.download-state }}
+        echo download-paths: ${{ steps.download.outputs.download-paths }}
+        echo file hash: ${{ hashFiles(fromJson(steps.download.outputs.download-paths)) }}
+        echo joined paths: ${{ join(fromJson(steps.download.outputs.download-paths), ' - ') }}
+        echo first path: ${{ fromJson(steps.download.outputs.download-paths)[0] }}
+      shell: bash
+
     - name: Unit Test Results
       id: results
       uses: EnricoMi/publish-unit-test-result-action@master
