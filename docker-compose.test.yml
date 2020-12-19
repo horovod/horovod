@@ -48,42 +48,42 @@ services:
         MXNET_PACKAGE: mxnet==1.4.1
         PYSPARK_PACKAGE: pyspark==2.4.7
         SPARK_PACKAGE: spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
-  test-cpu-openmpi-py3_6-tf2_1_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7:
+  test-cpu-openmpi-py3_6-tf2_2_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7:
     extends: test-cpu-base
     build:
       args:
         UBUNTU_VERSION: 18.04
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
-        TENSORFLOW_PACKAGE: tensorflow==2.1.0
+        TENSORFLOW_PACKAGE: tensorflow==2.2.0
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.4.0+cpu
         TORCHVISION_PACKAGE: torchvision==0.5.0+cpu
         MXNET_PACKAGE: mxnet==1.5.0
         PYSPARK_PACKAGE: pyspark==2.4.7
         SPARK_PACKAGE: spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
-  test-cpu-gloo-py3_7-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_7:
+  test-cpu-gloo-py3_7-tf2_3_1-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_7:
     extends: test-cpu-base
     build:
       args:
         UBUNTU_VERSION: 18.04
         MPI_KIND: None
         PYTHON_VERSION: 3.7
-        TENSORFLOW_PACKAGE: tensorflow==2.2.0
+        TENSORFLOW_PACKAGE: tensorflow==2.3.1
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.5.0+cpu
         TORCHVISION_PACKAGE: torchvision==0.6.0+cpu
         MXNET_PACKAGE: mxnet==1.5.0
         PYSPARK_PACKAGE: pyspark==2.4.7
         SPARK_PACKAGE: spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
-  test-cpu-gloo-py3_8-tf2_3_1-keras2_3_1-torch1_6_0-mxnet1_5_0-pyspark3_0_1:
+  test-cpu-gloo-py3_8-tf2_4_0-keras2_3_1-torch1_6_0-mxnet1_5_0-pyspark3_0_1:
     extends: test-cpu-base
     build:
       args:
         UBUNTU_VERSION: 18.04
         MPI_KIND: None
         PYTHON_VERSION: 3.8
-        TENSORFLOW_PACKAGE: tensorflow==2.3.1
+        TENSORFLOW_PACKAGE: tensorflow==2.4.0
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.6.0+cpu
         TORCHVISION_PACKAGE: torchvision==0.7.0+cpu
@@ -211,7 +211,7 @@ services:
         NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda11.0
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
-        TENSORFLOW_PACKAGE: tensorflow-gpu==2.4.0rc1
+        TENSORFLOW_PACKAGE: tensorflow-gpu==2.4.0
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.7.0+cu110
         TORCHVISION_PACKAGE: torchvision==0.8.1+cu110
