@@ -215,7 +215,7 @@ services:
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.7.1+cu110
         TORCHVISION_PACKAGE: torchvision==0.8.2+cu110
-        MXNET_PACKAGE: mxnet-cu110
+        MXNET_PACKAGE: mxnet-nightly-cu110
         PYSPARK_PACKAGE: pyspark==2.4.7
         SPARK_PACKAGE: spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
   test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7:
@@ -231,7 +231,7 @@ services:
         KERAS_PACKAGE: keras==2.4.3
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: torchvision
-        MXNET_PACKAGE: mxnet-cu110
+        MXNET_PACKAGE: mxnet-nightly-cu110
         PYSPARK_PACKAGE: pyspark==2.4.7
         SPARK_PACKAGE: spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
   test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7:
