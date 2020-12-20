@@ -10,7 +10,7 @@ repository=823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
 dir="$(dirname "$0")"
 code_files=$(python "$dir/get_changed_code_files.py" || echo failure)
 tests=$(if [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}" ]] || [[ -n "$code_files" ]]; then
-  printf "test-cpu-openmpi-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2 "
+  printf "test-cpu-openmpi-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2 "
   printf "test-cpu-gloo-py3_6-tf2_0_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_3_2 "
   printf "test-cpu-openmpi-py3_6-tf2_1_0-keras2_2_4-torch1_4_0-mxnet1_4_1-pyspark2_4_7 "
   printf "test-cpu-openmpi-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_7 "
