@@ -32,7 +32,7 @@ import warnings
 
 import horovod.tensorflow as hvd
 
-from common import mpi_env_rank_and_size
+from common import mpi_env_rank_and_size, skip_or_fail_gpu_test
 
 if hasattr(tf, 'ConfigProto'):
     config = tf.ConfigProto()
@@ -103,6 +103,10 @@ class TensorFlowTests(tf.test.TestCase):
         if 'CCL_ROOT' in os.environ:
            types = [t for t in types if t in ccl_supported_types]
         return types
+
+    def test_gpu_required(self):
+        if not tf.test.is_gpu_available(cuda_only=True):
+            skip_or_fail_gpu_test(self, "No GPUs available")
 
     def test_horovod_rank(self):
         """Test that the rank returned by hvd.rank() is correct."""

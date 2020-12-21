@@ -228,3 +228,11 @@ def spawn(fn):
         return results
 
     return wrapped_fn
+
+
+def skip_or_fail_gpu_test(test, message):
+    """Fails the test if GPUs are required, otherwise skips."""
+    if int(os.environ.get('HOROVOD_TEST_GPU', 0)):
+        test.fail(message)
+    else:
+        test.skipTest(message)

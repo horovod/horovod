@@ -36,7 +36,7 @@ import torch.nn.functional as F
 
 import horovod.torch as hvd
 
-from common import mpi_env_rank_and_size, temppath
+from common import mpi_env_rank_and_size, skip_or_fail_gpu_test, temppath
 
 _1_5_api = LooseVersion(torch.__version__) >= LooseVersion('1.5.0')
 
@@ -74,6 +74,10 @@ class TorchTests(unittest.TestCase):
         if 'CCL_ROOT' in os.environ:
            types = [t for t in types if t in ccl_supported_types]
         return types
+
+    def test_gpu_required(self):
+        if not torch.cuda.is_available():
+            skip_or_fail_gpu_test(self, "No GPUs available")
 
     @pytest.mark.skipif(platform.system() == 'Darwin', reason='Reinit not supported on macOS')
     def test_horovod_reinit(self):

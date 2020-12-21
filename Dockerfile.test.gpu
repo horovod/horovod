@@ -25,7 +25,8 @@ ARG HOROVOD_MIXED_INSTALL=0
 SHELL ["/bin/bash", "-cu"]
 
 # Install essential packages.
-RUN apt-get update -qq && apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
+RUN CUDNN_MAJOR=$(cut -d '.' -f 1 <<< "${CUDNN_VERSION}"); \
+    apt-get update -qq && apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
         wget \
         ca-certificates \
         cmake \
@@ -35,7 +36,7 @@ RUN apt-get update -qq && apt-get install -y --allow-downgrades --allow-change-h
         build-essential \
         g++-4.8 \
         moreutils \
-        libcudnn7=${CUDNN_VERSION} \
+        libcudnn${CUDNN_MAJOR}=${CUDNN_VERSION} \
         libnccl2=${NCCL_VERSION_OVERRIDE} \
         libnccl-dev=${NCCL_VERSION_OVERRIDE}
 
@@ -120,6 +121,8 @@ RUN pip install "Pillow<7.0" --no-deps
 # Install MXNet.
 RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly" ]]; then \
         pip install --pre mxnet-cu101==2.0.0b20201213 -f https://dist.mxnet.io/python/all; \
+    elif [[ ${MXNET_PACKAGE} == "mxnet-nightly-cu110" ]]; then \
+        pip install --pre mxnet-cu110==2.0.0b20201213 -f https://dist.mxnet.io/python/cu110; \
     else \
         pip install ${MXNET_PACKAGE} ; \
     fi
