@@ -24,7 +24,7 @@ from collections import defaultdict
 from horovod.runner.common.util import hosts, timeout
 from horovod.runner.elastic.discovery import HostManager
 from horovod.runner.elastic.registration import WorkerStateRegistry
-from horovod.runner.elastic.worker import WorkerNotificationClient
+from horovod.runner.elastic.worker import HostUpdateResult, WorkerNotificationClient
 
 
 DISCOVER_HOSTS_FREQUENCY_SECS = 1.0
@@ -183,8 +183,9 @@ class ElasticDriver(object):
         while not self._shutdown.is_set():
             self._wait_hosts_cond.acquire()
             try:
-                if self._host_manager.update_available_hosts():
-                    self._notify_workers_host_changes(self._host_manager.current_hosts)
+                update_res = self._host_manager.update_available_hosts()
+                if update_res != HostUpdateResult.no_update:
+                    self._notify_workers_host_changes(self._host_manager.current_hosts, update_res)
                     self._wait_hosts_cond.notify_all()
             except RuntimeError as e:
                 if first_update:
@@ -199,7 +200,7 @@ class ElasticDriver(object):
             first_update = False
             self._shutdown.wait(DISCOVER_HOSTS_FREQUENCY_SECS)
 
-    def _notify_workers_host_changes(self, current_hosts):
+    def _notify_workers_host_changes(self, current_hosts, update_res):
         next_host_assignments = {}
         if current_hosts.count_available_slots() >= self._min_np:
             # Assignments are required to be stable via contract
@@ -222,7 +223,7 @@ class ElasticDriver(object):
 
         timestamp = _epoch_time_s()
         try:
-            coordinator_client.notify_hosts_updated(timestamp)
+            coordinator_client.notify_hosts_updated(timestamp, update_res)
         except:
             if self._verbose >= 2:
                 logging.exception('failed to notify {}[{}] of host updates'

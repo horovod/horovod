@@ -30,6 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Fixed "Intermediate path does not exist" error with DBFSLocalStore. ([#2526](https://github.com/horovod/horovod/pull/2526))
 
+- Avoid synchronization if workers are only shrinked in elastic mode. ([#2514](https://github.com/horovod/horovod/pull/2514))
 
 ## [v0.21.0] - 2020-11-23
 
