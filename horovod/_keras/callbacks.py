@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+from distutils.version import LooseVersion
 import warnings
 
 import horovod.tensorflow as hvd
@@ -52,6 +53,11 @@ class MetricAverageCallbackImpl(object):
         self.variables = {}
         self.allreduce_ops = {}
         self.device = device
+
+        if LooseVersion(tf.__version__) >= LooseVersion("2.3"):
+            warnings.warn(
+                "Some callbacks may not have access to the averaged metrics, "
+                "see https://github.com/horovod/horovod/issues/2440")
 
     def _make_variable(self, metric, value):
         with self.backend.name_scope('MetricAverageCallback'):
