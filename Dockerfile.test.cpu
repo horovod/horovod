@@ -96,6 +96,7 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
             echo ". /usr/local/oneccl/env/setvars.sh" > /oneccl_env && \
             chmod +x /oneccl_env && \
             echo "export CCL_ATL_TRANSPORT=ofi; \
+                  export HOROVOD_CCL_CACHE=1; \
                   echo \"\$(env)\"; \
                   echo \"mpirun is \$(which mpirun)\"; \
                   echo \"LD_LIBRARY_PATH is \$(echo \$LD_LIBRARY_PATH)\"; \
@@ -104,6 +105,7 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
             chmod +x /mpirun_command_ofi && \
             cp /mpirun_command_ofi /mpirun_command_mpi && \
             sed -i 's/export CCL_ATL_TRANSPORT=ofi;/export CCL_ATL_TRANSPORT=mpi;/g' /mpirun_command_mpi && \
+            sed -i 's/export HOROVOD_CCL_CACHE=1;/export HOROVOD_CCL_CACHE=0;/g' /mpirun_command_mpi && \
             echo "-L/usr/local/oneccl/lib -lmpi -I/usr/local/oneccl/include" > /mpicc_oneccl && \
             chmod +x /mpicc_oneccl && \
             echo "/mpirun_command_mpi" > /mpirun_command; \
