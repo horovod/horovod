@@ -69,7 +69,7 @@ class _HorovodArgs(object):
         self.tcp_flag = None
         self.binding_args = None
         self.num_nccl_streams = None
-        self.ccl_bgt_affinity = None
+        self.thread_affinity = None
         self.gloo_timeout_seconds = None
 
         # logging arguments
