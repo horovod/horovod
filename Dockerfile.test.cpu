@@ -1,9 +1,9 @@
-ARG UBUNTU_VERSION=16.04
+ARG UBUNTU_VERSION=18.04
 FROM ubuntu:${UBUNTU_VERSION}
 
 # Arguments for the build. UBUNTU_VERSION needs to be repeated because
 # the first usage only applies to the FROM tag.
-ARG UBUNTU_VERSION=16.04
+ARG UBUNTU_VERSION=18.04
 ARG MPI_KIND=OpenMPI
 ARG PYTHON_VERSION=3.6
 ARG GPP_VERSION=4.8
@@ -24,7 +24,7 @@ ARG CCL_PACKAGE=master
 SHELL ["/bin/bash", "-cu"]
 
 # Prepare to install specific g++ versions
-RUN apt-get install -y --no-install-recommends software-properties-common
+RUN apt-get update -qq && apt-get install -y --no-install-recommends software-properties-common
 RUN add-apt-repository ppa:ubuntu-toolchain-r/test
 
 # Install essential packages.
