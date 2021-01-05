@@ -1,11 +1,12 @@
-ARG UBUNTU_VERSION=16.04
+ARG UBUNTU_VERSION=18.04
 FROM ubuntu:${UBUNTU_VERSION}
 
 # Arguments for the build. UBUNTU_VERSION needs to be repeated because
 # the first usage only applies to the FROM tag.
-ARG UBUNTU_VERSION=16.04
+ARG UBUNTU_VERSION=18.04
 ARG MPI_KIND=OpenMPI
 ARG PYTHON_VERSION=3.6
+ARG GPP_VERSION=7
 # NOTE: keep versions in sync with setup.py extras_require{'dev'}:
 ARG TENSORFLOW_PACKAGE=tensorflow-cpu==1.15.0
 ARG KERAS_PACKAGE=keras==2.2.4
@@ -22,6 +23,10 @@ ARG CCL_PACKAGE=master
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-cu"]
 
+# Prepare to install specific g++ versions
+RUN apt-get update -qq && apt-get install -y --no-install-recommends software-properties-common
+RUN add-apt-repository ppa:ubuntu-toolchain-r/test
+
 # Install essential packages.
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
         wget \
@@ -31,17 +36,12 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
         openssh-server \
         git \
         build-essential \
-        g++-4.8 \
+        g++-${GPP_VERSION} \
         moreutils
 
 # setup ssh service
 RUN ssh-keygen -f /root/.ssh/id_rsa -q -N ''
 RUN cp -v /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
-
-# install g++-7
-RUN apt-get install -y --no-install-recommends software-properties-common
-RUN add-apt-repository ppa:ubuntu-toolchain-r/test
-RUN apt-get update -qq && apt-get install -y --no-install-recommends g++-7
 
 # Install Python.
 RUN apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-distutils

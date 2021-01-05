@@ -4,6 +4,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.test.cpu
+      args:
+        GPP_VERSION: 7
     privileged: true
     shm_size: 8gb
   test-cpu-openmpi-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2:
@@ -151,6 +153,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.test.gpu
+      args:
+        GPP_VERSION: 7
     runtime: nvidia
     # We plumb CUDA_VISIBLE_DEVICES instead of NVIDIA_VISIBLE_DEVICES because
     # the latter does not work in privileged mode that we use in the containers.
