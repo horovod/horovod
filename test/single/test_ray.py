@@ -120,10 +120,11 @@ def test_colocator_gpu(tmpdir, ray_start_4_cpus_4_gpus):
     assert resources.get("GPU", 0) == 0, resources
 
     # TODO: https://github.com/horovod/horovod/issues/2438
-    # assert resources.get(f"node:{ip_address}", 0) == 1 - 4 * 0.01
+    assert resources.get(f"node:{ip_address}", 0) == 1 - 4 * 0.01, resources
 
     all_envs = ray.get([h.env_vars.remote() for h in worker_handles])
-    assert len({ev["CUDA_VISIBLE_DEVICES"] for ev in all_envs}) == 1
+    all_cudas = {ev["CUDA_VISIBLE_DEVICES"] for ev in all_envs}
+    assert len(all_cudas) == 1, all_cudas
     assert len(all_envs[0]["CUDA_VISIBLE_DEVICES"].split(",")) == 4
 
 
