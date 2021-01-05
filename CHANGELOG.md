@@ -33,6 +33,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Avoid synchronization if workers are only shrinked in elastic mode. ([#2514](https://github.com/horovod/horovod/pull/2514))
 
+- Fixed Ray resource test ([#2575](https://github.com/horovod/horovod/pull/2575))
+
 ## [v0.21.0] - 2020-11-23
 
 ### Added
