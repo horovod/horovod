@@ -102,6 +102,7 @@ def test_colocator(tmpdir, ray_start_6_cpus):
     # assert resources.get(f"node:{ip_address}", 0) == 1 - 4 * 0.01
 
 
+@pytest.mark.skip(reason='https://github.com/horovod/horovod/issues/2574')
 @pytest.mark.skipif(
     torch.cuda.device_count() < 4, reason='GPU colocator test requires 4 GPUs')
 @pytest.mark.skipif(
