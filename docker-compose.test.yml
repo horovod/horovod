@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: Dockerfile.test.cpu
       args:
-        GPP_VERSION: 4.8
+        GPP_VERSION: 7
     privileged: true
     shm_size: 8gb
   test-cpu-openmpi-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2:
@@ -92,14 +92,13 @@ services:
         MXNET_PACKAGE: mxnet==1.5.0
         PYSPARK_PACKAGE: pyspark==3.0.1
         SPARK_PACKAGE: spark-3.0.1/spark-3.0.1-bin-hadoop2.7.tgz
-  test-cpu-openmpi-py3_6-gpp7-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7:
+  test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7:
     extends: test-cpu-base
     build:
       args:
         UBUNTU_VERSION: 18.04
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
-        GPP_VERSION: 7
         TENSORFLOW_PACKAGE: tf-nightly
         KERAS_PACKAGE: keras==2.4.3
         PYTORCH_PACKAGE: torch-nightly
@@ -154,6 +153,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.test.gpu
+      args:
+        GPP_VERSION: 7
     runtime: nvidia
     # We plumb CUDA_VISIBLE_DEVICES instead of NVIDIA_VISIBLE_DEVICES because
     # the latter does not work in privileged mode that we use in the containers.
@@ -221,7 +222,7 @@ services:
         MXNET_PACKAGE: mxnet-nightly-cu110
         PYSPARK_PACKAGE: pyspark==2.4.7
         SPARK_PACKAGE: spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
-  test-gpu-openmpi-py3_6-gpp7-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7:
+  test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7:
     extends: test-gpu-base
     build:
       args:
@@ -230,7 +231,6 @@ services:
         NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda11.0
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
-        GPP_VERSION: 7
         TENSORFLOW_PACKAGE: tf-nightly-gpu
         KERAS_PACKAGE: keras==2.4.3
         PYTORCH_PACKAGE: torch-nightly

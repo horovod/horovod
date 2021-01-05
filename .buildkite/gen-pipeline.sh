@@ -16,7 +16,7 @@ tests=$(if [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}
   printf "test-cpu-openmpi-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_7 "
   printf "test-cpu-gloo-py3_7-tf2_3_1-keras2_3_1-torch1_6_0-mxnet1_5_0-pyspark2_4_7 "
   printf "test-cpu-gloo-py3_8-tf2_4_0-keras2_3_1-torch1_7_1-mxnet1_5_0-pyspark3_0_1 "
-  printf "test-cpu-openmpi-py3_6-gpp7-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7 "
+  printf "test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7 "
   printf "test-cpu-mpich-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7 "
   printf "test-cpu-oneccl-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7 "
   printf "test-cpu-oneccl-ofi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7 "
@@ -24,7 +24,7 @@ tests=$(if [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}
   printf "test-gpu-gloo-py3_6-tf2_0_0-keras2_3_1-torch1_4_0-mxnet1_4_1-pyspark2_4_7 "
   printf "test-gpu-openmpi-py3_6-tf2_3_1-keras2_3_1-torch1_6_0-mxnet1_6_0-pyspark2_4_7 "
   printf "test-gpu-openmpi-gloo-py3_6-tf2_4_0-keras2_3_1-torch1_7_1-mxnethead-pyspark2_4_7 "
-  printf "test-gpu-openmpi-py3_6-gpp7-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7 "
+  printf "test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7 "
   printf "test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7 "
 fi)
 read -r -a tests <<< "$tests"
