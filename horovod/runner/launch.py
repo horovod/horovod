@@ -442,10 +442,10 @@ def parse_args():
                                        type=int, default=1,
                                        help='Number of NCCL streams. Only applies when running with NCCL support. '
                                             '(default: %(default)s)')
-    group_library_options.add_argument('--ccl-bgt-affinity', action=make_override_action(override_args),
+    group_library_options.add_argument('--thread-affinity', action=make_override_action(override_args),
                                        type=int, default=0,
-                                       help='CCL background thread affinity. Only applies when running with CCL '
-                                            'support. (default: %(default)s)')
+                                       help='Horovod background thread affinity. '
+                                            '(default: %(default)s)')
     group_library_options.add_argument('--gloo-timeout-seconds', action=make_override_action(override_args),
                                        type=int, default=30,
                                        help='Timeout in seconds for Gloo operations to complete. '
