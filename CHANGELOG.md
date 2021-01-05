@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - Migrated to oneCCL aligned with oneAPI specification v1.0 ([#2513](https://github.com/horovod/horovod/pull/2513))
+- Added knob to set cache hint for oneCCL allreduce ([#2560](https://github.com/horovod/horovod/pull/2560))
 
 ### Deprecated
 

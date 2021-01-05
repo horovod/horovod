@@ -116,7 +116,9 @@ CCLContext::CCLContext() : opctxt_(nullptr) {}
 void CCLContext::Initialize() {
   ccl::init();
   opctxt_ = NewOpContext();
-  LOG(DEBUG) << "CCL context initialized.";
+  enable_cache = GetBoolEnvOrDefault(HOROVOD_CCL_CACHE, false);
+
+  LOG(DEBUG) << "CCL context initialized, enable_cache " << enable_cache;
 }
 
 void CCLContext::Finalize() {
@@ -258,9 +260,39 @@ Status CCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   const void* sendbuf = entries.size() > 1 || fused_input_data == buffer_data
                             ? buffer_data
                             : fused_input_data;
+  
+  auto attr = ccl::create_operation_attr<ccl::allreduce_attr>();
+
+  if (this->ccl_context_->enable_cache) {
+    std::string match_id = "dt_" + DataType_Name(first_entry.tensor->dtype()) +
+                           "_len_" + std::to_string(buffer_len);
+
+    if (response.prescale_factor() != 1.0) {
+      match_id += "_prescale_" + std::to_string(response.prescale_factor());
+    }
+    if (response.postscale_factor() != 1.0) {
+      match_id += "_postscale_" + std::to_string(response.postscale_factor());
+    }
+    for (size_t idx = 0; idx < entries.size(); idx++) {
+      match_id += "_" + entries[idx].tensor_name;
+    }
+
+    attr.set<ccl::operation_attr_id::match_id>(ccl::string_class(match_id));
+    attr.set<ccl::operation_attr_id::to_cache>(true);
+
+    LOG(DEBUG) << "CCLAllreduce::Execute enable_cache"
+               << " buffer_len: " << buffer_len
+               << " send_buf: " << sendbuf
+               << " recv_buf: " << buffer_data
+               << " match_id: " << match_id;
+  }
+  else {
+    attr.set<ccl::operation_attr_id::to_cache>(false);
+  }
+
   ccl::allreduce((void*)sendbuf, buffer_data, num_elements,
                  GetCCLDataType(first_entry.tensor), ccl::reduction::sum,
-                 c4h.comm_, c4h.stream_)
+                 c4h.comm_, c4h.stream_, attr)
       .wait();
   timeline.ActivityEndAll(entries);
 
@@ -278,7 +310,8 @@ Status CCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     timeline.ActivityEndAll(entries);
   }
 
-  LOG(DEBUG) << "done CCLAllreduce::Execute";
+  LOG(DEBUG) << "CCLAllreduce::Execute done";
+
   return Status::OK();
 }
 
@@ -404,6 +437,9 @@ Status CCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
   delete[] entry_component_offsets;
   delete[] recvcounts;
   delete[] displcmnts;
+
+  LOG(DEBUG) << "CCLAllgather::Execute done";
+
   return status;
 }
 
@@ -431,8 +467,10 @@ Status CCLBroadcast::Execute(std::vector<TensorTableEntry>& entries,
                    c4h.stream_)
         .wait();
   }
+
   global_state_->timeline.ActivityEndAll(entries);
-  LOG(DEBUG) << "done CCLBroadcast::Execute";
+  LOG(DEBUG) << "CCLBroadcast::Execute done";
+
   return Status::OK();
 }
 
@@ -465,6 +503,7 @@ Status CCLAlltoall::Execute(std::vector<TensorTableEntry>& entries,
       .wait();
 
   global_state_->timeline.ActivityEndAll(entries);
+  LOG(DEBUG) << "CCLAlltoall::Execute done";
 
   return Status::OK();
 }

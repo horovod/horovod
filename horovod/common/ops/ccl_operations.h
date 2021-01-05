@@ -41,6 +41,9 @@ public:
   void Initialize();
   void Finalize();
   bool IsInited() { return opctxt_ != nullptr; }
+
+  bool enable_cache;
+
   CCLOpContext* opctxt_;
 
 private:
