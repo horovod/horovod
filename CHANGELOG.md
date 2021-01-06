@@ -8,10 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-### Changed
-
-- Migrated to oneCCL aligned with oneAPI specification v1.0 ([#2513](https://github.com/horovod/horovod/pull/2513))
-- Added knob to set cache hint for oneCCL allreduce ([#2560](https://github.com/horovod/horovod/pull/2560))
+### Changed 
 
 ### Deprecated
 
@@ -19,21 +16,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+## [v0.21.1] - 2021-01-06
+
+### Added
+
+- Added in-memory dataset caching param to `TorchEstimator`. ([#2434](https://github.com/horovod/horovod/pull/2434))
+
+- Added `val_batch_size` param to the Estimator API. ([#2505](https://github.com/horovod/horovod/pull/2505))
+
+- Added support for TorchScript modules when using `TorchEstimator`. ([#2494](https://github.com/horovod/horovod/pull/2494))
+
+### Changed
+
+- Migrated to oneCCL aligned with oneAPI specification v1.0. ([#2513](https://github.com/horovod/horovod/pull/2513))
+
+- Added knob to set cache hint for oneCCL allreduce. ([#2560](https://github.com/horovod/horovod/pull/2560))
+
+- Renamed `horovodrun` arg `--ccl-bgt-affinity` to `--thread-affinity`. ([#2562](https://github.com/horovod/horovod/pull/2562)) 
+
+- Changed default build parallelism from `-j8` to `-j1` to address potential race condition. ([#2572](https://github.com/horovod/horovod/pull/2572)) 
+
+### Fixed
+
 - Fixed building Horovod for ROCm PyTorch with newer hipify script. ([#2360](https://github.com/horovod/horovod/pull/2360))
 
-- Fixed "Executable class" support for Ray ([#2510](https://github.com/horovod/horovod/pull/2510))
+- Fixed "Executable class" support for Ray. ([#2510](https://github.com/horovod/horovod/pull/2510))
 
 - Fixed TorchEstimator returning model without switching to eval mode. ([#2517](https://github.com/horovod/horovod/pull/2517))
 
-- Remove ssh reliance for Ray elastic training ([#2528](https://github.com/horovod/horovod/pull/2528))
+- Remove ssh reliance for Ray elastic training. ([#2528](https://github.com/horovod/horovod/pull/2528))
 
-- Fixed error handling for changing framework without reinstalling horovod ([#2529](https://github.com/horovod/horovod/pull/2529))
+- Fixed error handling for changing framework without reinstalling horovod. ([#2529](https://github.com/horovod/horovod/pull/2529))
 
 - Fixed "Intermediate path does not exist" error with DBFSLocalStore. ([#2526](https://github.com/horovod/horovod/pull/2526))
 
 - Avoid synchronization if workers are only shrinked in elastic mode. ([#2514](https://github.com/horovod/horovod/pull/2514))
 
-- Fixed Ray resource test ([#2575](https://github.com/horovod/horovod/pull/2575))
+- Fixed Ray resource test. ([#2575](https://github.com/horovod/horovod/pull/2575))
+
+- Fixed usage of env variable `HOROVOD_GLOO_TIMEOUT_SECONDS` with `horovodrun`. ([#2571](https://github.com/horovod/horovod/pull/2571))
 
 ## [v0.21.0] - 2020-11-23
 
@@ -78,6 +99,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fixed --log-hide-timestamp to apply to driver logs with Gloo. ([#2388](https://github.com/horovod/horovod/pull/2388))
 
 - Fixed the search order of Eigen and Flatbuffers paths. ([#2473](https://github.com/horovod/horovod/pull/2473))
+
+- Fixed type checks in `TorchEstimator` to correctly use `isinstance()`. ([#2480](https://github.com/horovod/horovod/pull/2480))
 
 ## [0.20.3] - 2020-10-01
 
