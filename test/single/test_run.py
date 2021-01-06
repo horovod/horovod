@@ -153,6 +153,17 @@ class RunTests(unittest.TestCase):
             self.assertEqual(env.get(config_parser.HOROVOD_THREAD_AFFINITY), '1')
             self.assertEqual(env.get(config_parser.HOROVOD_GLOO_TIMEOUT_SECONDS), '60')
 
+    def test_library_env_override(self):
+        """Tests that environment variables override arg defaults."""
+        with override_args('horovodrun', '-np', '2'):
+            args = parse_args()
+            env = {
+                'HOROVOD_GLOO_TIMEOUT_SECONDS': '1800',
+            }
+            config_parser.set_env_from_args(env, args)
+
+            self.assertEqual(env.get(config_parser.HOROVOD_GLOO_TIMEOUT_SECONDS), '1800')
+
     def test_logging_args(self):
         with override_args('horovodrun', '-np', '2',
                            '--log-level', 'INFO',

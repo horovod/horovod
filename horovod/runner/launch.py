@@ -353,24 +353,24 @@ def parse_args():
                                      'score of the trial. The last row will always contain the best value '
                                      'found.')
     group_autotune.add_argument('--autotune-warmup-samples', action=make_override_action(override_args),
-                                type=int, default=3,
+                                type=int,
                                 help='Number of samples to discard before beginning the optimization process '
                                      'during autotuning. Performance during the first few batches can be '
-                                     'affected by initialization and cache warmups. (default: %(default)s)')
+                                     'affected by initialization and cache warmups. (default: 3')
     group_autotune.add_argument('--autotune-steps-per-sample', action=make_override_action(override_args),
-                                type=int, default=10,
+                                type=int,
                                 help='Number of steps (approximate) to record before observing a sample. The sample '
                                      'score is defined to be the median score over all batches within the sample. The '
                                      'more batches per sample, the less variance in sample scores, but the longer '
-                                     'autotuning will take. (default: %(default)s)')
+                                     'autotuning will take. (default: 10')
     group_autotune.add_argument('--autotune-bayes-opt-max-samples', action=make_override_action(override_args),
-                                type=int, default=20,
+                                type=int,
                                 help='Maximum number of samples to collect for each Bayesian optimization process. '
-                                     '(default: %(default)s)')
+                                     '(default: 20')
     group_autotune.add_argument('--autotune-gaussian-process-noise', action=make_override_action(override_args),
-                                type=float, default=0.8,
+                                type=float,
                                 help='Regularization value [0, 1] applied to account for noise in samples. '
-                                     '(default: %(default)s)')
+                                     '(default: 0.8')
 
     group_elastic = parser.add_argument_group('elastic arguments')
     group_elastic.add_argument('--min-np', action='store', dest='min_np', type=int,
@@ -413,12 +413,12 @@ def parse_args():
     group_stall_check_enabled.add_argument('--stall-check', dest='no_stall_check',
                                            action=make_override_false_action(override_args), help=argparse.SUPPRESS)
     group_stall_check.add_argument('--stall-check-warning-time-seconds', action=make_override_action(override_args),
-                                   type=int, default=60,
-                                   help='Seconds until the stall warning is logged to stderr. (default: %(default)s)')
+                                   type=int,
+                                   help='Seconds until the stall warning is logged to stderr. (default: 60')
     group_stall_check.add_argument('--stall-check-shutdown-time-seconds', action=make_override_action(override_args),
-                                   type=int, default=0,
+                                   type=int,
                                    help='Seconds until Horovod is shutdown due to stall. Shutdown will only take '
-                                        'place if this value is greater than the warning time. (default: %(default)s)')
+                                        'place if this value is greater than the warning time. (default: 0')
 
     group_library_options = parser.add_argument_group('library arguments')
     group_mpi_threads_disable = group_library_options.add_mutually_exclusive_group()
@@ -439,17 +439,17 @@ def parse_args():
                                        help='Process binding arguments. Default is socket for Spectrum MPI '
                                             'and no binding for other cases. e.g. --binding-args="--rankfile myrankfile"')
     group_library_options.add_argument('--num-nccl-streams', action=make_override_action(override_args),
-                                       type=int, default=1,
+                                       type=int,
                                        help='Number of NCCL streams. Only applies when running with NCCL support. '
                                             '(default: %(default)s)')
     group_library_options.add_argument('--thread-affinity', action=make_override_action(override_args),
-                                       type=int, default=0,
+                                       type=int,
                                        help='Horovod background thread affinity. '
-                                            '(default: %(default)s)')
+                                            '(default: 0')
     group_library_options.add_argument('--gloo-timeout-seconds', action=make_override_action(override_args),
-                                       type=int, default=30,
+                                       type=int,
                                        help='Timeout in seconds for Gloo operations to complete. '
-                                            '(default: %(default)s)')
+                                            '(default: 30')
 
     group_logging = parser.add_argument_group('logging arguments')
     group_logging.add_argument('--log-level', action=make_override_action(override_args),
