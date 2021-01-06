@@ -150,8 +150,14 @@ class NodeColocator:
         # By setting CUDA VISIBLE DEVICES to ALL GPUs,
         # CUDA will be able to detect adjacent devices and use IPC
         # allowing for better performance.
+        futures = []
         for worker in self.workers:
-            worker.update_env_vars.remote({"CUDA_VISIBLE_DEVICES": all_ids})
+            futures.append(
+                worker.update_env_vars.remote({
+                    "CUDA_VISIBLE_DEVICES": all_ids
+                }))
+        # Avoid asynchrony for tests
+        ray.get(futures)
         return node_id
 
     def get_workers(self) -> List:
