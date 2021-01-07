@@ -2327,6 +2327,31 @@ class TorchTests(unittest.TestCase):
 
         hvd.shutdown()
 
+    def test_sparse_embeddings(self):
+        """Test that Horovod will correctly aggregate sparse gradients."""
+        hvd.init()
+
+        class Net(torch.nn.Module):
+            def __init__(self):
+                super(Net, self).__init__()
+                self.embedding = nn.Embedding(10, 3, sparse=True)
+
+            def forward(self, x):
+                x = self.embedding(x)
+                return x
+
+        model = Net()
+        inp = torch.LongTensor([[1, 2, 4, 5], [4, 3, 2, 9]])
+
+        # list() see: https://github.com/pytorch/pytorch/issues/47594
+        opt = torch.optim.SparseAdam(list(model.parameters()), lr=0.1)
+        opt = hvd.DistributedOptimizer(opt, sparse=True)
+
+        loss = model(inp).sum()
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+
 
 if __name__ == "__main__":
    unittest.main()
