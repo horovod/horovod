@@ -139,7 +139,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             # from rank 0 and use for every worker
             p_list_names = [self._parameter_names.get(p) for p in p_list]
             p_list_names = broadcast_object(p_list_names, root_rank=0)
-            p_list = sorted(p_list, key=lambda p : p_list_names.index(self._parameter_names.get(p)))
+            p_list = sorted(p_list, key=lambda p: p_list_names.index(self._parameter_names.get(p)))
 
             # Form groups
             if isinstance(self._groups, list):
@@ -172,6 +172,9 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                     self._grad_accs.append(grad_acc)
 
     def _allreduce_grad_async(self, p):
+        if p.grad is None:
+            p.grad = p.data.new(p.size()).zero_()
+
         name = self._parameter_names.get(p)
         tensor = p.grad
 
