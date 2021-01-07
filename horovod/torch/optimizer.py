@@ -37,7 +37,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                  backward_passes_per_step=1, op=Average,
                  gradient_predivide_factor=1.0,
                  num_groups=0,
-                 sparse=False):
+                 sparse_as_dense=False):
         super(self.__class__, self).__init__(params)
         self._compression = compression
 
@@ -74,7 +74,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                                  for _, v in sorted(named_parameters)}
         self.op = op
         self.gradient_predivide_factor = gradient_predivide_factor
-        self.sparse = sparse
+        self.sparse_as_dense = sparse_as_dense
 
         self._handles = {}
         self._grad_accs = []
@@ -144,11 +144,15 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                     self._grad_accs.append(grad_acc)
 
     def _allreduce_grad_async(self, p):
-        if p.grad.is_sparse:
-            return self._sparse_allreduce_grad_async(p)
-
         name = self._parameter_names.get(p)
         tensor = p.grad
+
+        if p.grad.is_sparse:
+            if self.sparse_as_dense:
+                tensor = tensor.to_dense()
+            else:
+                return self._sparse_allreduce_grad_async(p, name)
+
         tensor_compressed, ctx = self._compression.compress(tensor)
 
         if self.op == Average:
@@ -172,10 +176,10 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         handle = grouped_allreduce_async_(tensors_compressed, name=name, op=self.op)
         return handle, ctxs
 
-    def _sparse_allreduce_grad_async(self, p):
+    def _sparse_allreduce_grad_async(self, p, name):
         grad = p.grad.coalesce()
-        indices_handle = allgather_async(grad.indices())
-        values_handle = allgather_async(grad.values())
+        indices_handle = allgather_async(grad.indices(), name=f'{name}.indices')
+        values_handle = allgather_async(grad.values(), name=f'{name}.values')
 
         def handle():
             indices = synchronize(indices_handle)
@@ -245,7 +249,10 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                 output = synchronize(handle) if not callable(handle) else handle()
                 self._allreduce_delay[p] = self.backward_passes_per_step
                 if p.grad.is_sparse:
-                    p.grad.zero_().add_(self._compression.decompress(output, ctx))
+                    aggregated = self._compression.decompress(output, ctx)
+                    if not aggregated.is_sparse:
+                        aggregated = aggregated.to_sparse()
+                    p.grad.zero_().add_(aggregated)
                 else:
                     p.grad.set_(self._compression.decompress(output, ctx))
         self._handles.clear()
@@ -470,7 +477,7 @@ def DistributedOptimizer(optimizer, named_parameters=None,
                          op=Average,
                          gradient_predivide_factor=1.0,
                          num_groups=0,
-                         sparse=False):
+                         sparse_as_dense=False):
     """
     An optimizer that wraps another torch.optim.Optimizer, using an allreduce to
     combine gradient values before applying gradients to model weights.
@@ -515,9 +522,8 @@ def DistributedOptimizer(optimizer, named_parameters=None,
                                    gradient_predivide_factor / size after the sum.
         num_groups: Number of groups to assign gradient allreduce ops to for explicit
                     grouping. Defaults to no explicit groups.
-        sparse: (bool, dict) If set True, treat all gradients as sparse and perform allgather instead
-                of allreduce to aggregate them. Alternatively, a dictionary mapping the parameter to
-                bool, where any True value will be interpreted as sparse.
+        sparse_as_dense: If set True, convert all sparse gradients to dense and perform allreduce, then
+                         convert back to sparse before applying the update.
     """
     # We dynamically create a new class that inherits from the optimizer that was passed in.
     # The goal is to override the `step()` method with an allreduce implementation.
@@ -531,7 +537,7 @@ def DistributedOptimizer(optimizer, named_parameters=None,
         cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
                    dict(_DistributedOptimizer.__dict__))
         return cls(optimizer.param_groups, named_parameters, compression, backward_passes_per_step, op,
-                   gradient_predivide_factor, num_groups, sparse)
+                   gradient_predivide_factor, num_groups, sparse_as_dense)
     else:
         cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
                    dict(_DistributedAdasumOptimizer.__dict__))
