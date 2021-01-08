@@ -2346,7 +2346,11 @@ class TorchTests(unittest.TestCase):
                     return x
 
             model = Net()
-            inp = torch.LongTensor([[1, 2, 4, 5], [4, 3, 2, 9]])
+
+            if hvd.rank() == 0:
+                inp = torch.LongTensor([[1, 2, 4, 5], [4, 3, 2, 9]])
+            else:
+                inp = torch.LongTensor([[1, 3, 4], [4, 7, 9]])
 
             # list() see: https://github.com/pytorch/pytorch/issues/47594
             opt = torch.optim.SparseAdam(list(model.parameters()), lr=0.1)

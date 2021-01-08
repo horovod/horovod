@@ -186,8 +186,11 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         return handle, ctxs
 
     def _sparse_allreduce_grad_async(self, p, name):
+        # Allgather aggregates along the first dimension, so we need to transpose the
+        # indices to enforce correct concatenation behavior, then transpose back prior to
+        # constructing the new aggregated sparse gradient
         grad = p.grad.coalesce()
-        indices_handle = allgather_async(grad.indices(), name=f'{name}.indices')
+        indices_handle = allgather_async(grad.indices().transpose(0, 1), name=f'{name}.indices')
         values_handle = allgather_async(grad.values(), name=f'{name}.values')
 
         def handle():
@@ -195,10 +198,9 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             values = synchronize(values_handle)
             values = (values / size()) if self.op == Average else values
 
-            constructor = grad.new
             if indices.dim() == 0 or values.dim() == 0:
-                return constructor().resize_as_(grad)
-            return constructor(indices.reshape([1, -1]), values, grad.size())
+                return grad.new().resize_as_(grad)
+            return grad.new(indices.transpose(0, 1), values, grad.size())
 
         return handle, None
 
@@ -260,7 +262,10 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                 if p.grad.is_sparse:
                     aggregated = self._compression.decompress(output, ctx)
                     if not aggregated.is_sparse:
+                        # When sparse_as_dense=True we need to convert the grad back to sparse before update
                         aggregated = aggregated.to_sparse()
+
+                    # Sparse grads do not support set_ for some reason, so we do this as an equivalent
                     p.grad.zero_().add_(aggregated)
                 else:
                     p.grad.set_(self._compression.decompress(output, ctx))
