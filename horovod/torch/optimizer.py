@@ -145,6 +145,12 @@ class _DistributedOptimizer(torch.optim.Optimizer):
 
     def _allreduce_grad_async(self, p):
         if p.grad is None:
+            # Gradient was not computed, but we still need to submit a tensor to allreduce
+            # as one of the other ranks may have computed it (due to dynamic forward functions).
+            #
+            # NOTE: this will not work if the gradient is sparse and we perform an allgather.
+            # Unfrotunately, there doesn't appear to be a good way to detect that the parameter will
+            # produce sparse gradients before computing the gradient.
             p.grad = p.data.new(p.size()).zero_()
 
         name = self._parameter_names.get(p)
