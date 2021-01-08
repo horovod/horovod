@@ -1949,10 +1949,10 @@ class TorchTests(unittest.TestCase):
             loss.backward()
 
             for p in gen.parameters():
-                assert train_generator == p.grad.max().is_nonzero(), \
+                assert train_generator == (p.grad is not None and p.grad.max().is_nonzero()), \
                     'Gradient for generator is zero but it should be trained or vice versa.'
             for p in disc.parameters():
-                assert train_discriminator == p.grad.max().is_nonzero(), \
+                assert train_discriminator == (p.grad is not None and p.grad.max().is_nonzero()), \
                     'Gradient for discriminator is zero but it should be trained or vice versa.'
 
             if train_generator:
