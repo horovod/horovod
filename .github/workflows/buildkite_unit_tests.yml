@@ -84,7 +84,7 @@ jobs:
 
     - name: Unit Test Results
       id: results
-      uses: docker://ghcr.io/enricomi/publish-unit-test-result-action:v1.6
+      uses: EnricoMi/publish-unit-test-result-action@branch-test-list-annotations
       if: >
         steps.download.outcome != 'skipped' &&
         ! contains(fromJSON('[''blocked'', ''canceled'', ''skipped'', ''not_run'']'), steps.download.outputs.build-state)
