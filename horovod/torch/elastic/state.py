@@ -116,6 +116,22 @@ class OptimizerStateHandler(StateHandler):
         broadcast_optimizer_state(self.value, root_rank=0)
 
 
+class LRSchedulerStateHandler(StateHandler):
+    def __init__(self, scheduler):
+        super().__init__(scheduler)
+        self._saved_scheduler_state = copy.deepcopy(self.value.state_dict())
+
+    def save(self):
+        self._saved_scheduler_state = copy.deepcopy(self.value.state_dict())
+
+    def restore(self):
+        self.value.load_state_dict(self._saved_scheduler_state)
+
+    def sync(self):
+        state = broadcast_object(self.value.state_dict())
+        self.value.load_state_dict(state)
+
+
 class SamplerStateHandler(StateHandler):
     def __init__(self, sampler):
         super().__init__(sampler)
@@ -147,6 +163,7 @@ def _union(sets):
 _handler_registry = [
     (torch.nn.Module, ModelStateHandler),
     (torch.optim.Optimizer, OptimizerStateHandler),
+    (torch.optim.lr_scheduler._LRScheduler, LRSchedulerStateHandler),
     (ElasticSampler, SamplerStateHandler),
 ]
 
