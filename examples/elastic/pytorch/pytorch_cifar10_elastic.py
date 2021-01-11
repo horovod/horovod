@@ -34,6 +34,17 @@ parser.add_argument('--no-cuda', action='store_true', default=False,
 parser.add_argument('--seed', type=int, default=42,
                     help='random seed')
 
+# Elastic Horovod settings
+parser.add_argument('--batches-per-commit', type=int, default=50,
+                    help='number of batches processed before calling `state.commit()`; '
+                         'commits prevent losing progress if an error occurs, but slow '
+                         'down training.')
+parser.add_argument('--batches-per-host-check', type=int, default=10,
+                    help='number of batches processed before calling `state.check_host_updates()`; '
+                         'this check is very fast compared to state.commit() (which calls this '
+                         'as part of the commit process), but because still incurs some cost due '
+                         'to broadcast, so we may not want to perform it every batch.')
+
 
 def load_data():
     # Horovod: limit # of CPU threads to be used per worker.
@@ -73,12 +84,15 @@ def load_data():
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=128,
                                              sampler=val_sampler, **kwargs)
 
-    return train_loader, val_loader, train_sampler
+    return train_loader, val_loader, train_sampler, val_sampler
 
 
-def train(epoch):
-    model.train()
-    train_sampler.set_epoch(epoch)
+def train(state, train_loader, log_writer, verbose):
+    epoch = state.epoch
+    batch_offset = state.batch
+
+    state.model.train()
+    state.train_sampler.set_epoch(epoch)
     train_loss = Metric('train_loss')
     train_accuracy = Metric('train_accuracy')
 
@@ -87,17 +101,28 @@ def train(epoch):
               disable=not verbose) as t:
 
         for batch_idx, (data, target) in enumerate(train_loader):
+            # Elastic Horovod: update the current batch index this epoch
+            # and commit / check for host updates. Do not check hosts when
+            # we commit as it would be redundant.
+            state.batch = batch_offset + batch_idx
+            if args.batches_per_commit > 0 and \
+                    state.batch % args.batches_per_commit == 0:
+                state.commit()
+            elif args.batches_per_host_check > 0 and \
+                    state.batch % args.batches_per_host_check == 0:
+                state.check_host_updates()
+
             if args.cuda:
                 data, target = data.cuda(), target.cuda()
-            optimizer.zero_grad()
+            state.optimizer.zero_grad()
 
-            output = model(data)
+            output = state.model(data)
             train_accuracy.update(accuracy(output, target))
 
             loss = F.cross_entropy(output, target)
             train_loss.update(loss)
             loss.backward()
-            optimizer.step()
+            state.optimizer.step()
 
             t.set_postfix({'loss': train_loss.avg.item(),
                            'accuracy': 100. * train_accuracy.avg.item()})
@@ -108,19 +133,19 @@ def train(epoch):
         log_writer.add_scalar('train/accuracy', train_accuracy.avg, epoch)
 
 
-def validate(epoch):
-    model.eval()
+def validate(state, val_loader, log_writer, verbose):
+    state.model.eval()
     val_loss = Metric('val_loss')
     val_accuracy = Metric('val_accuracy')
 
     with tqdm(total=len(val_loader),
-              desc='Validate Epoch  #{}'.format(epoch + 1),
+              desc='Validate Epoch  #{}'.format(state.epoch + 1),
               disable=not verbose) as t:
         with torch.no_grad():
             for data, target in val_loader:
                 if args.cuda:
                     data, target = data.cuda(), target.cuda()
-                output = model(data)
+                output = state.model(data)
 
                 val_loss.update(F.cross_entropy(output, target))
                 val_accuracy.update(accuracy(output, target))
@@ -129,8 +154,8 @@ def validate(epoch):
                 t.update(1)
 
     if log_writer:
-        log_writer.add_scalar('val/loss', val_loss.avg, epoch)
-        log_writer.add_scalar('val/accuracy', val_accuracy.avg, epoch)
+        log_writer.add_scalar('val/loss', val_loss.avg, state.epoch)
+        log_writer.add_scalar('val/accuracy', val_accuracy.avg, state.epoch)
 
 
 def accuracy(output, target):
@@ -139,14 +164,22 @@ def accuracy(output, target):
     return pred.eq(target.view_as(pred)).cpu().float().mean()
 
 
-def save_checkpoint(epoch):
+def save_checkpoint(state):
     if hvd.rank() == 0:
-        filepath = args.checkpoint_format.format(epoch=epoch + 1)
+        filepath = args.checkpoint_format.format(epoch=state.epoch + 1)
         state = {
-            'model': model.state_dict(),
-            'optimizer': optimizer.state_dict(),
+            'model': state.model.state_dict(),
+            'optimizer': state.optimizer.state_dict(),
+            'scheduler': state.scheduler.state_dict(),
         }
         torch.save(state, filepath)
+
+
+def end_epoch(state):
+    state.epoch += 1
+    state.batch = 0
+    state.train_sampler.set_epoch(state.epoch)
+    state.commit()
 
 
 # Horovod: average metrics from distributed training.
@@ -263,10 +296,23 @@ def ResNet50():
     return ResNet(Bottleneck, [3, 4, 6, 3])
 
 
-if __name__ == '__main__':
-    args = parser.parse_args()
-    args.cuda = not args.no_cuda and torch.cuda.is_available()
+@hvd.elastic.run
+def full_train(state, train_loader, val_loader):
+    # Horovod: print logs on the first worker.
+    verbose = 1 if hvd.rank() == 0 else 0
 
+    # Horovod: write TensorBoard logs on first worker.
+    log_writer = SummaryWriter(args.log_dir) if hvd.rank() == 0 else None
+
+    while state.epoch < args.epochs:
+        train(state, train_loader, log_writer, verbose)
+        validate(state, val_loader, log_writer, verbose)
+        state.scheduler.step()
+        save_checkpoint(state.epoch)
+        end_epoch(state.epoch)
+
+
+def run():
     hvd.init()
     torch.manual_seed(args.seed)
 
@@ -289,14 +335,8 @@ if __name__ == '__main__':
     resume_from_epoch = hvd.broadcast(torch.tensor(resume_from_epoch), root_rank=0,
                                       name='resume_from_epoch').item()
 
-    # Horovod: print logs on the first worker.
-    verbose = 1 if hvd.rank() == 0 else 0
-
-    # Horovod: write TensorBoard logs on first worker.
-    log_writer = SummaryWriter(args.log_dir) if hvd.rank() == 0 else None
-
     # Load cifar10 dataset
-    train_loader, val_loader, train_sampler = load_data()
+    train_loader, val_loader, train_sampler, val_sampler = load_data()
 
     # Set up standard ResNet-50 model.
     model = ResNet50()
@@ -322,13 +362,26 @@ if __name__ == '__main__':
         checkpoint = torch.load(filepath)
         model.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optimizer'])
+        scheduler.load_state_dict(checkpoint['scheduler'])
 
-    # Horovod: broadcast parameters & optimizer state.
-    hvd.broadcast_parameters(model.state_dict(), root_rank=0)
-    hvd.broadcast_optimizer_state(optimizer, root_rank=0)
+    def on_state_reset():
+        # Horovod: scale the learning rate as controlled by the LR schedule
+        scheduler.base_lrs = [args.lr * hvd.size() for _ in scheduler.base_lrs]
 
-    for epoch in range(resume_from_epoch, args.epochs):
-        train(epoch)
-        validate(epoch)
-        scheduler.step()
-        save_checkpoint(epoch)
+    state = hvd.elastic.TorchState(
+        model=model,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        train_sampler=train_sampler,
+        val_sampler=val_sampler,
+        epoch=resume_from_epoch,
+        batch=0)
+    state.register_reset_callbacks([on_state_reset])
+
+    full_train(state, train_loader, val_loader)
+
+
+if __name__ == '__main__':
+    args = parser.parse_args()
+    args.cuda = not args.no_cuda and torch.cuda.is_available()
+    run()
