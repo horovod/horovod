@@ -138,21 +138,20 @@ class SamplerStateHandler(StateHandler):
         self._saved_sampler_state = copy.deepcopy(self.value.state_dict())
 
     def save(self):
-        self._saved_sampler_state = copy.deepcopy(self.value.state_dict())
+        # Get the set of processed indices from all workers
+        world_processed_indices = _union(allgather_object(self.value.processed_indices))
+
+        # Replace local processed indices with global indices
+        state_dict = copy.deepcopy(self.value.state_dict())
+        state_dict['processed_indices'] = world_processed_indices
+        self._saved_sampler_state = state_dict
 
     def restore(self):
         self.value.load_state_dict(self._saved_sampler_state)
 
     def sync(self):
-        # Get the set of processed indices from all workers
-        world_processed_indices = _union(allgather_object(self.value.processed_indices))
-
-        # Replace local processed indices with global indices
-        state_dict = self.value.state_dict()
-        state_dict['processed_indices'] = world_processed_indices
-
         # Broadcast and load the state to make sure we're all in sync
-        self.value.load_state_dict(broadcast_object(state_dict))
+        self.value.load_state_dict(broadcast_object(self.value.state_dict()))
 
 
 def _union(sets):
