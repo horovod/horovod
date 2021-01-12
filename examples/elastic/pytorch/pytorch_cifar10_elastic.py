@@ -308,8 +308,8 @@ def full_train(state, train_loader, val_loader):
         train(state, train_loader, log_writer, verbose)
         validate(state, val_loader, log_writer, verbose)
         state.scheduler.step()
-        save_checkpoint(state.epoch)
-        end_epoch(state.epoch)
+        save_checkpoint(state)
+        end_epoch(state)
 
 
 def run():
