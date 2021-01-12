@@ -94,7 +94,9 @@ class State(object):
         # At this point, updated state is globally consistent across all ranks.
         if self._last_updated_timestamp > prev_timestamp:
             if bool(all_update & HostUpdateResult.removed):
-                # At least one host was removed, which means we need to perform on_removal steps
+                # At least one host was removed, allow callbacks to handle graceful
+                # removal of the workers by ensuring all workers have the necessary
+                # state from the removed workers prior to removing them.
                 self.on_removal()
 
             raise HostsUpdatedInterrupt(all_update == HostUpdateResult.removed)
