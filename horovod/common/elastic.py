@@ -93,8 +93,11 @@ class State(object):
 
         # At this point, updated state is globally consistent across all ranks.
         if self._last_updated_timestamp > prev_timestamp:
-            raise HostsUpdatedInterrupt(all_update == HostUpdateResult.removed)
+            if bool(all_update & HostUpdateResult.removed):
+                # At least one host was removed, which means we need to perform on_removal steps
+                self.on_removal()
 
+            raise HostsUpdatedInterrupt(all_update == HostUpdateResult.removed)
 
     def save(self):
         """Saves state to host memory."""
@@ -110,6 +113,10 @@ class State(object):
 
     def reset(self):
         """Reset objects and variables following a reset event (before synchronization)."""
+        pass
+
+    def on_removal(self):
+        """Callback to sync necessary state before removing hosts."""
         pass
 
 

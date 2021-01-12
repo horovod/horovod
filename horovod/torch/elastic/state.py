@@ -62,6 +62,11 @@ class TorchState(ObjectState):
             handler.sync()
         super(TorchState, self).sync()
 
+    def on_removal(self):
+        for handler in self._handlers.values():
+            handler.on_removal()
+        super(TorchState, self).on_removal()
+
     def __setattr__(self, name, value):
         if hasattr(self, name) and name in self._handlers:
             self._handlers[name].set_value(value)
@@ -80,6 +85,9 @@ class StateHandler(object):
 
     def sync(self):
         raise NotImplementedError()
+
+    def on_removal(self):
+        pass
 
     def set_value(self, value):
         self.value = value
@@ -152,6 +160,11 @@ class SamplerStateHandler(StateHandler):
     def sync(self):
         # Broadcast and load the state to make sure we're all in sync
         self.value.load_state_dict(broadcast_object(self.value.state_dict()))
+
+    def on_removal(self):
+        # Before we remove hosts, we need to make sure that all workers have the most
+        # up-to-date set of processed indices from all the workers.
+        self.save()
 
 
 def _union(sets):
