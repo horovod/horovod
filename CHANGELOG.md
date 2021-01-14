@@ -8,13 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-### Changed 
+### Changed
 
 ### Deprecated
 
 ### Removed
 
 ### Fixed
+
+- Fixed `local_rank` support for Ray. ([#2596](https://github.com/horovod/horovod/pull/2596))
 
 ## [v0.21.1] - 2021-01-06
 
@@ -32,9 +34,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Added knob to set cache hint for oneCCL allreduce. ([#2560](https://github.com/horovod/horovod/pull/2560))
 
-- Renamed `horovodrun` arg `--ccl-bgt-affinity` to `--thread-affinity`. ([#2562](https://github.com/horovod/horovod/pull/2562)) 
+- Renamed `horovodrun` arg `--ccl-bgt-affinity` to `--thread-affinity`. ([#2562](https://github.com/horovod/horovod/pull/2562))
 
-- Changed default build parallelism from `-j8` to `-j1` to address potential race condition. ([#2572](https://github.com/horovod/horovod/pull/2572)) 
+- Changed default build parallelism from `-j8` to `-j1` to address potential race condition. ([#2572](https://github.com/horovod/horovod/pull/2572))
 
 ### Fixed
 
