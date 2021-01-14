@@ -871,7 +871,7 @@ class TorchTests(unittest.TestCase):
             tensor = torch.FloatTensor(
                 *([tensor_sizes[rank]] + [17] * (dim - 1))).fill_(1).mul_(rank)
             tensor = self.cast_and_place(tensor, dtype)
-            handle = hvd.allgather_async(tensor)
+            handle = hvd.allgather_async(tensor, name=f'{dtype}.{dim}')
             handles.append((handle, tensor, tensor_sizes, dim))
 
         for handle, tensor, tensor_sizes, dim in handles:
