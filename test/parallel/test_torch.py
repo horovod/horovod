@@ -863,7 +863,10 @@ class TorchTests(unittest.TestCase):
                        torch.cuda.HalfTensor]
         dims = [1, 2, 3]
         handles = []
-        for dtype, dim in itertools.product(dtypes, dims):
+        import random
+        combinations = [(dtype, dim) for dtype, dim in itertools.product(dtypes, dims)]
+        random.shuffle(combinations)
+        for dtype, dim in combinations:
             # Support tests up to MPI Size of 35
             if size > 35:
                 break
@@ -880,6 +883,7 @@ class TorchTests(unittest.TestCase):
         for handle, tensor, tensor_sizes, dim in handles:
             gathered = hvd.synchronize(handle)
             tensor, gathered = self.convert_cpu_fp16_to_fp32(tensor, gathered)
+            print(torch.max(gathered))
 
             expected_size = sum(tensor_sizes)
             assert list(gathered.shape) == [expected_size] + [17] * (dim - 1)
