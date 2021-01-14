@@ -843,6 +843,52 @@ class TorchTests(unittest.TestCase):
                 assert rank_tensor.data.min() == i
                 assert rank_tensor.data.max() == i
 
+    def test_horovod_allgather_async_variable_size(self):
+        """Test that the allgather correctly gathers 1D, 2D, 3D tensors in parallel,
+        even if those tensors have different sizes along the first dim."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
+                  torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor,
+                  torch.HalfTensor]
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
+                       torch.cuda.IntTensor, torch.cuda.LongTensor,
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
+        dims = [1, 2, 3]
+        handles = []
+        for dtype, dim in itertools.product(dtypes, dims):
+            # Support tests up to MPI Size of 35
+            if size > 35:
+                break
+
+            tensor_sizes = [17, 32, 81, 12, 15, 23, 22] * 5
+            tensor_sizes = tensor_sizes[:size]
+
+            tensor = torch.FloatTensor(
+                *([tensor_sizes[rank]] + [17] * (dim - 1))).fill_(1).mul_(rank)
+            tensor = self.cast_and_place(tensor, dtype)
+            handle = hvd.allgather_async(tensor)
+            handles.append((handle, tensor, tensor_sizes, dim))
+
+        for handle, tensor, tensor_sizes, dim in handles:
+            gathered = hvd.synchronize(handle)
+            tensor, gathered = self.convert_cpu_fp16_to_fp32(tensor, gathered)
+
+            expected_size = sum(tensor_sizes)
+            assert list(gathered.shape) == [expected_size] + [17] * (dim - 1)
+
+            for i in range(size):
+                rank_size = [tensor_sizes[i]] + [17] * (dim - 1)
+                rank_tensor = gathered[sum(
+                    tensor_sizes[:i]):sum(tensor_sizes[:i + 1])]
+                assert list(rank_tensor.shape) == rank_size
+                assert rank_tensor.data.min() == i
+                assert rank_tensor.data.max() == i
+
     def test_horovod_allgather_async_fused(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors
         with Tensor Fusion."""
