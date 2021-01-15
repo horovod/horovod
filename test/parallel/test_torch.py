@@ -2408,7 +2408,10 @@ class TorchTests(unittest.TestCase):
         def random_sparse_tensor(*shape):
             t = torch.rand(*shape)
             t[t < 0.8] = 0
-            return t.to_sparse()
+            t = t.to_sparse()
+            if torch.cuda.is_available():
+                t = t.cuda(hvd.local_rank())
+            return t
 
         tensor_sizes = [17, 32, 81, 12, 15, 23, 22] * 5
         tensors = [random_sparse_tensor(d0, 10) for d0 in tensor_sizes]
