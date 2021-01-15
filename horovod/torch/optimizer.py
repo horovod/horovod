@@ -25,7 +25,7 @@ from horovod.common.util import split_list
 
 from horovod.torch.compression import Compression
 from horovod.torch.functions import broadcast_object
-from horovod.torch.mpi_ops import allgather_async, allreduce_async_, grouped_allreduce_async_
+from horovod.torch.mpi_ops import allreduce_async_, grouped_allreduce_async_, sparse_allreduce_async
 from horovod.torch.mpi_ops import synchronize
 from horovod.torch.mpi_ops import size
 from horovod.torch.mpi_ops import Average, Adasum, Sum
@@ -186,22 +186,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         return handle, ctxs
 
     def _sparse_allreduce_grad_async(self, p, name):
-        # Allgather aggregates along the first dimension, so we need to transpose the
-        # indices to enforce correct concatenation behavior, then transpose back prior to
-        # constructing the new aggregated sparse gradient
-        grad = p.grad.coalesce()
-        indices_handle = allgather_async(grad.indices().transpose(0, 1), name=f'{name}.indices')
-        values_handle = allgather_async(grad.values(), name=f'{name}.values')
-
-        def handle():
-            indices = synchronize(indices_handle)
-            values = synchronize(values_handle)
-            values = (values / size()) if self.op == Average else values
-
-            if indices.dim() == 0 or values.dim() == 0:
-                return grad.new().resize_as_(grad)
-            return grad.new(indices.transpose(0, 1), values, grad.size())
-
+        handle = sparse_allreduce_async(p.grad, name=name, op=self.op)
         return handle, None
 
     def _make_hook(self, p):
