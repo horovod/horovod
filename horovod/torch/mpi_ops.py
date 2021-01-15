@@ -512,7 +512,7 @@ def sparse_allreduce_async(tensor, name, op):
     # indices to enforce correct concatenation behavior, then transpose back prior to
     # constructing the new aggregated sparse gradient
     t = tensor.coalesce()
-    indices_handle = allgather_async(t.indices().transpose(0, 1), name=f'{name}.indices')
+    indices_handle = allgather_async(t.indices().transpose(0, 1).contiguous(), name=f'{name}.indices')
     values_handle = allgather_async(t.values(), name=f'{name}.values')
 
     def handle():
