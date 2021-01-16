@@ -45,11 +45,9 @@ def map_blocking(fn, collection):
 class BaseHorovodWorker:
     executable = None
 
-    def __init__(self, local_rank=0, local_size=1, world_rank=0, world_size=1):
+    def __init__(self, world_rank=0, world_size=1):
         os.environ["HOROVOD_HOSTNAME"] = self.hostname()
         os.environ["HOROVOD_RANK"] = str(world_rank)
-        os.environ["HOROVOD_LOCAL_RANK"] = str(local_rank)
-        os.environ["HOROVOD_LOCAL_SIZE"] = str(local_size)
         os.environ["HOROVOD_SIZE"] = str(world_size)
 
     def hostname(self) -> str:
@@ -141,12 +139,8 @@ class NodeColocator:
 
         rank_start = self.num_slots * self.node_rank
         self.workers = [
-            remote_cls.remote(
-                local_rank=local_rank,
-                local_size=self.num_slots,
-                world_rank=rank,
-                world_size=self.world_size) for local_rank, rank in enumerate(
-                    range(rank_start, rank_start + self.num_slots))
+            remote_cls.remote(world_rank=rank, world_size=self.world_size)
+            for rank in range(rank_start, rank_start + self.num_slots)
         ]
 
         # Propogate cuda visible devices to the underlying
@@ -212,10 +206,10 @@ class Coordinator:
                 self.hostnames_by_rank.items()):
             for local_rank, world_rank in enumerate(ranks):
                 rank_to_info[world_rank] = dict(
-                    NODE_WORLD_RANK=node_world_rank,
-                    NODE_WORLD_SIZE=len(self.hostnames_by_rank),
-                    LOCAL_RANK=local_rank,
-                    LOCAL_SIZE=len(ranks))
+                    HOROVOD_CROSS_RANK=node_world_rank,
+                    HOROVOD_CROSS_SIZE=len(self.hostnames_by_rank),
+                    HOROVOD_LOCAL_RANK=local_rank,
+                    HOROVOD_LOCAL_SIZE=len(ranks))
         return rank_to_info
 
     def establish_rendezvous(self) -> Dict[str, str]:

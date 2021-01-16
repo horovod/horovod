@@ -77,11 +77,13 @@ def test_coordinator_registration():
 
     rank_to_info = coord.finalize_registration()
     assert len(rank_to_info) == len(ranks)
-    assert all(info["NODE_WORLD_SIZE"] == 3 for info in rank_to_info.values())
-    assert {info["NODE_WORLD_RANK"]
+    assert all(
+        info["HOROVOD_CROSS_SIZE"] == 3 for info in rank_to_info.values())
+    assert {info["HOROVOD_CROSS_RANK"]
             for info in rank_to_info.values()} == {0, 1, 2}
-    assert all(info["LOCAL_SIZE"] == 4 for info in rank_to_info.values())
-    assert {info["LOCAL_RANK"]
+    assert all(
+        info["HOROVOD_LOCAL_SIZE"] == 4 for info in rank_to_info.values())
+    assert {info["HOROVOD_LOCAL_RANK"]
             for info in rank_to_info.values()} == {0, 1, 2, 3}
 
 
