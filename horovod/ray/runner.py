@@ -206,10 +206,10 @@ class Coordinator:
                 self.hostnames_by_rank.items()):
             for local_rank, world_rank in enumerate(ranks):
                 rank_to_info[world_rank] = dict(
-                    NODE_WORLD_RANK=node_world_rank,
-                    NODE_WORLD_SIZE=len(self.hostnames_by_rank),
-                    LOCAL_RANK=local_rank,
-                    LOCAL_SIZE=len(ranks))
+                    HOROVOD_CROSS_RANK=node_world_rank,
+                    HOROVOD_CROSS_SIZE=len(self.hostnames_by_rank),
+                    HOROVOD_LOCAL_RANK=local_rank,
+                    HOROVOD_LOCAL_SIZE=len(ranks))
         return rank_to_info
 
     def establish_rendezvous(self) -> Dict[str, str]:

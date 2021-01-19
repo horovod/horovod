@@ -77,11 +77,13 @@ def test_coordinator_registration():
 
     rank_to_info = coord.finalize_registration()
     assert len(rank_to_info) == len(ranks)
-    assert all(info["NODE_WORLD_SIZE"] == 3 for info in rank_to_info.values())
-    assert {info["NODE_WORLD_RANK"]
+    assert all(
+        info["HOROVOD_CROSS_SIZE"] == 3 for info in rank_to_info.values())
+    assert {info["HOROVOD_CROSS_RANK"]
             for info in rank_to_info.values()} == {0, 1, 2}
-    assert all(info["LOCAL_SIZE"] == 4 for info in rank_to_info.values())
-    assert {info["LOCAL_RANK"]
+    assert all(
+        info["HOROVOD_LOCAL_SIZE"] == 4 for info in rank_to_info.values())
+    assert {info["HOROVOD_LOCAL_RANK"]
             for info in rank_to_info.values()} == {0, 1, 2, 3}
 
 
@@ -243,21 +245,22 @@ def _train(batch_size=32, batch_per_iter=10):
         optimizer.step()
 
     time = timeit.timeit(benchmark_step, number=batch_per_iter)
+    return hvd.local_rank()
 
 
 @pytest.mark.skipif(
     not gloo_built(), reason='Gloo is required for Ray integration')
 def test_horovod_train(ray_start_4_cpus):
     def simple_fn(worker):
-        _train()
-        return True
+        local_rank = _train()
+        return local_rank
 
     setting = RayExecutor.create_settings(timeout_s=30)
     hjob = RayExecutor(
         setting, num_hosts=1, num_slots=4, use_gpu=torch.cuda.is_available())
     hjob.start()
     result = hjob.execute(simple_fn)
-    assert all(result)
+    assert set(result) == {0, 1, 2, 3}
     hjob.shutdown()
 
 
