@@ -4,16 +4,15 @@ import os
 from tqdm import tqdm
 
 import torch
-import torch.backends.cudnn as cudnn
 import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import torch.utils.data.distributed
 from torch.utils.tensorboard import SummaryWriter
-from torchvision import datasets, transforms, models
+from torchvision import datasets, transforms
 
 import horovod.torch as hvd
+from horovod.torch.elastic.sampler import ElasticSampler
 
 
 # Training settings
@@ -23,6 +22,8 @@ parser.add_argument('--log-dir', default='./logs',
                     help='tensorboard log directory')
 parser.add_argument('--checkpoint-format', default='./checkpoint-{epoch}.pth.tar',
                     help='checkpoint file format')
+parser.add_argument('--data-dir', default='./data',
+                    help='cifar10 dataset directory')
 
 parser.add_argument('--epochs', type=int, default=90,
                     help='number of epochs to train')
@@ -72,17 +73,15 @@ def load_data():
     ])
 
     train_dataset = datasets.CIFAR10(
-        root='./data', train=True, download=True, transform=transform_train)
-    train_sampler = torch.utils.data.distributed.DistributedSampler(
-        train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
+        root=args.data_dir, train=True, download=True, transform=transform_train)
+    train_sampler = ElasticSampler(train_dataset)
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=128,
         sampler=train_sampler, **kwargs)
 
     val_dataset = datasets.CIFAR10(
-        root='./data', train=False, download=True, transform=transform_test)
-    val_sampler = torch.utils.data.distributed.DistributedSampler(
-        val_dataset, num_replicas=hvd.size(), rank=hvd.rank())
+        root=args.data_dir, train=False, download=True, transform=transform_test)
+    val_sampler = ElasticSampler(val_dataset)
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=128,
                                              sampler=val_sampler, **kwargs)
 
@@ -298,22 +297,6 @@ def ResNet50():
     return ResNet(Bottleneck, [3, 4, 6, 3])
 
 
-@hvd.elastic.run
-def full_train(state, train_loader, val_loader):
-    # Horovod: print logs on the first worker.
-    verbose = 1 if hvd.rank() == 0 else 0
-
-    # Horovod: write TensorBoard logs on first worker.
-    log_writer = SummaryWriter(args.log_dir) if hvd.rank() == 0 else None
-
-    while state.epoch < args.epochs:
-        train(state, train_loader, log_writer, verbose)
-        validate(state, val_loader, log_writer, verbose)
-        state.scheduler.step()
-        save_checkpoint(state)
-        end_epoch(state)
-
-
 def run():
     hvd.init()
 
@@ -324,8 +307,6 @@ def run():
         # Horovod: pin GPU to local rank.
         torch.cuda.set_device(hvd.local_rank())
         torch.cuda.manual_seed(args.seed)
-
-    cudnn.benchmark = True
 
     # If set > 0, will resume training from a given checkpoint.
     resume_from_epoch = 0
@@ -381,6 +362,21 @@ def run():
         epoch=resume_from_epoch,
         batch=0)
     state.register_reset_callbacks([on_state_reset])
+
+    @hvd.elastic.run
+    def full_train(state, train_loader, val_loader):
+        # Horovod: print logs on the first worker.
+        verbose = 1 if hvd.rank() == 0 else 0
+
+        # Horovod: write TensorBoard logs on first worker.
+        log_writer = SummaryWriter(args.log_dir) if hvd.rank() == 0 else None
+
+        while state.epoch < args.epochs:
+            train(state, train_loader, log_writer, verbose)
+            validate(state, val_loader, log_writer, verbose)
+            state.scheduler.step()
+            save_checkpoint(state)
+            end_epoch(state)
 
     full_train(state, train_loader, val_loader)
 
