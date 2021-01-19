@@ -420,10 +420,11 @@ The Horovod source code was based off the Baidu `tensorflow-allreduce <https://g
 repository written by Andrew Gibiansky and Joel Hestness. Their original work is described in the article
 `Bringing HPC Techniques to Deep Learning <http://andrew.gibiansky.com/blog/machine-learning/baidu-allreduce/>`_.
 
-Mailing lists
--------------
-Subscribe to `Horovod Announce <https://lists.lfai.foundation/g/horovod-announce>`_ and 
-`Horovod Technical-Discuss <https://lists.lfai.foundation/g/horovod-technical-discuss>`_ to stay up to date.
+Getting Involved
+----------------
+- `Community Slack <https://forms.gle/cPGvty5hp31tGfg79>`_ for collaboration and discussion
+- `Horovod Announce <https://lists.lfai.foundation/g/horovod-announce>`_ for updates on the project
+- `Horovod Technical-Discuss <https://lists.lfai.foundation/g/horovod-technical-discuss>`_ for public discussion
 
 
 .. inclusion-marker-end-do-not-remove
