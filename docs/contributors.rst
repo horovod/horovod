@@ -32,7 +32,7 @@ The versions with CPU support can be installed through the provided :code:`setup
 
 .. code-block:: bash
 
-    pip install -e .[dev]
+    pip install -e .[dev,test]
 
 You can find all other non-Python packages that need to be installed on your system for Horovod to build
 in the `Dockerfile.test.cpu <https://github.com/horovod/horovod/blob/master/Dockerfile.test.cpu>`__ and
