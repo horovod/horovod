@@ -52,7 +52,7 @@ To ensure that Horovod is built with TensorFlow support enabled:
 To skip TensorFlow, set ``HOROVOD_WITHOUT_TENSORFLOW=1`` in your environment.
 
 If you've installed TensorFlow from `PyPI <https://pypi.org/project/tensorflow>`__, make sure that
-the ``g++-4.8.5`` or ``g++-4.9`` is installed.
+the ``g++-4.8.5`` or ``g++-4.9`` or above is installed.
 
 PyTorch
 ~~~~~~~
