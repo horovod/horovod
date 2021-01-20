@@ -26,6 +26,14 @@ Horovod
    :target: https://forms.gle/cPGvty5hp31tGfg79
    :alt: Slack
 
+.. raw:: html
+
+   </div>
+
+.. raw:: html
+
+   <div align="center">
+
 .. image:: https://img.shields.io/badge/License-Apache%202.0-blue.svg
    :target: https://img.shields.io/badge/License-Apache%202.0-blue.svg
    :alt: License
