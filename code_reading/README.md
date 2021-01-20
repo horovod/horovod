@@ -1,3 +1,7 @@
-# code reading
+# horovod源码阅读笔记
 
-![test](./images/test.png)
+这次阅读采用的horovod的commit id为a9dea74abc1f0b8e81cd2b6dd9fe81e2c4244e39
+
+## 先导知识
+
+horovod是一个python和C++混编的工程，最上层借助的工具是python的setuptools模块。之前对于这个模块的使用并不是很熟悉，因此想借此机会来学习一下setuptools这个工具的使用。

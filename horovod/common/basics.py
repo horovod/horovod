@@ -42,6 +42,7 @@ class HorovodBasics(object):
             comm = []
 
         atexit.register(self.shutdown)
+        #注册shutdown函数，当python解释器要退出时调用shutdown释放资源
 
         if not isinstance(comm, list):
             mpi_built = self.MPI_LIB_CTYPES.horovod_mpi_built()

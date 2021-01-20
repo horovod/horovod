@@ -39,6 +39,7 @@ enum ReduceOp {
     ADASUM = 2
 };
 
+// TODO(有点记不清楚在C++中extern "C"的作用是啥了)
 extern "C" {
 
 // C interface to initialize Horovod.
