@@ -31,49 +31,9 @@ jobs:
       )
 
     steps:
-    - name: Condition
-      id: check-for-changes-needed
-      # 'Check for commit changes' is not needed for push to master
-      if: ( ! ( github.event_name == 'push' && github.ref == 'refs/heads/master' ) )
-      run: echo "Will have to 'Check for commit changes'"
-
-    - name: Checkout Git
-      uses: actions/checkout@v2
-      if: steps.check-for-changes-needed.outcome != 'skipped'
-
-    - name: Setup Python
-      uses: actions/setup-python@v2
-      if: steps.check-for-changes-needed.outcome != 'skipped'
-      with:
-        python-version: '3'
-
-    - name: Install Python Dependencies
-      if: steps.check-for-changes-needed.outcome != 'skipped'
-      run: |
-        python -m pip install --upgrade --force --no-cache-dir pip
-        pip install --force --no-cache-dir requests
-
-    - name: Check for commit changes
-      id: commit-changes
-      env:
-        BUILDKITE_COMMIT: ${{ github.sha }}
-        BUILDKITE_PIPELINE_DEFAULT_BRANCH: master
-      run: |
-        if [[ "${{ steps.check-for-changes-needed.outcome }}" == "skipped" ]]
-        then
-          echo "::set-output name=changed-code-files::this is a push to master"
-        else
-          files=$(python .buildkite/get_changed_code_files.py || echo failure)
-          echo changed code files: $files
-          echo "::set-output name=changed-code-files::$(echo $files)"
-        fi
-      shell: bash
-      continue-on-error: true
-
     - name: Download Buildkite Artifacts
       id: download
       uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:latest
-      if: steps.commit-changes.outputs.changed-code-files != ''
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
@@ -85,9 +45,7 @@ jobs:
     - name: Unit Test Results
       id: results
       uses: docker://ghcr.io/enricomi/publish-unit-test-result-action:latest
-      if: >
-        steps.download.outcome != 'skipped' &&
-        ! contains(fromJSON('[''blocked'', ''canceled'', ''skipped'', ''not_run'']'), steps.download.outputs.build-state)
+      if: steps.download.outputs.download-state != 'skipped' && steps.download.outputs.download-files > 0
       with:
         check_name: Unit Test Results
         github_token: ${{ secrets.GITHUB_TOKEN }}
