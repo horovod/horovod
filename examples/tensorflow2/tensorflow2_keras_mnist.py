@@ -13,8 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
-import tensorflow as tf
 import horovod.tensorflow.keras as hvd
+import tensorflow as tf
 
 # Horovod: initialize Horovod.
 hvd.init()
@@ -26,6 +26,15 @@ for gpu in gpus:
 if gpus:
     tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
 
+# Some config
+batch_size = 128
+num_classes = 10
+
+# Horovod: adjust number of steps based on number of GPUs.
+epochs = 24
+steps_per_epoch = 500 // hvd.size()
+
+# The data, shuffled and batched
 (mnist_images, mnist_labels), _ = \
     tf.keras.datasets.mnist.load_data(path='mnist-%d.npz' % hvd.rank())
 
@@ -33,9 +42,9 @@ dataset = tf.data.Dataset.from_tensor_slices(
     (tf.cast(mnist_images[..., tf.newaxis] / 255.0, tf.float32),
      tf.cast(mnist_labels, tf.int64))
 )
-dataset = dataset.repeat().shuffle(10000).batch(128)
+dataset = dataset.repeat().shuffle(10000).batch(batch_size)
 
-mnist_model = tf.keras.Sequential([
+model = tf.keras.Sequential([
     tf.keras.layers.Conv2D(32, [3, 3], activation='relu'),
     tf.keras.layers.Conv2D(64, [3, 3], activation='relu'),
     tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
@@ -43,7 +52,7 @@ mnist_model = tf.keras.Sequential([
     tf.keras.layers.Flatten(),
     tf.keras.layers.Dense(128, activation='relu'),
     tf.keras.layers.Dropout(0.5),
-    tf.keras.layers.Dense(10, activation='softmax')
+    tf.keras.layers.Dense(num_classes, activation='softmax')
 ])
 loss = tf.losses.SparseCategoricalCrossentropy()
 
@@ -51,16 +60,15 @@ loss = tf.losses.SparseCategoricalCrossentropy()
 scaled_lr = 0.001 * hvd.size()
 opt = tf.optimizers.Adam(scaled_lr)
 
-# Horovod: add Horovod DistributedOptimizer.
-opt = hvd.DistributedOptimizer(
-    opt, backward_passes_per_step=1, average_aggregated_gradients=True)
+# Horovod: add Horovod Distributed Optimizer.
+opt = hvd.DistributedOptimizer(opt, backward_passes_per_step=1, average_aggregated_gradients=True)
 
 # Horovod: Specify `experimental_run_tf_function=False` to ensure TensorFlow
 # uses hvd.DistributedOptimizer() to compute gradients.
-mnist_model.compile(loss=loss,
-                    optimizer=opt,
-                    metrics=['accuracy'],
-                    experimental_run_tf_function=False)
+model.compile(loss=loss,
+              optimizer=opt,
+              metrics=['accuracy'],
+              experimental_run_tf_function=False)
 
 callbacks = [
     # Horovod: broadcast initial variable states from rank 0 to all other processes.
@@ -88,5 +96,8 @@ if hvd.rank() == 0:
 verbose = 1 if hvd.rank() == 0 else 0
 
 # Train the model.
-# Horovod: adjust number of steps based on number of GPUs.
-mnist_model.fit(dataset, steps_per_epoch=500 // hvd.size(), callbacks=callbacks, epochs=24, verbose=verbose)
+model.fit(dataset,
+          callbacks=callbacks,
+          epochs=epochs,
+          steps_per_epoch=steps_per_epoch,
+          verbose=verbose)
