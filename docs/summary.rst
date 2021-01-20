@@ -26,7 +26,11 @@ Horovod
    :target: https://forms.gle/cPGvty5hp31tGfg79
    :alt: Slack
 
+.. raw:: html
+
    </div>
+
+.. raw:: html
 
    <div align="center">
 
