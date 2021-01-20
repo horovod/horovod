@@ -22,6 +22,10 @@ Horovod
    :target: https://horovod.readthedocs.io/en/latest/
    :alt: Documentation Status
 
+.. image:: https://img.shields.io/badge/slack-chat-green.svg?logo=slack
+   :target: https://forms.gle/cPGvty5hp31tGfg79
+   :alt: Slack
+
 .. image:: https://img.shields.io/badge/License-Apache%202.0-blue.svg
    :target: https://img.shields.io/badge/License-Apache%202.0-blue.svg
    :alt: License
