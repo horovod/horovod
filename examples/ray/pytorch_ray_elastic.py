@@ -245,11 +245,60 @@ def train_fn():
     test()
 
 
+import random
+import time
+from horovod.ray.elastic import RayHostDiscovery
+
+
+class TestDiscovery(RayHostDiscovery):
+    def __init__(self, min_hosts, max_hosts, change_frequency_s):
+        self._min_hosts = min_hosts
+        self._max_hosts = max_hosts
+        self._change_frequency_s = change_frequency_s
+        self._last_reset_t = None
+        self._removed_hosts = set()
+
+    def add_host(self, hosts):
+        available_hosts = self._removed_hosts & hosts.keys()
+        host = random.choice(list(available_hosts))
+        self._removed_hosts.remove(host)
+
+    def remove_host(self, hosts):
+        host = random.choice(list(hosts.keys()))
+        self._removed_hosts.add(host)
+
+    def change_hosts(self, hosts):
+        current_hosts = len(hosts) - len(self._removed_hosts)
+        if current_hosts <= self._min_hosts:
+            self.add_host(hosts)
+        elif current_hosts >= self._max_hosts:
+            self.remove_host(hosts)
+        else:
+            if random.random() < 0.5:
+                self.add_host(hosts)
+            else:
+                self.remove_host(hosts)
+
+    def find_available_hosts_and_slots(self):
+        t = time.time()
+        if self._last_reset_t is None:
+            self._last_reset_t = t
+
+        hosts = super().find_available_hosts_and_slots()
+        if t - self._last_reset_t >= self._change_frequency_s:
+            self.change_hosts(hosts)
+            self._last_reset_t = t
+        return {k: v for k, v in hosts if k not in self._removed_hosts}
+
+
 if __name__ == '__main__':
     from horovod.ray import ElasticRayExecutor
     import ray
     ray.init(address="auto")
+
     settings = ElasticRayExecutor.create_settings(verbose=True)
-    executor = ElasticRayExecutor(settings, use_gpu=True, cpus_per_slot=2)
+    settings.discovery = TestDiscovery(min_hosts=2, max_hosts=4, change_frequency_s=60)
+
+    executor = ElasticRayExecutor(settings, use_gpu=True, cpus_per_slot=2, override_discovery=False)
     executor.start()
     executor.run(train_fn)
