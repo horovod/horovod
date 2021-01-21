@@ -546,46 +546,7 @@ class KerasModel(HorovodModel, KerasEstimatorParamsReadable,
 
         spark0 = SparkSession._instantiatedSession
 
-        # Assume label cols and output cols are 1:1 matching in order.
-        # If output cols are less than label cols, generate output schema from label schema,
-        # otherwise fail back to old way and sample to get the schema.
-        if len(label_cols) >= len(output_cols):
-            import copy
-            from pyspark.sql.types import FloatType, DoubleType, StructType
-
-            # Get schema of the output data frame
-            label_to_output_dict = {label_cols[i] : output_cols[i] for i in range(len(output_cols))}
-
-            field_dict = {}
-            for field in df.schema.fields:
-                # The predict function is changing rdd value from FloatType to DoubleType.
-                # But seems we do not need to change it. It is ok to keep the oringinal schema.
-                existing_field = copy.deepcopy(field)
-                field_dict[existing_field.name] = existing_field
-
-                # assuming the label_cols and output_cols are 1:1 mapping.
-                # we can get the output schema from label schema.
-                if existing_field.name in label_to_output_dict:
-                    pred_field = copy.deepcopy(existing_field)
-                    pred_field.name = label_to_output_dict[pred_field.name]
-                    field_dict[pred_field.name] = pred_field
-
-            # need to sort the field by name because it is ordered in Row(**fields)
-            final_output_schema = StructType([field_dict[n] for n in sorted(field_dict.keys())])
-        else:
-            # Get a limited DF and make predictions and get the schema of the final DF
-            limited_pred_rdd = df.limit(100000).rdd.mapPartitions(predict)
-            limited_pred_df = spark0.createDataFrame(limited_pred_rdd, samplingRatio=1)
-            final_output_schema = limited_pred_df.schema
-
-            # Spark has to infer whether a filed is nullable or not from a limited number of samples.
-            # It does not always get it right. We copy the nullable boolean variable for the fields
-            # from the original dataframe to the final DF schema.
-            nullables = {field.name: field.nullable for field in df.schema.fields}
-            for field in final_output_schema.fields:
-                if field.name in nullables:
-                    field.nullable = nullables[field.name]
-
+        final_output_schema = util.get_spark_df_output_schema(df.schema, label_cols, output_cols)
         pred_rdd = df.rdd.mapPartitions(predict)
 
         # Use the schema from previous section to construct the final DF with prediction

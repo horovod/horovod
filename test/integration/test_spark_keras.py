@@ -143,6 +143,27 @@ class SparkKerasTests(tf.test.TestCase):
                     label_prob = row.label_prob.toArray().tolist()
                     assert label_prob[int(row.label_pred)] == max(label_prob)
 
+    def test_output_df_schema(self):
+        with spark_session('test_output_df_schema', cores=2) as spark:
+            df = create_mnist_data(spark)
+            label_cols = ['label_vec']
+            output_cols = ['label_prob']
+
+            output_schema = util.get_spark_df_output_schema(df.schema, label_cols, output_cols)
+
+            # check output schema size
+            assert len(output_schema.fields) == len(df.schema.fields) + len(output_cols)
+
+            # schema should be ordered by name
+            sorted_col_names = sorted([f.name for f in output_schema.fields])
+            for i in range(len(sorted_col_names)):
+                assert sorted_col_names[i] == output_schema.fields[i].name
+
+            # check output col type
+            type_dict = {f.name : f.dataType for f in output_schema.fields}
+            for label, output in zip(label_cols, output_cols):
+                assert type(type_dict[label]) == type(type_dict[output])
+
     @mock.patch('horovod.spark.keras.remote._pin_gpu_fn')
     @mock.patch('horovod.spark.keras.util.TFKerasUtil.fit_fn')
     def test_restore_from_checkpoint(self, mock_fit_fn, mock_pin_gpu_fn):
