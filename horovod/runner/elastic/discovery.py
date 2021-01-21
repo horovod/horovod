@@ -102,7 +102,7 @@ class HostManager(object):
                     res |= HostUpdateResult.added
                 elif cur_host_slots[h] < prev_host_slots[h]:
                     # h has removed some slots
-                    res |=  HostUpdateResult.removed
+                    res |= HostUpdateResult.removed
             return res
 
         prev_host_slots = self._current_hosts.host_slots

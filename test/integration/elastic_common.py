@@ -73,7 +73,7 @@ class BaseElasticTests:
         super(BaseElasticTests, self).__init__(*args, **kwargs)
 
     def _run(self, discovery_schedule=None, exit_schedule=None, exit_mode='exception',
-             np=2, min_np=2, max_np=4, hosts=None, reset_limit=None):
+             np=2, min_np=2, max_np=4, hosts=None, reset_limit=None, **kwargs):
         if not discovery_schedule and not hosts:
             raise ValueError('at least one of discovery schedule or hosts must be given')
 
@@ -99,6 +99,8 @@ class BaseElasticTests:
                 if exit_schedule:
                     command_args += ['--exit-schedule', json.dumps(exit_schedule),
                                      '--exit-mode', exit_mode]
+                for k, v in kwargs.items():
+                    command_args += ['--' + k, str(v)]
                 print(' '.join(command_args))
 
                 with override_args(*command_args):
@@ -142,6 +144,38 @@ class BaseElasticTests:
             self.assertEqual(results[2]['size'], slots)
             self.assertEqual(results[2]['hostname'], '127.0.0.1')
             self.assertEqual(results[2]['rendezvous'], 3)
+
+    @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    @mock.patch('horovod.runner.gloo_run._get_min_start_hosts', return_value=1)
+    def test_hosts_rejoin(self, mock_get_min_start_hosts):
+        for slots, np, min_np, max_np in [(2, 2, 2, 4)]:
+            discovery_schedule = [
+                (0, ['localhost:{}'.format(slots)]),
+                (1, ['localhost:{}'.format(slots), '127.0.0.1:{}'.format(slots)]),
+                (2, ['127.0.0.1:{}'.format(slots)]),
+                (None, ['localhost:{}'.format(slots), '127.0.0.1:{}'.format(slots)]),
+            ]
+
+            results = self._run(discovery_schedule, np=np, min_np=min_np, max_np=max_np, epochs=4)
+
+            self.assertEqual(len(results), 4)
+
+            self.assertEqual(results[0]['start_rank'], 0)
+            self.assertEqual(results[0]['size'], slots)
+            self.assertEqual(results[0]['hostname'], 'localhost')
+
+            self.assertEqual(results[1]['start_rank'], 0)
+            self.assertEqual(results[1]['size'], slots * 2)
+            self.assertEqual(results[1]['hostname'], 'localhost')
+
+            self.assertEqual(results[2]['start_rank'], slots)
+            self.assertEqual(results[2]['size'], slots)
+            self.assertEqual(results[2]['hostname'], '127.0.0.1')
+
+            self.assertEqual(results[3]['start_rank'], slots)
+            self.assertEqual(results[3]['size'], slots * 2)
+            self.assertEqual(results[3]['hostname'], '127.0.0.1')
+            self.assertEqual(results[3]['rendezvous'], 4)
 
     @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     @mock.patch('horovod.runner.gloo_run._get_min_start_hosts', return_value=1)
