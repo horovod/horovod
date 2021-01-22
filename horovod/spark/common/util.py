@@ -725,8 +725,12 @@ def get_spark_df_output_schema(input_df_schema, label_cols, output_cols):
     field_dict = {}
     for field in input_df_schema.fields:
         # The predict function is changing rdd value from FloatType to DoubleType.
-        # But seems we do not need to change it. It is ok to keep the oringinal schema.
         existing_field = copy.deepcopy(field)
+
+        # But seems we do not need to change it. It is ok to keep the oringinal schema.
+        # if isinstance(existing_field.dataType, FloatType):
+        #     existing_field.dataType = DoubleType()
+
         field_dict[existing_field.name] = existing_field
 
         # assuming the label_cols and output_cols are 1:1 mapping.

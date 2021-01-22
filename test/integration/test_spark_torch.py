@@ -157,9 +157,9 @@ class SparkTorchTests(unittest.TestCase):
                 'x1': LongType,
                 'x2': LongType,
                 'features': VectorUDT,
-                'weight': DoubleType,
-                'y': DoubleType,
-                'y__output': VectorUDT
+                'weight': FloatType,
+                'y': FloatType,
+                'y__output': FloatType
             }
 
             for field in out_df.schema.fields:
