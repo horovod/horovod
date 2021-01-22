@@ -179,13 +179,6 @@ setup(name='horovod',
           'dev': dev_require_list,
           'test': test_require_list,
       },
-      # not used by pip since 19.0: https://github.com/pypa/pip/issues/4187#issuecomment-415067034
-      # here for completeness as pip install needs some of these via -f for versions with '+cpu'
-      # for examples, see Dockerfile.test.cpu and Dockerfile.test.gpu
-      dependency_links=[
-          'https://download.pytorch.org/whl/torch_stable.html',
-          'https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html'
-      ],
       python_requires='>=3.6',
       zip_safe=False,
       entry_points={
