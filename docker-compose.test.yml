@@ -63,7 +63,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow==2.0.4
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.3.1+cpu
-        TORCHVISION_PACKAGE: torchvision==0.4.1+cpu
+        TORCHVISION_PACKAGE: torchvision==0.4.2+cpu
         MXNET_PACKAGE: mxnet==1.4.1
   test-cpu-gloo-py3_6-tf2_1_3-keras2_3_1-torch1_4_0-mxnet1_5_1-pyspark_3_0_1:
     extends: test-cpu-base
@@ -158,7 +158,7 @@ services:
     shm_size: 8gb
 
   # torch==1.2.0+cu100 does not exist, torch==1.3.0+cu100 is the first +cu100
-  # torch==1.3.1+cu100 requires torchvision==0.4.1+cu100
+  # torch==1.3.1+cu100 requires torchvision==0.4.2+cu100
   test-gpu-gloo-py3_6-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_4_1-pyspark_3_0_1:
     extends: test-gpu-base
     build:
@@ -167,7 +167,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-gpu==1.15.5
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: torch==1.3.1+cu100
-        TORCHVISION_PACKAGE: torchvision==0.4.1+cu100
+        TORCHVISION_PACKAGE: torchvision==0.4.2+cu100
         MXNET_PACKAGE: mxnet-cu100==1.4.1
   # mxnet-cu101==1.7.0.post1 does not exist but mxnet-cu101==1.7.0 does
   test-gpu-gloo-py3_6-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0-pyspark_3_0_1:

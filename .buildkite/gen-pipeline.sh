@@ -46,8 +46,8 @@ tests=$(if [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}
   printf "test-gpu-gloo-py3_6-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1 "
 
   # and one final test with mixed cpu+gpu
-  # we deviate from mxnet1_7_0_p1 here as mxnet-cu101==1.7.0.post1 does not exist but mxnet-cu101==1.7.0 does
-  printf "test-mixed-openmpi-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1 "
+  # we deviate from mxnet1_7_0_p1 here as mxnet-cu110 does not exist, so we use mxnethead
+  printf "test-mixed-openmpi-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1 "
 fi)
 read -r -a tests <<< "$tests"
 
