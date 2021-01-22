@@ -21,6 +21,8 @@
 
 #include <thread>
 
+#include "../logging.h"
+
 namespace horovod {
 namespace common {
 
