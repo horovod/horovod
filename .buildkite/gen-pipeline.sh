@@ -29,7 +29,7 @@ tests=$(if [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}
   # then we vary the frameworks all together
   printf "test-cpu-gloo-py3_6-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark_3_0_1 "
   printf "test-cpu-gloo-py3_6-tf2_0_4-keras2_3_1-torch1_3_1-mxnet1_4_1-pyspark_3_0_1 "
-  printf "test-cpu-gloo-py3_6-tf2_1_3-keras2_3_1-torch1_4_0-mxnet1_5_1-pyspark_3_0_1 "
+  printf "test-cpu-gloo-py3_6-tf2_1_3-keras2_3_1-torch1_4_0-mxnet1_5_1_p0-pyspark_3_0_1 "
   printf "test-cpu-gloo-py3_6-tf2_2_2-keras2_3_1-torch1_5_1-mxnet1_6_0-pyspark_3_0_1 "
   printf "test-cpu-gloo-py3_6-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1 "
   # our baseline again

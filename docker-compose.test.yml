@@ -65,7 +65,7 @@ services:
         PYTORCH_PACKAGE: torch==1.3.1+cpu
         TORCHVISION_PACKAGE: torchvision==0.4.2+cpu
         MXNET_PACKAGE: mxnet==1.4.1
-  test-cpu-gloo-py3_6-tf2_1_3-keras2_3_1-torch1_4_0-mxnet1_5_1-pyspark_3_0_1:
+  test-cpu-gloo-py3_6-tf2_1_3-keras2_3_1-torch1_4_0-mxnet1_5_1_p0-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
@@ -73,7 +73,7 @@ services:
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.4.0+cpu
         TORCHVISION_PACKAGE: torchvision==0.5.0+cpu
-        MXNET_PACKAGE: mxnet==1.5.1
+        MXNET_PACKAGE: mxnet==1.5.1.post0
   test-cpu-gloo-py3_6-tf2_2_2-keras2_3_1-torch1_5_1-mxnet1_6_0-pyspark_3_0_1:
     extends: test-cpu-base
     build:
