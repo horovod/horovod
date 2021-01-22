@@ -119,19 +119,15 @@ all_frameworks_require_list = tensorflow_require_list + \
                               pyspark_require_list
 
 # python packages required / recommended to develop horovod
-# e.g., set of framework versions pinned for development, keep in sync with Dockerfile.test.cpu
+# these are the earliest versions to work with Python 3.8
+# keep in sync with Dockerfile.test.cpu
 # NOTE: do not use versions with +cpu or +gpu here as users would need to add --find-links to pip
-dev_require_list = ['tensorflow-cpu==1.15.0;python_version<"3.8"',
-                    'tensorflow-cpu==2.2.0;python_version>="3.8"',
+dev_require_list = ['tensorflow-cpu==2.2.0',
                     'keras==2.3.1',
-                    'torch==1.2.0;python_version<"3.8"',
-                    'torch==1.4.0;python_version>="3.8"',
-                    'torchvision==0.4.0;python_version<"3.8"',
-                    'torchvision==0.5.0;python_version>="3.8"',
-                    'mxnet==1.4.1;python_version<"3.8"',
-                    'mxnet==1.5.0;python_version<="3.8"',
-                    'pyspark==2.4.7;python_version<"3.8"',
-                    'pyspark==3.0.1;python_version>="3.8"'] + spark_require_list
+                    'torch==1.4.0',
+                    'torchvision==0.5.0',
+                    'mxnet==1.5.0',
+                    'pyspark==3.0.1'] + spark_require_list
 # torchvision 0.5.0 depends on torch==1.4.0
 
 # python packages required only to run tests
