@@ -65,10 +65,18 @@ Status GPUOpContext::FinalizeGPUQueue(const std::vector<TensorTableEntry>& entri
       first_entry.device, first_entry.context->framework(), global_state_->current_nccl_stream);
 
   gpu_context_->finalizer_thread_pool.execute([entries, first_entry, cpu_buffer, fusion_buffer, free_host_buffer,
-                                                evt_queue, &timeline, &gpu_context, error_check_callback]() mutable {
-    gpu_context->SetDevice(first_entry.device);
+                                               evt_queue, &timeline, &gpu_context, error_check_callback,
+                                               &global_state_]() mutable {
+    Status status;
+    try {
+      gpu_context->SetDevice(first_entry.device);
+      gpu_context->WaitForEvents(evt_queue, entries, timeline, error_check_callback);
+      status = Status::OK();
+    } catch (const std::exception& ex) {
+      LOG(DEBUG, global_state_->controller->GetRank()) << "FinalizeGPUQueue Failed";
+      status = Status::UnknownError(ex.what());
+    }
 
-    gpu_context->WaitForEvents(evt_queue, entries, timeline, error_check_callback);
     if (free_host_buffer && cpu_buffer != nullptr) {
       free(cpu_buffer);
     }
@@ -77,7 +85,7 @@ Status GPUOpContext::FinalizeGPUQueue(const std::vector<TensorTableEntry>& entri
       timeline.End(e.tensor_name, e.output);
       // Callback can be null if the rank sent Join request.
       if (e.callback != nullptr) {
-        e.callback(Status::OK());
+        e.callback(status);
       }
     }
   });
