@@ -66,16 +66,17 @@ Status GPUOpContext::FinalizeGPUQueue(const std::vector<TensorTableEntry>& entri
   auto fusion_buffer = global_state_->fusion_buffer.GetBuffer(
       first_entry.device, first_entry.context->framework(), global_state_->current_nccl_stream);
 
+  auto rank = global_state_->controller->GetRank();
   gpu_context_->finalizer_thread_pool.execute([entries, first_entry, cpu_buffer, fusion_buffer, free_host_buffer,
                                                evt_queue, &timeline, &gpu_context, error_check_callback,
-                                               &global_state_]() mutable {
+                                               rank]() mutable {
     Status status;
     try {
       gpu_context->SetDevice(first_entry.device);
       gpu_context->WaitForEvents(evt_queue, entries, timeline, error_check_callback);
       status = Status::OK();
     } catch (const std::exception& ex) {
-      LOG(DEBUG, global_state_->controller->GetRank()) << "FinalizeGPUQueue Failed";
+      LOG(DEBUG, rank) << "FinalizeGPUQueue Failed";
       status = Status::UnknownError(ex.what());
     }
 
