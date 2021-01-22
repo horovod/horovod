@@ -1,3 +1,6 @@
+#syntax=docker/dockerfile:1.2
+# run this with DOCKER_BUILDKIT=1 docker build ...
+
 ARG UBUNTU_VERSION=18.04
 FROM ubuntu:${UBUNTU_VERSION}
 
@@ -23,12 +26,18 @@ ARG CCL_PACKAGE=master
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-cu"]
 
+# Make Ubuntu not delete downloaded packages
+RUN rm -f /etc/apt/apt.conf.d/docker-clean
+
 # Prepare to install specific g++ versions
-RUN apt-get update -qq && apt-get install -y --no-install-recommends software-properties-common
-RUN add-apt-repository ppa:ubuntu-toolchain-r/test
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
+  apt-get update -qq && apt-get install -y --no-install-recommends software-properties-common
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
+  add-apt-repository ppa:ubuntu-toolchain-r/test
 
 # Install essential packages.
-RUN apt-get update -qq && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
+  apt-get update -qq && apt-get install -y --no-install-recommends \
         wget \
         ca-certificates \
         cmake \
@@ -44,24 +53,32 @@ RUN ssh-keygen -f /root/.ssh/id_rsa -q -N ''
 RUN cp -v /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
 
 # Install Python.
-RUN apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-distutils
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
+  apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-distutils
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
-RUN pip install -U --force pip setuptools requests pytest mock pytest-forked parameterized
+RUN --mount=type=cache,target=/root/.cache/pip \
+  pip install -U --force pip setuptools requests pytest mock pytest-forked parameterized
 RUN echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.\$1.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.\$2.xml \${@:2} > /pytest.sh
 RUN echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.\$1.standalone.\$2.xml \${@:2} > /pytest_standalone.sh
 RUN chmod a+x /pytest.sh
 RUN chmod a+x /pytest_standalone.sh
 
 # Install Spark stand-alone cluster.
-RUN if [[ -n ${SPARK_PACKAGE} ]]; then \
-        wget --progress=dot:giga https://archive.apache.org/dist/spark/${SPARK_PACKAGE} -O - | tar -xzC /tmp; \
+RUN --mount=type=cache,target=/wget \
+    if [[ -n ${SPARK_PACKAGE} ]]; then \
+        mkdir -p /wget/$(dirname "${SPARK_PACKAGE}"); \
+        find /wget; \
+        wget -c --progress=dot:giga https://archive.apache.org/dist/spark/${SPARK_PACKAGE} -O /wget/${SPARK_PACKAGE}; \
+        tar -xzC /tmp -f /wget/${SPARK_PACKAGE}; \
         archive=$(basename "${SPARK_PACKAGE}") bash -c "mv -v /tmp/\${archive/%.tgz/} /spark"; \
     fi
 
 # Install PySpark.
-RUN apt-get update -qq && apt install -y openjdk-8-jdk-headless
-RUN if [[ ${SPARK_PACKAGE} != *"-preview"* ]]; then \
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
+  apt-get update -qq && apt install -y openjdk-8-jdk-headless
+RUN --mount=type=cache,target=/root/.cache/pip --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
+    if [[ ${SPARK_PACKAGE} != *"-preview"* ]]; then \
         pip install ${PYSPARK_PACKAGE}; \
     else \
         apt-get install pandoc; \
@@ -70,13 +87,14 @@ RUN if [[ ${SPARK_PACKAGE} != *"-preview"* ]]; then \
     fi
 
 # Install MPI.
-RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
-        wget --progress=dot:mega -O /tmp/openmpi-3.0.0-bin.tar.gz https://github.com/horovod/horovod/files/1596799/openmpi-3.0.0-bin.tar.gz && \
-            cd /usr/local && tar -zxf /tmp/openmpi-3.0.0-bin.tar.gz && ldconfig && \
+RUN --mount=type=cache,target=/wget --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
+    if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
+        wget -c --progress=dot:mega -O /wget/openmpi-3.0.0-bin.tar.gz https://github.com/horovod/horovod/files/1596799/openmpi-3.0.0-bin.tar.gz && \
+            cd /usr/local && tar -zxf /wget/openmpi-3.0.0-bin.tar.gz && ldconfig && \
             echo "mpirun -allow-run-as-root -np 2 -H localhost:2 -bind-to none -map-by slot -mca mpi_abort_print_stack 1" > /mpirun_command; \
     elif [[ ${MPI_KIND} == "ONECCL" ]]; then \
-        wget --progress=dot:mega -O /tmp/oneccl.tar.gz https://github.com/oneapi-src/oneCCL/archive/${CCL_PACKAGE}.tar.gz && \
-            cd /tmp && tar -zxf oneccl.tar.gz && \
+        wget -c --progress=dot:mega -O /wget/oneccl.tar.gz https://github.com/oneapi-src/oneCCL/archive/${CCL_PACKAGE}.tar.gz && \
+            cd /tmp && tar -zxf /wget/oneccl.tar.gz && \
             mkdir oneCCL-${CCL_PACKAGE}/build && cd oneCCL-${CCL_PACKAGE}/build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local/oneccl -DCMAKE_BUILD_TYPE=Release && make -j install && \
             cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/include/*.h /usr/local/oneccl/include && \
             cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/bin/mpicc /usr/local/oneccl/bin && \
@@ -115,7 +133,8 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
     fi
 
 # Install mpi4py.
-RUN if [[ ${MPI_KIND} != "None" ]]; then \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [[ ${MPI_KIND} != "None" ]]; then \
         if [[ ${MPI_KIND} == "ONECCL" ]]; then \
             export I_MPI_ROOT=/usr/local/oneccl; \
             export MPICC=/usr/local/oneccl/bin/mpicc; \
@@ -127,33 +146,39 @@ RUN if [[ ${MPI_KIND} != "None" ]]; then \
 COPY . /horovod
 
 # Install TensorFlow.
-RUN pip install ${TENSORFLOW_PACKAGE}
+RUN --mount=type=cache,target=/root/.cache/pip \
+  pip install ${TENSORFLOW_PACKAGE}
 
 # Install Keras.
 # Pin h5py: https://github.com/h5py/h5py/issues/1732
 # Pin scipy<1.4.0: https://github.com/scipy/scipy/issues/11237
-RUN pip install ${KERAS_PACKAGE} "h5py<3" "scipy<1.4.0" "pandas<1.1.0"
+RUN --mount=type=cache,target=/root/.cache/pip \
+  pip install ${KERAS_PACKAGE} "h5py<3" "scipy<1.4.0" "pandas<1.1.0"
 RUN mkdir -p ~/.keras
 RUN python -c "from keras.datasets import mnist; mnist.load_data()"
 
 # Install PyTorch.
-RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
         pip install --pre torch ${TORCHVISION_PACKAGE} -v -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html; \
     else \
         pip install ${PYTORCH_PACKAGE} ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/torch_stable.html; \
     fi
 # Pin Pillow<7.0: https://github.com/pytorch/vision/issues/1718
-RUN pip install "Pillow<7.0" --no-deps
+RUN --mount=type=cache,target=/root/.cache/pip \
+  pip install "Pillow<7.0" --no-deps
 
 # Install MXNet.
-RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly" ]]; then \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [[ ${MXNET_PACKAGE} == "mxnet-nightly" ]]; then \
         pip install --pre mxnet -f https://dist.mxnet.io/python/all; \
     else \
         pip install ${MXNET_PACKAGE} ; \
     fi
 
 # Install Horovod.
-RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [[ ${MPI_KIND} == "ONECCL" ]]; then \
       if [ -z "${LD_LIBRARY_PATH:-}" ]; then \
           export LD_LIBRARY_PATH=""; \
       fi; \
@@ -168,7 +193,8 @@ RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
       cd /horovod && HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 python setup.py sdist; \
     fi
 
-RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [[ ${MPI_KIND} == "ONECCL" ]]; then \
       if [ -z "${LD_LIBRARY_PATH:-}" ]; then \
           export LD_LIBRARY_PATH=""; \
       fi; \
@@ -184,7 +210,10 @@ RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
 
 # Prefetch Spark MNIST dataset.
 RUN mkdir -p /work
-RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/mnist.bz2 -O /data/mnist.bz2
+RUN --mount=type=cache,target=/wget \
+  wget -c --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/mnist.bz2 -O /wget/mnist.bz2; \
+  mkdir -p /data; \
+  cp /wget/mnist.bz2 /data/
 
 # Hack for compatibility of MNIST example with TensorFlow 1.1.0.
 RUN if [[ ${TENSORFLOW_PACKAGE} == "tensorflow==1.1.0" ]]; then \
@@ -219,7 +248,10 @@ RUN sed -i "s/x = x.view(-1, 320)/x = x.view(-1, 784)/" /horovod/examples/pytorc
 
 # Prefetch Spark Rossmann dataset.
 RUN mkdir -p /work
-RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/rossmann.tgz -O - | tar -xzC /data
+RUN --mount=type=cache,target=/wget \
+  wget -c --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/rossmann.tgz -O /wget/rossmann.tgz; \
+  mkdir -p /data; \
+  tar -xzC /data -f /wget/rossmann.tgz
 
 # Hack Keras Spark Rossmann Run example to be smaller.
 RUN sed -i "s/x = Dense(1000,/x = Dense(100,/g" /horovod/examples/spark/keras/keras_spark_rossmann_run.py

@@ -34,6 +34,10 @@ build_test() {
   local test=$1
 
   echo "- label: ':docker: Build ${test}'"
+  echo "  env:"
+  echo "    DOCKER_BUILDKIT: 1"
+  echo "    COMPOSE_DOCKER_CLI_BUILD: 1"
+  echo "    BUILDKIT_PROGRESS: plain"
   echo "  plugins:"
   echo "  - docker-compose#v3.5.0:"
   echo "      build: ${test}"
@@ -41,6 +45,10 @@ build_test() {
   echo "      cache-from: ${test}:${repository}:${BUILDKITE_PIPELINE_SLUG}-${test}-latest"
   echo "      config: docker-compose.test.yml"
   echo "      push-retries: 5"
+  echo "      env:"
+  echo "        DOCKER_BUILDKIT: 1"
+  echo "        COMPOSE_DOCKER_CLI_BUILD: 1"
+  echo "        BUILDKIT_PROGRESS: plain"
   echo "  - ecr#v1.2.0:"
   echo "      login: true"
   echo "  timeout_in_minutes: 30"
@@ -366,6 +374,10 @@ build_docs() {
 }
 
 # begin the pipeline.yml file
+echo "env:"
+echo "  DOCKER_BUILDKIT: 1"
+echo "  COMPOSE_DOCKER_CLI_BUILD: 1"
+echo "  BUILDKIT_PROGRESS: plain"
 echo "steps:"
 
 # build every test container

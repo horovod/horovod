@@ -1,5 +1,7 @@
 steps:
 - label: ':docker: Build test-cpu-openmpi-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2'
+  env:
+  - DOCKER_BUILDKIT=1
   plugins:
   - docker-compose#v3.5.0:
       build: test-cpu-openmpi-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2
@@ -15,6 +17,8 @@ steps:
   agents:
     queue: cpu
 - label: ':docker: Build test-cpu-gloo-py3_6-tf2_0_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_3_2'
+  env:
+  - DOCKER_BUILDKIT=1
   plugins:
   - docker-compose#v3.5.0:
       build: test-cpu-gloo-py3_6-tf2_0_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_3_2
@@ -30,6 +34,8 @@ steps:
   agents:
     queue: cpu
 - label: ':docker: Build test-cpu-openmpi-py3_6-tf2_1_0-keras2_2_4-torch1_4_0-mxnet1_4_1-pyspark2_4_7'
+  env:
+  - DOCKER_BUILDKIT=1
   plugins:
   - docker-compose#v3.5.0:
       build: test-cpu-openmpi-py3_6-tf2_1_0-keras2_2_4-torch1_4_0-mxnet1_4_1-pyspark2_4_7
@@ -45,6 +51,8 @@ steps:
   agents:
     queue: cpu
 - label: ':docker: Build test-cpu-openmpi-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_7'
+  env:
+  - DOCKER_BUILDKIT=1
   plugins:
   - docker-compose#v3.5.0:
       build: test-cpu-openmpi-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_7
@@ -60,6 +68,8 @@ steps:
   agents:
     queue: cpu
 - label: ':docker: Build test-cpu-gloo-py3_7-tf2_3_1-keras2_3_1-torch1_6_0-mxnet1_5_0-pyspark2_4_7'
+  env:
+  - DOCKER_BUILDKIT=1
   plugins:
   - docker-compose#v3.5.0:
       build: test-cpu-gloo-py3_7-tf2_3_1-keras2_3_1-torch1_6_0-mxnet1_5_0-pyspark2_4_7
@@ -75,6 +85,8 @@ steps:
   agents:
     queue: cpu
 - label: ':docker: Build test-cpu-gloo-py3_8-tf2_4_0-keras2_3_1-torch1_7_1-mxnet1_5_0-pyspark3_0_1'
+  env:
+  - DOCKER_BUILDKIT=1
   plugins:
   - docker-compose#v3.5.0:
       build: test-cpu-gloo-py3_8-tf2_4_0-keras2_3_1-torch1_7_1-mxnet1_5_0-pyspark3_0_1
@@ -90,6 +102,8 @@ steps:
   agents:
     queue: cpu
 - label: ':docker: Build test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7'
+  env:
+  - DOCKER_BUILDKIT=1
   plugins:
   - docker-compose#v3.5.0:
       build: test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7
@@ -105,6 +119,8 @@ steps:
   agents:
     queue: cpu
 - label: ':docker: Build test-cpu-mpich-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7'
+  env:
+  - DOCKER_BUILDKIT=1
   plugins:
   - docker-compose#v3.5.0:
       build: test-cpu-mpich-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7
@@ -120,6 +136,8 @@ steps:
   agents:
     queue: cpu
 - label: ':docker: Build test-cpu-oneccl-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7'
+  env:
+  - DOCKER_BUILDKIT=1
   plugins:
   - docker-compose#v3.5.0:
       build: test-cpu-oneccl-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7
@@ -135,6 +153,8 @@ steps:
   agents:
     queue: cpu
 - label: ':docker: Build test-cpu-oneccl-ofi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7'
+  env:
+  - DOCKER_BUILDKIT=1
   plugins:
   - docker-compose#v3.5.0:
       build: test-cpu-oneccl-ofi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7
