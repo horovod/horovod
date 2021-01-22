@@ -581,7 +581,7 @@ class SparkTests(unittest.TestCase):
             return 0
 
         def mpi_impl_flags(tcp, env=None):
-            return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"]
+            return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"], None
 
         def gloo_exec_command_fn(driver_addresses, key, settings, env):
             def _exec_command(command, alloc_info, event):
@@ -625,7 +625,7 @@ class SparkTests(unittest.TestCase):
             return 1
 
         def mpi_impl_flags(tcp, env=None):
-            return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"]
+            return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"], None
 
         def exception(*args, **argv):
             raise Exception('Test Exception')
@@ -647,7 +647,7 @@ class SparkTests(unittest.TestCase):
                 self.assertEqual(str(e.value), 'Test Exception')
 
                 # call the mocked _get_mpi_implementation_flags method
-                mpi_flags, binding_args = horovod.runner.mpi_run._get_mpi_implementation_flags(False)
+                mpi_flags, binding_args, _ = horovod.runner.mpi_run._get_mpi_implementation_flags(False)
                 self.assertIsNotNone(mpi_flags)
                 expected_command = ('mpirun '
                                     '--allow-run-as-root --tag-output '

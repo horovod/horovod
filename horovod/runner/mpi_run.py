@@ -25,6 +25,7 @@ from horovod.runner.common.util import env as env_util, hosts, safe_shell_exec, 
 _OMPI_IMPL = 'OpenMPI'
 _SMPI_IMPL = 'SpectrumMPI'
 _MPICH_IMPL = 'MPICH'
+_IMPI_IMPL = "IntelMPI"
 _UNKNOWN_IMPL = 'Unknown'
 _MISSING_IMPL = 'Missing'
 
@@ -35,6 +36,8 @@ _SMPI_FLAGS = []
 _SMPI_FLAGS_TCP = ['-tcp']
 # MPICH Flags
 _MPICH_FLAGS = []
+# Intel MPI Flags
+_IMPI_FLAGS = []
 
 # Threshold for large cluster MPI issues:
 _LARGE_CLUSTER_THRESHOLD = 64
@@ -70,6 +73,10 @@ def is_mpich(env=None):
     return _get_mpi_implementation(env) == _MPICH_IMPL
 
 
+def is_intel_mpi(env=None):
+    return _get_mpi_implementation(env) == _IMPI_IMPL
+
+
 def _get_mpi_implementation(env=None):
     """
     Detects the available MPI implementation by invoking `mpirun --version`.
@@ -78,7 +85,7 @@ def _get_mpi_implementation(env=None):
     represents the stdout and stderr as a string.
 
     Returns one of:
-    - _OMPI_IMPL, _SMPI_IMPL or _MPICH_IMPL for known implementations
+    - _OMPI_IMPL, _SMPI_IMPL, _MPICH_IMPL or _IMPI_IMPL for known implementations
     - _UNKNOWN_IMPL for any unknown implementation
     - _MISSING_IMPL if `mpirun --version` could not be executed.
 
@@ -98,6 +105,8 @@ def _get_mpi_implementation(env=None):
             return _SMPI_IMPL
         elif 'MPICH' in output:
             return _MPICH_IMPL
+        elif 'Intel(R) MPI' in output:
+            return _IMPI_IMPL
 
         print('Unknown MPI implementation given in output of mpirun --version:', file=sys.stderr)
         print(output, file=sys.stderr)
@@ -110,13 +119,15 @@ def _get_mpi_implementation(env=None):
 
 def _get_mpi_implementation_flags(tcp_flag, env=None):
     if is_open_mpi(env):
-        return list(_OMPI_FLAGS), list(_NO_BINDING_ARGS)
+        return list(_OMPI_FLAGS), list(_NO_BINDING_ARGS), _OMPI_IMPL
     elif is_spectrum_mpi(env):
-        return list(_SMPI_FLAGS) if not tcp_flag else list(_SMPI_FLAGS_TCP), list(_SOCKET_BINDING_ARGS)
+        return (list(_SMPI_FLAGS_TCP) if tcp_flag else list(_SMPI_FLAGS)), list(_SOCKET_BINDING_ARGS), _SMPI_IMPL
     elif is_mpich(env):
-        return list(_MPICH_FLAGS), list(_NO_BINDING_ARGS)
+        return list(_MPICH_FLAGS), list(_NO_BINDING_ARGS), _MPICH_IMPL
+    elif is_intel_mpi(env):
+        return list(_IMPI_FLAGS), [], _IMPI_IMPL
     else:
-        return None, None
+        return None, None, None
 
 
 def mpi_run(settings, nics, env, command, stdout=None, stderr=None):
@@ -138,9 +149,11 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None):
         raise Exception('env argument must be a dict, not {type}: {env}'
                         .format(type=type(env), env=env))
 
-    mpi_impl_flags, impl_binding_args = _get_mpi_implementation_flags(settings.tcp_flag, env=env)
+    mpi_impl_flags, impl_binding_args, mpi = _get_mpi_implementation_flags(settings.tcp_flag, env=env)
     if mpi_impl_flags is None:
         raise Exception(_MPI_NOT_FOUND_ERROR_MSG)
+
+    impi = _IMPI_IMPL == mpi
 
     ssh_args = []
     if settings.ssh_port:
@@ -151,32 +164,53 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None):
     mpi_ssh_args = ''
     if ssh_args:
         joined_ssh_args = ' '.join(ssh_args)
-        mpi_ssh_args = f'-mca plm_rsh_args \"{joined_ssh_args}\"'
-
-    # if user does not specify any hosts, mpirun by default uses local host.
-    # There is no need to specify localhost.
-    hosts_arg = '-H {hosts}'.format(hosts=settings.hosts)
+        mpi_ssh_args = f'-bootstrap=ssh -bootstrap-exec-args \"{joined_ssh_args}\"' if impi else f'-mca plm_rsh_args \"{joined_ssh_args}\"'
 
     tcp_intf_arg = '-mca btl_tcp_if_include {nics}'.format(
-        nics=','.join(nics)) if nics else ''
-    nccl_socket_intf_arg = '-x NCCL_SOCKET_IFNAME={nics}'.format(
+        nics=','.join(nics)) if nics and not impi else ''
+    nccl_socket_intf_arg = '-{opt} NCCL_SOCKET_IFNAME={nics}'.format(
+        opt='genv' if impi else 'x',
         nics=','.join(nics)) if nics else ''
 
     # On large cluster runs (e.g. Summit), we need extra settings to work around OpenMPI issues
-    host_names, _ = hosts.parse_hosts_and_slots(settings.hosts)
-    if host_names and len(host_names) >= _LARGE_CLUSTER_THRESHOLD:
+    host_names, host_to_slots = hosts.parse_hosts_and_slots(settings.hosts)
+    if not impi and host_names and len(host_names) >= _LARGE_CLUSTER_THRESHOLD:
         mpi_impl_flags.append('-mca plm_rsh_no_tree_spawn true')
         mpi_impl_flags.append('-mca plm_rsh_num_concurrent {}'.format(len(host_names)))
 
-    if settings.prefix_output_with_timestamp:
+    # if user does not specify any hosts, mpirun by default uses local host.
+    # There is no need to specify localhost.
+    hosts_arg = '-{opt} {hosts}'.format(opt='hosts' if impi else 'H',
+                hosts=','.join(host_names) if host_names and impi else settings.hosts)
+
+    ppn_arg = ' '
+    if host_to_slots and impi:
+        ppn = host_to_slots[host_names[0]]
+        for h_name in host_names[1:]:
+            if ppn != host_to_slots[h_name]:
+                raise Exception('''Different slots in -hosts parameter are not supported in Intel(R) MPI.
+                                 Use -machinefile <machine_file> for this purpose.''')
+        ppn_arg = ' -ppn {} '.format(ppn)
+
+    if settings.prefix_output_with_timestamp and not impi:
         mpi_impl_flags.append('--timestamp-output')
 
-    binding_args = settings.binding_args if settings.binding_args else ' '.join(impl_binding_args)
+    binding_args = settings.binding_args if settings.binding_args and not impi else ' '.join(impl_binding_args)
+
+    basic_args = '-l' if impi else '--allow-run-as-root --tag-output'
+
+    output = []
+    if settings.output_filename:
+        output.append('-outfile-pattern' if impi else '--output-filename')
+        output.append(settings.output_filename)
+
+    env_list = '' if impi else ' '.join(
+                    '-x %s' % key for key in sorted(env.keys()) if env_util.is_exportable(key))
 
     # Pass all the env variables to the mpirun command.
     mpirun_command = (
-        'mpirun --allow-run-as-root --tag-output '
-        '-np {num_proc} {hosts_arg} '
+        'mpirun {basic_args} '
+        '-np {num_proc}{ppn_arg}{hosts_arg} '
         '{binding_args} '
         '{mpi_args} '
         '{mpi_ssh_args} '
@@ -184,18 +218,17 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None):
         '{nccl_socket_intf_arg} '
         '{output_filename_arg} '
         '{env} {extra_mpi_args} {command}'  # expect a lot of environment variables
-        .format(num_proc=settings.num_proc,
+        .format(basic_args=basic_args,
+                num_proc=settings.num_proc,
+                ppn_arg=ppn_arg,
                 hosts_arg=hosts_arg,
                 binding_args=binding_args,
                 mpi_args=' '.join(mpi_impl_flags),
                 tcp_intf_arg=tcp_intf_arg,
                 nccl_socket_intf_arg=nccl_socket_intf_arg,
                 mpi_ssh_args=mpi_ssh_args,
-                output_filename_arg='--output-filename ' + settings.output_filename
-                                    if settings.output_filename else '',
-                env=' '.join('-x %s' % key for key in sorted(env.keys())
-                             if env_util.is_exportable(key)),
-
+                output_filename_arg=' '.join(output),
+                env=env_list,
                 extra_mpi_args=settings.extra_mpi_args if settings.extra_mpi_args else '',
                 command=' '.join(quote(par) for par in command))
     )

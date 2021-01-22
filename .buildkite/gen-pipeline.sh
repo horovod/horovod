@@ -169,13 +169,13 @@ run_mpi_integration() {
       ":muscle: MPI Stall (${test})" \
       "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/test/integration/test_stall.py\""
 
-    if [[ ${test} == *"openmpi"* ]]; then
+    if [[ ${test} == *"openmpi"* ]] || [[ ${test} == *"oneccl"* ]]; then
       run_test "${test}" "${queue}" \
         ":terminal: MPI Horovodrun (${test})" \
-        "horovodrun -np 2 -H localhost:2 python /horovod/examples/tensorflow/tensorflow_mnist.py"
+        "bash -c \"${oneccl_env} horovodrun -np 2 -H localhost:2 python /horovod/examples/tensorflow/tensorflow_mnist.py\""
       run_test "${test}" "${queue}" \
         ":terminal: MPI Horovodrun (${test})" \
-        "bash -c \"echo 'localhost slots=2' > hostfile && horovodrun -np 2 -hostfile hostfile python /horovod/examples/mxnet/mxnet_mnist.py\""
+        "bash -c \"${oneccl_env} echo 'localhost slots=2' > hostfile && horovodrun -np 2 -hostfile hostfile python /horovod/examples/mxnet/mxnet_mnist.py\""
     fi
   fi
 
@@ -183,11 +183,11 @@ run_mpi_integration() {
   if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
     run_test "${test}" "${queue}" \
       ":tensorflow: MPI TensorFlow 2.0 MNIST (${test})" \
-      "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py\""
+      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py\""
 
     run_test "${test}" "${queue}" \
       ":tensorflow: MPI TensorFlow 2.0 Keras MNIST (${test})" \
-      "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py\""
+      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py\""
   fi
 }
 
