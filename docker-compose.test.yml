@@ -12,7 +12,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-cpu==2.4.1
         KERAS_PACKAGE: keras==2.4.3
         PYTORCH_PACKAGE: torch==1.7.1+cpu
-        TORCHVISION_PACKAGE: torchvision==0.4.0+cpu
+        TORCHVISION_PACKAGE: torchvision==0.8.2+cpu
         MXNET_PACKAGE: mxnet==1.7.0.post1
         PYSPARK_PACKAGE: pyspark==3.0.1
         SPARK_PACKAGE: spark-3.0.1/spark-3.0.1-bin-hadoop2.7.tgz
@@ -61,7 +61,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-cpu==2.0.4
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.3.1+cpu
-        TORCHVISION_PACKAGE: torchvision==0.4.0+cpu
+        TORCHVISION_PACKAGE: torchvision==0.4.1+cpu
         MXNET_PACKAGE: mxnet==1.4.1
   test-cpu-gloo-py3_6-tf2_1_3-keras2_3_1-torch1_4_0-mxnet1_5_1-pyspark_3_0_1:
     extends: test-cpu-base
@@ -70,7 +70,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-cpu==2.1.3
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.4.0+cpu
-        TORCHVISION_PACKAGE: torchvision==0.4.0+cpu
+        TORCHVISION_PACKAGE: torchvision==0.5.0+cpu
         MXNET_PACKAGE: mxnet==1.5.1
   test-cpu-gloo-py3_6-tf2_2_2-keras2_3_1-torch1_5_1-mxnet1_6_0-pyspark_3_0_1:
     extends: test-cpu-base
@@ -79,7 +79,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-cpu==2.2.2
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.5.1+cpu
-        TORCHVISION_PACKAGE: torchvision==0.4.0+cpu
+        TORCHVISION_PACKAGE: torchvision==0.6.1+cpu
         MXNET_PACKAGE: mxnet==1.6.0
   test-cpu-gloo-py3_6-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1:
     extends: test-cpu-base
@@ -88,7 +88,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-cpu==2.3.2
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.6.0+cpu
-        TORCHVISION_PACKAGE: torchvision==0.4.0+cpu
+        TORCHVISION_PACKAGE: torchvision==0.7.0+cpu
         MXNET_PACKAGE: mxnet==1.7.0.post1
   test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
     extends: test-cpu-base
@@ -97,7 +97,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-cpu==2.4.1
         KERAS_PACKAGE: keras==2.4.3
         PYTORCH_PACKAGE: torch==1.7.1+cpu
-        TORCHVISION_PACKAGE: torchvision==0.4.0+cpu
+        TORCHVISION_PACKAGE: torchvision==0.8.2+cpu
         MXNET_PACKAGE: mxnet==1.7.0.post1
   test-cpu-gloo-py3_6-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1:
     extends: test-cpu-base
@@ -142,7 +142,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-cpu==2.4.1
         KERAS_PACKAGE: keras==2.4.3
         PYTORCH_PACKAGE: torch==1.7.1+cpu
-        TORCHVISION_PACKAGE: torchvision==0.4.0+cpu
+        TORCHVISION_PACKAGE: torchvision==0.8.2+cpu
         MXNET_PACKAGE: mxnet==1.7.0.post1
         PYSPARK_PACKAGE: pyspark==3.0.1
         SPARK_PACKAGE: spark-3.0.1/spark-3.0.1-bin-hadoop2.7.tgz
@@ -162,7 +162,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-gpu==1.15.0
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: torch==1.2.0+cu100
-        TORCHVISION_PACKAGE: torchvision==0.4.1+cu100
+        TORCHVISION_PACKAGE: torchvision==0.4.0+cu100
         MXNET_PACKAGE: mxnet-cu100==1.4.1
   test-gpu-gloo-py3_6-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1:
     extends: test-gpu-base
@@ -172,7 +172,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.3.2
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.6.0+cu101
-        TORCHVISION_PACKAGE: torchvision==0.4.1+cu101
+        TORCHVISION_PACKAGE: torchvision==0.7.0+cu101
         MXNET_PACKAGE: mxnet-cu101==1.7.0.post1
   test-gpu-openmpi-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
     extends: test-gpu-base
@@ -182,7 +182,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.4.1
         KERAS_PACKAGE: keras==2.4.3
         PYTORCH_PACKAGE: torch==1.7.1+cu110
-        TORCHVISION_PACKAGE: torchvision==0.4.1+cu110
+        TORCHVISION_PACKAGE: torchvision==0.8.2+cu110
         MXNET_PACKAGE: mxnet-cu110==1.7.0.post1
   test-gpu-gloo-py3_6-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1:
     extends: test-gpu-base
@@ -203,7 +203,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.4.1
         KERAS_PACKAGE: keras==2.4.3
         PYTORCH_PACKAGE: torch==1.7.1+cu110
-        TORCHVISION_PACKAGE: torchvision==0.4.1+cu110
+        TORCHVISION_PACKAGE: torchvision==0.8.2+cu110
         MXNET_PACKAGE: mxnet-cu110==1.7.0.post1
         HOROVOD_BUILD_FLAGS: ""
         HOROVOD_MIXED_INSTALL: 1
