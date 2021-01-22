@@ -8,7 +8,7 @@ services:
         UBUNTU_VERSION: 18.04
         GPP_VERSION: 7
         MPI_KIND: None
-        PYTHON_VERSION: 3.8
+        PYTHON_VERSION: 3.6
         TENSORFLOW_PACKAGE: tensorflow-cpu==2.4.1
         KERAS_PACKAGE: keras==2.4.3
         PYTORCH_PACKAGE: torch==1.7.1+cpu
@@ -19,33 +19,33 @@ services:
     privileged: true
     shm_size: 8gb
 
-  test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
+  test-cpu-mpich-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: MPICH
-  test-cpu-oneccl-ofi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
+  test-cpu-oneccl-ofi-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: ONECCL
-  test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
+  test-cpu-oneccl-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: ONECCL
-  test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
+  test-cpu-openmpi-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
-        MPI_KIND: OPENMPI
-  test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
+        MPI_KIND: OpenMPI
+  test-cpu-openmpi-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
-        MPI_KIND: OPENMPI
+        MPI_KIND: OpenMPI
 
-  test-cpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark_3_0_1:
+  test-cpu-gloo-py3_6-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
@@ -54,7 +54,7 @@ services:
         PYTORCH_PACKAGE: torch==1.2.0+cpu
         TORCHVISION_PACKAGE: torchvision==0.4.0+cpu
         MXNET_PACKAGE: mxnet==1.4.1
-  test-cpu-gloo-py3_8-tf2_0_4-keras2_3_1-torch1_3_1-mxnet1_4_1-pyspark_3_0_1:
+  test-cpu-gloo-py3_6-tf2_0_4-keras2_3_1-torch1_3_1-mxnet1_4_1-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
@@ -63,7 +63,7 @@ services:
         PYTORCH_PACKAGE: torch==1.3.1+cpu
         TORCHVISION_PACKAGE: torchvision==0.4.0+cpu
         MXNET_PACKAGE: mxnet==1.4.1
-  test-cpu-gloo-py3_8-tf2_1_3-keras2_3_1-torch1_4_0-mxnet1_5_1-pyspark_3_0_1:
+  test-cpu-gloo-py3_6-tf2_1_3-keras2_3_1-torch1_4_0-mxnet1_5_1-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
@@ -72,7 +72,7 @@ services:
         PYTORCH_PACKAGE: torch==1.4.0+cpu
         TORCHVISION_PACKAGE: torchvision==0.4.0+cpu
         MXNET_PACKAGE: mxnet==1.5.1
-  test-cpu-gloo-py3_8-tf2_2_2-keras2_3_1-torch1_5_1-mxnet1_6_0-pyspark_3_0_1:
+  test-cpu-gloo-py3_6-tf2_2_2-keras2_3_1-torch1_5_1-mxnet1_6_0-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
@@ -81,7 +81,7 @@ services:
         PYTORCH_PACKAGE: torch==1.5.1+cpu
         TORCHVISION_PACKAGE: torchvision==0.4.0+cpu
         MXNET_PACKAGE: mxnet==1.6.0
-  test-cpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1:
+  test-cpu-gloo-py3_6-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
@@ -90,7 +90,7 @@ services:
         PYTORCH_PACKAGE: torch==1.6.0+cpu
         TORCHVISION_PACKAGE: torchvision==0.4.0+cpu
         MXNET_PACKAGE: mxnet==1.7.0.post1
-  test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
+  test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
@@ -99,7 +99,7 @@ services:
         PYTORCH_PACKAGE: torch==1.7.1+cpu
         TORCHVISION_PACKAGE: torchvision==0.4.0+cpu
         MXNET_PACKAGE: mxnet==1.7.0.post1
-  test-cpu-gloo-py3_8-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1:
+  test-cpu-gloo-py3_6-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
@@ -123,6 +123,13 @@ services:
         PYTHON_VERSION: 3.7
         PYSPARK_PACKAGE: pyspark==2.4.7
         SPARK_PACKAGE: spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
+  test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
+    extends: test-cpu-base
+    build:
+      args:
+        PYTHON_VERSION: 3.8
+        PYSPARK_PACKAGE: pyspark==3.0.1
+        SPARK_PACKAGE: spark-3.0.1/spark-3.0.1-bin-hadoop2.7.tgz
 
   test-gpu-base:
     build:
@@ -131,7 +138,7 @@ services:
       args:
         GPP_VERSION: 7
         MPI_KIND: None
-        PYTHON_VERSION: 3.8
+        PYTHON_VERSION: 3.6
         TENSORFLOW_PACKAGE: tensorflow-cpu==2.4.1
         KERAS_PACKAGE: keras==2.4.3
         PYTORCH_PACKAGE: torch==1.7.1+cpu
@@ -147,7 +154,7 @@ services:
     privileged: true
     shm_size: 8gb
 
-  test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark_3_0_1:
+  test-gpu-gloo-py3_6-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark_3_0_1:
     extends: test-gpu-base
     build:
       args:
@@ -157,7 +164,7 @@ services:
         PYTORCH_PACKAGE: torch==1.2.0+cu100
         TORCHVISION_PACKAGE: torchvision==0.4.1+cu100
         MXNET_PACKAGE: mxnet-cu100==1.4.1
-  test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1:
+  test-gpu-gloo-py3_6-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1:
     extends: test-gpu-base
     build:
       args:
@@ -167,7 +174,7 @@ services:
         PYTORCH_PACKAGE: torch==1.6.0+cu101
         TORCHVISION_PACKAGE: torchvision==0.4.1+cu101
         MXNET_PACKAGE: mxnet-cu101==1.7.0.post1
-  test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
+  test-gpu-openmpi-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
     extends: test-gpu-base
     build:
       args:
@@ -177,7 +184,7 @@ services:
         PYTORCH_PACKAGE: torch==1.7.1+cu110
         TORCHVISION_PACKAGE: torchvision==0.4.1+cu110
         MXNET_PACKAGE: mxnet-cu110==1.7.0.post1
-  test-gpu-gloo-py3_8-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1:
+  test-gpu-gloo-py3_6-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1:
     extends: test-gpu-base
     build:
       args:
@@ -188,7 +195,7 @@ services:
         TORCHVISION_PACKAGE: torchvision
         MXNET_PACKAGE: mxnet-nightly-cu110
 
-  test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
+  test-mixed-openmpi-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
     extends: test-gpu-base
     build:
       args:

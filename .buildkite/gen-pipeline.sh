@@ -11,37 +11,39 @@ dir="$(dirname "$0")"
 code_files=$(python "$dir/get_changed_code_files.py" || echo failure)
 tests=$(if [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}" ]] || [[ -n "$code_files" ]]; then
   # our baseline test is
-  printf "test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1 "
+  printf "test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1 "
 
   # we vary this along the Python dimension and PySpark together
-  printf "test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_2_4_7 "
   printf "test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_2_3_4 "
+  printf "test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_2_4_7 "
+  printf "test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1 "
 
   # then we vary the mpi kinds
-  printf "test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1 "
-  printf "test-cpu-oneccl-ofi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1 "
-  printf "test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1 "
-  printf "test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1 "
-  printf "test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1 "
+  printf "test-cpu-mpich-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1 "
+  printf "test-cpu-oneccl-ofi-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1 "
+  printf "test-cpu-oneccl-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1 "
+  printf "test-cpu-openmpi-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1 "
+  printf "test-cpu-openmpi-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1 "
   # note: we test openmpi-gloo mpi kind in each of [cpu, gpu, mixed]
 
   # then we vary the frameworks all together
-  printf "test-cpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark_3_0_1 "
-  printf "test-cpu-gloo-py3_8-tf2_0_4-keras2_3_1-torch1_3_1-mxnet1_4_1-pyspark_3_0_1 "
-  printf "test-cpu-gloo-py3_8-tf2_1_3-keras2_3_1-torch1_4_0-mxnet1_5_1-pyspark_3_0_1 "
-  printf "test-cpu-gloo-py3_8-tf2_2_2-keras2_3_1-torch1_5_1-mxnet1_6_0-pyspark_3_0_1 "
-  printf "test-cpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1 "
-  printf "test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1 "
-  printf "test-cpu-gloo-py3_8-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1 "
+  printf "test-cpu-gloo-py3_6-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark_3_0_1 "
+  printf "test-cpu-gloo-py3_6-tf2_0_4-keras2_3_1-torch1_3_1-mxnet1_4_1-pyspark_3_0_1 "
+  printf "test-cpu-gloo-py3_6-tf2_1_3-keras2_3_1-torch1_4_0-mxnet1_5_1-pyspark_3_0_1 "
+  printf "test-cpu-gloo-py3_6-tf2_2_2-keras2_3_1-torch1_5_1-mxnet1_6_0-pyspark_3_0_1 "
+  printf "test-cpu-gloo-py3_6-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1 "
+  # our baseline again
+# printf "test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1 "
+  printf "test-cpu-gloo-py3_6-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1 "
 
   # then we vary the frameworks for gpu
-  printf "test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark_3_0_1 "
-  printf "test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1 "
-  printf "test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1 "
-  printf "test-gpu-gloo-py3_8-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1 "
+  printf "test-gpu-gloo-py3_6-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark_3_0_1 "
+  printf "test-gpu-gloo-py3_6-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1 "
+  printf "test-gpu-openmpi-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1 "
+  printf "test-gpu-gloo-py3_6-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1 "
 
   # and one final test with mixed cpu+gpu
-  printf "test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1 "
+  printf "test-mixed-openmpi-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1 "
 fi)
 read -r -a tests <<< "$tests"
 
