@@ -15,12 +15,15 @@
 # ==============================================================================
 
 import os
+import sys
 import itertools
 import unittest
 from distutils.version import LooseVersion
 
 import pytest
 import numpy as np
+
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 from common import skip_or_fail_gpu_test
 
