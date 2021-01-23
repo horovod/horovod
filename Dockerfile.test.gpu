@@ -1,3 +1,6 @@
+#syntax=docker/dockerfile:1.2
+# run this with DOCKER_BUILDKIT=1 docker build ...
+
 ARG CUDA_DOCKER_VERSION=10.0-devel-ubuntu18.04
 FROM nvidia/cuda:${CUDA_DOCKER_VERSION}
 
@@ -25,12 +28,18 @@ ARG HOROVOD_MIXED_INSTALL=0
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-cu"]
 
+# Make Ubuntu not delete downloaded packages
+RUN rm -f /etc/apt/apt.conf.d/docker-clean
+
 # Prepare to install specific g++ versions
-RUN apt-get update -qq && apt-get install -y --no-install-recommends software-properties-common
-RUN add-apt-repository ppa:ubuntu-toolchain-r/test
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
+  apt-get update -qq && apt-get install -y --no-install-recommends software-properties-common
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
+  add-apt-repository ppa:ubuntu-toolchain-r/test
 
 # Install essential packages.
-RUN CUDNN_MAJOR=$(cut -d '.' -f 1 <<< "${CUDNN_VERSION}"); \
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
+    CUDNN_MAJOR=$(cut -d '.' -f 1 <<< "${CUDNN_VERSION}"); \
     apt-get update -qq && apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
         wget \
         ca-certificates \
@@ -50,24 +59,32 @@ RUN ssh-keygen -f /root/.ssh/id_rsa -q -N ''
 RUN cp -v /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
 
 # Install Python.
-RUN apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-distutils
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
+  apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-distutils
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
-RUN pip install -U --force pip setuptools requests pytest mock pytest-forked parameterized
+RUN --mount=type=cache,target=/root/.cache/pip \
+  pip install -U --force pip setuptools requests pytest mock pytest-forked parameterized
 RUN echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.\$1.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.\$2.xml \${@:2} > /pytest.sh
 RUN echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.\$1.standalone.\$2.xml \${@:2} > /pytest_standalone.sh
 RUN chmod a+x /pytest.sh
 RUN chmod a+x /pytest_standalone.sh
 
 # Install Spark stand-alone cluster.
-RUN if [[ -n ${SPARK_PACKAGE} ]]; then \
-        wget --progress=dot:giga https://archive.apache.org/dist/spark/${SPARK_PACKAGE} -O - | tar -xzC /tmp; \
+RUN --mount=type=cache,target=/wget \
+    if [[ -n ${SPARK_PACKAGE} ]]; then \
+        mkdir -p /wget/$(dirname "${SPARK_PACKAGE}"); \
+        find /wget; \
+        wget -c --progress=dot:giga https://archive.apache.org/dist/spark/${SPARK_PACKAGE} -O /wget/${SPARK_PACKAGE}; \
+        tar -xzC /tmp -f /wget/${SPARK_PACKAGE}; \
         archive=$(basename "${SPARK_PACKAGE}") bash -c "mv -v /tmp/\${archive/%.tgz/} /spark"; \
     fi
 
 # Install PySpark.
-RUN apt-get update -qq && apt install -y openjdk-8-jdk-headless
-RUN if [[ ${SPARK_PACKAGE} != *"-preview"* ]]; then \
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
+  apt-get update -qq && apt install -y openjdk-8-jdk-headless
+RUN --mount=type=cache,target=/root/.cache/pip --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
+    if [[ ${SPARK_PACKAGE} != *"-preview"* ]]; then \
         pip install ${PYSPARK_PACKAGE}; \
     else \
         apt-get install pandoc; \
@@ -76,9 +93,10 @@ RUN if [[ ${SPARK_PACKAGE} != *"-preview"* ]]; then \
     fi
 
 # Install MPI.
-RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
-        wget --progress=dot:mega -O /tmp/openmpi-3.0.0-bin.tar.gz https://github.com/horovod/horovod/files/1596799/openmpi-3.0.0-bin.tar.gz && \
-            cd /usr/local && tar -zxf /tmp/openmpi-3.0.0-bin.tar.gz && ldconfig && \
+RUN --mount=type=cache,target=/wget --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
+    if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
+        wget -c --progress=dot:mega -O /wget/openmpi-3.0.0-bin.tar.gz https://github.com/horovod/horovod/files/1596799/openmpi-3.0.0-bin.tar.gz && \
+            cd /usr/local && tar -zxf /wget/openmpi-3.0.0-bin.tar.gz && ldconfig && \
             echo "mpirun -allow-run-as-root -np 2 -H localhost:2 -bind-to none -map-by slot -mca mpi_abort_print_stack 1" > /mpirun_command; \
     elif [[ ${MPI_KIND} == "MPICH" ]]; then \
         apt-get install -y mpich && \
@@ -89,7 +107,8 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
 RUN echo NCCL_DEBUG=INFO >> /etc/nccl.conf
 
 # Install mpi4py.
-RUN if [[ ${MPI_KIND} != "None" ]]; then \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [[ ${MPI_KIND} != "None" ]]; then \
         pip install mpi4py; \
     fi
 
@@ -97,29 +116,34 @@ RUN if [[ ${MPI_KIND} != "None" ]]; then \
 COPY . /horovod
 
 # Install TensorFlow.
-RUN pip install ${TENSORFLOW_PACKAGE}
+RUN --mount=type=cache,target=/root/.cache/pip \
+  pip install ${TENSORFLOW_PACKAGE}
 
 # Install Keras.
 # Pin h5py: https://github.com/h5py/h5py/issues/1732
 # Pin scipy<1.4.0: https://github.com/scipy/scipy/issues/11237
-RUN pip install ${KERAS_PACKAGE} "h5py<3" "scipy<1.4.0" "pandas<1.1.0"
+RUN --mount=type=cache,target=/root/.cache/pip \
+  pip install ${KERAS_PACKAGE} "h5py<3" "scipy<1.4.0" "pandas<1.1.0"
 RUN mkdir -p ~/.keras
 RUN ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
     python -c "from keras.datasets import mnist; mnist.load_data()" && \
     ldconfig
 
 # Install PyTorch.
-RUN PYTORCH_CUDA=$(echo ${CUDA_DOCKER_VERSION} | awk -F- '{print $1}' | sed 's/\.//'); \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    PYTORCH_CUDA=$(echo ${CUDA_DOCKER_VERSION} | awk -F- '{print $1}' | sed 's/\.//'); \
     if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
 	    pip install --pre torch ${TORCHVISION_PACKAGE} -v -f https://download.pytorch.org/whl/nightly/cu${PYTORCH_CUDA}/torch_nightly.html; \
     else \
         pip install ${PYTORCH_PACKAGE} ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/cu${PYTORCH_CUDA}/torch_stable.html; \
     fi
 # Pin Pillow<7.0: https://github.com/pytorch/vision/issues/1718
-RUN pip install "Pillow<7.0" --no-deps
+RUN --mount=type=cache,target=/root/.cache/pip \
+  pip install "Pillow<7.0" --no-deps
 
 # Install MXNet.
-RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly" ]]; then \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [[ ${MXNET_PACKAGE} == "mxnet-nightly" ]]; then \
         pip install --pre mxnet-cu101 -f https://dist.mxnet.io/python/cu101; \
     elif [[ ${MXNET_PACKAGE} == "mxnet-nightly-cu110" ]]; then \
         pip install --pre mxnet-cu110 -f https://dist.mxnet.io/python/cu110; \
@@ -129,7 +153,8 @@ RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly" ]]; then \
 
 # Install Horovod.
 RUN cd /horovod && python setup.py sdist
-RUN ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
     bash -c "${HOROVOD_BUILD_FLAGS} HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]" && \
     ldconfig
 
@@ -138,9 +163,10 @@ RUN if [[ ${TENSORFLOW_PACKAGE} == "tensorflow-gpu==1.1.0" ]]; then \
         sed -i "s/from tensorflow import keras/from tensorflow.contrib import keras/" /horovod/examples/tensorflow/tensorflow_mnist.py; \
     fi
 
-# Prefetch Spark MNIST dataset.
-RUN mkdir -p /work
-RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/mnist.bz2 -O /data/mnist.bz2
+RUN --mount=type=cache,target=/wget \
+  wget -c --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/mnist.bz2 -O /wget/mnist.bz2; \
+  mkdir -p /data; \
+  cp /wget/mnist.bz2 /data/
 
 # Hack TensorFlow MNIST example to be smaller.
 RUN sed -i "s/last_step=20000/last_step=100/" /horovod/examples/tensorflow/tensorflow_mnist.py
@@ -163,7 +189,10 @@ RUN sed -i "s/'--epochs', type=int, default=10,/'--epochs', type=int, default=2,
 
 # Prefetch Spark Rossmann dataset.
 RUN mkdir -p /work
-RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/rossmann.tgz -O - | tar -xzC /data
+RUN --mount=type=cache,target=/wget \
+  wget -c --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/rossmann.tgz -O /wget/rossmann.tgz; \
+  mkdir -p /data; \
+  tar -xzC /data -f /wget/rossmann.tgz
 
 # Hack Keras Spark Rossmann Run example to be smaller.
 RUN sed -i "s/x = Dense(1000,/x = Dense(100,/g" /horovod/examples/spark/keras/keras_spark_rossmann_run.py
