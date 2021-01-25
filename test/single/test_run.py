@@ -29,7 +29,6 @@ import warnings
 import mock
 import psutil
 import pytest
-from common import is_built, lsf_and_jsrun, override_args, override_env, temppath, delay, wait
 from mock import MagicMock
 
 import horovod
@@ -45,6 +44,10 @@ from horovod.runner.mpi_run import _get_mpi_implementation, _get_mpi_implementat
     _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_available, mpi_run, \
     _OMPI_IMPL, _SMPI_IMPL, _MPICH_IMPL, _UNKNOWN_IMPL, _MISSING_IMPL
 from horovod.runner.util.threads import in_thread, on_event
+
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
+
+from common import is_built, lsf_and_jsrun, override_args, override_env, temppath, delay, wait
 
 
 class RunTests(unittest.TestCase):

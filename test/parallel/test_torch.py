@@ -21,6 +21,7 @@ import inspect
 import itertools
 import os
 import platform
+import sys
 import unittest
 import warnings
 import time
@@ -35,6 +36,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import horovod.torch as hvd
+
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 from common import mpi_env_rank_and_size, skip_or_fail_gpu_test, temppath
 

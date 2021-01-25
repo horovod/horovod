@@ -20,6 +20,8 @@ import unittest
 import warnings
 from shutil import copy
 
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
+
 from common import tempdir
 from horovod.runner.common.util import safe_shell_exec
 

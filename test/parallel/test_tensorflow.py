@@ -25,12 +25,15 @@ import numpy as np
 import os
 import math
 import pytest
+import sys
 import tensorflow as tf
 from horovod.tensorflow.util import _executing_eagerly
 from tensorflow.python.framework import ops
 import warnings
 
 import horovod.tensorflow as hvd
+
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 from common import mpi_env_rank_and_size, skip_or_fail_gpu_test
 

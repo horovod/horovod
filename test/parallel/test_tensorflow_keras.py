@@ -17,7 +17,9 @@
 
 import math
 import numpy as np
+import os
 import pytest
+import sys
 import tensorflow as tf
 import warnings
 
@@ -27,6 +29,8 @@ from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.optimizer_v2 import optimizer_v2
 
 import horovod.tensorflow.keras as hvd
+
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 from common import temppath
 
