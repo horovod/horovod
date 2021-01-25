@@ -106,8 +106,7 @@ mxnet_require_list = ['mxnet>=1.4.1']
 pyspark_require_list = ['pyspark>=2.3.2;python_version<"3.8"',
                         'pyspark>=3.0.0;python_version>="3.8"']
 # Pin h5py: https://github.com/h5py/h5py/issues/1732
-spark_require_list = ['h5py<3', 'numpy', 'petastorm>=0.9.8', 'pyarrow>=0.15.0'] + \
-                     pyspark_require_list
+spark_require_list = ['h5py<3', 'numpy', 'petastorm>=0.9.8', 'pyarrow>=0.15.0']
 ray_require_list = ['ray']
 
 # all frameworks' dependencies
@@ -116,17 +115,20 @@ all_frameworks_require_list = tensorflow_require_list + \
                               keras_require_list + \
                               pytorch_require_list + \
                               mxnet_require_list + \
-                              spark_require_list
+                              spark_require_list + \
+                              pyspark_require_list
 
 # python packages required / recommended to develop horovod
-# e.g., set of framework versions pinned for development, keep in sync with Dockerfile.test.cpu
+# these are the earliest versions to work with Python 3.8
+# keep in sync with Dockerfile.test.cpu
 # NOTE: do not use versions with +cpu or +gpu here as users would need to add --find-links to pip
-dev_require_list = ['tensorflow-cpu==1.15.0',
-                    'keras==2.2.4',
-                    'torch==1.2.0',
-                    'torchvision==0.4.0',
+dev_require_list = ['tensorflow-cpu==2.2.0',
+                    'keras==2.3.1',
+                    'torch==1.4.0',
+                    'torchvision==0.5.0',
                     'mxnet==1.5.0',
-                    'pyspark==2.4.7'] + spark_require_list
+                    'pyspark==3.0.1'] + spark_require_list
+# torchvision 0.5.0 depends on torch==1.4.0
 
 # python packages required only to run tests
 # Pin h5py: https://github.com/h5py/h5py/issues/1732
@@ -174,7 +176,7 @@ setup(name='horovod',
           'keras': keras_require_list,
           'pytorch': pytorch_require_list,
           'mxnet': mxnet_require_list,
-          'spark': spark_require_list,
+          'spark': spark_require_list + pyspark_require_list,
           'ray': ray_require_list,
           'dev': dev_require_list,
           'test': test_require_list,
