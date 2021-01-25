@@ -102,6 +102,7 @@ def broadcast_optimizer_state(optimizer, root_rank):
         return
 
     params = []
+    scalars = {}
     callbacks = {}
     occurrences = collections.defaultdict(int)
 
@@ -122,18 +123,21 @@ def broadcast_optimizer_state(optimizer, root_rank):
             return dtype(x)
 
     # Some optimizer parameters may be represented as scalars instead of
-    # tensors.  In such cases, we need to wrap the scalar in a tensor, then
-    # broadcast, then update the appropriate value in the state_dict with the
-    # new unwrapped scalar value via a callback.
-    def _create_callback(pid, name, t, p):
-        def _from_tensor():
-            state_dict['state'][pid][name] = t(p.cpu().numpy()[0])
-        return _from_tensor
+    # tensors.  In such cases, we place the scalars into a single dict,
+    # then pickle and broadcast with broadcast_object (under the assumption
+    # that there are not many scalars, and so the overhead of pickling will
+    # be relatively low). Because broadcast_obect is performed out-of-place,
+    # we then use a callback to assign the new value to the correct element
+    # of the optimizer state.
+    def _create_state_callback(pid, name):
+        def _assign_state(v):
+            state_dict['state'][pid][name] = v
+        return _assign_state
 
-    def _create_option_callback(index, option_key, option_tensor, dtypes):
-        def _from_tensor():
-            optimizer.param_groups[index][option_key] = _recursive_cast(option_tensor.cpu().numpy()[0], dtypes)
-        return _from_tensor
+    def _create_option_callback(index, option_key):
+        def _assign_option(v):
+            optimizer.param_groups[index][option_key] = v
+        return _assign_option
 
     # Param groups are an ordered list, normally there is only one per model,
     # but users can add additional param groups for example to train
@@ -144,12 +148,10 @@ def broadcast_optimizer_state(optimizer, root_rank):
             if option_key == 'params':
                 continue
 
-            # Options like the learning rate are scalar, and need to be wrapped in tensors
+            # Options like the learning rate are scalar, and need to be broadcast separately
             key = '%s.%d' % (option_key, index)
-            dtypes = _get_types(option_value)
-            option_tensor = torch.Tensor([option_value])
-            callbacks[key] = _create_option_callback(index, option_key, option_tensor, dtypes)
-            params.append((key, option_tensor))
+            scalars[key] = option_value
+            callbacks[key] = _create_option_callback(index, option_key)
 
         # The params list here is ordered by the layers in the model
         for pid in group['params']:
@@ -165,22 +167,21 @@ def broadcast_optimizer_state(optimizer, root_rank):
                 occurrences[name] += 1
                 key = '%s.%d' % (str(name), occurrences[name])
 
-                if not torch.is_tensor(p):
-                    # Wrap the scalar in a FloatTensor, and remember its type
-                    # so we can cast it back after unwrapping
-                    t = type(p)
-                    p = torch.Tensor([p])
-                    callbacks[key] = _create_callback(pid, name, t, p)
+                if torch.is_tensor(p):
+                    # Tensor -> use broadcast_parameters
+                    params.append((key, p))
+                else:
+                    # Scalar -> use broadcast_object
+                    scalars[key] = p
+                    callbacks[key] = _create_state_callback(pid, name)
 
-                params.append((key, p))
-
-    # Synchronized broadcast of all parameters
+    # Synchronized broadcast of all tensor parameters
     broadcast_parameters(params, root_rank)
 
-    # Post-broadcast cleanup for non-tensor parameters
-    for key, p in params:
-        if key in callbacks:
-            callbacks[key]()
+    # Broadcast and cleanup for non-tensor parameters
+    scalars = broadcast_object(scalars)
+    for key, p in scalars.items():
+        callbacks[key](p)
 
 
 def broadcast_object(obj, root_rank=0, name=None):

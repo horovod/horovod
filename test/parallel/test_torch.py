@@ -1518,12 +1518,10 @@ class TorchTests(unittest.TestCase):
             opt_param_values = get_optimizer_param_values(optimizer)
             for name, opt_param_value in opt_param_values:
                 is_tensor = torch.is_tensor(opt_param_value)
-                if not is_tensor:
-                    t = type(opt_param_value)
-                    opt_param_value = torch.Tensor([opt_param_value])
-                hvd.broadcast_(opt_param_value, root_rank=0)
-                if not is_tensor:
-                    opt_param_value = t(opt_param_value.cpu().numpy()[0])
+                if is_tensor:
+                    hvd.broadcast_(opt_param_value, root_rank=0)
+                else:
+                    opt_param_value = hvd.broadcast_object(opt_param_value, name=name)
                 opt_param_values_updated.append((name, opt_param_value))
             opt_param_values = opt_param_values_updated
 
@@ -1553,13 +1551,8 @@ class TorchTests(unittest.TestCase):
                 self.assertTrue(
                     (model_param_value == model_param_value_after).all())
 
+            expected_tensors = hvd.broadcast_object(len(optimizer.state_dict()['state'].values()))
             hvd.broadcast_optimizer_state(optimizer, root_rank=0)
-
-            expected_tensors = 4
-            if 'momentum' not in opt_params and opt_class == torch.optim.SGD:
-                # SGD only maintains state when momentum is specified, otherwise
-                # it does not populate the state dict, so it will contain no tensors.
-                expected_tensors = 0
             self.assertEqual(len(optimizer.state_dict()['state'].values()), expected_tensors)
 
             opt_param_values_after = get_optimizer_param_values(optimizer)
