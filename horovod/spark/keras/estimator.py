@@ -479,6 +479,9 @@ class KerasModel(HorovodModel, KerasEstimatorParamsReadable,
 
         pin_cpu = remote._pin_cpu_fn()
 
+        final_output_schema = util.get_spark_df_output_schema(df.schema, label_cols, output_cols)
+        final_output_cols = [field.name for field in final_output_schema.fields]
+
         def predict(rows):
             import tensorflow as tf
             from pyspark import Row
@@ -542,11 +545,12 @@ class KerasModel(HorovodModel, KerasEstimatorParamsReadable,
 
                     fields[output_col] = field
 
-                yield Row(**fields)
+                values = [fields[col] for col in final_output_cols]
+
+                yield Row(*values)
 
         spark0 = SparkSession._instantiatedSession
 
-        final_output_schema = util.get_spark_df_output_schema(df.schema, label_cols, output_cols)
         pred_rdd = df.rdd.mapPartitions(predict)
 
         # Use the schema from previous section to construct the final DF with prediction

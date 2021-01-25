@@ -401,7 +401,10 @@ if __name__ == '__main__':
     print('Final prediction')
     print('================')
 
-    pred_df = keras_model.transform(test_df)
+    pred_df=keras_model.transform(test_df)
+    pred_df.printSchema()
+    pred_df.show(2, false)
+
     # Convert from log domain to real Sales numbers
     pred_df = pred_df.withColumn('Sales', F.exp(pred_df.Sales))
     submission_df = pred_df.select(pred_df.Id.cast(T.IntegerType()), pred_df.Sales).toPandas()

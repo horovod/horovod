@@ -419,6 +419,9 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
         feature_cols = self.getFeatureColumns()
         metadata = self._get_metadata()
 
+        final_output_schema = util.get_spark_df_output_schema(df.schema, label_cols, output_cols)
+        final_output_cols = [field.name for field in final_output_schema.fields]
+
         def predict(rows):
             from pyspark import Row
             from pyspark.ml.linalg import DenseVector, SparseVector
@@ -465,11 +468,12 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
 
                     fields[output_col] = field
 
-                yield Row(**fields)
+                values = [fields[col] for col in final_output_cols]
+
+                yield Row(*values)
 
         spark0 = SparkSession._instantiatedSession
 
-        final_output_schema = util.get_spark_df_output_schema(df.schema, label_cols, output_cols)
         pred_rdd = df.rdd.mapPartitions(predict)
 
         # Use the schema from previous section to construct the final DF with prediction

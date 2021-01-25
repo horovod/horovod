@@ -717,30 +717,31 @@ def get_spark_df_output_schema(input_df_schema, label_cols, output_cols):
         raise Exception('Number of output columns must equal to number of label columns.')
 
     import copy
-    from pyspark.sql.types import FloatType, DoubleType, StructType
+    from pyspark.sql.types import StructType
 
     # Get schema of the output data frame
     label_to_output_dict = {label_cols[i] : output_cols[i] for i in range(len(output_cols))}
 
     field_dict = {}
+    output_fields = []
     for field in input_df_schema.fields:
         # The predict function is changing rdd value from FloatType to DoubleType.
         existing_field = copy.deepcopy(field)
 
-        # But seems we do not need to change it. It is ok to keep the oringinal schema.
+        # Seems we do not need to change Float to Double. It is ok to keep the oringinal schema.
         # if isinstance(existing_field.dataType, FloatType):
         #     existing_field.dataType = DoubleType()
 
-        field_dict[existing_field.name] = existing_field
+        output_fields.append(existing_field)
 
         # assuming the label_cols and output_cols are 1:1 mapping.
         # we can get the output schema from label schema.
         if existing_field.name in label_to_output_dict:
             pred_field = copy.deepcopy(existing_field)
             pred_field.name = label_to_output_dict[pred_field.name]
-            field_dict[pred_field.name] = pred_field
+            output_fields.append(pred_field)
 
     # need to sort the field by name because it is ordered in Row(**fields)
-    output_schema = StructType([field_dict[n] for n in sorted(field_dict.keys())])
+    output_schema = StructType(output_fields)
 
     return output_schema

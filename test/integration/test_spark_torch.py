@@ -22,7 +22,7 @@ import warnings
 import numpy as np
 
 from pyspark.ml.linalg import VectorUDT
-from pyspark.sql.types import DoubleType, LongType
+from pyspark.sql.types import FloatType, IntegerType
 
 import mock
 import torch
@@ -154,8 +154,8 @@ class SparkTorchTests(unittest.TestCase):
             out_df = torch_model.transform(df)
 
             expected_types = {
-                'x1': LongType,
-                'x2': LongType,
+                'x1': IntegerType,
+                'x2': IntegerType,
                 'features': VectorUDT,
                 'weight': FloatType,
                 'y': FloatType,
