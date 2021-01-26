@@ -13,33 +13,37 @@ services:
         KERAS_PACKAGE: keras==2.4.3
         PYTORCH_PACKAGE: torch==1.7.1+cpu
         TORCHVISION_PACKAGE: torchvision==0.8.2+cpu
-        MXNET_PACKAGE: mxnet==1.7.0.post1
+        # mxnet==1.7.0.post1 is latest release but misses mkldnn headers
+        # https://github.com/apache/incubator-mxnet/issues/19575
+        # mxnet==1.7.0b20200813 serves as an RC:
+        # https://repo.mxnet.io/dist/python/cu101/mxnet_cu101-1.7.0b20200813-py2.py3-none-manylinux2014_x86_64.whl
+        MXNET_PACKAGE: mxnet==1.7.0b20200813
         PYSPARK_PACKAGE: pyspark==3.0.1
         SPARK_PACKAGE: spark-3.0.1/spark-3.0.1-bin-hadoop2.7.tgz
     privileged: true
     shm_size: 8gb
 
-  test-cpu-mpich-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
+  test-cpu-mpich-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: MPICH
-  test-cpu-oneccl-ofi-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
+  test-cpu-oneccl-ofi-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: ONECCL
-  test-cpu-oneccl-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
+  test-cpu-oneccl-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: ONECCL
-  test-cpu-openmpi-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
+  test-cpu-openmpi-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: OpenMPI
-  test-cpu-openmpi-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
+  test-cpu-openmpi-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
@@ -83,7 +87,7 @@ services:
         PYTORCH_PACKAGE: torch==1.5.1+cpu
         TORCHVISION_PACKAGE: torchvision==0.6.1+cpu
         MXNET_PACKAGE: mxnet==1.5.1.post0
-  test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
+  test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
@@ -91,7 +95,6 @@ services:
         KERAS_PACKAGE: keras==2.4.3
         PYTORCH_PACKAGE: torch==1.7.1+cpu
         TORCHVISION_PACKAGE: torchvision==0.8.2+cpu
-        MXNET_PACKAGE: mxnet==1.7.0.post1
   test-cpu-gloo-py3_6-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1:
     extends: test-cpu-base
     build:
@@ -102,21 +105,21 @@ services:
         TORCHVISION_PACKAGE: torchvision
         MXNET_PACKAGE: mxnet-nightly
 
-  test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_2_3_4:
+  test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_2_3_4:
     extends: test-cpu-base
     build:
       args:
         PYTHON_VERSION: 3.6
         PYSPARK_PACKAGE: pyspark==2.3.4
         SPARK_PACKAGE: spark-2.3.4/spark-2.3.4-bin-hadoop2.7.tgz
-  test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_2_4_7:
+  test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_2_4_7:
     extends: test-cpu-base
     build:
       args:
         PYTHON_VERSION: 3.7
         PYSPARK_PACKAGE: pyspark==2.4.7
         SPARK_PACKAGE: spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
-  test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
+  test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
@@ -182,7 +185,7 @@ services:
   # https://github.com/apache/incubator-mxnet/issues/19575
   # mxnet-cu101==1.7.0.post1 is not yet released, but this serves as an RC:
   # https://repo.mxnet.io/dist/python/cu101/mxnet_cu101-1.7.0b20200813-py2.py3-none-manylinux2014_x86_64.whl
-  test-gpu-gloo-py3_6-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1:
+  test-gpu-gloo-py3_6-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0-pyspark_3_0_1:
     extends: test-gpu-base
     build:
       args:
