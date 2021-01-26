@@ -185,6 +185,7 @@ services:
     extends: test-gpu-base
     build:
       args:
+        MPI_KIND: OpenMPI
         CUDA_DOCKER_VERSION: 11.0-devel-ubuntu18.04
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.4.1
         KERAS_PACKAGE: keras==2.4.3
