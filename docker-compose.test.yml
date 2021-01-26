@@ -129,15 +129,21 @@ services:
       context: .
       dockerfile: Dockerfile.test.gpu
       args:
+        CUDA_DOCKER_VERSION: 10.1-devel-ubuntu18.04
+        CUDNN_VERSION: 7.6.5.32-1+cuda10.1
+        NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda10.1
         GPP_VERSION: 7
         MPI_KIND: None
         PYTHON_VERSION: 3.6
-        TENSORFLOW_PACKAGE: tensorflow-gpu==2.4.1
-        KERAS_PACKAGE: keras==2.4.3
-        PYTORCH_PACKAGE: torch==1.7.1+cu110
-        TORCHVISION_PACKAGE: torchvision==0.8.2+cu110
-        # mxnet-cu110 does not exist so we use mxnet_head
-        MXNET_PACKAGE: mxnet-cu110==1.7.0
+        TENSORFLOW_PACKAGE: tensorflow-gpu==2.3.2
+        KERAS_PACKAGE: keras==2.3.1
+        PYTORCH_PACKAGE: torch==1.6.0+cu101
+        TORCHVISION_PACKAGE: torchvision==0.7.0+cu101
+        # mxnet-cu101==1.7.0.post1 does not exist, mxnet-cu101==1.7.0 does but misses mkldnn headers
+        # https://github.com/apache/incubator-mxnet/issues/19575
+        # mxnet-cu101==1.7.0.post1 is not yet released, but this serves as an RC:
+        # https://repo.mxnet.io/dist/python/cu101/mxnet_cu101-1.7.0b20200813-py2.py3-none-manylinux2014_x86_64.whl
+        MXNET_PACKAGE: mxnet-cu110==1.7.0b20200813
         PYSPARK_PACKAGE: pyspark==3.0.1
         SPARK_PACKAGE: spark-3.0.1/spark-3.0.1-bin-hadoop2.7.tgz
     runtime: nvidia
@@ -167,7 +173,6 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 10.1-devel-ubuntu18.04
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.3.2
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.6.0+cu101
@@ -181,7 +186,6 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 10.1-devel-ubuntu18.04
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.3.2
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.6.0+cu101
@@ -192,8 +196,10 @@ services:
     extends: test-gpu-base
     build:
       args:
-        MPI_KIND: OpenMPI
         CUDA_DOCKER_VERSION: 11.0-devel-ubuntu18.04
+        CUDNN_VERSION: 8.0.5.39-1+cuda11.0
+        NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda11.0
+        MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.4.1
         KERAS_PACKAGE: keras==2.4.3
         PYTORCH_PACKAGE: torch==1.7.1+cu110
@@ -204,6 +210,8 @@ services:
     build:
       args:
         CUDA_DOCKER_VERSION: 11.0-devel-ubuntu18.04
+        CUDNN_VERSION: 8.0.5.39-1+cuda11.0
+        NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda11.0
         TENSORFLOW_PACKAGE: tf-nightly-gpu
         KERAS_PACKAGE: keras==2.4.3
         PYTORCH_PACKAGE: torch-nightly
@@ -216,6 +224,8 @@ services:
     build:
       args:
         CUDA_DOCKER_VERSION: 11.0-devel-ubuntu18.04
+        CUDNN_VERSION: 8.0.5.39-1+cuda11.0
+        NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda11.0
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.4.1
         KERAS_PACKAGE: keras==2.4.3
         PYTORCH_PACKAGE: torch==1.7.1+cu110
