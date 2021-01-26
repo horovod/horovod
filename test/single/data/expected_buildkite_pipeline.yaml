@@ -568,8 +568,13 @@ steps:
     automatic: true
   agents:
     queue: cpu
+<<<<<<< HEAD
 - label: ':tensorflow: Gloo TensorFlow 2.0 Keras MNIST (test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_2_4_7)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
+=======
+- label: ':terminal: MPI Horovodrun (test-cpu-openmpi-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2)'
+  command: bash -c " horovodrun -np 2 -H localhost:2 python /horovod/examples/tensorflow/tensorflow_mnist.py"
+>>>>>>> c072c60... Add Intel(R) MPI support for horovodrun (#2374)
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -584,8 +589,13 @@ steps:
     automatic: true
   agents:
     queue: cpu
+<<<<<<< HEAD
 - label: ':fire: Gloo PyTorch MNIST (test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_2_4_7)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py
+=======
+- label: ':terminal: MPI Horovodrun (test-cpu-openmpi-gloo-py3_6-tf1_15_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_3_2)'
+  command: bash -c " echo 'localhost slots=2' > hostfile && horovodrun -np 2 -hostfile hostfile python /horovod/examples/mxnet/mxnet_mnist.py"
+>>>>>>> c072c60... Add Intel(R) MPI support for horovodrun (#2374)
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -1016,7 +1026,11 @@ steps:
     automatic: true
   agents:
     queue: cpu
+<<<<<<< HEAD
 - label: ':tensorflow: MPI TensorFlow 2.0 MNIST (test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1)'
+=======
+- label: ':tensorflow: MPI TensorFlow 2.0 MNIST (test-cpu-openmpi-py3_6-tf2_1_0-keras2_2_4-torch1_4_0-mxnet1_4_1-pyspark2_4_7)'
+>>>>>>> c072c60... Add Intel(R) MPI support for horovodrun (#2374)
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
   artifact_paths: "artifacts/**"
   plugins:
@@ -1032,7 +1046,11 @@ steps:
     automatic: true
   agents:
     queue: cpu
+<<<<<<< HEAD
 - label: ':tensorflow: MPI TensorFlow 2.0 Keras MNIST (test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1)'
+=======
+- label: ':tensorflow: MPI TensorFlow 2.0 Keras MNIST (test-cpu-openmpi-py3_6-tf2_1_0-keras2_2_4-torch1_4_0-mxnet1_4_1-pyspark2_4_7)'
+>>>>>>> c072c60... Add Intel(R) MPI support for horovodrun (#2374)
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
   artifact_paths: "artifacts/**"
   plugins:
@@ -1192,8 +1210,13 @@ steps:
     automatic: true
   agents:
     queue: cpu
+<<<<<<< HEAD
 - label: ':pytest: MPI Single PyTests (test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1)'
   command: bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh mpi)"
+=======
+- label: ':tensorflow: MPI TensorFlow 2.0 MNIST (test-cpu-openmpi-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_7)'
+  command: bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+>>>>>>> c072c60... Add Intel(R) MPI support for horovodrun (#2374)
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -1208,8 +1231,13 @@ steps:
     automatic: true
   agents:
     queue: cpu
+<<<<<<< HEAD
 - label: ':pytest: MPI Cluster PyTests (test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1)'
   command: bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+=======
+- label: ':tensorflow: MPI TensorFlow 2.0 Keras MNIST (test-cpu-openmpi-py3_6-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_7)'
+  command: bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+>>>>>>> c072c60... Add Intel(R) MPI support for horovodrun (#2374)
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -1816,8 +1844,13 @@ steps:
     automatic: true
   agents:
     queue: cpu
+<<<<<<< HEAD
 - label: ':pytest: Gloo Parallel PyTests (test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark_3_0_1)'
   command: bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
+=======
+- label: ':tensorflow: MPI TensorFlow 2.0 MNIST (test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7)'
+  command: bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+>>>>>>> c072c60... Add Intel(R) MPI support for horovodrun (#2374)
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -1832,8 +1865,13 @@ steps:
     automatic: true
   agents:
     queue: cpu
+<<<<<<< HEAD
 - label: ':pytest: Gloo Single PyTests (test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark_3_0_1)'
   command: bash -c " cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh gloo)"
+=======
+- label: ':tensorflow: MPI TensorFlow 2.0 Keras MNIST (test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_7)'
+  command: bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+>>>>>>> c072c60... Add Intel(R) MPI support for horovodrun (#2374)
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -2632,8 +2670,45 @@ steps:
     automatic: true
   agents:
     queue: cpu
+<<<<<<< HEAD
 - label: ':spark: Spark Torch MNIST (test-cpu-gloo-py3_8-tf2_2_2-keras2_3_1-torch1_5_1-mxnet1_5_1_p0-pyspark_3_0_1)'
   command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+=======
+- label: ':terminal: MPI Horovodrun (test-cpu-oneccl-ofi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7)'
+  command: bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && horovodrun -np 2 -H localhost:2 python /horovod/examples/tensorflow/tensorflow_mnist.py"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-cpu-oneccl-ofi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 5
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':terminal: MPI Horovodrun (test-cpu-oneccl-ofi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7)'
+  command: bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && echo 'localhost slots=2' > hostfile && horovodrun -np 2 -hostfile hostfile python /horovod/examples/mxnet/mxnet_mnist.py"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-cpu-oneccl-ofi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 5
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':tensorflow: Single Keras MNIST (test-cpu-oneccl-ofi-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_7)'
+  command: bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/keras/keras_mnist_advanced.py --epochs 3 --batch-size 64"
+>>>>>>> c072c60... Add Intel(R) MPI support for horovodrun (#2374)
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
