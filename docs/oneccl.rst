@@ -14,23 +14,13 @@ Source ``setvars.sh`` to start using oneCCL.
 
     source <install_dir>/env/setvars.sh
 
-2. Install the `Intel(R) MPI Library <https://software.intel.com/en-us/mpi-library>`_.
-
-To install the Intel MPI Library, follow `these instructions <https://software.intel.com/en-us/mpi-library/documentation/get-started>`_.
-
-Source ``mpivars.sh`` script to establish the proper environment settings.
-
-.. code-block:: bash
-        
-    source <installdir_MPI>/intel64/bin/mpivars.sh release_mt
-
-3. Set ``HOROVOD_CPU_OPERATIONS`` variable
+2. Set ``HOROVOD_CPU_OPERATIONS`` variable
     
 .. code-block:: bash
 
     export HOROVOD_CPU_OPERATIONS=CCL
 
-4. Install Horovod from source code
+3. Install Horovod from source code
 
 .. code-block:: bash
 
