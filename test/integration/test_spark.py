@@ -1764,8 +1764,9 @@ class SparkTests(unittest.TestCase):
 
         with spark_session('test_df_cache') as spark:
             df = create_test_data_from_schema(spark, data, schema)
+            metadata = util._get_metadata(df)
 
-            output_schema = util.get_spark_df_output_schema(df.schema, label_cols, output_cols)
+            output_schema = util.get_spark_df_output_schema(df.schema, label_cols, output_cols, metadata)
 
             # check output schema size
             assert len(output_schema.fields) == len(df.schema.fields) + len(output_cols)

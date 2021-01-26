@@ -712,36 +712,27 @@ def is_databricks():
     return "DATABRICKS_RUNTIME_VERSION" in os.environ
 
 
-def get_spark_df_output_schema(input_df_schema, label_cols, output_cols):
+def get_spark_df_output_schema(input_df_schema, label_cols, output_cols, metadata):
     if len(label_cols) != len(output_cols):
         raise Exception('Number of output columns must equal to number of label columns.')
 
     import copy
-    from pyspark.sql.types import StructType
+    from pyspark.sql.types import StructType, StructField
+    from pyspark.ml.linalg import VectorUDT
 
-    # Get schema of the output data frame
-    label_to_output_dict = {label_cols[i] : output_cols[i] for i in range(len(output_cols))}
+    # assuming the label_cols and output_cols are 1:1 mapping.
+    output_fields = copy.deepcopy(input_df_schema.fields)
+    for label_col, output_col in zip(label_cols, output_cols):
+        col_type = metadata[label_col]['spark_data_type']
+        if col_type == DenseVector:
+            col_type = VectorUDT
+        elif col_type == SparseVector:
+            col_type = VectorUDT
 
-    field_dict = {}
-    output_fields = []
-    for field in input_df_schema.fields:
-        # The predict function is changing rdd value from FloatType to DoubleType.
-        existing_field = copy.deepcopy(field)
+        field = StructField(output_col, col_type(), True)
+        output_fields.append(field)
 
-        # Seems we do not need to change Float to Double. It is ok to keep the oringinal schema.
-        # if isinstance(existing_field.dataType, FloatType):
-        #     existing_field.dataType = DoubleType()
-
-        output_fields.append(existing_field)
-
-        # assuming the label_cols and output_cols are 1:1 mapping.
-        # we can get the output schema from label schema.
-        if existing_field.name in label_to_output_dict:
-            pred_field = copy.deepcopy(existing_field)
-            pred_field.name = label_to_output_dict[pred_field.name]
-            output_fields.append(pred_field)
-
-    # need to sort the field by name because it is ordered in Row(**fields)
+    # Final output schema contains both input and output fields
     output_schema = StructType(output_fields)
 
     return output_schema

@@ -479,7 +479,13 @@ class KerasModel(HorovodModel, KerasEstimatorParamsReadable,
 
         pin_cpu = remote._pin_cpu_fn()
 
-        final_output_schema = util.get_spark_df_output_schema(df.schema, label_cols, output_cols)
+        ## output col name should not be the same as any data in existing df
+        df_col_set = {f.name for f in df.schema.fields}
+        for col in output_cols:
+            if col in df_col_set:
+                raise ValueError("Output col '{}' exists in df.schema set: {}".format(col, df_col_set))
+
+        final_output_schema = util.get_spark_df_output_schema(df.schema, label_cols, output_cols, metadata)
         final_output_cols = [field.name for field in final_output_schema.fields]
 
         def predict(rows):
