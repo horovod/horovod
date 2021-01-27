@@ -229,6 +229,7 @@ services:
         CUDA_DOCKER_VERSION: 11.0-devel-ubuntu18.04
         CUDNN_VERSION: 8.0.5.39-1+cuda11.0
         NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda11.0
+        MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.4.1
         KERAS_PACKAGE: keras==2.4.3
         PYTORCH_PACKAGE: torch==1.7.1+cu110
