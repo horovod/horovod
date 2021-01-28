@@ -223,6 +223,14 @@ public:
                      std::shared_ptr<PersistentBuffer>* tensor) = 0;
   virtual Status AllocateOutput(TensorShape shape,
                                 std::shared_ptr<Tensor>* tensor) = 0;
+  virtual Status AllocateOutput(int output_index, TensorShape shape,
+                                std::shared_ptr<Tensor>* tensor) {
+    if (output_index == 0) {
+      return AllocateOutput(shape, tensor);
+    } else {
+      throw std::logic_error("output_index != 0 not supported");
+    }
+  }
   virtual Status AllocateZeros(int64_t num_elements, DataType dtype,
                                 std::shared_ptr<Tensor>* tensor) = 0;
   virtual Framework framework() const = 0;

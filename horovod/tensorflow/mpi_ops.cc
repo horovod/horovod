@@ -163,6 +163,9 @@ public:
   AllocateOutput(common::TensorShape shape,
                  std::shared_ptr<common::Tensor>* tensor) override;
   virtual common::Status
+  AllocateOutput(int output_index, common::TensorShape shape,
+                 std::shared_ptr<common::Tensor>* tensor) override;
+  virtual common::Status
   AllocateZeros(int64_t num_elements, common::DataType dtype,
                 std::shared_ptr<common::Tensor>* tensor) override;
   virtual common::Framework framework() const override;
@@ -276,12 +279,18 @@ common::Status TFOpContext::AllocatePersistent(
 common::Status
 TFOpContext::AllocateOutput(common::TensorShape shape,
                             std::shared_ptr<common::Tensor>* tensor) {
+  return TFOpContext::AllocateOutput(0, shape, tensor);
+}
+
+common::Status
+TFOpContext::AllocateOutput(int output_index, common::TensorShape shape,
+                            std::shared_ptr<common::Tensor>* tensor) {
   TensorShape tf_shape;
   for (int idx = 0; idx < shape.dims(); ++idx) {
     tf_shape.AddDim(shape.dim_size(idx));
   }
   Tensor* tf_tensor;
-  Status status = context_->allocate_output(0, tf_shape, &tf_tensor);
+  Status status = context_->allocate_output(output_index, tf_shape, &tf_tensor);
   if (status.ok()) {
     *tensor = std::make_shared<TFTensor>(*tf_tensor);
   }
