@@ -139,6 +139,7 @@ class SparkTorchTests(unittest.TestCase):
                 torch_estimator._load_checkpoint.assert_called()
 
     def test_transform_multi_class(self):
+        # set dim as 2, to mock a multi class model.
         model = create_xor_model(output_dim=2)
 
         with spark_session('test_transform_multi_class') as spark:
@@ -153,13 +154,14 @@ class SparkTorchTests(unittest.TestCase):
                                                _metadata=metadata)
             out_df = torch_model.transform(df)
 
+            # in multi class model, model output is a vector but label is number.
             expected_types = {
                 'x1': IntegerType,
                 'x2': IntegerType,
                 'features': VectorUDT,
                 'weight': FloatType,
                 'y': FloatType,
-                'y__output': FloatType
+                'y__output': VectorUDT
             }
 
             for field in out_df.schema.fields:
