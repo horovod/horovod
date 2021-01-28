@@ -19,6 +19,7 @@ ARG PYSPARK_PACKAGE=pyspark==2.4.7
 # see https://archive.apache.org/dist/spark/ for available packages, version must match PYSPARK_PACKAGE
 ARG SPARK_PACKAGE=spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
 ARG CCL_PACKAGE=master
+ARG HOROVOD_BUILD_FLAGS=""
 
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-cu"]
@@ -166,7 +167,7 @@ RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
       export I_MPI_ROOT=/usr/local/oneccl; \
       echo "horovod python setup.py sdist, mpicxx is $(which mpicxx)"; \
     fi; \
-    cd /horovod && HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 python setup.py sdist
+    cd /horovod && python setup.py sdist
 
 RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
       if [ -z "${LD_LIBRARY_PATH:-}" ]; then \
@@ -178,7 +179,7 @@ RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
       . /usr/local/oneccl/env/setvars.sh; \
       echo "pip install horovod, mpicxx is $(which mpicxx)"; \
     fi; \
-    pip install -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]
+    bash -c "${HOROVOD_BUILD_FLAGS} HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]"
 
 # Prefetch Spark MNIST dataset.
 RUN mkdir -p /work

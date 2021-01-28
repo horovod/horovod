@@ -20,6 +20,7 @@ services:
         MXNET_PACKAGE: mxnet==1.7.0b20200813
         PYSPARK_PACKAGE: pyspark==3.0.1
         SPARK_PACKAGE: spark-3.0.1/spark-3.0.1-bin-hadoop2.7.tgz
+        HOROVOD_BUILD_FLAGS: HOROVOD_WITH_GLOO=1
     privileged: true
     shm_size: 8gb
 
@@ -30,16 +31,19 @@ services:
     build:
       args:
         MPI_KIND: MPICH
+        HOROVOD_BUILD_FLAGS: HOROVOD_WITHOUT_GLOO=1
   test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: ONECCL
+        HOROVOD_BUILD_FLAGS: HOROVOD_WITHOUT_GLOO=1
   test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: OpenMPI
+        HOROVOD_BUILD_FLAGS: HOROVOD_WITHOUT_GLOO=1
   test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1:
     extends: test-cpu-base
     build:
@@ -142,6 +146,8 @@ services:
         MXNET_PACKAGE: mxnet-cu110==1.7.0b20200813
         PYSPARK_PACKAGE: pyspark==3.0.1
         SPARK_PACKAGE: spark-3.0.1/spark-3.0.1-bin-hadoop2.7.tgz
+        HOROVOD_BUILD_FLAGS: HOROVOD_GPU_OPERATIONS=NCCL
+        HOROVOD_MIXED_INSTALL: 0
     runtime: nvidia
     # We plumb CUDA_VISIBLE_DEVICES instead of NVIDIA_VISIBLE_DEVICES because
     # the latter does not work in privileged mode that we use in the containers.
