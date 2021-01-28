@@ -1772,7 +1772,7 @@ class TensorFlowTests(tf.test.TestCase):
                   tensor = tf.expand_dims(tensor, axis=1)
                   tensor = tf.concat([tensor, tensor], axis=1)
                 splits = tf.convert_to_tensor([rank+1] * size, dtype=tf.int32)
-                collected = hvd.alltoall(tensor, splits)
+                collected, received_splits = hvd.alltoall(tensor, splits)
 
                 self.assertTrue(
                     self.evaluate(tf.reduce_all(
@@ -1783,11 +1783,14 @@ class TensorFlowTests(tf.test.TestCase):
                     self.evaluate(tf.equal(tf.size(collected), size * (size + 1) // 2 * 2**(dim - 1))),
                     "hvd.alltoall collected wrong number of values")
 
+                self.assertSequenceEqual(self.evaluate(received_splits).tolist(), [rk + 1 for rk in range(size)],
+                                         "hvd.alltoall returned incorrect received_splits")
+
     def test_horovod_alltoall_gpu(self):
         """Test that the alltoall correctly distributes 1D, 2D, and 3D tensors on GPU."""
         # Only do this test if there are GPUs available.
         if not tf.test.is_gpu_available(cuda_only=True):
-            self.skipTest(("No GPUs available"))
+            self.skipTest("No GPUs available")
 
         if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
@@ -1816,7 +1819,7 @@ class TensorFlowTests(tf.test.TestCase):
                   tensor = tf.expand_dims(tensor, axis=1)
                   tensor = tf.concat([tensor, tensor], axis=1)
                 splits = tf.convert_to_tensor([rank+1] * size, dtype=tf.int32)
-                collected = hvd.alltoall(tensor, splits)
+                collected, received_splits = hvd.alltoall(tensor, splits)
 
                 self.assertTrue(
                     self.evaluate(tf.reduce_all(
@@ -1826,6 +1829,9 @@ class TensorFlowTests(tf.test.TestCase):
                 self.assertTrue(
                     self.evaluate(tf.equal(tf.size(collected), size * (size + 1) // 2 * 2**(dim - 1))),
                     "hvd.alltoall collected wrong number of values")
+
+                self.assertSequenceEqual(self.evaluate(received_splits).tolist(), [rk + 1 for rk in range(size)],
+                                         "hvd.alltoall returned incorrect received_splits")
 
     def test_horovod_alltoall_equal_split_cpu(self):
         """Test that the alltoall correctly distributes 1D tensors with default splitting."""
@@ -1980,7 +1986,7 @@ class TensorFlowTests(tf.test.TestCase):
                         tensor = tf.expand_dims(tensor, axis=1)
                         tensor = tf.concat([tensor, tensor], axis=1)
 
-                collected = hvd.alltoall(tensor, splits, name="a2a")
+                collected, received_splits = hvd.alltoall(tensor, splits, name="a2a")
 
                 self.assertTrue(
                     self.evaluate(tf.reduce_all(
@@ -1992,6 +1998,11 @@ class TensorFlowTests(tf.test.TestCase):
                                                                - (1+1) * 2 ** (dim-1)  # subtract missing rank 1 contributions
                                            )),
                     "hvd.alltoall collected wrong number of values")
+
+                self.assertSequenceEqual(self.evaluate(received_splits).tolist(),
+                                         [rk + 1 if rk != 1 else 0 for rk in range(size)],
+                                         "hvd.alltoall returned incorrect received_splits")
+
 
     def test_horovod_alltoall_one_rank_sends_nothing_gpu(self):
         """Test where one rank sends nothing in an alltoall."""
@@ -2036,7 +2047,7 @@ class TensorFlowTests(tf.test.TestCase):
                         tensor = tf.expand_dims(tensor, axis=1)
                         tensor = tf.concat([tensor, tensor], axis=1)
 
-                collected = hvd.alltoall(tensor, splits, name="a2a")
+                collected, received_splits = hvd.alltoall(tensor, splits, name="a2a")
 
                 self.assertTrue(
                     self.evaluate(tf.reduce_all(
@@ -2048,6 +2059,10 @@ class TensorFlowTests(tf.test.TestCase):
                                                                - (1+1) * 2 ** (dim-1)  # subtract missing rank 1 contributions
                                            )),
                     "hvd.alltoall collected wrong number of values")
+
+                self.assertSequenceEqual(self.evaluate(received_splits).tolist(),
+                                         [rk + 1 if rk != 1 else 0 for rk in range(size)],
+                                         "hvd.alltoall returned incorrect received_splits")
 
     def test_horovod_alltoall_one_rank_receives_nothing_cpu(self):
         """Test where one rank receives nothing in an alltoall."""
@@ -2074,18 +2089,22 @@ class TensorFlowTests(tf.test.TestCase):
                     tensor = tf.expand_dims(tensor, axis=1)
                     tensor = tf.concat([tensor, tensor], axis=1)
 
-                collected = hvd.alltoall(tensor, splits, name="a2a")
+                collected, received_splits = hvd.alltoall(tensor, splits, name="a2a")
                 self.assertTrue(
                     self.evaluate(tf.reduce_all(
                         tf.equal(tf.cast(collected, tf.int32), rank))),
                     "hvd.alltoall produces incorrect collected tensor")
                 if rank == 0:
                     expected_size = 0
+                    expected_rsplits = [0] * size
                 else:
                     expected_size = size * (size + 1) // 2 * 2**(dim - 1)
+                    expected_rsplits = [rk + 1 for rk in range(size)]
                 self.assertTrue(
                     self.evaluate(tf.equal(tf.size(collected), expected_size)),
                     "hvd.alltoall collected wrong number of values")
+                self.assertSequenceEqual(self.evaluate(received_splits).tolist(), expected_rsplits,
+                                         "hvd.alltoall returned incorrect received_splits")
 
     def test_horovod_alltoall_one_rank_receives_nothing_gpu(self):
         """Test where one rank receives nothing in an alltoall."""
@@ -2127,18 +2146,22 @@ class TensorFlowTests(tf.test.TestCase):
                     tensor = tf.expand_dims(tensor, axis=1)
                     tensor = tf.concat([tensor, tensor], axis=1)
 
-                collected = hvd.alltoall(tensor, splits, name="a2a")
+                collected, received_splits = hvd.alltoall(tensor, splits, name="a2a")
                 self.assertTrue(
                     self.evaluate(tf.reduce_all(
                         tf.equal(tf.cast(collected, tf.int32), rank))),
                     "hvd.alltoall produces incorrect collected tensor")
                 if rank == 0:
                     expected_size = 0
+                    expected_rsplits = [0] * size
                 else:
                     expected_size = size * (size + 1) // 2 * 2**(dim - 1)
+                    expected_rsplits = [rk + 1 for rk in range(size)]
                 self.assertTrue(
                     self.evaluate(tf.equal(tf.size(collected), expected_size)),
                     "hvd.alltoall collected wrong number of values")
+                self.assertSequenceEqual(self.evaluate(received_splits).tolist(), expected_rsplits,
+                                         "hvd.alltoall returned incorrect received_splits")
 
 
     def test_horovod_alltoall_zero_splits_cpu(self):
@@ -2163,11 +2186,9 @@ class TensorFlowTests(tf.test.TestCase):
             else:
                 source_tensor = tf.fill(silent_shape, value=tf.cast(hvd.rank(), tf.int32))
                 splits = tf.convert_to_tensor(silent_splits)
-            collected = hvd.alltoall(source_tensor, splits, name="alltoall_zero_splits")
+            collected, received_splits = hvd.alltoall(source_tensor, splits, name="alltoall_zero_splits")
             result = self.evaluate(collected)
 
-        print(hvd.rank(), "result.shape", result.shape)
-        print(hvd.rank(), "result", result)
         if hvd.rank() in active_ranks:
             expected_result_shape = active_shape
         else:
@@ -2178,6 +2199,12 @@ class TensorFlowTests(tf.test.TestCase):
                 self.assertTrue(np.all(result[r_idx, ...] == r))
         else:
             self.assertLen(result, 0)
+        if hvd.rank() in active_ranks:
+            expected_rsplits = active_splits
+        else:
+            expected_rsplits = silent_splits
+        self.assertSequenceEqual(self.evaluate(received_splits).tolist(), expected_rsplits,
+                                 "hvd.alltoall returned incorrect received_splits")
 
     def test_horovod_alltoall_zero_splits_gpu(self):
         """Test alltoall with some ranks not participating / splits set to zero."""
@@ -2214,11 +2241,9 @@ class TensorFlowTests(tf.test.TestCase):
             else:
                 source_tensor = tf.fill(silent_shape, value=tf.cast(hvd.rank(), tf.int32))
                 splits = tf.convert_to_tensor(silent_splits)
-            collected = hvd.alltoall(source_tensor, splits, name="alltoall_zero_splits")
+            collected, received_splits = hvd.alltoall(source_tensor, splits, name="alltoall_zero_splits")
             result = self.evaluate(collected)
 
-        print(hvd.rank(), "result.shape", result.shape)
-        print(hvd.rank(), "result", result)
         if hvd.rank() in active_ranks:
             expected_result_shape = active_shape
         else:
@@ -2229,6 +2254,12 @@ class TensorFlowTests(tf.test.TestCase):
                 self.assertTrue(np.all(result[r_idx, ...] == r))
         else:
             self.assertLen(result, 0)
+        if hvd.rank() in active_ranks:
+            expected_rsplits = active_splits
+        else:
+            expected_rsplits = silent_splits
+        self.assertSequenceEqual(self.evaluate(received_splits).tolist(), expected_rsplits,
+                                 "hvd.alltoall returned incorrect received_splits")
 
     def test_horovod_alltoall_type_error(self):
         """Test that the alltoall returns an error if the tensor types differ
@@ -2328,10 +2359,10 @@ class TensorFlowTests(tf.test.TestCase):
                     tensor = self.tfe.Variable(tensor)
                     splits = tf.convert_to_tensor([rank + 1] * size, dtype=tf.int32)
                     with tf.GradientTape() as tape:
-                        collected = hvd.alltoall(tensor, splits)
+                        collected, received_splits = hvd.alltoall(tensor, splits)
                 else:
                     splits = tf.convert_to_tensor([rank + 1] * size, dtype=tf.int32)
-                    collected = hvd.alltoall(tensor, splits)
+                    collected, received_splits = hvd.alltoall(tensor, splits)
 
                 grad_ys = tf.ones(tf.shape(collected))
                 if _executing_eagerly():
@@ -2383,10 +2414,10 @@ class TensorFlowTests(tf.test.TestCase):
                     tensor = self.tfe.Variable(tensor)
                     splits = tf.convert_to_tensor([rank + 1] * size, dtype=tf.int32)
                     with tf.GradientTape() as tape:
-                        collected = hvd.alltoall(tensor, splits)
+                        collected, received_splits = hvd.alltoall(tensor, splits)
                 else:
                     splits = tf.convert_to_tensor([rank + 1] * size, dtype=tf.int32)
-                    collected = hvd.alltoall(tensor, splits)
+                    collected, received_splits = hvd.alltoall(tensor, splits)
 
                 grad_ys = tf.ones(tf.shape(collected))
                 if _executing_eagerly():
@@ -2445,7 +2476,7 @@ class TensorFlowTests(tf.test.TestCase):
         """Test the correctness of the alltoall gradient with default splitting on GPU."""
         # Only do this test if there are GPUs available.
         if not tf.test.is_gpu_available(cuda_only=True):
-            self.skipTest(("No GPUs available"))
+            self.skipTest("No GPUs available")
 
         if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.

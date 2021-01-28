@@ -919,7 +919,10 @@ private:
 REGISTER_KERNEL_BUILDER(Name("HorovodAlltoall").Device(DEVICE_CPU),
                         HorovodAlltoallOp);
 #if HOROVOD_GPU_ALLTOALL
-REGISTER_KERNEL_BUILDER(Name("HorovodAlltoall").Device(DEVICE_GPU).HostMemory("splits"),
+REGISTER_KERNEL_BUILDER(Name("HorovodAlltoall")
+                            .Device(DEVICE_GPU)
+                            .HostMemory("splits")
+                            .HostMemory("received_splits"),
                         HorovodAlltoallOp);
 #endif
 
@@ -930,11 +933,13 @@ REGISTER_OP("HorovodAlltoall")
     .Input("tensor: T")
     .Input("splits: int32")
     .Output("output: T")
+    .Output("received_splits: int32")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       shape_inference::ShapeHandle output;
       TF_RETURN_IF_ERROR(
           c->ReplaceDim(c->input(0), 0, c->UnknownDim(), &output));
       c->set_output(0, output);
+      c->set_output(1, c->input(1));
       return Status::OK();
     })
     .Doc(R"doc(
@@ -942,11 +947,13 @@ Perform an MPI Alltoall on a tensor.
 
 Arguments
     tensor:     A tensor to be distributed with all to all
-    splits: A list of integers in rank order describing how many elements
+    splits:     A list of integers in rank order describing how many elements
                 in `tensor` to send to each worker.
 
 Output
-    output:    The collected tensor data from all workers.
+    output:           The collected tensor data from all workers.
+    received_splits:  A list of integers in rank order describing how many
+                      elements in `output` have been received from each worker.
 )doc");
 
 } // namespace tensorflow
