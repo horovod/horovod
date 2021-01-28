@@ -408,6 +408,10 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
 
     # To run locally on OS X, need export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
     def _transform(self, df):
+        import copy
+        from pyspark.sql.types import StructField, StructType
+        from pyspark.ml.linalg import VectorUDT
+
         model_pre_predict = self.getModel()
         deserialize = deserialize_fn()
         serialize = serialize_fn()
@@ -419,14 +423,7 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
         feature_cols = self.getFeatureColumns()
         metadata = self._get_metadata()
 
-        ## output col name should not be the same as any data in existing df
-        df_col_set = {f.name for f in df.schema.fields}
-        for col in output_cols:
-            if col in df_col_set:
-                raise ValueError("Output col '{}' exists in df.schema set: {}".format(col, df_col_set))
-
-        final_output_schema = util.get_spark_df_output_schema(df.schema, label_cols, output_cols, metadata)
-        final_output_cols = [field.name for field in final_output_schema.fields]
+        final_output_cols = util.get_output_cols(df.schema, output_cols)
 
         def predict(rows):
             from pyspark import Row
@@ -479,6 +476,26 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
                 yield Row(*values)
 
         spark0 = SparkSession._instantiatedSession
+
+        final_output_fields = []
+
+        # copy input schema
+        for field in df.schema.fields:
+            final_output_fields.append(copy.deepcopy(field))
+
+        # append output schema
+        override_fields = df.limit(1).rdd.mapPartitions(predict).toDF().schema.fields[-len(output_cols):]
+        for name, override, label in zip(output_cols, override_fields, label_cols):
+            # default data type as label type
+            data_type = metadata[label]['spark_data_type']()
+
+            if type(override.dataType) == VectorUDT:
+                # Override output to vector. This is mainly for torch's classification loss
+                # where label is a scalar but model output is a vector.
+                data_type = VectorUDT()
+            final_output_fields.append(StructField(name=name, dataType=data_type, nullable=True))
+
+        final_output_schema = StructType(final_output_fields)
 
         pred_rdd = df.rdd.mapPartitions(predict)
 
