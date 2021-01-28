@@ -35,11 +35,6 @@ services:
     build:
       args:
         MPI_KIND: ONECCL
-  test-cpu-oneccl-ofi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1:
-    extends: test-cpu-base
-    build:
-      args:
-        MPI_KIND: ONECCL
   test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1:
     extends: test-cpu-base
     build:

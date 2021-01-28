@@ -24,7 +24,6 @@ tests=$(if [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}
 # printf "test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1 "
   printf "test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1 "
   printf "test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1 "
-  printf "test-cpu-oneccl-ofi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1 "
   printf "test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1 "
   # note: we test openmpi-gloo mpi kind in this variation in each of [cpu, gpu, mixed]
   printf "test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1 "
@@ -414,7 +413,9 @@ if [[ "${BUILDKITE_BRANCH}" == "master" ]]; then
   done
 fi
 
-oneccl_env=""
+oneccl_env="\\\$(cat:/oneccl_env):&&"
+oneccl_cmd_ofi="${oneccl_env}:echo:'/mpirun_command_ofi':>:/mpirun_command:&&"
+oneccl_cmd_mpi="${oneccl_env}:echo:'/mpirun_command_mpi':>:/mpirun_command:&&"
 
 # run all the cpu unit tests and integration tests
 for test in ${tests[@]-}; do
@@ -424,29 +425,31 @@ for test in ${tests[@]-}; do
       run_gloo ${test} "cpu"
     fi
 
-    #if oneCCL is specified, prepare oneCCL environment
+    # if oneCCL is specified, run some tests twice,
+    # once with mpirun_command_ofi, and once with mpirun_command_mpi
     if [[ ${test} == *oneccl* ]]; then
-       oneccl_env="\\\$(cat:/oneccl_env):&&"
-       if [[ ${test} == *ofi* ]]; then
-          oneccl_env="${oneccl_env}:echo:'/mpirun_command_ofi':>:/mpirun_command:&&"
-       else
-          oneccl_env="${oneccl_env}:echo:'/mpirun_command_mpi':>:/mpirun_command:&&"
-       fi
+      # run mpi cpu unit tests and integration tests
+      run_mpi ${test} "cpu" ${oneccl_cmd_mpi}
+      run_mpi ${test} "cpu" ${oneccl_cmd_ofi}
+
+      # always run spark tests which use MPI and Gloo
+      run_spark_integration ${test} "cpu"
+
+      # no runner application, world size = 1
+      run_single_integration ${test} "cpu" ${oneccl_cmd_mpi}
+      run_single_integration ${test} "cpu" ${oneccl_cmd_ofi}
     else
-       oneccl_env=""
+      # run mpi cpu unit tests and integration tests
+      if [[ ${test} == *mpi* ]]; then
+        run_mpi ${test} "cpu"
+      fi
+
+      # always run spark tests which use MPI and Gloo
+      run_spark_integration ${test} "cpu"
+
+      # no runner application, world size = 1
+      run_single_integration ${test} "cpu"
     fi
-
-    # if mpi is specified, run mpi cpu unit tests and integration tests
-    # if oneccl is specified, run those tests, too
-    if [[ ${test} == *mpi* || ${test} == *oneccl* ]]; then
-      run_mpi ${test} "cpu" ${oneccl_env}
-    fi
-
-    # always run spark tests which use MPI and Gloo
-    run_spark_integration ${test} "cpu"
-
-    # no runner application, world size = 1
-    run_single_integration ${test} "cpu" ${oneccl_env}
   fi
 done
 
