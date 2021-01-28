@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - Fixed `local_rank` support for Ray. ([#2596](https://github.com/horovod/horovod/pull/2596))
+- Disabled flaky resource check for Ray `test_colocator`. ([#2628](https://github.com/horovod/horovod/pull/2628))
 
 ## [v0.21.1] - 2021-01-06
 
