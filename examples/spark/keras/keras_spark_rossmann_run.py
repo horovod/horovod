@@ -178,7 +178,7 @@ if __name__ == '__main__':
 
         # Days & weeks of promotion, cap to 25 weeks.
         df = df.withColumn('Promo2Since',
-                           F.expr('date_add(format_string("%s-01-01", Promo2SinceYear), (Promo2SinceWeek - 1) * 7)'))
+                           F.expr('date_add(format_string("%s-01-01", Promo2SinceYear), (cast(Promo2SinceWeek as int) - 1) * 7)'))
         df = df.withColumn('Promo2Days',
                            F.when(df.Promo2SinceYear > 1900,
                                   F.greatest(F.lit(0), F.least(F.lit(25 * 7), F.datediff(df.Date, df.Promo2Since))))

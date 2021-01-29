@@ -62,6 +62,9 @@ class InteractiveRunTests(unittest.TestCase):
                                   None], res2)
 
     def test_happy_run_elastic(self):
+        if not gloo_built():
+            self.skipTest("Gloo is not available")
+
         args = _HorovodArgs()
 
         # we need two different hosts here, otherwise would need to give args.nics
