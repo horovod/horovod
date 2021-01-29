@@ -7,6 +7,8 @@ set -eu
 repository=823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
 
 # our baseline test is
+# in run_gloo_integration we run 'Elastic Spark * Tests' for this baseline
+# so it has to have Gloo mpi kind
 baseline="test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_3_0_1"
 
 # skip tests when there are no code changes
@@ -14,6 +16,7 @@ dir="$(dirname "$0")"
 code_files=$(python "$dir/get_changed_code_files.py" || echo failure)
 tests=$(if [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}" ]] || [[ -n "$code_files" ]]; then
   # we vary the baseline along the Python dimension and PySpark together
+  # run_gloo_integration expects these to have Gloo mpi kind to run 'Elastic Spark * Tests'
   printf "test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_2_3_4 "
   printf "test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0-pyspark_2_4_7 "
   # our baseline
@@ -30,6 +33,7 @@ tests=$(if [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}
 
   # then we vary the baseline along the framework dimensions all together
   # some frameworks are not available for our baseline Python version 3.8, so we use Python 3.7
+  # run_gloo_integration expects tf1 to have Gloo mpi kind to run 'Elastic Spark * Tests'
   printf "test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark_3_0_1 "
   printf "test-cpu-gloo-py3_7-tf2_0_4-keras2_3_1-torch1_3_1-mxnet1_4_1-pyspark_3_0_1 "
   printf "test-cpu-gloo-py3_7-tf2_1_3-keras2_3_1-torch1_4_0-mxnet1_5_1_p0-pyspark_3_0_1 "
