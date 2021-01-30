@@ -190,6 +190,6 @@ setup(name='horovod',
       zip_safe=False,
       entry_points={
           'console_scripts': [
-              'horovodrun = horovod.runner.launch:run_commandline'
+              'horovodrun = horovod.runner.launch:run_commandline' #这里将horovodrun设置为一个entrypoint
           ]
       })
