@@ -42,3 +42,15 @@ def _cache(f):
             return retval
 
     return wrapper
+
+
+def vars_to_refs(vars):
+    if isinstance(vars, list):
+        return tuple(vars_to_refs(v) for v in vars)
+    return vars.ref()
+
+
+def refs_to_vars(refs):
+    if isinstance(refs, tuple):
+        return [refs_to_vars(r) for r in refs]
+    return refs.deref()
