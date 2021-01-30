@@ -5,7 +5,7 @@ if(POLICY CMP0074)
     cmake_policy(SET CMP0074 NEW)
 endif()
 
-if(${CMAKE_VERSION} VERSION_GREATER "3.4.0") 
+if(${CMAKE_VERSION} VERSION_GREATER "3.4.0")
   find_program(CCACHE_PROGRAM ccache)
   if(CCACHE_PROGRAM)
     set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
@@ -50,6 +50,7 @@ set(EIGEN_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/third_party/eigen")
 set(FLATBUFFERS_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/third_party/flatbuffers/include")
 
 # Sources
+# 这里讲horovod.common下面的所有的C++代码给罗列出来了
 list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/common.cc"
         "${PROJECT_SOURCE_DIR}/horovod/common/controller.cc"
         "${PROJECT_SOURCE_DIR}/horovod/common/fusion_buffer_manager.cc"

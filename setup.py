@@ -19,6 +19,7 @@ import os
 import subprocess
 import sys
 import textwrap
+import multiprocessing
 
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
@@ -38,6 +39,15 @@ torch_mpi_lib_v2 = CMakeExtension('horovod.torch.mpi_lib_v2',
                                      cmake_lists_dir='.', sources=[])
 mxnet_mpi_lib = CMakeExtension('horovod.mxnet.mpi_lib',
                                      cmake_lists_dir='.', sources=[])
+
+ext_modules = []
+if os.environ.get('HOROVOD_WITHOUT_TENSORFLOW', '0') != '1':
+    ext_modules.append(tensorflow_mpi_lib)
+if os.environ.get('HOROVOD_WITHOUT_PYTORCH', '0') != '1':
+    ext_modules.append(torch_mpi_lib_v2)
+if os.environ.get('HOROVOD_WITHOUT_MXNET', '0') != '1':
+    ext_modules.append(mxnet_mpi_lib)
+
 
 def is_build_action():
     if len(sys.argv) <= 1:
@@ -84,11 +94,16 @@ class custom_build_ext(build_ext):
             os.makedirs(self.build_temp)
 
         # Config and build the extension
+        cpu_count = multiprocessing.cpu_count()
         try:
+            run_cmd = [cmake_bin, self.extensions[0].cmake_lists_dir] + cmake_args
+            print(run_cmd)
+            run_cmd = [cmake_bin, '--build', '.'] + cmake_build_args
+            print(run_cmd)
             subprocess.check_call([cmake_bin, self.extensions[0].cmake_lists_dir] + cmake_args,
                                   cwd=self.build_temp)
-            subprocess.check_call([cmake_bin, '--build', '.'] + cmake_build_args,
-                                  cwd=self.build_temp)
+            subprocess.check_call([cmake_bin, '--build', '.'] +
+                cmake_build_args, cwd=self.build_temp)
         except OSError as e:
             raise RuntimeError('CMake failed: {}'.format(str(e)))
 
@@ -157,7 +172,8 @@ setup(name='horovod',
           'Intended Audience :: Developers',
           'Topic :: Scientific/Engineering :: Artificial Intelligence',
       ],
-      ext_modules=[tensorflow_mpi_lib, torch_mpi_lib_v2, mxnet_mpi_lib],
+      #ext_modules=[tensorflow_mpi_lib, torch_mpi_lib_v2, mxnet_mpi_lib],
+      ext_modules = ext_modules,
       cmdclass={'build_ext': custom_build_ext},
       # cffi is required for PyTorch
       # If cffi is specified in setup_requires, it will need libffi to be installed on the machine,

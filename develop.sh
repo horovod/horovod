@@ -5,4 +5,4 @@ export HOROVOD_WITHOUT_TENSORFLOW=1
 export HOROVOD_WITHOUT_GLOO=1
 export HOROVOD_WITHOUT_MXNET=1
 
-python3 setup.py install
+python3 setup.py develop

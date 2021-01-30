@@ -33,6 +33,14 @@ if (Pytorch_ROCM)
     execute_process(COMMAND ${PY_EXE} -c "from torch.utils import hipify; print(True) if hasattr(hipify, '__version__') else print(False)" OUTPUT_VARIABLE HIPIFY_HAS_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
 
+message(STATUS "===================READING DEBUG=======================")
+message(STATUS ${Pytorch_INCLUDE_DIRS})
+message(STATUS ${Pytorch_LIBRARIES})
+# 在安装torch的时候会讲torch的动态库和头文件全部打包，所以我们可以在
+# dist-packages中找到相应的torch的头文件和动态库
+message(STATUS "===================READING DEBUG=======================")
+
+
 include_directories(SYSTEM ${Pytorch_INCLUDE_DIRS})
 execute_process(COMMAND ${PY_EXE} -c "from distutils.sysconfig import get_python_inc; print(get_python_inc())"
                 OUTPUT_VARIABLE PYTHON_INCLUDE_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -78,6 +86,12 @@ endif()
 
 # Create library
 set_output_dir()
+message(STATUS "============================PRINT SOURCES=======================")
+message(STATUS "=========================common source==========================")
+message(STATUS ${SOURCES})
+message(STATUS "=========================pytorch source=========================")
+message(STATUS ${PYTORCH_SOURCES})
+message(STATUS "============================PRINT SOURCES=======================")
 add_library(${PYTORCH_TARGET_LIB} SHARED ${SOURCES} ${PYTORCH_SOURCES})
 target_include_directories(${PYTORCH_TARGET_LIB} PRIVATE "${EIGEN_INCLUDE_PATH}")
 target_include_directories(${PYTORCH_TARGET_LIB} PRIVATE "${FLATBUFFERS_INCLUDE_PATH}")

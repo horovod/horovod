@@ -111,6 +111,7 @@ namespace common {
 namespace {
 
 // All the Horovod state that must be stored globally per-process.
+// 这是一个全局变量，就是horovod的一些全局状态，需要每个进程都可以读取的到。
 HorovodGlobalState horovod_global;
 
 #if HAVE_MPI
@@ -653,7 +654,8 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
   if (!horovod_global.initialize_flag.test_and_set()) {
     horovod_global.control_operation = ParseControllerOpsFromEnv();
     horovod_global.cpu_operation = ParseCPUOpsFromEnv();
-#if HAVE_MPI
+#if HAVE_MPI   
+    LOG(DEBUG) << "now we will use mpi";    
     // Enable mpi is it's used either in cpu data transfer or controller
     if (horovod_global.cpu_operation == LibType::MPI ||
         horovod_global.control_operation == LibType::MPI) {
@@ -666,6 +668,7 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
           horovod_global.tensor_queue, horovod_global.timeline,
           horovod_global.parameter_manager, horovod_global.group_table,
           mpi_context));
+      LOG(DEBUG) << "nranks is nranks"
       horovod_global.controller->SetRanks(ranks, nranks);
     }
 #endif
@@ -710,6 +713,11 @@ Status CheckInitialized() {
 extern "C" {
 
 void horovod_init(const int* ranks, int nranks) {
+  LOG(DEBUG) << "=================print ranks===============";
+  for(int i = 0; i < nranks; ++i){
+      LOG(DEBUG) << ranks[i] << " ";
+  }
+  LOG(DEBUG) << "=================print ranks===============";
   InitializeHorovodOnce(ranks, nranks);
 }
 
