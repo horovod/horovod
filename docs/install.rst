@@ -77,11 +77,11 @@ To ensure that Horovod is built with MXNet CPU support enabled:
 
     $ HOROVOD_WITH_MXNET=1 pip install horovod[mxnet]
 
-To ensure that Horovod is built with MXNet GPU support enabled for CUDA 10.2:
+Some MXNet versions do not work with Horovod:
 
-.. code-block:: bash
-
-    $ HOROVOD_WITH_MXNET=1 pip install horovod[mxnet-cu102]
+- MXNet 1.4.0 and before has GCC incompatibility issue. Please use MXNet 1.4.1 or later with Horovod 0.16.2 or later to avoid these.
+- MXNet 1.5.1, 1.6.0, 1.7.0 and 1.7.0.post1 are missing MKLDNN headers, so they do not work with Horovod. Please use 1.5.1.post0 or 1.6.0.post0 instead.
+- MXNet 1.6.0.post0 is only available as mxnet-cu101 and mxnet-cu102.
 
 To skip MXNet, set ``HOROVOD_WITHOUT_MXNET=1`` in your environment.
 
