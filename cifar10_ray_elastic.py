@@ -38,7 +38,7 @@ parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
 parser.add_argument('--seed', type=int, default=42,
                     help='random seed')
-parser.add_argument('--change-frequency-s', type=int, default=30,
+parser.add_argument('--change-frequency-s', type=int, default=40,
                     help='random seed')
 
 # Elastic Horovod settings
