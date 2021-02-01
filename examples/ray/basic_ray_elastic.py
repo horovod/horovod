@@ -399,4 +399,4 @@ if __name__ == '__main__':
         override_discovery=False
     )
     executor.start()
-    executor.run(lambda: run(large=True))
+    executor.run(run)
