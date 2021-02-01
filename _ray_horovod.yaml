@@ -42,7 +42,7 @@ head_node:
 
 
 worker_nodes:
-    InstanceType: p3.2xlarge
+    InstanceType: g3.8xlarge
     ImageId: latest_dlami
     KeyName: richard-anyscale
     # Run workers on spot by default. Comment this out to use on-demand.
