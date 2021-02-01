@@ -38,6 +38,9 @@ parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
 parser.add_argument('--seed', type=int, default=42,
                     help='random seed')
+parser.add_argument(
+    '--forceful', action="store_true",
+    help="Removes the node upon deallocation (non-gracefully).")
 parser.add_argument('--change-frequency-s', type=int, default=10,
                     help='random seed')
 
@@ -56,9 +59,20 @@ args = parser.parse_args()
 
 
 class TestDiscovery(RayHostDiscovery):
-    def __init__(self, min_hosts, max_hosts, change_frequency_s, use_gpu=False, cpus_per_slot=1, gpus_per_slot=1):
-        super().__init__(use_gpu=use_gpu, cpus_per_slot=cpus_per_slot, gpus_per_slot=gpus_per_slot)
+    def __init__(self,
+                 min_hosts,
+                 max_hosts,
+                 change_frequency_s,
+                 use_gpu=False,
+                 cpus_per_slot=1,
+                 gpus_per_slot=1,
+                 graceful=True):
+        super().__init__(
+            use_gpu=use_gpu,
+            cpus_per_slot=cpus_per_slot,
+            gpus_per_slot=gpus_per_slot)
         self._min_hosts = min_hosts
+        self._graceful = graceful
         self._max_hosts = max_hosts
         self._change_frequency_s = change_frequency_s
         self._last_reset_t = None
@@ -75,13 +89,18 @@ class TestDiscovery(RayHostDiscovery):
             print("No hosts to add.")
 
     def remove_host(self, hosts):
-        from ray.autoscaler._private.commands import kill_node
-        # host = kill_node(os.path.expanduser("~/ray_bootstrap_config.yaml"), True, False, None)
         good_hosts = [k for k in hosts if k not in self._removed_hosts]
+
+        from ray.autoscaler._private.commands import kill_node
         if good_hosts:
-            host = random.choice(good_hosts)
-            print('REMOVE HOST', host, hosts, self._removed_hosts)
-            self._removed_hosts.add(host)
+            if self._graceful:
+                host = random.choice(good_hosts)
+            else:
+                host = kill_node(
+                    os.path.expanduser("~/ray_bootstrap_config.yaml"), True,
+                    False, None)
+        print('REMOVE HOST', host, hosts, self._removed_hosts)
+        self._removed_hosts.add(host)
 
     def change_hosts(self, hosts):
         for host in self._removed_hosts:
@@ -107,7 +126,10 @@ class TestDiscovery(RayHostDiscovery):
             self.change_hosts(hosts)
             self._last_reset_t = t
         print(f"Total hosts: {len(hosts)}")
-        remaining = {k: v for k, v in hosts.items() if k not in self._removed_hosts}
+        remaining = {
+            k: v
+            for k, v in hosts.items() if k not in self._removed_hosts
+        }
         print(f"Remaining hosts: {len(remaining)} -- {remaining}")
         return remaining
 
@@ -368,8 +390,8 @@ if __name__ == '__main__':
         max_hosts=5,
         change_frequency_s=args.change_frequency_s,
         use_gpu=True,
-        cpus_per_slot=1
-    )
+        cpus_per_slot=1,
+        graceful=not args.forceful)
     executor = ElasticRayExecutor(
         settings,
         use_gpu=True,

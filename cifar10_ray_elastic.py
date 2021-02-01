@@ -43,7 +43,9 @@ parser.add_argument(
     default=False,
     help='disables CUDA training')
 parser.add_argument('--seed', type=int, default=42, help='random seed')
-parser.add_argument('--forceful', action="store_true", help="Removes the node upon deallocation (non-gracefully).")
+parser.add_argument(
+    '--forceful', action="store_true",
+    help="Removes the node upon deallocation (non-gracefully).")
 parser.add_argument(
     '--change-frequency-s', type=int, default=40, help='random seed')
 
