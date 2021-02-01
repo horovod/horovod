@@ -6,7 +6,7 @@ import numpy as np
 from tqdm import tqdm
 import logging
 
-logging.basicConfig(level="DEBUG")# , filename='example.log')
+# logging.basicConfig(level="DEBUG")# , filename='example.log')
 import torch
 import torch.multiprocessing as mp
 import torch.nn as nn
@@ -38,7 +38,7 @@ parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
 parser.add_argument('--seed', type=int, default=42,
                     help='random seed')
-parser.add_argument('--change-frequency-s', type=int, default=60,
+parser.add_argument('--change-frequency-s', type=int, default=30,
                     help='random seed')
 
 # Elastic Horovod settings
@@ -448,13 +448,13 @@ if __name__ == '__main__':
     import ray
     ray.init(address="auto")
     settings = ElasticRayExecutor.create_settings(verbose=2)
-    # settings.discovery = TestDiscovery(
-    #     min_hosts=2,
-    #     max_hosts=5,
-    #     change_frequency_s=args.change_frequency_s,
-    #     use_gpu=True,
-    #     cpus_per_slot=1
-    # )
-    executor = ElasticRayExecutor(settings, use_gpu=True, cpus_per_slot=1)#, override_discovery=False)
+    settings.discovery = TestDiscovery(
+        min_hosts=2,
+        max_hosts=5,
+        change_frequency_s=args.change_frequency_s,
+        use_gpu=True,
+        cpus_per_slot=1
+    )
+    executor = ElasticRayExecutor(settings, use_gpu=True, cpus_per_slot=1, override_discovery=False)
     executor.start()
     executor.run(run)
