@@ -42,6 +42,7 @@ class RayHostDiscovery(HostDiscovery):
         self.use_gpu = use_gpu
         self.cpus_per_slot = cpus_per_slot
         self.gpus_per_slot = gpus_per_slot
+        self.timeout_s = 10
         logger.debug(f"Discovery started with {cpus_per_slot} CPU / "
                      f"{gpus_per_slot} GPU per slot.")
 
@@ -56,7 +57,9 @@ class RayHostDiscovery(HostDiscovery):
             if self.use_gpu:
                 gpu_slots = resources.get("GPU", 0) // self.gpus_per_slot
                 slots = min(slots, gpu_slots)
-            host_mapping[hostname] = int(math.ceil(slots))
+            slots = int(math.ceil(slots))
+            if slots:
+                host_mapping[hostname] = slots
 
         if host_mapping and sum(host_mapping.values()) == 0:
             logger.info(f"Detected {len(host_mapping)} hosts, but no hosts "
@@ -216,7 +219,9 @@ class ElasticRayExecutor:
             all_host_names=current_hosts.host_assignment_order,
         )
         logger.debug("[ray] getting driver IP")
-        server_ip = network.get_driver_ip(nics)
+        # server_ip = network.get_driver_ip(nics)
+        import socket
+        server_ip = socket.gethostbyname(socket.gethostname())
         self.run_env_vars = create_run_env_vars(
             server_ip, nics, global_rendezv_port, elastic=True)
 
@@ -254,7 +259,21 @@ class ElasticRayExecutor:
         worker_env_vars.update({"PYTHONUNBUFFERED": "1"})
 
         def worker_loop(slot_info, events):
+            def ping_worker(worker):
+                # There is an odd edge case where a node can be removed
+                # before the remote worker is started, leading to a failure
+                # in trying to create the horovod mesh.
+                try:
+                    ping = worker.execute.remote(lambda _: 1)
+                    ray.get(ping, timeout=10)
+                except Exception as e:
+                    logger.error(f"{slot_info.hostname}: Ping failed!!!!!")
+                    return False
+                return True
+
             worker = self._create_remote_worker(slot_info, worker_env_vars)
+            if not ping_worker(worker):
+                return 1, time.time()
             future = worker.execute.remote(lambda _: worker_fn())
 
             result = None
@@ -271,9 +290,10 @@ class ElasticRayExecutor:
                         ray.kill(worker)
                         result = 1, time.time()
                 except Exception as e:
-                    logger.exception(str(e))
-                    # Fail
+                    logger.error(f"{slot_info.hostname}:{e}")
+                    ray.kill(worker)
                     result = 1, time.time()
+            logger.debug(f"Worker ({slot_info}) routine is done!")
             return result
 
         return worker_loop
