@@ -124,9 +124,6 @@ RUN if [[ ${MPI_KIND} != "None" ]]; then \
         pip install mpi4py; \
     fi
 
-### END OF CACHE ###
-COPY . /horovod
-
 # Install TensorFlow.
 RUN pip install ${TENSORFLOW_PACKAGE}
 
@@ -155,6 +152,17 @@ RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly" ]]; then \
         pip install ${MXNET_PACKAGE} ; \
     fi
 
+# Prefetch Spark MNIST dataset.
+RUN mkdir -p /work
+RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/mnist.bz2 -O /data/mnist.bz2
+
+# Prefetch Spark Rossmann dataset.
+RUN mkdir -p /work
+RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/rossmann.tgz -O - | tar -xzC /data
+
+### END OF CACHE ###
+COPY . /horovod
+
 # Install Horovod.
 RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
       if [ -z "${LD_LIBRARY_PATH:-}" ]; then \
@@ -167,23 +175,9 @@ RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
       export I_MPI_ROOT=/usr/local/oneccl; \
       echo "horovod python setup.py sdist, mpicxx is $(which mpicxx)"; \
     fi; \
-    cd /horovod && python setup.py sdist
-
-RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
-      if [ -z "${LD_LIBRARY_PATH:-}" ]; then \
-          export LD_LIBRARY_PATH=""; \
-      fi; \
-      if [ -z "${PYTHONPATH:-}" ]; then \
-          export PYTHONPATH=""; \
-      fi; \
-      . /usr/local/oneccl/env/setvars.sh; \
-      echo "pip install horovod, mpicxx is $(which mpicxx)"; \
-    fi; \
+    cd /horovod && \
+    python setup.py sdist && \
     bash -c "${HOROVOD_BUILD_FLAGS} HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]"
-
-# Prefetch Spark MNIST dataset.
-RUN mkdir -p /work
-RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/mnist.bz2 -O /data/mnist.bz2
 
 # Hack for compatibility of MNIST example with TensorFlow 1.1.0.
 RUN if [[ ${TENSORFLOW_PACKAGE} == "tensorflow==1.1.0" ]]; then \
@@ -215,10 +209,6 @@ RUN sed -i "s/self.fc1 = nn.Linear(320, 50)/self.fc1 = nn.Linear(784, 50)/" /hor
 RUN sed -i "s/x = F.relu(F.max_pool2d(self.conv1(x), 2))//" /horovod/examples/pytorch/pytorch_mnist.py
 RUN sed -i "s/x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))//" /horovod/examples/pytorch/pytorch_mnist.py
 RUN sed -i "s/x = x.view(-1, 320)/x = x.view(-1, 784)/" /horovod/examples/pytorch/pytorch_mnist.py
-
-# Prefetch Spark Rossmann dataset.
-RUN mkdir -p /work
-RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/rossmann.tgz -O - | tar -xzC /data
 
 # Hack Keras Spark Rossmann Run example to be smaller.
 RUN sed -i "s/x = Dense(1000,/x = Dense(100,/g" /horovod/examples/spark/keras/keras_spark_rossmann_run.py
