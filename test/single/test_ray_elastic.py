@@ -160,45 +160,44 @@ class SimpleTestDiscovery(HostDiscovery):
         return hosts
 
 
+class StatusCallback:
+    def __init__(self):
+        self._journal = []
+
+    def __call__(self, info_dict):
+        self._journal.append(info_dict)
+
+    def fetch(self):
+        return self._journal.copy()
+
+
 def _create_training_function(iterations):
-    @ray.remote(num_cpus=0)
-    class Logger:
-        def __init__(self):
-            self._journal = []
-
-        def log(self, info):
-            self._journal.append(info)
-
-        def fetch(self):
-            return self._journal
-
-    logger = Logger.remote()
-
     def training_fn():
         import time
         import torch
         import horovod.torch as hvd
+        from horovod.ray import ray_logger
 
         hvd.init()
 
         model = torch.nn.Sequential(torch.nn.Linear(2, 2))
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
-        logger.log.remote(("started", os.getpid()))
+        ray_logger.log({"started": True, "pid": os.getpid()})
 
         @hvd.elastic.run
         def train(state):
             for state.epoch in range(state.epoch, iterations):
-                logger.log.remote(("training", os.getpid()))
+                ray_logger.log({"training": True, "pid": os.getpid()})
                 time.sleep(0.1)
                 state.commit()  # triggers scale-up, scale-down
-            logger.log.remote(("finished", os.getpid()))
+            ray_logger.log({"finished": True, "pid": os.getpid()})
 
         state = hvd.elastic.TorchState(
             model, optimizer, batch=0, epoch=0, commits=0, rendezvous=0)
         train(state)
         return True
 
-    return logger, training_fn
+    return training_fn
 
 
 @contextmanager
@@ -230,10 +229,11 @@ def test_fault_tolerance_hosts_added_and_removed(ray_8_cpus):
 
         logger, training_fn = _create_training_function(iterations=100)
         executor.start()
-        results = executor.run(training_fn)
+        trace = StatusCallback()
+        results = executor.run(training_fn, callbacks=[callback])
         assert len(results) == 1
 
-        events = ray.get(logger.fetch.remote())
+        events = trace.fetch()
         assert sum(int("started" in e) for e in events) == 4, events
         assert sum(int("finished" in e) for e in events) == 1, events
 
@@ -256,10 +256,11 @@ def test_fault_tolerance_hosts_remove_and_add(ray_8_cpus):
 
         logger, training_fn = _create_training_function(iterations=100)
         executor.start()
-        results = executor.run(training_fn)
+        trace = StatusCallback()
+        results = executor.run(training_fn, callbacks=[callback])
         assert len(results) == 4
 
-        events = ray.get(logger.fetch.remote())
+        events = trace.fetch()
         assert sum(int("started" in e) for e in events) == 7, events
         assert sum(int("finished" in e) for e in events) == 4, events
 
@@ -282,10 +283,11 @@ def test_max_np(ray_8_cpus):
 
         logger, training_fn = _create_training_function(iterations=100)
         executor.start()
-        results = executor.run(training_fn)
+        trace = StatusCallback()
+        results = executor.run(training_fn, callbacks=[callback])
         assert len(results) == 2
 
-        events = ray.get(logger.fetch.remote())
+        events = trace.fetch()
         assert sum(int("started" in e) for e in events) == 2, events
         assert sum(int("finished" in e) for e in events) == 2, events
 
@@ -309,10 +311,11 @@ def test_min_np(ray_8_cpus):
 
         logger, training_fn = _create_training_function(iterations=100)
         executor.start()
-        results = executor.run(training_fn)
+        trace = StatusCallback()
+        results = executor.run(training_fn, callbacks=[callback])
         assert len(results) == 4
 
-        events = ray.get(logger.fetch.remote())
+        events = trace.fetch()
         assert sum(int("started" in e) for e in events) == 4, events
         assert sum(int("finished" in e) for e in events) == 4, events
 
@@ -336,10 +339,11 @@ def test_gpu_e2e(ray_8_cpus_gpus):
 
         logger, training_fn = _create_training_function(iterations=100)
         executor.start()
-        results = executor.run(training_fn)
+        trace = StatusCallback()
+        results = executor.run(training_fn, callbacks=[callback])
         assert len(results) == 4
 
-        events = ray.get(logger.fetch.remote())
+        events = trace.fetch()
         assert sum(int("started" in e) for e in events) == 4, events
         assert sum(int("finished" in e) for e in events) == 4, events
 
