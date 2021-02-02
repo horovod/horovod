@@ -56,6 +56,6 @@ The script below provides a simple skeleton of code block based on the Apache MX
 
 .. NOTE:: Some MXNet versions do not work with Horovod:
 
-    - MXNet 1.4.0 and before has `GCC incompatibility issues <https://github.com/horovod/horovod/issues/884>`__. Please use MXNet 1.4.1 or later with Horovod 0.16.2 or later to avoid these.
-    - MXNet 1.5.1, 1.6.0, 1.7.0 and 1.7.0.post1 are missing MKLDNN headers, so they do not work with Horovod. Please use 1.5.1.post0 or 1.6.0.post0 instead.
-    - MXNet 1.6.0.post0 is only available as mxnet-cu101 and mxnet-cu102.
+    - MXNet 1.4.0 and earlier have `GCC incompatibility issues <https://github.com/horovod/horovod/issues/884>`__. Use MXNet 1.4.1 or later with Horovod 0.16.2 or later to avoid these incompatibilities.
+    - MXNet 1.5.1, 1.6.0, 1.7.0, and 1.7.0.post1 are missing MKLDNN headers, so they do not work with Horovod. Use 1.5.1.post0, 1.6.0.post0, and 1.7.0.post0, respectively.
+    - MXNet 1.6.0.post0 and 1.7.0.post0 are only available as mxnet-cu101 and mxnet-cu102.
