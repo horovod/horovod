@@ -1,13 +1,9 @@
 import argparse
 import os
-import time
-import random
 import numpy as np
 from tqdm import tqdm
-import logging
 
 import torch
-import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -61,11 +57,13 @@ parser.add_argument(
     '--batches-per-host-check',
     type=int,
     default=10,
-    help=
-    'number of batches processed before calling `state.check_host_updates()`; '
-    'this check is very fast compared to state.commit() (which calls this '
-    'as part of the commit process), but because still incurs some cost due '
-    'to broadcast, so we may not want to perform it every batch.')
+    help=(
+        'number of batches processed before calling '
+        '`state.check_host_updates()`; '
+        'this check is very fast compared to state.commit() (which calls this '
+        'as part of the commit process) but because it '
+        'still incurs some cost due to broadcast, '
+        'we may not want to perform it every batch.'))
 
 args = parser.parse_args()
 
@@ -101,8 +99,8 @@ class tqdm_callback:
         tqdm_mode = info["tqdm_mode"]
         assert tqdm_mode in {"val", "train"}
         reset = False
-        if (self._mode != tqdm_mode or self._current_epoch != info["epoch"]
-                or self._world_size != info["world_size"]):
+        if (self._mode != tqdm_mode or self._current_epoch != info["epoch"] or
+                self._world_size != info["world_size"]):
             reset = True
             self._mode = tqdm_mode
             self._current_epoch = info["epoch"]
@@ -112,10 +110,10 @@ class tqdm_callback:
             if self._progress_bar is not None:
                 self._progress_bar.reset(total=info["total"])
             else:
+                epoch = self._current_epoch + 1
                 self._progress_bar = tqdm(
                     total=info["total"],
-                    desc=f'[mode={tqdm_mode}] Epoch     #{self._current_epoch + 1}'
-                )
+                    desc=f'[mode={tqdm_mode}] Epoch     #{epoch}')
 
         scoped = {k: v for k, v in info.items() if k.startswith(tqdm_mode)}
         self._progress_bar.set_postfix(scoped)
@@ -246,7 +244,6 @@ class Net(nn.Module):
 
 
 def run(large=False):
-    import logging
     hvd.init()
 
     torch.manual_seed(args.seed)
@@ -286,7 +283,8 @@ def run(large=False):
         optimizer, T_max=200)
 
     # Restore from a previous checkpoint, if initial_epoch is specified.
-    # Horovod: restore on the first worker which will broadcast weights to other workers.
+    # Horovod: restore on the first worker which will broadcast
+    # weights to other workers.
     if resume_from_epoch > 0 and hvd.rank() == 0:
         filepath = args.checkpoint_format.format(epoch=resume_from_epoch)
         checkpoint = torch.load(filepath)
@@ -319,7 +317,6 @@ def run(large=False):
 
 
 if __name__ == '__main__':
-    import logging
     from horovod.ray import ElasticRayExecutor
     import ray
     ray.init(address="auto")
