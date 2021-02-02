@@ -17,7 +17,7 @@ services:
         # https://github.com/apache/incubator-mxnet/issues/19575
         # mxnet==1.7.0b20200813 serves as an RC:
         # https://repo.mxnet.io/dist/python/cu101/mxnet_cu101-1.7.0b20200813-py2.py3-none-manylinux2014_x86_64.whl
-        MXNET_PACKAGE: mxnet==1.7.0.post1
+        MXNET_PACKAGE: mxnet==1.7.0
         PYSPARK_PACKAGE: pyspark==3.0.1
         SPARK_PACKAGE: spark-3.0.1/spark-3.0.1-bin-hadoop2.7.tgz
         HOROVOD_BUILD_FLAGS: HOROVOD_WITH_GLOO=1
