@@ -1,8 +1,9 @@
+from typing import Callable, List, Any, Dict, Optional
 import logging
 import time
 import os
 import math
-from typing import Callable, List, Any, Dict, Optional
+import threading
 
 from horovod.runner.common.util import timeout, secret
 
@@ -17,6 +18,7 @@ from horovod.runner.elastic.driver import ElasticDriver
 
 import ray
 import ray.exceptions
+from ray.util.queue import Queue
 from horovod.ray.runner import BaseHorovodWorker
 from horovod.ray.utils import detect_nics
 
@@ -250,7 +252,8 @@ class ElasticRayExecutor:
         return worker
 
     def _create_spawn_worker_fn(self, return_results: List,
-                                worker_fn: Callable) -> Callable:
+                                worker_fn: Callable,
+                                queue: "Queue") -> Callable:
         self.remote_worker_cls = ray.remote(BaseHorovodWorker)
         # event = register_shutdown_event()
         worker_env_vars = {}
@@ -274,6 +277,12 @@ class ElasticRayExecutor:
             worker = self._create_remote_worker(slot_info, worker_env_vars)
             if not ping_worker(worker):
                 return 1, time.time()
+
+            def configure(_):
+                from horovod.ray import ray_logger
+                ray_logger.configure(queue=queue)
+
+            ray.get(worker.execute.remote(configure))
             future = worker.execute.remote(lambda _: worker_fn())
 
             result = None
@@ -298,7 +307,16 @@ class ElasticRayExecutor:
 
         return worker_loop
 
-    def run(self, worker_fn: Callable) -> List[Any]:
+    def _process_calls(self, queue, callbacks):
+        while queue.actor:
+            if not queue.empty():
+                result = queue.get_nowait()
+                for c in callbacks:
+                    c(result)
+
+    def run(self,
+            worker_fn: Callable,
+            callbacks: Optional[List[Callable]] = None) -> List[Any]:
         """Executes the provided function on all workers.
 
         Args:
@@ -308,10 +326,23 @@ class ElasticRayExecutor:
             List of return values from every completed worker.
         """
         return_values = []
+        _queue = Queue(actor_options={
+            "num_cpus": 0,
+            ray.state.current_node_id(): 0.001
+        })
         self.driver.start(
             self.settings.num_proc,
-            self._create_spawn_worker_fn(return_values, worker_fn))
-        res = self.driver.get_results()
+            self._create_spawn_worker_fn(return_values, worker_fn, _queue))
+        try:
+            _callback_thread = threading.Thread(
+                target=self._process_calls,
+                args=(_queue, callbacks),
+                daemon=True)
+            _callback_thread.start()
+            res = self.driver.get_results()
+            _callback_thread.join()
+        finally:
+            _queue.shutdown()
         self.driver.stop()
 
         if res.error_message is not None:

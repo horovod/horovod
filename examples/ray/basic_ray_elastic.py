@@ -17,6 +17,7 @@ from torchvision import datasets, transforms
 
 import horovod.torch as hvd
 from horovod.torch.elastic.sampler import ElasticSampler
+from horovod.ray import ray_logger
 from horovod.ray.elastic import RayHostDiscovery
 
 # Training settings
@@ -41,7 +42,7 @@ parser.add_argument('--seed', type=int, default=42,
 parser.add_argument(
     '--forceful', action="store_true",
     help="Removes the node upon deallocation (non-gracefully).")
-parser.add_argument('--change-frequency-s', type=int, default=10,
+parser.add_argument('--change-frequency-s', type=int, default=100,
                     help='random seed')
 
 # Elastic Horovod settings
@@ -66,7 +67,8 @@ class TestDiscovery(RayHostDiscovery):
                  use_gpu=False,
                  cpus_per_slot=1,
                  gpus_per_slot=1,
-                 graceful=True):
+                 graceful=True,
+                 verbose=True):
         super().__init__(
             use_gpu=use_gpu,
             cpus_per_slot=cpus_per_slot,
@@ -76,6 +78,7 @@ class TestDiscovery(RayHostDiscovery):
         self._max_hosts = max_hosts
         self._change_frequency_s = change_frequency_s
         self._last_reset_t = None
+        self.verbose = verbose
         self._removed_hosts = set()
 
     def add_host(self, hosts):
@@ -125,12 +128,14 @@ class TestDiscovery(RayHostDiscovery):
         if t - self._last_reset_t >= self._change_frequency_s:
             self.change_hosts(hosts)
             self._last_reset_t = t
-        print(f"Total hosts: {len(hosts)}")
+        if self.verbose:
+            print(f"Total hosts: {len(hosts)}")
         remaining = {
             k: v
             for k, v in hosts.items() if k not in self._removed_hosts
         }
-        print(f"Remaining hosts: {len(remaining)} -- {remaining}")
+        if self.verbose:
+            print(f"Remaining hosts: {len(remaining)} -- {remaining}")
         return remaining
 
 
@@ -187,6 +192,32 @@ def load_data_cifar():
         sampler=train_sampler, **kwargs)
     return train_loader, train_sampler
 
+class tqdm_callback:
+    def __init__(self):
+        self._progress_bar = None
+        self._current_epoch = None
+        self._mode = None
+
+    def __call__(self, info):
+        tqdm_mode = info["tqdm_mode"]
+        assert tqdm_mode in {"val", "train"}
+        reset = False
+        if self._mode != tqdm_mode or self._current_epoch != info["epoch"]:
+            reset = True
+            self._mode = tqdm_mode
+            self._current_epoch = info["epoch"]
+
+        if reset:
+            if self._progress_bar is not None:
+                self._progress_bar.close()
+
+            self._progress_bar = tqdm(
+                total=info["total"],
+                desc=f'[mode={tqdm_mode}] Epoch     #{self._current_epoch + 1}')
+
+        scoped = {k: v for k, v in info.items() if k.startswith(tqdm_mode)}
+        self._progress_bar.set_postfix(scoped)
+        self._progress_bar.update(1)
 
 
 def train(state, train_loader, log_writer, verbose):
@@ -198,42 +229,37 @@ def train(state, train_loader, log_writer, verbose):
     train_loss = Metric('train_loss')
     train_accuracy = Metric('train_accuracy')
 
-    with tqdm(total=len(train_loader),
-              desc='Train Epoch     #{}'.format(epoch + 1),
-              disable=not verbose) as t:
+    print("training started!")
+    for batch_idx, (data, target) in enumerate(train_loader):
+        # Elastic Horovod: update the current batch index this epoch
+        # and commit / check for host updates. Do not check hosts when
+        # we commit as it would be redundant.
+        state.batch = batch_offset + batch_idx
+        if args.batches_per_commit > 0 and \
+                state.batch % args.batches_per_commit == 0:
+            state.commit()
+        elif args.batches_per_host_check > 0 and \
+                state.batch % args.batches_per_host_check == 0:
+            state.check_host_updates()
 
-        for batch_idx, (data, target) in enumerate(train_loader):
-            # Elastic Horovod: update the current batch index this epoch
-            # and commit / check for host updates. Do not check hosts when
-            # we commit as it would be redundant.
-            state.batch = batch_offset + batch_idx
-            if args.batches_per_commit > 0 and \
-                    state.batch % args.batches_per_commit == 0:
-                state.commit()
-            elif args.batches_per_host_check > 0 and \
-                    state.batch % args.batches_per_host_check == 0:
-                state.check_host_updates()
+        if args.cuda:
+            data, target = data.cuda(), target.cuda()
+        state.optimizer.zero_grad()
 
-            if args.cuda:
-                data, target = data.cuda(), target.cuda()
-            state.optimizer.zero_grad()
+        output = state.model(data)
+        train_accuracy.update(accuracy(output, target))
 
-            output = state.model(data)
-            train_accuracy.update(accuracy(output, target))
-
-            loss = F.cross_entropy(output, target)
-            train_loss.update(loss)
-            loss.backward()
-            state.optimizer.step()
-
-            if batch_idx % 20 == 0 and batch_idx > 0:
-                t.set_postfix({'loss': train_loss.avg.item(),
-                               'accuracy': 100. * train_accuracy.avg.item()})
-                t.update(20)
-
-    if log_writer:
-        log_writer.add_scalar('train/loss', train_loss.avg, epoch)
-        log_writer.add_scalar('train/accuracy', train_accuracy.avg, epoch)
+        loss = F.cross_entropy(output, target)
+        train_loss.update(loss)
+        loss.backward()
+        state.optimizer.step()
+        ray_logger.log({
+            "tqdm_mode": "train",
+            "train/loss": train_loss.avg.item(),
+            "train/accuracy": 100. * train_accuracy.avg.item(),
+            "total": len(train_loader),
+            "epoch": epoch
+        })
 
 
 def accuracy(output, target):
@@ -316,10 +342,10 @@ def run(large=False):
 
     # If set > 0, will resume training from a given checkpoint.
     resume_from_epoch = 0
-    for try_epoch in range(args.epochs, 0, -1):
-        if os.path.exists(args.checkpoint_format.format(epoch=try_epoch)):
-            resume_from_epoch = try_epoch
-            break
+    # for try_epoch in range(args.epochs, 0, -1):
+    #     if os.path.exists(args.checkpoint_format.format(epoch=try_epoch)):
+    #         resume_from_epoch = try_epoch
+    #         break
 
     # Load cifar10 dataset
     train_loader, train_sampler = load_data_mnist()
@@ -391,7 +417,8 @@ if __name__ == '__main__':
         change_frequency_s=args.change_frequency_s,
         use_gpu=True,
         cpus_per_slot=1,
-        graceful=not args.forceful)
+        graceful=not args.forceful,
+        verbose=False)
     executor = ElasticRayExecutor(
         settings,
         use_gpu=True,
@@ -399,4 +426,4 @@ if __name__ == '__main__':
         override_discovery=False
     )
     executor.start()
-    executor.run(run)
+    executor.run(lambda: run(large=True), callbacks=[tqdm_callback()])

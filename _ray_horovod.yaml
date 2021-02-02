@@ -53,6 +53,7 @@ worker_nodes:
 
 file_mounts: {
     /home/ubuntu/anaconda3/lib/python3.7/site-packages/horovod-0.21.1-py3.7-linux-x86_64.egg/horovod/ray/elastic.py: ~/dev/horovod/horovod/ray/elastic.py,
+    /home/ubuntu/anaconda3/lib/python3.7/site-packages/horovod-0.21.1-py3.7-linux-x86_64.egg/horovod/ray/ray_logger.py: ~/dev/horovod/horovod/ray/ray_logger.py,
     /home/ubuntu/horovod/: /Users/rliaw/dev/horovod,
 }
 
