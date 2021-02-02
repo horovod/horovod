@@ -385,6 +385,10 @@ class ElasticRayExecutor:
 
         Args:
             worker_fn: Target elastic function that can be executed.
+            callbacks: List of callables. Each callback must either
+                be a callable function or a class that implements __call__.
+                Every callback will be invoked on every value logged
+                by the rank 0 worker.
 
         Returns:
             List of return values from every completed worker.
@@ -409,14 +413,16 @@ class ElasticRayExecutor:
                     for c in callbacks:
                         c(result)
 
+        _callback_thread = None
         try:
             _callback_thread = threading.Thread(
                 target=_process_calls, args=(_queue, callbacks), daemon=True)
             _callback_thread.start()
             res = self.driver.get_results()
-            _callback_thread.join()
         finally:
             _queue.shutdown()
+            if _callback_thread:
+                _callback_thread.join()
         self.driver.stop()
 
         if res.error_message is not None:

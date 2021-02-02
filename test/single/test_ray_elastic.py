@@ -25,7 +25,8 @@ def ray_shutdown():
 
 @pytest.fixture
 def ray_8_cpus():
-    ray.init(num_cpus=8)
+    ray.init(num_cpus=8, resources={
+        f"node:host-{i}": 1 for i in range(10)})
     yield
     # The code after the yield will run as teardown code.
     ray.shutdown()
@@ -36,7 +37,8 @@ def ray_8_cpus_gpus():
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         if len(os.environ["CUDA_VISIBLE_DEVICES"].split(",")) < 8:
             pytest.skip("Avoiding mismatched GPU machine.")
-    ray.init(num_cpus=8, num_gpus=8)
+    ray.init(num_cpus=8, num_gpus=8, resources={
+        f"node:host-{i}": 1 for i in range(10)})
     yield
     # The code after the yield will run as teardown code.
     ray.shutdown()
@@ -150,12 +152,10 @@ class SimpleTestDiscovery(HostDiscovery):
 
     def find_available_hosts_and_slots(self):
         hostlist = next(self._generator)
-        from ray.experimental.dynamic_resources import set_resource
         hosts = {}
         for item in hostlist:
             host, slots = item.split(":")
             slots = int(slots)
-            set_resource(f"node:{host}", 1)
             hosts[host] = slots
         return hosts
 
@@ -227,10 +227,10 @@ def test_fault_tolerance_hosts_added_and_removed(ray_8_cpus):
         executor = ElasticRayExecutor(
             settings, cpus_per_slot=1, override_discovery=False)
 
-        logger, training_fn = _create_training_function(iterations=100)
+        training_fn = _create_training_function(iterations=100)
         executor.start()
         trace = StatusCallback()
-        results = executor.run(training_fn, callbacks=[callback])
+        results = executor.run(training_fn, callbacks=[trace])
         assert len(results) == 1
 
         events = trace.fetch()
@@ -254,10 +254,10 @@ def test_fault_tolerance_hosts_remove_and_add(ray_8_cpus):
         executor = ElasticRayExecutor(
             settings, cpus_per_slot=1, override_discovery=False)
 
-        logger, training_fn = _create_training_function(iterations=100)
+        training_fn = _create_training_function(iterations=100)
         executor.start()
         trace = StatusCallback()
-        results = executor.run(training_fn, callbacks=[callback])
+        results = executor.run(training_fn, callbacks=[trace])
         assert len(results) == 4
 
         events = trace.fetch()
@@ -281,10 +281,10 @@ def test_max_np(ray_8_cpus):
         executor = ElasticRayExecutor(
             settings, cpus_per_slot=1, override_discovery=False)
 
-        logger, training_fn = _create_training_function(iterations=100)
+        training_fn = _create_training_function(iterations=100)
         executor.start()
         trace = StatusCallback()
-        results = executor.run(training_fn, callbacks=[callback])
+        results = executor.run(training_fn, callbacks=[trace])
         assert len(results) == 2
 
         events = trace.fetch()
@@ -309,10 +309,10 @@ def test_min_np(ray_8_cpus):
         executor = ElasticRayExecutor(
             settings, cpus_per_slot=1, override_discovery=False)
 
-        logger, training_fn = _create_training_function(iterations=100)
+        training_fn = _create_training_function(iterations=100)
         executor.start()
         trace = StatusCallback()
-        results = executor.run(training_fn, callbacks=[callback])
+        results = executor.run(training_fn, callbacks=[trace])
         assert len(results) == 4
 
         events = trace.fetch()
@@ -337,10 +337,10 @@ def test_gpu_e2e(ray_8_cpus_gpus):
         executor = ElasticRayExecutor(
             settings, gpus_per_slot=1, use_gpu=True, override_discovery=False)
 
-        logger, training_fn = _create_training_function(iterations=100)
+        training_fn = _create_training_function(iterations=100)
         executor.start()
         trace = StatusCallback()
-        results = executor.run(training_fn, callbacks=[callback])
+        results = executor.run(training_fn, callbacks=[trace])
         assert len(results) == 4
 
         events = trace.fetch()

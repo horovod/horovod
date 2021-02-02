@@ -48,7 +48,7 @@ parser.add_argument(
     action="store_true",
     help="Removes the node upon deallocation (non-gracefully).")
 parser.add_argument(
-    '--change-frequency-s', type=int, default=100, help='random seed')
+    '--change-frequency-s', type=int, default=20, help='random seed')
 
 # Elastic Horovod settings
 parser.add_argument(
@@ -144,12 +144,12 @@ class tqdm_callback:
 
         if reset:
             if self._progress_bar is not None:
-                self._progress_bar.close()
-
-            self._progress_bar = tqdm(
-                total=info["total"],
-                desc=f'[mode={tqdm_mode}] Epoch     #{self._current_epoch + 1}'
-            )
+                self._progress_bar.reset(total=info["total"])
+            else:
+                self._progress_bar = tqdm(
+                    total=info["total"],
+                    desc=f'[mode={tqdm_mode}] Epoch     #{self._current_epoch + 1}'
+                )
 
         scoped = {k: v for k, v in info.items() if k.startswith(tqdm_mode)}
         self._progress_bar.set_postfix(scoped)
