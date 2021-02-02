@@ -19,7 +19,6 @@ from horovod.runner.elastic.driver import ElasticDriver
 
 import ray
 import ray.exceptions
-from ray.util.queue import Queue
 from horovod.ray.runner import BaseHorovodWorker
 from horovod.ray.utils import detect_nics
 
@@ -328,7 +327,7 @@ class ElasticRayExecutor:
 
     def _create_spawn_worker_fn(self, return_results: List,
                                 worker_fn: Callable,
-                                queue: "Queue") -> Callable:
+                                queue: "ray.util.Queue") -> Callable:
         self.remote_worker_cls = ray.remote(BaseHorovodWorker)
         # event = register_shutdown_event()
         worker_env_vars = {}
@@ -394,6 +393,8 @@ class ElasticRayExecutor:
             List of return values from every completed worker.
         """
         return_values = []
+
+        from ray.util.queue import Queue
         _queue = Queue(actor_options={
             "num_cpus": 0,
             "resources": {
