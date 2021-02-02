@@ -16,7 +16,7 @@ from horovod.ray.elastic import TestDiscovery
 
 # Training settings
 parser = argparse.ArgumentParser(
-    description='PyTorch Cifar10 Example',
+    description='PyTorch MNIST Example',
     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument(
     '--log-dir', default='./logs', help='tensorboard log directory')
@@ -25,7 +25,7 @@ parser.add_argument(
     default='./checkpoint-{epoch}.pth.tar',
     help='checkpoint file format')
 parser.add_argument(
-    '--data-dir', default='./new_data', help='cifar10 dataset directory')
+    '--data-dir', default='./new_data', help='MNIST dataset directory')
 
 parser.add_argument(
     '--epochs', type=int, default=90, help='number of epochs to train')
@@ -262,7 +262,7 @@ def run(large=False):
             resume_from_epoch = try_epoch
             break
 
-    # Load cifar10 dataset
+    # Load MNIST dataset
     train_loader, train_sampler = load_data_mnist()
 
     model = Net(large=large)
