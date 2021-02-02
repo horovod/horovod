@@ -11,7 +11,6 @@ import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-# from torch.utils.tensorboard import SummaryWriter
 from torchvision import datasets, transforms
 
 import horovod.torch as hvd
@@ -75,8 +74,6 @@ def load_data_mnist():
     # Horovod: limit # of CPU threads to be used per worker.
     torch.set_num_threads(4)
 
-    # When supported, use 'forkserver' to spawn dataloader workers instead of 'fork' to prevent
-    # issues with Infiniband implementations that are not fork-safe
     kwargs = {'num_workers': 0, 'pin_memory': True} if args.cuda else {}
     from filelock import FileLock
     with FileLock(os.path.expanduser("~/.datalock")):
@@ -90,37 +87,6 @@ def load_data_mnist():
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=4, sampler=train_sampler, **kwargs)
 
-    return train_loader, train_sampler
-
-
-def load_data_cifar():
-    # Horovod: limit # of CPU threads to be used per worker.
-    torch.set_num_threads(4)
-
-    # When supported, use 'forkserver' to spawn dataloader workers instead of 'fork' to prevent
-    # issues with Infiniband implementations that are not fork-safe
-    kwargs = {'num_workers': 0, 'pin_memory': True} if args.cuda else {}
-    # if (kwargs.get('num_workers', 0) > 0 and hasattr(mp, '_supports_context') and
-    #         mp._supports_context and 'forkserver' in mp.get_all_start_methods()):
-    # kwargs['multiprocessing_context'] = 'spawn'
-    transform_train = transforms.Compose([
-        transforms.RandomCrop(32, padding=4),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465),
-                             (0.2023, 0.1994, 0.2010)),
-    ])
-
-    from filelock import FileLock
-    with FileLock(os.path.expanduser("~/.datalock")):
-        train_dataset = datasets.CIFAR10(
-            root=args.data_dir,
-            train=True,
-            download=True,
-            transform=transform_train)
-    train_sampler = ElasticSampler(train_dataset)
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=4, sampler=train_sampler, **kwargs)
     return train_loader, train_sampler
 
 
@@ -281,7 +247,6 @@ class Net(nn.Module):
 
 def run(large=False):
     import logging
-    # logging.basicConfig(level="DEBUG")
     hvd.init()
 
     torch.manual_seed(args.seed)
