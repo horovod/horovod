@@ -192,6 +192,7 @@ def load_data_cifar():
         sampler=train_sampler, **kwargs)
     return train_loader, train_sampler
 
+
 class tqdm_callback:
     def __init__(self):
         self._progress_bar = None
