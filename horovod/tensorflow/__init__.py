@@ -358,7 +358,7 @@ def _make_cached_allreduce_grads_fn(name, device_dense, device_sparse,
                         var = vars[i]
                         grad = grads[i]
                         if grad is not None:
-                            var_name2grad[var.name] = grad
+                            var_name2grad[var.name] = (i, grad)
                     grads_split = []
                     for group in groups:
                         grad_group = []
@@ -370,18 +370,21 @@ def _make_cached_allreduce_grads_fn(name, device_dense, device_sparse,
                     for _, grad in var_name2grad.items():
                         grads_split.append([grad])
                 elif groups > 0:
-                    grads_clean = [grad for grad in grads if grad is not None]
+                    grads_clean = [(i, grad) for i, grad in enumerate(grads) if grad is not None]
                     grads_split = split_list(grads_clean, groups)
 
-                reduce_ops = []
+                reduce_ops = [None] * len(vars)
                 for group in grads_split:
-                    reduce_ops += _grouped_allreduce_cond(group,
-                                                          device_dense=device_dense,
-                                                          device_sparse=device_sparse,
-                                                          compression=compression,
-                                                          op=op,
-                                                          prescale_factor=prescale_factor,
-                                                          postscale_factor=postscale_factor)
+                    index_group, grad_group = [list(t) for t in zip(*group)]
+                    reduce_ops_group = _grouped_allreduce_cond(grad_group,
+                                                               device_dense=device_dense,
+                                                               device_sparse=device_sparse,
+                                                               compression=compression,
+                                                               op=op,
+                                                               prescale_factor=prescale_factor,
+                                                               postscale_factor=postscale_factor)
+                    for i in range(len(index_group)):
+                        reduce_ops[index_group[i]] = reduce_ops_group[i]
                 return reduce_ops
 
             return [_allreduce_cond(grad,
