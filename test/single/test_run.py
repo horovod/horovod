@@ -423,7 +423,7 @@ class RunTests(unittest.TestCase):
 
     def do_test_prefix_connection(self, string, prefix, index, expected, timestamp=False):
         # create a Pipe Connection and populate it with string
-        (connection, w) = multiprocessing.get_context('spawn').Pipe()
+        (connection, w) = multiprocessing.get_context('spawn').Pipe(duplex=False)
         with os.fdopen(w.fileno(), 'wt', encoding='utf8', newline='', closefd=False) as stream:
             stream.write(string)
         w.close()
@@ -519,12 +519,12 @@ class RunTests(unittest.TestCase):
 
         # one thread writes into the w side of this pipe
         # prefix_connection reads on the other end of this pipe
-        (connection, w) = multiprocessing.get_context('spawn').Pipe()
+        (connection, w) = multiprocessing.get_context('spawn').Pipe(duplex=False)
         writer_thread = in_thread(writer, (w,))
 
         # prefix_connection writes to the write side of this Pipe (opened as a text stream)
         # another thread reads from the r side of this pipe
-        (r, dst_con) = multiprocessing.get_context('spawn').Pipe()
+        (r, dst_con) = multiprocessing.get_context('spawn').Pipe(duplex=False)
         reader_thread = in_thread(reader, (r,))
 
         with os.fdopen(dst_con.fileno(), 'wt', encoding='utf8', newline='', closefd=False) as dst:

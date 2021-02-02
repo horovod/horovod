@@ -17,17 +17,30 @@ import threading
 
 from horovod.runner.common import util
 from horovod.runner.common.util import network, safe_shell_exec, timeout
+from horovod.runner.util.stream import Pipe
 from horovod.runner.util.threads import in_thread
 
 WAIT_FOR_COMMAND_MIN_DELAY = 0.1
 
 
 class RunCommandRequest(object):
-    def __init__(self, command, env):
+    def __init__(self, command, env, capture=False):
         self.command = command
         """Command to run."""
         self.env = env
         """Environment to use."""
+        self.capture = capture
+        """Captures stdout and stderr of command if True."""
+
+
+class StreamCommandOutputRequest(object):
+    """Streams the command stdout and stderr to the client."""
+    pass
+
+
+class CommandOutputNotCaptured(Exception):
+    """Executed command does not capture its output."""
+    pass
 
 
 class AbortCommandRequest(object):
@@ -79,11 +92,13 @@ class RegisterCodeResultRequest(object):
 
 
 class BasicTaskService(network.BasicService):
-    def __init__(self, name, key, nics, command_env=None, verbose=0):
+    def __init__(self, name, index, key, nics, command_env=None, verbose=0):
         super(BasicTaskService, self).__init__(name, key, nics)
         self._initial_registration_complete = False
         self._wait_cond = threading.Condition()
+        self._index = index
         self._command_env = command_env
+        self._command_output = None
         self._command_abort = None
         self._command_exit_code = None
         self._verbose = verbose
@@ -91,8 +106,17 @@ class BasicTaskService(network.BasicService):
         self._command_thread = None
         self._fn_result = None
 
-    def _run_command(self, command, env, event):
-        self._command_exit_code = safe_shell_exec.execute(command, env=env, events=[event])
+    def _run_command(self, command, env, event, stdout=None, stderr=None, index=None):
+        self._command_exit_code = safe_shell_exec.execute(
+            command,
+            env=env,
+            stdout=stdout, stderr=stderr,
+            index=index, prefix_output_with_timestamp=index is not None,
+            events=[event])
+        if stdout:
+            stdout.close()
+        if stderr:
+            stderr.close()
 
     def _add_envs(self, env, extra_env):
         """
@@ -129,20 +153,42 @@ class BasicTaskService(network.BasicService):
 
                     # We only permit executing exactly one command, so this is idempotent.
                     self._command_abort = threading.Event()
-                    self._command_thread = in_thread(
-                        target=self._run_command,
-                        args=(req.command, req.env, self._command_abort)
-                    )
+                    if req.capture:
+                        self._command_output = Pipe()
+                        args = (req.command, req.env, self._command_abort,
+                                self._command_output, self._command_output,
+                                self._index)
+                    else:
+                        args = (req.command, req.env, self._command_abort)
+
+                    self._command_thread = in_thread(self._run_command, args)
             finally:
                 self._wait_cond.notify_all()
                 self._wait_cond.release()
             return network.AckResponse()
+
+        if isinstance(req, StreamCommandOutputRequest):
+            # Wait for command to start
+            self.wait_for_command_start()
+
+            self._wait_cond.acquire()
+            try:
+                # Fail if command does not capture
+                if self._command_output is None:
+                    return CommandOutputNotCaptured()
+
+                # We only expect streaming the command output once concurrently
+                return network.AckStreamResponse(), self._command_output
+            finally:
+                self._wait_cond.release()
 
         if isinstance(req, AbortCommandRequest):
             self._wait_cond.acquire()
             try:
                 if self._command_thread is not None:
                     self._command_abort.set()
+                if self._command_output is not None:
+                    self._command_output.close()
             finally:
                 self._wait_cond.release()
             return network.AckResponse()
@@ -248,8 +294,17 @@ class BasicTaskClient(network.BasicClient):
                                               match_intf=match_intf,
                                               attempts=attempts)
 
-    def run_command(self, command, env):
-        self._send(RunCommandRequest(command, env))
+    def run_command(self, command, env, capture=False):
+        self._send(RunCommandRequest(command, env, capture))
+
+    def stream_command_output(self, stream):
+        def stream_output():
+            try:
+                self._send(StreamCommandOutputRequest(), stream)
+            except:
+                self.abort_command()
+
+        return in_thread(stream_output)
 
     def abort_command(self):
         self._send(AbortCommandRequest())

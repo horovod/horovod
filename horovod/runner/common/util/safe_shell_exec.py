@@ -105,7 +105,7 @@ def prefix_connection(src_connection, dst_stream, prefix, index, prefix_output_w
     def write(text):
         if index is not None and prefix is not None:
             context = get_context(index, prefix)
-            dst_stream.write(context)
+            text = context + text
         dst_stream.write(text)
         dst_stream.flush()
 
@@ -209,15 +209,15 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
     exit_event = _create_event(ctx)
 
     # Make a pipe for the subprocess stdout/stderr.
-    (stdout_r, stdout_w) = ctx.Pipe()
-    (stderr_r, stderr_w) = ctx.Pipe()
+    (stdout_r, stdout_w) = ctx.Pipe(duplex=False)
+    (stderr_r, stderr_w) = ctx.Pipe(duplex=False)
 
     # This Pipe is how we ensure that the executed process is properly terminated (not orphaned) if
     # the parent process is hard killed (-9). If the parent (this process) is killed for any reason,
     # this Pipe will be closed, which can be detected by the middleman. When the middleman sees the
     # closed Pipe, it will issue a SIGTERM to the subprocess executing the command. The assumption
     # here is that users will be inclined to hard kill this process, not the middleman.
-    (r, w) = ctx.Pipe()
+    (r, w) = ctx.Pipe(duplex=False)
 
     middleman = ctx.Process(target=_exec_middleman, args=(command, env, exit_event,
                                                           (stdout_r, stdout_w),
