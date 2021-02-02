@@ -392,13 +392,15 @@ class ElasticRayExecutor:
         return_values = []
         _queue = Queue(actor_options={
             "num_cpus": 0,
-            ray.state.current_node_id(): 0.001
+            "resources": {
+                ray.state.current_node_id(): 0.001
+            }
         })
         self.driver.start(
             self.settings.num_proc,
             self._create_spawn_worker_fn(return_values, worker_fn, _queue))
 
-        def _process_calls(self, queue, callbacks):
+        def _process_calls(queue, callbacks):
             if not callbacks:
                 return
             while queue.actor:
@@ -409,9 +411,7 @@ class ElasticRayExecutor:
 
         try:
             _callback_thread = threading.Thread(
-                target=self._process_calls,
-                args=(_queue, callbacks),
-                daemon=True)
+                target=_process_calls, args=(_queue, callbacks), daemon=True)
             _callback_thread.start()
             res = self.driver.get_results()
             _callback_thread.join()

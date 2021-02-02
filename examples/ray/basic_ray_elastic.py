@@ -20,40 +20,53 @@ from horovod.ray import ray_logger
 from horovod.ray.elastic import TestDiscovery
 
 # Training settings
-parser = argparse.ArgumentParser(description='PyTorch Cifar10 Example',
-                                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('--log-dir', default='./logs',
-                    help='tensorboard log directory')
-parser.add_argument('--checkpoint-format', default='./checkpoint-{epoch}.pth.tar',
-                    help='checkpoint file format')
-parser.add_argument('--data-dir', default='./new_data',
-                    help='cifar10 dataset directory')
-
-parser.add_argument('--epochs', type=int, default=90,
-                    help='number of epochs to train')
-parser.add_argument('--lr', type=float, default=0.01,
-                    help='learning rate for a single GPU')
-
-parser.add_argument('--no-cuda', action='store_true', default=False,
-                    help='disables CUDA training')
-parser.add_argument('--seed', type=int, default=42,
-                    help='random seed')
+parser = argparse.ArgumentParser(
+    description='PyTorch Cifar10 Example',
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument(
-    '--forceful', action="store_true",
+    '--log-dir', default='./logs', help='tensorboard log directory')
+parser.add_argument(
+    '--checkpoint-format',
+    default='./checkpoint-{epoch}.pth.tar',
+    help='checkpoint file format')
+parser.add_argument(
+    '--data-dir', default='./new_data', help='cifar10 dataset directory')
+
+parser.add_argument(
+    '--epochs', type=int, default=90, help='number of epochs to train')
+parser.add_argument(
+    '--lr', type=float, default=0.01, help='learning rate for a single GPU')
+
+parser.add_argument(
+    '--no-cuda',
+    action='store_true',
+    default=False,
+    help='disables CUDA training')
+parser.add_argument('--seed', type=int, default=42, help='random seed')
+parser.add_argument(
+    '--forceful',
+    action="store_true",
     help="Removes the node upon deallocation (non-gracefully).")
-parser.add_argument('--change-frequency-s', type=int, default=100,
-                    help='random seed')
+parser.add_argument(
+    '--change-frequency-s', type=int, default=100, help='random seed')
 
 # Elastic Horovod settings
-parser.add_argument('--batches-per-commit', type=int, default=50,
-                    help='number of batches processed before calling `state.commit()`; '
-                         'commits prevent losing progress if an error occurs, but slow '
-                         'down training.')
-parser.add_argument('--batches-per-host-check', type=int, default=10,
-                    help='number of batches processed before calling `state.check_host_updates()`; '
-                         'this check is very fast compared to state.commit() (which calls this '
-                         'as part of the commit process), but because still incurs some cost due '
-                         'to broadcast, so we may not want to perform it every batch.')
+parser.add_argument(
+    '--batches-per-commit',
+    type=int,
+    default=50,
+    help='number of batches processed before calling `state.commit()`; '
+    'commits prevent losing progress if an error occurs, but slow '
+    'down training.')
+parser.add_argument(
+    '--batches-per-host-check',
+    type=int,
+    default=10,
+    help=
+    'number of batches processed before calling `state.check_host_updates()`; '
+    'this check is very fast compared to state.commit() (which calls this '
+    'as part of the commit process), but because still incurs some cost due '
+    'to broadcast, so we may not want to perform it every batch.')
 
 args = parser.parse_args()
 
@@ -75,8 +88,7 @@ def load_data_mnist():
                            ]))
     train_sampler = ElasticSampler(train_dataset)
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=4,
-        sampler=train_sampler, **kwargs)
+        train_dataset, batch_size=4, sampler=train_sampler, **kwargs)
 
     return train_loader, train_sampler
 
@@ -95,17 +107,20 @@ def load_data_cifar():
         transforms.RandomCrop(32, padding=4),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        transforms.Normalize((0.4914, 0.4822, 0.4465),
+                             (0.2023, 0.1994, 0.2010)),
     ])
 
     from filelock import FileLock
     with FileLock(os.path.expanduser("~/.datalock")):
         train_dataset = datasets.CIFAR10(
-            root=args.data_dir, train=True, download=True, transform=transform_train)
+            root=args.data_dir,
+            train=True,
+            download=True,
+            transform=transform_train)
     train_sampler = ElasticSampler(train_dataset)
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=4,
-        sampler=train_sampler, **kwargs)
+        train_dataset, batch_size=4, sampler=train_sampler, **kwargs)
     return train_loader, train_sampler
 
 
@@ -113,16 +128,19 @@ class tqdm_callback:
     def __init__(self):
         self._progress_bar = None
         self._current_epoch = None
+        self._world_size = None
         self._mode = None
 
     def __call__(self, info):
         tqdm_mode = info["tqdm_mode"]
         assert tqdm_mode in {"val", "train"}
         reset = False
-        if self._mode != tqdm_mode or self._current_epoch != info["epoch"]:
+        if (self._mode != tqdm_mode or self._current_epoch != info["epoch"]
+                or self._world_size != info["world_size"]):
             reset = True
             self._mode = tqdm_mode
             self._current_epoch = info["epoch"]
+            self._world_size = info["world_size"]
 
         if reset:
             if self._progress_bar is not None:
@@ -130,14 +148,28 @@ class tqdm_callback:
 
             self._progress_bar = tqdm(
                 total=info["total"],
-                desc=f'[mode={tqdm_mode}] Epoch     #{self._current_epoch + 1}')
+                desc=f'[mode={tqdm_mode}] Epoch     #{self._current_epoch + 1}'
+            )
 
         scoped = {k: v for k, v in info.items() if k.startswith(tqdm_mode)}
         self._progress_bar.set_postfix(scoped)
         self._progress_bar.update(1)
 
 
-def train(state, train_loader, log_writer, verbose):
+class TensorboardCallback:
+    def __init__(self, logdir):
+        from torch.utils.tensorboard import SummaryWriter
+        self.log_writer = SummaryWriter(logdir)
+
+    def __call__(self, info):
+        tqdm_mode = info["tqdm_mode"]
+        epoch = info["epoch"]
+        for k, v in info.items():
+            if k.startswith(tqdm_mode):
+                self.log_writer.add_scalar(k, v, epoch)
+
+
+def train(state, train_loader):
     epoch = state.epoch
     batch_offset = state.batch
 
@@ -169,14 +201,16 @@ def train(state, train_loader, log_writer, verbose):
         train_loss.update(loss)
         loss.backward()
         state.optimizer.step()
-        ray_logger.log({
-            "tqdm_mode": "train",
-            "train/loss": train_loss.avg.item(),
-            "train/accuracy": 100. * train_accuracy.avg.item(),
-            "total": len(train_loader),
-            "epoch": epoch,
-            "world_size": hvd.size()
-        })
+        # Only log from the 0th rank worker.
+        if hvd.rank() == 0:
+            ray_logger.log({
+                "tqdm_mode": "train",
+                "train/loss": train_loss.avg.item(),
+                "train/accuracy": 100. * train_accuracy.avg.item(),
+                "total": len(train_loader),
+                "epoch": epoch,
+                "world_size": hvd.size()
+            })
 
 
 def accuracy(output, target):
@@ -228,7 +262,8 @@ class Net(nn.Module):
         self.fc1 = nn.Linear(320, 300)
         self.hiddens = []
         if large:
-            self.hiddens = nn.ModuleList([nn.Linear(300, 300) for i in range(30)])
+            self.hiddens = nn.ModuleList(
+                [nn.Linear(300, 300) for i in range(30)])
         self.fc2 = nn.Linear(300, 10)
 
     def forward(self, x):
@@ -272,16 +307,18 @@ def run(large=False):
         model.cuda()
 
     # Horovod: scale learning rate by the number of GPUs.
-    optimizer = optim.SGD(model.parameters(),
-                          lr=args.lr * np.sqrt(hvd.size()),
-                          momentum=0.9, weight_decay=5e-4)
+    optimizer = optim.SGD(
+        model.parameters(),
+        lr=args.lr * np.sqrt(hvd.size()),
+        momentum=0.9,
+        weight_decay=5e-4)
 
     # Horovod: wrap optimizer with DistributedOptimizer.
     optimizer = hvd.DistributedOptimizer(
-        optimizer, named_parameters=model.named_parameters()
-    )
+        optimizer, named_parameters=model.named_parameters())
 
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=200)
 
     # Restore from a previous checkpoint, if initial_epoch is specified.
     # Horovod: restore on the first worker which will broadcast weights to other workers.
@@ -307,14 +344,8 @@ def run(large=False):
 
     @hvd.elastic.run
     def full_train(state, train_loader):
-        # Horovod: print logs on the first worker.
-        verbose = 1 if hvd.rank() == 0 else 0
-
-        # Horovod: write TensorBoard logs on first worker.
-        # log_writer = SummaryWriter(args.log_dir) if hvd.rank() == 0 else None
-        log_writer = None
         while state.epoch < args.epochs:
-            train(state, train_loader, log_writer, verbose)
+            train(state, train_loader)
             state.scheduler.step()
             save_checkpoint(state)
             end_epoch(state)
@@ -334,13 +365,12 @@ if __name__ == '__main__':
         change_frequency_s=args.change_frequency_s,
         use_gpu=True,
         cpus_per_slot=1,
-        graceful=not args.forceful,
+        _graceful=not args.forceful,
         verbose=False)
     executor = ElasticRayExecutor(
-        settings,
-        use_gpu=True,
-        cpus_per_slot=1,
-        override_discovery=False
-    )
+        settings, use_gpu=True, cpus_per_slot=1, override_discovery=False)
     executor.start()
-    executor.run(lambda: run(large=True), callbacks=[tqdm_callback()])
+    executor.run(
+        lambda: run(large=True),
+        callbacks=[tqdm_callback(),
+                   TensorboardCallback(args.log_dir)])
