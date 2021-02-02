@@ -6,7 +6,6 @@ import numpy as np
 from tqdm import tqdm
 import logging
 
-logging.basicConfig(level="DEBUG")# , filename='example.log')
 import torch
 import torch.multiprocessing as mp
 import torch.nn as nn
@@ -18,7 +17,7 @@ from torchvision import datasets, transforms
 import horovod.torch as hvd
 from horovod.torch.elastic.sampler import ElasticSampler
 from horovod.ray import ray_logger
-from horovod.ray.elastic import RayHostDiscovery
+from horovod.ray.elastic import TestDiscovery
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch Cifar10 Example',

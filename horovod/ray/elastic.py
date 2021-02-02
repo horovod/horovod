@@ -1,14 +1,15 @@
 from typing import Callable, List, Any, Dict, Optional
 import logging
+import socket
 import time
 import os
+import random
 import math
 import threading
 
 from horovod.runner.common.util import timeout, secret
 
 from horovod.runner.http.http_server import RendezvousServer
-from horovod.runner.util import network
 from horovod.runner.gloo_run import (create_slot_env_vars, create_run_env_vars,
                                      _get_min_start_hosts)
 from horovod.runner.elastic.settings import ElasticSettings
@@ -33,6 +34,40 @@ else:
                       "(GetTimeoutError, RayTimeoutError). "
                       "This is likely due to the Ray version not "
                       "compatible with Horovod-Ray.")
+
+
+class RayHostDiscovery(HostDiscovery):
+    """Uses Ray global state to obtain host mapping.
+
+    Assumes that the whole global state is available for usage."""
+
+    def __init__(self, use_gpu=False, cpus_per_slot=1, gpus_per_slot=1):
+        self.use_gpu = use_gpu
+        self.cpus_per_slot = cpus_per_slot
+        self.gpus_per_slot = gpus_per_slot
+        logger.debug(f"Discovery started with {cpus_per_slot} CPU / "
+                     f"{gpus_per_slot} GPU per slot.")
+
+    def find_available_hosts_and_slots(self) -> Dict[str, int]:
+        """Returns a dict mapping <hostname> -> <number of slots>."""
+        alive_nodes = [k for k in ray.nodes() if k["alive"]]
+        host_mapping = {}
+        for node in alive_nodes:
+            hostname = node["NodeManagerAddress"]
+            resources = node["Resources"]
+            slots = resources.get("CPU", 0) // self.cpus_per_slot
+            if self.use_gpu:
+                gpu_slots = resources.get("GPU", 0) // self.gpus_per_slot
+                slots = min(slots, gpu_slots)
+            slots = int(math.ceil(slots))
+            if slots:
+                host_mapping[hostname] = slots
+
+        if host_mapping and sum(host_mapping.values()) == 0:
+            logger.info(f"Detected {len(host_mapping)} hosts, but no hosts "
+                        "have available slots.")
+            logger.debug(f"Alive nodes: {alive_nodes}")
+        return host_mapping
 
 
 class TestDiscovery(RayHostDiscovery):
@@ -110,41 +145,6 @@ class TestDiscovery(RayHostDiscovery):
         if self.verbose:
             print(f"Remaining hosts: {len(remaining)} -- {remaining}")
         return remaining
-
-
-class RayHostDiscovery(HostDiscovery):
-    """Uses Ray global state to obtain host mapping.
-
-    Assumes that the whole global state is available for usage."""
-
-    def __init__(self, use_gpu=False, cpus_per_slot=1, gpus_per_slot=1):
-        self.use_gpu = use_gpu
-        self.cpus_per_slot = cpus_per_slot
-        self.gpus_per_slot = gpus_per_slot
-        self.timeout_s = 10
-        logger.debug(f"Discovery started with {cpus_per_slot} CPU / "
-                     f"{gpus_per_slot} GPU per slot.")
-
-    def find_available_hosts_and_slots(self) -> Dict[str, int]:
-        """Returns a dict mapping <hostname> -> <number of slots>."""
-        alive_nodes = [k for k in ray.nodes() if k["alive"]]
-        host_mapping = {}
-        for node in alive_nodes:
-            hostname = node["NodeManagerAddress"]
-            resources = node["Resources"]
-            slots = resources.get("CPU", 0) // self.cpus_per_slot
-            if self.use_gpu:
-                gpu_slots = resources.get("GPU", 0) // self.gpus_per_slot
-                slots = min(slots, gpu_slots)
-            slots = int(math.ceil(slots))
-            if slots:
-                host_mapping[hostname] = slots
-
-        if host_mapping and sum(host_mapping.values()) == 0:
-            logger.info(f"Detected {len(host_mapping)} hosts, but no hosts "
-                        "have available slots.")
-            logger.debug(f"Alive nodes: {alive_nodes}")
-        return host_mapping
 
 
 class ElasticRayExecutor:
@@ -298,8 +298,6 @@ class ElasticRayExecutor:
             all_host_names=current_hosts.host_assignment_order,
         )
         logger.debug("[ray] getting driver IP")
-        # server_ip = network.get_driver_ip(nics)
-        import socket
         server_ip = socket.gethostbyname(socket.gethostname())
         self.run_env_vars = create_run_env_vars(
             server_ip, nics, global_rendezv_port, elastic=True)
@@ -347,7 +345,7 @@ class ElasticRayExecutor:
                     ping = worker.execute.remote(lambda _: 1)
                     ray.get(ping, timeout=10)
                 except Exception as e:
-                    logger.error(f"{slot_info.hostname}: Ping failed!!!!!")
+                    logger.error(f"{slot_info.hostname}: Ping failed - {e}")
                     return False
                 return True
 
@@ -355,11 +353,7 @@ class ElasticRayExecutor:
             if not ping_worker(worker):
                 return 1, time.time()
 
-            def configure(_):
-                from horovod.ray import ray_logger
-                ray_logger.configure(queue=queue)
-
-            ray.get(worker.execute.remote(configure))
+            ray.get(worker.set_queue.remote(queue))
             future = worker.execute.remote(lambda _: worker_fn())
 
             result = None
@@ -376,20 +370,13 @@ class ElasticRayExecutor:
                         ray.kill(worker)
                         result = 1, time.time()
                 except Exception as e:
-                    logger.error(f"{slot_info.hostname}:{e}")
+                    logger.error(f"{slot_info.hostname}[{slot_info.rank}]:{e}")
                     ray.kill(worker)
                     result = 1, time.time()
             logger.debug(f"Worker ({slot_info}) routine is done!")
             return result
 
         return worker_loop
-
-    def _process_calls(self, queue, callbacks):
-        while queue.actor:
-            if not queue.empty():
-                result = queue.get_nowait()
-                for c in callbacks:
-                    c(result)
 
     def run(self,
             worker_fn: Callable,
@@ -410,6 +397,16 @@ class ElasticRayExecutor:
         self.driver.start(
             self.settings.num_proc,
             self._create_spawn_worker_fn(return_values, worker_fn, _queue))
+
+        def _process_calls(self, queue, callbacks):
+            if not callbacks:
+                return
+            while queue.actor:
+                if not queue.empty():
+                    result = queue.get_nowait()
+                    for c in callbacks:
+                        c(result)
+
         try:
             _callback_thread = threading.Thread(
                 target=self._process_calls,

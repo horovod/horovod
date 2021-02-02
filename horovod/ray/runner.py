@@ -92,6 +92,7 @@ class BaseHorovodWorker:
         return func(self.executable)
 
     def set_queue(self, queue):
+        """Sets the queue for multi-node logging."""
         ray_logger.configure(queue=queue)
 
 
