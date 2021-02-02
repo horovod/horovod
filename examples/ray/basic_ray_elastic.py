@@ -99,8 +99,9 @@ class tqdm_callback:
         tqdm_mode = info["tqdm_mode"]
         assert tqdm_mode in {"val", "train"}
         reset = False
-        if (self._mode != tqdm_mode or self._current_epoch != info["epoch"] or
-                self._world_size != info["world_size"]):
+        if self._mode != tqdm_mode or \
+                self._current_epoch != info["epoch"] or \
+                self._world_size != info["world_size"]:
             reset = True
             self._mode = tqdm_mode
             self._current_epoch = info["epoch"]
