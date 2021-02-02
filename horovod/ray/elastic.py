@@ -35,6 +35,83 @@ else:
                       "compatible with Horovod-Ray.")
 
 
+class TestDiscovery(RayHostDiscovery):
+    def __init__(self,
+                 min_hosts,
+                 max_hosts,
+                 change_frequency_s,
+                 use_gpu=False,
+                 cpus_per_slot=1,
+                 gpus_per_slot=1,
+                 verbose=True,
+                 _graceful=True):
+        super().__init__(
+            use_gpu=use_gpu,
+            cpus_per_slot=cpus_per_slot,
+            gpus_per_slot=gpus_per_slot)
+        self._min_hosts = min_hosts
+        self._graceful = _graceful
+        self._max_hosts = max_hosts
+        self._change_frequency_s = change_frequency_s
+        self._last_reset_t = None
+        self.verbose = verbose
+        self._removed_hosts = set()
+
+    def add_host(self, hosts):
+        available_hosts = self._removed_hosts & hosts.keys()
+        if available_hosts:
+            host = random.choice(list(available_hosts))
+            self._removed_hosts.remove(host)
+        else:
+            print("No hosts to add.")
+
+    def remove_host(self, hosts):
+        good_hosts = [k for k in hosts if k not in self._removed_hosts]
+
+        from ray.autoscaler._private.commands import kill_node
+        if good_hosts:
+            if self._graceful:
+                host = random.choice(good_hosts)
+            else:
+                host = kill_node(
+                    os.path.expanduser("~/ray_bootstrap_config.yaml"), True,
+                    False, None)
+        self._removed_hosts.add(host)
+
+    def change_hosts(self, hosts):
+        for host in self._removed_hosts:
+            if host not in hosts:
+                self._removed_hosts.remove(host)
+        current_hosts = len(hosts) - len(self._removed_hosts)
+        if current_hosts <= self._min_hosts:
+            self.add_host(hosts)
+        elif current_hosts >= self._max_hosts:
+            self.remove_host(hosts)
+        else:
+            if random.random() < 0.5:
+                self.add_host(hosts)
+            else:
+                self.remove_host(hosts)
+
+    def find_available_hosts_and_slots(self):
+        t = time.time()
+        if self._last_reset_t is None:
+            self._last_reset_t = t
+        hosts = super().find_available_hosts_and_slots()
+        if t - self._last_reset_t >= self._change_frequency_s:
+            self.change_hosts(hosts)
+            self._last_reset_t = t
+        if self.verbose:
+            print(f"Total hosts: {len(hosts)}")
+        remaining = {
+            k: v
+            for k, v in hosts.items() if k not in self._removed_hosts
+        }
+        if self.verbose:
+            print(f"Remaining hosts: {len(remaining)} -- {remaining}")
+        return remaining
+
+
 class RayHostDiscovery(HostDiscovery):
     """Uses Ray global state to obtain host mapping.
 

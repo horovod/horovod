@@ -59,86 +59,6 @@ parser.add_argument('--batches-per-host-check', type=int, default=10,
 args = parser.parse_args()
 
 
-class TestDiscovery(RayHostDiscovery):
-    def __init__(self,
-                 min_hosts,
-                 max_hosts,
-                 change_frequency_s,
-                 use_gpu=False,
-                 cpus_per_slot=1,
-                 gpus_per_slot=1,
-                 graceful=True,
-                 verbose=True):
-        super().__init__(
-            use_gpu=use_gpu,
-            cpus_per_slot=cpus_per_slot,
-            gpus_per_slot=gpus_per_slot)
-        self._min_hosts = min_hosts
-        self._graceful = graceful
-        self._max_hosts = max_hosts
-        self._change_frequency_s = change_frequency_s
-        self._last_reset_t = None
-        self.verbose = verbose
-        self._removed_hosts = set()
-
-    def add_host(self, hosts):
-        available_hosts = self._removed_hosts & hosts.keys()
-        if available_hosts:
-            host = random.choice(list(available_hosts))
-            print('ADD HOST', host, hosts, self._removed_hosts)
-            self._removed_hosts.remove(host)
-
-        else:
-            print("No hosts to add.")
-
-    def remove_host(self, hosts):
-        good_hosts = [k for k in hosts if k not in self._removed_hosts]
-
-        from ray.autoscaler._private.commands import kill_node
-        if good_hosts:
-            if self._graceful:
-                host = random.choice(good_hosts)
-            else:
-                host = kill_node(
-                    os.path.expanduser("~/ray_bootstrap_config.yaml"), True,
-                    False, None)
-        print('REMOVE HOST', host, hosts, self._removed_hosts)
-        self._removed_hosts.add(host)
-
-    def change_hosts(self, hosts):
-        for host in self._removed_hosts:
-            if host not in hosts:
-                self._removed_hosts.remove(host)
-        current_hosts = len(hosts) - len(self._removed_hosts)
-        if current_hosts <= self._min_hosts:
-            self.add_host(hosts)
-        elif current_hosts >= self._max_hosts:
-            self.remove_host(hosts)
-        else:
-            if random.random() < 0.5:
-                self.add_host(hosts)
-            else:
-                self.remove_host(hosts)
-
-    def find_available_hosts_and_slots(self):
-        t = time.time()
-        if self._last_reset_t is None:
-            self._last_reset_t = t
-        hosts = super().find_available_hosts_and_slots()
-        if t - self._last_reset_t >= self._change_frequency_s:
-            self.change_hosts(hosts)
-            self._last_reset_t = t
-        if self.verbose:
-            print(f"Total hosts: {len(hosts)}")
-        remaining = {
-            k: v
-            for k, v in hosts.items() if k not in self._removed_hosts
-        }
-        if self.verbose:
-            print(f"Remaining hosts: {len(remaining)} -- {remaining}")
-        return remaining
-
-
 def load_data_mnist():
     # Horovod: limit # of CPU threads to be used per worker.
     torch.set_num_threads(4)
@@ -146,9 +66,6 @@ def load_data_mnist():
     # When supported, use 'forkserver' to spawn dataloader workers instead of 'fork' to prevent
     # issues with Infiniband implementations that are not fork-safe
     kwargs = {'num_workers': 0, 'pin_memory': True} if args.cuda else {}
-    # if (kwargs.get('num_workers', 0) > 0 and hasattr(mp, '_supports_context') and
-    #         mp._supports_context and 'forkserver' in mp.get_all_start_methods()):
-    # kwargs['multiprocessing_context'] = 'spawn'
     from filelock import FileLock
     with FileLock(os.path.expanduser("~/.datalock")):
         train_dataset = \
@@ -230,7 +147,6 @@ def train(state, train_loader, log_writer, verbose):
     train_loss = Metric('train_loss')
     train_accuracy = Metric('train_accuracy')
 
-    print("training started!")
     for batch_idx, (data, target) in enumerate(train_loader):
         # Elastic Horovod: update the current batch index this epoch
         # and commit / check for host updates. Do not check hosts when
@@ -259,7 +175,8 @@ def train(state, train_loader, log_writer, verbose):
             "train/loss": train_loss.avg.item(),
             "train/accuracy": 100. * train_accuracy.avg.item(),
             "total": len(train_loader),
-            "epoch": epoch
+            "epoch": epoch,
+            "world_size": hvd.size()
         })
 
 
@@ -343,10 +260,10 @@ def run(large=False):
 
     # If set > 0, will resume training from a given checkpoint.
     resume_from_epoch = 0
-    # for try_epoch in range(args.epochs, 0, -1):
-    #     if os.path.exists(args.checkpoint_format.format(epoch=try_epoch)):
-    #         resume_from_epoch = try_epoch
-    #         break
+    for try_epoch in range(args.epochs, 0, -1):
+        if os.path.exists(args.checkpoint_format.format(epoch=try_epoch)):
+            resume_from_epoch = try_epoch
+            break
 
     # Load cifar10 dataset
     train_loader, train_sampler = load_data_mnist()
