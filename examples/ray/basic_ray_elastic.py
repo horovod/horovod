@@ -83,7 +83,7 @@ def load_data_mnist():
                            ]))
     train_sampler = ElasticSampler(train_dataset)
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=4, sampler=train_sampler, **kwargs)
+        train_dataset, batch_size=8, sampler=train_sampler, **kwargs)
 
     return train_loader, train_sampler
 
