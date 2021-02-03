@@ -19,25 +19,22 @@ import itertools
 import logging
 import os
 import platform
-import psutil
-import pytest
 import re
 import sys
 import threading
 import time
 import unittest
 import warnings
-
 from distutils.version import LooseVersion
 
 import mock
-
+import psutil
+import pytest
 from pyspark.ml.linalg import DenseVector, SparseVector, VectorUDT
 from pyspark.sql.types import ArrayType, BooleanType, DoubleType, FloatType, IntegerType, \
     NullType, StructField, StructType
 
 import horovod.spark
-
 from horovod.common.util import gloo_built, mpi_built
 from horovod.runner.common.util import codec, secret, safe_shell_exec, timeout
 from horovod.runner.common.util import settings as hvd_settings
@@ -47,17 +44,16 @@ from horovod.spark.common import constants, util
 from horovod.spark.common.store import DBFSLocalStore, HDFSStore, LocalStore, Store
 from horovod.spark.driver.host_discovery import SparkDriverHostDiscovery
 from horovod.spark.driver.rsh import rsh
+from horovod.spark.runner import _task_fn
 from horovod.spark.task import gloo_exec_fn, mpirun_exec_fn
 from horovod.spark.task.task_service import SparkTaskClient
-from horovod.spark.runner import _task_fn
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 from spark_common import spark_driver_service, spark_session, spark_task_service, \
     create_test_data_from_schema, create_xor_data, local_store
 
-from common import is_built, mpi_implementation_flags, tempdir, override_env, undo, delay, spawn
-
+from common import is_built, mpi_implementation_flags, tempdir, override_env, undo, delay
 
 # Spark will fail to initialize correctly locally on Mac OS without this
 if platform.system() == 'Darwin':
