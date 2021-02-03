@@ -393,14 +393,19 @@ class ElasticRayExecutor:
             List of return values from every completed worker.
         """
         return_values = []
-
         from ray.util.queue import Queue
-        _queue = Queue(actor_options={
-            "num_cpus": 0,
-            "resources": {
-                ray.state.current_node_id(): 0.001
-            }
-        })
+        import inspect
+        args = inspect.inspect.getfullargspec(Queue).args
+        if "actor_options" not in args:
+            # Ray 1.1 and less
+            _queue = Queue()
+        else:
+            _queue = Queue(actor_options={
+                "num_cpus": 0,
+                "resources": {
+                    ray.state.current_node_id(): 0.001
+                }
+            })
         self.driver.start(
             self.settings.num_proc,
             self._create_spawn_worker_fn(return_values, worker_fn, _queue))
