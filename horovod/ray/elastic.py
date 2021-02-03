@@ -395,7 +395,7 @@ class ElasticRayExecutor:
         return_values = []
         from ray.util.queue import Queue
         import inspect
-        args = inspect.inspect.getfullargspec(Queue).args
+        args = inspect.getfullargspec(Queue).args
         if "actor_options" not in args:
             # Ray 1.1 and less
             _queue = Queue()
