@@ -866,7 +866,9 @@ class SparkTests(unittest.TestCase):
                 settings = hvd_settings.Settings(verbose=2, key=key)
                 env = {}
 
-                res = rsh(driver.addresses(), key, host_hash, command, env, 0, settings.verbose, False, events=events)
+                res = rsh(driver.addresses(), key, host_hash, command, env, 0, settings.verbose,
+                          stdout=None, stderr=None, prefix_output_with_timestamp=False,
+                          background=False, events=events)
                 self.assertEqual(expected_result, res)
 
     def test_mpirun_exec_fn(self):
