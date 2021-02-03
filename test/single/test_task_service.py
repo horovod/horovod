@@ -4,6 +4,7 @@ import unittest
 
 from horovod.runner.common.service.task_service import BasicTaskService, BasicTaskClient
 from horovod.runner.common.util import secret
+import os
 
 
 class FaultyStream:
@@ -24,7 +25,8 @@ class FaultyStream:
 
 class TaskServiceTest(unittest.TestCase):
 
-    cmd_with_stdout = 'find ../.. | sort'
+    path = os.path.join(os.path.dirname(__file__), os.path.pardir, os.path.pardir)
+    cmd_with_stdout = f'find {path} | sort'
     cmd_with_stdout_and_stderr = f'bash -c "{cmd_with_stdout} >&2 & {cmd_with_stdout}"'
 
     cmd_single_line = f'{cmd_with_stdout} | wc'

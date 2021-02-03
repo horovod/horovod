@@ -25,6 +25,7 @@ import pytest
 from horovod.runner.common.service.task_service import BasicTaskClient, BasicTaskService
 from horovod.runner.common.util import network, secret
 from horovod.runner.util.threads import in_thread
+from horovod.runner.util.stream import Pipe
 
 
 class SleepRequest(object):

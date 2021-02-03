@@ -14,17 +14,22 @@
 # ==============================================================================
 
 import logging
+import io
 import os
 import sys
 import unittest
 import warnings
 
+from distutils.version import LooseVersion
+
 import numpy as np
 
+import pyspark
 from pyspark.ml.linalg import VectorUDT
 from pyspark.sql.types import FloatType, IntegerType
 
 import mock
+import pytest
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -32,16 +37,18 @@ import torch.optim as optim
 
 import horovod
 from horovod.torch.elastic import run
-from horovod.common.util import gloo_built
+from horovod.common.util import gloo_built, mpi_built
+from horovod.runner.mpi_run import is_open_mpi
 import horovod.spark.torch as hvd_spark
 from horovod.spark.common import constants, util
 from horovod.spark.torch import remote
 from horovod.spark.torch.estimator import EstimatorParams, _torch_param_serialize
+from horovod.spark.task import get_available_devices
 import horovod.torch as hvd
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
-from common import tempdir
+from common import tempdir, spawn, is_built
 from spark_common import CallbackBackend, create_xor_data, local_store, spark_session
 
 
@@ -64,12 +71,90 @@ def create_xor_model(input_dim=2, output_dim=1):
     return XOR(input_dim, output_dim)
 
 
+@spawn
+def run_get_available_devices():
+    # Run this test in an isolated "spawned" environment because creating a local-cluster
+    # leads to errors that cause downstream tests to stall:
+    # https://issues.apache.org/jira/browse/SPARK-31922
+    def fn():
+        hvd.init()
+        devices = get_available_devices()
+        return devices, hvd.local_rank()
+
+    with spark_session('test_get_available_devices', gpus=2):
+        return horovod.spark.run(fn, env={'PATH': os.environ.get('PATH')}, verbose=0)
+
+
 class SparkTorchTests(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(SparkTorchTests, self).__init__(*args, **kwargs)
         logging.getLogger('py4j.java_gateway').setLevel(logging.INFO)
         warnings.simplefilter('module')
 
+    """
+    Test that horovod.spark.run works properly in a simple setup using MPI.
+    """
+    def test_happy_run_with_mpi(self):
+        if not (mpi_built() and is_open_mpi()):
+            self.skipTest("Open MPI is not available")
+
+        self.do_test_happy_run(use_mpi=True, use_gloo=False)
+
+    """
+    Test that horovod.spark.run works properly in a simple setup using Gloo.
+    """
+    def test_happy_run_with_gloo(self):
+        if not gloo_built():
+            self.skipTest("Gloo is not available")
+
+        self.do_test_happy_run(use_mpi=False, use_gloo=True)
+
+    """
+    Actually tests that horovod.spark.run works properly in a simple setup.
+    """
+    def do_test_happy_run(self, use_mpi, use_gloo):
+        def fn():
+            hvd.init()
+            res = hvd.allgather(torch.tensor([hvd.rank()])).tolist()
+            return res, hvd.rank()
+
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with spark_session('test_happy_run'):
+            with is_built(gloo_is_built=use_gloo, mpi_is_built=use_mpi):
+                res = horovod.spark.run(fn, start_timeout=10,
+                                        use_mpi=use_mpi, use_gloo=use_gloo,
+                                        stdout=stdout, stderr=stderr,
+                                        verbose=2)
+                self.assertListEqual([([0, 1], 0), ([0, 1], 1)], res)
+                self.assertEqual('', stdout.getvalue())
+                self.assertEqual('', stderr.getvalue())
+
+    """
+    Test that horovod.spark.run_elastic works properly in a simple setup.
+    """
+    def test_happy_run_elastic(self):
+        if not gloo_built():
+            self.skipTest("Gloo is not available")
+
+        def fn():
+            # training function does not use ObjectState and @hvd.elastic.run
+            # only testing distribution of state-less training function here
+            # see test_spark_torch.py for testing that
+            hvd.init()
+            res = hvd.allgather(torch.tensor([hvd.rank()])).tolist()
+            return res, hvd.rank()
+
+        with spark_session('test_happy_run_elastic'):
+            res = horovod.spark.run_elastic(fn, num_proc=2, min_np=2, max_np=2,
+                                            start_timeout=10, verbose=2)
+            self.assertListEqual([([0, 1], 0), ([0, 1], 1)], res)
+
+    @pytest.mark.skipif(LooseVersion(pyspark.__version__) < LooseVersion('3.0.0'),
+                        reason='get_available_devices only supported in Spark 3.0 and above')
+    def test_get_available_devices(self):
+        res = run_get_available_devices()
+        self.assertListEqual([(['1'], 0), (['0'], 1)], res)
 
     def test_fit_model(self):
         model = create_xor_model()

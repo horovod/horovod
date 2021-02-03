@@ -62,11 +62,12 @@ def gloo_run(settings, nics, driver, env, stdout=None, stderr=None):
                codec.dumps_base64(driver.addresses()),
                codec.dumps_base64(settings))
 
-    exec_command = _exec_command_fn(driver, key, settings, env, stdout, stderr)
+    exec_command = _exec_command_fn(driver, key, settings, env,
+                                    stdout, stderr, settings.prefix_output_with_timestamp)
     launch_gloo(command, exec_command, settings, nics, {}, server_ip)
 
 
-def gloo_run_elastic(settings, driver, env):
+def gloo_run_elastic(settings, driver, env, stdout=None, stderr=None):
     """
     Run distributed gloo jobs.
 
@@ -74,6 +75,8 @@ def gloo_run_elastic(settings, driver, env):
                      Note: settings.num_proc and settings.hosts must not be None.
     :param driver: The Spark driver service that tasks are connected to.
     :param env: Environment dictionary to use for running gloo jobs.  Can be None.
+    :param stdout: Horovod stdout is redirected to this stream.
+    :param stderr: Horovod stderr is redirected to this stream.
     """
     if env is None:
         env = {}
@@ -92,6 +95,7 @@ def gloo_run_elastic(settings, driver, env):
     # get common interfaces from driver
     nics = driver.get_common_interfaces()
 
-    exec_command = _exec_command_fn(driver, settings.key, settings, env)
+    exec_command = _exec_command_fn(driver, settings.key, settings, env,
+                                    stdout, stderr, settings.prefix_output_with_timestamp)
     rendezvous = SparkRendezvousServer(driver, settings.verbose)
     launch_gloo_elastic(command, exec_command, settings, env, lambda _: nics, rendezvous)

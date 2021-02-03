@@ -304,7 +304,9 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
 
 
 def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
-                start_timeout=None, elastic_timeout=None, reset_limit=None, env=None, verbose=1, nics=None):
+                start_timeout=None, elastic_timeout=None, reset_limit=None, env=None,
+                stdout=None, stderr=None, verbose=1, nics=None,
+                prefix_output_with_timestamp=False):
     """
     Runs Elastic Horovod on Spark.  Runs `num_proc` processes executing `fn` using the same amount of Spark tasks.
 
@@ -321,8 +323,11 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
                        If it is not set as well, defaults to 600 seconds.
         reset_limit: Maximum number of resets after which the job is terminated.
         env: Environment dictionary to use in Horovod run.  Defaults to `os.environ`.
+        stdout: Horovod stdout is redirected to this stream.
+        stderr: Horovod stderr is redirected to this stream.
         verbose: Debug output verbosity (0-2). Defaults to 1.
         nics: List of NICs for tcp network communication.
+        prefix_output_with_timestamp: shows timestamp in stdout/stderr forwarding on the driver
 
     Returns:
         List of results returned by running `fn` on each rank.
@@ -386,7 +391,8 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
                                                     key=key,
                                                     start_timeout=tmout,
                                                     nics=nics,
-                                                    run_func_mode=True)
+                                                    run_func_mode=True,
+                                                    prefix_output_with_timestamp=prefix_output_with_timestamp)
 
     result_queue = queue.Queue(1)
 
@@ -398,7 +404,7 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
         _register_task_addresses(driver, settings)
 
         # Run the job
-        gloo_run_elastic(settings, driver, env)
+        gloo_run_elastic(settings, driver, env, stdout, stderr)
     except:
         # Terminate Spark job.
         spark_context.cancelJobGroup(spark_job_group)
