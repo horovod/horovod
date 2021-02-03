@@ -601,7 +601,7 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
                          sparse_as_dense=False, backward_passes_per_step=1,
                          op=Average, gradient_predivide_factor=1.0,
                          average_aggregated_gradients=False,
-                         groups=None):
+                         num_groups=0, groups=None):
     """Construct a new DistributedOptimizer, which uses another optimizer
     under the hood for computing single-process gradient values and
     applying gradient updates after the gradient values have been combined
@@ -647,6 +647,9 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
         Whether to average the aggregated gradients that have been accumulated
         over multiple mini-batches. If true divides gradients updates by
         backward_passes_per_step. Only applicable for backward_passes_per_step > 1.
+      num_groups:
+        Number of groups to assign gradient allreduce ops to for explicit
+        grouping. Defaults to no explicit groups.
       groups:
         The parameter to group the gradient allreduce ops. Accept values is a
         non-negative integer or a list of list of tf.Variable.
@@ -665,6 +668,12 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
 
     if op == Adasum and average_aggregated_gradients:
         raise ValueError('Adasum does not support average_aggregated_gradients == True')
+
+    if num_groups != 0:
+        warnings.warn('Parameter `num_groups` has been replaced by `groups` '
+                      'and will be removed in v0.23.0.', DeprecationWarning)
+        if groups is None:
+            groups = num_groups
 
     if groups is not None:
         if not (isinstance(groups, list) or groups > 0):
@@ -734,7 +743,7 @@ if hasattr(tf, 'GradientTape'):
     def DistributedGradientTape(gradtape, device_dense='', device_sparse='',
                                 compression=Compression.none, sparse_as_dense=False,
                                 op=Average, gradient_predivide_factor=1.0,
-                                groups=None):
+                                num_groups=0, groups=None):
         """A tape that wraps another tf.GradientTape, using an allreduce to
         combine gradient values before applying gradients to model weights.
 
@@ -763,6 +772,9 @@ if hasattr(tf, 'GradientTape'):
             before and after the sum. Gradients are scaled by
             1.0 / gradient_predivide_factor before the sum and
             gradient_predivide_factor / size after the sum.
+          num_groups:
+            Number of groups to assign gradient allreduce ops to for explicit
+            grouping. Defaults to no explicit groups.
           groups:
             The parameter to group the gradient allreduce ops. Accept values is a
             non-negative integer or a list of list of tf.Variable.
@@ -778,6 +790,12 @@ if hasattr(tf, 'GradientTape'):
                 raise ValueError('gradient_predivide_factor not supported yet with ROCm')
             if op != Average:
                 raise ValueError('gradient_predivide_factor not supported with op != Average')
+
+        if num_groups != 0:
+            warnings.warn('Parameter `num_groups` has been replaced by `groups` '
+                          'and will be removed in v0.23.0.', DeprecationWarning)
+            if groups is None:
+                groups = num_groups
 
         if groups is not None:
             if not (isinstance(groups, list) or groups > 0):

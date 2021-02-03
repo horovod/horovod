@@ -471,7 +471,7 @@ def DistributedOptimizer(optimizer, named_parameters=None,
                          backward_passes_per_step=1,
                          op=Average,
                          gradient_predivide_factor=1.0,
-                         groups=None):
+                         num_groups=0, groups=None):
     """
     An optimizer that wraps another torch.optim.Optimizer, using an allreduce to
     combine gradient values before applying gradients to model weights.
@@ -514,6 +514,8 @@ def DistributedOptimizer(optimizer, named_parameters=None,
                                    before and after the sum. Gradients are scaled by
                                    1.0 / gradient_predivide_factor before the sum and
                                    gradient_predivide_factor / size after the sum.
+        num_groups: Number of groups to assign gradient allreduce ops to for explicit
+                    grouping. Defaults to no explicit groups.
         groups: The parameter to group the gradient allreduce ops. Accept values is a
                 non-negative integer or a list of list of torch.Tensor.
                 If groups is a non-negative integer, it is the number of groups to assign
@@ -530,6 +532,12 @@ def DistributedOptimizer(optimizer, named_parameters=None,
             raise ValueError('gradient_predivide_factor not supported yet with ROCm')
         if op != Average:
             raise ValueError('gradient_predivide_factor not supported with op != Average')
+
+    if num_groups != 0:
+        warnings.warn('Parameter `num_groups` has been replaced by `groups` '
+                      'and will be removed in v0.23.0.', DeprecationWarning)
+        if groups is None:
+            groups = num_groups
 
     if op != Adasum or size() == 1:
         cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
