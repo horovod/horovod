@@ -112,6 +112,8 @@ class SparkTorchTests(unittest.TestCase):
     def do_test_happy_run(self, use_mpi, use_gloo):
         def fn():
             hvd.init()
+            print(f'running fn {hvd.size()}')
+            print(f'error line', file=sys.stderr)
             res = hvd.allgather(torch.tensor([hvd.rank()])).tolist()
             return res, hvd.rank()
 
@@ -121,31 +123,18 @@ class SparkTorchTests(unittest.TestCase):
             with is_built(gloo_is_built=use_gloo, mpi_is_built=use_mpi):
                 res = horovod.spark.run(fn, start_timeout=10,
                                         use_mpi=use_mpi, use_gloo=use_gloo,
-                                        stdout=stdout, stderr=stderr,
+                                        stdout=stdout if use_gloo else None,
+                                        stderr=stderr if use_gloo else None,
                                         verbose=2)
                 self.assertListEqual([([0, 1], 0), ([0, 1], 1)], res)
-                self.assertEqual('', stdout.getvalue())
-                self.assertEqual('', stderr.getvalue())
 
-    """
-    Test that horovod.spark.run_elastic works properly in a simple setup.
-    """
-    def test_happy_run_elastic(self):
-        if not gloo_built():
-            self.skipTest("Gloo is not available")
-
-        def fn():
-            # training function does not use ObjectState and @hvd.elastic.run
-            # only testing distribution of state-less training function here
-            # see test_spark_torch.py for testing that
-            hvd.init()
-            res = hvd.allgather(torch.tensor([hvd.rank()])).tolist()
-            return res, hvd.rank()
-
-        with spark_session('test_happy_run_elastic'):
-            res = horovod.spark.run_elastic(fn, num_proc=2, min_np=2, max_np=2,
-                                            start_timeout=10, verbose=2)
-            self.assertListEqual([([0, 1], 0), ([0, 1], 1)], res)
+                if use_gloo:
+                    self.assertRegex(stdout.getvalue(),
+                                     r'\[[01]\]<stdout>:running fn 2\n'
+                                     r'\[[01]\]<stdout>:running fn 2\n')
+                    self.assertRegex(stderr.getvalue(),
+                                     r'\[[01]\]<stderr>:error line\n'
+                                     r'\[[01]\]<stderr>:error line\n')
 
     @pytest.mark.skipif(LooseVersion(pyspark.__version__) < LooseVersion('3.0.0'),
                         reason='get_available_devices only supported in Spark 3.0 and above')
@@ -521,12 +510,17 @@ class SparkTorchTests(unittest.TestCase):
         if not gloo_built():
             self.skipTest("Gloo is not available")
 
+        stdout = io.StringIO()
+        stderr = io.StringIO()
         with spark_session('test_happy_run_elastic'):
             res = horovod.spark.run_elastic(fn, args=(2, 5, 4),
                                             num_proc=2, min_np=2, max_np=2,
+                                            stdout=stdout, stderr=stderr,
                                             start_timeout=10, verbose=2)
             self.assertListEqual([([0, 3, 0, 1, 1, 3, 0, 1], 0),
                                   ([0, 3, 0, 1, 1, 3, 0, 1], 1)], res)
+            self.assertEqual('', stdout.getvalue())
+            self.assertEqual('', stderr.getvalue())
 
     """
     Test that horovod.spark.run_elastic works properly in a fault-tolerant situation.

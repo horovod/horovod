@@ -1,10 +1,24 @@
+# Copyright 2021 Uber Technologies, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 import io
 import re
 import unittest
 
 from horovod.runner.common.service.task_service import BasicTaskService, BasicTaskClient
 from horovod.runner.common.util import secret
-import os
 
 
 class FaultyStream:
@@ -25,24 +39,59 @@ class FaultyStream:
 
 class TaskServiceTest(unittest.TestCase):
 
-    path = os.path.join(os.path.dirname(__file__), os.path.pardir, os.path.pardir)
-    cmd_with_stdout = f'find {path} | sort'
-    cmd_with_stdout_and_stderr = f'bash -c "{cmd_with_stdout} >&2 & {cmd_with_stdout}"'
+    cmd = 'for i in {1..10000}; do echo "a very very useful log line #$i"; done'
+    cmd_single_line = f'{cmd} | wc'
 
-    cmd_single_line = f'{cmd_with_stdout} | wc'
-    cmd_single_line_both = f'bash -c "{cmd_single_line} >&2 & {cmd_single_line}"'
+    @staticmethod
+    def cmd_with(stdout, stderr):
+        return f"bash -c '{stderr} >&2 & {stdout}'"
 
     def test_run_command(self):
         key = secret.make_secret_key()
         service = BasicTaskService('test service', 0, key, nics=None, verbose=2)
         try:
             client = BasicTaskClient('test service', service.addresses(), key, verbose=2, attempts=1)
-            client.run_command(self.cmd_single_line_both, {})
+            client.run_command(self.cmd_with(self.cmd_single_line, self.cmd_single_line), {})
             exit = client.wait_for_command_exit_code()
             self.assertEqual(0, exit)
             self.assertEqual((True, 0), client.command_result())
         finally:
             service.shutdown()
+
+    def test_stream_command_output(self):
+        self.do_test_stream_command_output(
+            self.cmd_with(self.cmd, self.cmd),
+            capture_stdout=True, capture_stderr=True,
+            prefix_output_with_timestamp=True
+        )
+
+    def test_stream_command_output_stdout(self):
+        self.do_test_stream_command_output(
+            self.cmd_with(self.cmd, self.cmd_single_line),
+            capture_stdout=True, capture_stderr=False,
+            prefix_output_with_timestamp=True
+        )
+
+    def test_stream_command_output_stderr(self):
+        self.do_test_stream_command_output(
+            self.cmd_with(self.cmd_single_line, self.cmd),
+            capture_stdout=False, capture_stderr=True,
+            prefix_output_with_timestamp=True
+        )
+
+    def test_stream_command_output_neither(self):
+        self.do_test_stream_command_output(
+            self.cmd_with(self.cmd_single_line, self.cmd_single_line),
+            capture_stdout=False, capture_stderr=False,
+            prefix_output_with_timestamp=True
+        )
+
+    def test_stream_command_output_un_prefixed(self):
+        self.do_test_stream_command_output(
+            self.cmd_with(self.cmd, self.cmd),
+            capture_stdout=True, capture_stderr=True,
+            prefix_output_with_timestamp=False
+        )
 
     def do_test_stream_command_output(self,
                                       command,
@@ -109,31 +158,6 @@ class TaskServiceTest(unittest.TestCase):
             self.assertTrue(len(stderr) > 1024)
             self.assertTrue(len(stderr.splitlines()) > 10)
 
-    def test_stream_command_output(self):
-        self.do_test_stream_command_output(self.cmd_with_stdout_and_stderr,
-                                           capture_stdout=True, capture_stderr=True,
-                                           prefix_output_with_timestamp=True)
-
-    def test_stream_command_output_stdout(self):
-        self.do_test_stream_command_output(self.cmd_with_stdout_and_stderr,
-                                           capture_stdout=True, capture_stderr=False,
-                                           prefix_output_with_timestamp=True)
-
-    def test_stream_command_output_stderr(self):
-        self.do_test_stream_command_output(self.cmd_with_stdout_and_stderr,
-                                           capture_stdout=False, capture_stderr=True,
-                                           prefix_output_with_timestamp=True)
-
-    def test_stream_command_output_neither(self):
-        self.do_test_stream_command_output(self.cmd_single_line_both,
-                                           capture_stdout=False, capture_stderr=False,
-                                           prefix_output_with_timestamp=True)
-
-    def test_stream_command_output_un_prefixed(self):
-        self.do_test_stream_command_output(self.cmd_with_stdout_and_stderr,
-                                           capture_stdout=True, capture_stderr=True,
-                                           prefix_output_with_timestamp=False)
-
     def test_stream_command_output_reconnect(self):
         self.do_test_stream_command_output_reconnect(attempts=3, succeeds=True)
 
@@ -151,7 +175,7 @@ class TaskServiceTest(unittest.TestCase):
         try:
             client = BasicTaskClient('test service', service.addresses(), key, verbose=2, attempts=attempts)
             stdout_t, stderr_t = client.stream_command_output(stdout_s, stderr_s)
-            client.run_command(self.cmd_with_stdout_and_stderr, {},
+            client.run_command(self.cmd_with(self.cmd, self.cmd), {},
                                capture_stdout=True, capture_stderr=True,
                                prefix_output_with_timestamp=False)
             client.wait_for_command_termination(delay=0.2)

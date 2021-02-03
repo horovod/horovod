@@ -13,8 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
-import threading
 import abc
+import threading
 
 from horovod.runner.common import util
 from horovod.runner.common.util import network, safe_shell_exec, timeout
