@@ -276,8 +276,6 @@ class BasicClient(object):
                     wfile.close()
             except:
                 if iter == self._attempts - 1:
-                    if stream:
-                        stream.close()
                     # Raise exception on the last retry.
                     raise
             finally:

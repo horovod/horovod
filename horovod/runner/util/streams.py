@@ -2,6 +2,7 @@ import threading
 
 
 class Pipe:
+    """A pipe that can be written and read concurrently. Buffers the last written string only."""
     def __init__(self):
         self._buf = None
         self._offs = None

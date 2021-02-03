@@ -1,4 +1,4 @@
-from runner.util.stream import Pipe
+from runner.util.streams import Pipe
 from horovod.runner.util.threads import in_thread
 
 import unittest

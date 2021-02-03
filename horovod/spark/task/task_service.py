@@ -72,7 +72,8 @@ class SparkTaskService(task_service.BasicTaskService):
                      stdout=None, stderr=None, index=None,
                      prefix_output_with_timestamp=False):
         super(SparkTaskService, self)._run_command(command, env, event,
-                                                   stdout, stderr, prefix_output_with_timestamp)
+                                                   stdout, stderr, index,
+                                                   prefix_output_with_timestamp)
 
         if self._minimum_command_lifetime_s is not None:
             self._minimum_command_lifetime = timeout.Timeout(self._minimum_command_lifetime_s,

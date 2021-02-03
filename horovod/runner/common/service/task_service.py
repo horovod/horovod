@@ -18,7 +18,7 @@ import abc
 
 from horovod.runner.common import util
 from horovod.runner.common.util import network, safe_shell_exec, timeout
-from horovod.runner.util.stream import Pipe
+from horovod.runner.util.streams import Pipe
 from horovod.runner.util.threads import in_thread
 
 WAIT_FOR_COMMAND_MIN_DELAY = 0.1
