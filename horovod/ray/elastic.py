@@ -426,7 +426,10 @@ class ElasticRayExecutor:
             _callback_thread.start()
             res = self.driver.get_results()
         finally:
-            _queue.shutdown()
+            if hasattr(queue, "shutdown"):
+                _queue.shutdown()
+            else:
+                ray.kill(_queue.actor)
             if _callback_thread:
                 _callback_thread.join()
         self.driver.stop()
