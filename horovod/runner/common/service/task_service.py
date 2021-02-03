@@ -14,6 +14,7 @@
 # ==============================================================================
 
 import threading
+import abc
 
 from horovod.runner.common import util
 from horovod.runner.common.util import network, safe_shell_exec, timeout
@@ -24,17 +25,30 @@ WAIT_FOR_COMMAND_MIN_DELAY = 0.1
 
 
 class RunCommandRequest(object):
-    def __init__(self, command, env, capture=False):
+    def __init__(self, command, env, capture_stdout=False, capture_stderr=False,
+                 prefix_output_with_timestamp=False):
         self.command = command
         """Command to run."""
         self.env = env
         """Environment to use."""
-        self.capture = capture
-        """Captures stdout and stderr of command if True."""
+        self.capture_stdout = capture_stdout
+        """Captures stdout of command if True."""
+        self.capture_stderr = capture_stderr
+        """Captures stderr of command if True."""
+        self.prefix_output_with_timestamp = prefix_output_with_timestamp
 
 
-class StreamCommandOutputRequest(object):
-    """Streams the command stdout and stderr to the client."""
+class StreamCommandOutputRequest(object, metaclass=abc.ABCMeta):
+    pass
+
+
+class StreamCommandStdOutRequest(StreamCommandOutputRequest):
+    """Streams the command stdout to the client."""
+    pass
+
+
+class StreamCommandStdErrRequest(StreamCommandOutputRequest):
+    """Streams the command stderr to the client."""
     pass
 
 
@@ -98,7 +112,8 @@ class BasicTaskService(network.BasicService):
         self._wait_cond = threading.Condition()
         self._index = index
         self._command_env = command_env
-        self._command_output = None
+        self._command_stdout = None
+        self._command_stderr = None
         self._command_abort = None
         self._command_exit_code = None
         self._verbose = verbose
@@ -106,12 +121,15 @@ class BasicTaskService(network.BasicService):
         self._command_thread = None
         self._fn_result = None
 
-    def _run_command(self, command, env, event, stdout=None, stderr=None, index=None):
+    def _run_command(self, command, env, event,
+                     stdout=None, stderr=None, index=None,
+                     prefix_output_with_timestamp=False):
         self._command_exit_code = safe_shell_exec.execute(
             command,
             env=env,
             stdout=stdout, stderr=stderr,
-            index=index, prefix_output_with_timestamp=index is not None,
+            index=index,
+            prefix_output_with_timestamp=prefix_output_with_timestamp,
             events=[event])
         if stdout:
             stdout.close()
@@ -153,14 +171,12 @@ class BasicTaskService(network.BasicService):
 
                     # We only permit executing exactly one command, so this is idempotent.
                     self._command_abort = threading.Event()
-                    if req.capture:
-                        self._command_output = Pipe()
-                        args = (req.command, req.env, self._command_abort,
-                                self._command_output, self._command_output,
-                                self._index)
-                    else:
-                        args = (req.command, req.env, self._command_abort)
-
+                    self._command_stdout = Pipe() if req.capture_stdout else None
+                    self._command_stderr = Pipe() if req.capture_stderr else None
+                    args = (req.command, req.env, self._command_abort,
+                            self._command_stdout, self._command_stderr,
+                            self._index,
+                            req.prefix_output_with_timestamp)
                     self._command_thread = in_thread(self._run_command, args)
             finally:
                 self._wait_cond.notify_all()
@@ -171,24 +187,23 @@ class BasicTaskService(network.BasicService):
             # Wait for command to start
             self.wait_for_command_start()
 
-            self._wait_cond.acquire()
-            try:
-                # Fail if command does not capture
-                if self._command_output is None:
-                    return CommandOutputNotCaptured()
-
-                # We only expect streaming the command output once concurrently
-                return network.AckStreamResponse(), self._command_output
-            finally:
-                self._wait_cond.release()
+            # We only expect streaming each command output stream once concurrently
+            if isinstance(req, StreamCommandStdOutRequest):
+                return self.stream_output(self._command_stdout)
+            elif isinstance(req, StreamCommandStdErrRequest):
+                return self.stream_output(self._command_stderr)
+            else:
+                return CommandOutputNotCaptured()
 
         if isinstance(req, AbortCommandRequest):
             self._wait_cond.acquire()
             try:
                 if self._command_thread is not None:
                     self._command_abort.set()
-                if self._command_output is not None:
-                    self._command_output.close()
+                if self._command_stdout is not None:
+                    self._command_stdout.close()
+                if self._command_stderr is not None:
+                    self._command_stderr.close()
             finally:
                 self._wait_cond.release()
             return network.AckResponse()
@@ -285,6 +300,16 @@ class BasicTaskService(network.BasicService):
     def command_exit_code(self):
         return self._command_exit_code
 
+    def stream_output(self, stream):
+        self._wait_cond.acquire()
+        try:
+            # Fail if command does not capture this stream
+            if stream is None:
+                return CommandOutputNotCaptured()
+            return network.AckStreamResponse(), stream
+        finally:
+            self._wait_cond.release()
+
 
 class BasicTaskClient(network.BasicClient):
     def __init__(self, service_name, task_addresses, key, verbose,
@@ -294,17 +319,23 @@ class BasicTaskClient(network.BasicClient):
                                               match_intf=match_intf,
                                               attempts=attempts)
 
-    def run_command(self, command, env, capture=False):
-        self._send(RunCommandRequest(command, env, capture))
+    def run_command(self, command, env,
+                    capture_stdout=False, capture_stderr=False,
+                    prefix_output_with_timestamp=False):
+        self._send(RunCommandRequest(command, env,
+                                     capture_stdout, capture_stderr,
+                                     prefix_output_with_timestamp))
 
-    def stream_command_output(self, stream):
-        def stream_output():
+    def stream_command_output(self, stdout=None, stderr=None):
+        def send(req, stream):
             try:
-                self._send(StreamCommandOutputRequest(), stream)
-            except:
+                self._send(req, stream)
+            except Exception as e:
                 self.abort_command()
+                raise e
 
-        return in_thread(stream_output)
+        return (in_thread(send, (StreamCommandStdOutRequest(), stdout)) if stdout else None,
+                in_thread(send, (StreamCommandStdErrRequest(), stderr)) if stderr else None)
 
     def abort_command(self):
         self._send(AbortCommandRequest())
