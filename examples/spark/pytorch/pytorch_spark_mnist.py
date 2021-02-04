@@ -102,7 +102,9 @@ if __name__ == '__main__':
     loss = nn.NLLLoss()
 
     # Train a Horovod Spark Estimator on the DataFrame
-    backend = SparkBackend(num_proc=args.num_proc, stdout=sys.stdout, stderr=sys.stderr)
+    backend = SparkBackend(num_proc=args.num_proc,
+                           stdout=sys.stdout, stderr=sys.stderr,
+                           prefix_output_with_timestamp=True)
     torch_estimator = hvd.TorchEstimator(backend=backend,
                                          store=store,
                                          model=model,

@@ -49,7 +49,7 @@ class AckResponse(object):
 
 
 class AckStreamResponse(object):
-    """Used for response that streams data."""
+    """Used to indicate that stream data follow."""
     pass
 
 
@@ -81,7 +81,7 @@ class Wire(object):
         wfile.flush()
 
     def stream(self, stream, wfile):
-        """Writes data from the stream to the wfile until stream exhausts."""
+        """Transfers data from the utf8 text stream to the wfile until stream exhausts."""
         # we assume utf8 encoding of the stream
         from encodings.utf_8 import StreamWriter
         w = StreamWriter(wfile)
@@ -122,7 +122,7 @@ class BasicService(object):
                     resp = server._handle(req, self.client_address)
                     if not resp:
                         raise Exception('Handler did not return a response.')
-                    # A tuple is expected to be the usual response object and a utf8 text stream
+                    # A tuple is the usual response object followed by a utf8 text stream
                     if type(resp) == tuple:
                         (resp, stream) = resp
                         server._wire.write(resp, self.wfile)
@@ -138,7 +138,7 @@ class BasicService(object):
     def _handle(self, req, client_address):
         """
         Returns the response to be sent to the client.
-        Can be a single object, or a tuple of an object and a text stream.
+        Can be a single pickle-able object, or a tuple of such an object and a utf8 text stream.
         """
         if isinstance(req, PingRequest):
             return PingResponse(self._service_name, client_address[0])
@@ -266,7 +266,7 @@ class BasicClient(object):
     def _send_one(self, addr, req, stream=None):
         """
         Send the request to the server and retry on errors.
-        Streams a AckStreamResponse to the given utf8 text stream.
+        Streams data that follow a AckStreamResponse to the given utf8 text stream.
         """
         for iter in range(self._attempts):
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -278,6 +278,7 @@ class BasicClient(object):
                     self._wire.write(req, wfile)
                     resp = self._wire.read(rfile)
                     if stream and isinstance(resp, AckStreamResponse):
+                        # stream and byte content in rfile are expected to be utf8 text
                         from encodings.utf_8 import StreamReader
                         r = StreamReader(rfile)
                         shutil.copyfileobj(r, stream)
@@ -293,6 +294,10 @@ class BasicClient(object):
                 sock.close()
 
     def _send(self, req, stream=None):
+        """
+        Sends the request and returns the response object.
+        Streaming data response is transferred to the optional stream parameter.
+        """
         # Since all the addresses were vetted, use the first one.
         addr = list(self._addresses.values())[0][0]
         return self._send_one(addr, req, stream)

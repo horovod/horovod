@@ -32,9 +32,9 @@ class RunCommandRequest(object):
         self.env = env
         """Environment to use."""
         self.capture_stdout = capture_stdout
-        """Captures stdout of command if True."""
+        """Captures stdout of command if True. Retrieve content via StreamCommandStdOutRequest."""
         self.capture_stderr = capture_stderr
-        """Captures stderr of command if True."""
+        """Captures stderr of command if True. Retrieve content via StreamCommandErrOutRequest."""
         self.prefix_output_with_timestamp = prefix_output_with_timestamp
 
 

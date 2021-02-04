@@ -370,7 +370,9 @@ if __name__ == '__main__':
 
     # Horovod: run training.
     store = Store.create(args.work_dir)
-    backend = SparkBackend(num_proc=args.num_proc, stdout=sys.stdout, stderr=sys.stderr)
+    backend = SparkBackend(num_proc=args.num_proc,
+                           stdout=sys.stdout, stderr=sys.stderr,
+                           prefix_output_with_timestamp=True)
     keras_estimator = hvd.KerasEstimator(backend=backend,
                                          store=store,
                                          model=model,
