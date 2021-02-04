@@ -419,7 +419,7 @@ class ElasticRayExecutor:
                     for c in callbacks:
                         c(result)
                     # avoid slamming the CI
-                    time.sleep(0.1)
+                    time.sleep(0.01)
 
         _callback_thread = None
         try:
