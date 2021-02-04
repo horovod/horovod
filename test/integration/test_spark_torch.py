@@ -22,7 +22,7 @@ import warnings
 import numpy as np
 
 from pyspark.ml.linalg import VectorUDT
-from pyspark.sql.types import DoubleType, LongType
+from pyspark.sql.types import FloatType, IntegerType
 
 import mock
 import torch
@@ -139,6 +139,7 @@ class SparkTorchTests(unittest.TestCase):
                 torch_estimator._load_checkpoint.assert_called()
 
     def test_transform_multi_class(self):
+        # set dim as 2, to mock a multi class model.
         model = create_xor_model(output_dim=2)
 
         with spark_session('test_transform_multi_class') as spark:
@@ -153,12 +154,13 @@ class SparkTorchTests(unittest.TestCase):
                                                _metadata=metadata)
             out_df = torch_model.transform(df)
 
+            # in multi class model, model output is a vector but label is number.
             expected_types = {
-                'x1': LongType,
-                'x2': LongType,
+                'x1': IntegerType,
+                'x2': IntegerType,
                 'features': VectorUDT,
-                'weight': DoubleType,
-                'y': DoubleType,
+                'weight': FloatType,
+                'y': FloatType,
                 'y__output': VectorUDT
             }
 

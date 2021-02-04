@@ -1749,3 +1749,35 @@ class SparkTests(unittest.TestCase):
                 reconstructed_model_local = deserialize_keras_model(serialized_model_local)
                 if LooseVersion(tensorflow.__version__) >= LooseVersion("2.3.0"):
                     assert reconstructed_model_local.get_config() == model.get_config()
+
+
+    def test_output_df_schema(self):
+        label_cols = ['y1', 'y_embedding']
+        output_cols = [col + '_pred' for col in label_cols]
+
+        schema = StructType([StructField('x1', DoubleType()),
+                             StructField('x2', IntegerType()),
+                             StructField('features', VectorUDT()),
+                             StructField('y1', FloatType()),
+                             StructField('y_embedding', VectorUDT())])
+        data = [[1.0, 1, DenseVector([1.0] * 12), 1.0, DenseVector([1.0] * 12)]] * 10
+
+        with spark_session('test_df_cache') as spark:
+            df = create_test_data_from_schema(spark, data, schema)
+            metadata = util._get_metadata(df)
+
+            output_schema = util.get_spark_df_output_schema(df.schema, label_cols, output_cols, metadata)
+
+            # check output schema size
+            assert len(output_schema.fields) == len(df.schema.fields) + len(output_cols)
+
+            # check input col type
+            output_field_dict = {f.name: f for f in output_schema.fields}
+            for input_feild in df.schema.fields:
+                assert type(output_field_dict[input_feild.name].dataType) == type(input_feild.dataType)
+                assert output_field_dict[input_feild.name].nullable == input_feild.nullable
+
+            # check output col type
+            for label, output in zip(label_cols, output_cols):
+                assert type(output_field_dict[label].dataType) == type(output_field_dict[output].dataType)
+                assert output_field_dict[label].nullable == output_field_dict[output].nullable
