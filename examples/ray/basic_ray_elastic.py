@@ -109,12 +109,11 @@ class tqdm_callback:
 
         if reset:
             if self._progress_bar is not None:
-                self._progress_bar.reset(total=info["total"])
-            else:
-                epoch = self._current_epoch + 1
-                self._progress_bar = tqdm(
-                    total=info["total"],
-                    desc=f'[mode={tqdm_mode}] Epoch     #{epoch}')
+                self._progress_bar.close()
+            epoch = self._current_epoch + 1
+            self._progress_bar = tqdm(
+                total=info["total"],
+                desc=f'[mode={tqdm_mode}] Epoch     #{epoch}')
 
         scoped = {k: v for k, v in info.items() if k.startswith(tqdm_mode)}
         self._progress_bar.set_postfix(scoped)
