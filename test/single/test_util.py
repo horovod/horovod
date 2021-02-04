@@ -139,3 +139,11 @@ class UtilTests(unittest.TestCase):
     def test_pipe_flush(self):
         pipe = Pipe()
         pipe.flush()
+
+    def test_pipe_with_bytes(self):
+        pipe = Pipe()
+        pipe.write('∀∁∂∃∄∅'.encode('utf8'))
+        self.assertEqual(b'\xe2\x88', pipe.read(2))
+        self.assertEqual(b'\x80\xe2\x88\x81', pipe.read(4))
+        self.assertEqual(b'\xe2\x88\x82\xe2\x88\x83\xe2\x88', pipe.read(8))
+        self.assertEqual(b'\x84\xe2\x88\x85', pipe.read())

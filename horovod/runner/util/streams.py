@@ -17,7 +17,10 @@ import threading
 
 
 class Pipe:
-    """A pipe that can be written and read concurrently. Buffers the last written string only."""
+    """
+    A pipe that can be written and read concurrently.
+    Works with strings and bytes. Buffers the last written string/bytes only.
+    """
     def __init__(self):
         self._buf = None
         self._offs = None

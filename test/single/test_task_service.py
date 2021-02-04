@@ -162,7 +162,7 @@ class TaskServiceTest(unittest.TestCase):
         self.do_test_stream_command_output_reconnect(attempts=3, succeeds=True)
 
     def test_stream_command_output_no_reconnect(self):
-        self.do_test_stream_command_output_reconnect(attempts=1, succeeds=False)
+        self.do_test_stream_command_output_reconnect(attempts=1, succeeds=None)
 
     def do_test_stream_command_output_reconnect(self, attempts, succeeds):
         key = secret.make_secret_key()
@@ -182,10 +182,8 @@ class TaskServiceTest(unittest.TestCase):
             terminated, exit = client.command_result()
             self.assertEqual(True, terminated)
 
-            if succeeds:
-                self.assertEqual(0, exit)
-            else:
-                self.assertTrue(exit != 0)
+            if succeeds is not None:
+                self.assertEqual(succeeds, exit == 0)
 
             if stdout_t is not None:
                 stdout_t.join(1.0)

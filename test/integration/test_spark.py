@@ -15,6 +15,7 @@
 
 import contextlib
 import copy
+import io
 import itertools
 import logging
 import os
@@ -29,6 +30,7 @@ from distutils.version import LooseVersion
 
 import mock
 import psutil
+import pyspark
 import pytest
 from pyspark.ml.linalg import DenseVector, SparseVector, VectorUDT
 from pyspark.sql.types import ArrayType, BooleanType, DoubleType, FloatType, IntegerType, \
@@ -45,6 +47,7 @@ from horovod.spark.common.store import DBFSLocalStore, HDFSStore, LocalStore, St
 from horovod.spark.driver.host_discovery import SparkDriverHostDiscovery
 from horovod.spark.driver.rsh import rsh
 from horovod.spark.runner import _task_fn
+from horovod.spark.task import get_available_devices
 from horovod.spark.task import gloo_exec_fn, mpirun_exec_fn
 from horovod.spark.task.task_service import SparkTaskClient
 
@@ -53,7 +56,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 from spark_common import spark_driver_service, spark_session, spark_task_service, \
     create_test_data_from_schema, create_xor_data, local_store
 
-from common import is_built, mpi_implementation_flags, tempdir, override_env, undo, delay
+from common import is_built, mpi_implementation_flags, tempdir, override_env, undo, delay, spawn
+
 
 # Spark will fail to initialize correctly locally on Mac OS without this
 if platform.system() == 'Darwin':
@@ -62,6 +66,22 @@ if platform.system() == 'Darwin':
 
 def fn(result=0):
     return result
+
+
+@spawn
+def run_get_available_devices():
+    # Run this test in an isolated "spawned" environment because creating a local-cluster
+    # leads to errors that cause downstream tests to stall:
+    # https://issues.apache.org/jira/browse/SPARK-31922
+    def fn():
+        import horovod.torch as hvd
+
+        hvd.init()
+        devices = get_available_devices()
+        return devices, hvd.local_rank()
+
+    with spark_session('test_get_available_devices', gpus=2):
+        return horovod.spark.run(fn, env={'PATH': os.environ.get('PATH')}, verbose=0)
 
 
 class SparkTests(unittest.TestCase):
@@ -317,6 +337,91 @@ class SparkTests(unittest.TestCase):
                 self.assertEqual(0, res)
 
         self.assertEqual(dict([(index, 123) for index in range(tasks)]), results)
+
+    """
+    Test that horovod.spark.run works properly in a simple setup using MPI.
+    """
+    def test_happy_run_with_mpi(self):
+        if not (mpi_built() and is_open_mpi()):
+            self.skipTest("Open MPI is not available")
+
+        self.do_test_happy_run(use_mpi=True, use_gloo=False)
+
+    """
+    Test that horovod.spark.run works properly in a simple setup using Gloo.
+    """
+    def test_happy_run_with_gloo(self):
+        if not gloo_built():
+            self.skipTest("Gloo is not available")
+
+        self.do_test_happy_run(use_mpi=False, use_gloo=True)
+
+    """
+    Actually tests that horovod.spark.run works properly in a simple setup.
+    """
+    def do_test_happy_run(self, use_mpi, use_gloo):
+        def fn():
+            import horovod.torch as hvd
+            import torch
+
+            hvd.init()
+            print(f'running fn {hvd.size()}')
+            print(f'error line', file=sys.stderr)
+            res = hvd.allgather(torch.tensor([hvd.rank()])).tolist()
+            return res, hvd.rank()
+
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with spark_session('test_happy_run'):
+            with is_built(gloo_is_built=use_gloo, mpi_is_built=use_mpi):
+                res = horovod.spark.run(fn, start_timeout=10,
+                                        use_mpi=use_mpi, use_gloo=use_gloo,
+                                        stdout=stdout if use_gloo else None,
+                                        stderr=stderr if use_gloo else None,
+                                        verbose=2)
+                self.assertListEqual([([0, 1], 0), ([0, 1], 1)], res)
+
+                if use_gloo:
+                    self.assertRegex(stdout.getvalue(),
+                                     r'\[[01]\]<stdout>:running fn 2\n'
+                                     r'\[[01]\]<stdout>:running fn 2\n')
+                    self.assertRegex(stderr.getvalue(),
+                                     r'\[[01]\]<stderr>:error line\n'
+                                     r'\[[01]\]<stderr>:error line\n')
+
+    """
+    Test that horovod.spark.run_elastic works properly in a simple setup.
+    """
+    def test_happy_run_elastic(self):
+        if not gloo_built():
+            self.skipTest("Gloo is not available")
+
+        def fn():
+            # training function does not use ObjectState and @hvd.elastic.run
+            # only testing distribution of state-less training function here
+            # see test_spark_torch.py for testing that
+            import horovod.torch as hvd
+            import torch
+
+            hvd.init()
+            print(f'running fn {hvd.size()}')
+            print(f'error line', file=sys.stderr)
+            res = hvd.allgather(torch.tensor([hvd.rank()])).tolist()
+            return res, hvd.rank()
+
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with spark_session('test_happy_run_elastic'):
+            res = horovod.spark.run_elastic(fn, num_proc=2, min_np=2, max_np=2,
+                                            stdout=stdout, stderr=stderr,
+                                            start_timeout=10, verbose=2)
+            self.assertListEqual([([0, 1], 0), ([0, 1], 1)], res)
+            self.assertRegex(stdout.getvalue(),
+                             r'\[[01]\]<stdout>:running fn 2\n'
+                             r'\[[01]\]<stdout>:running fn 2\n')
+            self.assertRegex(stderr.getvalue(),
+                             r'\[[01]\]<stderr>:error line\n'
+                             r'\[[01]\]<stderr>:error line\n')
 
     """
     Test that horovod.spark.run times out when it does not start up fast enough using MPI.
@@ -1582,6 +1687,12 @@ class SparkTests(unittest.TestCase):
                 file = os.path.sep.join([d, 'command_executed'])
                 client.abort_command()
                 self.do_test_spark_task_service_executes_command(client, file)
+
+    @pytest.mark.skipif(LooseVersion(pyspark.__version__) < LooseVersion('3.0.0'),
+                        reason='get_available_devices only supported in Spark 3.0 and above')
+    def test_get_available_devices(self):
+        res = run_get_available_devices()
+        self.assertListEqual([(['1'], 0), (['0'], 1)], res)
 
     def test_to_list(self):
         none_output = util.to_list(None, 1)
