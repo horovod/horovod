@@ -168,7 +168,7 @@ def train(state, train_loader):
         # Only log from the 0th rank worker.
         if hvd.rank() == 0:
             ray_logger.log({
-                "tqdm_mode": "train",
+                "tqdm_mode": 'train',
                 "train/loss": train_loss.avg.item(),
                 "train/accuracy": 100. * train_accuracy.avg.item(),
                 "total": len(train_loader),
