@@ -209,8 +209,8 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
                        If it is not set as well, defaults to 600 seconds.
         extra_mpi_args: Extra arguments for mpi_run. Defaults to no extra args.
         env: Environment dictionary to use in Horovod run.
-        stdout: Horovod stdout is redirected to this stream. Defaults to sys.stdout when use_mpi=True.
-        stderr: Horovod stderr is redirected to this stream. Defaults to sys.stderr when use_mpi=True.
+        stdout: Horovod stdout is redirected to this stream. Defaults to sys.stdout when used with MPI.
+        stderr: Horovod stderr is redirected to this stream. Defaults to sys.stderr when used with MPI.
         verbose: Debug output verbosity (0-2). Defaults to 1.
         nics: List of NICs for tcp network communication.
         prefix_output_with_timestamp: shows timestamp in stdout/stderr forwarding on the driver

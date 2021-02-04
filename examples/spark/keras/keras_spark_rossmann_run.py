@@ -19,6 +19,8 @@ import datetime
 import h5py
 import io
 import os
+import sys
+
 import pyarrow as pa
 from pyspark import SparkConf, Row
 from pyspark.sql import SparkSession
@@ -499,7 +501,9 @@ if __name__ == '__main__':
 
     # Horovod: run training.
     history, best_model_bytes = \
-        horovod.spark.run(train_fn, args=(model_bytes,), num_proc=args.num_proc, verbose=2)[0]
+        horovod.spark.run(train_fn, args=(model_bytes,), num_proc=args.num_proc,
+                          stdout=sys.stdout, stderr=sys.stderr, verbose=2,
+                          prefix_output_with_timestamp=True)[0]
 
     best_val_rmspe = min(history['val_exp_rmspe'])
     print('Best RMSPE: %f' % best_val_rmspe)
