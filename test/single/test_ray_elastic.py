@@ -39,9 +39,11 @@ def ray_8_cpus_gpus():
             pytest.skip("Avoiding mismatched GPU machine.")
     ray.init(num_cpus=8, num_gpus=8, resources={
         f"node:host-{i}": 1 for i in range(10)})
-    yield
-    # The code after the yield will run as teardown code.
-    ray.shutdown()
+    try:
+        yield
+    finally:
+        # The code after the yield will run as teardown code.
+        ray.shutdown()
 
 
 class TestRayDiscoverySuite:
@@ -216,8 +218,8 @@ def fault_tolerance_patches():
 def test_fault_tolerance_hosts_added_and_removed(ray_8_cpus):
     with fault_tolerance_patches():
         discovery_schedule = [
-            (20, ['host-1:2']),
-            (60, ['host-1:2', 'host-2:1', 'host-3:1']),
+            (10, ['host-1:2']),
+            (30, ['host-1:2', 'host-2:1', 'host-3:1']),
             (None, ['host-2:1']),
         ]
         nics = list(psutil.net_if_addrs().keys())[0]
@@ -227,7 +229,7 @@ def test_fault_tolerance_hosts_added_and_removed(ray_8_cpus):
         executor = ElasticRayExecutor(
             settings, cpus_per_slot=1, override_discovery=False)
 
-        training_fn = _create_training_function(iterations=100)
+        training_fn = _create_training_function(iterations=50)
         executor.start()
         trace = StatusCallback()
         results = executor.run(training_fn, callbacks=[trace])
@@ -243,8 +245,8 @@ def test_fault_tolerance_hosts_added_and_removed(ray_8_cpus):
 def test_fault_tolerance_hosts_remove_and_add(ray_8_cpus):
     with fault_tolerance_patches():
         discovery_schedule = [
-            (60, ['host-1:2', 'host-2:1', 'host-3:2']),
-            (20, ['host-1:2']),
+            (10, ['host-1:2', 'host-2:1', 'host-3:2']),
+            (10, ['host-1:2']),
             (None, ['host-1:2', 'host-4:1', 'host-5:1']),
         ]
         nics = list(psutil.net_if_addrs().keys())[0]
@@ -254,7 +256,7 @@ def test_fault_tolerance_hosts_remove_and_add(ray_8_cpus):
         executor = ElasticRayExecutor(
             settings, cpus_per_slot=1, override_discovery=False)
 
-        training_fn = _create_training_function(iterations=100)
+        training_fn = _create_training_function(iterations=30)
         executor.start()
         trace = StatusCallback()
         results = executor.run(training_fn, callbacks=[trace])
@@ -270,7 +272,7 @@ def test_fault_tolerance_hosts_remove_and_add(ray_8_cpus):
 def test_max_np(ray_8_cpus):
     with fault_tolerance_patches():
         discovery_schedule = [
-            (20, ['host-1:2']),
+            (10, ['host-1:2']),
             (None, ['host-1:2', 'host-4:1', 'host-5:1']),
         ]
         nics = list(psutil.net_if_addrs().keys())[0]
@@ -281,7 +283,7 @@ def test_max_np(ray_8_cpus):
         executor = ElasticRayExecutor(
             settings, cpus_per_slot=1, override_discovery=False)
 
-        training_fn = _create_training_function(iterations=100)
+        training_fn = _create_training_function(iterations=20)
         executor.start()
         trace = StatusCallback()
         results = executor.run(training_fn, callbacks=[trace])
@@ -297,8 +299,8 @@ def test_max_np(ray_8_cpus):
 def test_min_np(ray_8_cpus):
     with fault_tolerance_patches():
         discovery_schedule = [
-            (20, ['host-1:1']),
-            (60, ['host-1:1', 'host-4:1', 'host-5:1']),
+            (10, ['host-1:1']),
+            (10, ['host-1:1', 'host-4:1', 'host-5:1']),
             (None, ['host-1:1', 'host-4:1', 'host-5:1', 'host-6:1']),
         ]
         nics = list(psutil.net_if_addrs().keys())[0]
@@ -309,7 +311,7 @@ def test_min_np(ray_8_cpus):
         executor = ElasticRayExecutor(
             settings, cpus_per_slot=1, override_discovery=False)
 
-        training_fn = _create_training_function(iterations=100)
+        training_fn = _create_training_function(iterations=30)
         executor.start()
         trace = StatusCallback()
         results = executor.run(training_fn, callbacks=[trace])
@@ -325,8 +327,8 @@ def test_min_np(ray_8_cpus):
 def test_gpu_e2e(ray_8_cpus_gpus):
     with fault_tolerance_patches():
         discovery_schedule = [
-            (20, ['host-1:1']),
-            (60, ['host-1:1', 'host-4:1', 'host-5:1']),
+            (10, ['host-1:1']),
+            (10, ['host-1:1', 'host-4:1', 'host-5:1']),
             (None, ['host-1:1', 'host-4:1', 'host-5:1', 'host-6:1']),
         ]
         nics = list(psutil.net_if_addrs().keys())[0]
@@ -337,7 +339,7 @@ def test_gpu_e2e(ray_8_cpus_gpus):
         executor = ElasticRayExecutor(
             settings, gpus_per_slot=1, use_gpu=True, override_discovery=False)
 
-        training_fn = _create_training_function(iterations=100)
+        training_fn = _create_training_function(iterations=30)
         executor.start()
         trace = StatusCallback()
         results = executor.run(training_fn, callbacks=[trace])
