@@ -419,9 +419,9 @@ class ElasticRayExecutor:
                     for c in callbacks:
                         c(result)
                     # avoid slamming the CI
-                    time.sleep(0.1)
-                elif event.set():
+                elif event.is_set():
                     break
+                time.sleep(0.1)
         try:
             event = threading.Event()
             _callback_thread = threading.Thread(
@@ -430,7 +430,7 @@ class ElasticRayExecutor:
             res = self.driver.get_results()
             event.set()
             if _callback_thread:
-                _callback_thread.join(timeout=30)
+                _callback_thread.join(timeout=60)
         finally:
             if hasattr(_queue, "shutdown"):
                 _queue.shutdown()
