@@ -253,7 +253,8 @@ protected:
     }
 
     // Allocate and fill received_splits output
-    if (e.context->framework() == Framework::TENSORFLOW) {
+    if (e.context->framework() == Framework::TENSORFLOW ||
+        e.context->framework() == Framework::PYTORCH) {
       TensorShape received_splits_shape;
       received_splits_shape.AddDim(recvsplits.size());
       Status rstatus = e.context->AllocateOutput(1, received_splits_shape,

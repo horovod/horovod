@@ -372,13 +372,17 @@ int DoBroadcastCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int roo
   return handle;
 }
 
-int DoAlltoall(::torch::Tensor tensor, ::torch::Tensor splits, ::torch::Tensor output, const std::string& name) {
+int DoAlltoall(::torch::Tensor tensor, ::torch::Tensor splits,
+               ::torch::Tensor output, ::torch::Tensor output_received_splits,
+               const std::string& name) {
   ThrowIfError(common::CheckInitialized());
 
   auto device = GetDeviceID(tensor);
   auto ready_event = RecordReadyEvent(device);
   auto hvd_tensor = std::make_shared<TorchTensor>(tensor);
   auto hvd_context = std::make_shared<TorchOpContext>(device, output);
+  assert(GetDeviceID(output_received_splits) == CPU_DEVICE_ID);
+  hvd_context->AddOutput(CPU_DEVICE_ID, output_received_splits);
 
   // Make sync copy of splits tensor to CPU if needed
   auto splits_cpu = (GetDeviceID(splits) != CPU_DEVICE_ID) ?
@@ -398,8 +402,9 @@ int DoAlltoall(::torch::Tensor tensor, ::torch::Tensor splits, ::torch::Tensor o
   return handle;
 }
 
-int DoAlltoallCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor splits, ::torch::Tensor output,
-                         const std::string& name) {
+int DoAlltoallCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor splits,
+                        ::torch::Tensor output, ::torch::Tensor output_received_splits,
+                        const std::string& name) {
   ThrowIfError(common::CheckInitialized());
 
   // Make sync copy of splits tensor to CPU if needed
@@ -419,6 +424,8 @@ int DoAlltoallCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor splits, ::torch:
   auto hvd_cpu_output = std::make_shared<TorchTensor>(cpu_output);
   auto hvd_context =
       std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_output);
+  assert(GetDeviceID(output_received_splits) == CPU_DEVICE_ID);
+  hvd_context->AddOutput(CPU_DEVICE_ID, output_received_splits);
 
   auto handle = handle_manager.AllocateHandle();
   auto enqueue_result = EnqueueTensorAlltoall(
