@@ -1208,12 +1208,14 @@ class TorchTests(unittest.TestCase):
 
             splits = torch.tensor([rank + 1] * size, dtype=torch.int32)
             tensor = self.cast_and_place(tensor, dtype)
-            collected = hvd.alltoall(tensor, splits)
+            collected, received_splits = hvd.alltoall(tensor, splits)
             tensor, collected = self.convert_cpu_fp16_to_fp32(tensor, collected)
 
             assert collected.data.min() == rank, 'hvd.alltoall produces incorrect collected tensor'
             assert collected.data.max() == rank, 'hvd.alltoall produces incorrect collected tensor'
             assert collected.numel() == size * (size + 1) // 2 * 2**(dim - 1), 'hvd.alltoall collected wrong number of values'
+            self.assertSequenceEqual(received_splits.tolist(), [rk + 1 for rk in range(size)],
+                                     "hvd.alltoall returned incorrect received_splits")
 
     def test_horovod_alltoall_equal_split(self):
         """Test that the alltoall correctly distributes 1D tensors with default splitting."""
@@ -1392,7 +1394,7 @@ class TorchTests(unittest.TestCase):
             tensor = self.cast_and_place(tensor, dtype)
             tensor.requires_grad_()
             splits = torch.tensor([rank + 1] * size, dtype=torch.int32)
-            collected = hvd.alltoall(tensor, splits)
+            collected, received_splits = hvd.alltoall(tensor, splits)
 
             collected.backward(self.cast_and_place(torch.ones(collected.shape), dtype))
             grad_out = tensor.grad.data.cpu().numpy()

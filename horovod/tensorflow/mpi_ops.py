@@ -320,13 +320,7 @@ def _alltoall_grad(op, grad_wrt_output, grad_wrt_received_splits):
     Returns:
       The gradient with respect to the input of the op.
     """
-    tensor = op.inputs[0]
-    splits = op.inputs[1]
     ignore_name_scope = op.get_attr('ignore_name_scope')
-
-    splits = tf.cond(tf.equal(tf.size(splits), 0),
-                     lambda : tf.ones([size()], dtype=tf.int32) * (tf.shape(tensor)[0] // size()),
-                     lambda : splits)
     recvsplits = op.outputs[1]
 
     grad_wrt_tensor, _ = alltoall(grad_wrt_output, splits=recvsplits, ignore_name_scope=ignore_name_scope)
