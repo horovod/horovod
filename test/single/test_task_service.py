@@ -28,10 +28,10 @@ class FaultyStream:
         self.raised = False
 
     def write(self, b):
-        self.stream.write(b)
         if not self.raised and len(self.stream.getvalue()) > 1024:
             self.raised = True
             raise RuntimeError()
+        self.stream.write(b)
 
     def close(self):
         pass
@@ -198,18 +198,25 @@ class TaskServiceTest(unittest.TestCase):
         stderr = stderr.getvalue()
 
         # we are likely to loose some lines, so output is hard to evaluate
-        self.assertGreaterEqual(len(stdout), 1024)
-        self.assertGreater(len(stdout.splitlines()), 10)
-        self.assertTrue(stdout_s.raised)
+        if succeeds:
+            self.assertGreaterEqual(len(stdout), 1024)
+            self.assertGreater(len(stdout.splitlines()), 10)
+            self.assertTrue(stdout_s.raised)
 
-        self.assertGreaterEqual(len(stderr), 1024)
-        self.assertGreater(len(stderr.splitlines()), 10)
-        self.assertTrue(stderr_s.raised)
+            self.assertGreaterEqual(len(stderr), 1024)
+            self.assertGreater(len(stderr.splitlines()), 10)
+            self.assertTrue(stderr_s.raised)
 
-        # assert stdout and stderr similarity (how many lines both have in common)
-        stdout = re.sub('\[0\]<stdout>:', '', stdout, flags=re.MULTILINE)
-        stderr = re.sub('\[0\]<stderr>:', '', stderr, flags=re.MULTILINE)
-        stdout_set = set(stdout.splitlines())
-        stderr_set = set(stderr.splitlines())
-        intersect = stdout_set.intersection(stderr_set)
-        self.assertGreater(len(intersect) / min(len(stdout_set), len(stderr_set)), 0.99)
+            # assert stdout and stderr similarity (how many lines both have in common)
+            stdout = re.sub('\[0\]<stdout>:', '', stdout, flags=re.MULTILINE)
+            stderr = re.sub('\[0\]<stderr>:', '', stderr, flags=re.MULTILINE)
+            stdout_set = set(stdout.splitlines())
+            stderr_set = set(stderr.splitlines())
+            intersect = stdout_set.intersection(stderr_set)
+            self.assertGreater(len(intersect) / min(len(stdout_set), len(stderr_set)), 0.90)
+        else:
+            # we might have retrieved data only for one of stdout and stderr
+            # so we expect some data for at least one of them
+            self.assertGreaterEqual(len(stdout) + len(stderr), 1024)
+            self.assertGreater(len(stdout.splitlines()) + len(stderr.splitlines()), 10)
+            self.assertTrue(stdout_s.raised or stderr_s.raised)
