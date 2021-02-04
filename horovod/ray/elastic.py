@@ -418,6 +418,8 @@ class ElasticRayExecutor:
                     result = queue.get_nowait()
                     for c in callbacks:
                         c(result)
+                    # avoid slamming the CI
+                    time.sleep(0.1)
 
         _callback_thread = None
         try:
