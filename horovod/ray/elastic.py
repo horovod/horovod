@@ -422,10 +422,13 @@ class ElasticRayExecutor:
                 elif event.is_set():
                     break
                 time.sleep(0.1)
+
         try:
             event = threading.Event()
             _callback_thread = threading.Thread(
-                target=_process_calls, args=(_queue, callbacks, event), daemon=True)
+                target=_process_calls,
+                args=(_queue, callbacks, event),
+                daemon=True)
             _callback_thread.start()
             res = self.driver.get_results()
             event.set()
