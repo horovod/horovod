@@ -383,7 +383,7 @@ if __name__ == '__main__':
                                          verbose=2,
                                          checkpoint_callback=ckpt_callback)
 
-    keras_model = keras_estimator.fit(train_df).setOutputCols(['Sales'])
+    keras_model = keras_estimator.fit(train_df).setOutputCols(['Sales_output'])
 
     history = keras_model.getHistory()
     best_val_rmspe = min(history['val_exp_rmspe'])
@@ -401,10 +401,14 @@ if __name__ == '__main__':
     print('Final prediction')
     print('================')
 
-    pred_df = keras_model.transform(test_df)
+    pred_df=keras_model.transform(test_df)
+    pred_df.printSchema()
+    pred_df.show(5)
+
     # Convert from log domain to real Sales numbers
-    pred_df = pred_df.withColumn('Sales', F.exp(pred_df.Sales))
-    submission_df = pred_df.select(pred_df.Id.cast(T.IntegerType()), pred_df.Sales).toPandas()
+    pred_df=pred_df.withColumn('Sales_pred', F.exp(pred_df.Sales_output))
+
+    submission_df = pred_df.select(pred_df.Id.cast(T.IntegerType()), pred_df.Sales_pred).toPandas()
     submission_df.sort_values(by=['Id']).to_csv(args.local_submission_csv, index=False)
     print('Saved predictions to %s' % args.local_submission_csv)
 

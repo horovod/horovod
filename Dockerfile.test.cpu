@@ -109,7 +109,7 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
             sed -i 's/export HOROVOD_CCL_CACHE=1;/export HOROVOD_CCL_CACHE=0;/g' /mpirun_command_mpi && \
             echo "/mpirun_command_mpi" > /mpirun_command && \
             echo "-L/usr/local/oneccl/lib -lmpi -I/usr/local/oneccl/include" > /mpicc_oneccl && \
-            chmod +x /mpicc_oneccl; \            
+            chmod +x /mpicc_oneccl; \
     elif [[ ${MPI_KIND} == "MPICH" ]]; then \
         apt-get install -y mpich && \
             echo "mpirun -np 2" > /mpirun_command; \

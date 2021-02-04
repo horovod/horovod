@@ -710,3 +710,38 @@ def _get_assigned_gpu_or_default(default):
 
 def is_databricks():
     return "DATABRICKS_RUNTIME_VERSION" in os.environ
+
+
+def get_output_cols(input_df_schema, output_cols):
+    final_output_cols = [f.name for f in input_df_schema.fields]
+    return final_output_cols + output_cols
+
+
+def get_spark_df_output_schema(input_df_schema, label_cols, output_cols, metadata):
+    if len(label_cols) != len(output_cols):
+        raise Exception('Number of output columns must equal to number of label columns.')
+
+    import copy
+    from pyspark.sql.types import StructType, StructField
+    from pyspark.ml.linalg import VectorUDT
+
+    ## output col name should not be the same as any data in existing df
+    input_df_col_set = {f.name for f in input_df_schema.fields}
+    for col in output_cols:
+        if col in input_df_col_set:
+            raise ValueError("Output col '{}' exists in original df schema: {}".format(col, input_df_col_set))
+
+    # assuming the label_cols and output_cols are 1:1 mapping.
+    output_fields = copy.deepcopy(input_df_schema.fields)
+    for label_col, output_col in zip(label_cols, output_cols):
+        col_type = metadata[label_col]['spark_data_type']
+        if col_type == DenseVector or col_type == SparseVector:
+            col_type = VectorUDT
+
+        field = StructField(output_col, col_type(), True)
+        output_fields.append(field)
+
+    # Final output schema contains both input and output fields
+    output_schema = StructType(output_fields)
+
+    return output_schema

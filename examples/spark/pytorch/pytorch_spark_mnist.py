@@ -116,6 +116,7 @@ if __name__ == '__main__':
 
     # Evaluate the model on the held-out test DataFrame
     pred_df = torch_model.transform(test_df)
+
     argmax = udf(lambda v: float(np.argmax(v)), returnType=T.DoubleType())
     pred_df = pred_df.withColumn('label_pred', argmax(pred_df.label_prob))
     evaluator = MulticlassClassificationEvaluator(predictionCol='label_pred', labelCol='label', metricName='accuracy')
