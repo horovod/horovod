@@ -809,9 +809,9 @@ def alltoall(tensor, splits=None, name=None):
     Returns:
         1) A tensor containing the gathered tensor data from all workers.
         2) If `splits` has been provided: A tensor of integers in rank order
-        describing how many elements in the output tensor have been received
-        from each worker.
-    """
+           describing how many elements in the output tensor have been received
+           from each worker.
+     """
     return HorovodAlltoall.apply(tensor, splits, name)
 
 

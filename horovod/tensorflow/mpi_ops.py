@@ -292,12 +292,12 @@ def alltoall(tensor, splits=None, name=None, ignore_name_scope=False):
 
     Returns:
       1) A tensor of the same type as `tensor`, concatenated on dimension zero
-      across all processes. The shape is identical to the input shape, except for
-      the first dimension, which may be greater and is the sum of all first
-      dimensions of the gathered tensor slices from different Horovod processes.
+         across all processes. The shape is identical to the input shape, except for
+         the first dimension, which may be greater and is the sum of all first
+         dimensions of the gathered tensor slices from different Horovod processes.
       2) If `splits` has been provided: A tensor of integers in rank order
-      describing how many elements in the output tensor have been received
-      from each worker.
+         describing how many elements in the output tensor have been received
+         from each worker.
     """
     # If splits not provided, create empty tensor as placeholder
     splits_ = tf.convert_to_tensor(splits) if splits is not None else tf.constant([], dtype=tf.int32)
