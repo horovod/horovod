@@ -430,14 +430,12 @@ class RayExecutor:
         Returns:
             Deserialized return values from the target function.
         """
-        args = args or []
-        kwargs = kwargs or {}
-        return ray.get([
-            worker.execute.remote(lambda w: fn(*args, **kwargs))
-            for worker in self.workers
-        ])
+        return ray.get(self.run_remote(fn, args, kwargs))
 
-    def run_remote(self, fn, args=None, kwargs=None) -> List:
+    def run_remote(self,
+                   fn: Callable[[Any], Any],
+                   args: Optional[List] = None,
+                   kwargs: Optional[Dict] = None) -> List[Any]:
         """Executes the provided function on all workers.
 
         Args:
@@ -448,8 +446,8 @@ class RayExecutor:
                 passed into the target function.
 
         Returns:
-            List: of ObjectRefs that you can run `ray.get` on to retrieve
-                values.
+            list: List of ObjectRefs that you can run `ray.get` on to
+                retrieve values.
         """
         args = args or []
         kwargs = kwargs or {}

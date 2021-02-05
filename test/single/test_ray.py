@@ -285,4 +285,4 @@ def test_horovod_train(ray_start_4_cpus):
 if __name__ == "__main__":
     import pytest
     import sys
-    sys.exit(pytest.main(["-v", __file__]))
+    sys.exit(pytest.main(["-v", __file__] + sys.argv[1:]))
