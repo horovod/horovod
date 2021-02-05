@@ -437,6 +437,27 @@ class RayExecutor:
             for worker in self.workers
         ])
 
+    def run_remote(self, fn, args=None, kwargs=None) -> List:
+        """Executes the provided function on all workers.
+
+        Args:
+            fn: Target function that can be executed with arbitrary
+                args and keyword arguments.
+            args: List of arguments to be passed into the target function.
+            kwargs: Dictionary of keyword arguments to be
+                passed into the target function.
+
+        Returns:
+            List: of ObjectRefs that you can run `ray.get` on to retrieve
+                values.
+        """
+        args = args or []
+        kwargs = kwargs or {}
+        return [
+            worker.execute.remote(lambda w: fn(*args, **kwargs))
+            for worker in self.workers
+        ]
+
     def execute_single(self,
                        fn: Callable[["executable_cls"], Any]) -> List[Any]:
         """Executes the provided function on the rank 0 worker (chief).
