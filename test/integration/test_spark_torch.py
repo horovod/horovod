@@ -353,24 +353,26 @@ class SparkTorchTests(unittest.TestCase):
                     optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
                     loss = nn.BCELoss()
 
-                    est = hvd_spark.TorchEstimator(
-                        backend=backend,
-                        store=store,
-                        model=model,
-                        optimizer=optimizer,
-                        input_shapes=[[2]],
-                        feature_cols=['features'],
-                        label_cols=['y'],
-                        batch_size=1,
-                        epochs=3,
-                        verbose=2)
+                    for inmemory_cache_all in [False, True]:
+                        est = hvd_spark.TorchEstimator(
+                            backend=backend,
+                            store=store,
+                            model=model,
+                            optimizer=optimizer,
+                            input_shapes=[[2]],
+                            feature_cols=['features'],
+                            label_cols=['y'],
+                            batch_size=1,
+                            epochs=3,
+                            verbose=2,
+                            inmemory_cache_all=inmemory_cache_all)
 
-                    # To make sure that setLoss works with non-list loss.
-                    est.setLoss(loss)
+                        # To make sure that setLoss works with non-list loss.
+                        est.setLoss(loss)
 
-                    transformer = est.fit_on_parquet()
-                    predictions = transformer.transform(df)
-                    assert predictions.count() == df.count()
+                        transformer = est.fit_on_parquet()
+                        predictions = transformer.transform(df)
+                        assert predictions.count() == df.count()
 
     def test_calculate_loss_with_sample_weight(self):
         calculate_loss = remote._calculate_loss_fn()
