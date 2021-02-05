@@ -243,7 +243,7 @@ run_gloo_pytest() {
   run_test "${test}" "${queue}" \
     ":pytest: Gloo Single PyTests (${test})" \
     "bash -c \"${test_env} cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh gloo)\"" \
-    10
+    15
 
   run_test "${test}" "${queue}" \
     ":pytest: Gloo Cluster PyTests (${test})" \

@@ -1,13 +1,15 @@
+from typing import Callable, List, Any, Dict, Optional
 import logging
+import socket
 import time
 import os
+import random
 import math
-from typing import Callable, List, Any, Dict, Optional
+import threading
 
 from horovod.runner.common.util import timeout, secret
 
 from horovod.runner.http.http_server import RendezvousServer
-from horovod.runner.util import network
 from horovod.runner.gloo_run import (create_slot_env_vars, create_run_env_vars,
                                      _get_min_start_hosts)
 from horovod.runner.elastic.settings import ElasticSettings
@@ -56,13 +58,92 @@ class RayHostDiscovery(HostDiscovery):
             if self.use_gpu:
                 gpu_slots = resources.get("GPU", 0) // self.gpus_per_slot
                 slots = min(slots, gpu_slots)
-            host_mapping[hostname] = int(math.ceil(slots))
+            slots = int(math.ceil(slots))
+            if slots:
+                host_mapping[hostname] = slots
 
         if host_mapping and sum(host_mapping.values()) == 0:
             logger.info(f"Detected {len(host_mapping)} hosts, but no hosts "
                         "have available slots.")
             logger.debug(f"Alive nodes: {alive_nodes}")
         return host_mapping
+
+
+class TestDiscovery(RayHostDiscovery):
+    def __init__(self,
+                 min_hosts,
+                 max_hosts,
+                 change_frequency_s,
+                 use_gpu=False,
+                 cpus_per_slot=1,
+                 gpus_per_slot=1,
+                 verbose=True,
+                 _graceful=True):
+        super().__init__(
+            use_gpu=use_gpu,
+            cpus_per_slot=cpus_per_slot,
+            gpus_per_slot=gpus_per_slot)
+        self._min_hosts = min_hosts
+        self._graceful = _graceful
+        self._max_hosts = max_hosts
+        self._change_frequency_s = change_frequency_s
+        self._last_reset_t = None
+        self.verbose = verbose
+        self._removed_hosts = set()
+
+    def add_host(self, hosts):
+        available_hosts = self._removed_hosts & hosts.keys()
+        if available_hosts:
+            host = random.choice(list(available_hosts))
+            self._removed_hosts.remove(host)
+        else:
+            print("No hosts to add.")
+
+    def remove_host(self, hosts):
+        good_hosts = [k for k in hosts if k not in self._removed_hosts]
+
+        from ray.autoscaler._private.commands import kill_node
+        if good_hosts:
+            if self._graceful:
+                host = random.choice(good_hosts)
+            else:
+                host = kill_node(
+                    os.path.expanduser("~/ray_bootstrap_config.yaml"), True,
+                    False, None)
+        self._removed_hosts.add(host)
+
+    def change_hosts(self, hosts):
+        for host in self._removed_hosts:
+            if host not in hosts:
+                self._removed_hosts.remove(host)
+        current_hosts = len(hosts) - len(self._removed_hosts)
+        if current_hosts <= self._min_hosts:
+            self.add_host(hosts)
+        elif current_hosts >= self._max_hosts:
+            self.remove_host(hosts)
+        else:
+            if random.random() < 0.5:
+                self.add_host(hosts)
+            else:
+                self.remove_host(hosts)
+
+    def find_available_hosts_and_slots(self):
+        t = time.time()
+        if self._last_reset_t is None:
+            self._last_reset_t = t
+        hosts = super().find_available_hosts_and_slots()
+        if t - self._last_reset_t >= self._change_frequency_s:
+            self.change_hosts(hosts)
+            self._last_reset_t = t
+        if self.verbose:
+            print(f"Total hosts: {len(hosts)}")
+        remaining = {
+            k: v
+            for k, v in hosts.items() if k not in self._removed_hosts
+        }
+        if self.verbose:
+            print(f"Remaining hosts: {len(remaining)} -- {remaining}")
+        return remaining
 
 
 class ElasticRayExecutor:
@@ -216,7 +297,7 @@ class ElasticRayExecutor:
             all_host_names=current_hosts.host_assignment_order,
         )
         logger.debug("[ray] getting driver IP")
-        server_ip = network.get_driver_ip(nics)
+        server_ip = socket.gethostbyname(socket.gethostname())
         self.run_env_vars = create_run_env_vars(
             server_ip, nics, global_rendezv_port, elastic=True)
 
@@ -245,7 +326,8 @@ class ElasticRayExecutor:
         return worker
 
     def _create_spawn_worker_fn(self, return_results: List,
-                                worker_fn: Callable) -> Callable:
+                                worker_fn: Callable,
+                                queue: "ray.util.Queue") -> Callable:
         self.remote_worker_cls = ray.remote(BaseHorovodWorker)
         # event = register_shutdown_event()
         worker_env_vars = {}
@@ -254,7 +336,23 @@ class ElasticRayExecutor:
         worker_env_vars.update({"PYTHONUNBUFFERED": "1"})
 
         def worker_loop(slot_info, events):
+            def ping_worker(worker):
+                # There is an odd edge case where a node can be removed
+                # before the remote worker is started, leading to a failure
+                # in trying to create the horovod mesh.
+                try:
+                    ping = worker.execute.remote(lambda _: 1)
+                    ray.get(ping, timeout=10)
+                except Exception as e:
+                    logger.error(f"{slot_info.hostname}: Ping failed - {e}")
+                    return False
+                return True
+
             worker = self._create_remote_worker(slot_info, worker_env_vars)
+            if not ping_worker(worker):
+                return 1, time.time()
+
+            ray.get(worker.set_queue.remote(queue))
             future = worker.execute.remote(lambda _: worker_fn())
 
             result = None
@@ -271,27 +369,79 @@ class ElasticRayExecutor:
                         ray.kill(worker)
                         result = 1, time.time()
                 except Exception as e:
-                    logger.exception(str(e))
-                    # Fail
+                    logger.error(f"{slot_info.hostname}[{slot_info.rank}]:{e}")
+                    ray.kill(worker)
                     result = 1, time.time()
+            logger.debug(f"Worker ({slot_info}) routine is done!")
             return result
 
         return worker_loop
 
-    def run(self, worker_fn: Callable) -> List[Any]:
+    def run(self,
+            worker_fn: Callable,
+            callbacks: Optional[List[Callable]] = None) -> List[Any]:
         """Executes the provided function on all workers.
 
         Args:
             worker_fn: Target elastic function that can be executed.
+            callbacks: List of callables. Each callback must either
+                be a callable function or a class that implements __call__.
+                Every callback will be invoked on every value logged
+                by the rank 0 worker.
 
         Returns:
             List of return values from every completed worker.
         """
         return_values = []
+        from ray.util.queue import Queue
+        import inspect
+        args = inspect.getfullargspec(Queue).args
+        if "actor_options" not in args:
+            # Ray 1.1 and less
+            _queue = Queue()
+        else:
+            _queue = Queue(actor_options={
+                "num_cpus": 0,
+                "resources": {
+                    ray.state.current_node_id(): 0.001
+                }
+            })
         self.driver.start(
             self.settings.num_proc,
-            self._create_spawn_worker_fn(return_values, worker_fn))
-        res = self.driver.get_results()
+            self._create_spawn_worker_fn(return_values, worker_fn, _queue))
+
+        def _process_calls(queue, callbacks, event):
+            if not callbacks:
+                return
+            while queue.actor:
+                if not queue.empty():
+                    result = queue.get_nowait()
+                    for c in callbacks:
+                        c(result)
+                    # avoid slamming the CI
+                elif event.is_set():
+                    break
+                time.sleep(0.1)
+
+        try:
+            event = threading.Event()
+            _callback_thread = threading.Thread(
+                target=_process_calls,
+                args=(_queue, callbacks, event),
+                daemon=True)
+            _callback_thread.start()
+            res = self.driver.get_results()
+            event.set()
+            if _callback_thread:
+                _callback_thread.join(timeout=60)
+        finally:
+            if hasattr(_queue, "shutdown"):
+                _queue.shutdown()
+            else:
+                done_ref = _queue.actor.__ray_terminate__.remote()
+                done, not_done = ray.wait([done_ref], timeout=5)
+                if not_done:
+                    ray.kill(_queue.actor)
         self.driver.stop()
 
         if res.error_message is not None:

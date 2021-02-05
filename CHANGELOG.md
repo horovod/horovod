@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Added support for Intel(R) MPI in horovodrun. ([#2374](https://github.com/horovod/horovod/pull/2374))
 
+- Add support for callbacks in Ray Elastic Executor. ([#2639](https://github.com/horovod/horovod/pull/2639))
+
 ### Changed
 
 ### Deprecated
