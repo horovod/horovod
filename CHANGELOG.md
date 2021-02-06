@@ -22,6 +22,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Fixed `local_rank` support for Ray. ([#2596](https://github.com/horovod/horovod/pull/2596))
 
+- Fixed wrong default for horovod.tensorflow.keras.allreduce average ([#2627](https://github.com/horovod/horovod/pull/2627))
+
 ## [v0.21.1] - 2021-01-06
 
 ### Added
