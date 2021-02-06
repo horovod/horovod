@@ -143,7 +143,7 @@ services:
         # https://github.com/apache/incubator-mxnet/issues/19575
         # mxnet-cu101==1.7.0.post1 is not yet released, but this serves as an RC:
         # https://repo.mxnet.io/dist/python/cu101/mxnet_cu101-1.7.0b20200813-py2.py3-none-manylinux2014_x86_64.whl
-        MXNET_PACKAGE: mxnet-cu101==1.7.0.post0
+        MXNET_PACKAGE: mxnet-cu101==1.7.0.post1
         PYSPARK_PACKAGE: pyspark==3.0.1
         SPARK_PACKAGE: spark-3.0.1/spark-3.0.1-bin-hadoop2.7.tgz
         HOROVOD_BUILD_FLAGS: HOROVOD_GPU_OPERATIONS=NCCL
@@ -193,7 +193,7 @@ services:
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.6.0+cu101
         TORCHVISION_PACKAGE: torchvision==0.7.0+cu101
-        MXNET_PACKAGE: mxnet-cu101==1.7.0.post0
+        MXNET_PACKAGE: mxnet-cu101==1.7.0.post1
   # mxnet-cu110 does not exist so we use mxnet_head
   test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1:
     extends: test-gpu-base
