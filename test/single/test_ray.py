@@ -191,6 +191,24 @@ def test_ray_exec_func(ray_start_4_cpus):
 
 @pytest.mark.skipif(
     not gloo_built(), reason='Gloo is required for Ray integration')
+def test_ray_exec_remote_func(ray_start_4_cpus):
+    def simple_fn(num_epochs):
+        import horovod.torch as hvd
+        hvd.init()
+        return hvd.rank() * num_epochs
+
+    setting = RayExecutor.create_settings(timeout_s=30)
+    hjob = RayExecutor(
+        setting, num_hosts=1, num_slots=4, use_gpu=torch.cuda.is_available())
+    hjob.start()
+    object_refs = hjob.run_remote(simple_fn, args=[0])
+    result = ray.get(object_refs)
+    assert len(set(result)) == 1
+    hjob.shutdown()
+
+
+@pytest.mark.skipif(
+    not gloo_built(), reason='Gloo is required for Ray integration')
 def test_ray_executable(ray_start_4_cpus):
     class Executable:
         def __init__(self, epochs):
@@ -267,4 +285,4 @@ def test_horovod_train(ray_start_4_cpus):
 if __name__ == "__main__":
     import pytest
     import sys
-    sys.exit(pytest.main(["-v", __file__]))
+    sys.exit(pytest.main(["-v", __file__] + sys.argv[1:]))
