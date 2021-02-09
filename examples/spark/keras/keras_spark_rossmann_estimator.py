@@ -17,6 +17,7 @@
 import argparse
 import datetime
 import os
+import sys
 from distutils.version import LooseVersion
 
 import pyspark.sql.types as T
@@ -29,6 +30,7 @@ import tensorflow.keras.backend as K
 from tensorflow.keras.layers import Input, Embedding, Concatenate, Dense, Flatten, Reshape, BatchNormalization, Dropout
 
 import horovod.spark.keras as hvd
+from horovod.spark.common.backend import SparkBackend
 from horovod.spark.common.store import Store
 from horovod.tensorflow.keras.callbacks import BestModelCheckpoint
 
@@ -368,7 +370,10 @@ if __name__ == '__main__':
 
     # Horovod: run training.
     store = Store.create(args.work_dir)
-    keras_estimator = hvd.KerasEstimator(num_proc=args.num_proc,
+    backend = SparkBackend(num_proc=args.num_proc,
+                           stdout=sys.stdout, stderr=sys.stderr,
+                           prefix_output_with_timestamp=True)
+    keras_estimator = hvd.KerasEstimator(backend=backend,
                                          store=store,
                                          model=model,
                                          optimizer=opt,

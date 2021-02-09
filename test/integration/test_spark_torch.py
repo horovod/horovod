@@ -13,35 +13,35 @@
 # limitations under the License.
 # ==============================================================================
 
+import io
 import logging
 import os
 import sys
 import unittest
 import warnings
 
+import mock
 import numpy as np
-
+import torch.nn as nn
+import torch.optim as optim
 from pyspark.ml.linalg import VectorUDT
 from pyspark.sql.types import FloatType, IntegerType
-
-import mock
-import torch
-import torch.nn as nn
 from torch.nn import functional as F
-import torch.optim as optim
 
 import horovod
-from horovod.torch.elastic import run
-from horovod.common.util import gloo_built
 import horovod.spark.torch as hvd_spark
+import horovod.torch as hvd
+import torch
+from horovod.common.util import gloo_built, mpi_built
+from horovod.runner.mpi_run import is_open_mpi
 from horovod.spark.common import constants, util
 from horovod.spark.torch import remote
 from horovod.spark.torch.estimator import EstimatorParams, _torch_param_serialize
-import horovod.torch as hvd
+from horovod.torch.elastic import run
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
-from common import tempdir
+from common import tempdir, spawn, is_built
 from spark_common import CallbackBackend, create_xor_data, local_store, spark_session
 
 
@@ -69,7 +69,6 @@ class SparkTorchTests(unittest.TestCase):
         super(SparkTorchTests, self).__init__(*args, **kwargs)
         logging.getLogger('py4j.java_gateway').setLevel(logging.INFO)
         warnings.simplefilter('module')
-
 
     def test_fit_model(self):
         model = create_xor_model()

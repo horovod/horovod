@@ -15,33 +15,28 @@
 
 import contextlib
 import copy
+import io
 import itertools
 import logging
 import os
 import platform
-import psutil
-import pytest
 import re
 import sys
 import threading
 import time
 import unittest
 import warnings
-
 from distutils.version import LooseVersion
 
 import mock
-import torch
-
+import psutil
 import pyspark
-
+import pytest
 from pyspark.ml.linalg import DenseVector, SparseVector, VectorUDT
 from pyspark.sql.types import ArrayType, BooleanType, DoubleType, FloatType, IntegerType, \
     NullType, StructField, StructType
 
 import horovod.spark
-import horovod.torch as hvd
-
 from horovod.common.util import gloo_built, mpi_built
 from horovod.runner.common.util import codec, secret, safe_shell_exec, timeout
 from horovod.runner.common.util import settings as hvd_settings
@@ -51,9 +46,10 @@ from horovod.spark.common import constants, util
 from horovod.spark.common.store import DBFSLocalStore, HDFSStore, LocalStore, Store
 from horovod.spark.driver.host_discovery import SparkDriverHostDiscovery
 from horovod.spark.driver.rsh import rsh
-from horovod.spark.task import get_available_devices, gloo_exec_fn, mpirun_exec_fn
-from horovod.spark.task.task_service import SparkTaskClient
 from horovod.spark.runner import _task_fn
+from horovod.spark.task import get_available_devices
+from horovod.spark.task import gloo_exec_fn, mpirun_exec_fn
+from horovod.spark.task.task_service import SparkTaskClient
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
@@ -78,6 +74,8 @@ def run_get_available_devices():
     # leads to errors that cause downstream tests to stall:
     # https://issues.apache.org/jira/browse/SPARK-31922
     def fn():
+        import horovod.torch as hvd
+
         hvd.init()
         devices = get_available_devices()
         return devices, hvd.local_rank()
@@ -363,16 +361,33 @@ class SparkTests(unittest.TestCase):
     """
     def do_test_happy_run(self, use_mpi, use_gloo):
         def fn():
+            import horovod.torch as hvd
+            import torch
+
             hvd.init()
+            print(f'running fn {hvd.size()}')
+            print(f'error line', file=sys.stderr)
             res = hvd.allgather(torch.tensor([hvd.rank()])).tolist()
             return res, hvd.rank()
 
+        stdout = io.StringIO()
+        stderr = io.StringIO()
         with spark_session('test_happy_run'):
             with is_built(gloo_is_built=use_gloo, mpi_is_built=use_mpi):
                 res = horovod.spark.run(fn, start_timeout=10,
                                         use_mpi=use_mpi, use_gloo=use_gloo,
+                                        stdout=stdout if use_gloo else None,
+                                        stderr=stderr if use_gloo else None,
                                         verbose=2)
                 self.assertListEqual([([0, 1], 0), ([0, 1], 1)], res)
+
+                if use_gloo:
+                    self.assertRegex(stdout.getvalue(),
+                                     r'\[[01]\]<stdout>:running fn 2\n'
+                                     r'\[[01]\]<stdout>:running fn 2\n')
+                    self.assertRegex(stderr.getvalue(),
+                                     r'\[[01]\]<stderr>:error line\n'
+                                     r'\[[01]\]<stderr>:error line\n')
 
     """
     Test that horovod.spark.run_elastic works properly in a simple setup.
@@ -385,14 +400,28 @@ class SparkTests(unittest.TestCase):
             # training function does not use ObjectState and @hvd.elastic.run
             # only testing distribution of state-less training function here
             # see test_spark_torch.py for testing that
+            import horovod.torch as hvd
+            import torch
+
             hvd.init()
+            print(f'running fn {hvd.size()}')
+            print(f'error line', file=sys.stderr)
             res = hvd.allgather(torch.tensor([hvd.rank()])).tolist()
             return res, hvd.rank()
 
+        stdout = io.StringIO()
+        stderr = io.StringIO()
         with spark_session('test_happy_run_elastic'):
             res = horovod.spark.run_elastic(fn, num_proc=2, min_np=2, max_np=2,
+                                            stdout=stdout, stderr=stderr,
                                             start_timeout=10, verbose=2)
             self.assertListEqual([([0, 1], 0), ([0, 1], 1)], res)
+            self.assertRegex(stdout.getvalue(),
+                             r'\[[01]\]<stdout>:running fn 2\n'
+                             r'\[[01]\]<stdout>:running fn 2\n')
+            self.assertRegex(stderr.getvalue(),
+                             r'\[[01]\]<stderr>:error line\n'
+                             r'\[[01]\]<stderr>:error line\n')
 
     """
     Test that horovod.spark.run times out when it does not start up fast enough using MPI.
@@ -583,7 +612,7 @@ class SparkTests(unittest.TestCase):
         def mpi_impl_flags(tcp, env=None):
             return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"], None
 
-        def gloo_exec_command_fn(driver_addresses, key, settings, env):
+        def gloo_exec_command_fn(driver, key, settings, env, stdout, stderr, prefix_output_with_timestamp):
             def _exec_command(command, alloc_info, event):
                 return 1, alloc_info.rank
             return _exec_command
@@ -756,7 +785,7 @@ class SparkTests(unittest.TestCase):
         num_proc = cores if num_proc is None else num_proc
         self.assertEqual(expected_np, num_proc)
         self.assertEqual(1, gloo_exec_command_fn.call_count)
-        _, _, _, call_env = gloo_exec_command_fn.call_args[0]
+        _, _, _, call_env, _, _, _ = gloo_exec_command_fn.call_args[0]
         self.assertEqual(env or {}, call_env)
         self.assertEqual({}, gloo_exec_command_fn.call_args[1])
         self.assertEqual(num_proc, exec_command.call_count)
@@ -866,7 +895,9 @@ class SparkTests(unittest.TestCase):
                 settings = hvd_settings.Settings(verbose=2, key=key)
                 env = {}
 
-                res = rsh(driver.addresses(), key, host_hash, command, env, 0, settings.verbose, False, events=events)
+                res = rsh(driver.addresses(), key, host_hash, command, env, 0, settings.verbose,
+                          stdout=None, stderr=None, prefix_output_with_timestamp=False,
+                          background=False, events=events)
                 self.assertEqual(expected_result, res)
 
     def test_mpirun_exec_fn(self):

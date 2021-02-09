@@ -63,13 +63,17 @@ class SparkTaskService(task_service.BasicTaskService):
         env['HOROVOD_SPARK_WORK_DIR'] = os.getcwd()
 
         super(SparkTaskService, self).__init__(SparkTaskService.NAME_FORMAT % index,
-                                               key, nics, env, verbose)
+                                               index, key, nics, env, verbose)
         self._key = key
         self._minimum_command_lifetime_s = minimum_command_lifetime_s
         self._minimum_command_lifetime = None
 
-    def _run_command(self, command, env, event):
-        super(SparkTaskService, self)._run_command(command, env, event)
+    def _run_command(self, command, env, event,
+                     stdout=None, stderr=None, index=None,
+                     prefix_output_with_timestamp=False):
+        super(SparkTaskService, self)._run_command(command, env, event,
+                                                   stdout, stderr, index,
+                                                   prefix_output_with_timestamp)
 
         if self._minimum_command_lifetime_s is not None:
             self._minimum_command_lifetime = timeout.Timeout(self._minimum_command_lifetime_s,
