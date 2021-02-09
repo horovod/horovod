@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Add support for callbacks in Ray Elastic Executor. ([#2639](https://github.com/horovod/horovod/pull/2639))
 
+- Added forwarding of stdout/stderr captured to driver over Gloo. ([#2646](https://github.com/horovod/horovod/pull/2646))
+
 ### Fixed
 
 - Fixed broadcast_optimizer_state to handle NoneType params for PyTorch 1.8. ([#2624](https://github.com/horovod/horovod/pull/2624))
