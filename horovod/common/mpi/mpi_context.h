@@ -30,6 +30,7 @@ namespace common {
 
 // Base class for managing MPI environment. Can be derived if other frameworks
 // (like DDL) are able to manage MPI environment.
+// 用于MPIContext上下文的管理
 class MPIContextManager {
 public:
   // Initialize MPI environment with required multi-threads support level.
@@ -70,6 +71,7 @@ struct MPIContext {
   bool enabled_ = false;
 
   // MPI custom data type for float16.
+  // 这两个数据应该是用于Comression16的通信用处的。
   MPI_Datatype mpi_float16_t;
   MPI_Op mpi_float16_sum;
 
@@ -81,7 +83,7 @@ struct MPIContext {
   MPI_Comm local_comm;
 
   // Cross-node communicator for hierarchical allreduce.
-  MPI_Comm cross_comm;
+  MPI_Comm cross_comm; //TODO(这个cross node通信子是干啥的)
 
   // MPI Window used for shared memory allgather
   MPI_Win window;

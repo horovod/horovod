@@ -33,7 +33,7 @@ namespace horovod {
 namespace common {
 
 using MessageTable = std::unordered_map<std::string, std::vector<Request>>;
-
+// 这个enable_shared_from_this这个功能不是很了解(TODO)
 class Controller : public std::enable_shared_from_this<Controller> {
 public:
   Controller(ResponseCache& response_cache, TensorQueue& tensor_queue,

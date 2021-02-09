@@ -60,6 +60,8 @@ MPI_Datatype MPIContext::GetMPIDataType(const DataType dtype) {
 }
 
 MPI_Op MPIContext::GetMPISumOp(DataType dtype) {
+  // 根据数据类型来获取不同的SUMOP，如果我们的数据是float16的话，那我们
+  // 可以用mpi_float16_sum，如果不是的一般就用MPI_SUM
   return dtype == HOROVOD_FLOAT16 ? mpi_float16_sum : MPI_SUM;
 }
 
@@ -100,6 +102,7 @@ void MPIContext::Initialize(const std::vector<int>& ranks,
   // By default, we will ask for multiple threads, so other libraries like
   // mpi4py can be used together with Horovod if multi-threaded MPI is
   // installed.
+  // 这里默认是采用多线程的形式的，除非关闭了这个多线程的开关
   auto mpi_threads_disable = std::getenv(HOROVOD_MPI_THREADS_DISABLE);
   int required = MPI_THREAD_MULTIPLE;
   if (mpi_threads_disable != nullptr &&
@@ -140,17 +143,23 @@ void MPIContext::Initialize(const std::vector<int>& ranks,
     // No ranks were given and no communicator provided to horovod_init() so use
     // MPI_COMM_WORLD
     LOG(DEBUG) << "Using MPI_COMM_WORLD as a communicator.";
+    // 使用MPI_COMM_WORLD作为通信子
     MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm);
   }
 
   // Create local comm, Determine local rank by querying the local communicator.
+  // 获取本地通信子，这样后面才能获取本地的rank
   MPI_Comm_split_type(mpi_comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
                       &local_comm);
 
   // Get local rank and world rank for cross comm establishment.
+  // 只有MPI上下文context初始化之后才可以获取local_rank和world_rank
   int local_rank, world_rank;
   MPI_Comm_rank(mpi_comm, &world_rank);
   MPI_Comm_rank(local_comm, &local_rank);
+  if (local_rank == world_rank){
+    LOG(DEBUG) << "local rank == world rank =" << local_rank;
+  }
 
   // Create cross node communicator.
   MPI_Comm_split(mpi_comm, local_rank, world_rank, &cross_comm);
@@ -164,6 +173,7 @@ void MPIContext::Initialize(const std::vector<int>& ranks,
 }
 
 void MPIContext::Finalize(MPIContextManager& ctx_manager) {
+  // 将获取的通信子和float16相关的通信op销毁
   if (!enabled_) {
     return;
   }
@@ -194,13 +204,30 @@ void MPIContext::Finalize(MPIContextManager& ctx_manager) {
 
 void MPIContextManager::EnvInitialize(int mpi_threads_required) {
   int mpi_threads_provided;
+  // 这里需要注意一个问题，就是之前看的MPI教程中我们是用MPI_Init函数来初始化MPI的
+  // 但是如果程序中有多线程的话，则我们可以用MPI_Init_thread函数，注意这个mpi_threads_required
+  // 有如下的用法
+  // The valid values for the level of thread support are:
+  // MPI_THREAD_SINGLE
+  // Only one thread will execute.
+  // MPI_THREAD_FUNNELED
+  // The process may be multi-threaded, but only the main thread will make MPI calls (all MPI calls are funneled to the main thread).
+  // MPI_THREAD_SERIALIZED
+  // The process may be multi-threaded, and multiple threads may make MPI calls, but only one at a time: 
+  // MPI calls are not made concurrently from two distinct threads (all MPI calls are serialized).
+  // MPI_THREAD_MULTIPLE
+  // Multiple threads may call MPI, with no restrictions.
+  // 默认直接用MPI_THREAD_MULTIPLE，因为保不齐是否是多线程调用MPI服务
   MPI_Init_thread(nullptr, nullptr, mpi_threads_required,
                   &mpi_threads_provided);
 }
 
 void MPIContextManager::EnvFinalize() {
+  // 用于回收和释放MPI资源
   int is_mpi_finalized = 0;
-  MPI_Finalized(&is_mpi_finalized);
+  MPI_Finalized(&is_mpi_finalized); //防止MPI资源已经被释放了，所以需要加一个检查判断
+  // 如果MPI资源没有被释放，这个is_mpi_finalized返回就是false，默认就是0，这样我们才
+  // 可以去调用MPI_Finalize函数进行释放操作
   if (!is_mpi_finalized) {
     MPI_Finalize();
   }

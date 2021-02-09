@@ -27,11 +27,14 @@ void MPIController::DoInitialization() {
   // Check if multi-thread is supported.
   int provided;
   MPI_Query_thread(&provided);
+  // 这里应该是支持MPI多线程的
   mpi_threads_supported_ = (provided == MPI_THREAD_MULTIPLE);
 
   // Get MPI rank to determine if we are rank zero.
+  // 其实在mpi_ctx实例中已经可以获取rank了，MPIContext的功能主要还是为了
+  // MPIController来服务的，因此可以通过mpi_comm通信子来获取得到全局的rank结果
   MPI_Comm_rank(mpi_ctx_.mpi_comm, &rank_);
-  is_coordinator_ = rank_ == 0;
+  is_coordinator_ = rank_ == 0; //协调员一般的rank为0
 
   // Get MPI size to determine how many tensors to wait for before reducing.
   MPI_Comm_size(mpi_ctx_.mpi_comm, &size_);
@@ -45,11 +48,23 @@ void MPIController::DoInitialization() {
   MPI_Comm_size(mpi_ctx_.local_comm, &local_size_);
   local_comm_ranks_ = std::vector<int>((size_t)local_size_);
   local_comm_ranks_[local_rank_] = rank_;
+  LOG(DEBUG) << "=============before all gather operation=============";
+  if (0 == rank_){
+    for(int i = 0; i < local_comm_ranks_.size(); ++i){
+      LOG(DEBUG) << local_comm_ranks_[i];
+    }
+  }
   MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, local_comm_ranks_.data(), 1,
                 MPI_INT, mpi_ctx_.local_comm);
-
+  LOG(DEBUG) << "=============after all gather operation=============";
+  if(0 == rank_){
+    for(int i = 0; i < local_comm_ranks_.size(); ++i){
+      LOG(DEBUG) << local_comm_ranks_[i];
+    }
+  }
   // Determine if cluster is homogeneous, i.e., if every node has the same
   // local_size
+  // 同质是每个机器节点的local_size是一样的
   auto local_sizes = std::vector<int>(size_);
   MPI_Allgather(&local_size_, 1, MPI_INT, local_sizes.data(), 1, MPI_INT,
                 mpi_ctx_.mpi_comm);
@@ -223,6 +238,7 @@ void MPIController::AlltoallGetRecvSplits(const std::vector<int32_t>& splits,
 };
 
 void MPIController::Barrier(Communicator communicator) {
+  // 这个函数相当于阻塞等待，知道所有的进程都完成了相应的mpi操作
   MPI_Comm comm = mpi_ctx_.GetMPICommunicator(communicator);
   int ret_code = MPI_Barrier(comm);
   if (ret_code != MPI_SUCCESS) {

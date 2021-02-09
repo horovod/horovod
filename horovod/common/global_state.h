@@ -43,6 +43,7 @@ class Controller;
 struct HorovodGlobalState {
   // An atomic boolean which is set to true when background thread is started.
   // This ensures that only one background thread is spawned.
+  // 这个是一个原子类型的flag
   std::atomic_flag initialize_flag = ATOMIC_FLAG_INIT;
 
   // Background thread running MPI communication.
@@ -71,7 +72,8 @@ struct HorovodGlobalState {
 
   // Whether collective context has been completed on the background thread.
   std::atomic_bool initialization_done{false};
-
+  // 注意这个controller是一个父类，有gloo类型和mpi类型的
+  // 这个控制器是主要来控制allreduce、allgather、broadcast操作的进行的
   std::shared_ptr<Controller> controller;
 
   TensorQueue tensor_queue;

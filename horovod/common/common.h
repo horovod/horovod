@@ -114,10 +114,11 @@ enum StatusType { OK, UNKNOWN_ERROR, PRECONDITION_ERROR, ABORTED, INVALID_ARGUME
 
 enum DeviceType { CPU, GPU };
 
+// 不同类型的通信子，GLOBAL，LOCAL和CROSS
 enum Communicator {
   GLOBAL = 0,
   LOCAL = 1,
-  CROSS = 2
+  CROSS = 2 //并不是很了解Cross类型的通信子是干嘛的
 };
 
 inline std::string CommunicatorName(Communicator comm) {
@@ -206,6 +207,9 @@ public:
   virtual ~PersistentBuffer() = default;
 };
 
+// 这里的Tensor是给予torch.Tensor和tf.Tensor之上的更高级的Tensor，
+// 但是这个Tensor的主要功能还是简单的主要是获取一下Tensor的数据类型，Tensor的形状
+// 大小，以及数据指针等操作，因为horovod还是主要拿到数据和数据类型进行多进程之间的通信吧
 class Tensor {
 public:
   virtual const DataType dtype() const = 0;
