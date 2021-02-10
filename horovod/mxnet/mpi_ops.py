@@ -375,10 +375,14 @@ def alltoall(tensor, splits=None, name=None, priority=0):
                   are likely to be executed before other operations.
 
     Returns:
-        A tensor containing the gathered tensor data from all workers.
+        1) A tensor containing the gathered tensor data from all workers.
+        2) If `splits` has been provided: A tensor of integers in rank order
+           describing how many elements in the output tensor have been received
+           from each worker.
     """
     assert(isinstance(tensor, mx.nd.NDArray))
 
+    should_return_received_splits = (splits is not None)
     if splits is None:
         # If splits not provided, create empty tensor as placeholder
         splits = mx.nd.array([], ctx=mx.cpu(), dtype='int32')
@@ -387,18 +391,24 @@ def alltoall(tensor, splits=None, name=None, priority=0):
 
     # Size of output is unknown, create output array that
     # will be resized during Horovod operation
-    output = mx.nd.empty(shape=[1], ctx=tensor.context,
+    output = mx.nd.empty(shape=(1,), ctx=tensor.context,
                          dtype=tensor.dtype)
+    output_received_splits = mx.nd.empty(shape=(size(),), ctx=mx.cpu(), dtype='int32')
     c_in = tensor.handle
     c_out = output.handle
     c_splits = splits.handle
+    c_out_recv_splits = output_received_splits.handle
     if isinstance(name, string_types):
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_alltoall_async(
-            c_in, c_out, c_str(name), c_splits, ctypes.c_int(priority)))
+            c_in, c_out, c_str(name), c_splits, c_out_recv_splits, ctypes.c_int(priority)))
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_alltoall_async(
-            c_in, c_out, name, c_splits, ctypes.c_int(priority)))
+            c_in, c_out, name, c_splits, c_out_recv_splits, ctypes.c_int(priority)))
 
     # Need to block here so changes to output tensor are visible
     output.wait_to_read()
-    return output
+    if should_return_received_splits:
+        output_received_splits.wait_to_read()
+        return output, output_received_splits
+    else:
+        return output

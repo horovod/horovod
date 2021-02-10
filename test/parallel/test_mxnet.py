@@ -909,11 +909,14 @@ class MXTests(unittest.TestCase):
               tensor = mx.ndarray.concat(tensor, tensor, dim=1)
 
             splits = mx.ndarray.array([rank + 1] * size, dtype='int32', ctx=ctx)
-            collected = hvd.alltoall(tensor, splits)
+            collected, received_splits = hvd.alltoall(tensor, splits)
 
             assert collected.min() == rank, 'hvd.alltoall produces incorrect collected tensor'
             assert collected.max() == rank, 'hvd.alltoall produces incorrect collected tensor'
             assert collected.size == size * (size + 1) // 2 * 2**(dim - 1), 'hvd.alltoall collected wrong number of values'
+            self.assertSequenceEqual(received_splits.asnumpy().tolist(), [rk + 1 for rk in range(size)],
+                                     "hvd.alltoall returned incorrect received_splits")
+
 
     def test_horovod_alltoall_equal_split(self):
         """Test that the alltoall correctly distributes 1D tensors with default splitting."""

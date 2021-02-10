@@ -253,19 +253,16 @@ protected:
     }
 
     // Allocate and fill received_splits output
-    if (e.context->framework() == Framework::TENSORFLOW ||
-        e.context->framework() == Framework::PYTORCH) {
-      TensorShape received_splits_shape;
-      received_splits_shape.AddDim(recvsplits.size());
-      Status rstatus = e.context->AllocateOutput(1, received_splits_shape,
-                                                 &e.received_splits);
-      if (!rstatus.ok()) {
-        return rstatus;
-      }
-      auto* target_pointer = reinterpret_cast<int32_t*>(
-          const_cast<void*>(e.received_splits->data()));
-      std::copy(recvsplits.cbegin(), recvsplits.cend(), target_pointer);
+    TensorShape received_splits_shape;
+    received_splits_shape.AddDim(recvsplits.size());
+    Status rstatus = e.context->AllocateOutput(1, received_splits_shape,
+                                               &e.received_splits);
+    if (!rstatus.ok()) {
+      return rstatus;
     }
+    auto* target_pointer = reinterpret_cast<int32_t*>(
+        const_cast<void*>(e.received_splits->data()));
+    std::copy(recvsplits.cbegin(), recvsplits.cend(), target_pointer);
 
     return Status::OK();
   }
