@@ -521,7 +521,7 @@ class MXTests(unittest.TestCase):
         except (MXNetError, RuntimeError):
             pass
 
-    def _horovod_broadcast(self):
+    def test_horovod_broadcast(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
         hvd.init()
         rank = hvd.rank()
@@ -564,6 +564,7 @@ class MXTests(unittest.TestCase):
                       broadcast_tensor == root_tensor)
             assert same(broadcast_tensor.asnumpy(), root_tensor.asnumpy()), \
                 'hvd.broadcast produces incorrect broadcasted tensor'
+            count += 1
 
     def test_horovod_broadcast_inplace(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
@@ -610,9 +611,10 @@ class MXTests(unittest.TestCase):
                       broadcast_tensor == root_tensor)
             assert same(broadcast_tensor.asnumpy(), root_tensor.asnumpy()), \
                 'hvd.broadcast produces incorrect broadcasted tensor'
+            count += 1
 
-    def test_horovod_broadcast_grad(self):
-        """Test the correctness of the broadcast gradient."""
+    def test_horovod_broadcast_parameters(self):
+        """Test the correctness of broadcast_parameters."""
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -635,19 +637,17 @@ class MXTests(unittest.TestCase):
             root_dict[count] = mx.nd.ones(shapes[dim], ctx=ctx) * root_rank
             tensor_dict[count] = tensor_dict[count].astype(dtype)
             root_dict[count] = root_dict[count].astype(dtype)
-
-            # Only do broadcasting using and on broadcast_tensor
             count += 1
 
         hvd.broadcast_parameters(tensor_dict, root_rank=root_rank)
         for i in range(count):
             if not same(tensor_dict[i].asnumpy(), root_dict[i].asnumpy()):
-                print("broadcast", count, dtype, dim)
+                print("broadcast", i, dtypes[i], dims[i])
                 print("broadcast_tensor", hvd.rank(), tensor_dict[i])
                 print("root_tensor", hvd.rank(), root_dict[i])
                 print("comparison", hvd.rank(), tensor_dict[i] == root_dict[i])
             assert same(tensor_dict[i].asnumpy(), root_dict[i].asnumpy()), \
-                'hvd.broadcast produces incorrect broadcasted tensor'
+                'hvd.broadcast_parameters produces incorrect broadcasted tensor'
 
     def test_horovod_broadcast_error(self):
         """Test that the broadcast returns an error if any dimension besides
