@@ -88,8 +88,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                 var_list,
                 grad_loss,
                 tape=tape)
-            grads = [g for g, _ in grads_and_vars]
-            weights = [v for _, v in grads_and_vars]
+            grads, weights = list(zip(*grads_and_vars))
 
             allreduced_grads = self._allreduce(grads)
             return list(zip(allreduced_grads, weights))
