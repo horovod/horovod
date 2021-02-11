@@ -1003,7 +1003,7 @@ Status EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts
   for (const auto& n : names) {
     tensors_enqueued += n + "; ";
   }
-  LOG(TRACE) << "Enqueing " << tensors_enqueued;
+  LOG(TRACE, horovod_global.controller->GetRank()) << "Enqueued " << tensors_enqueued;
 
   // Only create groups larger than 1 tensor, unless disable_group_fusion is requested.
   // In that case, even single tensor groups are created to enforce disabling fusion.
