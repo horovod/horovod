@@ -2174,7 +2174,7 @@ class TorchTests(unittest.TestCase):
             ret = hvd.join(hvd.local_rank())
 
     def test_horovod_join_broadcast(self):
-        """Test Join op with allgather."""
+        """Test Join op with broadcast."""
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -2190,7 +2190,7 @@ class TorchTests(unittest.TestCase):
             ret = hvd.join(hvd.local_rank())
         else:
             try:
-                broadcasted_tensor = hvd.broadcast(tensor, 1)
+                broadcasted_tensor = hvd.broadcast(tensor, 1, name="test_horovod_join_broadcast")
                 assert False, 'hvd.broadcast did not throw error'
             except (torch.FatalError, RuntimeError):
                 pass
