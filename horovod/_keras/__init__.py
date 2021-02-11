@@ -68,6 +68,31 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
 
             super(self.__class__, self).__init__(**kwargs)
 
+        def _compute_gradients(self, loss, var_list, grad_loss=None, tape=None):
+            """
+            Compute gradients of all trainable variables.
+
+            See Optimizer.get_gradients() for more info.
+
+            In DistributedOptimizer, get_gradients() is overriden to also
+            allreduce the gradients before returning them.
+            """
+            if _PRE_TF_2_4_0:
+                return super(self.__class__, self)._compute_gradients(
+                    loss, var_list, grad_loss, tape)
+
+            tape = backprop.GradientTape() if tape is None else tape
+            grads_and_vars = super(self.__class__, self)._compute_gradients(
+                # pylint: disable=protected-access
+                loss,
+                var_list,
+                grad_loss,
+                tape=tape)
+            grads, weights = list(zip(*grads_and_vars))
+
+            allreduced_grads = self._allreduce(grads)
+            return list(zip(allreduced_grads, weights))
+
         def get_gradients(self, loss, params):
             """
             Compute gradients of all trainable variables.
@@ -81,13 +106,13 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
             return self._allreduce(gradients)
 
         def _aggregate_gradients(self, grads_and_vars):
-            grads, vars = list(zip(*grads_and_vars))
-            aggregated_grads = self._allreduce(grads)
             if _PRE_TF_2_4_0:
-                # Prior to TF 2.4.0, this function was expected to return only a list of
-                # grads, not a list of (grad, var) tuples.
+                grads, vars = list(zip(*grads_and_vars))
+                aggregated_grads = self._allreduce(grads)
                 return aggregated_grads
-            return list(zip(aggregated_grads, vars))
+            else:
+                return super(self.__class__, self)._aggregate_gradients(
+                    grads_and_vars)
 
         def _allreduce(self, grads):
             self._aggregated_gradients = True
@@ -117,7 +142,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
             else:
                 results = super(self.__class__, self).apply_gradients(*args, **kwargs)
 
-            if not self._aggregated_gradients:
+            if _PRE_TF_2_4_0 and not self._aggregated_gradients:
                 raise Exception('`apply_gradients()` was called without a call to '
                                 '`get_gradients()` or `_aggregate_gradients`. If you\'re '
                                 'using TensorFlow 2.0, please specify '
