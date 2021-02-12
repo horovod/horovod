@@ -90,7 +90,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                 tape=tape)
             grads, weights = list(zip(*grads_and_vars))
 
-            allreduced_grads = self._allreduce(grads)
+            allreduced_grads = self._allreduce(grads, weights)
             return list(zip(allreduced_grads, weights))
 
         def get_gradients(self, loss, params):

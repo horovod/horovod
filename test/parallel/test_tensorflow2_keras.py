@@ -215,7 +215,7 @@ class Tf2KerasTests(tf.test.TestCase):
         variables = [tf.Variable([0.0])]
         for idx in range(10):
             if _PRE_TF_2_2_0:
-                updated_gradients = hvd_optimizer._allreduce(gradients)
+                updated_gradients = hvd_optimizer._allreduce(gradients, variables)
                 apply_gradients_in_tf_function(updated_gradients, variables)
             elif _PRE_TF_2_4_0:
                 # In 2.2 and 2.3 the horovod optimizer sets `_HAS_AGGREGATE_GRAD = True`.
