@@ -400,7 +400,7 @@ int DoAlltoall(::torch::Tensor tensor, ::torch::Tensor splits,
       hvd_context, hvd_tensor, hvd_cpu_splits, ready_event,
       GetOpName("alltoall", name, handle), device,
       [handle, cpu_received_splits, output_received_splits,
-       received_splits_device](const Status& status) {
+       received_splits_device](const Status& status) mutable {
         if (received_splits_device != CPU_DEVICE_ID) {
           with_device device_guard(received_splits_device);
           output_received_splits.resize_(cpu_received_splits.sizes());
