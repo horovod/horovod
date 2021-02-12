@@ -42,7 +42,7 @@ class LocalGradientAggregationHelperEager:
         self.counter = tf.Variable(initial_value=0)
 
     @tf.function
-    def compute_gradients(self, grads):
+    def compute_gradients(self, grads, vars):
         # On steps where allreduce happens, resulting_grads returns the allreduced
         # gradients, on other steps it returns the locally aggregated
         # gradients.
@@ -80,10 +80,10 @@ class LocalGradientAggregationHelperEager:
         # Increment counter.
         self.counter.assign_add(1)
 
-        def _all_reduce_and_clear_aggregated_variables(aggregated_gradients):
+        def _all_reduce_and_clear_aggregated_variables(aggregated_gradients, vars):
             # Performs allreduce. If `average_aggregated_gradients` is
             # set to True divides result by `backward_passes_per_step`.
-            reduced_gradients = self._allreduce_helper(aggregated_gradients)
+            reduced_gradients = self._allreduce_helper(aggregated_gradients, vars)
             assert len(reduced_gradients) == len(grads)
 
             self._clear_vars()
@@ -94,14 +94,14 @@ class LocalGradientAggregationHelperEager:
 
         resulting_grads = tf.cond(
             pred=tf.equal(self.counter, self.backward_passes_per_step),
-            true_fn=lambda: _all_reduce_and_clear_aggregated_variables(resulting_grads),
+            true_fn=lambda: _all_reduce_and_clear_aggregated_variables(resulting_grads, vars),
             false_fn=lambda: _do_nothing(resulting_grads),
         )
 
         return resulting_grads
 
-    def _allreduce_helper(self, grads):
-        allreduced_grads = self.allreduce_grads(grads)
+    def _allreduce_helper(self, grads, vars):
+        allreduced_grads = self.allreduce_grads(grads, vars)
 
         if not self.average_aggregated_gradients:
             return allreduced_grads

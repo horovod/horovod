@@ -140,7 +140,7 @@ class LocalGradientAggregationHelper:
 
         return aggregation_ops_list
 
-    def _allreduce_grads_helper(self, grads):
+    def _allreduce_grads_helper(self, grads, vars):
         # Read in latest variables values.
         aggregated_grads = []
         aggregation_read_ops_list = []
@@ -151,7 +151,7 @@ class LocalGradientAggregationHelper:
         aggregation_read_ops = tf.group(*aggregation_read_ops_list)
 
         with tf.control_dependencies([aggregation_read_ops]):
-            averaged_gradients = self._allreduce_grads(aggregated_grads)
+            averaged_gradients = self._allreduce_grads(aggregated_grads, vars)
 
             # Reset counter.
             with tf.control_dependencies([g.op for g in averaged_gradients if g is not None]):
@@ -171,7 +171,7 @@ class LocalGradientAggregationHelper:
                 )
                 return averaged_gradients
 
-    def compute_gradients(self, grads):
+    def compute_gradients(self, grads, vars):
         """
         Applies the new gradient updates the locally aggregated gradients, and
         performs cross-machine communication every backward_passes_per_step
@@ -204,7 +204,7 @@ class LocalGradientAggregationHelper:
             # the counter back to 0.
             allreduced_grads = tf.cond(
                 tf.equal(self.counter, self.backward_passes_per_step),
-                lambda: self._allreduce_grads_helper(grads),
+                lambda: self._allreduce_grads_helper(grads, vars),
                 lambda: grads,
             )
 

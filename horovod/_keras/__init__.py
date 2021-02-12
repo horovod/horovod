@@ -29,7 +29,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                                  compression, sparse_as_dense, gradient_predivide_factor,
                                  op, backward_passes_per_step=1,
                                  average_aggregated_gradients=False,
-                                 num_groups=0):
+                                 groups=None):
     class _DistributedOptimizer(keras.optimizers.Optimizer):
         _HAS_AGGREGATE_GRAD = True
 
@@ -45,7 +45,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                 sparse_as_dense,
                 op,
                 gradient_predivide_factor,
-                num_groups)
+                groups)
 
             self._agg_helper = None
             if backward_passes_per_step > 1:
@@ -90,7 +90,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                 tape=tape)
             grads, weights = list(zip(*grads_and_vars))
 
-            allreduced_grads = self._allreduce(grads)
+            allreduced_grads = self._allreduce(grads, weights)
             return list(zip(allreduced_grads, weights))
 
         def get_gradients(self, loss, params):
@@ -103,24 +103,24 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
             allreduce the gradients before returning them.
             """
             gradients = super(self.__class__, self).get_gradients(loss, params)
-            return self._allreduce(gradients)
+            return self._allreduce(gradients, params)
 
         def _aggregate_gradients(self, grads_and_vars):
             if _PRE_TF_2_4_0:
                 grads, vars = list(zip(*grads_and_vars))
-                aggregated_grads = self._allreduce(grads)
+                aggregated_grads = self._allreduce(grads, vars)
                 return aggregated_grads
             else:
                 return super(self.__class__, self)._aggregate_gradients(
                     grads_and_vars)
 
-        def _allreduce(self, grads):
+        def _allreduce(self, grads, vars):
             self._aggregated_gradients = True
 
             if self._agg_helper:
-                return self._agg_helper.compute_gradients(tuple(grads))
+                return self._agg_helper.compute_gradients(tuple(grads), tuple(vars))
             else:
-                return self._allreduce_grads(grads)
+                return self._allreduce_grads(grads, vars)
 
         def apply_gradients(self, *args, **kwargs):
             if self._agg_helper:

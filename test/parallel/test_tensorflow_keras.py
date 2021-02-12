@@ -407,7 +407,7 @@ class TfKerasTests(tf.test.TestCase):
             variables = [tf.Variable([0.0])]
             session.run(variables[0].initializer)
 
-            allreduce_op = hvd_optimizer._allreduce(grads)
+            allreduce_op = hvd_optimizer._allreduce(grads, variables)
             grads_and_vars = [(allreduce_op[0], variables[0])]
             apply_grads_op = hvd_optimizer.apply_gradients(grads_and_vars)
 
