@@ -758,7 +758,10 @@ def alltoall_async(tensor, splits=None, name=None):
         `synchronize()`.
     """
     output = tensor.new()
-    output_received_splits = torch.empty(size(), dtype=torch.int32, device='cpu')
+    if isinstance(splits, torch.Tensor):
+        output_received_splits = splits.new()
+    else:
+        output_received_splits = torch.empty(size(), dtype=torch.int32, device='cpu')
     return _alltoall_async(tensor, splits, output, output_received_splits, name)
 
 
