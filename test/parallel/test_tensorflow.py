@@ -25,6 +25,7 @@ import numpy as np
 import os
 import math
 import pytest
+import sys
 import tensorflow as tf
 from horovod.tensorflow.util import _executing_eagerly
 from tensorflow.python.framework import ops
@@ -32,7 +33,9 @@ import warnings
 
 import horovod.tensorflow as hvd
 
-from common import mpi_env_rank_and_size
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
+
+from common import mpi_env_rank_and_size, skip_or_fail_gpu_test
 
 if hasattr(tf, 'ConfigProto'):
     config = tf.ConfigProto()
@@ -48,7 +51,8 @@ else:
     # tests from running in the graph mode.
     tf.enable_eager_execution(config=config)
 
-ccl_supported_types = set([tf.uint8, tf.int32, tf.int64, tf.float32, tf.float64])
+ccl_supported_types = set([tf.uint8, tf.int8, tf.uint16, tf.int16, 
+                           tf.int32, tf.int64, tf.float32, tf.float64])
 
 _IS_TF2 = LooseVersion(tf.__version__) >= LooseVersion('2.0.0')
 
@@ -102,6 +106,10 @@ class TensorFlowTests(tf.test.TestCase):
         if 'CCL_ROOT' in os.environ:
            types = [t for t in types if t in ccl_supported_types]
         return types
+
+    def test_gpu_required(self):
+        if not tf.test.is_gpu_available(cuda_only=True):
+            skip_or_fail_gpu_test(self, "No GPUs available")
 
     def test_horovod_rank(self):
         """Test that the rank returned by hvd.rank() is correct."""
@@ -1750,9 +1758,9 @@ class TensorFlowTests(tf.test.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
-        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
-                  tf.int32, tf.int64, tf.float16, tf.float32,
-                  tf.float64]
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.uint16, tf.int16,
+                                              tf.int32, tf.int64, tf.float16, tf.float32,
+                                              tf.float64])
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
@@ -1825,9 +1833,9 @@ class TensorFlowTests(tf.test.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
-        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
-                  tf.int32, tf.int64, tf.float16, tf.float32,
-                  tf.float64]
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.uint16, tf.int16,
+                                              tf.int32, tf.int64, tf.float16, tf.float32,
+                                              tf.float64])
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
@@ -1897,9 +1905,9 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.init()
         size = hvd.size()
 
-        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
-                  tf.int32, tf.int64, tf.float16, tf.float32,
-                  tf.float64]
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.uint16, tf.int16,
+                                              tf.int32, tf.int64, tf.float16, tf.float32,
+                                              tf.float64])
         for dtype in dtypes:
             with tf.device("/cpu:0"):
                 vals = [[] for i in range(size)]
@@ -1951,9 +1959,9 @@ class TensorFlowTests(tf.test.TestCase):
         if hvd.size() < 2:
             self.skipTest("Only one worker available")
 
-        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
-                  tf.int32, tf.int64, tf.float16, tf.float32,
-                  tf.float64]
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.uint16, tf.int16,
+                                              tf.int32, tf.int64, tf.float16, tf.float32,
+                                              tf.float64])
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
@@ -2050,9 +2058,9 @@ class TensorFlowTests(tf.test.TestCase):
         if hvd.size() < 2:
             self.skipTest("Only one worker available")
 
-        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
-                  tf.int32, tf.int64, tf.float16, tf.float32,
-                  tf.float64]
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.uint16, tf.int16,
+                                              tf.int32, tf.int64, tf.float16, tf.float32,
+                                              tf.float64])
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):

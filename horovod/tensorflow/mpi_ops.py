@@ -23,8 +23,8 @@ from tensorflow.python.framework import load_library
 from tensorflow.python.framework import ops
 from tensorflow.python.platform import resource_loader
 
-from horovod.common.util import get_ext_suffix, get_average_backwards_compatibility_fun, gpu_available, \
-    num_rank_is_power_2
+from horovod.common.util import check_installed_version, get_ext_suffix, \
+    get_average_backwards_compatibility_fun, gpu_available, num_rank_is_power_2
 from horovod.common.basics import HorovodBasics as _HorovodBasics
 from horovod.tensorflow.util import _executing_eagerly
 
@@ -42,8 +42,14 @@ def _load_library(name):
     library = load_library.load_op_library(filename)
     return library
 
-
-MPI_LIB = _load_library('mpi_lib' + get_ext_suffix())
+# Check possible symbol not found error from tensorflow version mismatch
+try:
+    MPI_LIB = _load_library('mpi_lib' + get_ext_suffix())
+except Exception as e:
+    check_installed_version('tensorflow', tf.__version__, e)
+    raise e
+else:
+    check_installed_version('tensorflow', tf.__version__)
 
 _basics = _HorovodBasics(__file__, 'mpi_lib')
 

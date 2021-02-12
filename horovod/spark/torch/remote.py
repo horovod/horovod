@@ -17,6 +17,7 @@ import contextlib
 import io
 import math
 import os
+from datetime import datetime, timezone
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -57,6 +58,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     loss_constructors = to_list(estimator.getLossConstructors(), num_labels)
     transformation_fn = estimator.getTransformationFn()
     transformation = transformation_fn if transformation_fn else None
+    inmemory_cache_all = estimator.getInMemoryCacheAll()
 
     # If loss weight is not provided, use equal loss for all the labels
     loss_weights = estimator.getLossWeights()
@@ -180,7 +182,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
             schema_fields.append(sample_weight_col)
 
         if train_steps_per_epoch is None:
-            steps_per_epoch = int(math.ceil(float(train_rows) / batch_size / hvd.size()))
+            steps_per_epoch = int(math.floor(float(train_rows) / batch_size / hvd.size()))
         else:
             steps_per_epoch = train_steps_per_epoch
 
@@ -201,6 +203,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                 if cuda_available:
                     model.cuda()
 
+
             # In general, make_batch_reader is faster than make_reader for reading the dataset.
             # However, we found out that make_reader performs data transformations much faster than
             # make_batch_reader with parallel worker processes. Therefore, the default reader
@@ -218,7 +221,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
             # and enables ranks to perform training and validation with
             # unequal number of samples
             with reader_factory(remote_store.train_data_path,
-                                num_epochs=None,
+                                num_epochs=1 if inmemory_cache_all else None,
                                 cur_shard=hvd.rank(),
                                 reader_pool_type='process',
                                 workers_count=train_reader_worker_count,
@@ -228,7 +231,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                                 transform_spec=transform_spec,
                                 **reader_factory_kwargs) as train_reader:
                 with reader_factory(remote_store.val_data_path,
-                                    num_epochs=None,
+                                    num_epochs=1 if inmemory_cache_all else None,
                                     cur_shard=hvd.rank(),
                                     reader_pool_type='process',
                                     workers_count=val_reader_worker_count,
@@ -240,8 +243,10 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                     if should_validate else empty_batch_reader() as val_reader:
 
                     train_loader = BatchedDataLoader(train_reader,
+                                                     num_epochs=epochs if inmemory_cache_all else None,
                                                      batch_size=batch_size,
-                                                     shuffling_queue_capacity=shuffle_buffer_size)
+                                                     shuffling_queue_capacity=shuffle_buffer_size,
+                                                     inmemory_cache_all=inmemory_cache_all)
                     train_loader_iter = iter(train_loader)
 
                     def prepare_batch(row):
@@ -324,8 +329,12 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                         return aggregate_metrics('train', epoch, train_loss, metric_value_groups)
 
                     if should_validate:
-                        val_loader = BatchedDataLoader(val_reader, batch_size=val_batch_size)
+                        val_loader = BatchedDataLoader(val_reader,
+                                                       num_epochs=epochs if inmemory_cache_all else None,
+                                                       batch_size=batch_size,
+                                                       inmemory_cache_all=inmemory_cache_all)
                         val_loader_iter = iter(val_loader)
+
                         if validation_steps_per_epoch is None:
                             validation_steps = int(math.ceil(float(val_rows) / val_batch_size / hvd.size()))
                         else:
@@ -364,7 +373,9 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                             epoch_metrics['validation'] = _validate(epoch)
 
                         if user_verbose > 0:
-                            print(epoch_metrics)
+                            pdt_dt = datetime.now(timezone.utc)
+                            pdt_time_str = pdt_dt.strftime("%Y-%b-%d %H:%M:%S UTC")
+                            print(pdt_time_str, epoch_metrics)
 
                         history.append(epoch_metrics)
                         if hvd.rank() == 0:

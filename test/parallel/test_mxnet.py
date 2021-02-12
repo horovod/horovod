@@ -15,27 +15,40 @@
 # ==============================================================================
 
 import os
-import pytest
+import sys
 import itertools
 import unittest
-import numpy as np
-import mxnet as mx
-
 from distutils.version import LooseVersion
 
-from mxnet.base import MXNetError
-from mxnet.test_utils import almost_equal, same
+import pytest
+import numpy as np
 
-import horovod.mxnet as hvd
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
-has_gpu = mx.context.num_gpus() > 0
+from common import skip_or_fail_gpu_test
 
-ccl_supported_types = set(['int32', 'int64', 'float32', 'float64'])
+try:
+    import mxnet as mx
+    from mxnet.base import MXNetError
+    from mxnet.test_utils import almost_equal, same
+    import horovod.mxnet as hvd
 
-# MXNet 1.4.x will kill test MPI process if error occurs during operation enqueue. Skip
-# those tests for versions earlier than 1.5.0.
-_skip_enqueue_errors = LooseVersion(mx.__version__) < LooseVersion('1.5.0')
+    has_gpu = mx.context.num_gpus() > 0
 
+    ccl_supported_types = set(['int32', 'int64', 'float32', 'float64'])
+
+    # MXNet 1.4.x will kill test MPI process if error occurs during operation enqueue. Skip
+    # those tests for versions earlier than 1.5.0.
+    _skip_enqueue_errors = LooseVersion(mx.__version__) < LooseVersion('1.5.0')
+
+    HAS_MXNET = True
+except ImportError:
+    has_gpu = False
+    _skip_enqueue_errors = False
+    HAS_MXNET = False
+
+
+@pytest.mark.skipif(not HAS_MXNET, reason='MXNet unavailable')
 class MXTests(unittest.TestCase):
     """
     Tests for ops in horovod.mxnet.
@@ -51,6 +64,10 @@ class MXTests(unittest.TestCase):
         if 'CCL_ROOT' in os.environ:
            types = [t for t in types if t in ccl_supported_types]
         return types
+
+    def test_gpu_required(self):
+        if not has_gpu:
+            skip_or_fail_gpu_test(self, "No GPUs available")
 
     def test_horovod_allreduce(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
@@ -504,7 +521,7 @@ class MXTests(unittest.TestCase):
         except (MXNetError, RuntimeError):
             pass
 
-    def _horovod_broadcast(self):
+    def test_horovod_broadcast(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
         hvd.init()
         rank = hvd.rank()
@@ -547,6 +564,7 @@ class MXTests(unittest.TestCase):
                       broadcast_tensor == root_tensor)
             assert same(broadcast_tensor.asnumpy(), root_tensor.asnumpy()), \
                 'hvd.broadcast produces incorrect broadcasted tensor'
+            count += 1
 
     def test_horovod_broadcast_inplace(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
@@ -593,9 +611,10 @@ class MXTests(unittest.TestCase):
                       broadcast_tensor == root_tensor)
             assert same(broadcast_tensor.asnumpy(), root_tensor.asnumpy()), \
                 'hvd.broadcast produces incorrect broadcasted tensor'
+            count += 1
 
-    def test_horovod_broadcast_grad(self):
-        """Test the correctness of the broadcast gradient."""
+    def test_horovod_broadcast_parameters(self):
+        """Test the correctness of broadcast_parameters."""
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -618,19 +637,17 @@ class MXTests(unittest.TestCase):
             root_dict[count] = mx.nd.ones(shapes[dim], ctx=ctx) * root_rank
             tensor_dict[count] = tensor_dict[count].astype(dtype)
             root_dict[count] = root_dict[count].astype(dtype)
-
-            # Only do broadcasting using and on broadcast_tensor
             count += 1
 
         hvd.broadcast_parameters(tensor_dict, root_rank=root_rank)
         for i in range(count):
             if not same(tensor_dict[i].asnumpy(), root_dict[i].asnumpy()):
-                print("broadcast", count, dtype, dim)
+                print("broadcast", i, dtypes[i], dims[i])
                 print("broadcast_tensor", hvd.rank(), tensor_dict[i])
                 print("root_tensor", hvd.rank(), root_dict[i])
                 print("comparison", hvd.rank(), tensor_dict[i] == root_dict[i])
             assert same(tensor_dict[i].asnumpy(), root_dict[i].asnumpy()), \
-                'hvd.broadcast produces incorrect broadcasted tensor'
+                'hvd.broadcast_parameters produces incorrect broadcasted tensor'
 
     def test_horovod_broadcast_error(self):
         """Test that the broadcast returns an error if any dimension besides

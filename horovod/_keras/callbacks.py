@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+from distutils.version import LooseVersion
 import warnings
 
 import horovod.tensorflow as hvd
@@ -52,6 +53,11 @@ class MetricAverageCallbackImpl(object):
         self.variables = {}
         self.allreduce_ops = {}
         self.device = device
+
+        if LooseVersion(tf.__version__) >= LooseVersion("2.3"):
+            warnings.warn(
+                "Some callbacks may not have access to the averaged metrics, "
+                "see https://github.com/horovod/horovod/issues/2440")
 
     def _make_variable(self, metric, value):
         with self.backend.name_scope('MetricAverageCallback'):
@@ -186,7 +192,7 @@ class LearningRateWarmupCallbackImpl(LearningRateScheduleCallbackImpl):
     def on_epoch_end(self, epoch, logs=None):
         super(LearningRateWarmupCallbackImpl, self).on_epoch_end(epoch, logs)
 
-        if epoch == self.end_epoch - 1 and self.verbose > 0:
+        if epoch == self.end_epoch - 1 and self.verbose > 0 and hvd.rank() == 0:
             new_lr = self.backend.get_value(self.model.optimizer.lr)
             print('\nEpoch %d: finished gradual learning rate warmup to %g.' %
                   (epoch + 1, new_lr))

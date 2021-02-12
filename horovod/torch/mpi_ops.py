@@ -20,16 +20,24 @@ import torch
 
 import warnings
 
-from horovod.torch import mpi_lib_v2 as mpi_lib
 from horovod.common.basics import HorovodBasics as _HorovodBasics
-_NULL = ""
-_basics = _HorovodBasics(__file__, 'mpi_lib_v2')
-
 from horovod.common.exceptions import HorovodInternalError
-from horovod.common.util import get_average_backwards_compatibility_fun, gpu_available, num_rank_is_power_2
+from horovod.common.util import check_installed_version, get_average_backwards_compatibility_fun, gpu_available, num_rank_is_power_2
 
 from horovod.torch.compression import Compression
 
+# Check possible symbol not found error from pytorch version mismatch
+try:
+    from horovod.torch import mpi_lib_v2 as mpi_lib
+except Exception as e:
+    check_installed_version('pytorch', torch.__version__, e)
+    raise e
+else:
+    check_installed_version('pytorch', torch.__version__)
+
+_NULL = ""
+
+_basics = _HorovodBasics(__file__, 'mpi_lib_v2')
 # import basic methods
 init = _basics.init
 is_initialized = _basics.is_initialized

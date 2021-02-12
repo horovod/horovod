@@ -17,7 +17,7 @@ import functools
 import queue
 
 from horovod.common.exceptions import HorovodInternalError, HostsUpdatedInterrupt
-from horovod.runner.elastic.worker import WorkerNotificationManager
+from horovod.runner.elastic.worker import HostUpdateResult, WorkerNotificationManager
 
 
 notification_manager = WorkerNotificationManager()
@@ -54,8 +54,8 @@ class State(object):
         for callback in self._reset_callbacks:
             callback()
 
-    def on_hosts_updated(self, timestamp):
-        self._host_messages.put(timestamp)
+    def on_hosts_updated(self, timestamp, update_res):
+        self._host_messages.put((timestamp, update_res))
 
     def commit(self):
         """Commits all modifications to state tracked by this object to host memory.
@@ -78,19 +78,23 @@ class State(object):
         # Iterate through the update messages sent from the server. If the update timestamp
         # is greater than the last update timestamp, then trigger a HostsUpdatedException.
         last_updated_timestamp = prev_timestamp = self._last_updated_timestamp
+        all_update = HostUpdateResult.no_update
         while not self._host_messages.empty():
-            timestamp = self._host_messages.get()
+            timestamp, update = self._host_messages.get()
             if timestamp > last_updated_timestamp:
                 last_updated_timestamp = timestamp
+                all_update |= update
 
         # In order to ensure all workers raise the exception at the same time, we need to sync
         # the updated state across all the workers.
         # TODO(travis): this should be a max allreduce to account for changes in rank 0
-        prev_timestamp, self._last_updated_timestamp = self._bcast_object((prev_timestamp, last_updated_timestamp))
+        prev_timestamp, self._last_updated_timestamp, all_update = \
+            self._bcast_object((prev_timestamp, last_updated_timestamp, all_update))
 
         # At this point, updated state is globally consistent across all ranks.
         if self._last_updated_timestamp > prev_timestamp:
-            raise HostsUpdatedInterrupt()
+            raise HostsUpdatedInterrupt(all_update == HostUpdateResult.removed)
+
 
     def save(self):
         """Saves state to host memory."""
@@ -149,17 +153,20 @@ def run_fn(func, reset):
     def wrapper(state, *args, **kwargs):
         notification_manager.init()
         notification_manager.register_listener(state)
+        skip_sync = False
 
         try:
             while True:
-                state.sync()
+                if not skip_sync:
+                    state.sync()
 
                 try:
                     return func(state, *args, **kwargs)
                 except HorovodInternalError:
                     state.restore()
-                except HostsUpdatedInterrupt:
-                    pass
+                    skip_sync = False
+                except HostsUpdatedInterrupt as e:
+                    skip_sync = e.skip_sync
 
                 reset()
                 state.on_reset()

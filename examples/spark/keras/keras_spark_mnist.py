@@ -1,6 +1,7 @@
 import argparse
 import os
 import subprocess
+import sys
 from distutils.version import LooseVersion
 
 import numpy as np
@@ -23,6 +24,7 @@ from tensorflow.keras.layers import Dense, Dropout, Flatten
 from tensorflow.keras.layers import Conv2D, MaxPooling2D
 
 import horovod.spark.keras as hvd
+from horovod.spark.common.backend import SparkBackend
 from horovod.spark.common.store import Store
 
 parser = argparse.ArgumentParser(description='Keras Spark MNIST Example',
@@ -99,7 +101,10 @@ if __name__ == '__main__':
     loss = keras.losses.categorical_crossentropy
 
     # Train a Horovod Spark Estimator on the DataFrame
-    keras_estimator = hvd.KerasEstimator(num_proc=args.num_proc,
+    backend = SparkBackend(num_proc=args.num_proc,
+                           stdout=sys.stdout, stderr=sys.stderr,
+                           prefix_output_with_timestamp=True)
+    keras_estimator = hvd.KerasEstimator(backend=backend,
                                          store=store,
                                          model=model,
                                          optimizer=optimizer,

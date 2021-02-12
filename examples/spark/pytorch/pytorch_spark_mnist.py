@@ -1,6 +1,7 @@
 import argparse
 import os
 import subprocess
+import sys
 from distutils.version import LooseVersion
 
 import numpy as np
@@ -21,6 +22,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 import horovod.spark.torch as hvd
+from horovod.spark.common.backend import SparkBackend
 from horovod.spark.common.store import Store
 
 parser = argparse.ArgumentParser(description='PyTorch Spark MNIST Example',
@@ -100,7 +102,10 @@ if __name__ == '__main__':
     loss = nn.NLLLoss()
 
     # Train a Horovod Spark Estimator on the DataFrame
-    torch_estimator = hvd.TorchEstimator(num_proc=args.num_proc,
+    backend = SparkBackend(num_proc=args.num_proc,
+                           stdout=sys.stdout, stderr=sys.stderr,
+                           prefix_output_with_timestamp=True)
+    torch_estimator = hvd.TorchEstimator(backend=backend,
                                          store=store,
                                          model=model,
                                          optimizer=optimizer,
@@ -116,6 +121,7 @@ if __name__ == '__main__':
 
     # Evaluate the model on the held-out test DataFrame
     pred_df = torch_model.transform(test_df)
+
     argmax = udf(lambda v: float(np.argmax(v)), returnType=T.DoubleType())
     pred_df = pred_df.withColumn('label_pred', argmax(pred_df.label_prob))
     evaluator = MulticlassClassificationEvaluator(predictionCol='label_pred', labelCol='label', metricName='accuracy')

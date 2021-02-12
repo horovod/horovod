@@ -144,7 +144,7 @@ class Store(object):
     def create(prefix_path, *args, **kwargs):
         if HDFSStore.matches(prefix_path):
             return HDFSStore(prefix_path, *args, **kwargs)
-        elif is_databricks() and DBFSLocalStore.matches(prefix_path):
+        elif is_databricks() and DBFSLocalStore.matches_dbfs(prefix_path):
             return DBFSLocalStore(prefix_path, *args, **kwargs)
         else:
             return LocalStore(prefix_path, *args, **kwargs)
@@ -461,17 +461,18 @@ class DBFSLocalStore(LocalStore):
     https://docs.databricks.com/data/databricks-file-system.html#local-file-apis.
     """
     def __init__(self, prefix_path, *args, **kwargs):
-        prefix_path = self.get_localized_path(prefix_path)
+        prefix_path = self.normalize_path(prefix_path)
         if not prefix_path.startswith("/dbfs/"):
             warnings.warn("The provided prefix_path might be ephemeral: {} Please provide a "
                           "`prefix_path` starting with `/dbfs/...`".format(prefix_path))
         super(DBFSLocalStore, self).__init__(prefix_path, *args, **kwargs)
 
     @classmethod
-    def matches(cls, path):
+    def matches_dbfs(cls, path):
         return path.startswith("dbfs:/") or path.startswith("/dbfs/") or path.startswith("file:///dbfs/")
 
-    def get_localized_path(self, path):
+    @staticmethod
+    def normalize_path(path):
         """
         Normalize the path to the form `/dbfs/...`
         """

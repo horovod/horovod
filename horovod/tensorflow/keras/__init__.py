@@ -119,7 +119,7 @@ def broadcast_global_variables(root_rank):
     return _impl.broadcast_global_variables(K, root_rank)
 
 
-def allreduce(value, name=None, average=True,
+def allreduce(value, name=None, average=None,
               prescale_factor=1.0,
               postscale_factor=1.0,
               op=None,

@@ -21,7 +21,7 @@ import numbers
 import time
 
 from pyspark import keyword_only
-from pyspark.ml.param.shared import Param, Params
+from pyspark.ml.param.shared import Param, Params, TypeConverters
 from pyspark.ml.util import MLWritable, MLReadable
 from pyspark.sql import SparkSession
 
@@ -150,6 +150,10 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     train_minibatch_fn = Param(Params._dummy(), 'train_minibatch_fn',
                                'functions that construct the minibatch train function for torch')
 
+    inmemory_cache_all = Param(Params._dummy(), 'inmemory_cache_all',
+                               'Cache the data in memory for training and validation.',
+                               typeConverter=TypeConverters.toBoolean)
+
     @keyword_only
     def __init__(self,
                  num_proc=None,
@@ -181,13 +185,15 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  transformation_fn=None,
                  train_reader_num_workers=None,
                  val_reader_num_workers=None,
-                 label_shapes=None):
+                 label_shapes=None,
+                 inmemory_cache_all=False):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
                          input_shapes=None,
                          train_minibatch_fn=None,
-                         transformation_fn=None)
+                         transformation_fn=None,
+                         inmemory_cache_all=False)
 
         kwargs = self._input_kwargs
 
@@ -213,6 +219,12 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def getLossConstructors(self):
         return self.getOrDefault(self.loss_constructors)
+
+    def setInMemoryCacheAll(self, value):
+        return self._set(inmemory_cache_all=value)
+
+    def getInMemoryCacheAll(self):
+        return self.getOrDefault(self.inmemory_cache_all)
 
     def _get_optimizer(self):
         return self.getOrDefault(self.optimizer)
@@ -396,6 +408,10 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
 
     # To run locally on OS X, need export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
     def _transform(self, df):
+        import copy
+        from pyspark.sql.types import StructField, StructType
+        from pyspark.ml.linalg import VectorUDT
+
         model_pre_predict = self.getModel()
         deserialize = deserialize_fn()
         serialize = serialize_fn()
@@ -406,6 +422,8 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
         output_cols = self.getOutputCols()
         feature_cols = self.getFeatureColumns()
         metadata = self._get_metadata()
+
+        final_output_cols = util.get_output_cols(df.schema, output_cols)
 
         def predict(rows):
             from pyspark import Row
@@ -453,23 +471,33 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
 
                     fields[output_col] = field
 
-                yield Row(**fields)
+                values = [fields[col] for col in final_output_cols]
+
+                yield Row(*values)
 
         spark0 = SparkSession._instantiatedSession
 
-        # Get a limited DF and make predictions and get the schema of the final DF
-        limited_pred_rdd = df.limit(100000).rdd.mapPartitions(predict)
-        limited_pred_df = spark0.createDataFrame(limited_pred_rdd, samplingRatio=1)
-        final_output_schema = limited_pred_df.schema
+        final_output_fields = []
 
-        # Spark has to infer whether a filed is nullable or not from a limited number of samples.
-        # It does not always get it right. We copy the nullable boolean variable for the fields
-        # from the original dataframe to the final DF schema.
-        nullables = {field.name: field.nullable for field in df.schema.fields}
-        for field in final_output_schema.fields:
-            if field.name in nullables:
-                field.nullable = nullables[field.name]
+        # copy input schema
+        for field in df.schema.fields:
+            final_output_fields.append(copy.deepcopy(field))
+
+        # append output schema
+        override_fields = df.limit(1).rdd.mapPartitions(predict).toDF().schema.fields[-len(output_cols):]
+        for name, override, label in zip(output_cols, override_fields, label_cols):
+            # default data type as label type
+            data_type = metadata[label]['spark_data_type']()
+
+            if type(override.dataType) == VectorUDT:
+                # Override output to vector. This is mainly for torch's classification loss
+                # where label is a scalar but model output is a vector.
+                data_type = VectorUDT()
+            final_output_fields.append(StructField(name=name, dataType=data_type, nullable=True))
+
+        final_output_schema = StructType(final_output_fields)
 
         pred_rdd = df.rdd.mapPartitions(predict)
+
         # Use the schema from previous section to construct the final DF with prediction
         return spark0.createDataFrame(pred_rdd, schema=final_output_schema)

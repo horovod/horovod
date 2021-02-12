@@ -25,7 +25,8 @@ def ray_shutdown():
 
 @pytest.fixture
 def ray_8_cpus():
-    ray.init(num_cpus=8)
+    ray.init(num_cpus=8, resources={
+        f"node:host-{i}": 1 for i in range(10)})
     yield
     # The code after the yield will run as teardown code.
     ray.shutdown()
@@ -36,10 +37,13 @@ def ray_8_cpus_gpus():
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         if len(os.environ["CUDA_VISIBLE_DEVICES"].split(",")) < 8:
             pytest.skip("Avoiding mismatched GPU machine.")
-    ray.init(num_cpus=8, num_gpus=8)
-    yield
-    # The code after the yield will run as teardown code.
-    ray.shutdown()
+    ray.init(num_cpus=8, num_gpus=8, resources={
+        f"node:host-{i}": 1 for i in range(10)})
+    try:
+        yield
+    finally:
+        # The code after the yield will run as teardown code.
+        ray.shutdown()
 
 
 class TestRayDiscoverySuite:
@@ -150,55 +154,52 @@ class SimpleTestDiscovery(HostDiscovery):
 
     def find_available_hosts_and_slots(self):
         hostlist = next(self._generator)
-        from ray.experimental.dynamic_resources import set_resource
         hosts = {}
         for item in hostlist:
             host, slots = item.split(":")
             slots = int(slots)
-            set_resource(f"node:{host}", 1)
             hosts[host] = slots
         return hosts
 
 
+class StatusCallback:
+    def __init__(self):
+        self._journal = []
+
+    def __call__(self, info_dict):
+        self._journal.append(info_dict)
+
+    def fetch(self):
+        return self._journal.copy()
+
+
 def _create_training_function(iterations):
-    @ray.remote(num_cpus=0)
-    class Logger:
-        def __init__(self):
-            self._journal = []
-
-        def log(self, info):
-            self._journal.append(info)
-
-        def fetch(self):
-            return self._journal
-
-    logger = Logger.remote()
-
     def training_fn():
         import time
         import torch
         import horovod.torch as hvd
+        from horovod.ray import ray_logger
 
         hvd.init()
 
         model = torch.nn.Sequential(torch.nn.Linear(2, 2))
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
-        logger.log.remote(("started", os.getpid()))
+        ray_logger.log({"started": True, "pid": os.getpid()})
 
         @hvd.elastic.run
         def train(state):
             for state.epoch in range(state.epoch, iterations):
-                logger.log.remote(("training", os.getpid()))
+                ray_logger.log({"training": True, "pid": os.getpid()})
                 time.sleep(0.1)
                 state.commit()  # triggers scale-up, scale-down
-            logger.log.remote(("finished", os.getpid()))
+            ray_logger.log({"finished": True, "pid": os.getpid()})
 
         state = hvd.elastic.TorchState(
             model, optimizer, batch=0, epoch=0, commits=0, rendezvous=0)
         train(state)
         return True
 
-    return logger, training_fn
+    return training_fn
 
 
 @contextmanager
@@ -217,8 +218,8 @@ def fault_tolerance_patches():
 def test_fault_tolerance_hosts_added_and_removed(ray_8_cpus):
     with fault_tolerance_patches():
         discovery_schedule = [
-            (20, ['host-1:2']),
-            (60, ['host-1:2', 'host-2:1', 'host-3:1']),
+            (10, ['host-1:2']),
+            (30, ['host-1:2', 'host-2:1', 'host-3:1']),
             (None, ['host-2:1']),
         ]
         nics = list(psutil.net_if_addrs().keys())[0]
@@ -228,12 +229,13 @@ def test_fault_tolerance_hosts_added_and_removed(ray_8_cpus):
         executor = ElasticRayExecutor(
             settings, cpus_per_slot=1, override_discovery=False)
 
-        logger, training_fn = _create_training_function(iterations=100)
+        training_fn = _create_training_function(iterations=50)
         executor.start()
-        results = executor.run(training_fn)
+        trace = StatusCallback()
+        results = executor.run(training_fn, callbacks=[trace])
         assert len(results) == 1
 
-        events = ray.get(logger.fetch.remote())
+        events = trace.fetch()
         assert sum(int("started" in e) for e in events) == 4, events
         assert sum(int("finished" in e) for e in events) == 1, events
 
@@ -243,8 +245,8 @@ def test_fault_tolerance_hosts_added_and_removed(ray_8_cpus):
 def test_fault_tolerance_hosts_remove_and_add(ray_8_cpus):
     with fault_tolerance_patches():
         discovery_schedule = [
-            (60, ['host-1:2', 'host-2:1', 'host-3:2']),
-            (20, ['host-1:2']),
+            (10, ['host-1:2', 'host-2:1', 'host-3:2']),
+            (10, ['host-1:2']),
             (None, ['host-1:2', 'host-4:1', 'host-5:1']),
         ]
         nics = list(psutil.net_if_addrs().keys())[0]
@@ -254,12 +256,13 @@ def test_fault_tolerance_hosts_remove_and_add(ray_8_cpus):
         executor = ElasticRayExecutor(
             settings, cpus_per_slot=1, override_discovery=False)
 
-        logger, training_fn = _create_training_function(iterations=100)
+        training_fn = _create_training_function(iterations=30)
         executor.start()
-        results = executor.run(training_fn)
+        trace = StatusCallback()
+        results = executor.run(training_fn, callbacks=[trace])
         assert len(results) == 4
 
-        events = ray.get(logger.fetch.remote())
+        events = trace.fetch()
         assert sum(int("started" in e) for e in events) == 7, events
         assert sum(int("finished" in e) for e in events) == 4, events
 
@@ -269,7 +272,7 @@ def test_fault_tolerance_hosts_remove_and_add(ray_8_cpus):
 def test_max_np(ray_8_cpus):
     with fault_tolerance_patches():
         discovery_schedule = [
-            (20, ['host-1:2']),
+            (10, ['host-1:2']),
             (None, ['host-1:2', 'host-4:1', 'host-5:1']),
         ]
         nics = list(psutil.net_if_addrs().keys())[0]
@@ -280,12 +283,13 @@ def test_max_np(ray_8_cpus):
         executor = ElasticRayExecutor(
             settings, cpus_per_slot=1, override_discovery=False)
 
-        logger, training_fn = _create_training_function(iterations=100)
+        training_fn = _create_training_function(iterations=20)
         executor.start()
-        results = executor.run(training_fn)
+        trace = StatusCallback()
+        results = executor.run(training_fn, callbacks=[trace])
         assert len(results) == 2
 
-        events = ray.get(logger.fetch.remote())
+        events = trace.fetch()
         assert sum(int("started" in e) for e in events) == 2, events
         assert sum(int("finished" in e) for e in events) == 2, events
 
@@ -295,8 +299,8 @@ def test_max_np(ray_8_cpus):
 def test_min_np(ray_8_cpus):
     with fault_tolerance_patches():
         discovery_schedule = [
-            (20, ['host-1:1']),
-            (60, ['host-1:1', 'host-4:1', 'host-5:1']),
+            (10, ['host-1:1']),
+            (10, ['host-1:1', 'host-4:1', 'host-5:1']),
             (None, ['host-1:1', 'host-4:1', 'host-5:1', 'host-6:1']),
         ]
         nics = list(psutil.net_if_addrs().keys())[0]
@@ -307,12 +311,13 @@ def test_min_np(ray_8_cpus):
         executor = ElasticRayExecutor(
             settings, cpus_per_slot=1, override_discovery=False)
 
-        logger, training_fn = _create_training_function(iterations=100)
+        training_fn = _create_training_function(iterations=30)
         executor.start()
-        results = executor.run(training_fn)
+        trace = StatusCallback()
+        results = executor.run(training_fn, callbacks=[trace])
         assert len(results) == 4
 
-        events = ray.get(logger.fetch.remote())
+        events = trace.fetch()
         assert sum(int("started" in e) for e in events) == 4, events
         assert sum(int("finished" in e) for e in events) == 4, events
 
@@ -322,8 +327,8 @@ def test_min_np(ray_8_cpus):
 def test_gpu_e2e(ray_8_cpus_gpus):
     with fault_tolerance_patches():
         discovery_schedule = [
-            (20, ['host-1:1']),
-            (60, ['host-1:1', 'host-4:1', 'host-5:1']),
+            (10, ['host-1:1']),
+            (10, ['host-1:1', 'host-4:1', 'host-5:1']),
             (None, ['host-1:1', 'host-4:1', 'host-5:1', 'host-6:1']),
         ]
         nics = list(psutil.net_if_addrs().keys())[0]
@@ -334,12 +339,13 @@ def test_gpu_e2e(ray_8_cpus_gpus):
         executor = ElasticRayExecutor(
             settings, gpus_per_slot=1, use_gpu=True, override_discovery=False)
 
-        logger, training_fn = _create_training_function(iterations=100)
+        training_fn = _create_training_function(iterations=30)
         executor.start()
-        results = executor.run(training_fn)
+        trace = StatusCallback()
+        results = executor.run(training_fn, callbacks=[trace])
         assert len(results) == 4
 
-        events = ray.get(logger.fetch.remote())
+        events = trace.fetch()
         assert sum(int("started" in e) for e in events) == 4, events
         assert sum(int("finished" in e) for e in events) == 4, events
 

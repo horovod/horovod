@@ -470,7 +470,7 @@ if _LegacyOptimizer is not None:
             gradients = self._optimizer.compute_gradients(*args, **kwargs)
             grads, vars = zip(*gradients)
             if self._agg_helper:
-                avg_grads = self._agg_helper.compute_gradients(grads)
+                avg_grads = self._agg_helper.compute_gradients(grads, vars)
             else:
                 avg_grads = self._allreduce_grads(grads, vars)
             return list(zip(avg_grads, vars))

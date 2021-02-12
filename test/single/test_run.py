@@ -29,7 +29,6 @@ import warnings
 import mock
 import psutil
 import pytest
-from common import is_built, lsf_and_jsrun, override_args, override_env, temppath, delay, wait
 from mock import MagicMock
 
 import horovod
@@ -43,8 +42,12 @@ from horovod.runner.js_run import js_run, generate_jsrun_rankfile
 from horovod.runner.launch import gloo_built, parse_args, run_controller, _run
 from horovod.runner.mpi_run import _get_mpi_implementation, _get_mpi_implementation_flags, \
     _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_available, mpi_run, \
-    _OMPI_IMPL, _SMPI_IMPL, _MPICH_IMPL, _UNKNOWN_IMPL, _MISSING_IMPL
+    _OMPI_IMPL, _SMPI_IMPL, _MPICH_IMPL, _IMPI_IMPL, _UNKNOWN_IMPL, _MISSING_IMPL
 from horovod.runner.util.threads import in_thread, on_event
+
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
+
+from common import is_built, lsf_and_jsrun, override_args, override_env, temppath, delay, wait
 
 
 class RunTests(unittest.TestCase):
@@ -142,7 +145,7 @@ class RunTests(unittest.TestCase):
         with override_args('horovodrun', '-np', '2',
                            '--mpi-threads-disable',
                            '--num-nccl-streams', '2',
-                           '--ccl-bgt-affinity', '1',
+                           '--thread-affinity', '1',
                            '--gloo-timeout-seconds', '60'):
             args = parse_args()
             env = {}
@@ -150,8 +153,19 @@ class RunTests(unittest.TestCase):
 
             self.assertEqual(env.get(config_parser.HOROVOD_MPI_THREADS_DISABLE), '1')
             self.assertEqual(env.get(config_parser.HOROVOD_NUM_NCCL_STREAMS), '2')
-            self.assertEqual(env.get(config_parser.HOROVOD_CCL_BGT_AFFINITY), '1')
+            self.assertEqual(env.get(config_parser.HOROVOD_THREAD_AFFINITY), '1')
             self.assertEqual(env.get(config_parser.HOROVOD_GLOO_TIMEOUT_SECONDS), '60')
+
+    def test_library_env_override(self):
+        """Tests that environment variables override arg defaults."""
+        with override_args('horovodrun', '-np', '2'):
+            args = parse_args()
+            env = {
+                'HOROVOD_GLOO_TIMEOUT_SECONDS': '1800',
+            }
+            config_parser.set_env_from_args(env, args)
+
+            self.assertEqual(env.get(config_parser.HOROVOD_GLOO_TIMEOUT_SECONDS), '1800')
 
     def test_logging_args(self):
         with override_args('horovodrun', '-np', '2',
@@ -199,7 +213,7 @@ class RunTests(unittest.TestCase):
             # Library Options
             self.assertTrue(args.mpi_threads_disable)
             self.assertEqual(args.num_nccl_streams, 2)
-            self.assertEqual(args.ccl_bgt_affinity, 1)
+            self.assertEqual(args.thread_affinity, 1)
             self.assertEqual(args.gloo_timeout_seconds, 60)
 
             # Logging
@@ -409,7 +423,7 @@ class RunTests(unittest.TestCase):
 
     def do_test_prefix_connection(self, string, prefix, index, expected, timestamp=False):
         # create a Pipe Connection and populate it with string
-        (connection, w) = multiprocessing.get_context('spawn').Pipe()
+        (connection, w) = multiprocessing.get_context('spawn').Pipe(duplex=False)
         with os.fdopen(w.fileno(), 'wt', encoding='utf8', newline='', closefd=False) as stream:
             stream.write(string)
         w.close()
@@ -505,12 +519,12 @@ class RunTests(unittest.TestCase):
 
         # one thread writes into the w side of this pipe
         # prefix_connection reads on the other end of this pipe
-        (connection, w) = multiprocessing.get_context('spawn').Pipe()
+        (connection, w) = multiprocessing.get_context('spawn').Pipe(duplex=False)
         writer_thread = in_thread(writer, (w,))
 
         # prefix_connection writes to the write side of this Pipe (opened as a text stream)
         # another thread reads from the r side of this pipe
-        (r, dst_con) = multiprocessing.get_context('spawn').Pipe()
+        (r, dst_con) = multiprocessing.get_context('spawn').Pipe(duplex=False)
         reader_thread = in_thread(reader, (r,))
 
         with os.fdopen(dst_con.fileno(), 'wt', encoding='utf8', newline='', closefd=False) as dst:
@@ -626,6 +640,8 @@ class RunTests(unittest.TestCase):
         test(("HYDRA build details:\n"
               "    Version:           3.3a2\n"
               "    Configure options: 'MPICHLIB_CFLAGS=-g -O2'\n"), _MPICH_IMPL)
+        
+        test("Intel(R) MPI", _IMPI_IMPL)
 
         test("Unknown MPI v1.00", _UNKNOWN_IMPL)
 
@@ -735,21 +751,28 @@ class RunTests(unittest.TestCase):
         settings = self.minimal_settings
 
         def mpi_impl_flags(tcp, env=None):
-            return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"]
+            return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"], None
 
         with mock.patch("horovod.runner.mpi_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags):
             with mock.patch("horovod.runner.mpi_run.safe_shell_exec.execute", return_value=0) as execute:
                 mpi_run(settings, None, {}, cmd)
 
                 # call the mocked _get_mpi_implementation_flags method
-                mpi_flags, binding_args = horovod.runner.mpi_run._get_mpi_implementation_flags(False)
+                mpi_flags, binding_args, mpi = horovod.runner.mpi_run._get_mpi_implementation_flags(False)
                 self.assertIsNotNone(mpi_flags)
-                expected_cmd = ('mpirun '
-                                '--allow-run-as-root --tag-output '
-                                '-np 2 -H localhost:2 '
-                                '{binding_args} '
-                                '{mpi_flags}       '
-                                'cmd').format(binding_args=' '.join(binding_args), mpi_flags=' '.join(mpi_flags))
+                if _IMPI_IMPL == mpi:
+                    expected_cmd = ('mpirun '
+                                    '-l -n 2 -hosts localhost '
+                                    '{binding_args} '
+                                    '{mpi_flags}       '
+                                    'cmd').format(binding_args=' '.join(binding_args), mpi_flags=' '.join(mpi_flags))
+                else:
+                    expected_cmd = ('mpirun '
+                                    '--allow-run-as-root --tag-output '
+                                    '-np 2 -H localhost:2 '
+                                    '{binding_args} '
+                                    '{mpi_flags}       '
+                                    'cmd').format(binding_args=' '.join(binding_args), mpi_flags=' '.join(mpi_flags))
 
                 # remove PYTHONPATH from execute's env
                 # we cannot know the exact value of that env variable
@@ -773,24 +796,32 @@ class RunTests(unittest.TestCase):
         settings.hosts = ','.join(['localhost:1'] * large_cluster_threshold)
 
         def mpi_impl_flags(tcp, env=None):
-            return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"]
+            return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"], None
 
         with mock.patch("horovod.runner.mpi_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags):
             with mock.patch("horovod.runner.mpi_run.safe_shell_exec.execute", return_value=0) as execute:
                 mpi_run(settings, None, {}, cmd)
 
                 # call the mocked _get_mpi_implementation_flags method
-                mpi_flags, binding_args = horovod.runner.mpi_run._get_mpi_implementation_flags(False)
+                mpi_flags, binding_args, mpi = horovod.runner.mpi_run._get_mpi_implementation_flags(False)
                 self.assertIsNotNone(mpi_flags)
-                mpi_flags.append('-mca plm_rsh_no_tree_spawn true')
-                mpi_flags.append('-mca plm_rsh_num_concurrent {}'.format(large_cluster_threshold))
-                expected_cmd = ('mpirun '
-                                '--allow-run-as-root --tag-output '
-                                '-np 2 -H {hosts} '
-                                '{binding_args} '
-                                '{mpi_flags}       '
-                                'cmd').format(hosts=settings.hosts, binding_args=' '.join(binding_args),
-                                              mpi_flags=' '.join(mpi_flags))
+                if _IMPI_IMPL == mpi:
+                    expected_cmd = ('mpirun '
+                                    '-l -n 2 -ppn 1 -hosts {hosts} '
+                                    '{binding_args} '
+                                    '{mpi_flags}       '
+                                    'cmd').format(hosts=settings.hosts, binding_args=' '.join(binding_args),
+                                                  mpi_flags=' '.join(mpi_flags))
+                else:
+                    mpi_flags.append('-mca plm_rsh_no_tree_spawn true')
+                    mpi_flags.append('-mca plm_rsh_num_concurrent {}'.format(large_cluster_threshold))
+                    expected_cmd = ('mpirun '
+                                    '--allow-run-as-root --tag-output '
+                                    '-np 2 -H {hosts} '
+                                    '{binding_args} '
+                                    '{mpi_flags}       '
+                                    'cmd').format(hosts=settings.hosts, binding_args=' '.join(binding_args),
+                                                  mpi_flags=' '.join(mpi_flags))
 
                 # remove PYTHONPATH from execute's env
                 # we cannot know the exact value of that env variable
@@ -829,7 +860,7 @@ class RunTests(unittest.TestCase):
         )
 
         def mpi_impl_flags(tcp, env=None):
-            return ["--mock-mpi-impl-flags"], []
+            return ["--mock-mpi-impl-flags"], [], None
 
         with mock.patch("horovod.runner.mpi_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags) as impl:
             with mock.patch("horovod.runner.mpi_run.safe_shell_exec.execute", return_value=0) as execute:
@@ -839,20 +870,33 @@ class RunTests(unittest.TestCase):
                 impl.assert_called_once_with(None, env=env)
 
                 # call the mocked _get_mpi_implementation_flags method ourselves
-                mpi_flags, _ = horovod.runner.mpi_run._get_mpi_implementation_flags(False)
+                mpi_flags, _, mpi = horovod.runner.mpi_run._get_mpi_implementation_flags(False)
                 self.assertIsNotNone(mpi_flags)
-                expected_command = ('mpirun '
-                                    '--allow-run-as-root --tag-output '
-                                    '-np 1 -H {hosts} '
-                                    '>binding args go here< '
-                                    '{mpi_flags} '
-                                    '-mca plm_rsh_args "-p 1022" '
-                                    '-mca btl_tcp_if_include eth0,eth1 -x NCCL_SOCKET_IFNAME=eth0,eth1 '
-                                    '--output-filename >output filename goes here< '
-                                    '-x env1 -x env2 '
-                                    '>mpi-extra args go here< '
-                                    'cmd arg1 arg2').format(hosts=settings.hosts,
-                                                            mpi_flags=' '.join(mpi_flags))
+                if _IMPI_IMPL == mpi:
+                    expected_command = ('mpirun '
+                                        '-l -n 1 -hosts {hosts} '
+                                        '>binding args go here< '
+                                        '{mpi_flags} '
+                                        '-bootstrap-exec-args "-p 1022" '
+                                        '-genv NCCL_SOCKET_IFNAME=eth0,eth1 '
+                                        '-outfile-pattern >output pattern goes here< '
+                                        '-genvlist env1,env2 '
+                                        '>mpi-extra args go here< '
+                                        'cmd arg1 arg2').format(hosts=settings.hosts,
+                                                                mpi_flags=' '.join(mpi_flags))
+                else:
+                    expected_command = ('mpirun '
+                                        '--allow-run-as-root --tag-output '
+                                        '-np 1 -H {hosts} '
+                                        '>binding args go here< '
+                                        '{mpi_flags} '
+                                        '-mca plm_rsh_args "-p 1022" '
+                                        '-mca btl_tcp_if_include eth0,eth1 -x NCCL_SOCKET_IFNAME=eth0,eth1 '
+                                        '--output-filename >output filename goes here< '
+                                        '-x env1 -x env2 '
+                                        '>mpi-extra args go here< '
+                                        'cmd arg1 arg2').format(hosts=settings.hosts,
+                                                                mpi_flags=' '.join(mpi_flags))
 
                 # remove PYTHONPATH from execute's env
                 # we cannot know the exact value of that env variable
@@ -923,7 +967,7 @@ class RunTests(unittest.TestCase):
         settings = self.minimal_settings
 
         def mpi_impl_flags(tcp, env=None):
-            return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"]
+            return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"], None
 
         with mock.patch("horovod.runner.mpi_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags),\
              mock.patch("horovod.runner.mpi_run.safe_shell_exec.execute", return_value=0) as execute,\
@@ -942,7 +986,7 @@ class RunTests(unittest.TestCase):
         settings = self.minimal_settings
 
         def mpi_impl_flags(tcp, env=None):
-            return [], []
+            return [], [], None
 
         with mock.patch("horovod.runner.mpi_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags):
             with mock.patch("horovod.runner.mpi_run.safe_shell_exec.execute", return_value=1):

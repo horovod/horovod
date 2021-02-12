@@ -26,6 +26,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/Modules/")
 include(cmake/Utilities.cmake)
 
+create_metadata()
+
 # 3rd-parties
 include_directories("third_party/HTTPRequest/include"
         "third_party/boost/assert/include"
@@ -43,7 +45,7 @@ include_directories("third_party/HTTPRequest/include"
         "third_party/boost/utility/include"
         "third_party/lbfgs/include")
 
-# Predefined Eign and Flatbuffers headers path, they could be replaced by tensorflow headers path
+# Predefined Eigen and Flatbuffers headers path, they could be replaced by tensorflow headers path
 set(EIGEN_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/third_party/eigen")
 set(FLATBUFFERS_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/third_party/flatbuffers/include")
 
@@ -216,8 +218,9 @@ endif()
 # oneCCL
 set(CCL_ROOT $ENV{CCL_ROOT})
 if(DEFINED CCL_ROOT)
-    include_directories(${CCL_ROOT}/include)
-    list(APPEND LINKER_LIBS "${CCL_ROOT}/lib/libccl.so")
+    set(CCL_CONFIGURATION $ENV{CCL_CONFIGURATION})
+    include_directories(${CCL_ROOT}/include/${CCL_CONFIGURATION})
+    list(APPEND LINKER_LIBS "${CCL_ROOT}/lib/${CCL_CONFIGURATION}/libccl.so")
     list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/ccl_operations.cc")
     add_definitions(-DHAVE_CCL=1)
     set(HAVE_CCL TRUE)
@@ -292,6 +295,9 @@ add_subdirectory(horovod/tensorflow)
 add_subdirectory(horovod/torch)
 #MXNet
 add_subdirectory(horovod/mxnet)
+
+# Correctly wrap up json format
+file(APPEND "${CMAKE_LIBRARY_OUTPUT_DIRECTORY_ROOT}/metadata.json" "\"dummy\": \"none\"\n}")
 
 # CUDA kernels
 if(HAVE_CUDA OR HAVE_SUB_PROJECT_CUDA)

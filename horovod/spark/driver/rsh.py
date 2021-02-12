@@ -23,6 +23,7 @@ from horovod.spark.driver import driver_service
 
 
 def rsh(driver_addresses, key, host_hash, command, env, local_rank, verbose,
+        stdout=None, stderr=None, prefix_output_with_timestamp=False,
         background=True, events=None):
     """
     Method to run a command remotely given a host hash, local rank and driver addresses.
@@ -43,6 +44,9 @@ def rsh(driver_addresses, key, host_hash, command, env, local_rank, verbose,
     :param env: environment to use
     :param local_rank: local rank on the host of task to run the command in
     :param verbose: verbosity level
+    :param stdout: Task stdout is redirected to this stream.
+    :param stderr: Task stderr is redirected to this stream.
+    :param prefix_output_with_timestamp: shows timestamp in stdout/stderr forwarding on the driver if True
     :param background: run command in background if True, returns command result otherwise
     :param events: events to abort the command, only if background is True
     :return exit code if background is False
@@ -55,7 +59,11 @@ def rsh(driver_addresses, key, host_hash, command, env, local_rank, verbose,
     task_index = task_indices[local_rank]
     task_addresses = driver_client.all_task_addresses(task_index)
     task_client = task_service.SparkTaskClient(task_index, task_addresses, key, verbose=verbose)
-    task_client.run_command(command, env)
+    task_client.stream_command_output(stdout, stderr)
+    task_client.run_command(command, env,
+                            capture_stdout=stdout is not None,
+                            capture_stderr=stderr is not None,
+                            prefix_output_with_timestamp=prefix_output_with_timestamp)
 
     if not background:
         events = events or []

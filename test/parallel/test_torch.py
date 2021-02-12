@@ -21,6 +21,7 @@ import inspect
 import itertools
 import os
 import platform
+import sys
 import unittest
 import warnings
 import time
@@ -36,12 +37,14 @@ import torch.nn.functional as F
 
 import horovod.torch as hvd
 
-from common import mpi_env_rank_and_size, temppath
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
+
+from common import mpi_env_rank_and_size, skip_or_fail_gpu_test, temppath
 
 _1_5_api = LooseVersion(torch.__version__) >= LooseVersion('1.5.0')
 
-ccl_supported_types = set([torch.CharTensor, torch.IntTensor,
-                           torch.LongTensor, torch.FloatTensor, 
+ccl_supported_types = set([torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
+                           torch.IntTensor, torch.LongTensor, torch.FloatTensor,
                            torch.DoubleTensor])
 
 
@@ -74,6 +77,10 @@ class TorchTests(unittest.TestCase):
         if 'CCL_ROOT' in os.environ:
            types = [t for t in types if t in ccl_supported_types]
         return types
+
+    def test_gpu_required(self):
+        if not torch.cuda.is_available():
+            skip_or_fail_gpu_test(self, "No GPUs available")
 
     @pytest.mark.skipif(platform.system() == 'Darwin', reason='Reinit not supported on macOS')
     def test_horovod_reinit(self):
@@ -1180,9 +1187,9 @@ class TorchTests(unittest.TestCase):
         if hvd.nccl_built() and hvd.nccl_built() < 2700:
             self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
 
-        dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
-                  torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor,
-                  torch.HalfTensor]
+        dtypes = self.filter_supported_types([torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
+                                              torch.IntTensor, torch.LongTensor, torch.FloatTensor,
+                                              torch.DoubleTensor, torch.HalfTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
                        torch.cuda.IntTensor, torch.cuda.LongTensor,
@@ -1218,9 +1225,9 @@ class TorchTests(unittest.TestCase):
         if hvd.nccl_built() and hvd.nccl_built() < 2700:
             self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
 
-        dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
-                  torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor,
-                  torch.HalfTensor]
+        dtypes = self.filter_supported_types([torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
+                                              torch.IntTensor, torch.LongTensor, torch.FloatTensor,
+                                              torch.DoubleTensor, torch.HalfTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
                        torch.cuda.IntTensor, torch.cuda.LongTensor,
@@ -1511,12 +1518,10 @@ class TorchTests(unittest.TestCase):
             opt_param_values = get_optimizer_param_values(optimizer)
             for name, opt_param_value in opt_param_values:
                 is_tensor = torch.is_tensor(opt_param_value)
-                if not is_tensor:
-                    t = type(opt_param_value)
-                    opt_param_value = torch.Tensor([opt_param_value])
-                hvd.broadcast_(opt_param_value, root_rank=0)
-                if not is_tensor:
-                    opt_param_value = t(opt_param_value.cpu().numpy()[0])
+                if is_tensor:
+                    hvd.broadcast_(opt_param_value, root_rank=0)
+                else:
+                    opt_param_value = hvd.broadcast_object(opt_param_value, name=name)
                 opt_param_values_updated.append((name, opt_param_value))
             opt_param_values = opt_param_values_updated
 
@@ -1546,13 +1551,8 @@ class TorchTests(unittest.TestCase):
                 self.assertTrue(
                     (model_param_value == model_param_value_after).all())
 
+            expected_tensors = hvd.broadcast_object(len(optimizer.state_dict()['state'].values()))
             hvd.broadcast_optimizer_state(optimizer, root_rank=0)
-
-            expected_tensors = 4
-            if 'momentum' not in opt_params and opt_class == torch.optim.SGD:
-                # SGD only maintains state when momentum is specified, otherwise
-                # it does not populate the state dict, so it will contain no tensors.
-                expected_tensors = 0
             self.assertEqual(len(optimizer.state_dict()['state'].values()), expected_tensors)
 
             opt_param_values_after = get_optimizer_param_values(optimizer)
@@ -2084,8 +2084,8 @@ class TorchTests(unittest.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
-        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
-                     torch.FloatTensor, torch.DoubleTensor])
+        dtypes = [torch.IntTensor, torch.LongTensor,
+                  torch.FloatTensor, torch.DoubleTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
@@ -2174,7 +2174,7 @@ class TorchTests(unittest.TestCase):
             ret = hvd.join(hvd.local_rank())
 
     def test_horovod_join_broadcast(self):
-        """Test Join op with allgather."""
+        """Test Join op with broadcast."""
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -2190,7 +2190,7 @@ class TorchTests(unittest.TestCase):
             ret = hvd.join(hvd.local_rank())
         else:
             try:
-                broadcasted_tensor = hvd.broadcast(tensor, 1)
+                broadcasted_tensor = hvd.broadcast(tensor, 1, name="test_horovod_join_broadcast")
                 assert False, 'hvd.broadcast did not throw error'
             except (torch.FatalError, RuntimeError):
                 pass

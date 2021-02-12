@@ -17,9 +17,8 @@ import contextlib
 import os
 import platform
 import stat
-import uuid
+import sys
 
-from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from pyspark.ml import Pipeline
@@ -31,6 +30,8 @@ from horovod.runner.common.util import secret
 from horovod.spark.common.store import LocalStore
 from horovod.spark.driver.driver_service import SparkDriverService, SparkDriverClient
 from horovod.spark.task.task_service import SparkTaskService, SparkTaskClient
+
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 from common import tempdir, temppath
 

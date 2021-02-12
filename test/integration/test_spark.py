@@ -15,33 +15,28 @@
 
 import contextlib
 import copy
+import io
 import itertools
 import logging
 import os
 import platform
-import psutil
-import pytest
 import re
 import sys
 import threading
 import time
 import unittest
 import warnings
-
 from distutils.version import LooseVersion
 
 import mock
-import torch
-
+import psutil
 import pyspark
-
+import pytest
 from pyspark.ml.linalg import DenseVector, SparseVector, VectorUDT
 from pyspark.sql.types import ArrayType, BooleanType, DoubleType, FloatType, IntegerType, \
     NullType, StructField, StructType
 
 import horovod.spark
-import horovod.torch as hvd
-
 from horovod.common.util import gloo_built, mpi_built
 from horovod.runner.common.util import codec, secret, safe_shell_exec, timeout
 from horovod.runner.common.util import settings as hvd_settings
@@ -51,9 +46,10 @@ from horovod.spark.common import constants, util
 from horovod.spark.common.store import DBFSLocalStore, HDFSStore, LocalStore, Store
 from horovod.spark.driver.host_discovery import SparkDriverHostDiscovery
 from horovod.spark.driver.rsh import rsh
-from horovod.spark.task import get_available_devices, gloo_exec_fn, mpirun_exec_fn
-from horovod.spark.task.task_service import SparkTaskClient
 from horovod.spark.runner import _task_fn
+from horovod.spark.task import get_available_devices
+from horovod.spark.task import gloo_exec_fn, mpirun_exec_fn
+from horovod.spark.task.task_service import SparkTaskClient
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
@@ -78,6 +74,8 @@ def run_get_available_devices():
     # leads to errors that cause downstream tests to stall:
     # https://issues.apache.org/jira/browse/SPARK-31922
     def fn():
+        import horovod.torch as hvd
+
         hvd.init()
         devices = get_available_devices()
         return devices, hvd.local_rank()
@@ -363,16 +361,33 @@ class SparkTests(unittest.TestCase):
     """
     def do_test_happy_run(self, use_mpi, use_gloo):
         def fn():
+            import horovod.torch as hvd
+            import torch
+
             hvd.init()
+            print(f'running fn {hvd.size()}')
+            print(f'error line', file=sys.stderr)
             res = hvd.allgather(torch.tensor([hvd.rank()])).tolist()
             return res, hvd.rank()
 
+        stdout = io.StringIO()
+        stderr = io.StringIO()
         with spark_session('test_happy_run'):
             with is_built(gloo_is_built=use_gloo, mpi_is_built=use_mpi):
                 res = horovod.spark.run(fn, start_timeout=10,
                                         use_mpi=use_mpi, use_gloo=use_gloo,
+                                        stdout=stdout if use_gloo else None,
+                                        stderr=stderr if use_gloo else None,
                                         verbose=2)
                 self.assertListEqual([([0, 1], 0), ([0, 1], 1)], res)
+
+                if use_gloo:
+                    self.assertRegex(stdout.getvalue(),
+                                     r'\[[01]\]<stdout>:running fn 2\n'
+                                     r'\[[01]\]<stdout>:running fn 2\n')
+                    self.assertRegex(stderr.getvalue(),
+                                     r'\[[01]\]<stderr>:error line\n'
+                                     r'\[[01]\]<stderr>:error line\n')
 
     """
     Test that horovod.spark.run_elastic works properly in a simple setup.
@@ -385,14 +400,28 @@ class SparkTests(unittest.TestCase):
             # training function does not use ObjectState and @hvd.elastic.run
             # only testing distribution of state-less training function here
             # see test_spark_torch.py for testing that
+            import horovod.torch as hvd
+            import torch
+
             hvd.init()
+            print(f'running fn {hvd.size()}')
+            print(f'error line', file=sys.stderr)
             res = hvd.allgather(torch.tensor([hvd.rank()])).tolist()
             return res, hvd.rank()
 
+        stdout = io.StringIO()
+        stderr = io.StringIO()
         with spark_session('test_happy_run_elastic'):
             res = horovod.spark.run_elastic(fn, num_proc=2, min_np=2, max_np=2,
+                                            stdout=stdout, stderr=stderr,
                                             start_timeout=10, verbose=2)
             self.assertListEqual([([0, 1], 0), ([0, 1], 1)], res)
+            self.assertRegex(stdout.getvalue(),
+                             r'\[[01]\]<stdout>:running fn 2\n'
+                             r'\[[01]\]<stdout>:running fn 2\n')
+            self.assertRegex(stderr.getvalue(),
+                             r'\[[01]\]<stderr>:error line\n'
+                             r'\[[01]\]<stderr>:error line\n')
 
     """
     Test that horovod.spark.run times out when it does not start up fast enough using MPI.
@@ -581,9 +610,9 @@ class SparkTests(unittest.TestCase):
             return 0
 
         def mpi_impl_flags(tcp, env=None):
-            return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"]
+            return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"], None
 
-        def gloo_exec_command_fn(driver_addresses, key, settings, env):
+        def gloo_exec_command_fn(driver, key, settings, env, stdout, stderr, prefix_output_with_timestamp):
             def _exec_command(command, alloc_info, event):
                 return 1, alloc_info.rank
             return _exec_command
@@ -625,7 +654,7 @@ class SparkTests(unittest.TestCase):
             return 1
 
         def mpi_impl_flags(tcp, env=None):
-            return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"]
+            return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"], None
 
         def exception(*args, **argv):
             raise Exception('Test Exception')
@@ -647,7 +676,7 @@ class SparkTests(unittest.TestCase):
                 self.assertEqual(str(e.value), 'Test Exception')
 
                 # call the mocked _get_mpi_implementation_flags method
-                mpi_flags, binding_args = horovod.runner.mpi_run._get_mpi_implementation_flags(False)
+                mpi_flags, binding_args, _ = horovod.runner.mpi_run._get_mpi_implementation_flags(False)
                 self.assertIsNotNone(mpi_flags)
                 expected_command = ('mpirun '
                                     '--allow-run-as-root --tag-output '
@@ -756,7 +785,7 @@ class SparkTests(unittest.TestCase):
         num_proc = cores if num_proc is None else num_proc
         self.assertEqual(expected_np, num_proc)
         self.assertEqual(1, gloo_exec_command_fn.call_count)
-        _, _, _, call_env = gloo_exec_command_fn.call_args[0]
+        _, _, _, call_env, _, _, _ = gloo_exec_command_fn.call_args[0]
         self.assertEqual(env or {}, call_env)
         self.assertEqual({}, gloo_exec_command_fn.call_args[1])
         self.assertEqual(num_proc, exec_command.call_count)
@@ -866,7 +895,9 @@ class SparkTests(unittest.TestCase):
                 settings = hvd_settings.Settings(verbose=2, key=key)
                 env = {}
 
-                res = rsh(driver.addresses(), key, host_hash, command, env, 0, settings.verbose, False, events=events)
+                res = rsh(driver.addresses(), key, host_hash, command, env, 0, settings.verbose,
+                          stdout=None, stderr=None, prefix_output_with_timestamp=False,
+                          background=False, events=events)
                 self.assertEqual(expected_result, res)
 
     def test_mpirun_exec_fn(self):
@@ -1749,3 +1780,35 @@ class SparkTests(unittest.TestCase):
                 reconstructed_model_local = deserialize_keras_model(serialized_model_local)
                 if LooseVersion(tensorflow.__version__) >= LooseVersion("2.3.0"):
                     assert reconstructed_model_local.get_config() == model.get_config()
+
+
+    def test_output_df_schema(self):
+        label_cols = ['y1', 'y_embedding']
+        output_cols = [col + '_pred' for col in label_cols]
+
+        schema = StructType([StructField('x1', DoubleType()),
+                             StructField('x2', IntegerType()),
+                             StructField('features', VectorUDT()),
+                             StructField('y1', FloatType()),
+                             StructField('y_embedding', VectorUDT())])
+        data = [[1.0, 1, DenseVector([1.0] * 12), 1.0, DenseVector([1.0] * 12)]] * 10
+
+        with spark_session('test_df_cache') as spark:
+            df = create_test_data_from_schema(spark, data, schema)
+            metadata = util._get_metadata(df)
+
+            output_schema = util.get_spark_df_output_schema(df.schema, label_cols, output_cols, metadata)
+
+            # check output schema size
+            assert len(output_schema.fields) == len(df.schema.fields) + len(output_cols)
+
+            # check input col type
+            output_field_dict = {f.name: f for f in output_schema.fields}
+            for input_feild in df.schema.fields:
+                assert type(output_field_dict[input_feild.name].dataType) == type(input_feild.dataType)
+                assert output_field_dict[input_feild.name].nullable == input_feild.nullable
+
+            # check output col type
+            for label, output in zip(label_cols, output_cols):
+                assert type(output_field_dict[label].dataType) == type(output_field_dict[output].dataType)
+                assert output_field_dict[label].nullable == output_field_dict[output].nullable

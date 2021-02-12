@@ -22,6 +22,18 @@ Horovod
    :target: https://horovod.readthedocs.io/en/latest/
    :alt: Documentation Status
 
+.. image:: https://img.shields.io/badge/slack-chat-green.svg?logo=slack
+   :target: https://forms.gle/cPGvty5hp31tGfg79
+   :alt: Slack
+
+.. raw:: html
+
+   </div>
+
+.. raw:: html
+
+   <div align="center">
+
 .. image:: https://img.shields.io/badge/License-Apache%202.0-blue.svg
    :target: https://img.shields.io/badge/License-Apache%202.0-blue.svg
    :alt: License
@@ -52,13 +64,13 @@ The goal of Horovod is to make distributed deep learning fast and easy to use.
 
 .. raw:: html
 
-   <p><img src="https://raw.githubusercontent.com/lfai/artwork/master/lfai/horizontal/color/lfai-color.png" alt="LF AI" width="200"/></p>
+   <p><img src="https://raw.githubusercontent.com/lfai/artwork/master/lfaidata-assets/lfaidata-project-badge/graduate/color/lfaidata-project-badge-graduate-color.png" alt="LF AI & Data" width="200"/></p>
 
 
-Horovod is hosted by the `LF AI Foundation <https://lfdl.io>`_ (LF AI). If you are a company that is deeply
+Horovod is hosted by the `LF AI & Data Foundation <https://lfdl.io>`_ (LF AI & Data). If you are a company that is deeply
 committed to using open source technologies in artificial intelligence, machine, and deep learning, and want to support
-the communities of open source projects in these domains, consider joining the LF AI Foundation. For details
-about who's involved and how Horovod plays a role, read the LF AI `announcement <https://lfdl.io/press/2018/12/13/lf-deep-learning-welcomes-horovod-distributed-training-framework-as-newest-project/>`_.
+the communities of open source projects in these domains, consider joining the LF AI & Data Foundation. For details
+about who's involved and how Horovod plays a role, read the Linux Foundation `announcement <https://lfdl.io/press/2018/12/13/lf-deep-learning-welcomes-horovod-distributed-training-framework-as-newest-project/>`_.
 
 |
 
@@ -111,7 +123,7 @@ To install Horovod:
 
     <p/>
 
-2. If you've installed TensorFlow from `PyPI <https://pypi.org/project/tensorflow>`__, make sure that the ``g++-4.8.5`` or ``g++-4.9`` is installed.
+2. If you've installed TensorFlow from `PyPI <https://pypi.org/project/tensorflow>`__, make sure that the ``g++-4.8.5`` or ``g++-4.9`` or above is installed.
 
    If you've installed PyTorch from `PyPI <https://pypi.org/project/torch>`__, make sure that the ``g++-4.9`` or above is installed.
 
@@ -420,10 +432,11 @@ The Horovod source code was based off the Baidu `tensorflow-allreduce <https://g
 repository written by Andrew Gibiansky and Joel Hestness. Their original work is described in the article
 `Bringing HPC Techniques to Deep Learning <http://andrew.gibiansky.com/blog/machine-learning/baidu-allreduce/>`_.
 
-Mailing lists
--------------
-Subscribe to `Horovod Announce <https://lists.lfai.foundation/g/horovod-announce>`_ and 
-`Horovod Technical-Discuss <https://lists.lfai.foundation/g/horovod-technical-discuss>`_ to stay up to date.
+Getting Involved
+----------------
+- `Community Slack <https://forms.gle/cPGvty5hp31tGfg79>`_ for collaboration and discussion
+- `Horovod Announce <https://lists.lfai.foundation/g/horovod-announce>`_ for updates on the project
+- `Horovod Technical-Discuss <https://lists.lfai.foundation/g/horovod-technical-discuss>`_ for public discussion
 
 
 .. inclusion-marker-end-do-not-remove

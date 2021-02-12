@@ -28,6 +28,16 @@ macro(SET_OUTPUT_DIR)
     endforeach()
 endmacro()
 
+# Create metadata file to store frameworks versions
+macro(CREATE_METADATA)
+    foreach( _VAR in ITEMS CMAKE_LIBRARY_OUTPUT_DIRECTORY CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO)
+        if(DEFINED ${_VAR})
+            set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_ROOT "${${_VAR}}/horovod")
+            file(WRITE "${CMAKE_LIBRARY_OUTPUT_DIRECTORY_ROOT}/metadata.json" "{\n")
+        endif()
+    endforeach()
+endmacro()
+
 # Set build architecture flags
 macro(SET_BUILD_ARCH_FLAGS FLAGS)
     set(HOROVOD_BUILD_ARCH_FLAGS $ENV{HOROVOD_BUILD_ARCH_FLAGS})

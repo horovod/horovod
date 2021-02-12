@@ -14,6 +14,9 @@ if(NOT TENSORFLOW_FOUND)
     return()
 endif()
 
+# Append version number into metadata
+file(APPEND "${CMAKE_LIBRARY_OUTPUT_DIRECTORY_ROOT}/metadata.json" "\"tensorflow\": \"${Tensorflow_VERSION}\",\n")
+
 # Overwite Eigen and Flatbuffers headers path if provided in tensorflow or system
 # Search tensorflow path
 find_path(TF_EIGEN_INCLUDE_PATH Eigen/src/Core/EigenBase.h PATHS ${Tensorflow_INCLUDE_DIRS} NO_DEFAULT_PATH)
@@ -63,7 +66,9 @@ add_library(${TF_TARGET_LIB} SHARED ${SOURCES} ${TF_SOURCES})
 if (NOT EIGEN_INCLUDE_PATH STREQUAL Tensorflow_INCLUDE_DIRS)
     target_include_directories(${TF_TARGET_LIB} PRIVATE ${EIGEN_INCLUDE_PATH})
 endif()
-target_include_directories(${TF_TARGET_LIB} PRIVATE ${FLATBUFFERS_INCLUDE_PATH})
+if (NOT FLATBUFFERS_INCLUDE_PATH STREQUAL Tensorflow_INCLUDE_DIRS)
+    target_include_directories(${TF_TARGET_LIB} PRIVATE ${FLATBUFFERS_INCLUDE_PATH})
+endif()
 target_link_libraries(${TF_TARGET_LIB} ${LINKER_LIBS} ${TF_LINKER_LIBS})
 set_target_properties(${TF_TARGET_LIB} PROPERTIES SUFFIX "${Python_SUFFIX}")
 set_target_properties(${TF_TARGET_LIB} PROPERTIES PREFIX "")

@@ -222,6 +222,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
         std::make_shared<CCLAllgather>(&ccl_context, &state));
     broadcast_ops.push_back(
         std::make_shared<CCLBroadcast>(&ccl_context, &state));
+    alltoall_ops.push_back(
+        std::make_shared<CCLAlltoall>(&ccl_context, &state));
   }
 #endif
 
@@ -357,7 +359,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 #if HAVE_CCL
   // Initialize ccl context
   if (state.cpu_operation == LibType::CCL) {
-    ccl_context.Init();
+    ccl_context.Initialize();
   }
 #endif
 
@@ -1001,7 +1003,7 @@ Status EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts
   for (const auto& n : names) {
     tensors_enqueued += n + "; ";
   }
-  LOG(TRACE) << "Enqueing " << tensors_enqueued;
+  LOG(TRACE, horovod_global.controller->GetRank()) << "Enqueued " << tensors_enqueued;
 
   // Only create groups larger than 1 tensor, unless disable_group_fusion is requested.
   // In that case, even single tensor groups are created to enforce disabling fusion.

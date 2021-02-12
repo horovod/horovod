@@ -29,7 +29,7 @@ from horovod.common.util import gloo_built, mpi_built
 from horovod.runner.common.util import safe_shell_exec
 from horovod.runner import _HorovodArgs
 from horovod.runner.launch import _check_all_hosts_ssh_successful, _run
-from horovod.runner.mpi_run import mpi_available, is_mpich
+from horovod.runner.mpi_run import mpi_available, is_mpich, is_intel_mpi
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
@@ -143,6 +143,8 @@ class StaticRunTests(unittest.TestCase):
                 self.skipTest("MPI is not available")
             if is_mpich():
                 self.skipTest("MPICH is not testable")
+            if is_intel_mpi():
+                self.skipTest("Intel(R) MPI is not testable because it is based on MPICH")
 
         self.do_test_run_with_controller_success(controller, mode, run)
 
@@ -156,6 +158,8 @@ class StaticRunTests(unittest.TestCase):
                 self.skipTest("MPI is not available")
             if is_mpich():
                 self.skipTest("MPICH is not testable")
+            if is_intel_mpi():
+                self.skipTest("Intel(R) MPI is not testable because it is based on MPICH")
 
         self.do_test_run_with_controller_failure(controller, mode, run)
 

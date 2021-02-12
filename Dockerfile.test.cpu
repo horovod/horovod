@@ -1,11 +1,12 @@
-ARG UBUNTU_VERSION=16.04
+ARG UBUNTU_VERSION=18.04
 FROM ubuntu:${UBUNTU_VERSION}
 
 # Arguments for the build. UBUNTU_VERSION needs to be repeated because
 # the first usage only applies to the FROM tag.
-ARG UBUNTU_VERSION=16.04
+ARG UBUNTU_VERSION=18.04
 ARG MPI_KIND=OpenMPI
 ARG PYTHON_VERSION=3.6
+ARG GPP_VERSION=7
 # NOTE: keep versions in sync with setup.py extras_require{'dev'}:
 ARG TENSORFLOW_PACKAGE=tensorflow-cpu==1.15.0
 ARG KERAS_PACKAGE=keras==2.2.4
@@ -17,9 +18,15 @@ ARG PYSPARK_PACKAGE=pyspark==2.4.7
 # if SPARK_PACKAGE is a preview version, installs PySpark from the tgz archive
 # see https://archive.apache.org/dist/spark/ for available packages, version must match PYSPARK_PACKAGE
 ARG SPARK_PACKAGE=spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
+ARG CCL_PACKAGE=master
+ARG HOROVOD_BUILD_FLAGS=""
 
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-cu"]
+
+# Prepare to install specific g++ versions
+RUN apt-get update -qq && apt-get install -y --no-install-recommends software-properties-common
+RUN add-apt-repository ppa:ubuntu-toolchain-r/test
 
 # Install essential packages.
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
@@ -30,17 +37,12 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
         openssh-server \
         git \
         build-essential \
-        g++-4.8 \
+        g++-${GPP_VERSION} \
         moreutils
 
 # setup ssh service
 RUN ssh-keygen -f /root/.ssh/id_rsa -q -N ''
 RUN cp -v /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
-
-# install g++-7
-RUN apt-get install -y --no-install-recommends software-properties-common
-RUN add-apt-repository ppa:ubuntu-toolchain-r/test
-RUN apt-get update -qq && apt-get install -y --no-install-recommends g++-7
 
 # Install Python.
 RUN apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-distutils
@@ -74,27 +76,28 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
             cd /usr/local && tar -zxf /tmp/openmpi-3.0.0-bin.tar.gz && ldconfig && \
             echo "mpirun -allow-run-as-root -np 2 -H localhost:2 -bind-to none -map-by slot -mca mpi_abort_print_stack 1" > /mpirun_command; \
     elif [[ ${MPI_KIND} == "ONECCL" ]]; then \
-        wget --progress=dot:mega -O /tmp/oneccl.tar.gz https://github.com/oneapi-src/oneCCL/archive/master.tar.gz && \
+        wget --progress=dot:mega -O /tmp/oneccl.tar.gz https://github.com/oneapi-src/oneCCL/archive/${CCL_PACKAGE}.tar.gz && \
             cd /tmp && tar -zxf oneccl.tar.gz && \
-            mkdir oneCCL-master/build && cd oneCCL-master/build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local/oneccl -DCMAKE_BUILD_TYPE=Release && make -j install && \
-            cp /tmp/oneCCL-master/mpi/include/*.h /usr/local/oneccl/include && \
-            cp /tmp/oneCCL-master/mpi/bin/mpicc /usr/local/oneccl/bin && \
+            mkdir oneCCL-${CCL_PACKAGE}/build && cd oneCCL-${CCL_PACKAGE}/build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local/oneccl -DCMAKE_BUILD_TYPE=Release && make -j install && \
+            cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/include/*.h /usr/local/oneccl/include && \
+            cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/bin/mpicc /usr/local/oneccl/bin && \
             chmod +x /usr/local/oneccl/bin/mpicc && \
-            cp /tmp/oneCCL-master/mpi/bin/mpicxx /usr/local/oneccl/bin && \
+            cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/bin/mpicxx /usr/local/oneccl/bin && \
             chmod +x /usr/local/oneccl/bin/mpicxx && \
-            cp /tmp/oneCCL-master/mpi/bin/mpigcc /usr/local/oneccl/bin && \
+            cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/bin/mpigcc /usr/local/oneccl/bin && \
             chmod +x /usr/local/oneccl/bin/mpigcc && \
-            cp /tmp/oneCCL-master/mpi/bin/mpigxx /usr/local/oneccl/bin && \
+            cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/bin/mpigxx /usr/local/oneccl/bin && \
             chmod +x /usr/local/oneccl/bin/mpigxx && \
-            cp /tmp/oneCCL-master/mpi/lib/libmpicxx.so /usr/local/oneccl/lib && \
+            cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/lib/libmpicxx.so /usr/local/oneccl/lib && \
             chmod +x /usr/local/oneccl/lib/libmpicxx.so && \
-            cp /tmp/oneCCL-master/mpi/lib/libmpifort.so /usr/local/oneccl/lib && \
+            cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/lib/libmpifort.so /usr/local/oneccl/lib && \
             chmod +x /usr/local/oneccl/lib/libmpifort.so && \
             sed -i 's/if \[ -z \"\${I_MPI_ROOT}\" \]/if [ -z \"${I_MPI_ROOT:-}\" ]/g' /usr/local/oneccl/env/setvars.sh && \
             sed -i 's/ \$1/ \${1:-}/g' /usr/local/oneccl/env/setvars.sh && \
             echo ". /usr/local/oneccl/env/setvars.sh" > /oneccl_env && \
             chmod +x /oneccl_env && \
             echo "export CCL_ATL_TRANSPORT=ofi; \
+                  export HOROVOD_CCL_CACHE=1; \
                   echo \"\$(env)\"; \
                   echo \"mpirun is \$(which mpirun)\"; \
                   echo \"LD_LIBRARY_PATH is \$(echo \$LD_LIBRARY_PATH)\"; \
@@ -103,9 +106,10 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
             chmod +x /mpirun_command_ofi && \
             cp /mpirun_command_ofi /mpirun_command_mpi && \
             sed -i 's/export CCL_ATL_TRANSPORT=ofi;/export CCL_ATL_TRANSPORT=mpi;/g' /mpirun_command_mpi && \
+            sed -i 's/export HOROVOD_CCL_CACHE=1;/export HOROVOD_CCL_CACHE=0;/g' /mpirun_command_mpi && \
+            echo "/mpirun_command_mpi" > /mpirun_command && \
             echo "-L/usr/local/oneccl/lib -lmpi -I/usr/local/oneccl/include" > /mpicc_oneccl && \
-            chmod +x /mpicc_oneccl && \
-            echo "/mpirun_command_mpi" > /mpirun_command; \
+            chmod +x /mpicc_oneccl; \
     elif [[ ${MPI_KIND} == "MPICH" ]]; then \
         apt-get install -y mpich && \
             echo "mpirun -np 2" > /mpirun_command; \
@@ -120,16 +124,13 @@ RUN if [[ ${MPI_KIND} != "None" ]]; then \
         pip install mpi4py; \
     fi
 
-### END OF CACHE ###
-COPY . /horovod
-
 # Install TensorFlow.
 RUN pip install ${TENSORFLOW_PACKAGE}
 
 # Install Keras.
 # Pin h5py: https://github.com/h5py/h5py/issues/1732
-# Pin scipy<1.4.0: https://github.com/scipy/scipy/issues/11237
-RUN pip install ${KERAS_PACKAGE} "h5py<3" "scipy<1.4.0" "pandas<1.1.0"
+# Pin scipy!=1.4.0: https://github.com/scipy/scipy/issues/11237
+RUN pip install ${KERAS_PACKAGE} "h5py<3" "scipy!=1.4.0" "pandas<1.1.0"
 RUN mkdir -p ~/.keras
 RUN python -c "from keras.datasets import mnist; mnist.load_data()"
 
@@ -145,9 +146,22 @@ RUN pip install "Pillow<7.0" --no-deps
 # Install MXNet.
 RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly" ]]; then \
         pip install --pre mxnet -f https://dist.mxnet.io/python/all; \
+    elif [[ ${MXNET_PACKAGE} == "mxnet=="*b* ]]; then \
+        pip install --pre ${MXNET_PACKAGE} -f https://dist.mxnet.io/python; \
     else \
         pip install ${MXNET_PACKAGE} ; \
     fi
+
+# Prefetch Spark MNIST dataset.
+RUN mkdir -p /work
+RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/mnist.bz2 -O /data/mnist.bz2
+
+# Prefetch Spark Rossmann dataset.
+RUN mkdir -p /work
+RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/rossmann.tgz -O - | tar -xzC /data
+
+### END OF CACHE ###
+COPY . /horovod
 
 # Install Horovod.
 RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
@@ -160,28 +174,10 @@ RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
       . /usr/local/oneccl/env/setvars.sh; \
       export I_MPI_ROOT=/usr/local/oneccl; \
       echo "horovod python setup.py sdist, mpicxx is $(which mpicxx)"; \
-      cd /horovod && HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 python setup.py sdist; \
-    else \
-      cd /horovod && HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 python setup.py sdist; \
-    fi
-
-RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
-      if [ -z "${LD_LIBRARY_PATH:-}" ]; then \
-          export LD_LIBRARY_PATH=""; \
-      fi; \
-      if [ -z "${PYTHONPATH:-}" ]; then \
-          export PYTHONPATH=""; \
-      fi; \
-      . /usr/local/oneccl/env/setvars.sh; \
-      echo "pip install horovod, mpicxx is $(which mpicxx)"; \
-      pip install -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]; \
-    else \
-      pip install -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]; \
-    fi
-
-# Prefetch Spark MNIST dataset.
-RUN mkdir -p /work
-RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/mnist.bz2 -O /data/mnist.bz2
+    fi; \
+    cd /horovod && \
+    python setup.py sdist && \
+    bash -c "${HOROVOD_BUILD_FLAGS} HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]"
 
 # Hack for compatibility of MNIST example with TensorFlow 1.1.0.
 RUN if [[ ${TENSORFLOW_PACKAGE} == "tensorflow==1.1.0" ]]; then \
@@ -213,10 +209,6 @@ RUN sed -i "s/self.fc1 = nn.Linear(320, 50)/self.fc1 = nn.Linear(784, 50)/" /hor
 RUN sed -i "s/x = F.relu(F.max_pool2d(self.conv1(x), 2))//" /horovod/examples/pytorch/pytorch_mnist.py
 RUN sed -i "s/x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))//" /horovod/examples/pytorch/pytorch_mnist.py
 RUN sed -i "s/x = x.view(-1, 320)/x = x.view(-1, 784)/" /horovod/examples/pytorch/pytorch_mnist.py
-
-# Prefetch Spark Rossmann dataset.
-RUN mkdir -p /work
-RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/rossmann.tgz -O - | tar -xzC /data
 
 # Hack Keras Spark Rossmann Run example to be smaller.
 RUN sed -i "s/x = Dense(1000,/x = Dense(100,/g" /horovod/examples/spark/keras/keras_spark_rossmann_run.py
