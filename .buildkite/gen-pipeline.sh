@@ -105,7 +105,7 @@ run_test() {
   local queue=$2
   local label=$3
   local command=$4
-  local timeout=${5-5}
+  local timeout=${5-10}
 
   echo "- label: '${label}'"
   echo "  command: ${command}"

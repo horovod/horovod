@@ -16,6 +16,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+## [v0.21.3] - 2021-02-15
+
+### Added
+
+- Add `groups` parameter in `DistributedOptimizer` for custom allreduce groups. ([#2523](https://github.com/horovod/horovod/pull/2523))
+
+### Removed
+
+- Removed `num_groups` parameter in `DistributedOptimizer`, replaced with `groups`. ([#2523](https://github.com/horovod/horovod/pull/2523))
+
+### Fixed
+
+- Fixed worker desynchronization deadlock issue in TensorFlow 2.4. ([#2647](https://github.com/horovod/horovod/pull/2647))
+
+- Deduped Keras `LearningRateWarmupCallback` log after gradual learning rate warmup. ([#2661](https://github.com/horovod/horovod/pull/2661))
+
 ## [v0.21.2] - 2021-02-08
 
 ### Added
