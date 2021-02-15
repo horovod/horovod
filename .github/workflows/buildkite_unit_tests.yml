@@ -1,14 +1,16 @@
 name: Unit Tests
 on:
   push:
-    branches: "**"
-    tags-ignore: "**"
+    branches: ["**"]
+    tags-ignore: ["**"]
 
   # This refers to pull_request events running in the target (base) repo
   # https://docs.github.com/en/actions/reference/events-that-trigger-workflows#pull_request_target
   # By default runs on these activity types only: opened, synchronize, reopened
+  # WARNING: Do not checkout and run code in this workflow:
+  # - https://securitylab.github.com/research/github-actions-preventing-pwn-requests
   pull_request_target:
-    branches: "**"
+    branches: ["**"]
 
 jobs:
   # buildkite does not run tests when there are no code changes, unless master is build
@@ -33,24 +35,22 @@ jobs:
     steps:
     - name: Download Buildkite Artifacts
       id: download
-      uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:latest
+      uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
+        github_token: ${{ github.token }}
         buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
         ignore_build_states: blocked,canceled,skipped,not_run
         ignore_job_states: timed_out
         output_path: test-results
-        log_level: INFO
 
     - name: Unit Test Results
       id: results
-      uses: docker://ghcr.io/enricomi/publish-unit-test-result-action:latest
+      uses: docker://ghcr.io/enricomi/publish-unit-test-result-action:v1
       if: steps.download.outputs.download-state != 'skipped' && steps.download.outputs.download-files > 0
       with:
-        check_name: Unit Test Results
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        files: "test-results/**/*.xml"
-        log_level: INFO
+        github_token: ${{ github.token }}
+        pull_request_build: commit
+        files: test-results/**/*.xml
 
     - name: Upload Test Results
       uses: actions/upload-artifact@v2
