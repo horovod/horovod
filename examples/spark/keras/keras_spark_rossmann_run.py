@@ -70,9 +70,13 @@ if __name__ == '__main__':
     print('================')
 
     # Create Spark session for data preparation.
-    conf = SparkConf().setAppName('data_prep').set('spark.sql.shuffle.partitions', '16')
+    conf = SparkConf() \
+        .setAppName('Keras Spark Rossmann Run Example - Data Prep') \
+        .set('spark.sql.shuffle.partitions', '16')
     if args.processing_master:
         conf.setMaster(args.processing_master)
+    elif args.num_proc:
+        conf.setMaster('local[{}]'.format(args.num_proc))
     spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
     train_csv = spark.read.csv('%s/train.csv' % args.data_dir, header=True)
@@ -155,7 +159,8 @@ if __name__ == '__main__':
 
         # Merge in Google Trend for whole Germany.
         google_trend_de = google_trend_all[google_trend_all.file == 'Rossmann_DE']
-        df = df.join(google_trend_de, ['Year', 'Week']).select(df['*'], google_trend_all.trend.alias('trend_de'))
+        google_trend_de = google_trend_de.withColumnRenamed('trend', 'trend_de')
+        df = df.join(google_trend_de, ['Year', 'Week']).select(df['*'], google_trend_de.trend_de)
 
         # Merge in weather.
         weather = weather_csv.join(state_names_csv, weather_csv.file == state_names_csv.StateName)
@@ -282,12 +287,18 @@ if __name__ == '__main__':
     # Test set is in 2015, use the same period in 2014 from the training set as a validation set.
     test_min_date = test_df.agg(F.min(test_df.Date)).collect()[0][0]
     test_max_date = test_df.agg(F.max(test_df.Date)).collect()[0][0]
-    a_year = datetime.timedelta(365)
-    val_df = train_df.filter((test_min_date - a_year <= train_df.Date) & (train_df.Date < test_max_date - a_year))
-    train_df = train_df.filter((train_df.Date < test_min_date - a_year) | (train_df.Date >= test_max_date - a_year))
+    one_year = datetime.timedelta(365)
+    train_df = train_df.withColumn('Validation',
+                                   (train_df.Date > test_min_date - one_year) &
+                                   (train_df.Date <= test_max_date - one_year))
+    val_df = train_df.filter(train_df.Validation)
+    train_df = train_df.filter(~train_df.Validation)
 
     # Determine max Sales number.
     max_sales = train_df.agg(F.max(train_df.Sales)).collect()[0][0]
+
+    # Convert Sales to log domain
+    train_df = train_df.withColumn('Sales', F.log(train_df.Sales))
 
     print('===================================')
     print('Data frame with transformed columns')
@@ -494,9 +505,12 @@ if __name__ == '__main__':
 
 
     # Create Spark session for training.
-    conf = SparkConf().setAppName('training')
+    conf = SparkConf() \
+        .setAppName('Keras Spark Rossmann Run Example - Training')
     if args.training_master:
         conf.setMaster(args.training_master)
+    elif args.num_proc:
+        conf.setMaster('local[{}]'.format(args.num_proc))
     spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
     # Horovod: run training.
@@ -524,13 +538,17 @@ if __name__ == '__main__':
     print('================')
 
     # Create Spark session for prediction.
-    conf = SparkConf().setAppName('prediction') \
+    conf = SparkConf() \
+        .setAppName('Keras Spark Rossmann Run Example - Prediction') \
         .setExecutorEnv('LD_LIBRARY_PATH', os.environ.get('LD_LIBRARY_PATH')) \
         .setExecutorEnv('PATH', os.environ.get('PATH'))
     if args.processing_master:
         conf.setMaster(args.processing_master)
+    elif args.num_proc:
+        conf.setMaster('local[{}]'.format(args.num_proc))
     spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
+    test_df = spark.read.parquet('%s/test_df.parquet' % args.data_dir)
 
     def predict_fn(model_bytes):
         def fn(rows):
@@ -558,10 +576,8 @@ if __name__ == '__main__':
 
         return fn
 
+    pred_df = test_df.rdd.mapPartitions(predict_fn(best_model_bytes)).toDF()
 
-    # Submit a Spark job to do inference. Horovod framework is not involved here.
-    pred_df = spark.read.parquet('%s/test_df.parquet' % args.data_dir) \
-        .rdd.mapPartitions(predict_fn(best_model_bytes)).toDF()
     submission_df = pred_df.select(pred_df.Id.cast(T.IntegerType()), pred_df.Sales).toPandas()
     submission_df.sort_values(by=['Id']).to_csv(args.local_submission_csv, index=False)
     print('Saved predictions to %s' % args.local_submission_csv)

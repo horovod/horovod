@@ -36,13 +36,17 @@ from horovod.tensorflow.keras.callbacks import BestModelCheckpoint
 
 parser = argparse.ArgumentParser(description='Keras Spark Rossmann Estimator Example',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('--master',
+parser.add_argument('--processing-master',
+                    help='spark cluster to use for light processing (data preparation & prediction).'
+                         'If set to None, uses current default cluster. Cluster should be set up to provide'
+                         'one task per CPU core. Example: spark://hostname:7077')
+parser.add_argument('--training-master',
                     help='spark cluster to use for training. If set to None, uses current default cluster. Cluster'
                          'should be set up to provide a Spark task per multiple CPU cores, or per GPU, e.g. by'
-                         'supplying `-c <NUM_GPUS>` in Spark Standalone mode')
-parser.add_argument('--num-proc', type=int,
+                         'supplying `-c <NUM_GPUS>` in Spark Standalone mode. Example: spark://hostname:7077')
+parser.add_argument('--num-proc', type=int, default=4,
                     help='number of worker processes for training, default: `spark.default.parallelism`')
-parser.add_argument('--learning_rate', type=float, default=0.0001,
+parser.add_argument('--learning-rate', type=float, default=0.0001,
                     help='initial learning rate')
 parser.add_argument('--batch-size', type=int, default=100,
                     help='batch size')
@@ -54,9 +58,9 @@ parser.add_argument('--sample-rate', type=float,
 parser.add_argument('--data-dir', default='file://' + os.getcwd(),
                     help='location of data on local filesystem (prefixed with file://) or on HDFS')
 parser.add_argument('--local-submission-csv', default='submission.csv',
-                    help='output submission predictions CSV')
-parser.add_argument('--local-checkpoint-file', default='checkpoint',
-                    help='model checkpoint')
+                    help='output submission predictions CSV on local filesystem (without file:// prefix)')
+parser.add_argument('--local-checkpoint-file', default='checkpoint.h5',
+                    help='model checkpoint on local filesystem (without file:// prefix)')
 parser.add_argument('--work-dir', default='/tmp',
                     help='temporary working directory to write intermediate files (prefix with hdfs:// to use HDFS)')
 
@@ -72,9 +76,11 @@ if __name__ == '__main__':
     print('================')
 
     # Create Spark session for data preparation.
-    conf = SparkConf().setAppName('Keras Spark Rossmann Estimator Example').set('spark.sql.shuffle.partitions', '16')
-    if args.master:
-        conf.setMaster(args.master)
+    conf = SparkConf() \
+        .setAppName('Keras Spark Rossmann Estimator Example - Data Prep') \
+        .set('spark.sql.shuffle.partitions', '16')
+    if args.processing_master:
+        conf.setMaster(args.processing_master)
     elif args.num_proc:
         conf.setMaster('local[{}]'.format(args.num_proc))
     spark = SparkSession.builder.config(conf=conf).getOrCreate()
@@ -235,7 +241,7 @@ if __name__ == '__main__':
     # Add elapsed times from holidays & promos, the data spanning training & test datasets.
     elapsed_cols = ['Promo', 'StateHoliday', 'SchoolHoliday']
     elapsed = add_elapsed(train_df.select('Date', 'Store', *elapsed_cols)
-                          .unionAll(test_df.select('Date', 'Store', *elapsed_cols)),
+                                  .unionAll(test_df.select('Date', 'Store', *elapsed_cols)),
                           elapsed_cols)
 
     # Join with elapsed times.
@@ -274,7 +280,7 @@ if __name__ == '__main__':
 
     # Build vocabulary of categorical columns.
     vocab = build_vocabulary(train_df.select(*categorical_cols)
-                             .unionAll(test_df.select(*categorical_cols)).cache(),
+                                     .unionAll(test_df.select(*categorical_cols)).cache(),
                              categorical_cols)
 
     # Cast continuous columns to float & lookup categorical columns.
@@ -289,7 +295,10 @@ if __name__ == '__main__':
     test_max_date = test_df.agg(F.max(test_df.Date)).collect()[0][0]
     one_year = datetime.timedelta(365)
     train_df = train_df.withColumn('Validation',
-                                   (train_df.Date > test_min_date - one_year) & (train_df.Date <= test_max_date - one_year))
+                                   (train_df.Date > test_min_date - one_year) &
+                                   (train_df.Date <= test_max_date - one_year))
+    val_df = train_df.filter(train_df.Validation)
+    train_df = train_df.filter(~train_df.Validation)
 
     # Determine max Sales number.
     max_sales = train_df.agg(F.max(train_df.Sales)).collect()[0][0]
@@ -305,12 +314,17 @@ if __name__ == '__main__':
     print('================')
     print('Data frame sizes')
     print('================')
-    train_rows = train_df.filter(~train_df.Validation).count()
-    val_rows = train_df.filter(train_df.Validation).count()
-    test_rows = test_df.count()
+    train_rows, val_rows, test_rows = train_df.count(), val_df.count(), test_df.count()
     print('Training: %d' % train_rows)
     print('Validation: %d' % val_rows)
     print('Test: %d' % test_rows)
+
+    # Save data frames as Parquet files.
+    train_df.write.parquet('%s/train_df.parquet' % args.data_dir, mode='overwrite')
+    val_df.write.parquet('%s/val_df.parquet' % args.data_dir, mode='overwrite')
+    test_df.write.parquet('%s/test_df.parquet' % args.data_dir, mode='overwrite')
+
+    spark.stop()
 
     # ============== #
     # MODEL TRAINING #
@@ -363,10 +377,20 @@ if __name__ == '__main__':
     model = tf.keras.Model([inputs[f] for f in all_cols], output)
     model.summary()
 
+    # Horovod: add Distributed Optimizer.
     opt = tf.keras.optimizers.Adam(lr=args.learning_rate, epsilon=1e-3)
 
     # Checkpoint callback to specify options for the returned Keras model
     ckpt_callback = BestModelCheckpoint(monitor='val_loss', mode='auto', save_freq='epoch')
+
+    # Create Spark session for training.
+    conf = SparkConf() \
+        .setAppName('Keras Spark Rossmann Estimator Example - Training')
+    if args.training_master:
+        conf.setMaster(args.training_master)
+    elif args.num_proc:
+        conf.setMaster('local[{}]'.format(args.num_proc))
+    spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
     # Horovod: run training.
     store = Store.create(args.work_dir)
@@ -398,6 +422,8 @@ if __name__ == '__main__':
     keras_model.save(args.local_checkpoint_file)
     print('Written checkpoint to %s' % args.local_checkpoint_file)
 
+    spark.stop()
+
     # ================ #
     # FINAL PREDICTION #
     # ================ #
@@ -405,6 +431,19 @@ if __name__ == '__main__':
     print('================')
     print('Final prediction')
     print('================')
+
+    # Create Spark session for prediction.
+    conf = SparkConf() \
+        .setAppName('Keras Spark Rossmann Estimator Example - Prediction') \
+        .setExecutorEnv('LD_LIBRARY_PATH', os.environ.get('LD_LIBRARY_PATH')) \
+        .setExecutorEnv('PATH', os.environ.get('PATH'))
+    if args.processing_master:
+        conf.setMaster(args.processing_master)
+    elif args.num_proc:
+        conf.setMaster('local[{}]'.format(args.num_proc))
+    spark = SparkSession.builder.config(conf=conf).getOrCreate()
+
+    test_df = spark.read.parquet('%s/test_df.parquet' % args.data_dir)
 
     pred_df=keras_model.transform(test_df)
     pred_df.printSchema()
