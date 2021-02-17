@@ -31,7 +31,7 @@ if gpus:
 
 dataset = tf.data.Dataset.from_tensor_slices(
     (tf.cast(mnist_images[..., tf.newaxis] / 255.0, tf.float32),
-             tf.cast(mnist_labels, tf.int64))
+     tf.cast(mnist_labels, tf.int64))
 )
 dataset = dataset.repeat().shuffle(10000).batch(128)
 
@@ -45,6 +45,7 @@ mnist_model = tf.keras.Sequential([
     tf.keras.layers.Dropout(0.5),
     tf.keras.layers.Dense(10, activation='softmax')
 ])
+loss = tf.losses.SparseCategoricalCrossentropy()
 
 # Horovod: adjust learning rate based on number of GPUs.
 scaled_lr = 0.001 * hvd.size()
@@ -56,7 +57,7 @@ opt = hvd.DistributedOptimizer(
 
 # Horovod: Specify `experimental_run_tf_function=False` to ensure TensorFlow
 # uses hvd.DistributedOptimizer() to compute gradients.
-mnist_model.compile(loss=tf.losses.SparseCategoricalCrossentropy(),
+mnist_model.compile(loss=loss,
                     optimizer=opt,
                     metrics=['accuracy'],
                     experimental_run_tf_function=False)
