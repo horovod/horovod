@@ -48,18 +48,18 @@ mnist_model = tf.keras.Sequential([
 loss = tf.losses.SparseCategoricalCrossentropy()
 
 # Horovod: adjust learning rate based on number of GPUs.
-lr = 0.001
-opt = tf.optimizers.Adam(lr * hvd.size())
+scaled_lr = 0.001 * hvd.size()
+opt = tf.optimizers.Adam(scaled_lr)
 
 
 @tf.function
-def training_step(images, labels, allreduce=True):
+def training_step(images, labels, all_reduce):
     with tf.GradientTape() as tape:
         probs = mnist_model(images, training=True)
         loss_value = loss(labels, probs)
 
     # Horovod: add Horovod Distributed GradientTape.
-    if allreduce:
+    if all_reduce:
         tape = hvd.DistributedGradientTape(tape)
 
     grads = tape.gradient(loss_value, mnist_model.trainable_variables)
@@ -69,7 +69,7 @@ def training_step(images, labels, allreduce=True):
 
 # Horovod: initialize model and optimizer state so we can synchronize across workers
 for batch_idx, (images, labels) in enumerate(dataset.take(1)):
-    training_step(images, labels, allreduce=False)
+    training_step(images, labels, False)
 
 
 @hvd.elastic.run
@@ -79,7 +79,7 @@ def train(state):
     # Horovod: adjust number of steps based on number of GPUs.
     for batch_idx, (images, labels) in enumerate(dataset.skip(state.batch).take(10000 // hvd.size())):
         state.batch = start_batch + batch_idx
-        loss_value = training_step(images, labels)
+        loss_value = training_step(images, labels, True)
 
         if state.batch % 10 == 0 and hvd.local_rank() == 0:
             print('Step #%d\tLoss: %.6f' % (state.batch, loss_value))
@@ -89,7 +89,7 @@ def train(state):
 
 
 def on_state_reset():
-    opt.lr.assign(lr * hvd.size())
+    opt.lr.assign(scaled_lr)
 
 
 state = hvd.elastic.TensorFlowKerasState(mnist_model, opt, batch=0)
