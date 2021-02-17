@@ -351,8 +351,8 @@ run_spark_integration() {
         "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/spark/keras/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01\""
 
       run_test "${test}" "${queue}" \
-        ":spark: Spark Keras MNIST (${test})" \
-        "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/spark/keras/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
+        ":spark: Spark Keras MNIST Estimator (${test})" \
+        "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/spark/keras/keras_spark_mnist_estimator.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
     fi
 
     run_test "${test}" "${queue}" \
