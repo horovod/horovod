@@ -213,7 +213,7 @@ protected:
 
     const auto& splits = e.splits;
     std::vector<int32_t> recvsplits;
-    // Perform alltoall of splits to get expeceted receive splits
+    // Perform alltoall of splits to get expected receive splits
     global_state_->controller->AlltoallGetRecvSplits(splits, recvsplits);
 
     // Every tensor participating in Alltoall operation may have different
@@ -251,6 +251,18 @@ protected:
     if (!status.ok()) {
       return status;
     }
+
+    // Allocate and fill received_splits output
+    TensorShape received_splits_shape;
+    received_splits_shape.AddDim(recvsplits.size());
+    Status rstatus = e.context->AllocateOutput(1, received_splits_shape,
+                                               &e.received_splits);
+    if (!rstatus.ok()) {
+      return rstatus;
+    }
+    auto* target_pointer = reinterpret_cast<int32_t*>(
+        const_cast<void*>(e.received_splits->data()));
+    std::copy(recvsplits.cbegin(), recvsplits.cend(), target_pointer);
 
     return Status::OK();
   }

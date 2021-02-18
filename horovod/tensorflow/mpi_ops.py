@@ -291,40 +291,42 @@ def alltoall(tensor, splits=None, name=None, ignore_name_scope=False):
                            TensorFlow in the name used by the Horovod operation.
 
     Returns:
-      A tensor of the same type as `tensor`, concatenated on dimension zero
-      across all processes. The shape is identical to the input shape, except for
-      the first dimension, which may be greater and is the sum of all first
-      dimensions of the gathered tensor slices from different Horovod processes.
+      1) A tensor of the same type as `tensor`, concatenated on dimension zero
+         across all processes. The shape is identical to the input shape, except for
+         the first dimension, which may be greater and is the sum of all first
+         dimensions of the gathered tensor slices from different Horovod processes.
+      2) If `splits` has been provided: A tensor of integers in rank order
+         describing how many elements in the output tensor have been received
+         from each worker.
     """
     # If splits not provided, create empty tensor as placeholder
     splits_ = tf.convert_to_tensor(splits) if splits is not None else tf.constant([], dtype=tf.int32)
 
     if name is None and not _executing_eagerly():
         name = 'HorovodAlltoall_%s' % _normalize_name(tensor.name)
-    return MPI_LIB.horovod_alltoall(tensor, splits=splits_, name=name,
-                                    ignore_name_scope=ignore_name_scope)
+    output, rsplits = MPI_LIB.horovod_alltoall(tensor, splits=splits_, name=name,
+                                               ignore_name_scope=ignore_name_scope)
+    return (output, rsplits) if splits is not None else output
 
 @ops.RegisterGradient('HorovodAlltoall')
-def _alltoall_grad(op, grad):
+def _alltoall_grad(op, grad_wrt_output, grad_wrt_received_splits):
     """Gradient for alltoall op.
 
     Args:
-      op: An operation.
-      grad: `Tensor` gradient with respect to the output of the op.
+      op: Original operation.
+      grad_wrt_output: `Tensor` gradient with respect to the output of the op.
+      grad_wrt_received_splits: dead argument (integer output)
 
     Returns:
       The gradient with respect to the input of the op.
     """
-    tensor = op.inputs[0]
-    splits = op.inputs[1]
     ignore_name_scope = op.get_attr('ignore_name_scope')
+    recvsplits = op.outputs[1]
 
-    splits = tf.cond(tf.equal(tf.size(splits), 0),
-                     lambda : tf.ones([size()], dtype=tf.int32) * (tf.shape(tensor)[0] // size()),
-                     lambda : splits)
-    recvsplits = alltoall(splits, splits=[1 for _ in range(size())],
-                          ignore_name_scope=ignore_name_scope)
-    return [alltoall(grad, splits=recvsplits, ignore_name_scope=ignore_name_scope), None]
+    grad_wrt_tensor, _ = alltoall(grad_wrt_output, splits=recvsplits, ignore_name_scope=ignore_name_scope)
+    grad_wrt_splits = None # not differentiable (integer variable)
+
+    return [grad_wrt_tensor, grad_wrt_splits]
 
 def join():
     return MPI_LIB.horovod_join()

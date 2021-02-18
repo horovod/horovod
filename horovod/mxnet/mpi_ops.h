@@ -47,6 +47,7 @@ struct MpiOpsParam {
   std::vector<std::string> op_names;
   int root_rank;
   NDArraySharedPtr splits_tensor;
+  NDArraySharedPtr received_splits_tensor;
   bool average;
   double prescale_factor;
   double postscale_factor;
@@ -61,6 +62,7 @@ struct MpiOpsParam {
               std::vector<std::string>&& op_names,
               int root_rank, bool average,
               NDArraySharedPtr splits_tensor,
+              NDArraySharedPtr received_splits_tensor,
               double prescale_factor,
               double postscale_factor)
       : input_tensors(std::move(input_tensors)),
@@ -72,6 +74,7 @@ struct MpiOpsParam {
         op_names(std::move(op_names)),
         root_rank(root_rank),
         splits_tensor(splits_tensor),
+        received_splits_tensor(received_splits_tensor),
         average(average),
         prescale_factor(prescale_factor),
         postscale_factor(postscale_factor) {
@@ -87,11 +90,12 @@ inline MpiOpsParam* CreateMpiOpsParam(std::vector<NDArraySharedPtr>&& input_tens
                                       std::vector<std::string>&& op_names,
                                       int root_rank, bool average,
                                       NDArraySharedPtr splits_tensor,
+                                      NDArraySharedPtr received_splits_tensor,
                                       double prescale_factor,
                                       double postscale_factor) {
   return new MpiOpsParam(std::move(input_tensors), std::move(output_tensors), std::move(outputs),
     cpu_input_tensors, cpu_output_tensors, op_type, std::move(op_names), root_rank, average,
-    splits_tensor, prescale_factor, postscale_factor);
+    splits_tensor, received_splits_tensor, prescale_factor, postscale_factor);
 }
 
 void DeleteMpiOpsParam(void* param) {
@@ -117,6 +121,7 @@ extern "C" int horovod_mxnet_alltoall_async(NDArray* input,
                                             NDArray* output,
                                             const char* name,
                                             NDArray* splits,
+                                            NDArray* output_received_splits,
                                             int priority);
 
 } // namespace mxnet

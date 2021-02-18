@@ -718,20 +718,19 @@ def broadcast_(tensor, root_rank, name=None):
 def _alltoall_function_factory(tensor):
     return 'horovod_torch_alltoall_async_' + tensor.type().replace('.', '_')
 
-def _alltoall_async(tensor, splits, output, name):
+def _alltoall_async(tensor, splits, output, output_received_splits, name):
     if splits is None:
         # If splits not provided, create empty tensor as placeholder
         splits = torch.tensor([], dtype=torch.int32, device='cpu')
     elif not isinstance(splits, torch.Tensor):
         splits = torch.tensor(splits, dtype=torch.int32, device='cpu')
-
     function = _check_function(_alltoall_function_factory, tensor)
     try:
         handle = getattr(mpi_lib, function)(
-            tensor, splits, output, name.encode() if name is not None else _NULL)
+            tensor, splits, output, output_received_splits, name.encode() if name is not None else _NULL)
     except RuntimeError as e:
         raise HorovodInternalError(e)
-    _handle_map[handle] = (tensor, splits, output)
+    _handle_map[handle] = (tensor, splits, (output, output_received_splits))
     return handle
 
 
@@ -759,7 +758,11 @@ def alltoall_async(tensor, splits=None, name=None):
         `synchronize()`.
     """
     output = tensor.new()
-    return _alltoall_async(tensor, splits, output, name)
+    if isinstance(splits, torch.Tensor):
+        output_received_splits = splits.new()
+    else:
+        output_received_splits = torch.empty(size(), dtype=torch.int32, device='cpu')
+    return _alltoall_async(tensor, splits, output, output_received_splits, name)
 
 
 class HorovodAlltoall(torch.autograd.Function):
@@ -767,20 +770,20 @@ class HorovodAlltoall(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, tensor, splits, name):
-        ctx.tensor = tensor
-        ctx.splits = splits
         handle = alltoall_async(tensor, splits, name)
-        return synchronize(handle)
+        output, received_splits = synchronize(handle)
+
+        ctx.recvsplits = received_splits
+        if splits is None:
+            return output
+        else:
+            ctx.mark_non_differentiable(received_splits)
+            return output, received_splits
 
     @staticmethod
-    def backward(ctx, grad_output):
-        recvsplits = None
-        if ctx.splits is not None:
-            recvsplits = alltoall(ctx.splits, splits=torch.ones(size(), dtype=torch.int32, device='cpu'))
-        else:
-            splits_equal = torch.ones(size(), dtype=torch.int32, device='cpu') * (ctx.tensor.size()[0] // size())
-            recvsplits = alltoall(splits_equal, splits=torch.ones(size(), dtype=torch.int32, device='cpu'))
-        return alltoall(grad_output, splits=recvsplits), None, None
+    def backward(ctx, grad_output, *dead_gradients):
+        grad_wrt_tensor, _ = alltoall(grad_output, splits=ctx.recvsplits)
+        return grad_wrt_tensor, None, None
 
 
 def alltoall(tensor, splits=None, name=None):
@@ -807,8 +810,11 @@ def alltoall(tensor, splits=None, name=None):
         name: A name of the alltoall operation.
 
     Returns:
-        A tensor containing the gathered tensor data from all workers.
-    """
+        1) A tensor containing the gathered tensor data from all workers.
+        2) If `splits` has been provided: A tensor of integers in rank order
+           describing how many elements in the output tensor have been received
+           from each worker.
+     """
     return HorovodAlltoall.apply(tensor, splits, name)
 
 
@@ -830,15 +836,15 @@ def poll(handle):
 
 def synchronize(handle):
     """
-    Synchronizes an asynchronous allreduce, allgather or broadcast operation until
+    Synchronizes an asynchronous allreduce, allgather, alltoall or broadcast operation until
     it's completed. Returns the result of the operation.
 
     Arguments:
-        handle: A handle returned by an allreduce, allgather or broadcast asynchronous
+        handle: A handle returned by an allreduce, allgather, alltoall or broadcast asynchronous
                 operation.
 
     Returns:
-        An output tensor of the operation.
+        A single output tensor of the operation or a tuple of multiple output tensors.
     """
     if handle not in _handle_map:
         return

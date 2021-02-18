@@ -1208,12 +1208,14 @@ class TorchTests(unittest.TestCase):
 
             splits = torch.tensor([rank + 1] * size, dtype=torch.int32)
             tensor = self.cast_and_place(tensor, dtype)
-            collected = hvd.alltoall(tensor, splits)
+            collected, received_splits = hvd.alltoall(tensor, splits)
             tensor, collected = self.convert_cpu_fp16_to_fp32(tensor, collected)
 
             assert collected.data.min() == rank, 'hvd.alltoall produces incorrect collected tensor'
             assert collected.data.max() == rank, 'hvd.alltoall produces incorrect collected tensor'
             assert collected.numel() == size * (size + 1) // 2 * 2**(dim - 1), 'hvd.alltoall collected wrong number of values'
+            self.assertSequenceEqual(received_splits.tolist(), [rk + 1 for rk in range(size)],
+                                     "hvd.alltoall returned incorrect received_splits")
 
     def test_horovod_alltoall_equal_split(self):
         """Test that the alltoall correctly distributes 1D tensors with default splitting."""
@@ -1251,6 +1253,47 @@ class TorchTests(unittest.TestCase):
             assert collected.data.min() == rank, 'hvd.alltoall produces incorrect collected tensor'
             assert collected.data.max() == rank, 'hvd.alltoall produces incorrect collected tensor'
             assert collected.numel() == size * (size + 1) // 2 * 2**(dim - 1), 'hvd.alltoall collected wrong number of values'
+
+    def test_horovod_alltoall_splits_on_gpu(self):
+        """Test that the alltoall works correctly when the splits argument is a tensor on GPU."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        if not torch.cuda.is_available():
+            self.skipTest("No GPUs available")
+        if hvd.nccl_built() and hvd.nccl_built() < 2700:
+            self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
+
+        dtypes = self.filter_supported_types([torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
+                                              torch.IntTensor, torch.LongTensor, torch.FloatTensor,
+                                              torch.DoubleTensor, torch.HalfTensor])
+        dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
+                   torch.cuda.IntTensor, torch.cuda.LongTensor,
+                   torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                   torch.cuda.HalfTensor]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            vals = []
+            for i in range(size):
+              vals += [i] * (rank + 1)
+
+            tensor = torch.Tensor(vals)
+            for _ in range(dim - 1):
+              tensor = tensor.unsqueeze(1)
+              tensor = torch.cat((tensor, tensor), dim=1)
+
+            splits = torch.tensor([rank + 1] * size, dtype=torch.int32, device="cuda")
+            tensor = self.cast_and_place(tensor, dtype)
+            collected, received_splits = hvd.alltoall(tensor, splits)
+            tensor, collected = self.convert_cpu_fp16_to_fp32(tensor, collected)
+
+            assert collected.data.min() == rank, 'hvd.alltoall produces incorrect collected tensor'
+            assert collected.data.max() == rank, 'hvd.alltoall produces incorrect collected tensor'
+            assert collected.numel() == size * (size + 1) // 2 * 2**(dim - 1), 'hvd.alltoall collected wrong number of values'
+            self.assertEqual(received_splits.device.type, "cuda", "received_splits should be on GPU here")
+            self.assertSequenceEqual(received_splits.tolist(), [rk + 1 for rk in range(size)],
+                                     "hvd.alltoall returned incorrect received_splits")
 
     def test_horovod_alltoall_type_error(self):
         """Test that the alltoall returns an error if the tensor types differ
@@ -1392,7 +1435,7 @@ class TorchTests(unittest.TestCase):
             tensor = self.cast_and_place(tensor, dtype)
             tensor.requires_grad_()
             splits = torch.tensor([rank + 1] * size, dtype=torch.int32)
-            collected = hvd.alltoall(tensor, splits)
+            collected, received_splits = hvd.alltoall(tensor, splits)
 
             collected.backward(self.cast_and_place(torch.ones(collected.shape), dtype))
             grad_out = tensor.grad.data.cpu().numpy()

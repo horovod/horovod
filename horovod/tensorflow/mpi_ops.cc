@@ -163,6 +163,9 @@ public:
   AllocateOutput(common::TensorShape shape,
                  std::shared_ptr<common::Tensor>* tensor) override;
   virtual common::Status
+  AllocateOutput(int output_index, common::TensorShape shape,
+                 std::shared_ptr<common::Tensor>* tensor) override;
+  virtual common::Status
   AllocateZeros(int64_t num_elements, common::DataType dtype,
                 std::shared_ptr<common::Tensor>* tensor) override;
   virtual common::Framework framework() const override;
@@ -276,12 +279,18 @@ common::Status TFOpContext::AllocatePersistent(
 common::Status
 TFOpContext::AllocateOutput(common::TensorShape shape,
                             std::shared_ptr<common::Tensor>* tensor) {
+  return TFOpContext::AllocateOutput(0, shape, tensor);
+}
+
+common::Status
+TFOpContext::AllocateOutput(int output_index, common::TensorShape shape,
+                            std::shared_ptr<common::Tensor>* tensor) {
   TensorShape tf_shape;
   for (int idx = 0; idx < shape.dims(); ++idx) {
     tf_shape.AddDim(shape.dim_size(idx));
   }
   Tensor* tf_tensor;
-  Status status = context_->allocate_output(0, tf_shape, &tf_tensor);
+  Status status = context_->allocate_output(output_index, tf_shape, &tf_tensor);
   if (status.ok()) {
     *tensor = std::make_shared<TFTensor>(*tf_tensor);
   }
@@ -910,7 +919,10 @@ private:
 REGISTER_KERNEL_BUILDER(Name("HorovodAlltoall").Device(DEVICE_CPU),
                         HorovodAlltoallOp);
 #if HOROVOD_GPU_ALLTOALL
-REGISTER_KERNEL_BUILDER(Name("HorovodAlltoall").Device(DEVICE_GPU).HostMemory("splits"),
+REGISTER_KERNEL_BUILDER(Name("HorovodAlltoall")
+                            .Device(DEVICE_GPU)
+                            .HostMemory("splits")
+                            .HostMemory("received_splits"),
                         HorovodAlltoallOp);
 #endif
 
@@ -921,11 +933,13 @@ REGISTER_OP("HorovodAlltoall")
     .Input("tensor: T")
     .Input("splits: int32")
     .Output("output: T")
+    .Output("received_splits: int32")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       shape_inference::ShapeHandle output;
       TF_RETURN_IF_ERROR(
           c->ReplaceDim(c->input(0), 0, c->UnknownDim(), &output));
       c->set_output(0, output);
+      c->set_output(1, c->input(1));
       return Status::OK();
     })
     .Doc(R"doc(
@@ -933,11 +947,13 @@ Perform an MPI Alltoall on a tensor.
 
 Arguments
     tensor:     A tensor to be distributed with all to all
-    splits: A list of integers in rank order describing how many elements
+    splits:     A list of integers in rank order describing how many elements
                 in `tensor` to send to each worker.
 
 Output
-    output:    The collected tensor data from all workers.
+    output:           The collected tensor data from all workers.
+    received_splits:  A list of integers in rank order describing how many
+                      elements in `output` have been received from each worker.
 )doc");
 
 } // namespace tensorflow
