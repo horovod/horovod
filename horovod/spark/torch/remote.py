@@ -265,7 +265,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                         if cuda_available:
                             inputs = [input.cuda() for input in inputs]
                             labels = [label.cuda() for label in labels]
-                            if sample_weights:
+                            if sample_weights is not None:
                                 sample_weights = sample_weights.cuda()
                         return inputs, labels, sample_weights
 
