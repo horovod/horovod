@@ -554,7 +554,7 @@ class HorovodAllgather(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        grad_reduced = allreduce(grad_output, average=False)
+        grad_reduced = allreduce(grad_output, average=True)
 
         dim_t = torch.IntTensor([ctx.dim])
         dim = allgather(dim_t).view(size())
@@ -639,7 +639,7 @@ class HorovodBroadcast(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        grad_reduced = allreduce(grad_output, average=False)
+        grad_reduced = allreduce(grad_output, average=True)
         if rank() != ctx.root_rank:
             grad_reduced *= 0
         return grad_reduced, None, None

@@ -219,7 +219,7 @@ def _allgather_grad(op, grad):
       The gradient with respect to the input of the op.
     """
     ignore_name_scope = op.get_attr('ignore_name_scope')
-    grad = _allreduce(grad, ignore_name_scope=ignore_name_scope)
+    grad = _allreduce(grad, op=Average, ignore_name_scope=ignore_name_scope)
 
     with tf.device('/cpu:0'):
         # Keep the tensor of split sizes on CPU.
@@ -265,7 +265,8 @@ def _broadcast_grad(op, grad):
     """
     root_rank = op.get_attr('root_rank')
     ignore_name_scope = op.get_attr('ignore_name_scope')
-    grad_reduced = _allreduce(grad, ignore_name_scope=ignore_name_scope)
+    grad_reduced = _allreduce(grad, op=Average,
+                              ignore_name_scope=ignore_name_scope)
     if rank() != root_rank:
         return grad_reduced * 0
     return grad_reduced
