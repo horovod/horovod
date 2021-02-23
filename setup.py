@@ -59,6 +59,11 @@ def get_cmake_bin():
 
 class custom_build_ext(build_ext):
     def build_extensions(self):
+        if os.getenv('HOROVOD_SKIP_COMPILE') == '1':
+            # Skip building extensions using CMake
+            print("Horovod is being installed without native libraries")
+            return
+
         cmake_bin = get_cmake_bin()
 
         config = 'Debug' if self.debug else 'RelWithDebInfo'
