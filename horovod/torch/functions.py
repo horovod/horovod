@@ -179,7 +179,7 @@ def broadcast_optimizer_state(optimizer, root_rank):
     broadcast_parameters(params, root_rank)
 
     # Broadcast and cleanup for non-tensor parameters
-    scalars = broadcast_object(scalars)
+    scalars = broadcast_object(scalars, root_rank)
     for key, p in scalars.items():
         callbacks[key](p)
 
