@@ -32,7 +32,8 @@ class HorovodParamsWriter(DefaultParamsWriter):
                                   paramMap,
                                   param_serializer_fn)
 
-        if hasattr(instance, 'getStore'):
+        # save mode by store as spark has 2G limitation on file size.
+        if hasattr(instance, 'getStore') and instance.getStore() is not None:
             instance.getStore().write_text(metadata_path, metadata_json)
         else:
             sc.parallelize([metadata_json], 1).saveAsTextFile(metadata_path)
