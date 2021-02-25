@@ -31,7 +31,8 @@ class HorovodParamsWriter(DefaultParamsWriter):
                                   extraMetadata,
                                   paramMap,
                                   param_serializer_fn)
-        sc.parallelize([metadata_json], 1).saveAsTextFile(metadata_path)
+
+        instance.store.write_text(metadata_path, metadata_json)
 
     @staticmethod
     def _get_metadata_to_save(instance, sc, extra_metadata=None, param_map=None,
