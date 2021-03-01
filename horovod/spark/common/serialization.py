@@ -31,7 +31,12 @@ class HorovodParamsWriter(DefaultParamsWriter):
                                   extraMetadata,
                                   paramMap,
                                   param_serializer_fn)
-        sc.parallelize([metadata_json], 1).saveAsTextFile(metadata_path)
+
+        # save mode by store as spark has 2G limitation on file size.
+        if hasattr(instance, 'getStore') and instance.getStore() is not None:
+            instance.getStore().write_text(metadata_path, metadata_json)
+        else:
+            sc.parallelize([metadata_json], 1).saveAsTextFile(metadata_path)
 
     @staticmethod
     def _get_metadata_to_save(instance, sc, extra_metadata=None, param_map=None,
