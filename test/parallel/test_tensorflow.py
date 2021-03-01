@@ -1471,7 +1471,7 @@ class TensorFlowTests(tf.test.TestCase):
 
             expected = np.ones(
                 [tensor_sizes[rank]] + [17] * (dim - 1)
-            ) * rank * size
+            ) * rank
             err = np.linalg.norm(expected - grad_out)
             self.assertLess(err, 0.00000001,
                             "gradient %s differs from expected %s, "
@@ -1534,7 +1534,7 @@ class TensorFlowTests(tf.test.TestCase):
 
             expected = np.ones(
                 [tensor_sizes[rank]] + [17] * (dim - 1)
-            ) * rank * size
+            ) * rank
             err = np.linalg.norm(expected - grad_out)
             self.assertLess(err, 0.00000001,
                             "gradient %s differs from expected %s, "
@@ -1694,7 +1694,7 @@ class TensorFlowTests(tf.test.TestCase):
                     grad = tf.gradients(broadcasted_tensor, tensor, grad_ys)[0]
                     grad_out = self.evaluate(grad)
 
-            c = size if rank == root_rank else 0
+            c = 1 if rank == root_rank else 0
             expected = np.ones([5] * dim) * c
             err = np.linalg.norm(expected - grad_out)
             self.assertLess(err, 0.00000001,
@@ -1745,7 +1745,7 @@ class TensorFlowTests(tf.test.TestCase):
                     grad = tf.gradients(broadcasted_tensor, tensor, grad_ys)[0]
                     grad_out = self.evaluate(grad)
 
-            c = size if rank == root_rank else 0
+            c = 1 if rank == root_rank else 0
             expected = np.ones([5] * dim) * c
             err = np.linalg.norm(expected - grad_out)
             self.assertLess(err, 0.00000001,
