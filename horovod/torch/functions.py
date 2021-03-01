@@ -21,9 +21,42 @@ from collections.abc import Iterable
 import cloudpickle
 import torch
 
-from horovod.torch.mpi_ops import allgather, broadcast_, broadcast_async_
+from horovod.torch.mpi_ops import allgather, allreduce_async_, broadcast_, broadcast_async_
 from horovod.torch.mpi_ops import synchronize
 from horovod.torch.mpi_ops import rank, size
+
+
+def _apply_async_to_parameters(fn, params):
+    if isinstance(params, dict):
+        params = sorted(params.items())
+    elif isinstance(params, list):
+        # support both named_parameters() and regular parameters()
+        params = [p if isinstance(p, tuple) else (None, p) for p in params]
+    else:
+        raise ValueError('invalid params of type: %s' % type(params))
+
+    # Run asynchronous broadcasts.
+    handles = []
+    for name, p in params:
+        handle = fn(p, name)
+        handles.append(handle)
+
+    # Wait for completion.
+    for handle in handles:
+        synchronize(handle)
+
+
+def allreduce_parameters(params, op=None, prescale_factor=1.0, postscale_factor=1.0):
+    return _apply_async_to_parameters(
+        lambda t, name: allreduce_async_(
+            t,
+            name=name,
+            op=op,
+            prescale_factor=prescale_factor,
+            postscale_factor=postscale_factor
+        ),
+        params
+    )
 
 
 def broadcast_parameters(params, root_rank):
@@ -39,23 +72,10 @@ def broadcast_parameters(params, root_rank):
         root_rank: The rank of the process from which parameters will be
                    broadcasted to all other processes.
     """
-    if isinstance(params, dict):
-        params = sorted(params.items())
-    elif isinstance(params, list):
-        # support both named_parameters() and regular parameters()
-        params = [p if isinstance(p, tuple) else (None, p) for p in params]
-    else:
-        raise ValueError('invalid params of type: %s' % type(params))
-
-    # Run asynchronous broadcasts.
-    handles = []
-    for name, p in params:
-        handle = broadcast_async_(p, root_rank, name)
-        handles.append(handle)
-
-    # Wait for completion.
-    for handle in handles:
-        synchronize(handle)
+    return _apply_async_to_parameters(
+        lambda t, name: broadcast_async_(t, root_rank, name=name),
+        params
+    )
 
 
 def broadcast_optimizer_state(optimizer, root_rank):
