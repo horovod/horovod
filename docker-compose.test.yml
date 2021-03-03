@@ -16,39 +16,40 @@ services:
         # mxnet==1.7.0.post2 is the first version in 1.7.x that works with horovod
         # https://github.com/apache/incubator-mxnet/issues/19575
         MXNET_PACKAGE: mxnet==1.7.0.post2
-        PYSPARK_PACKAGE: pyspark==3.0.1
-        SPARK_PACKAGE: spark-3.0.1/spark-3.0.1-bin-hadoop2.7.tgz
+        PYSPARK_PACKAGE: pyspark==3.1.1
+        SPARK_PACKAGE: spark-3.1.1/spark-3.1.1-bin-hadoop2.7.tgz
         HOROVOD_BUILD_FLAGS: HOROVOD_WITH_GLOO=1
     privileged: true
     shm_size: 8gb
 
-  test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_7_0_p2-pyspark_3_0_1:
+  # our baseline first
+  test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_7_0_p2-pyspark_3_1_1:
     extends: test-cpu-base
-  test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_7_0_p2-pyspark_3_0_1:
+  test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_7_0_p2-pyspark_3_1_1:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: MPICH
         HOROVOD_BUILD_FLAGS: HOROVOD_WITHOUT_GLOO=1
-  test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_7_0_p2-pyspark_3_0_1:
+  test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_7_0_p2-pyspark_3_1_1:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: ONECCL
         HOROVOD_BUILD_FLAGS: HOROVOD_WITHOUT_GLOO=1
-  test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_7_0_p2-pyspark_3_0_1:
+  test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_7_0_p2-pyspark_3_1_1:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: OpenMPI
         HOROVOD_BUILD_FLAGS: HOROVOD_WITHOUT_GLOO=1
-  test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_7_0_p2-pyspark_3_0_1:
+  test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_7_0_p2-pyspark_3_1_1:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: OpenMPI
 
-  test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1:
+  test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_1_1:
     extends: test-cpu-base
     build:
       args:
@@ -59,7 +60,7 @@ services:
         PYTORCH_PACKAGE: torch==1.3.1+cpu
         TORCHVISION_PACKAGE: torchvision==0.4.2+cpu
         MXNET_PACKAGE: mxnet==1.5.1.post0
-  test-cpu-gloo-py3_7-tf2_0_4-keras2_3_1-torch1_4_0-mxnet1_5_1_p0-pyspark_3_0_1:
+  test-cpu-gloo-py3_7-tf2_0_4-keras2_3_1-torch1_4_0-mxnet1_5_1_p0-pyspark_3_1_1:
     extends: test-cpu-base
     build:
       args:
@@ -70,7 +71,7 @@ services:
         PYTORCH_PACKAGE: torch==1.4.0+cpu
         TORCHVISION_PACKAGE: torchvision==0.5.0+cpu
         MXNET_PACKAGE: mxnet==1.5.1.post0
-  test-cpu-gloo-py3_7-tf2_1_3-keras2_3_1-torch1_5_1-mxnet1_5_1_p0-pyspark_3_0_1:
+  test-cpu-gloo-py3_7-tf2_1_3-keras2_3_1-torch1_5_1-mxnet1_5_1_p0-pyspark_3_1_1:
     extends: test-cpu-base
     build:
       args:
@@ -80,7 +81,7 @@ services:
         PYTORCH_PACKAGE: torch==1.5.1+cpu
         TORCHVISION_PACKAGE: torchvision==0.6.1+cpu
         MXNET_PACKAGE: mxnet==1.5.1.post0
-  test-cpu-gloo-py3_8-tf2_2_2-keras2_3_1-torch1_6_0-mxnet1_5_1_p0-pyspark_3_0_1:
+  test-cpu-gloo-py3_8-tf2_2_2-keras2_3_1-torch1_6_0-mxnet1_5_1_p0-pyspark_3_1_1:
     extends: test-cpu-base
     build:
       args:
@@ -95,7 +96,7 @@ services:
   # this cpu test variation is defined as gpu in gpu frameworks variations below
 # test-cpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_7_1-mxnet1_6_0_p0-pyspark_3_1_1:
   # then our baseline again, omitted ...
-  test-cpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_0_1:
+  test-cpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_1_1:
     extends: test-cpu-base
     build:
       args:
@@ -119,6 +120,14 @@ services:
         PYTHON_VERSION: 3.7
         PYSPARK_PACKAGE: pyspark==2.4.7
         SPARK_PACKAGE: spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
+  test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_7_0_p2-pyspark_3_0_2:
+    extends: test-cpu-base
+    build:
+      args:
+        PYTHON_VERSION: 3.8
+        PYSPARK_PACKAGE: pyspark==3.0.2
+        SPARK_PACKAGE: spark-3.0.2/spark-3.0.2-bin-hadoop2.7.tgz
+  # then our baseline again, omitted ...
 
   test-gpu-base:
     build:
@@ -138,8 +147,8 @@ services:
         # mxnet-cu101==1.7.0.post1 is the first version in 1.7.x that works with horovod
         # https://github.com/apache/incubator-mxnet/issues/19575
         MXNET_PACKAGE: mxnet-cu101==1.7.0.post1
-        PYSPARK_PACKAGE: pyspark==3.0.1
-        SPARK_PACKAGE: spark-3.0.1/spark-3.0.1-bin-hadoop2.7.tgz
+        PYSPARK_PACKAGE: pyspark==3.1.1
+        SPARK_PACKAGE: spark-3.1.1/spark-3.1.1-bin-hadoop2.7.tgz
         HOROVOD_BUILD_FLAGS: HOROVOD_GPU_OPERATIONS=NCCL
         HOROVOD_MIXED_INSTALL: 0
     runtime: nvidia
@@ -152,7 +161,7 @@ services:
 
   # torch==1.2.0+cu100 does not exist, torch==1.3.0+cu100 is the first +cu100
   # torch==1.3.1+cu100 requires torchvision==0.4.2+cu100
-  test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1:
+  test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_1_1:
     extends: test-gpu-base
     build:
       args:
@@ -165,7 +174,7 @@ services:
         MXNET_PACKAGE: mxnet-cu100==1.5.1.post0
   # mxnet-cu101==1.7.0.post1 is the first version in 1.7.x that works with horovod
   # https://github.com/apache/incubator-mxnet/issues/19575
-  test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_7_1-mxnet1_7_0_p1-pyspark_3_0_1:
+  test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_7_1-mxnet1_7_0_p1-pyspark_3_1_1:
     extends: test-gpu-base
     build:
       args:
@@ -176,7 +185,7 @@ services:
         MXNET_PACKAGE: mxnet-cu101==1.7.0.post1
   # mxnet-cu110 does not exist so we use mxnet_head
   # torch==1.8.1+cu110 does not exist, there is only cu101 and cu111
-  test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnethead-pyspark_3_0_1:
+  test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnethead-pyspark_3_1_1:
     extends: test-gpu-base
     build:
       args:
@@ -189,7 +198,7 @@ services:
         PYTORCH_PACKAGE: torch==1.8.1+cu111
         TORCHVISION_PACKAGE: torchvision==0.9.1+cu111
         MXNET_PACKAGE: mxnet-nightly-cu112
-  test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_0_1:
+  test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_1_1:
     extends: test-gpu-base
     build:
       args:
@@ -204,7 +213,7 @@ services:
 
   # mxnet-cu110 does not exist so we use mxnet_head
   # torch==1.8.1+cu110 does not exist, there is only cu101 and cu111
-  test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnethead-pyspark_3_0_1:
+  test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnethead-pyspark_3_1_1:
     extends: test-gpu-base
     build:
       args:
