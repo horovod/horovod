@@ -178,10 +178,12 @@ run_mpi_integration() {
     run_test "${test}" "${queue}" \
       ":tensorflow: MPI Keras MNIST (${test})" \
       "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/keras/keras_mnist_advanced.py\""
+  fi
 
+  if [[ ${test} != *"torch1_2"* ]]; then
     run_test "${test}" "${queue}" \
       ":fire: MPI PyTorch MNIST (${test})" \
-      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py\""
+      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets\""
   fi
 
   if [[ ${test} == *"mxnet2_"* ]] || [[ ${test} == *"mxnethead"* ]]; then
@@ -278,9 +280,11 @@ run_gloo_integration() {
       "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/keras/keras_mnist_advanced.py"
   fi
 
-  run_test "${test}" "${queue}" \
-    ":fire: Gloo PyTorch MNIST (${test})" \
-    "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py"
+  if [[ ${test} != *"torch1_2"* ]]; then
+    run_test "${test}" "${queue}" \
+      ":fire: Gloo PyTorch MNIST (${test})" \
+      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+  fi
 
   if [[ ${test} == *"mxnet2_"* ]] || [[ ${test} == *"mxnethead"* ]]; then
       run_test "${test}" "${queue}" \
@@ -374,9 +378,11 @@ run_single_integration() {
       "bash -c \"${oneccl_env} python /horovod/examples/keras/keras_mnist_advanced.py --epochs 3 --batch-size 64\""
   fi
 
-  run_test "${test}" "${queue}" \
-    ":fire: Single PyTorch MNIST (${test})" \
-    "bash -c \"${oneccl_env} python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3\""
+  if [[ ${test} != *"torch1_2"* ]]; then
+    run_test "${test}" "${queue}" \
+      ":fire: Single PyTorch MNIST (${test})" \
+      "bash -c \"${oneccl_env} python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets\""
+  fi
 
   if [[ ${test} == *"mxnet2_"* ]] || [[ ${test} == *"mxnethead"* ]]; then
       run_test "${test}" "${queue}" \

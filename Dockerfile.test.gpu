@@ -134,6 +134,9 @@ RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazo
 RUN mkdir -p /work
 RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/rossmann.tgz -O - | tar -xzC /data
 
+# Prefetch PyTorch datasets.
+RUN wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/pytorch_datasets.tgz -O - | tar -xzC /data
+
 ### END OF CACHE ###
 COPY . /horovod
 
