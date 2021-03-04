@@ -1000,6 +1000,22 @@ steps:
     automatic: true
   agents:
     queue: cpu
+- label: ':fire: MPI PyTorch MNIST (test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1)'
+  command: bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
 - label: ':muscle: MPI MXNet MNIST (test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1)'
   command: bash -c " OMP_NUM_THREADS=1 \$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet_mnist.py"
   artifact_paths: "artifacts/**"
@@ -1128,6 +1144,22 @@ steps:
     automatic: true
   agents:
     queue: cpu
+- label: ':fire: MPI PyTorch MNIST (test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1)'
+  command: bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
 - label: ':muscle: MPI MXNet MNIST (test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1)'
   command: bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && OMP_NUM_THREADS=1 \$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet_mnist.py"
   artifact_paths: "artifacts/**"
@@ -1210,6 +1242,22 @@ steps:
     queue: cpu
 - label: ':pytest: MPI Cluster PyTests (test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1)'
   command: bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':fire: MPI PyTorch MNIST (test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1)'
+  command: bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -1386,6 +1434,22 @@ steps:
     queue: cpu
 - label: ':jupyter: Run PyTests test_interactiverun (test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1)'
   command: bash -c "cd /horovod/test && pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.integration.xml integration/test_interactiverun.py"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':fire: MPI PyTorch MNIST (test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1)'
+  command: bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -1704,6 +1768,22 @@ steps:
     automatic: true
   agents:
     queue: cpu
+- label: ':fire: MPI PyTorch MNIST (test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1)'
+  command: bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
 - label: ':muscle: MPI MXNet MNIST (test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1)'
   command: bash -c " OMP_NUM_THREADS=1 \$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet_mnist.py"
   artifact_paths: "artifacts/**"
@@ -1896,22 +1976,6 @@ steps:
     automatic: true
   agents:
     queue: cpu
-- label: ':fire: Gloo PyTorch MNIST (test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_1_p0-pyspark_3_0_1)'
-  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
-  artifact_paths: "artifacts/**"
-  plugins:
-  - docker-compose#v3.5.0:
-      run: test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_1_p0-pyspark_3_0_1
-      volumes: "./artifacts:/artifacts"
-      config: docker-compose.test.yml
-      pull-retries: 3
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 10
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
 - label: ':muscle: Gloo MXNet MNIST (test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_1_p0-pyspark_3_0_1)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet_mnist.py
   artifact_paths: "artifacts/**"
@@ -2058,22 +2122,6 @@ steps:
     queue: cpu
 - label: ':tensorflow: Single Keras MNIST (test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_1_p0-pyspark_3_0_1)'
   command: bash -c " python /horovod/examples/keras/keras_mnist_advanced.py --epochs 3 --batch-size 64"
-  artifact_paths: "artifacts/**"
-  plugins:
-  - docker-compose#v3.5.0:
-      run: test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_1_p0-pyspark_3_0_1
-      volumes: "./artifacts:/artifacts"
-      config: docker-compose.test.yml
-      pull-retries: 3
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 10
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
-- label: ':fire: Single PyTorch MNIST (test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_1_p0-pyspark_3_0_1)'
-  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -3690,6 +3738,22 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v510
+- label: ':fire: MPI PyTorch MNIST (test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1)'
+  command: bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: 2x-gpu-v510
 - label: ':muscle: MPI MXNet2 MNIST (test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1)'
   command: bash -c " OMP_NUM_THREADS=1 \$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet2_mnist.py"
   artifact_paths: "artifacts/**"
@@ -3932,6 +3996,22 @@ steps:
     queue: 2x-gpu-v510
 - label: ':jupyter: Run PyTests test_interactiverun (test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1)'
   command: bash -c "cd /horovod/test && pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.integration.xml integration/test_interactiverun.py"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: 2x-gpu-v510
+- label: ':fire: MPI PyTorch MNIST (test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1)'
+  command: bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
