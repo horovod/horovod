@@ -64,6 +64,10 @@ parser.add_argument(
         'as part of the commit process) but because it '
         'still incurs some cost due to broadcast, '
         'we may not want to perform it every batch.'))
+parser.add_argument(
+    '--data-dir',
+    help='location of the training dataset in the local filesystem (will be downloaded if needed)'
+)
 
 args = parser.parse_args()
 
@@ -73,10 +77,11 @@ def load_data_mnist():
     torch.set_num_threads(4)
 
     kwargs = {'num_workers': 0, 'pin_memory': True} if args.cuda else {}
+    data_dir = args.data_dir or './data'
     from filelock import FileLock
     with FileLock(os.path.expanduser("~/.datalock")):
         train_dataset = \
-            datasets.MNIST('./data', train=True, download=True,
+            datasets.MNIST(data_dir, train=True, download=True,
                            transform=transforms.Compose([
                                transforms.ToTensor(),
                                transforms.Normalize((0.1307,), (0.3081,))

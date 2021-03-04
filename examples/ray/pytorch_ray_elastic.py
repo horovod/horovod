@@ -72,6 +72,10 @@ parser.add_argument(
     default=1,
     help='number of batches per commit of the elastic state object'
 )
+parser.add_argument(
+    '--data-dir',
+    help='location of the training dataset in the local filesystem (will be downloaded if needed)'
+)
 
 args = parser.parse_args()
 
@@ -116,8 +120,9 @@ def train_fn():
     torch.set_num_threads(1)
 
     kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
+    data_dir = args.data_dir or f'data-{hvd.rank()}'
     train_dataset = \
-        datasets.MNIST('data-%d' % hvd.rank(), train=True, download=True,
+        datasets.MNIST(data_dir, train=True, download=True,
                        transform=transforms.Compose([
                            transforms.ToTensor(),
                            transforms.Normalize((0.1307,), (0.3081,))
@@ -135,7 +140,7 @@ def train_fn():
          transforms.Normalize((0.1307, ), (0.3081, ))])
 
     test_dataset = datasets.MNIST(
-        'data-%d' % hvd.rank(), train=False, transform=transformations)
+        data_dir, train=False, transform=transformations)
     # Horovod: use DistributedSampler to partition the test data.
     test_sampler = torch.utils.data.distributed.DistributedSampler(
         test_dataset, num_replicas=hvd.size(), rank=hvd.rank())
