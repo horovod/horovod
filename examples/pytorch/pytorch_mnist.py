@@ -136,7 +136,7 @@ if __name__ == '__main__':
             mp._supports_context and 'forkserver' in mp.get_all_start_methods()):
         kwargs['multiprocessing_context'] = 'forkserver'
 
-    data_dir = args.data_dir or f'data-{hvd.rank()}'
+    data_dir = args.data_dir or './data'
     with FileLock(os.path.expanduser("~/.datalock")):
         train_dataset = \
             datasets.MNIST(data_dir, train=True, download=True,
