@@ -1,34 +1,29 @@
-28c28
+30c30
 < parser = argparse.ArgumentParser(description='Keras Spark Rossmann Run Example',
 ---
 > parser = argparse.ArgumentParser(description='Keras Spark3 Rossmann Run Example',
-34c34
+36c36
 < parser.add_argument('--training-master',
 ---
 > parser.add_argument('--training-master', default='local-cluster[2,1,1024]',
-58a59,61
+60a61,63
 >     # Location of discovery script on local filesystem.
 >     DISCOVERY_SCRIPT = 'get_gpu_resources.sh'
 > 
-61a65,70
+63a67,72
 >     # Whether to infer on GPU.
 >     GPU_INFERENCE_ENABLED = False
 > 
 >     # Cluster for GPU inference.
 >     GPU_INFERENCE_CLUSTER = 'local-cluster[2,1,1024]'  # or 'spark://hostname:7077'
 > 
-156c165,166
-<         df = df.join(google_trend_de, ['Year', 'Week']).select(df['*'], google_trend_all.trend.alias('trend_de'))
----
->         google_trend_de = google_trend_de.withColumnRenamed('trend', 'trend_de')
->         df = df.join(google_trend_de, ['Year', 'Week']).select(df['*'], google_trend_de.trend_de)
-395a406
+397a407
 >         from horovod.spark.task import get_available_devices
-410c421
+412c422
 <         config.gpu_options.visible_device_list = str(hvd.local_rank())
 ---
 >         config.gpu_options.visible_device_list = get_available_devices()[0]
-493a505,529
+495a506,530
 >     def set_gpu_conf(conf):
 >         # This config will change depending on your cluster setup.
 >         #
@@ -54,9 +49,9 @@
 >         return conf
 > 
 > 
-497a534
+499a535
 >     conf = set_gpu_conf(conf)
-526,527c563,571
+530,531c566,574
 <     if args.processing_master:
 <         conf.setMaster(args.processing_master)
 ---
@@ -69,7 +64,7 @@
 >         if args.processing_master:
 >             conf.setMaster(args.processing_master)
 > 
-537,541c581,592
+541,545c584,595
 <             # Do not use GPUs for prediction, use single CPU core per task.
 <             config = tf.ConfigProto(device_count={'GPU': 0})
 <             config.inter_op_parallelism_threads = 1

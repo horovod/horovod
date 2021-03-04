@@ -314,12 +314,12 @@ run_gloo_integration() {
   if [[ ${test} == ${baseline} ]] || [[ ${test} == test-cpu-gloo-*-tf1_* ]] || [[ ${test} != *pyspark_3_1_1* ]]; then
     run_test "${test}" "${queue}" \
       ":factory: Elastic Spark TensorFlow Tests (${test})" \
-      "bash -c \"cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml ${elastic_spark_tensorflow}\"" \
+      "bash -c \"cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml ${elastic_spark_tensorflow}\"" \
       20
 
     run_test "${test}" "${queue}" \
       ":factory: Elastic Spark Torch Tests (${test})" \
-      "bash -c \"cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py\"" \
+      "bash -c \"cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py\"" \
       20
   fi
 
@@ -348,20 +348,20 @@ run_spark_integration() {
     if [[ ${test} != *"tf2"* && ${test} != *"tfhead"* ]]; then
       run_test "${test}" "${queue}" \
         ":spark: Spark Keras Rossmann Run (${test})" \
-        "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/spark/keras/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.01\""
+        "bash -c \"OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.01\""
 
       run_test "${test}" "${queue}" \
         ":spark: Spark Keras Rossmann Estimator (${test})" \
-        "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/spark/keras/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01\""
+        "bash -c \"OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01\""
 
       run_test "${test}" "${queue}" \
         ":spark: Spark Keras MNIST (${test})" \
-        "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/spark/keras/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
+        "bash -c \"OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
     fi
 
     run_test "${test}" "${queue}" \
       ":spark: Spark Torch MNIST (${test})" \
-      "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
+      "bash -c \"OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
   fi
 }
 
