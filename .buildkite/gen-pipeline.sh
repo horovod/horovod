@@ -181,7 +181,7 @@ run_mpi_integration() {
 
     run_test "${test}" "${queue}" \
       ":fire: MPI PyTorch MNIST (${test})" \
-      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py\""
+      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets\""
   fi
 
   if [[ ${test} == *"mxnet2_"* ]] || [[ ${test} == *"mxnethead"* ]]; then
@@ -280,7 +280,7 @@ run_gloo_integration() {
 
   run_test "${test}" "${queue}" \
     ":fire: Gloo PyTorch MNIST (${test})" \
-    "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py"
+    "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
 
   if [[ ${test} == *"mxnet2_"* ]] || [[ ${test} == *"mxnethead"* ]]; then
       run_test "${test}" "${queue}" \
@@ -376,7 +376,7 @@ run_single_integration() {
 
   run_test "${test}" "${queue}" \
     ":fire: Single PyTorch MNIST (${test})" \
-    "bash -c \"${oneccl_env} python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3\""
+    "bash -c \"${oneccl_env} python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets\""
 
   if [[ ${test} == *"mxnet2_"* ]] || [[ ${test} == *"mxnethead"* ]]; then
       run_test "${test}" "${queue}" \

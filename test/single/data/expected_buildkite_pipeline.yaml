@@ -361,7 +361,7 @@ steps:
   agents:
     queue: cpu
 - label: ':fire: Gloo PyTorch MNIST (test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_3_4)'
-  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py
+  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -473,7 +473,7 @@ steps:
   agents:
     queue: cpu
 - label: ':fire: Single PyTorch MNIST (test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_3_4)'
-  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3"
+  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -585,7 +585,7 @@ steps:
   agents:
     queue: cpu
 - label: ':fire: Gloo PyTorch MNIST (test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_4_7)'
-  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py
+  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -697,7 +697,7 @@ steps:
   agents:
     queue: cpu
 - label: ':fire: Single PyTorch MNIST (test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_4_7)'
-  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3"
+  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -809,7 +809,7 @@ steps:
   agents:
     queue: cpu
 - label: ':fire: Gloo PyTorch MNIST (test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1)'
-  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py
+  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -921,7 +921,7 @@ steps:
   agents:
     queue: cpu
 - label: ':fire: Single PyTorch MNIST (test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1)'
-  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3"
+  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -1049,7 +1049,7 @@ steps:
   agents:
     queue: cpu
 - label: ':fire: Single PyTorch MNIST (test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1)'
-  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3"
+  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -1273,7 +1273,7 @@ steps:
   agents:
     queue: cpu
 - label: ':fire: Single PyTorch MNIST (test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1)'
-  command: bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3"
+  command: bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -1305,7 +1305,7 @@ steps:
   agents:
     queue: cpu
 - label: ':fire: Single PyTorch MNIST (test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1)'
-  command: bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3"
+  command: bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -1481,7 +1481,7 @@ steps:
   agents:
     queue: cpu
 - label: ':fire: Single PyTorch MNIST (test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1)'
-  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3"
+  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -1593,7 +1593,7 @@ steps:
   agents:
     queue: cpu
 - label: ':fire: Gloo PyTorch MNIST (test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1)'
-  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py
+  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -1785,7 +1785,7 @@ steps:
   agents:
     queue: cpu
 - label: ':fire: Single PyTorch MNIST (test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1)'
-  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3"
+  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -1897,7 +1897,7 @@ steps:
   agents:
     queue: cpu
 - label: ':fire: Gloo PyTorch MNIST (test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_1_p0-pyspark_3_0_1)'
-  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py
+  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -2073,7 +2073,7 @@ steps:
   agents:
     queue: cpu
 - label: ':fire: Single PyTorch MNIST (test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_1_p0-pyspark_3_0_1)'
-  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3"
+  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -2185,7 +2185,7 @@ steps:
   agents:
     queue: cpu
 - label: ':fire: Gloo PyTorch MNIST (test-cpu-gloo-py3_7-tf2_0_4-keras2_3_1-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1)'
-  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py
+  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -2265,7 +2265,7 @@ steps:
   agents:
     queue: cpu
 - label: ':fire: Single PyTorch MNIST (test-cpu-gloo-py3_7-tf2_0_4-keras2_3_1-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1)'
-  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3"
+  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -2377,7 +2377,7 @@ steps:
   agents:
     queue: cpu
 - label: ':fire: Gloo PyTorch MNIST (test-cpu-gloo-py3_7-tf2_1_3-keras2_3_1-torch1_4_0-mxnet1_5_1_p0-pyspark_3_0_1)'
-  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py
+  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -2457,7 +2457,7 @@ steps:
   agents:
     queue: cpu
 - label: ':fire: Single PyTorch MNIST (test-cpu-gloo-py3_7-tf2_1_3-keras2_3_1-torch1_4_0-mxnet1_5_1_p0-pyspark_3_0_1)'
-  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3"
+  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -2569,7 +2569,7 @@ steps:
   agents:
     queue: cpu
 - label: ':fire: Gloo PyTorch MNIST (test-cpu-gloo-py3_8-tf2_2_2-keras2_3_1-torch1_5_1-mxnet1_5_1_p0-pyspark_3_0_1)'
-  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py
+  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -2649,7 +2649,7 @@ steps:
   agents:
     queue: cpu
 - label: ':fire: Single PyTorch MNIST (test-cpu-gloo-py3_8-tf2_2_2-keras2_3_1-torch1_5_1-mxnet1_5_1_p0-pyspark_3_0_1)'
-  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3"
+  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -2761,7 +2761,7 @@ steps:
   agents:
     queue: cpu
 - label: ':fire: Gloo PyTorch MNIST (test-cpu-gloo-py3_8-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1)'
-  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py
+  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -2841,7 +2841,7 @@ steps:
   agents:
     queue: cpu
 - label: ':fire: Single PyTorch MNIST (test-cpu-gloo-py3_8-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1)'
-  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3"
+  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -3291,7 +3291,7 @@ steps:
   agents:
     queue: 2x-gpu-v510
 - label: ':fire: Gloo PyTorch MNIST (test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_6_0_p0-pyspark_3_0_1)'
-  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py
+  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -3387,7 +3387,7 @@ steps:
   agents:
     queue: 2x-gpu-v510
 - label: ':fire: Gloo PyTorch MNIST (test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1)'
-  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py
+  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -3531,7 +3531,7 @@ steps:
   agents:
     queue: 2x-gpu-v510
 - label: ':fire: Gloo PyTorch MNIST (test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1)'
-  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py
+  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -3627,7 +3627,7 @@ steps:
   agents:
     queue: 2x-gpu-v510
 - label: ':fire: Gloo PyTorch MNIST (test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1)'
-  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py
+  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -3787,7 +3787,7 @@ steps:
   agents:
     queue: 2x-gpu-v510
 - label: ':fire: Gloo PyTorch MNIST (test-gpu-gloo-py3_8-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1)'
-  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py
+  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -3883,7 +3883,7 @@ steps:
   agents:
     queue: 2x-gpu-v510
 - label: ':fire: Gloo PyTorch MNIST (test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1)'
-  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py
+  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
