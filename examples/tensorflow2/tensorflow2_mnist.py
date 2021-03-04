@@ -31,7 +31,7 @@ if gpus:
 
 dataset = tf.data.Dataset.from_tensor_slices(
     (tf.cast(mnist_images[..., tf.newaxis] / 255.0, tf.float32),
-             tf.cast(mnist_labels, tf.int64))
+     tf.cast(mnist_labels, tf.int64))
 )
 dataset = dataset.repeat().shuffle(10000).batch(128)
 
@@ -48,10 +48,8 @@ mnist_model = tf.keras.Sequential([
 loss = tf.losses.SparseCategoricalCrossentropy()
 
 # Horovod: adjust learning rate based on number of GPUs.
-opt = tf.optimizers.Adam(0.001 * hvd.size())
-
-checkpoint_dir = './checkpoints'
-checkpoint = tf.train.Checkpoint(model=mnist_model, optimizer=opt)
+scaled_lr = 0.001 * hvd.size()
+opt = tf.optimizers.Adam(scaled_lr)
 
 
 @tf.function
@@ -85,6 +83,9 @@ for batch, (images, labels) in enumerate(dataset.take(10000 // hvd.size())):
 
     if batch % 10 == 0 and hvd.local_rank() == 0:
         print('Step #%d\tLoss: %.6f' % (batch, loss_value))
+
+checkpoint_dir = './checkpoints'
+checkpoint = tf.train.Checkpoint(model=mnist_model, optimizer=opt)
 
 # Horovod: save checkpoints only on worker 0 to prevent other workers from
 # corrupting it.

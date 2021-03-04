@@ -388,6 +388,16 @@ def to_petastorm_fn(schema_cols, metadata):
     return to_petastorm
 
 
+def to_petastorm(df, compress_sparse=False):
+    metadata = None
+    if _has_vector_column(df):
+        if compress_sparse:
+            metadata = _get_metadata(df)
+        to_petastorm = to_petastorm_fn(df.columns, metadata)
+        df = df.rdd.map(to_petastorm).toDF()
+    return metadata, df
+
+
 def _has_vector_column(df):
     for field in df.schema.fields:
         if isinstance(field.dataType, VectorUDT):
@@ -569,12 +579,7 @@ def _get_or_create_dataset(key, store, df, feature_columns, label_columns,
                 schema_cols.append(validation)
             df = df[schema_cols]
 
-            metadata = None
-            if _has_vector_column(df):
-                if compress_sparse:
-                    metadata = _get_metadata(df)
-                to_petastorm = to_petastorm_fn(schema_cols, metadata)
-                df = df.rdd.map(to_petastorm).toDF()
+            metadata, df = to_petastorm(df, compress_sparse)
 
             train_df, val_df, validation_ratio = _train_val_split(df, validation)
 

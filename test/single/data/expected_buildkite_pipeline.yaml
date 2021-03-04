@@ -2024,8 +2024,8 @@ steps:
     automatic: true
   agents:
     queue: cpu
-- label: ':spark: Spark Keras MNIST (test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_1_p0-pyspark_3_0_1)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/spark/keras/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+- label: ':spark: Spark Keras MNIST Estimator (test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_1_p0-pyspark_3_0_1)'
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/spark/keras/keras_spark_mnist_estimator.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -3466,8 +3466,8 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v510
-- label: ':spark: Spark Keras MNIST (test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/spark/keras/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+- label: ':spark: Spark Keras MNIST Estimator (test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1)'
+  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/spark/keras/keras_spark_mnist_estimator.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
