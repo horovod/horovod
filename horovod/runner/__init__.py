@@ -29,6 +29,7 @@ class _HorovodArgs(object):
         self.run_func = None
         self.config_file = None
         self.nics = None
+        self.executable = None
 
         # tuneable parameter arguments
         self.fusion_threshold_mb = None
@@ -108,7 +109,8 @@ def run(
         use_gloo=None,
         use_mpi=None,
         mpi_args=None,
-        network_interface=None):
+        network_interface=None,
+        executable=None):
     """
     Launch a Horovod job to run the specified process function and get the return value.
 
@@ -165,6 +167,7 @@ def run(
     :param network_interface: Network interfaces to use for communication separated by comma. If
                              not specified, Horovod will find the common NICs among all the
                              workers and use those; example, eth0,eth1.
+    :param executable: Optional executable to run when launching the workers. Defaults to `sys.executable`.
     :return: Return a list which contains values return by all Horovod processes.
              The index of the list corresponds to the rank of each Horovod process.
     """
@@ -202,5 +205,6 @@ def run(
     hargs.use_mpi = use_mpi
     hargs.nics = network_interface
     hargs.run_func = wrapped_func
+    hargs.executable = executable
 
     return _run(hargs)
