@@ -140,17 +140,7 @@ class BuildKiteTests(unittest.TestCase):
             self.assertEqual(0, exit_code)
             self.assertEqual('', gen_pipeline_log)
             self.assertEqual("steps:\n"
-                             "- label: \':book: Build Docs\'\n"
-                             "  command: 'cd /workdir/docs && pip install -r requirements.txt && make html'\n"
-                             "  plugins:\n"
-                             "  - docker#v3.1.0:\n"
-                             "      image: 'python:3.7'\n"
-                             "  timeout_in_minutes: 5\n"
-                             "  retry:\n"
-                             "    automatic: true\n"
-                             "  agents:\n"
-                             "    queue: cpu\n"
-                            "- wait\n"
+                             "- wait\n"
                              "- wait\n"
                              "- wait\n", actual_pipeline)
 

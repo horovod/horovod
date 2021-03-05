@@ -395,19 +395,6 @@ run_single_integration() {
   fi
 }
 
-build_docs() {
-  echo "- label: ':book: Build Docs'"
-  echo "  command: 'cd /workdir/docs && pip install -r requirements.txt && make html'"
-  echo "  plugins:"
-  echo "  - docker#v3.1.0:"
-  echo "      image: 'python:3.7'"
-  echo "  timeout_in_minutes: 5"
-  echo "  retry:"
-  echo "    automatic: true"
-  echo "  agents:"
-  echo "    queue: cpu"
-}
-
 # begin the pipeline.yml file
 echo "steps:"
 
@@ -415,9 +402,6 @@ echo "steps:"
 for test in ${tests[@]-}; do
   build_test "${test}"
 done
-
-# build documentation
-build_docs
 
 # wait for all builds to finish
 echo "- wait"
