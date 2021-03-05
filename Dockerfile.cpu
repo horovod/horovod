@@ -5,6 +5,9 @@ ENV PYTORCH_VERSION=1.6.0
 ENV TORCHVISION_VERSION=0.7.0
 ENV MXNET_VERSION=1.5.0
 
+ENV PYSPARK_PACKAGE=pyspark==2.4.7
+ENV SPARK_PACKAGE=spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
+
 # Python 3.7 is supported by Ubuntu Bionic out of the box
 ARG python=3.7
 ENV PYTHON_VERSION=${python}
@@ -44,6 +47,14 @@ RUN pip install tensorflow-cpu==${TENSORFLOW_VERSION} \
 RUN pip install torch==${PYTORCH_VERSION} torchvision==${TORCHVISION_VERSION}
 RUN pip install mxnet==${MXNET_VERSION}
 
+# Install Spark stand-alone cluster.
+RUN wget --progress=dot:giga https://archive.apache.org/dist/spark/${SPARK_PACKAGE} -O - | tar -xzC /tmp; \
+    archive=$(basename "${SPARK_PACKAGE}") bash -c "mv -v /tmp/\${archive/%.tgz/} /spark"
+
+# Install PySpark.
+RUN apt-get update -qq && apt install -y openjdk-8-jdk-headless
+RUN pip install ${PYSPARK_PACKAGE}
+
 # Install Open MPI
 RUN mkdir /tmp/openmpi && \
     cd /tmp/openmpi && \
@@ -58,7 +69,7 @@ RUN mkdir /tmp/openmpi && \
 
 # Install Horovod
 RUN MAKEFLAGS="-j1" HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 \
-    pip install --no-cache-dir horovod
+    pip install --no-cache-dir horovod[all-frameworks]
 
 # Install OpenSSH for MPI to communicate between containers
 RUN apt-get install -y --no-install-recommends openssh-client openssh-server && \
