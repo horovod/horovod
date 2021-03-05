@@ -269,16 +269,6 @@ steps:
     automatic: true
   agents:
     queue: cpu
-- label: ':book: Build Docs'
-  command: 'cd /workdir/docs && pip install -r requirements.txt && make html'
-  plugins:
-  - docker#v3.1.0:
-      image: 'python:3.7'
-  timeout_in_minutes: 5
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
 - wait
 - label: ':pytest: Gloo Parallel PyTests (test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_3_4)'
   command: bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
