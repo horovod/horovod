@@ -2370,6 +2370,25 @@ class TorchTests(unittest.TestCase):
 
         hvd.shutdown()
 
+    def test_optimizer_no_named_parameters(self):
+        hvd.init()
+
+        model = nn.Sequential(nn.Linear(10, 10), nn.Linear(10, 10))
+        optimizer = torch.optim.SGD(
+            [{"params": model[0].parameters()}, {"params": model[1].parameters()}, ],
+            lr=0.001,
+        )
+        optimizer = hvd.DistributedOptimizer(optimizer)
+
+        params = optimizer._parameter_names
+        self.assertEqual(len(params), len(set(params.values())))
+
+        # Make sure all workers have the same set of parameter names
+        all_param_names = hvd.allgather_object(set(params.values()))
+        self.assertEqual(len(all_param_names), hvd.size())
+        for param_names in all_param_names:
+            self.assertEqual(all_param_names[0], param_names)
+
 
 if __name__ == "__main__":
    unittest.main()
