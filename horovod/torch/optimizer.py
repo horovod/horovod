@@ -43,9 +43,9 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         if named_parameters is not None:
             named_parameters = list(named_parameters)
         else:
-            named_parameters = [('allreduce.noname.%s' % i, v)
-                                for param_group in self.param_groups
-                                for i, v in enumerate(param_group['params'])]
+            named_parameters = [(f'allreduce.noname.{i}.{j}', v)
+                                for i, param_group in enumerate(self.param_groups)
+                                for j, v in enumerate(param_group['params'])]
         # make sure that named_parameters are tuples
         if any([not isinstance(p, tuple) for p in named_parameters]):
             raise ValueError('named_parameters should be a sequence of '
