@@ -52,7 +52,7 @@ torch.set_num_threads(1)
 
 kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
 data_dir = args.data_dir or './data'
-with FileLock(os.path.expanduser("~/.datalock")):
+with FileLock(os.path.expanduser("~/.horovod_lock")):
     train_dataset = \
         datasets.MNIST(data_dir, train=True, download=True,
                        transform=transforms.Compose([

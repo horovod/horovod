@@ -137,7 +137,7 @@ if __name__ == '__main__':
         kwargs['multiprocessing_context'] = 'forkserver'
 
     data_dir = args.data_dir or './data'
-    with FileLock(os.path.expanduser("~/.datalock")):
+    with FileLock(os.path.expanduser("~/.horovod_lock")):
         train_dataset = \
             datasets.MNIST(data_dir, train=True, download=True,
                            transform=transforms.Compose([
