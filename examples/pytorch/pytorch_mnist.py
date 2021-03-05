@@ -1,4 +1,7 @@
 import argparse
+import os
+from filelock import FileLock
+
 import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.nn.functional as F
@@ -133,13 +136,15 @@ if __name__ == '__main__':
             mp._supports_context and 'forkserver' in mp.get_all_start_methods()):
         kwargs['multiprocessing_context'] = 'forkserver'
 
-    data_dir = args.data_dir or f'data-{hvd.rank()}'
-    train_dataset = \
-        datasets.MNIST(data_dir, train=True, download=True,
-                       transform=transforms.Compose([
-                           transforms.ToTensor(),
-                           transforms.Normalize((0.1307,), (0.3081,))
-                       ]))
+    data_dir = args.data_dir or './data'
+    with FileLock(os.path.expanduser("~/.horovod_lock")):
+        train_dataset = \
+            datasets.MNIST(data_dir, train=True, download=True,
+                           transform=transforms.Compose([
+                               transforms.ToTensor(),
+                               transforms.Normalize((0.1307,), (0.3081,))
+                           ]))
+
     # Horovod: use DistributedSampler to partition the training data.
     train_sampler = torch.utils.data.distributed.DistributedSampler(
         train_dataset, num_replicas=hvd.size(), rank=hvd.rank())

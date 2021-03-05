@@ -1,4 +1,7 @@
 import argparse
+import os
+from filelock import FileLock
+
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -48,13 +51,14 @@ if args.cuda:
 torch.set_num_threads(1)
 
 kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
-data_dir = args.data_dir or f'data-{hvd.rank()}'
-train_dataset = \
-    datasets.MNIST(data_dir, train=True, download=True,
-                   transform=transforms.Compose([
-                       transforms.ToTensor(),
-                       transforms.Normalize((0.1307,), (0.3081,))
-                   ]))
+data_dir = args.data_dir or './data'
+with FileLock(os.path.expanduser("~/.horovod_lock")):
+    train_dataset = \
+        datasets.MNIST(data_dir, train=True, download=True,
+                       transform=transforms.Compose([
+                           transforms.ToTensor(),
+                           transforms.Normalize((0.1307,), (0.3081,))
+                       ]))
 # Horovod: use DistributedSampler to partition the training data.
 train_sampler = torch.utils.data.distributed.DistributedSampler(
     train_dataset, num_replicas=hvd.size(), rank=hvd.rank())

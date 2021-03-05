@@ -79,7 +79,7 @@ def load_data_mnist():
     kwargs = {'num_workers': 0, 'pin_memory': True} if args.cuda else {}
     data_dir = args.data_dir or './data'
     from filelock import FileLock
-    with FileLock(os.path.expanduser("~/.datalock")):
+    with FileLock(os.path.expanduser("~/.horovod_lock")):
         train_dataset = \
             datasets.MNIST(data_dir, train=True, download=True,
                            transform=transforms.Compose([
