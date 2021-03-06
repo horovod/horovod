@@ -158,8 +158,8 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                dict(_DistributedOptimizer.__dict__))
 
     config = optimizer.get_config()
-    if issubclass(optimizer.lr.__class__,
-                  keras.optimizers.schedules.LearningRateSchedule):
+    if not _PRE_TF_2_4_0 and issubclass(optimizer.lr.__class__,
+                                        keras.optimizers.schedules.LearningRateSchedule):
         lr_cls = type(optimizer.lr.__class__.__name__, (optimizer.lr.__class__,),
                       dict(optimizer.lr.__dict__))
         config['learning_rate'] = lr_cls.from_config(config['learning_rate']['config'])
