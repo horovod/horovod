@@ -357,44 +357,23 @@ class SparkTorchTests(unittest.TestCase):
                                        validation=0.2):
                     model = create_xor_model()
 
-<<<<<<< HEAD:test/integration/test_spark_torch.py
                     for inmemory_cache_all in [False, True]:
                         est = hvd_spark.TorchEstimator(
                             backend=backend,
                             store=store,
                             model=model,
-                            optimizer=optimizer,
                             input_shapes=[[2]],
                             feature_cols=['features'],
                             label_cols=['y'],
+                            validation=0.2,
                             batch_size=1,
                             epochs=3,
                             verbose=2,
                             inmemory_cache_all=inmemory_cache_all)
 
-                        # To make sure that setLoss works with non-list loss.
-                        est.setLoss(loss)
-
                         transformer = est.fit_on_parquet()
                         predictions = transformer.transform(df)
                         assert predictions.count() == df.count()
-=======
-                    est = hvd_spark.TorchEstimator(
-                        backend=backend,
-                        store=store,
-                        model=model,
-                        input_shapes=[[2]],
-                        feature_cols=['features'],
-                        label_cols=['y'],
-                        validation=0.2,
-                        batch_size=1,
-                        epochs=2,
-                        verbose=2)
-
-                    transformer = est.fit_on_parquet()
-                    predictions = transformer.transform(df)
-                    assert predictions.count() == df.count()
->>>>>>> 1991777... Added PyTorch Lightning tests:test/test_spark_torch.py
 
     def test_legacy_calculate_loss_with_sample_weight(self):
         labels = torch.tensor([[1.0, 2.0, 3.0]])
