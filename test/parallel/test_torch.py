@@ -1988,10 +1988,10 @@ class TorchTests(unittest.TestCase):
             loss.backward()
 
             for p in gen.parameters():
-                assert train_generator == p.grad.max().is_nonzero(), \
+                assert train_generator == (p.grad is not None and p.grad.max().is_nonzero()), \
                     'Gradient for generator is zero but it should be trained or vice versa.'
             for p in disc.parameters():
-                assert train_discriminator == p.grad.max().is_nonzero(), \
+                assert train_discriminator == (p.grad is not None and p.grad.max().is_nonzero()), \
                     'Gradient for discriminator is zero but it should be trained or vice versa.'
 
             if train_generator:
@@ -2388,6 +2388,58 @@ class TorchTests(unittest.TestCase):
         self.assertEqual(len(all_param_names), hvd.size())
         for param_names in all_param_names:
             self.assertEqual(all_param_names[0], param_names)
+
+    def test_sparse_embeddings(self):
+        """Test that Horovod will correctly aggregate sparse gradients."""
+        hvd.init()
+
+        for sparse_as_dense in [False, True]:
+            class Net(torch.nn.Module):
+                def __init__(self):
+                    super(Net, self).__init__()
+                    self.embedding = nn.Embedding(10, 3, sparse=True)
+
+                def forward(self, x):
+                    x = self.embedding(x)
+                    return x
+
+            model = Net()
+
+            if hvd.rank() == 0:
+                inp = torch.LongTensor([[1, 2, 4, 5], [4, 3, 2, 9]])
+            else:
+                inp = torch.LongTensor([[1, 3, 4], [4, 7, 9]])
+
+            # list() see: https://github.com/pytorch/pytorch/issues/47594
+            opt = torch.optim.SparseAdam(list(model.parameters()), lr=0.1)
+            opt = hvd.DistributedOptimizer(opt, sparse_as_dense=sparse_as_dense)
+
+            loss = model(inp).sum()
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+
+    def test_async_sparse_allreduce(self):
+        """Test that allgather over indices and values is equivalent to allreduce."""
+        hvd.init()
+
+        # Generate random tensors, then convert them to sparse
+        def random_sparse_tensor(*shape):
+            t = torch.rand(*shape)
+            t[t < 0.8] = 0
+            return t.to_sparse()
+
+        tensor_sizes = [17, 32, 81, 12, 15, 23, 22] * 5
+        tensors = [random_sparse_tensor(d0, 10) for d0 in tensor_sizes]
+        allreduced_tensors = [hvd.allreduce(t.to_dense()) for t in tensors]
+
+        handles = [hvd.sparse_allreduce_async(t, op=hvd.Average, name=str(i))
+                   for i, t in enumerate(tensors)]
+        allgathered_tensors = [handle() for handle in handles]
+
+        for reduced, gathered in zip(allreduced_tensors, allgathered_tensors):
+            assert torch.allclose(reduced, gathered.to_dense(), 1e-6)
+
 
 
 if __name__ == "__main__":

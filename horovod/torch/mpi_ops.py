@@ -507,6 +507,26 @@ def grouped_allreduce_(tensors, average=None, name=None, op=None,
     return synchronize(handle)
 
 
+def sparse_allreduce_async(tensor, name, op):
+    # Allgather aggregates along the first dimension, so we need to transpose the
+    # indices to enforce correct concatenation behavior, then transpose back prior to
+    # constructing the new aggregated sparse gradient
+    t = tensor
+    indices_handle = allgather_async(t._indices().transpose(0, 1).contiguous(), name=f'{name}.indices')
+    values_handle = allgather_async(t._values(), name=f'{name}.values')
+
+    def handle():
+        indices = synchronize(indices_handle)
+        values = synchronize(values_handle)
+        values = (values / size()) if op == Average else values
+
+        if indices.dim() == 0 or values.dim() == 0:
+            return t.new().resize_as_(t)
+        return t.new(indices.transpose(0, 1), values, t.size())
+
+    return handle
+
+
 def _allgather_function_factory(tensor):
     return 'horovod_torch_allgather_async_' + tensor.type().replace('.', '_')
 
