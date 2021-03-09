@@ -125,8 +125,7 @@ all_frameworks_require_list = tensorflow_require_list + \
                               pytorch_lightning_require_list + \
                               mxnet_require_list + \
                               spark_require_list + \
-                              pyspark_require_list + \
-                              pytorch_spark_require_list
+                              pyspark_require_list
 
 # python packages required / recommended to develop horovod
 # these are the earliest versions to work with Python 3.8
@@ -136,6 +135,7 @@ dev_require_list = ['tensorflow-cpu==2.2.0',
                     'keras==2.3.1',
                     'torch==1.4.0',
                     'torchvision==0.5.0',
+                    'pytorch_lightning==1.2.3'
                     'mxnet==1.5.0',
                     'pyspark==3.0.1'] + spark_require_list
 # torchvision 0.5.0 depends on torch==1.4.0

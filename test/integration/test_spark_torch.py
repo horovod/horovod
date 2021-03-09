@@ -32,7 +32,6 @@ from pyspark.sql.types import FloatType, IntegerType
 
 from pytorch_lightning import LightningModule
 
-import horovod.spark.torch as hvd
 import horovod
 import horovod.spark.torch as hvd_spark
 import horovod.torch as hvd
@@ -122,7 +121,7 @@ class SparkTorchTests(unittest.TestCase):
             df = create_noisy_xor_data(spark)
 
             with local_store() as store:
-                torch_estimator = hvd.TorchEstimator(
+                torch_estimator = hvd_spark.TorchEstimator(
                     num_proc=2,
                     store=store,
                     model=model,
@@ -181,7 +180,7 @@ class SparkTorchTests(unittest.TestCase):
 
             run_id = 'run01'
             with local_store() as store:
-                torch_estimator = hvd.TorchEstimator(
+                torch_estimator = hvd_spark.TorchEstimator(
                     backend=ctx,
                     store=store,
                     model=model,
