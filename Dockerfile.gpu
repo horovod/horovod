@@ -8,6 +8,9 @@ ENV CUDNN_VERSION=7.6.5.32-1+cuda10.1
 ENV NCCL_VERSION=2.7.8-1+cuda10.1
 ENV MXNET_VERSION=1.6.0.post0
 
+ENV PYSPARK_PACKAGE=pyspark==2.4.7
+ENV SPARK_PACKAGE=spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
+
 # Python 3.7 is supported by Ubuntu Bionic out of the box
 ARG python=3.7
 ENV PYTHON_VERSION=${python}
@@ -53,6 +56,14 @@ RUN PYTAGS=$(python -c "from packaging import tags; tag = list(tags.sys_tags())[
         https://download.pytorch.org/whl/cu101/torchvision-${TORCHVISION_VERSION}%2Bcu101-${PYTAGS}-linux_x86_64.whl
 RUN pip install mxnet-cu101==${MXNET_VERSION}
 
+# Install Spark stand-alone cluster.
+RUN wget --progress=dot:giga https://archive.apache.org/dist/spark/${SPARK_PACKAGE} -O - | tar -xzC /tmp; \
+    archive=$(basename "${SPARK_PACKAGE}") bash -c "mv -v /tmp/\${archive/%.tgz/} /spark"
+
+# Install PySpark.
+RUN apt-get update -qq && apt install -y openjdk-8-jdk-headless
+RUN pip install ${PYSPARK_PACKAGE}
+
 # Install Open MPI
 RUN mkdir /tmp/openmpi && \
     cd /tmp/openmpi && \
@@ -68,7 +79,7 @@ RUN mkdir /tmp/openmpi && \
 # Install Horovod, temporarily using CUDA stubs
 RUN ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
     HOROVOD_GPU_OPERATIONS=NCCL HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 \
-         pip install --no-cache-dir horovod && \
+         pip install --no-cache-dir horovod[all-frameworks] && \
     ldconfig
 
 # Install OpenSSH for MPI to communicate between containers

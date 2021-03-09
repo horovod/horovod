@@ -10,6 +10,7 @@ import logging
 
 from horovod.runner.common.util import secret, timeout, hosts
 from horovod.runner.http.http_server import RendezvousServer
+from horovod.ray import ray_logger
 from horovod.ray.utils import detect_nics, nics_to_env_var
 
 logger = logging.getLogger(__name__)
@@ -89,6 +90,10 @@ class BaseHorovodWorker:
     def execute(self, func):
         """Executes an arbitrary function on self."""
         return func(self.executable)
+
+    def set_queue(self, queue):
+        """Sets the queue for multi-node logging."""
+        ray_logger.configure(queue=queue)
 
 
 @ray.remote
@@ -206,10 +211,10 @@ class Coordinator:
                 self.hostnames_by_rank.items()):
             for local_rank, world_rank in enumerate(ranks):
                 rank_to_info[world_rank] = dict(
-                    NODE_WORLD_RANK=node_world_rank,
-                    NODE_WORLD_SIZE=len(self.hostnames_by_rank),
-                    LOCAL_RANK=local_rank,
-                    LOCAL_SIZE=len(ranks))
+                    HOROVOD_CROSS_RANK=node_world_rank,
+                    HOROVOD_CROSS_SIZE=len(self.hostnames_by_rank),
+                    HOROVOD_LOCAL_RANK=local_rank,
+                    HOROVOD_LOCAL_SIZE=len(ranks))
         return rank_to_info
 
     def establish_rendezvous(self) -> Dict[str, str]:
@@ -425,12 +430,31 @@ class RayExecutor:
         Returns:
             Deserialized return values from the target function.
         """
+        return ray.get(self.run_remote(fn, args, kwargs))
+
+    def run_remote(self,
+                   fn: Callable[[Any], Any],
+                   args: Optional[List] = None,
+                   kwargs: Optional[Dict] = None) -> List[Any]:
+        """Executes the provided function on all workers.
+
+        Args:
+            fn: Target function that can be executed with arbitrary
+                args and keyword arguments.
+            args: List of arguments to be passed into the target function.
+            kwargs: Dictionary of keyword arguments to be
+                passed into the target function.
+
+        Returns:
+            list: List of ObjectRefs that you can run `ray.get` on to
+                retrieve values.
+        """
         args = args or []
         kwargs = kwargs or {}
-        return ray.get([
+        return [
             worker.execute.remote(lambda w: fn(*args, **kwargs))
             for worker in self.workers
-        ])
+        ]
 
     def execute_single(self,
                        fn: Callable[["executable_cls"], Any]) -> List[Any]:

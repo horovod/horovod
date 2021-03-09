@@ -13,35 +13,35 @@
 # limitations under the License.
 # ==============================================================================
 
+import io
 import logging
 import os
 import sys
 import unittest
 import warnings
 
-import numpy as np
-
-from pyspark.ml.linalg import VectorUDT
-from pyspark.sql.types import DoubleType, LongType
-
 import mock
-import torch
+import numpy as np
 import torch.nn as nn
-from torch.nn import functional as F
 import torch.optim as optim
+from pyspark.ml.linalg import VectorUDT
+from pyspark.sql.types import FloatType, IntegerType
+from torch.nn import functional as F
 
 import horovod
-from horovod.torch.elastic import run
-from horovod.common.util import gloo_built
 import horovod.spark.torch as hvd_spark
+import horovod.torch as hvd
+import torch
+from horovod.common.util import gloo_built, mpi_built
+from horovod.runner.mpi_run import is_open_mpi
 from horovod.spark.common import constants, util
 from horovod.spark.torch import remote
 from horovod.spark.torch.estimator import EstimatorParams, _torch_param_serialize
-import horovod.torch as hvd
+from horovod.torch.elastic import run
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
-from common import tempdir
+from common import tempdir, spawn, is_built
 from spark_common import CallbackBackend, create_xor_data, local_store, spark_session
 
 
@@ -69,7 +69,6 @@ class SparkTorchTests(unittest.TestCase):
         super(SparkTorchTests, self).__init__(*args, **kwargs)
         logging.getLogger('py4j.java_gateway').setLevel(logging.INFO)
         warnings.simplefilter('module')
-
 
     def test_fit_model(self):
         model = create_xor_model()
@@ -139,6 +138,7 @@ class SparkTorchTests(unittest.TestCase):
                 torch_estimator._load_checkpoint.assert_called()
 
     def test_transform_multi_class(self):
+        # set dim as 2, to mock a multi class model.
         model = create_xor_model(output_dim=2)
 
         with spark_session('test_transform_multi_class') as spark:
@@ -153,12 +153,13 @@ class SparkTorchTests(unittest.TestCase):
                                                _metadata=metadata)
             out_df = torch_model.transform(df)
 
+            # in multi class model, model output is a vector but label is number.
             expected_types = {
-                'x1': LongType,
-                'x2': LongType,
+                'x1': IntegerType,
+                'x2': IntegerType,
                 'features': VectorUDT,
-                'weight': DoubleType,
-                'y': DoubleType,
+                'weight': FloatType,
+                'y': FloatType,
                 'y__output': VectorUDT
             }
 
@@ -351,24 +352,26 @@ class SparkTorchTests(unittest.TestCase):
                     optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
                     loss = nn.BCELoss()
 
-                    est = hvd_spark.TorchEstimator(
-                        backend=backend,
-                        store=store,
-                        model=model,
-                        optimizer=optimizer,
-                        input_shapes=[[2]],
-                        feature_cols=['features'],
-                        label_cols=['y'],
-                        batch_size=1,
-                        epochs=3,
-                        verbose=2)
+                    for inmemory_cache_all in [False, True]:
+                        est = hvd_spark.TorchEstimator(
+                            backend=backend,
+                            store=store,
+                            model=model,
+                            optimizer=optimizer,
+                            input_shapes=[[2]],
+                            feature_cols=['features'],
+                            label_cols=['y'],
+                            batch_size=1,
+                            epochs=3,
+                            verbose=2,
+                            inmemory_cache_all=inmemory_cache_all)
 
-                    # To make sure that setLoss works with non-list loss.
-                    est.setLoss(loss)
+                        # To make sure that setLoss works with non-list loss.
+                        est.setLoss(loss)
 
-                    transformer = est.fit_on_parquet()
-                    predictions = transformer.transform(df)
-                    assert predictions.count() == df.count()
+                        transformer = est.fit_on_parquet()
+                        predictions = transformer.transform(df)
+                        assert predictions.count() == df.count()
 
     def test_calculate_loss_with_sample_weight(self):
         calculate_loss = remote._calculate_loss_fn()

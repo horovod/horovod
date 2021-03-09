@@ -16,6 +16,8 @@
 """Tests for horovod.keras."""
 
 from distutils.version import LooseVersion
+import os
+import sys
 
 import keras
 from keras import backend as K
@@ -26,6 +28,8 @@ import tensorflow as tf
 import warnings
 
 import horovod.keras as hvd
+
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 from common import temppath
 

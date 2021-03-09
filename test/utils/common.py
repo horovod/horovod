@@ -172,7 +172,8 @@ def is_built(gloo_is_built, mpi_is_built):
 
 @contextlib.contextmanager
 def mpi_implementation_flags(flags=["--mock-mpi-impl-flags"],
-                             binding_args=["--mock-mpi-binding-args"]):
+                             binding_args=["--mock-mpi-binding-args"],
+                             mpi=None):
     """
     Patches the _get_mpi_implementation_flags method used by horovod.runner.mpi_run to retrieve
     MPI implementation specific command line flags. Patching this method allows to test mpi_run
@@ -181,7 +182,7 @@ def mpi_implementation_flags(flags=["--mock-mpi-impl-flags"],
     :param flags: mock flags
     :return: the mocked method
     """
-    with mock.patch("horovod.runner.mpi_run._get_mpi_implementation_flags", return_value=(flags, binding_args)) as m:
+    with mock.patch("horovod.runner.mpi_run._get_mpi_implementation_flags", return_value=(flags, binding_args, mpi)) as m:
         yield m
 
 

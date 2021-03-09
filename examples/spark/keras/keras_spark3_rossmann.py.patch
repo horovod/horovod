@@ -22,10 +22,6 @@
 ---
 >         google_trend_de = google_trend_de.withColumnRenamed('trend', 'trend_de')
 >         df = df.join(google_trend_de, ['Year', 'Week']).select(df['*'], google_trend_de.trend_de)
-181c191
-<                            F.expr('date_add(format_string("%s-01-01", Promo2SinceYear), (Promo2SinceWeek - 1) * 7)'))
----
->                            F.expr('date_add(format_string("%s-01-01", Promo2SinceYear), (cast(Promo2SinceWeek as int) - 1) * 7)'))
 395a406
 >         from horovod.spark.task import get_available_devices
 410c421

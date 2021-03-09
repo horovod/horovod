@@ -17,6 +17,7 @@
 import argparse
 import datetime
 import os
+import sys
 from distutils.version import LooseVersion
 
 import pyspark.sql.types as T
@@ -29,6 +30,7 @@ import tensorflow.keras.backend as K
 from tensorflow.keras.layers import Input, Embedding, Concatenate, Dense, Flatten, Reshape, BatchNormalization, Dropout
 
 import horovod.spark.keras as hvd
+from horovod.spark.common.backend import SparkBackend
 from horovod.spark.common.store import Store
 from horovod.tensorflow.keras.callbacks import BestModelCheckpoint
 
@@ -368,7 +370,10 @@ if __name__ == '__main__':
 
     # Horovod: run training.
     store = Store.create(args.work_dir)
-    keras_estimator = hvd.KerasEstimator(num_proc=args.num_proc,
+    backend = SparkBackend(num_proc=args.num_proc,
+                           stdout=sys.stdout, stderr=sys.stderr,
+                           prefix_output_with_timestamp=True)
+    keras_estimator = hvd.KerasEstimator(backend=backend,
                                          store=store,
                                          model=model,
                                          optimizer=opt,
@@ -383,7 +388,7 @@ if __name__ == '__main__':
                                          verbose=2,
                                          checkpoint_callback=ckpt_callback)
 
-    keras_model = keras_estimator.fit(train_df).setOutputCols(['Sales'])
+    keras_model = keras_estimator.fit(train_df).setOutputCols(['Sales_output'])
 
     history = keras_model.getHistory()
     best_val_rmspe = min(history['val_exp_rmspe'])
@@ -401,10 +406,14 @@ if __name__ == '__main__':
     print('Final prediction')
     print('================')
 
-    pred_df = keras_model.transform(test_df)
+    pred_df=keras_model.transform(test_df)
+    pred_df.printSchema()
+    pred_df.show(5)
+
     # Convert from log domain to real Sales numbers
-    pred_df = pred_df.withColumn('Sales', F.exp(pred_df.Sales))
-    submission_df = pred_df.select(pred_df.Id.cast(T.IntegerType()), pred_df.Sales).toPandas()
+    pred_df=pred_df.withColumn('Sales_pred', F.exp(pred_df.Sales_output))
+
+    submission_df = pred_df.select(pred_df.Id.cast(T.IntegerType()), pred_df.Sales_pred).toPandas()
     submission_df.sort_values(by=['Id']).to_csv(args.local_submission_csv, index=False)
     print('Saved predictions to %s' % args.local_submission_csv)
 

@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import io
 import queue
 import threading
 import time
@@ -24,6 +25,7 @@ import pytest
 from horovod.runner.common.service.task_service import BasicTaskClient, BasicTaskService
 from horovod.runner.common.util import network, secret
 from horovod.runner.util.threads import in_thread
+from horovod.runner.util.streams import Pipe
 
 
 class SleepRequest(object):
@@ -32,7 +34,7 @@ class SleepRequest(object):
 
 class TestSleepService(network.BasicService):
     def __init__(self, key, duration):
-        super(TestSleepService, self).__init__('test service', key, nics=None)
+        super(TestSleepService, self).__init__('test sleep service', key, nics=None)
         self._duration = duration
 
     def _handle(self, req, client_address):
@@ -46,7 +48,7 @@ class TestSleepService(network.BasicService):
 
 class TestSleepClient(network.BasicClient):
     def __init__(self, service_addresses, key, attempts=1):
-        super(TestSleepClient, self).__init__('test service',
+        super(TestSleepClient, self).__init__('test sleep service',
                                               service_addresses,
                                               key,
                                               verbose=2,
@@ -54,6 +56,39 @@ class TestSleepClient(network.BasicClient):
 
     def sleep(self):
         self._send(SleepRequest())
+
+
+class TestStreamService(network.BasicService):
+    def __init__(self, key, duration):
+        super(TestStreamService, self).__init__('test stream service', key, nics=None)
+        self._duration = duration
+
+    def _handle(self, req, client_address):
+        if isinstance(req, SleepRequest):
+            pipe = Pipe()
+
+            def sleep():
+                time.sleep(self._duration)
+                pipe.write('slept {}'.format(self._duration))
+                pipe.close()
+
+            in_thread(sleep)
+
+            return network.AckStreamResponse(), pipe
+
+        return super(TestStreamService, self)._handle(req, client_address)
+
+
+class TestStreamClient(network.BasicClient):
+    def __init__(self, service_addresses, key, attempts=1):
+        super(TestStreamClient, self).__init__('test stream service',
+                                               service_addresses,
+                                               key,
+                                               verbose=2,
+                                               attempts=attempts)
+
+    def sleep(self, stream):
+        self._send(SleepRequest(), stream)
 
 
 class NetworkTests(unittest.TestCase):
@@ -69,15 +104,17 @@ class NetworkTests(unittest.TestCase):
         sleep = 2.0
         key = secret.make_secret_key()
         service = TestSleepService(key, duration=sleep)
-        client = TestSleepClient(service.addresses(), key, attempts=1)
-
-        start = time.time()
-        threads = list([in_thread(client.sleep, daemon=False) for _ in range(1)])
-        for thread in threads:
-            thread.join(sleep + 1.0)
-            self.assertFalse(thread.is_alive(), 'thread should have terminated by now')
-        duration = time.time() - start
-        print('concurrent requests completed in {} seconds'.format(duration))
+        try:
+            client = TestSleepClient(service.addresses(), key, attempts=1)
+            start = time.time()
+            threads = list([in_thread(client.sleep, daemon=False) for _ in range(1)])
+            for thread in threads:
+                thread.join(sleep + 1.0)
+                self.assertFalse(thread.is_alive(), 'thread should have terminated by now')
+            duration = time.time() - start
+            print('concurrent requests completed in {} seconds'.format(duration))
+        finally:
+            service.shutdown()
 
         self.assertGreaterEqual(duration, sleep, 'sleep requests should have been completed')
         self.assertLess(duration, sleep + 1.0, 'sleep requests should have been concurrent')
@@ -86,12 +123,14 @@ class NetworkTests(unittest.TestCase):
         sleep = 2.0
         key = secret.make_secret_key()
         service = TestSleepService(key, duration=sleep)
-        client = TestSleepClient(service.addresses(), key, attempts=1)
+        try:
+            client = TestSleepClient(service.addresses(), key, attempts=1)
+            start = time.time()
+            threads = list([in_thread(client.sleep, name='request {}'.format(i+1), daemon=False) for i in range(5)])
+            time.sleep(sleep / 2.0)
+        finally:
+            service.shutdown()
 
-        start = time.time()
-        threads = list([in_thread(client.sleep, name='request {}'.format(i+1), daemon=False) for i in range(5)])
-        time.sleep(sleep / 2.0)
-        service.shutdown()
         duration = time.time() - start
         print('shutdown completed in {} seconds'.format(duration))
         self.assertGreaterEqual(duration, sleep, 'sleep requests should have been completed')
@@ -109,15 +148,18 @@ class NetworkTests(unittest.TestCase):
 
         key = secret.make_secret_key()
         service_name = 'test-service'
-        service = BasicTaskService(service_name, key, nics=None, verbose=2)
-        client = BasicTaskClient(service_name, service.addresses(), key, verbose=2, attempts=1)
-        thread = threading.Thread(target=wait_for_exit_code, args=(client, result_queue))
+        service = BasicTaskService(service_name, 0, key, nics=None, verbose=2)
+        try:
+            client = BasicTaskClient(service_name, service.addresses(), key, verbose=2, attempts=1)
+            thread = threading.Thread(target=wait_for_exit_code, args=(client, result_queue))
 
-        start = time.time()
-        thread.start()  # wait for command exit code
-        client.run_command('sleep 2', {})  # execute command
-        time.sleep(0.5)  # give the thread some time to connect before shutdown
-        service.shutdown()  # shutdown should wait on request to finish
+            start = time.time()
+            thread.start()  # wait for command exit code
+            client.run_command('sleep 2', {})  # execute command
+            time.sleep(0.5)  # give the thread some time to connect before shutdown
+        finally:
+            service.shutdown()  # shutdown should wait on request to finish
+
         duration = time.time() - start
         self.assertGreaterEqual(duration, 2)
 
@@ -134,9 +176,28 @@ class NetworkTests(unittest.TestCase):
         """test non-zero exit code"""
         key = secret.make_secret_key()
         service_name = 'test-service'
-        service = BasicTaskService(service_name, key, nics=None, verbose=2)
-        client = BasicTaskClient(service_name, service.addresses(), key, verbose=2, attempts=1)
+        service = BasicTaskService(service_name, 0, key, nics=None, verbose=2)
+        try:
+            client = BasicTaskClient(service_name, service.addresses(), key, verbose=2, attempts=1)
+            client.run_command('false', {})
+            res = client.wait_for_command_exit_code()
+            self.assertEqual(1, res)
+        finally:
+            service.shutdown()
 
-        client.run_command('false', {})
-        res = client.wait_for_command_exit_code()
-        self.assertEqual(1, res)
+    def test_stream(self):
+        sleep = 2.0
+        key = secret.make_secret_key()
+        service = TestStreamService(key, duration=sleep)
+        try:
+            client = TestStreamClient(service.addresses(), key, attempts=1)
+
+            start = time.time()
+            stream = io.StringIO()
+            client.sleep(stream)
+            duration = time.time() - start
+
+            self.assertEqual(f'slept {sleep}', stream.getvalue())
+            self.assertGreaterEqual(duration, 2)
+        finally:
+            service.shutdown()

@@ -36,7 +36,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
     def __init__(self, params, named_parameters, compression,
                  backward_passes_per_step=1, op=Average,
                  gradient_predivide_factor=1.0,
-                 num_groups=0,
+                 groups=None,
                  sparse_as_dense=False):
         super(self.__class__, self).__init__(params)
         self._compression = compression
@@ -44,9 +44,9 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         if named_parameters is not None:
             named_parameters = list(named_parameters)
         else:
-            named_parameters = [('allreduce.noname.%s' % i, v)
-                                for param_group in self.param_groups
-                                for i, v in enumerate(param_group['params'])]
+            named_parameters = [(f'allreduce.noname.{i}.{j}', v)
+                                for i, param_group in enumerate(self.param_groups)
+                                for j, v in enumerate(param_group['params'])]
         # make sure that named_parameters are tuples
         if any([not isinstance(p, tuple) for p in named_parameters]):
             raise ValueError('named_parameters should be a sequence of '
@@ -81,7 +81,21 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         self._requires_update = set()
         self._synchronized = False
         self._should_synchronize = True
-        self._num_groups = num_groups
+
+        if groups is not None:
+            if not (isinstance(groups, list) or groups > 0):
+                raise ValueError('groups should be a non-negative integer or '
+                                'a list of list of torch.Tensor.')
+            if isinstance(groups, list):
+                grouped_parameter_ids = set()
+                for l in groups:
+                    for p in l:
+                        if not isinstance(p, torch.Tensor):
+                            raise ValueError('groups must consist of torch.Tensor.')
+                        if id(p) in grouped_parameter_ids:
+                            raise ValueError('A parameter can only appear once in groups.')
+                        grouped_parameter_ids.add(id(p))
+        self._groups = groups
         self._p_to_group = {}
         self._group_counts = {}
 
@@ -112,7 +126,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             self._allreduce_delay[p] = self.backward_passes_per_step
 
     def _register_hooks(self):
-        if self._num_groups > 0:
+        if self._groups is not None:
             p_list = []
             # Get list of parameters with grads
             for param_group in self.param_groups:
@@ -127,7 +141,20 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             p_list = sorted(p_list, key=lambda p: p_list_names.index(self._parameter_names.get(p)))
 
             # Form groups
-            p_groups = split_list(p_list, self._num_groups)
+            if isinstance(self._groups, list):
+                p_groups = []
+                grouped_id = set()
+                p_list_ids = [id(p) for p in p_list]
+                for group in self._groups:
+                    p_groups.append([p for p in group if id(p) in p_list_ids])
+                    for p in p_groups[-1]:
+                        grouped_id.add(id(p))
+                for p in p_list:
+                    if id(p) not in grouped_id:
+                        p_groups.append([p])
+            else:
+                p_groups = split_list(p_list, self._groups)
+
             p_groups = [tuple(p) for p in p_groups]
             for group in p_groups:
                 for p in group:
@@ -203,7 +230,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             handle, ctx = None, None
             self._allreduce_delay[p] -= 1
             if self._allreduce_delay[p] == 0:
-                if self._num_groups > 0:
+                if self._groups is not None:
                     group = self._p_to_group[p]
                     self._group_counts[group] += 1
                     if self._group_counts[group] == len(group):
@@ -475,7 +502,7 @@ def DistributedOptimizer(optimizer, named_parameters=None,
                          backward_passes_per_step=1,
                          op=Average,
                          gradient_predivide_factor=1.0,
-                         num_groups=0,
+                         num_groups=0, groups=None,
                          sparse_as_dense=False):
     """
     An optimizer that wraps another torch.optim.Optimizer, using an allreduce to
@@ -521,6 +548,14 @@ def DistributedOptimizer(optimizer, named_parameters=None,
                                    gradient_predivide_factor / size after the sum.
         num_groups: Number of groups to assign gradient allreduce ops to for explicit
                     grouping. Defaults to no explicit groups.
+        groups: The parameter to group the gradient allreduce ops. Accept values is a
+                non-negative integer or a list of list of torch.Tensor.
+                If groups is a non-negative integer, it is the number of groups to assign
+                gradient allreduce ops to for explicit grouping.
+                If groups is a list of list of torch.Tensor. Tensors in the same
+                inner list will be assigned to the same group, while parameter that does
+                not appear in any list will form a group itself.
+                Defaults as None, which is no explicit groups.
         sparse_as_dense: If set True, convert all sparse gradients to dense and perform allreduce, then
                          convert back to sparse before applying the update.
     """
@@ -532,11 +567,17 @@ def DistributedOptimizer(optimizer, named_parameters=None,
         if op != Average:
             raise ValueError('gradient_predivide_factor not supported with op != Average')
 
+    if num_groups != 0:
+        warnings.warn('Parameter `num_groups` has been replaced by `groups` '
+                      'and will be removed in v0.23.0.', DeprecationWarning)
+        if groups is None:
+            groups = num_groups
+
     if op != Adasum or size() == 1:
         cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
                    dict(_DistributedOptimizer.__dict__))
         return cls(optimizer.param_groups, named_parameters, compression, backward_passes_per_step, op,
-                   gradient_predivide_factor, num_groups, sparse_as_dense)
+                   gradient_predivide_factor, groups, sparse_as_dense)
     else:
         cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
                    dict(_DistributedAdasumOptimizer.__dict__))

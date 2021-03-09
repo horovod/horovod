@@ -1,4 +1,7 @@
 import argparse
+import os
+from filelock import FileLock
+
 import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.nn.functional as F
@@ -31,6 +34,8 @@ parser.add_argument('--use-adasum', action='store_true', default=False,
                     help='use adasum algorithm to do reduction')
 parser.add_argument('--gradient-predivide-factor', type=float, default=1.0,
                     help='apply gradient predivide factor in optimizer (default: 1.0)')
+parser.add_argument('--data-dir',
+                    help='location of the training dataset in the local filesystem (will be downloaded if needed)')
 
 
 class Net(nn.Module):
@@ -131,12 +136,15 @@ if __name__ == '__main__':
             mp._supports_context and 'forkserver' in mp.get_all_start_methods()):
         kwargs['multiprocessing_context'] = 'forkserver'
 
-    train_dataset = \
-        datasets.MNIST('data-%d' % hvd.rank(), train=True, download=True,
-                       transform=transforms.Compose([
-                           transforms.ToTensor(),
-                           transforms.Normalize((0.1307,), (0.3081,))
-                       ]))
+    data_dir = args.data_dir or './data'
+    with FileLock(os.path.expanduser("~/.horovod_lock")):
+        train_dataset = \
+            datasets.MNIST(data_dir, train=True, download=True,
+                           transform=transforms.Compose([
+                               transforms.ToTensor(),
+                               transforms.Normalize((0.1307,), (0.3081,))
+                           ]))
+
     # Horovod: use DistributedSampler to partition the training data.
     train_sampler = torch.utils.data.distributed.DistributedSampler(
         train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
@@ -144,7 +152,7 @@ if __name__ == '__main__':
         train_dataset, batch_size=args.batch_size, sampler=train_sampler, **kwargs)
 
     test_dataset = \
-        datasets.MNIST('data-%d' % hvd.rank(), train=False, transform=transforms.Compose([
+        datasets.MNIST(data_dir, train=False, transform=transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.1307,), (0.3081,))
         ]))

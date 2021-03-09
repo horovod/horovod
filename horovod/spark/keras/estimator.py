@@ -479,6 +479,9 @@ class KerasModel(HorovodModel, KerasEstimatorParamsReadable,
 
         pin_cpu = remote._pin_cpu_fn()
 
+        final_output_schema = util.get_spark_df_output_schema(df.schema, label_cols, output_cols, metadata)
+        final_output_cols = [field.name for field in final_output_schema.fields]
+
         def predict(rows):
             import tensorflow as tf
             from pyspark import Row
@@ -542,25 +545,14 @@ class KerasModel(HorovodModel, KerasEstimatorParamsReadable,
 
                     fields[output_col] = field
 
-                yield Row(**fields)
+                values = [fields[col] for col in final_output_cols]
+
+                yield Row(*values)
 
         spark0 = SparkSession._instantiatedSession
 
-        # Get a limited DF and make predictions and get the schema of the final DF 
-        limited_pred_rdd = df.limit(100000).rdd.mapPartitions(predict)
-        limited_pred_df = spark0.createDataFrame(limited_pred_rdd, samplingRatio=1)
-        final_output_schema = limited_pred_df.schema
-
-
-        # Spark has to infer whether a filed is nullable or not from a limited number of samples.
-        # It does not always get it right. We copy the nullable boolean variable for the fields
-        # from the original dataframe to the final DF schema.
-        nullables = {field.name: field.nullable for field in df.schema.fields}
-        for field in final_output_schema.fields:
-            if field.name in nullables:
-                field.nullable = nullables[field.name]
-
         pred_rdd = df.rdd.mapPartitions(predict)
+
         # Use the schema from previous section to construct the final DF with prediction
         return spark0.createDataFrame(pred_rdd, schema=final_output_schema)
 

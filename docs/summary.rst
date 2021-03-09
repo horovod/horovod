@@ -22,6 +22,18 @@ Horovod
    :target: https://horovod.readthedocs.io/en/latest/
    :alt: Documentation Status
 
+.. image:: https://img.shields.io/badge/slack-chat-green.svg?logo=slack
+   :target: https://forms.gle/cPGvty5hp31tGfg79
+   :alt: Slack
+
+.. raw:: html
+
+   </div>
+
+.. raw:: html
+
+   <div align="center">
+
 .. image:: https://img.shields.io/badge/License-Apache%202.0-blue.svg
    :target: https://img.shields.io/badge/License-Apache%202.0-blue.svg
    :alt: License
@@ -103,7 +115,7 @@ To install Horovod:
 
     <p/>
 
-2. If you've installed TensorFlow from `PyPI <https://pypi.org/project/tensorflow>`__, make sure that the ``g++-4.8.5`` or ``g++-4.9`` is installed.
+2. If you've installed TensorFlow from `PyPI <https://pypi.org/project/tensorflow>`__, make sure that the ``g++-4.8.5`` or ``g++-4.9`` or above is installed.
 
    If you've installed PyTorch from `PyPI <https://pypi.org/project/torch>`__, make sure that the ``g++-4.9`` or above is installed.
 
@@ -412,10 +424,11 @@ The Horovod source code was based off the Baidu `tensorflow-allreduce <https://g
 repository written by Andrew Gibiansky and Joel Hestness. Their original work is described in the article
 `Bringing HPC Techniques to Deep Learning <http://andrew.gibiansky.com/blog/machine-learning/baidu-allreduce/>`_.
 
-Mailing lists
--------------
-Subscribe to `Horovod Announce <https://lists.lfai.foundation/g/horovod-announce>`_ and 
-`Horovod Technical-Discuss <https://lists.lfai.foundation/g/horovod-technical-discuss>`_ to stay up to date.
+Getting Involved
+----------------
+- `Community Slack <https://forms.gle/cPGvty5hp31tGfg79>`_ for collaboration and discussion
+- `Horovod Announce <https://lists.lfai.foundation/g/horovod-announce>`_ for updates on the project
+- `Horovod Technical-Discuss <https://lists.lfai.foundation/g/horovod-technical-discuss>`_ for public discussion
 
 
 .. inclusion-marker-end-do-not-remove

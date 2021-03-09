@@ -1,4 +1,7 @@
 import argparse
+import os
+from filelock import FileLock
+
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -28,6 +31,8 @@ parser.add_argument('--fp16-allreduce', action='store_true', default=False,
                     help='use fp16 compression during allreduce')
 parser.add_argument('--use-adasum', action='store_true', default=False,
                     help='use adasum algorithm to do reduction')
+parser.add_argument('--data-dir',
+                    help='location of the training dataset in the local filesystem (will be downloaded if needed)')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -46,12 +51,14 @@ if args.cuda:
 torch.set_num_threads(1)
 
 kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
-train_dataset = \
-    datasets.MNIST('data-%d' % hvd.rank(), train=True, download=True,
-                   transform=transforms.Compose([
-                       transforms.ToTensor(),
-                       transforms.Normalize((0.1307,), (0.3081,))
-                   ]))
+data_dir = args.data_dir or './data'
+with FileLock(os.path.expanduser("~/.horovod_lock")):
+    train_dataset = \
+        datasets.MNIST(data_dir, train=True, download=True,
+                       transform=transforms.Compose([
+                           transforms.ToTensor(),
+                           transforms.Normalize((0.1307,), (0.3081,))
+                       ]))
 # Horovod: use DistributedSampler to partition the training data.
 train_sampler = torch.utils.data.distributed.DistributedSampler(
     train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
@@ -59,7 +66,7 @@ train_loader = torch.utils.data.DataLoader(
     train_dataset, batch_size=args.batch_size, sampler=train_sampler, **kwargs)
 
 test_dataset = \
-    datasets.MNIST('data-%d' % hvd.rank(), train=False, transform=transforms.Compose([
+    datasets.MNIST(data_dir, train=False, transform=transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
     ]))

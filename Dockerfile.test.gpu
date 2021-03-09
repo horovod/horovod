@@ -93,16 +93,13 @@ RUN if [[ ${MPI_KIND} != "None" ]]; then \
         pip install mpi4py; \
     fi
 
-### END OF CACHE ###
-COPY . /horovod
-
 # Install TensorFlow.
 RUN pip install ${TENSORFLOW_PACKAGE}
 
 # Install Keras.
 # Pin h5py: https://github.com/h5py/h5py/issues/1732
-# Pin scipy<1.4.0: https://github.com/scipy/scipy/issues/11237
-RUN pip install ${KERAS_PACKAGE} "h5py<3" "scipy<1.4.0" "pandas<1.1.0"
+# Pin scipy!=1.4.0: https://github.com/scipy/scipy/issues/11237
+RUN pip install ${KERAS_PACKAGE} "h5py<3" "scipy!=1.4.0" "pandas<1.1.0"
 RUN mkdir -p ~/.keras
 RUN ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
     python -c "from keras.datasets import mnist; mnist.load_data()" && \
@@ -121,15 +118,32 @@ RUN pip install "Pillow<7.0" --no-deps
 # Install MXNet.
 RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly" ]]; then \
         pip install --pre mxnet-cu101 -f https://dist.mxnet.io/python/cu101; \
+    elif [[ ${MXNET_PACKAGE} == "mxnet-cu101=="*b* ]]; then \
+        pip install --pre ${MXNET_PACKAGE} -f https://dist.mxnet.io/python/cu101; \
     elif [[ ${MXNET_PACKAGE} == "mxnet-nightly-cu110" ]]; then \
         pip install --pre mxnet-cu110 -f https://dist.mxnet.io/python/cu110; \
     else \
         pip install ${MXNET_PACKAGE} ; \
     fi
 
+# Prefetch Spark MNIST dataset.
+RUN mkdir -p /work
+RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/mnist.bz2 -O /data/mnist.bz2
+
+# Prefetch Spark Rossmann dataset.
+RUN mkdir -p /work
+RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/rossmann.tgz -O - | tar -xzC /data
+
+# Prefetch PyTorch datasets.
+RUN wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/pytorch_datasets.tgz -O - | tar -xzC /data
+
+### END OF CACHE ###
+COPY . /horovod
+
 # Install Horovod.
-RUN cd /horovod && python setup.py sdist
-RUN ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
+RUN cd /horovod && \
+    python setup.py sdist && \
+    ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
     bash -c "${HOROVOD_BUILD_FLAGS} HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]" && \
     ldconfig
 
@@ -137,10 +151,6 @@ RUN ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
 RUN if [[ ${TENSORFLOW_PACKAGE} == "tensorflow-gpu==1.1.0" ]]; then \
         sed -i "s/from tensorflow import keras/from tensorflow.contrib import keras/" /horovod/examples/tensorflow/tensorflow_mnist.py; \
     fi
-
-# Prefetch Spark MNIST dataset.
-RUN mkdir -p /work
-RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/mnist.bz2 -O /data/mnist.bz2
 
 # Hack TensorFlow MNIST example to be smaller.
 RUN sed -i "s/last_step=20000/last_step=100/" /horovod/examples/tensorflow/tensorflow_mnist.py
@@ -160,11 +170,6 @@ RUN sed -i "s/epochs = .*/epochs = 9/" /horovod/examples/tensorflow2/tensorflow2
 # Hack PyTorch MNIST example to be smaller.
 RUN sed -i "s/'--epochs', type=int, default=10,/'--epochs', type=int, default=2,/" /horovod/examples/pytorch/pytorch_mnist.py
 
-
-# Prefetch Spark Rossmann dataset.
-RUN mkdir -p /work
-RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/rossmann.tgz -O - | tar -xzC /data
-
 # Hack Keras Spark Rossmann Run example to be smaller.
 RUN sed -i "s/x = Dense(1000,/x = Dense(100,/g" /horovod/examples/spark/keras/keras_spark_rossmann_run.py
 RUN sed -i "s/x = Dense(500,/x = Dense(50,/g" /horovod/examples/spark/keras/keras_spark_rossmann_run.py
@@ -172,7 +177,6 @@ RUN sed -i "s/x = Dense(500,/x = Dense(50,/g" /horovod/examples/spark/keras/kera
 # Hack Keras Spark Rossmann Estimator example to be smaller.
 RUN sed -i "s/x = Dense(1000,/x = Dense(100,/g" /horovod/examples/spark/keras/keras_spark_rossmann_estimator.py
 RUN sed -i "s/x = Dense(500,/x = Dense(50,/g" /horovod/examples/spark/keras/keras_spark_rossmann_estimator.py
-
 
 # Export HOROVOD_MIXED_INSTALL
 ENV HOROVOD_MIXED_INSTALL=${HOROVOD_MIXED_INSTALL}

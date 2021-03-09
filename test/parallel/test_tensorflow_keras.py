@@ -17,7 +17,9 @@
 
 import math
 import numpy as np
+import os
 import pytest
+import sys
 import tensorflow as tf
 import warnings
 
@@ -27,6 +29,8 @@ from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.optimizer_v2 import optimizer_v2
 
 import horovod.tensorflow.keras as hvd
+
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 from common import temppath
 
@@ -403,7 +407,7 @@ class TfKerasTests(tf.test.TestCase):
             variables = [tf.Variable([0.0])]
             session.run(variables[0].initializer)
 
-            allreduce_op = hvd_optimizer._allreduce(grads)
+            allreduce_op = hvd_optimizer._allreduce(grads, variables)
             grads_and_vars = [(allreduce_op[0], variables[0])]
             apply_grads_op = hvd_optimizer.apply_gradients(grads_and_vars)
 

@@ -163,6 +163,8 @@ class Tf2KerasTests(tf.test.TestCase):
         assert state.batch == 21
         assert state.epoch == 11
 
+    @pytest.mark.skipif(LooseVersion(tf.__version__) >= LooseVersion('2.4.0'),
+                        reason='TensorFlow 2.4.0+ does not support this path')
     def test_gradient_aggregation(self):
         class TestingOptimizer(optimizer_v2.OptimizerV2):
             """
@@ -213,7 +215,7 @@ class Tf2KerasTests(tf.test.TestCase):
         variables = [tf.Variable([0.0])]
         for idx in range(10):
             if _PRE_TF_2_2_0:
-                updated_gradients = hvd_optimizer._allreduce(gradients)
+                updated_gradients = hvd_optimizer._allreduce(gradients, variables)
                 apply_gradients_in_tf_function(updated_gradients, variables)
             elif _PRE_TF_2_4_0:
                 # In 2.2 and 2.3 the horovod optimizer sets `_HAS_AGGREGATE_GRAD = True`.
@@ -228,7 +230,7 @@ class Tf2KerasTests(tf.test.TestCase):
                     experimental_aggregate_gradients=False
                 )
             else:
-                apply_gradients_in_tf_function(gradients, variables)
+                raise RuntimeError("This test should be skipped ...")
 
             updated_variable_value = variables[0][0].numpy()
             assert updated_variable_value == compute_expected_value(idx)

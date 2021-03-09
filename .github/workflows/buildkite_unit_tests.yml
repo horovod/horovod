@@ -1,14 +1,16 @@
 name: Unit Tests
 on:
   push:
-    branches: "**"
-    tags-ignore: "**"
+    branches: ["**"]
+    tags-ignore: ["**"]
 
   # This refers to pull_request events running in the target (base) repo
   # https://docs.github.com/en/actions/reference/events-that-trigger-workflows#pull_request_target
   # By default runs on these activity types only: opened, synchronize, reopened
+  # WARNING: Do not checkout and run code in this workflow:
+  # - https://securitylab.github.com/research/github-actions-preventing-pwn-requests
   pull_request_target:
-    branches: "**"
+    branches: ["**"]
 
 jobs:
   # buildkite does not run tests when there are no code changes, unless master is build
@@ -31,68 +33,24 @@ jobs:
       )
 
     steps:
-    - name: Condition
-      id: check-for-changes-needed
-      # 'Check for commit changes' is not needed for push to master
-      if: ( ! ( github.event_name == 'push' && github.ref == 'refs/heads/master' ) )
-      run: echo "Will have to 'Check for commit changes'"
-
-    - name: Checkout Git
-      uses: actions/checkout@v2
-      if: steps.check-for-changes-needed.outcome != 'skipped'
-
-    - name: Setup Python
-      uses: actions/setup-python@v2
-      if: steps.check-for-changes-needed.outcome != 'skipped'
-      with:
-        python-version: '3'
-
-    - name: Install Python Dependencies
-      if: steps.check-for-changes-needed.outcome != 'skipped'
-      run: |
-        python -m pip install --upgrade --force --no-cache-dir pip
-        pip install --force --no-cache-dir requests
-
-    - name: Check for commit changes
-      id: commit-changes
-      env:
-        BUILDKITE_COMMIT: ${{ github.sha }}
-        BUILDKITE_PIPELINE_DEFAULT_BRANCH: master
-      run: |
-        if [[ "${{ steps.check-for-changes-needed.outcome }}" == "skipped" ]]
-        then
-          echo "::set-output name=changed-code-files::this is a push to master"
-        else
-          files=$(python .buildkite/get_changed_code_files.py || echo failure)
-          echo changed code files: $files
-          echo "::set-output name=changed-code-files::$(echo $files)"
-        fi
-      shell: bash
-      continue-on-error: true
-
     - name: Download Buildkite Artifacts
       id: download
-      uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1.6
-      if: steps.commit-changes.outputs.changed-code-files != ''
+      uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
+        github_token: ${{ github.token }}
         buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
         ignore_build_states: blocked,canceled,skipped,not_run
         ignore_job_states: timed_out
         output_path: test-results
-        log_level: INFO
 
     - name: Unit Test Results
       id: results
-      uses: docker://ghcr.io/enricomi/publish-unit-test-result-action:v1.6
-      if: >
-        steps.download.outcome != 'skipped' &&
-        ! contains(fromJSON('[''blocked'', ''canceled'', ''skipped'', ''not_run'']'), steps.download.outputs.build-state)
+      uses: docker://ghcr.io/enricomi/publish-unit-test-result-action:v1
+      if: steps.download.outputs.download-state != 'skipped' && steps.download.outputs.download-files > 0
       with:
-        check_name: Unit Test Results
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        files: "test-results/**/*.xml"
-        log_level: INFO
+        github_token: ${{ github.token }}
+        pull_request_build: commit
+        files: test-results/**/*.xml
 
     - name: Upload Test Results
       uses: actions/upload-artifact@v2

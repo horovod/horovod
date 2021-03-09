@@ -141,7 +141,7 @@ def mpi_built(verbose=False):
             ext_base_name, built_fn, 'built with MPI', verbose)
         if result is not None:
             return result
-    return False
+    return None
 
 
 @_cache
@@ -152,9 +152,7 @@ def gloo_built(verbose=False):
             ext_base_name, built_fn, 'built with Gloo', verbose)
         if result is not None:
             return result
-    raise RuntimeError('Failed to determine if Gloo support has been built. '
-                       'Run again with --verbose for more details.')
-
+    return None
 
 @_cache
 def nccl_built(verbose=False):
@@ -164,9 +162,7 @@ def nccl_built(verbose=False):
             ext_base_name, built_fn, 'built with NCCL', verbose)
         if result is not None:
             return result
-    raise RuntimeError('Failed to determine if NCCL support has been built. '
-                       'Run again with --verbose for more details.')
-
+    return None
 
 @_cache
 def ddl_built(verbose=False):
@@ -176,9 +172,7 @@ def ddl_built(verbose=False):
             ext_base_name, built_fn, 'built with DDL', verbose)
         if result is not None:
             return result
-    raise RuntimeError('Failed to determine if DDL support has been built. '
-                       'Run again with --verbose for more details.')
-
+    return None
 
 @_cache
 def ccl_built(verbose=False):
@@ -188,9 +182,7 @@ def ccl_built(verbose=False):
             ext_base_name, built_fn, 'built with CCL', verbose)
         if result is not None:
             return result
-    raise RuntimeError('Failed to determine if CCL support has been built. '
-                       'Run again with --verbose for more details.')
-
+    return None
 
 @contextmanager
 def env(**kwargs):

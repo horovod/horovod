@@ -16,10 +16,14 @@
 import torch
 import unittest
 import warnings
+import os
+import sys
 import time
 
 import horovod.torch as hvd
 from horovod.common.util import env
+
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 from common import temppath
 

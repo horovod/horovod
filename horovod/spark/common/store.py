@@ -106,6 +106,10 @@ class Store(object):
         """Returns the contents of the path as bytes."""
         raise NotImplementedError()
 
+    def write_text(self, path, text):
+        """Write text file to path."""
+        raise NotImplementedError()
+
     def get_local_output_dir_fn(self, run_id):
         raise NotImplementedError()
 
@@ -183,6 +187,10 @@ class FilesystemStore(Store):
 
         model_bytes = self.read(ckpt_path)
         return codec.dumps_base64(model_bytes)
+
+    def write_text(self, path, text):
+        with self.get_filesystem().open(self.get_localized_path(path), 'w') as f:
+            f.write(text)
 
     def is_parquet_dataset(self, path):
         try:

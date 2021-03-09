@@ -15,12 +15,15 @@
 # ==============================================================================
 
 import os
+import sys
 import itertools
 import unittest
 from distutils.version import LooseVersion
 
 import pytest
 import numpy as np
+
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 from common import skip_or_fail_gpu_test
 
@@ -518,7 +521,7 @@ class MXTests(unittest.TestCase):
         except (MXNetError, RuntimeError):
             pass
 
-    def _horovod_broadcast(self):
+    def test_horovod_broadcast(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
         hvd.init()
         rank = hvd.rank()
@@ -561,6 +564,7 @@ class MXTests(unittest.TestCase):
                       broadcast_tensor == root_tensor)
             assert same(broadcast_tensor.asnumpy(), root_tensor.asnumpy()), \
                 'hvd.broadcast produces incorrect broadcasted tensor'
+            count += 1
 
     def test_horovod_broadcast_inplace(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
@@ -607,9 +611,10 @@ class MXTests(unittest.TestCase):
                       broadcast_tensor == root_tensor)
             assert same(broadcast_tensor.asnumpy(), root_tensor.asnumpy()), \
                 'hvd.broadcast produces incorrect broadcasted tensor'
+            count += 1
 
-    def test_horovod_broadcast_grad(self):
-        """Test the correctness of the broadcast gradient."""
+    def test_horovod_broadcast_parameters(self):
+        """Test the correctness of broadcast_parameters."""
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -632,19 +637,17 @@ class MXTests(unittest.TestCase):
             root_dict[count] = mx.nd.ones(shapes[dim], ctx=ctx) * root_rank
             tensor_dict[count] = tensor_dict[count].astype(dtype)
             root_dict[count] = root_dict[count].astype(dtype)
-
-            # Only do broadcasting using and on broadcast_tensor
             count += 1
 
         hvd.broadcast_parameters(tensor_dict, root_rank=root_rank)
         for i in range(count):
             if not same(tensor_dict[i].asnumpy(), root_dict[i].asnumpy()):
-                print("broadcast", count, dtype, dim)
+                print("broadcast", i, dtypes[i], dims[i])
                 print("broadcast_tensor", hvd.rank(), tensor_dict[i])
                 print("root_tensor", hvd.rank(), root_dict[i])
                 print("comparison", hvd.rank(), tensor_dict[i] == root_dict[i])
             assert same(tensor_dict[i].asnumpy(), root_dict[i].asnumpy()), \
-                'hvd.broadcast produces incorrect broadcasted tensor'
+                'hvd.broadcast_parameters produces incorrect broadcasted tensor'
 
     def test_horovod_broadcast_error(self):
         """Test that the broadcast returns an error if any dimension besides
@@ -906,11 +909,14 @@ class MXTests(unittest.TestCase):
               tensor = mx.ndarray.concat(tensor, tensor, dim=1)
 
             splits = mx.ndarray.array([rank + 1] * size, dtype='int32', ctx=ctx)
-            collected = hvd.alltoall(tensor, splits)
+            collected, received_splits = hvd.alltoall(tensor, splits)
 
             assert collected.min() == rank, 'hvd.alltoall produces incorrect collected tensor'
             assert collected.max() == rank, 'hvd.alltoall produces incorrect collected tensor'
             assert collected.size == size * (size + 1) // 2 * 2**(dim - 1), 'hvd.alltoall collected wrong number of values'
+            self.assertSequenceEqual(received_splits.asnumpy().tolist(), [rk + 1 for rk in range(size)],
+                                     "hvd.alltoall returned incorrect received_splits")
+
 
     def test_horovod_alltoall_equal_split(self):
         """Test that the alltoall correctly distributes 1D tensors with default splitting."""

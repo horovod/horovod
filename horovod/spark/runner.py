@@ -149,7 +149,7 @@ def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
 
 def _launch_job(use_mpi, use_gloo, settings, driver, env, stdout=None, stderr=None):
     nics = driver.get_common_interfaces()
-    run_controller(use_gloo, lambda: gloo_run(settings, nics, driver, env),
+    run_controller(use_gloo, lambda: gloo_run(settings, nics, driver, env, stdout, stderr),
                    use_mpi, lambda: mpi_run(settings, nics, driver, env, stdout, stderr),
                    False, lambda: None,
                    settings.verbose)
@@ -194,7 +194,8 @@ def _get_indices_in_rank_order(driver):
 
 def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
         use_mpi=None, use_gloo=None, extra_mpi_args=None,
-        env=None, stdout=None, stderr=None, verbose=1, nics=None):
+        env=None, stdout=None, stderr=None, verbose=1, nics=None,
+        prefix_output_with_timestamp=False):
     """
     Runs Horovod on Spark.  Runs `num_proc` processes executing `fn` using the same amount of Spark tasks.
 
@@ -208,10 +209,11 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
                        If it is not set as well, defaults to 600 seconds.
         extra_mpi_args: Extra arguments for mpi_run. Defaults to no extra args.
         env: Environment dictionary to use in Horovod run.
-        stdout: Horovod stdout is redirected to this stream. Defaults to sys.stdout.
-        stderr: Horovod stderr is redirected to this stream. Defaults to sys.stderr.
+        stdout: Horovod stdout is redirected to this stream. Defaults to sys.stdout when used with MPI.
+        stderr: Horovod stderr is redirected to this stream. Defaults to sys.stderr when used with MPI.
         verbose: Debug output verbosity (0-2). Defaults to 1.
         nics: List of NICs for tcp network communication.
+        prefix_output_with_timestamp: shows timestamp in stdout/stderr forwarding on the driver
 
     Returns:
         List of results returned by running `fn` on each rank.
@@ -236,7 +238,8 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
                                      key=secret.make_secret_key(),
                                      start_timeout=tmout,
                                      nics=nics,
-                                     run_func_mode=True)
+                                     run_func_mode=True,
+                                     prefix_output_with_timestamp=prefix_output_with_timestamp)
 
     spark_context = pyspark.SparkContext._active_spark_context
     if spark_context is None:
@@ -301,7 +304,9 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
 
 
 def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
-                start_timeout=None, elastic_timeout=None, reset_limit=None, env=None, verbose=1, nics=None):
+                start_timeout=None, elastic_timeout=None, reset_limit=None, env=None,
+                stdout=None, stderr=None, verbose=1, nics=None,
+                prefix_output_with_timestamp=False):
     """
     Runs Elastic Horovod on Spark.  Runs `num_proc` processes executing `fn` using the same amount of Spark tasks.
 
@@ -318,8 +323,11 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
                        If it is not set as well, defaults to 600 seconds.
         reset_limit: Maximum number of resets after which the job is terminated.
         env: Environment dictionary to use in Horovod run.  Defaults to `os.environ`.
+        stdout: Horovod stdout is redirected to this stream.
+        stderr: Horovod stderr is redirected to this stream.
         verbose: Debug output verbosity (0-2). Defaults to 1.
         nics: List of NICs for tcp network communication.
+        prefix_output_with_timestamp: shows timestamp in stdout/stderr forwarding on the driver
 
     Returns:
         List of results returned by running `fn` on each rank.
@@ -383,7 +391,8 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
                                                     key=key,
                                                     start_timeout=tmout,
                                                     nics=nics,
-                                                    run_func_mode=True)
+                                                    run_func_mode=True,
+                                                    prefix_output_with_timestamp=prefix_output_with_timestamp)
 
     result_queue = queue.Queue(1)
 
@@ -395,7 +404,7 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
         _register_task_addresses(driver, settings)
 
         # Run the job
-        gloo_run_elastic(settings, driver, env)
+        gloo_run_elastic(settings, driver, env, stdout, stderr)
     except:
         # Terminate Spark job.
         spark_context.cancelJobGroup(spark_job_group)

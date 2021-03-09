@@ -19,6 +19,8 @@ import datetime
 import h5py
 import io
 import os
+import sys
+
 import pyarrow as pa
 from pyspark import SparkConf, Row
 from pyspark.sql import SparkSession
@@ -178,7 +180,7 @@ if __name__ == '__main__':
 
         # Days & weeks of promotion, cap to 25 weeks.
         df = df.withColumn('Promo2Since',
-                           F.expr('date_add(format_string("%s-01-01", Promo2SinceYear), (Promo2SinceWeek - 1) * 7)'))
+                           F.expr('date_add(format_string("%s-01-01", Promo2SinceYear), (cast(Promo2SinceWeek as int) - 1) * 7)'))
         df = df.withColumn('Promo2Days',
                            F.when(df.Promo2SinceYear > 1900,
                                   F.greatest(F.lit(0), F.least(F.lit(25 * 7), F.datediff(df.Date, df.Promo2Since))))
@@ -499,7 +501,9 @@ if __name__ == '__main__':
 
     # Horovod: run training.
     history, best_model_bytes = \
-        horovod.spark.run(train_fn, args=(model_bytes,), num_proc=args.num_proc, verbose=2)[0]
+        horovod.spark.run(train_fn, args=(model_bytes,), num_proc=args.num_proc,
+                          stdout=sys.stdout, stderr=sys.stderr, verbose=2,
+                          prefix_output_with_timestamp=True)[0]
 
     best_val_rmspe = min(history['val_exp_rmspe'])
     print('Best RMSPE: %f' % best_val_rmspe)

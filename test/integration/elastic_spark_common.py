@@ -381,7 +381,9 @@ class BaseElasticSparkTests(unittest.TestCase):
                 cmd = ' '.join(command)
                 run_elastic(self._exec, (cmd,), env={'HOROVOD_LOG_LEVEL': 'DEBUG'},
                             num_proc=np, min_np=min_np, max_np=max_np,
-                            start_timeout=10, elastic_timeout=10, verbose=2)
+                            stdout=sys.stdout, stderr=sys.stderr,
+                            start_timeout=10, elastic_timeout=10, verbose=2,
+                            prefix_output_with_timestamp=True)
 
                 with open(logfile, 'r') as f:
                     lines = f.readlines()

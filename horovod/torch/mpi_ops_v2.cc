@@ -372,41 +372,59 @@ int DoBroadcastCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int roo
   return handle;
 }
 
-int DoAlltoall(::torch::Tensor tensor, ::torch::Tensor splits, ::torch::Tensor output, const std::string& name) {
+int DoAlltoall(::torch::Tensor tensor, ::torch::Tensor splits,
+               ::torch::Tensor output, ::torch::Tensor output_received_splits,
+               const std::string& name) {
   ThrowIfError(common::CheckInitialized());
 
   auto device = GetDeviceID(tensor);
   auto ready_event = RecordReadyEvent(device);
   auto hvd_tensor = std::make_shared<TorchTensor>(tensor);
-  auto hvd_context = std::make_shared<TorchOpContext>(device, output);
 
   // Make sync copy of splits tensor to CPU if needed
-  auto splits_cpu = (GetDeviceID(splits) != CPU_DEVICE_ID) ?
+  auto cpu_splits = (GetDeviceID(splits) != CPU_DEVICE_ID) ?
       splits.to(::torch::Device(::torch::kCPU), /*non_blocking=*/false) :
       splits;
-  auto splits_tensor = std::make_shared<TorchTensor>(splits_cpu);
+  auto hvd_cpu_splits = std::make_shared<TorchTensor>(cpu_splits);
+
+  // Deal with possibility of output_received_splits being on GPU
+  auto received_splits_device = GetDeviceID(output_received_splits);
+  auto cpu_received_splits = (received_splits_device != CPU_DEVICE_ID)
+                                 ? ::torch::empty_like(cpu_splits)
+                                 : output_received_splits;
+  auto hvd_context = std::make_shared<TorchOpContext>(device, output);
+  hvd_context->AddOutput(CPU_DEVICE_ID, cpu_received_splits);
 
   auto handle = handle_manager.AllocateHandle();
-  auto enqueue_result =
-      EnqueueTensorAlltoall(hvd_context, hvd_tensor, splits_tensor, ready_event,
-                             GetOpName("alltoall", name, handle), device,
-                             [handle](const Status& status) {
-                               handle_manager.MarkDone(handle, status);
-                             });
+  auto enqueue_result = EnqueueTensorAlltoall(
+      hvd_context, hvd_tensor, hvd_cpu_splits, ready_event,
+      GetOpName("alltoall", name, handle), device,
+      [handle, cpu_received_splits, output_received_splits,
+       received_splits_device](const Status& status) mutable {
+        if (received_splits_device != CPU_DEVICE_ID) {
+          with_device device_guard(received_splits_device);
+          output_received_splits.resize_(cpu_received_splits.sizes());
+          output_received_splits.copy_(cpu_received_splits);
+        }
+        handle_manager.MarkDone(handle, status); 
+      });
   ThrowIfError(enqueue_result);
 
   return handle;
 }
 
-int DoAlltoallCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor splits, ::torch::Tensor output,
-                         const std::string& name) {
+int DoAlltoallCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor splits,
+                        ::torch::Tensor output,
+                        ::torch::Tensor output_received_splits,
+                        const std::string& name) {
   ThrowIfError(common::CheckInitialized());
 
   // Make sync copy of splits tensor to CPU if needed
-  auto splits_cpu = (GetDeviceID(splits) != CPU_DEVICE_ID) ?
-      splits.to(::torch::Device(::torch::kCPU), /*non_blocking=*/false) :
-      splits;
-  auto splits_tensor = std::make_shared<TorchTensor>(splits_cpu);
+  auto cpu_splits =
+      (GetDeviceID(splits) != CPU_DEVICE_ID)
+          ? splits.to(::torch::Device(::torch::kCPU), /*non_blocking=*/false)
+          : splits;
+  auto hvd_cpu_splits = std::make_shared<TorchTensor>(cpu_splits);
 
   // Make async copy of input tensor to CPU tensor and record completion event.
   auto device = GetDeviceID(tensor);
@@ -417,20 +435,35 @@ int DoAlltoallCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor splits, ::torch:
 
   auto cpu_output = ::torch::empty_like(cpu_tensor);
   auto hvd_cpu_output = std::make_shared<TorchTensor>(cpu_output);
+
+  // Deal with possibility of output_received_splits being on GPU
+  auto received_splits_device = GetDeviceID(output_received_splits);
+  auto cpu_received_splits = (received_splits_device != CPU_DEVICE_ID)
+                                 ? ::torch::empty_like(cpu_splits)
+                                 : output_received_splits;
   auto hvd_context =
       std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_output);
+  hvd_context->AddOutput(CPU_DEVICE_ID, cpu_received_splits);
 
   auto handle = handle_manager.AllocateHandle();
   auto enqueue_result = EnqueueTensorAlltoall(
-      hvd_context, hvd_cpu_tensor, splits_tensor, ready_event,
+      hvd_context, hvd_cpu_tensor, hvd_cpu_splits, ready_event,
       GetOpName("alltoall", name, handle), CPU_DEVICE_ID,
-      [handle, cpu_output, output, device](const Status& status) mutable {
-        // Since the operation was on CPU, need to perform copy with the GPU
-        // device guard.
-        with_device device_guard(device);
-        // output needs to be resized before copying in the CPU tensor.
-        output.resize_(cpu_output.sizes());
-        output.copy_(cpu_output);
+      [handle, cpu_output, output, device, cpu_received_splits,
+       output_received_splits,
+       received_splits_device](const Status& status) mutable {
+        { // Since the operation was on CPU, need to perform copy with the GPU
+          // device guard.
+          with_device device_guard(device);
+          // output needs to be resized before copying in the CPU tensor.
+          output.resize_(cpu_output.sizes());
+          output.copy_(cpu_output);
+        }
+        if (received_splits_device != CPU_DEVICE_ID) {
+          with_device device_guard(received_splits_device);
+          output_received_splits.resize_(cpu_received_splits.sizes());
+          output_received_splits.copy_(cpu_received_splits);
+        }
         handle_manager.MarkDone(handle, status);
       });
   ThrowIfError(enqueue_result);

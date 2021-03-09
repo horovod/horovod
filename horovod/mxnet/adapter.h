@@ -51,11 +51,14 @@ protected:
 
 class MXOpContext : public OpContext {
 public:
-  MXOpContext(int device, NDArray* output);
+  MXOpContext(int device, NDArray* principal_output);
+  void AddOutput(NDArray* output);
   virtual Status
   AllocatePersistent(int64_t size,
                      std::shared_ptr<PersistentBuffer>* tensor) override;
   virtual Status AllocateOutput(TensorShape shape,
+                                std::shared_ptr<Tensor>* tensor) override;
+  virtual Status AllocateOutput(int output_index, TensorShape shape,
                                 std::shared_ptr<Tensor>* tensor) override;
   virtual Status AllocateZeros(int64_t num_elements, DataType dtype,
                                std::shared_ptr<Tensor>* tensor) override;
@@ -63,7 +66,7 @@ public:
 
 private:
   int device_;
-  NDArray* output_;
+  std::vector<NDArray*> outputs_;
 };
 
 void ThrowIfError(const Status& status);
