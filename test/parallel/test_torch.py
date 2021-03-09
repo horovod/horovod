@@ -2419,7 +2419,7 @@ class TorchTests(unittest.TestCase):
             loss.backward()
             opt.step()
 
-    def test_sparse_allreduce(self):
+    def test_async_sparse_allreduce(self):
         """Test that allgather over indices and values is equivalent to allreduce."""
         hvd.init()
 

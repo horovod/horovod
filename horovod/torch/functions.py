@@ -83,6 +83,9 @@ def broadcast_optimizer_state(optimizer, root_rank):
             for p in group['params']:
                 if p.requires_grad and id(p) not in state_dict['state']:
                     p.grad = p.data.new(p.size()).zero_()
+                    if isinstance(optimizer, torch.optim.SparseAdam):
+                        p.grad = p.grad.to_sparse()
+
         # This function accepts a torch.optim.Optimizer or a DistributedOptimizer
         # wrapped around a torch optimizer. Calling step() with a DistributedOptimizer
         # forces allreduce on all model parameters, which will result in deadlock
