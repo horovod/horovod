@@ -135,7 +135,7 @@ dev_require_list = ['tensorflow-cpu==2.2.0',
                     'keras==2.3.1',
                     'torch==1.4.0',
                     'torchvision==0.5.0',
-                    'pytorch_lightning==1.2.3'
+                    'pytorch_lightning==1.2.3',
                     'mxnet==1.5.0',
                     'pyspark==3.0.1'] + spark_require_list
 # torchvision 0.5.0 depends on torch==1.4.0
