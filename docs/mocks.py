@@ -80,6 +80,9 @@ MOCK_MODULES = [
 
     'pytorch_lightning',
     'pytorch_lightning.callbacks',
+    'pytorch_lightning.loggers',
+    'pytorch_lightning.utilities',
+    'pytorch_lightning.utilities.model_helpers',
 
     'mxnet',
     'mxnet.base',
