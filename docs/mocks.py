@@ -79,6 +79,7 @@ MOCK_MODULES = [
     'torch.distributed',
 
     'pytorch_lightning',
+    'pytorch_lightning.callbacks',
 
     'mxnet',
     'mxnet.base',
