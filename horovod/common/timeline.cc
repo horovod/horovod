@@ -31,7 +31,7 @@ TimelineWriter::TimelineWriter() {
   pending_status_ = false;
 }
 
-void TimelineWriter::SetPendingTimelineFile(std::string filename) {
+void TimelineWriter::SetPendingTimelineFile(const std::string& filename) {
   {
     std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
     if (cur_filename_ == filename) {
@@ -50,7 +50,7 @@ void TimelineWriter::SetPendingTimelineFile(std::string filename) {
         return;
       }
     }
-    if (filename == "") {
+    if (filename.empty()) {
       LOG(DEBUG) << "StopTimeline is called. Blocking thread since "
                     "pending_status is still true.\n";
     } else {
@@ -66,7 +66,7 @@ std::string TimelineWriter::PendingTimelineFile() {
   return new_pending_filename_;
 }
 
-void TimelineWriter::SetTimelineFile(std::string filename) {
+void TimelineWriter::SetTimelineFile(const std::string& filename) {
   // No op if there are pending events in record_queue, let all the event from
   // record queue to get dumped to file
 
@@ -74,7 +74,7 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
             << " New filename:" << filename;
 
   // Close if there existing file open and new file is not same as existing file
-  if (cur_filename_ != "" && cur_filename_ != filename) {
+  if (!cur_filename_.empty() && cur_filename_ != filename) {
 
     if (!record_queue_.empty()) {
       LOG(DEBUG) << " SetTimelineFile is no-op as there are events in "
@@ -92,7 +92,7 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
   }
   // if new filename is empty, we need to stop accepting activities. This would
   // stopping timeline
-  if (filename == "") {
+  if (filename.empty()) {
 
     healthy_.exchange(1);
     active_.exchange(0);
@@ -126,7 +126,8 @@ void TimelineWriter::SetTimelineFile(std::string filename) {
 }
 
 void TimelineWriter::Initialize(
-    std::string file_name, std::chrono::steady_clock::time_point start_time_) {
+    const std::string& file_name,
+    std::chrono::steady_clock::time_point start_time_) {
   std::lock_guard<std::recursive_mutex> guard(writer_mutex_);
   if (healthy())
     return;
@@ -157,7 +158,7 @@ void TimelineWriter::Shutdown() {
               << e.code() << " meaning " << e.what();
   }
 
-  if (cur_filename_ != "" && file_.is_open()) {
+  if (!cur_filename_.empty() && file_.is_open()) {
     file_.flush();
     file_.close();
   }
@@ -262,7 +263,7 @@ void TimelineWriter::DoWriteEvent(const TimelineRecord& r) {
   if (r.phase == 'X') {
     file_ << ", \"dur\": " << 0 << "";
   }
-  if (r.args != "") {
+  if (!r.args.empty()) {
     file_ << ", \"args\": {" << r.args << "}";
   }
   // We make sure that the events are written always produce valid json file
@@ -324,7 +325,7 @@ void TimelineWriter::WriterLoop() {
   }
 }
 
-void Timeline::Initialize(std::string file_name, unsigned int horovod_size) {
+void Timeline::Initialize(const std::string& file_name, unsigned int horovod_size) {
   if (Initialized()) {
     return;
   }
@@ -501,7 +502,7 @@ void Timeline::MarkCycleStart() {
   WriteMarker("CYCLE_START");
 }
 
-void Timeline::SetPendingTimelineFile(std::string filename) {
+void Timeline::SetPendingTimelineFile(const std::string& filename) {
   writer_.SetPendingTimelineFile(filename);
   LOG(INFO) << "Set pending timeline file to " << filename;
 }
