@@ -68,14 +68,14 @@ class XOR(LightningModule):
         return torch.optim.Adam(self.parameters(), lr=0.02)
 
     def training_step(self, batch, batch_nb):
-        x, y = batch['features'], batch['y']
+        x, y = batch['features'], batch['y'].unsqueeze(1)
         y_hat = self(x)
         loss = F.binary_cross_entropy(y_hat, y.float())
         tensorboard_logs = {'train_loss': loss}
         return {'loss': loss, 'log': tensorboard_logs}
 
     def validation_step(self, batch, batch_nb):
-        x, y = batch['features'], batch['y']
+        x, y = batch['features'], batch['y'].unsqueeze(1)
         y_hat = self(x)
         return {'val_loss': F.binary_cross_entropy(y_hat, y.float())}
 

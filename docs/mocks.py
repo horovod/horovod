@@ -76,6 +76,7 @@ MOCK_MODULES = [
     'torch.utils.data',
     'torch.utils.data.distributed',
     'torch.utils.tensorboard',
+    'torch.distributed',
 
     'mxnet',
     'mxnet.base',
