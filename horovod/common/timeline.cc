@@ -491,6 +491,7 @@ void Timeline::End(const std::string& tensor_name,
     args << ", \"shape\": \"" << tensor->shape().DebugString() << "\"";
   }
   WriteEvent(tensor_name, 'E', "", args.str());
+  tensor_states_.erase(tensor_name);
 }
 
 void Timeline::MarkCycleStart() {
