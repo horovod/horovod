@@ -260,7 +260,7 @@ void PerformOperation(Response response, HorovodGlobalState& state) {
                                                              state.joined);
 
     for (auto& e : entries) {
-      timeline.Start(e.tensor_name, response.response_type());
+      timeline.Start(e.tensor_name, response.response_type(), e.tensor->size());
     }
 
     if (entries.size() > 1) {

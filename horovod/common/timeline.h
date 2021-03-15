@@ -101,26 +101,32 @@ private:
 
 enum TimelineState { UNKNOWN, NEGOTIATING, TOP_LEVEL, ACTIVITY };
 
+class TimelineNvtxHandle;
+
 // Writes timeline in Chrome Tracing format. Timeline spec is from:
 // https://github.com/catapult-project/catapult/tree/master/tracing
 class Timeline {
 public:
+  Timeline();
   void Initialize(const std::string& file_name, unsigned int horovod_size);
   void Shutdown();
+  ~Timeline();
   inline short Initialized() { return initialized_.fetch_and(1); }
   void NegotiateStart(const std::string& tensor_name,
                       Request::RequestType request_type);
   void NegotiateRankReady(const std::string& tensor_name, int rank);
   void NegotiateEnd(const std::string& tensor_name);
   void Start(const std::string& tensor_name,
-             Response::ResponseType response_type);
+             Response::ResponseType response_type,
+             int64_t tensor_size = -1);
   void ActivityStartAll(const std::vector<TensorTableEntry>& entries,
                         const std::string& activity);
   void ActivityStart(const std::string& tensor_name,
                      const std::string& activity);
   void ActivityEndAll(const std::vector<TensorTableEntry>& entries);
   void ActivityEnd(const std::string& tensor_name);
-  void End(const std::string& tensor_name, std::shared_ptr<Tensor> tensor);
+  void End(const std::string& tensor_name,
+           const std::shared_ptr<Tensor>& output_tensor);
   void MarkCycleStart();
   void SetPendingTimelineFile(const std::string& filename);
 
@@ -151,6 +157,8 @@ private:
   // Map of ranks to their string representations.
   // std::to_string() is very slow.
   std::vector<std::string> rank_strings_;
+
+  std::unique_ptr<TimelineNvtxHandle> nvtx_handle_;
 };
 
 } // namespace common

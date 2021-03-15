@@ -19,6 +19,10 @@
 #include <chrono>
 #include <sstream>
 
+#if HAVE_NVTX
+#include <nvtx3/nvToolsExt.h>
+#endif
+
 #include "logging.h"
 
 namespace horovod {
@@ -325,7 +329,96 @@ void TimelineWriter::WriterLoop() {
   }
 }
 
-void Timeline::Initialize(const std::string& file_name, unsigned int horovod_size) {
+#if HAVE_NVTX
+class TimelineNvtxHandle {
+public:
+  TimelineNvtxHandle()
+      : main_domain_(nvtxDomainCreateA("HorovodTimeline")),
+        activity_domain_(nvtxDomainCreateA("HorovodTimelineActivities"))
+  { }
+
+  ~TimelineNvtxHandle() {
+    nvtxDomainDestroy(main_domain_);
+    nvtxDomainDestroy(activity_domain_);
+  }
+
+  void StartRange(const std::string& tensor_name,
+                  const std::string& event_category,
+                  int64_t tensor_size_payload = -1) {
+    const auto message = event_category + " " + tensor_name;
+    nvtxRangeId_t range_id = NvtxStartDomainRange(main_domain_, message,
+                                                  tensor_size_payload);
+    main_tensor_nvtx_range_.emplace(tensor_name, range_id);
+  }
+
+  void EndRange(const std::string& tensor_name) {
+    auto iter = main_tensor_nvtx_range_.find(tensor_name);
+    if (iter != main_tensor_nvtx_range_.end()) {
+      auto range_id = iter->second;
+      nvtxDomainRangeEnd(main_domain_, range_id);
+      main_tensor_nvtx_range_.erase(iter);
+    }
+  }
+
+  void StartActivityRange(const std::string& tensor_name,
+                          const std::string& activity) {
+    const auto message = activity + " " + tensor_name;
+    nvtxRangeId_t range_id = NvtxStartDomainRange(activity_domain_, message);
+    activity_tensor_nvtx_range_.emplace(tensor_name, range_id);
+  }
+
+  void EndActivityRange(const std::string& tensor_name) {
+    auto iter = activity_tensor_nvtx_range_.find(tensor_name);
+    if (iter != activity_tensor_nvtx_range_.end()) {
+      auto range_id = iter->second;
+      nvtxDomainRangeEnd(activity_domain_, range_id);
+      activity_tensor_nvtx_range_.erase(iter);
+    }
+  }
+
+private:
+  static nvtxRangeId_t NvtxStartDomainRange(nvtxDomainHandle_t domain,
+                                            const std::string& message,
+                                            int64_t tensor_size_payload = -1) {
+    nvtxEventAttributes_t eventAttrib = {0};
+    eventAttrib.version = NVTX_VERSION;
+    eventAttrib.size = NVTX_EVENT_ATTRIB_STRUCT_SIZE;
+    eventAttrib.messageType = NVTX_MESSAGE_TYPE_ASCII;
+    eventAttrib.message.ascii = message.c_str();
+    if (tensor_size_payload >= 0) {
+      eventAttrib.payloadType = NVTX_PAYLOAD_TYPE_INT64;
+      eventAttrib.payload.llValue = tensor_size_payload;
+    }
+
+    nvtxRangeId_t range_id = nvtxDomainRangeStartEx(domain, &eventAttrib);
+    // contents of eventAttrib and eventAtrrib.message.ascii have been copied
+    return range_id;
+  }
+
+  nvtxDomainHandle_t main_domain_;
+  nvtxDomainHandle_t activity_domain_;
+
+  std::unordered_map<std::string, nvtxRangeId_t> main_tensor_nvtx_range_;
+  std::unordered_map<std::string, nvtxRangeId_t> activity_tensor_nvtx_range_;
+};
+#else // HAVE_NVTX
+class TimelineNvtxHandle {
+public:
+  void StartRange(const std::string& tensor_name,
+                  const std::string& event_category,
+                  int64_t tensor_size_payload = -1) {}
+  void EndRange(const std::string& tensor_name) {}
+  void StartActivityRange(const std::string& tensor_name,
+                          const std::string& activity) {}
+  void EndActivityRange(const std::string& tensor_name) {}
+};
+#endif // HAVE_NVTX
+
+
+Timeline::Timeline() : nvtx_handle_(new TimelineNvtxHandle) {}
+
+void Timeline::Initialize(const std::string& file_name,
+                          unsigned int horovod_size) {
   if (Initialized()) {
     return;
   }
@@ -350,6 +443,8 @@ void Timeline::Shutdown() {
   writer_.Shutdown();
   tensor_states_.clear();
 }
+
+Timeline::~Timeline() = default;
 
 long Timeline::TimeSinceStartMicros() const {
   auto now = std::chrono::steady_clock::now();
@@ -394,6 +489,7 @@ void Timeline::NegotiateStart(const std::string& tensor_name,
 
   assert(tensor_states_[tensor_name] == TimelineState::UNKNOWN);
   auto event_category = "NEGOTIATE_" + Request::RequestType_Name(request_type);
+  nvtx_handle_->StartRange(tensor_name, event_category);
   WriteEvent(tensor_name, 'B', event_category);
   tensor_states_[tensor_name] = TimelineState::NEGOTIATING;
 }
@@ -416,12 +512,14 @@ void Timeline::NegotiateEnd(const std::string& tensor_name) {
 
   std::lock_guard<std::recursive_mutex> guard(mutex_);
   assert(tensor_states_[tensor_name] == TimelineState::NEGOTIATING);
+  nvtx_handle_->EndRange(tensor_name);
   WriteEvent(tensor_name, 'E');
   tensor_states_.erase(tensor_name);
 }
 
 void Timeline::Start(const std::string& tensor_name,
-                     const Response::ResponseType response_type) {
+                     const Response::ResponseType response_type,
+                     int64_t tensor_size) {
   if (!Initialized() || !writer_.active()) {
     return;
   }
@@ -430,6 +528,7 @@ void Timeline::Start(const std::string& tensor_name,
   assert(tensor_states_[tensor_name] == TimelineState::UNKNOWN);
   auto event_category = Response::ResponseType_Name(response_type);
   WriteEvent(tensor_name, 'B', event_category);
+  nvtx_handle_->StartRange(tensor_name, event_category, tensor_size);
   tensor_states_[tensor_name] = TimelineState::TOP_LEVEL;
 }
 
@@ -451,6 +550,7 @@ void Timeline::ActivityStart(const std::string& tensor_name,
 
   std::lock_guard<std::recursive_mutex> guard(mutex_);
   assert(tensor_states_[tensor_name] == TimelineState::TOP_LEVEL);
+  nvtx_handle_->StartActivityRange(tensor_name, activity);
   WriteEvent(tensor_name, 'B', activity);
   tensor_states_[tensor_name] = TimelineState::ACTIVITY;
 }
@@ -468,12 +568,13 @@ void Timeline::ActivityEnd(const std::string& tensor_name) {
 
   std::lock_guard<std::recursive_mutex> guard(mutex_);
   assert(tensor_states_[tensor_name] == TimelineState::ACTIVITY);
+  nvtx_handle_->EndActivityRange(tensor_name);
   WriteEvent(tensor_name, 'E');
   tensor_states_[tensor_name] = TimelineState::TOP_LEVEL;
 }
 
 void Timeline::End(const std::string& tensor_name,
-                   const std::shared_ptr<Tensor> tensor) {
+                   const std::shared_ptr<Tensor>& output_tensor) {
   if (!Initialized() || !writer_.active()) {
     return;
   }
@@ -485,10 +586,12 @@ void Timeline::End(const std::string& tensor_name,
     ActivityEnd(tensor_name);
   }
 
+  nvtx_handle_->EndRange(tensor_name);
+
   std::stringstream args;
-  if (tensor != nullptr) {
-    args << "\"dtype\": \"" << DataType_Name(tensor->dtype()) << "\"";
-    args << ", \"shape\": \"" << tensor->shape().DebugString() << "\"";
+  if (output_tensor != nullptr) {
+    args << "\"dtype\": \"" << DataType_Name(output_tensor->dtype()) << "\"";
+    args << ", \"shape\": \"" << output_tensor->shape().DebugString() << "\"";
   }
   WriteEvent(tensor_name, 'E', "", args.str());
   tensor_states_.erase(tensor_name);
