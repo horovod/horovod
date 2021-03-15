@@ -779,6 +779,13 @@ int horovod_local_rank() {
   return horovod_global.controller->GetLocalRank();
 }
 
+int horovod_cross_rank() {
+  if (!horovod_global.initialization_done) {
+    return -1;
+  }
+  return horovod_global.controller->GetCrossRank();
+}
+
 int horovod_size() {
   if (!horovod_global.initialization_done) {
     return -1;
@@ -791,6 +798,13 @@ int horovod_local_size() {
     return -1;
   }
   return horovod_global.controller->GetLocalSize();
+}
+
+int horovod_cross_size() {
+  if (!horovod_global.initialization_done) {
+    return -1;
+  }
+  return horovod_global.controller->GetCrossSize();
 }
 
 bool horovod_is_homogeneous() {

@@ -122,6 +122,21 @@ class HorovodBasics(object):
                 'Horovod has not been initialized; use hvd.init().')
         return local_size
 
+    def cross_size(self):
+        """A function that returns the number of nodes for the local rank of the current
+        Horovod process. For example, if there are 2 nodes in the job: one running 2 processes
+        and the other running 1 process, then the first process on each node will have cross
+        size 2, and the second process on the first node will have cross size 1.
+
+        Returns:
+          An integer scalar containing the number of cross Horovod processes.
+        """
+        cross_size = self.MPI_LIB_CTYPES.horovod_cross_size()
+        if cross_size == -1:
+            raise ValueError(
+                'Horovod has not been initialized; use hvd.init().')
+        return cross_size
+
     def rank(self):
         """A function that returns the Horovod rank of the calling process.
 
@@ -147,6 +162,21 @@ class HorovodBasics(object):
             raise ValueError(
                 'Horovod has not been initialized; use hvd.init().')
         return local_rank
+
+    def cross_rank(self):
+        """A function that returns the cross Horovod rank of the calling process, across the
+        nodes in the job. The cross rank of a process corresponds to the rank of the node its
+        is running on. For example, if there are 7 nodes in a job, the cross ranks will be
+        zero through six, inclusive.
+
+        Returns:
+          An integer scalar with the cross Horovod rank of the calling process.
+        """
+        cross_rank = self.MPI_LIB_CTYPES.horovod_cross_rank()
+        if cross_rank == -1:
+            raise ValueError(
+                'Horovod has not been initialized; use hvd.init().')
+        return cross_rank
 
     def is_homogeneous(self):
         """Returns True if the cluster is homogeneous.
