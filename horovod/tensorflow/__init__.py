@@ -29,7 +29,7 @@ from horovod.tensorflow.functions import allgather_object, broadcast_object, bro
 from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce, _grouped_allreduce, alltoall
 from horovod.tensorflow.mpi_ops import init, shutdown
 from horovod.tensorflow.mpi_ops import is_initialized, start_timeline, stop_timeline
-from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank, is_homogeneous
+from horovod.tensorflow.mpi_ops import size, local_size, cross_size, rank, local_rank, cross_rank, is_homogeneous
 from horovod.tensorflow.mpi_ops import rank_op, local_rank_op, size_op, local_size_op
 from horovod.tensorflow.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.tensorflow.mpi_ops import gloo_enabled, gloo_built
