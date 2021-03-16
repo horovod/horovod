@@ -558,7 +558,6 @@ REGISTER_OP("HorovodGroupedAllreduce")
     .Input("tensors: num_tensors*T")
     .Output("sum: num_tensors*T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
-      int num_tensors;
       for (int i = 0; i < c->num_inputs(); ++i) {
           c->set_output(i, c->input(i));
       }
