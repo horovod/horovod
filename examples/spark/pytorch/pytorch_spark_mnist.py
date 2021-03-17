@@ -34,7 +34,7 @@ parser.add_argument('--master',
                     help='spark master to connect to')
 parser.add_argument('--num-proc', type=int,
                     help='number of worker processes for training, default: `spark.default.parallelism`')
-parser.add_argument('--batch-size', type=int, default=128,
+parser.add_argument('--batch-size', type=int, default=64,
                     help='input batch size for training')
 parser.add_argument('--epochs', type=int, default=12,
                     help='number of epochs to train')
@@ -89,6 +89,7 @@ if __name__ == '__main__':
             self.fc2 = nn.Linear(50, 10)
 
         def forward(self, x):
+            #raise RuntimeError("x shape is {}".format(x.shape))
             x = x.float()
             x = F.relu(F.max_pool2d(self.conv1(x), 2))
             x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
@@ -96,7 +97,7 @@ if __name__ == '__main__':
             x = F.relu(self.fc1(x))
             x = F.dropout(x, training=self.training)
             x = self.fc2(x)
-            return F.log_softmax(x)
+            return F.log_softmax(x, -1)
 
         def configure_optimizers(self):
             return optim.SGD(self.parameters(), lr=0.01, momentum=0.5)
@@ -128,7 +129,7 @@ if __name__ == '__main__':
     torch_estimator = hvd.TorchEstimator(backend=backend,
                                          store=store,
                                          model=model,
-                                         input_shapes={'features': [-1, 1, 28, 28]},
+                                         input_shapes=[[-1, 1, 28, 28]],
                                          feature_cols=['features'],
                                          label_cols=['label'],
                                          validation=0.1,
