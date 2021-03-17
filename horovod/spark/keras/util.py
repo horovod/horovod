@@ -225,7 +225,7 @@ class BareKerasUtil(object):
             input_shapes, label_shapes, batch_size, metadata)
 
         def fn(reader, shuffle_buffer_size, shuffle=False):
-            return batch_generator(reader, shuffle_buffer_size)
+            return batch_generator(reader, shuffle_buffer_size, shuffle)
 
         return fn
 
