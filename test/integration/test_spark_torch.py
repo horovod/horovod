@@ -68,14 +68,14 @@ class XOR(LightningModule):
         return torch.optim.Adam(self.parameters(), lr=0.02)
 
     def training_step(self, batch, batch_nb):
-        x, y = batch['features'], batch['y'].unsqueeze(1)
+        x, y = batch['features'], batch['y']#.unsqueeze(1)
         y_hat = self(x)
         loss = F.binary_cross_entropy(y_hat, y.float())
         tensorboard_logs = {'train_loss': loss}
         return {'loss': loss, 'log': tensorboard_logs}
 
     def validation_step(self, batch, batch_nb):
-        x, y = batch['features'], batch['y'].unsqueeze(1)
+        x, y = batch['features'], batch['y']#.unsqueeze(1)
         y_hat = self(x)
         return {'val_loss': F.binary_cross_entropy(y_hat, y.float())}
 
@@ -125,7 +125,7 @@ class SparkTorchTests(unittest.TestCase):
                     num_proc=2,
                     store=store,
                     model=model,
-                    input_shapes=[[2]],
+                    input_shapes=[[-1, 2]],
                     feature_cols=['features'],
                     label_cols=['y'],
                     validation=0.2,
@@ -155,7 +155,7 @@ class SparkTorchTests(unittest.TestCase):
                     model=model,
                     optimizer=optimizer,
                     loss=loss,
-                    input_shapes=[[2]],
+                    input_shapes=[[-1, 2]],
                     feature_cols=['features'],
                     label_cols=['y'],
                     batch_size=4,
@@ -184,7 +184,7 @@ class SparkTorchTests(unittest.TestCase):
                     backend=ctx,
                     store=store,
                     model=model,
-                    input_shapes=[[2]],
+                    input_shapes=[[-1, 2]],
                     feature_cols=['features'],
                     label_cols=['y'],
                     validation=0.2,
@@ -222,7 +222,7 @@ class SparkTorchTests(unittest.TestCase):
                     model=model,
                     optimizer=optimizer,
                     loss=loss,
-                    input_shapes=[[2]],
+                    input_shapes=[[-1, 2]],
                     feature_cols=['features'],
                     label_cols=['y'],
                     validation=0.2,
@@ -252,7 +252,7 @@ class SparkTorchTests(unittest.TestCase):
 
             torch_model = hvd_spark.TorchModel(history=None,
                                                model=model,
-                                               input_shapes=[[2]],
+                                               input_shapes=[[-1, 2]],
                                                feature_columns=['features'],
                                                label_columns=['y'],
                                                _metadata=metadata)
@@ -361,7 +361,7 @@ class SparkTorchTests(unittest.TestCase):
                             backend=backend,
                             store=store,
                             model=model,
-                            input_shapes=[[2]],
+                            input_shapes=[[-1, 2]],
                             feature_cols=['features'],
                             label_cols=['y'],
                             validation=0.2,
