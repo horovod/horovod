@@ -175,19 +175,20 @@ services:
         TORCHVISION_PACKAGE: torchvision==0.8.2+cu101
         MXNET_PACKAGE: mxnet-cu101==1.7.0.post1
   # mxnet-cu110 does not exist so we use mxnet_head
+  # torch==1.8.0+cu110 does not exist, there is only cu101 and cu111
   test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_0-mxnethead-pyspark_3_0_1:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.0-devel-ubuntu18.04
-        CUDNN_VERSION: 8.0.5.39-1+cuda11.0
-        NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda11.0
+        CUDA_DOCKER_VERSION: 11.1-devel-ubuntu18.04
+        CUDNN_VERSION: 8.0.5.39-1+cuda11.1
+        NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda11.1
         MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.4.1
         KERAS_PACKAGE: keras==2.4.3
-        PYTORCH_PACKAGE: torch==1.8.0+cu110
-        TORCHVISION_PACKAGE: torchvision==0.9.0+cu110
-        MXNET_PACKAGE: mxnet-nightly-cu110
+        PYTORCH_PACKAGE: torch==1.8.0+cu111
+        TORCHVISION_PACKAGE: torchvision==0.9.0+cu111
+        MXNET_PACKAGE: mxnet-nightly-cu112
   test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_0_1:
     extends: test-gpu-base
     build:
@@ -202,18 +203,19 @@ services:
         MXNET_PACKAGE: mxnet-nightly-cu110
 
   # mxnet-cu110 does not exist so we use mxnet_head
+  # torch==1.8.0+cu110 does not exist, there is only cu101 and cu111
   test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_0-mxnethead-pyspark_3_0_1:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.0-devel-ubuntu18.04
-        CUDNN_VERSION: 8.0.5.39-1+cuda11.0
-        NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda11.0
+        CUDA_DOCKER_VERSION: 11.1-devel-ubuntu18.04
+        CUDNN_VERSION: 8.0.5.39-1+cuda11.1
+        NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda11.1
         MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.4.1
         KERAS_PACKAGE: keras==2.4.3
-        PYTORCH_PACKAGE: torch==1.8.0+cu110
-        TORCHVISION_PACKAGE: torchvision==0.9.0+cu110
-        MXNET_PACKAGE: mxnet-nightly-cu110
+        PYTORCH_PACKAGE: torch==1.8.0+cu111
+        TORCHVISION_PACKAGE: torchvision==0.9.0+cu111
+        MXNET_PACKAGE: mxnet-nightly-cu112
         HOROVOD_BUILD_FLAGS: ""
         HOROVOD_MIXED_INSTALL: 1
