@@ -112,9 +112,8 @@ RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly-gpu" ]]; then \
 
 # Install PyTorch (releases).
 # Pin Pillow<7.0 for torchvision < 0.5.0: https://github.com/pytorch/vision/issues/1718
-RUN PYTORCH_CUDA=$(echo ${CUDA_DOCKER_VERSION} | awk -F- '{print $1}' | sed 's/\.//'); \
-    if [[ ${PYTORCH_PACKAGE} != "torch-nightly" ]]; then \
-        pip install ${PYTORCH_PACKAGE} ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/cu${PYTORCH_CUDA}/torch_stable.html; \
+RUN if [[ ${PYTORCH_PACKAGE} != "torch-nightly-cu"* ]]; then \
+        pip install ${PYTORCH_PACKAGE} ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/${PYTORCH_PACKAGE/*+/}/torch_stable.html; \
         if [[ "${TORCHVISION_PACKAGE/%+*/}" == torchvision==0.[1234].* ]]; then \
             pip install "Pillow<7.0" --no-deps; \
         fi; \
@@ -157,18 +156,16 @@ RUN if [[ ${TENSORFLOW_PACKAGE} == "tf-nightly-gpu" ]]; then \
 
 # Install PyTorch (nightly).
 # Pin Pillow<7.0 for torchvision < 0.5.0: https://github.com/pytorch/vision/issues/1718
-RUN PYTORCH_CUDA=$(echo ${CUDA_DOCKER_VERSION} | awk -F- '{print $1}' | sed 's/\.//'); \
-    if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
-        pip install --pre torch ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/nightly/cu${PYTORCH_CUDA}/torch_nightly.html; \
+RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly-cu"* ]]; then \
+        pip install --pre torch ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/nightly/${PYTORCH_PACKAGE/#torch-nightly-/}/torch_nightly.html; \
         if [[ "${TORCHVISION_PACKAGE/%+*/}" == torchvision==0.[1234].* ]]; then \
             pip install "Pillow<7.0" --no-deps; \
         fi; \
     fi
 
 # Install MXNet (nightly).
-RUN MXNET_CUDA=$(echo ${CUDA_DOCKER_VERSION} | awk -F- '{print $1}' | sed 's/\.//'); \
-    if [[ ${MXNET_PACKAGE} == "mxnet-nightly-cu"* ]] || [[ ${MXNET_PACKAGE} == "mxnet-cu"*"=="*b* ]]; then \
-        pip install --pre ${MXNET_PACKAGE/-nightly/}==2.0.0b20210319 -f https://dist.mxnet.io/python/cu${MXNET_CUDA}; \
+RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly-cu"* ]]; then \
+        pip install --pre ${MXNET_PACKAGE/-nightly/}==2.0.0b20210319 -f https://dist.mxnet.io/python/${MXNET_PACKAGE/#mxnet-nightly-/}; \
     fi
 
 # Install Horovod.

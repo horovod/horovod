@@ -180,9 +180,9 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.1-devel-ubuntu18.04
-        CUDNN_VERSION: 8.0.5.39-1+cuda11.1
-        NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda11.1
+        CUDA_DOCKER_VERSION: 11.2.2-devel-ubuntu18.04
+        CUDNN_VERSION: 8.1.1.33-1+cuda11.2
+        NCCL_VERSION_OVERRIDE: 2.8.4-1+cuda11.2
         MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.4.1
         KERAS_PACKAGE: keras==2.4.3
@@ -193,14 +193,14 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.0-devel-ubuntu18.04
-        CUDNN_VERSION: 8.0.5.39-1+cuda11.0
-        NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda11.0
+        CUDA_DOCKER_VERSION: 11.2.2-devel-ubuntu18.04
+        CUDNN_VERSION: 8.1.1.33-1+cuda11.2
+        NCCL_VERSION_OVERRIDE: 2.8.4-1+cuda11.2
         TENSORFLOW_PACKAGE: tf-nightly-gpu==2.6.0.dev20210331
         KERAS_PACKAGE: None
-        PYTORCH_PACKAGE: torch-nightly
+        PYTORCH_PACKAGE: torch-nightly-cu111
         TORCHVISION_PACKAGE: torchvision
-        MXNET_PACKAGE: mxnet-nightly-cu110
+        MXNET_PACKAGE: mxnet-nightly-cu112
 
   # mxnet-cu110 does not exist so we use mxnet_head
   # torch==1.8.0+cu110 does not exist, there is only cu101 and cu111
@@ -208,9 +208,9 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.1-devel-ubuntu18.04
-        CUDNN_VERSION: 8.0.5.39-1+cuda11.1
-        NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda11.1
+        CUDA_DOCKER_VERSION: 11.2.2-devel-ubuntu18.04
+        CUDNN_VERSION: 8.1.1.33-1+cuda11.2
+        NCCL_VERSION_OVERRIDE: 2.8.4-1+cuda11.2
         MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.4.1
         KERAS_PACKAGE: keras==2.4.3
