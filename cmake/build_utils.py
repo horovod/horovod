@@ -37,38 +37,44 @@ def is_mx_cuda():
     return False
 
 def is_mx_mkldnn():
+    return is_mx_dnn('MKLDNN')
+
+def is_mx_onednn():
+    return is_mx_dnn('ONEDNN')
+
+def is_mx_dnn(dnn_flavour: str):
     """
-    Detects if MXNet is build with MKLDNN or oneDNN support.
-    MXNET ≥ 2.0.0 uses oneDNN (renamed from MKLDNN) but still calls the feature 'MKLDNN'.
+    Detects if MXNet is build with given DNN flavour (MKLDNN or oneDNN) support.
+    MXNET ≥ 2.0.0 uses oneDNN (renamed from MKLDNN), < 2.0.0 MKLDNN.
     """
+    dnn_flavour_lower = dnn_flavour.lower()
+    dnn_flavour = dnn_flavour.upper()
     try:
         from mxnet import runtime
         features = runtime.Features()
-        return features.is_enabled('MKLDNN')
+        return features.is_enabled(dnn_flavour)
     except Exception:
-        msg = f'INFO: Cannot detect if MKLDNN / ONEDNN is enabled in MXNet. Please ' \
-              f'set MXNET_USE_MKLDNN=1 if MKLDNN / MXNET_USE_ONEDNN=1 if ONEDNN is ' \
+        msg = f'INFO: Cannot detect if {dnn_flavour} is enabled in MXNet. Please ' \
+              f'set MXNET_USE_{dnn_flavour}=1 if {dnn_flavour} is ' \
               f'enabled in your MXNet build.'
         if 'linux' not in sys.platform:
             # MKLDNN / oneDNN is only enabled by default in MXNet Linux build. Return
             # False by default for non-linux build but still allow users to
             # enable it by using MXNET_USE_MKLDNN / MXNET_USE_ONEDNN env variable.
             print(msg)
-            return os.environ.get(f'MXNET_USE_MKLDNN', '0') == '1' or \
-                   os.environ.get(f'MXNET_USE_ONEDNN', '0') == '1'
+            return os.environ.get(f'MXNET_USE_{dnn_flavour}', '0') == '1'
         else:
             try:
                 import mxnet as mx
                 mx_libs = mx.libinfo.find_lib_path()
                 for mx_lib in mx_libs:
                     output = subprocess.check_output(['readelf', '-d', mx_lib])
-                    if 'mkldnn' in str(output):
+                    if dnn_flavour_lower in str(output):
                         return True
                 return False
             except Exception:
                 print(msg)
-            return os.environ.get(f'MXNET_USE_MKLDNN', '0') == '1' or \
-                   os.environ.get(f'MXNET_USE_ONEDNN', '0') == '1'
+            return os.environ.get(f'MXNET_USE_{dnn_flavour}', '0') == '1'
 
 def get_nvcc_bin():
     cuda_home = os.environ.get('HOROVOD_CUDA_HOME', '/usr/local/cuda')
