@@ -137,10 +137,10 @@ class Status {
 public:
   Status();
   static Status OK();
-  static Status UnknownError(std::string message);
-  static Status PreconditionError(std::string message);
-  static Status Aborted(std::string message);
-  static Status InvalidArgument(std::string message);
+  static Status UnknownError(const std::string& message);
+  static Status PreconditionError(const std::string& message);
+  static Status Aborted(const std::string& message);
+  static Status InvalidArgument(const std::string& message);
   static Status InProgress();
   bool ok() const;
   bool in_progress() const;
@@ -149,7 +149,7 @@ public:
 
 private:
   StatusType type_ = StatusType::OK;
-  std::string reason_ = "";
+  std::string reason_;
   Status(StatusType type, std::string reason);
 };
 
@@ -174,7 +174,7 @@ public:
   void AddDim(int64_t dim);
   void AppendShape(TensorShape& other);
 
-  const std::string DebugString() const;
+  std::string DebugString() const;
   int dims() const;
   int64_t dim_size(int idx) const;
   int64_t num_elements() const;
@@ -226,7 +226,7 @@ public:
   virtual Status AllocateOutput(int output_index, TensorShape shape,
                                 std::shared_ptr<Tensor>* tensor) {
     if (output_index == 0) {
-      return AllocateOutput(shape, tensor);
+      return AllocateOutput(std::move(shape), tensor);
     } else {
       throw std::logic_error("output_index != 0 not supported");
     }
