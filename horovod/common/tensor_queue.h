@@ -32,7 +32,7 @@ public:
   Status AddToTensorQueue(TensorTableEntry& e, Request& message);
   Status AddToTensorQueueMulti(std::vector<TensorTableEntry>& entries, std::vector<Request>& messages);
 
-  void FinalizeTensorQueue(std::vector<StatusCallback>& callbacks_buffer);
+  void FinalizeTensorQueue(const Status& status);
 
   int64_t GetTensorDataForAutotuner(const ResponseList& response_list,
                                     std::vector<std::string>& tensor_names);

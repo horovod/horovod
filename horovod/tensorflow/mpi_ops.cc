@@ -48,10 +48,6 @@ GpuStreamHandle AsGpuStreamValue(Stream* stream);
 #include "tensorflow/stream_executor/stream.h"
 #endif // HAVE_GPU
 
-#if HAVE_NVTX
-#include <nvtx3/nvToolsExt.h>
-#endif // HAVE_NVTX
-
 #define OMPI_SKIP_MPICXX
 #include "../common/operations.h"
 
@@ -382,94 +378,6 @@ common::ReadyEvent* RecordReadyEvent(OpKernelContext* context) {
   return nullptr;
 }
 
-
-enum class RegisteredNvtxOp {
-  HorovodAllreduce = 0,
-  HorovodGroupedAllreduce,
-  HorovodAllgather,
-  HorovodBroadcast,
-  HorovodAlltoall,
-  // Insert new enum values above this line
-  END,
-};
-
-#if HAVE_NVTX
-class TensorflowNvtxHandle {
-public:
-  TensorflowNvtxHandle() noexcept
-      : domain_(nvtxDomainCreateA("HorovodTensorflow")),
-        op_names_{}
-  {
-#define REGISTER_STRING(op) op_names_[static_cast<int>(RegisteredNvtxOp::op)] = nvtxDomainRegisterStringA(domain_, #op)
-    REGISTER_STRING(HorovodAllreduce);
-    REGISTER_STRING(HorovodGroupedAllreduce);
-    REGISTER_STRING(HorovodAllgather);
-    REGISTER_STRING(HorovodBroadcast);
-    REGISTER_STRING(HorovodAlltoall);
-#undef REGISTER_STRING
-  }
-
-  ~TensorflowNvtxHandle() {
-    nvtxDomainDestroy(domain_);
-  }
-
-  nvtxRangeId_t Start(RegisteredNvtxOp msg, int64_t payload) {
-    nvtxEventAttributes_t eventAttrib = {0};
-    eventAttrib.version = NVTX_VERSION;
-    eventAttrib.size = NVTX_EVENT_ATTRIB_STRUCT_SIZE;
-    eventAttrib.messageType = NVTX_MESSAGE_TYPE_REGISTERED;
-    eventAttrib.message.registered = op_names_[static_cast<int>(msg)];
-    eventAttrib.payloadType = NVTX_PAYLOAD_TYPE_INT64;
-    eventAttrib.payload.llValue = payload;
-
-    nvtxRangeId_t range_id = nvtxDomainRangeStartEx(domain_, &eventAttrib);
-    return range_id;
-  }
-
-  void End(nvtxRangeId_t range_id) {
-    nvtxDomainRangeEnd(domain_, range_id);
-  }
-
-private:
-  nvtxDomainHandle_t domain_;
-  nvtxStringHandle_t op_names_[static_cast<int>(RegisteredNvtxOp::END)];
-};
-
-class TensorflowNvtxRange {
-public:
-  TensorflowNvtxRange(RegisteredNvtxOp msg, int64_t payload)
-      : range_id_(tensorflow_nvtx_handle_.Start(msg, payload)) {
-  }
-
-  // Having this as an explicit function (and not in the destructor) makes it
-  // easier to use with pre-C++14 lambda captures, where it is not straightforward
-  // to move ownership.
-  void End() {
-    if (range_id_ != invalid_range_id) {
-      tensorflow_nvtx_handle_.End(range_id_);
-      range_id_ = invalid_range_id;
-    }
-  }
-
-  ~TensorflowNvtxRange() = default;
-
-private:
-  static TensorflowNvtxHandle tensorflow_nvtx_handle_;
-  static constexpr nvtxRangeId_t invalid_range_id = 0xfffffffffffffffful;
-
-  nvtxRangeId_t range_id_;
-};
-
-TensorflowNvtxHandle TensorflowNvtxRange::tensorflow_nvtx_handle_;
-#else // HAVE_NVTX
-class TensorflowNvtxRange {
-public:
-  TensorflowNvtxRange(RegisteredNvtxOp msg, int64_t payload) { }
-  void End() { }
-  ~TensorflowNvtxRange() = default;
-};
-#endif // HAVE_NVTX
-
 } // namespace
 
 class HorovodAllreduceOp : public AsyncOpKernel {
@@ -504,13 +412,10 @@ public:
     auto hvd_context = std::make_shared<TFOpContext>(context);
     auto hvd_tensor = std::make_shared<TFTensor>(tensor);
     auto hvd_output = std::make_shared<TFTensor>(*output);
-    TensorflowNvtxRange nvtx_range(RegisteredNvtxOp::HorovodAllreduce,
-                                   hvd_tensor->size());
     auto enqueue_result = EnqueueTensorAllreduce(
         hvd_context, hvd_tensor, hvd_output, ready_event, node_name, device,
-        [context, done, nvtx_range](const common::Status& status) mutable {
+        [context, done](const common::Status& status) {
           context->SetStatus(ConvertStatus(status));
-          nvtx_range.End();
           done();
         }, reduce_op, (double) prescale_factor_, (double) postscale_factor_);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
@@ -611,23 +516,14 @@ public:
       names.emplace_back(node_name + "_" + std::to_string(i + 1) + "of" +
                          std::to_string(num_tensors));
       hvd_outputs.emplace_back(std::make_shared<TFTensor>(*outputs[i]));
-      TensorflowNvtxRange* nvtx_range_ptr = (i == num_tensors_ - 1)
-          ? new TensorflowNvtxRange(
-              RegisteredNvtxOp::HorovodGroupedAllreduce,
-              std::accumulate(
-                  hvd_tensors.begin(), hvd_tensors.end(), 0ll,
-                  [](int64_t size_sum, const std::shared_ptr<common::Tensor>& tensor)
-                  { return size_sum + tensor->size(); }))
-          : nullptr;
       callbacks.emplace_back(
-          [context, done, callback_mutex, callback_count, num_tensors,
-           nvtx_range_ptr](const common::Status& status) mutable {
+          [context, done, callback_mutex, callback_count, num_tensors]
+          (const common::Status& status) {
             // Must only invoke callback on last tensor.
             std::lock_guard<std::mutex> guard(*callback_mutex);
             (*callback_count)++;
             if (*callback_count == num_tensors) {
               context->SetStatus(ConvertStatus(status));
-              nvtx_range_ptr->End();
               done();
             }
           });
@@ -709,13 +605,10 @@ public:
     auto ready_event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context));
     auto hvd_context = std::make_shared<TFOpContext>(context);
     auto hvd_tensor = std::make_shared<TFTensor>(tensor);
-    TensorflowNvtxRange nvtx_range(RegisteredNvtxOp::HorovodAllgather,
-                                   hvd_tensor->size());
     auto enqueue_result = EnqueueTensorAllgather(
         hvd_context, hvd_tensor, ready_event, node_name, device,
-        [context, done, nvtx_range](const common::Status& status) mutable {
+        [context, done](const common::Status& status) {
           context->SetStatus(ConvertStatus(status));
-          nvtx_range.End();
           done();
         });
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
@@ -793,14 +686,10 @@ public:
     if (output != nullptr) {
       hvd_output = std::make_shared<TFTensor>(*output);
     }
-    TensorflowNvtxRange nvtx_range(RegisteredNvtxOp::HorovodBroadcast,
-                                   hvd_tensor->size());
     auto enqueue_result = EnqueueTensorBroadcast(
         hvd_context, hvd_tensor, hvd_output, root_rank_, ready_event, node_name,
-        device,
-        [context, done, nvtx_range](const common::Status& status) mutable {
+        device, [context, done](const common::Status& status) {
           context->SetStatus(ConvertStatus(status));
-          nvtx_range.End();
           done();
         });
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
@@ -1017,13 +906,10 @@ public:
     auto hvd_context = std::make_shared<TFOpContext>(context);
     auto hvd_tensor = std::make_shared<TFTensor>(tensor);
     auto splits_tensor = std::make_shared<TFTensor>(splits);
-    TensorflowNvtxRange nvtx_range(RegisteredNvtxOp::HorovodAlltoall,
-                                   hvd_tensor->size());
     auto enqueue_result = EnqueueTensorAlltoall(
         hvd_context, hvd_tensor, splits_tensor, ready_event, node_name, device,
-        [context, done, nvtx_range](const common::Status& status) mutable {
+        [context, done](const common::Status& status) {
           context->SetStatus(ConvertStatus(status));
-          nvtx_range.End();
           done();
         });
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);

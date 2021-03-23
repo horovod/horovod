@@ -24,6 +24,7 @@
 #include <unordered_map>
 
 #include "message.h"
+#include "nvtx_op_range.h"
 
 namespace horovod {
 namespace common {
@@ -243,7 +244,7 @@ public:
 using StatusCallback = std::function<void(const Status&)>;
 
 // Table storing Tensors to be reduced, keyed by unique name.
-// This table contains everything necessary to do the reduction.
+// This table contains everything necessary to do the distributed operation.
 struct TensorTableEntry {
   // Name of the tensor.
   std::string tensor_name;
@@ -261,6 +262,9 @@ struct TensorTableEntry {
   int device = CPU_DEVICE_ID;
   // A callback to call with the status.
   StatusCallback callback;
+  // If we build with NVTX support: A range marking the start
+  // and end of the distributed op for this tensor.
+  NvtxOpRange nvtx_op_range;
 
   // Alltoall splits (if tensor is for an Alltoall operation)
   // Note: splits are stored in TensorTableEntry to avoid N^2
@@ -268,6 +272,9 @@ struct TensorTableEntry {
   // on coordinator rank.
   std::vector<int32_t> splits;
   std::shared_ptr<Tensor> received_splits;
+
+  // Execute callback and end NVTX range
+  void FinishWithCallback(const Status& status);
 };
 using TensorTable = std::unordered_map<std::string, TensorTableEntry>;
 

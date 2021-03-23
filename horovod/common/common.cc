@@ -199,5 +199,13 @@ void parse_and_set_affinity(const char* affinity, int local_size, int local_rank
   free(affinity_copy);
 }
 
+void TensorTableEntry::FinishWithCallback(const Status& status) {
+  // Callback can be null if the rank sent Join request.
+  if (callback != nullptr) {
+    callback(status);
+  }
+  nvtx_op_range.End();
+}
+
 } // namespace common
 } // namespace horovod

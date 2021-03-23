@@ -48,12 +48,11 @@ Status TensorQueue::AddToTensorQueueMulti(std::vector<TensorTableEntry>& entries
   return Status::OK();
 }
 
-// Put callbacks for each tensor in the callback buffer and clear tensor queue
-void TensorQueue::FinalizeTensorQueue(
-    std::vector<StatusCallback>& callbacks_buffer) {
+// Execute callback for each tensor and clear tensor queue
+void TensorQueue::FinalizeTensorQueue(const Status& status) {
   std::lock_guard<std::mutex> guard(mutex_);
   for (auto& e : tensor_table_) {
-    callbacks_buffer.emplace_back(e.second.callback);
+    e.second.FinishWithCallback(status);
   }
   tensor_table_.clear();
   while (!message_queue_.empty()) {
@@ -176,8 +175,7 @@ void TensorQueue::RemoveJoinTensor() {
   auto iter = tensor_table_.find(JOIN_TENSOR_NAME);
   assert(iter != tensor_table_.end());
   auto& e = iter->second;
-  Status status;
-  e.callback(status);
+  e.FinishWithCallback(Status::OK());
   tensor_table_.erase(iter);
 }
 
