@@ -1041,7 +1041,7 @@ Status EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts
 Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,
                               std::shared_ptr<ReadyEvent> ready_event,
-                              const std::string name, const int device,
+                              const std::string& name, const int device,
                               StatusCallback callback) {
   Request message;
   message.set_request_rank(horovod_global.controller->GetRank());
@@ -1077,7 +1077,7 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,
                               std::shared_ptr<Tensor> output, int root_rank,
                               std::shared_ptr<ReadyEvent> ready_event,
-                              const std::string name, const int device,
+                              const std::string& name, const int device,
                               StatusCallback callback) {
   Request message;
   message.set_request_rank(horovod_global.controller->GetRank());
@@ -1116,7 +1116,7 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
                              std::shared_ptr<Tensor> tensor,
                              std::shared_ptr<Tensor> splits,
                              std::shared_ptr<ReadyEvent> ready_event,
-                             const std::string name, const int device,
+                             const std::string& name, const int device,
                              StatusCallback callback) {
   // Check arguments
   if (splits->shape().dims() > 1) {
@@ -1179,7 +1179,7 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
 // must be running before this function is called.
 Status EnqueueJoin(std::shared_ptr<OpContext> context,
                    std::shared_ptr<ReadyEvent> ready_event,
-                   const std::string name, const int device,
+                   const std::string& name, const int device,
                    StatusCallback callback) {
   Request message;
   message.set_request_rank(horovod_global.controller->GetRank());
