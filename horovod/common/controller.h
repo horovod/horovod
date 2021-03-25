@@ -108,15 +108,6 @@ public:
 
   int GetLocalSizeAtCrossRank(int i);
 
-  // Set ranks that will be used to create global communicator.
-  void SetRanks(const int* ranks, int nrank) {
-    ranks_.clear();
-    for (auto i = 0; i < nrank; ++i) {
-      ranks_.push_back(ranks[i]);
-    }
-  };
-
-  std::vector<int>& GetRanks() { return ranks_; };
   int GetRank() const { return rank_; };
   int GetLocalRank() const { return local_rank_; };
   int GetCrossRank() const { return cross_rank_; };
@@ -186,9 +177,6 @@ protected:
   int cross_size_ = 1;
   bool is_coordinator_ = false;
   bool is_homogeneous_ = false;
-
-  // ranks of the horovod world
-  std::vector<int> ranks_;
 
   // COMM_WORLD ranks of processes running on this node.
   std::vector<int> local_comm_ranks_;

@@ -46,12 +46,16 @@ struct MPIContext {
     LOG(DEBUG) << "MPI context enabled.";
   };
 
-  bool IsEnabled() { return enabled_; }
+  bool IsEnabled() const { return enabled_; }
+
+  // Set ranks that will be used to create global communicator.
+  void SetRanks(const int* ranks, int nrank) {
+    ranks_.assign(ranks, ranks + nrank);
+  }
 
   // Take an argument of context manager pointer that will take care of
   // initialization of MPI environment.
-  void Initialize(const std::vector<int>& ranks,
-                  MPIContextManager& ctx_manager);
+  void Initialize(MPIContextManager& ctx_manager);
 
   // Take an argument of context manager pointer that will take care of
   // finalization of MPI environment.
@@ -65,6 +69,8 @@ struct MPIContext {
   MPI_Comm GetMPICommunicator(Communicator comm);
 
   int GetMPITypeSize(DataType dtype);
+
+  std::vector<int> ranks_;
 
   // Flag indicating whether mpi is enabled.
   bool enabled_ = false;
