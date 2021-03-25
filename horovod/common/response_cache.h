@@ -106,7 +106,7 @@ private:
 // for cheaper coordination.
 class CacheCoordinator {
 public:
-  CacheCoordinator(size_t num_active_bits_);
+  explicit CacheCoordinator(size_t num_active_bits_);
 
   void record_hit(uint32_t bit);
 
