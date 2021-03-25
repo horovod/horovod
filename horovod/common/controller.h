@@ -52,8 +52,8 @@ public:
   virtual void CrossRankBitwiseOr(std::vector<long long>& bitvector,
                                   int count) = 0;
 
-  virtual void Bcast(void* buffer, size_t size, int root_rank, Communicator
-  communicator) = 0;
+  virtual void Bcast(void* buffer, size_t size, int root_rank,
+                     Communicator communicator) = 0;
 
   virtual void AlltoallGetRecvSplits(const std::vector<int32_t>& splits,
                                      std::vector<int32_t>& recvsplits) = 0;
@@ -117,13 +117,13 @@ public:
   };
 
   std::vector<int>& GetRanks() { return ranks_; };
-  int GetRank() { return rank_; };
-  int GetLocalRank() { return local_rank_; };
-  int GetCrossRank() { return cross_rank_; };
-  int GetSize() { return size_; };
-  int GetLocalSize() { return local_size_; };
-  int GetCrossSize() { return cross_size_; };
-  const std::vector<int>& GetLocalCommRanks() { return local_comm_ranks_; };
+  int GetRank() const { return rank_; };
+  int GetLocalRank() const { return local_rank_; };
+  int GetCrossRank() const { return cross_rank_; };
+  int GetSize() const { return size_; };
+  int GetLocalSize() const { return local_size_; };
+  int GetCrossSize() const { return cross_size_; };
+  const std::vector<int>& GetLocalCommRanks() const { return local_comm_ranks_; };
   bool IsCoordinator() const { return is_coordinator_; };
   bool IsHomogeneous() const { return is_homogeneous_; };
   void SetTimelineEnabled(bool value);
