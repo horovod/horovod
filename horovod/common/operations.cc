@@ -341,7 +341,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // Otherwise, let MPI ops be in charge.
   auto mpi_ctx_manager = MPIContextManager();
 #endif
-  mpi_context.Initialize(state.controller->GetRanks(), mpi_ctx_manager);
+  mpi_context.Initialize(mpi_ctx_manager);
 #endif
 
 #if HAVE_GLOO
@@ -637,6 +637,7 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
     if (horovod_global.cpu_operation == LibType::MPI ||
         horovod_global.control_operation == LibType::MPI) {
       mpi_context.Enable();
+      mpi_context.SetRanks(ranks, nranks);
     }
 
     if (horovod_global.control_operation == LibType::MPI){
@@ -645,7 +646,6 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
           horovod_global.tensor_queue, horovod_global.timeline,
           horovod_global.parameter_manager, horovod_global.group_table,
           mpi_context));
-      horovod_global.controller->SetRanks(ranks, nranks);
     }
 #endif
 

@@ -83,8 +83,7 @@ int MPIContext::GetMPITypeSize(DataType dtype) {
   return out;
 }
 
-void MPIContext::Initialize(const std::vector<int>& ranks,
-                            MPIContextManager& ctx_manager) {
+void MPIContext::Initialize(MPIContextManager& ctx_manager) {
 
   if (!enabled_) {
     return;
@@ -123,11 +122,11 @@ void MPIContext::Initialize(const std::vector<int>& ranks,
     should_finalize = true;
   }
 
-  if (!ranks.empty()) {
+  if (!ranks_.empty()) {
     MPI_Group world_group;
     MPI_Comm_group(MPI_COMM_WORLD, &world_group);
     MPI_Group work_group;
-    MPI_Group_incl(world_group, ranks.size(), ranks.data(), &work_group);
+    MPI_Group_incl(world_group, ranks_.size(), ranks_.data(), &work_group);
     MPI_Comm_create_group(MPI_COMM_WORLD, work_group, 0, &(mpi_comm));
     if (mpi_comm == MPI_COMM_NULL) {
       LOG(WARNING) << "Unable to create Horovod communicator, using "
