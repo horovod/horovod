@@ -85,15 +85,16 @@ class custom_build_ext(build_ext):
             # -- specifies that these args are going to the native build tool: make
             cmake_build_args += ['--'] + make_args
 
-        if not os.path.exists(self.build_temp):
-            os.makedirs(self.build_temp)
+        cmake_build_dir = os.path.join(self.build_temp, config)
+        if not os.path.exists(cmake_build_dir):
+            os.makedirs(cmake_build_dir)
 
         # Config and build the extension
         try:
             subprocess.check_call([cmake_bin, self.extensions[0].cmake_lists_dir] + cmake_args,
-                                  cwd=self.build_temp)
+                                  cwd=cmake_build_dir)
             subprocess.check_call([cmake_bin, '--build', '.'] + cmake_build_args,
-                                  cwd=self.build_temp)
+                                  cwd=cmake_build_dir)
         except OSError as e:
             raise RuntimeError('CMake failed: {}'.format(str(e)))
 
