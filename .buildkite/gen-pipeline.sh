@@ -44,7 +44,8 @@ tests=$(if [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}
   printf "test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_6_0_p0-pyspark_3_0_1 "
   # our baseline again
 # printf "test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1 "
-  printf "test-cpu-gloo-py3_8-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1 "
+#Disabled until we fix nightlies: https://github.com/horovod/horovod/pull/2731
+#  printf "test-cpu-gloo-py3_8-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1 "
 
   # then we vary the frameworks for gpu
   # we deviate from torch1_2_0 for tf1_15_5 as torch==1.2.0+cu100 does not exist but torch==1.3.*+cu100 does
@@ -53,7 +54,8 @@ tests=$(if [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}
   printf "test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1 "
   # we deviate from mxnet1_7_0_p2 here as mxnet-cu110 does not exist, so we use mxnethead
   printf "test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1 "
-  printf "test-gpu-gloo-py3_8-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1 "
+#Disabled until we fix nightlies: https://github.com/horovod/horovod/pull/2731
+#  printf "test-gpu-gloo-py3_8-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1 "
 
   # and one final test with mixed cpu+gpu
   # we deviate from mxnet1_7_0_p2 here as mxnet-cu110 does not exist, so we use mxnethead
