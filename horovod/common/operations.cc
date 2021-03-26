@@ -1069,11 +1069,11 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
 
   TensorTableEntry e;
   e.tensor_name = name;
-  e.context = std::move(context);
-  e.tensor = std::move(tensor);
-  e.ready_event = std::move(ready_event);
+  e.context = context;
+  e.tensor = tensor;
+  e.ready_event = ready_event;
   e.device = device;
-  e.callback = std::move(callback);
+  e.callback = callback;
   e.nvtx_op_range.Start(RegisteredNvtxOp::HorovodAllgather, e.tensor->size());
 
   if (horovod_global.shut_down) {
@@ -1107,13 +1107,13 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
 
   TensorTableEntry e;
   e.tensor_name = name;
-  e.context = std::move(context);
-  e.tensor = std::move(tensor);
-  e.output = std::move(output);
+  e.context = context;
+  e.tensor = tensor;
+  e.output = output;
   e.root_rank = root_rank;
-  e.ready_event = std::move(ready_event);
+  e.ready_event = ready_event;
   e.device = device;
-  e.callback = std::move(callback);
+  e.callback = callback;
   e.nvtx_op_range.Start(RegisteredNvtxOp::HorovodBroadcast, e.tensor->size());
 
   if (horovod_global.shut_down) {
@@ -1154,15 +1154,15 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
 
   TensorTableEntry e;
   e.tensor_name = name;
-  e.context = std::move(context);
-  e.tensor = std::move(tensor);
-  e.ready_event = std::move(ready_event);
+  e.context = context;
+  e.tensor = tensor;
+  e.ready_event = ready_event;
   e.device = device;
-  e.callback = std::move(callback);
+  e.callback = callback;
   e.nvtx_op_range.Start(RegisteredNvtxOp::HorovodAlltoall, e.tensor->size());
 
   int64_t splits_first_dim = splits->shape().dim_size(0);
-  int64_t tensor_first_dim = e.tensor->shape().dim_size(0);
+  int64_t tensor_first_dim = tensor->shape().dim_size(0);
   int world_size = horovod_global.controller->GetSize();
   if (splits_first_dim == world_size) {
     auto splits_data = static_cast<const int32_t*>(splits->data());
@@ -1205,10 +1205,10 @@ Status EnqueueJoin(std::shared_ptr<OpContext> context,
 
   TensorTableEntry e;
   e.tensor_name = name;
-  e.context = std::move(context);
-  e.ready_event = std::move(ready_event);
+  e.context = context;
+  e.ready_event = ready_event;
   e.device = device;
-  e.callback = std::move(callback);
+  e.callback = callback;
 
   if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
