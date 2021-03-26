@@ -265,7 +265,7 @@ struct TensorTableEntry {
   // If we build with NVTX support: A range marking the start
   // and end of the distributed op for this tensor (may be
   // shared by multiple tensors).
-  std::shared_ptr<NvtxOpRange> nvtx_op_range;
+  SharedNvtxOpRange nvtx_op_range;
 
   // Alltoall splits (if tensor is for an Alltoall operation)
   // Note: splits are stored in TensorTableEntry to avoid N^2

@@ -2,6 +2,7 @@
 #define HOROVOD_NVTX_OP_RANGE_H
 
 #if HAVE_NVTX
+#include <memory>
 #include <nvtx3/nvToolsExt.h>
 #endif // HAVE_NVTX
 
@@ -61,11 +62,24 @@ private:
   nvtxRangeId_t range_id_;
 };
 
-#else // HAVE_NVTX
-class NvtxOpRange {
+class SharedNvtxOpRange {
 public:
-  NvtxOpRange(RegisteredNvtxOp msg, int64_t payload) { }
-  ~NvtxOpRange() = default;
+  void Start(RegisteredNvtxOp msg, int64_t payload) {
+    p_ = std::make_shared<NvtxOpRange>(msg, payload);
+  }
+
+  void End() {
+    p_.reset();
+  }
+private:
+  std::shared_ptr<NvtxOpRange> p_;
+};
+
+#else // HAVE_NVTX
+class SharedNvtxOpRange {
+public:
+  void Start(RegisteredNvtxOp msg, int64_t payload) { }
+  void End() { }
 };
 #endif // HAVE_NVTX
 
