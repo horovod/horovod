@@ -18,10 +18,17 @@ NvtxOpsHandle::NvtxOpsHandle() noexcept
 }
 
 NvtxOpsHandle::~NvtxOpsHandle() {
-  nvtxDomainDestroy(domain_);
+  Disable();
 }
 
-NvtxOpsHandle NvtxOpRange::nvtx_ops_handle_;
+void NvtxOpsHandle::Disable() {
+  if (domain_ != nullptr) {
+    nvtxDomainDestroy(domain_);
+    domain_ = nullptr;
+  }
+}
+
+NvtxOpsHandle NvtxOpRange::nvtx_ops_handle;
 
 } // namespace common
 } // namespace horovod

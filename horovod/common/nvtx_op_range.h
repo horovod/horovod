@@ -25,7 +25,11 @@ public:
   NvtxOpsHandle() noexcept;
   ~NvtxOpsHandle();
 
-  inline nvtxRangeId_t Start(RegisteredNvtxOp msg, int64_t payload) {
+  inline nvtxRangeId_t StartRange(RegisteredNvtxOp msg, int64_t payload) {
+    if (domain_ == nullptr) {
+      return invalid_range_id;
+    }
+
     nvtxEventAttributes_t eventAttrib = {0};
     eventAttrib.version = NVTX_VERSION;
     eventAttrib.size = NVTX_EVENT_ATTRIB_STRUCT_SIZE;
@@ -38,27 +42,33 @@ public:
     return range_id;
   }
 
-  inline void End(nvtxRangeId_t range_id) {
+  inline void EndRange(nvtxRangeId_t range_id) {
+    if (domain_ == nullptr || range_id == invalid_range_id) {
+      return;
+    }
     nvtxDomainRangeEnd(domain_, range_id);
   }
 
+  void Disable();
+
+  static constexpr nvtxRangeId_t invalid_range_id = 0xfffffffffffffffful;
+
 private:
-  nvtxDomainHandle_t domain_;
+  nvtxDomainHandle_t domain_;   // nullptr if disabled
   nvtxStringHandle_t op_names_[static_cast<int>(RegisteredNvtxOp::END)];
 };
 
 class NvtxOpRange {
 public:
   NvtxOpRange(RegisteredNvtxOp msg, int64_t payload)
-      : range_id_(nvtx_ops_handle_.Start(msg, payload)) {
+      : range_id_(nvtx_ops_handle.StartRange(msg, payload)) {
   }
 
-  ~NvtxOpRange() {
-    nvtx_ops_handle_.End(range_id_);
-  }
+  ~NvtxOpRange() { nvtx_ops_handle.EndRange(range_id_); }
+
+  static NvtxOpsHandle nvtx_ops_handle;
 
 private:
-  static NvtxOpsHandle nvtx_ops_handle_;
   nvtxRangeId_t range_id_;
 };
 
@@ -71,6 +81,7 @@ public:
   void End() {
     p_.reset();
   }
+
 private:
   std::shared_ptr<NvtxOpRange> p_;
 };

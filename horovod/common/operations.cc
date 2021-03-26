@@ -412,6 +412,13 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   gpu_context.finalizer_thread_pool.create(state.num_nccl_streams);
 #endif
 
+#if HAVE_NVTX
+  if (GetBoolEnvOrDefault(HOROVOD_DISABLE_NVTX_RANGES, false)) {
+    NvtxOpRange::nvtx_ops_handle.Disable();
+    horovod_global.timeline.DisableNvtx();
+  }
+#endif // HAVE_NVTX
+
   // Open the timeline file on coordinator.
   auto timeline_env = std::getenv(HOROVOD_TIMELINE);
   auto horovod_timeline = timeline_env != nullptr ? std::string(timeline_env) : std::string("");

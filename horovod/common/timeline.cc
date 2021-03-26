@@ -338,13 +338,15 @@ public:
   { }
 
   ~TimelineNvtxHandle() {
-    nvtxDomainDestroy(main_domain_);
-    nvtxDomainDestroy(activity_domain_);
+    Disable();
   }
 
   void StartRange(const std::string& tensor_name,
                   const std::string& event_category,
                   int64_t tensor_size_payload = -1) {
+    if (main_domain_ == nullptr) {
+      return;
+    }
     const auto message = event_category + " " + tensor_name;
     nvtxRangeId_t range_id = NvtxStartDomainRange(main_domain_, message,
                                                   tensor_size_payload);
@@ -352,6 +354,9 @@ public:
   }
 
   void EndRange(const std::string& tensor_name) {
+    if (main_domain_ == nullptr) {
+      return;
+    }
     auto iter = main_tensor_nvtx_range_.find(tensor_name);
     if (iter != main_tensor_nvtx_range_.end()) {
       auto range_id = iter->second;
@@ -362,17 +367,34 @@ public:
 
   void StartActivityRange(const std::string& tensor_name,
                           const std::string& activity) {
+    if (activity_domain_ == nullptr) {
+      return;
+    }
     const auto message = activity + " " + tensor_name;
     nvtxRangeId_t range_id = NvtxStartDomainRange(activity_domain_, message);
     activity_tensor_nvtx_range_.emplace(tensor_name, range_id);
   }
 
   void EndActivityRange(const std::string& tensor_name) {
+    if (activity_domain_ == nullptr) {
+      return;
+    }
     auto iter = activity_tensor_nvtx_range_.find(tensor_name);
     if (iter != activity_tensor_nvtx_range_.end()) {
       auto range_id = iter->second;
       nvtxDomainRangeEnd(activity_domain_, range_id);
       activity_tensor_nvtx_range_.erase(iter);
+    }
+  }
+
+  void Disable() {
+    if (main_domain_ != nullptr) {
+      nvtxDomainDestroy(main_domain_);
+      main_domain_ = nullptr;
+    }
+    if (activity_domain_ != nullptr) {
+      nvtxDomainDestroy(activity_domain_);
+      activity_domain_ = nullptr;
     }
   }
 
@@ -395,8 +417,8 @@ private:
     return range_id;
   }
 
-  nvtxDomainHandle_t main_domain_;
-  nvtxDomainHandle_t activity_domain_;
+  nvtxDomainHandle_t main_domain_;      // nullptr if disabled
+  nvtxDomainHandle_t activity_domain_;  // nullptr if disabled
 
   std::unordered_map<std::string, nvtxRangeId_t> main_tensor_nvtx_range_;
   std::unordered_map<std::string, nvtxRangeId_t> activity_tensor_nvtx_range_;
@@ -411,6 +433,7 @@ public:
   void StartActivityRange(const std::string& tensor_name,
                           const std::string& activity) {}
   void EndActivityRange(const std::string& tensor_name) {}
+  void Disable() {}
 };
 #endif // HAVE_NVTX
 
@@ -610,5 +633,10 @@ void Timeline::SetPendingTimelineFile(const std::string& filename) {
   writer_.SetPendingTimelineFile(filename);
   LOG(INFO) << "Set pending timeline file to " << filename;
 }
+
+void Timeline::DisableNvtx() {
+  nvtx_handle_->Disable();
+}
+
 } // namespace common
 } // namespace horovod

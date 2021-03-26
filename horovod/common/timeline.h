@@ -129,6 +129,7 @@ public:
            const std::shared_ptr<Tensor>& output_tensor);
   void MarkCycleStart();
   void SetPendingTimelineFile(const std::string& filename);
+  void DisableNvtx();
 
 private:
   long TimeSinceStartMicros() const;
