@@ -102,7 +102,7 @@ services:
     build:
       args:
         TENSORFLOW_PACKAGE: tf-nightly
-        KERAS_PACKAGE: keras==2.4.3
+        KERAS_PACKAGE: keras-nightly
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: torchvision
         MXNET_PACKAGE: mxnet-nightly
@@ -210,7 +210,7 @@ services:
         CUDNN_VERSION: 8.0.5.39-1+cuda11.0
         NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda11.0
         TENSORFLOW_PACKAGE: tf-nightly-gpu
-        KERAS_PACKAGE: keras==2.4.3
+        KERAS_PACKAGE: keras-nightly
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: torchvision
         MXNET_PACKAGE: mxnet-nightly-cu110
