@@ -204,7 +204,7 @@ void TensorTableEntry::FinishWithCallback(const Status& status) {
   if (callback != nullptr) {
     callback(status);
   }
-  nvtx_op_range.End();
+  nvtx_op_range.reset();
 }
 
 } // namespace common

@@ -48,37 +48,23 @@ private:
 
 class NvtxOpRange {
 public:
-  NvtxOpRange()
-      : range_id_(invalid_range_id_) {
-  }
-  ~NvtxOpRange() = default;
-
-  inline void Start(RegisteredNvtxOp msg, int64_t payload) {
-    if (range_id_ == invalid_range_id_) {
-      range_id_ = nvtx_ops_handle_.Start(msg, payload);
-    }
+  NvtxOpRange(RegisteredNvtxOp msg, int64_t payload)
+      : range_id_(nvtx_ops_handle_.Start(msg, payload)) {
   }
 
-  inline void End() {
-    if (range_id_ != invalid_range_id_) {
-      nvtx_ops_handle_.End(range_id_);
-      range_id_ = invalid_range_id_;
-    }
+  ~NvtxOpRange() {
+    nvtx_ops_handle_.End(range_id_);
   }
 
 private:
   static NvtxOpsHandle nvtx_ops_handle_;
-  static constexpr nvtxRangeId_t invalid_range_id_ = 0xfffffffffffffffful;
-
   nvtxRangeId_t range_id_;
 };
 
 #else // HAVE_NVTX
 class NvtxOpRange {
 public:
-  NvtxOpRange() { }
-  inline void Start(RegisteredNvtxOp msg, int64_t payload) { }
-  inline void End() { }
+  NvtxOpRange(RegisteredNvtxOp msg, int64_t payload) { }
   ~NvtxOpRange() = default;
 };
 #endif // HAVE_NVTX

@@ -1006,15 +1006,19 @@ Status EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts
   // Start appropriate NVTX range
   if (tensors.size() == 1) {
     auto& e = entries[0];
-    e.nvtx_op_range.Start(RegisteredNvtxOp::HorovodAllreduce, e.tensor->size());
+    e.nvtx_op_range = std::make_shared<NvtxOpRange>(
+        RegisteredNvtxOp::HorovodAllreduce, e.tensor->size());
   } else {
     auto total_size =
         std::accumulate(entries.begin(), entries.end(), 0ll,
                         [](int64_t size_sum, const TensorTableEntry& e) {
                           return size_sum + e.tensor->size();
                         });
-    auto& e = entries[tensors.size() - 1];
-    e.nvtx_op_range.Start(RegisteredNvtxOp::HorovodGroupedAllreduce, total_size);
+    auto range = std::make_shared<NvtxOpRange>(
+        RegisteredNvtxOp::HorovodGroupedAllreduce, total_size);
+    for (auto& e : entries) {
+      e.nvtx_op_range = range;
+    }
   }
 
   std::string tensors_enqueued;
@@ -1059,12 +1063,13 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
 
   TensorTableEntry e;
   e.tensor_name = name;
-  e.context = context;
-  e.tensor = tensor;
-  e.ready_event = ready_event;
+  e.context = std::move(context);
+  e.tensor = std::move(tensor);
+  e.ready_event = std::move(ready_event);
   e.device = device;
-  e.callback = callback;
-  e.nvtx_op_range.Start(RegisteredNvtxOp::HorovodAllgather, e.tensor->size());
+  e.callback = std::move(callback);
+  e.nvtx_op_range = std::make_shared<NvtxOpRange>(
+      RegisteredNvtxOp::HorovodAllgather, e.tensor->size());
 
   if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
@@ -1097,14 +1102,15 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
 
   TensorTableEntry e;
   e.tensor_name = name;
-  e.context = context;
-  e.tensor = tensor;
-  e.output = output;
+  e.context = std::move(context);
+  e.tensor = std::move(tensor);
+  e.output = std::move(output);
   e.root_rank = root_rank;
-  e.ready_event = ready_event;
+  e.ready_event = std::move(ready_event);
   e.device = device;
-  e.callback = callback;
-  e.nvtx_op_range.Start(RegisteredNvtxOp::HorovodBroadcast, e.tensor->size());
+  e.callback = std::move(callback);
+  e.nvtx_op_range = std::make_shared<NvtxOpRange>(
+      RegisteredNvtxOp::HorovodBroadcast, e.tensor->size());
 
   if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
@@ -1144,15 +1150,16 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
 
   TensorTableEntry e;
   e.tensor_name = name;
-  e.context = context;
-  e.tensor = tensor;
-  e.ready_event = ready_event;
+  e.context = std::move(context);
+  e.tensor = std::move(tensor);
+  e.ready_event = std::move(ready_event);
   e.device = device;
-  e.callback = callback;
-  e.nvtx_op_range.Start(RegisteredNvtxOp::HorovodAlltoall, e.tensor->size());
+  e.callback = std::move(callback);
+  e.nvtx_op_range = std::make_shared<NvtxOpRange>(
+      RegisteredNvtxOp::HorovodAlltoall, e.tensor->size());
 
   int64_t splits_first_dim = splits->shape().dim_size(0);
-  int64_t tensor_first_dim = tensor->shape().dim_size(0);
+  int64_t tensor_first_dim = e.tensor->shape().dim_size(0);
   int world_size = horovod_global.controller->GetSize();
   if (splits_first_dim == world_size) {
     auto splits_data = static_cast<const int32_t*>(splits->data());
@@ -1195,10 +1202,10 @@ Status EnqueueJoin(std::shared_ptr<OpContext> context,
 
   TensorTableEntry e;
   e.tensor_name = name;
-  e.context = context;
-  e.ready_event = ready_event;
+  e.context = std::move(context);
+  e.ready_event = std::move(ready_event);
   e.device = device;
-  e.callback = callback;
+  e.callback = std::move(callback);
 
   if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
