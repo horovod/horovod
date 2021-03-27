@@ -468,6 +468,7 @@ steps:
 - wait
 - wait
 - wait
+- wait
 - label: ':pytest: MPI Parallel PyTests (test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1)'
   command: bash -c "  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
   artifact_paths: "artifacts/**"
@@ -1412,6 +1413,7 @@ steps:
     automatic: true
   agents:
     queue: cpu
+- wait
 - wait
 - wait
 - wait
@@ -2699,6 +2701,7 @@ steps:
 - wait
 - wait
 - wait
+- wait
 - label: ':pytest: Gloo Parallel PyTests (test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1)'
   command: bash -c "HOROVOD_TEST_GPU=1 cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
   artifact_paths: "artifacts/**"
@@ -2972,6 +2975,7 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v510
+- wait
 - wait
 - wait
 - label: ':pytest: Gloo Parallel PyTests (test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1)'
@@ -3727,6 +3731,7 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v510
+- wait
 - label: ':docker: Build test-cpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_0_1'
   plugins:
   - docker-compose#v3.5.0:

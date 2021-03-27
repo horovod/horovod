@@ -430,13 +430,13 @@ do
   done
 done <<< "$test_stages"
 
-# wait for all builds to finish
-echo "- wait"
-
 # iterate over the test blocks
 while read test_stage
 do
   read -r -a tests <<< "$test_stage"
+
+  # wait before we enter the next stage
+  echo "- wait"
 
   # build only test containers that haven't been built yet: all nightly head versions
   for test in ${tests[@]-}; do
