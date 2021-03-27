@@ -32,6 +32,13 @@ test_stages=$(if [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRA
   printf "test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1 "
   printf "\n"
 
+  # then we vary the baseline along the Python dimension and PySpark together
+  # run_gloo_integration expects these to have Gloo mpi kind to run 'Elastic Spark * Tests'
+  printf "test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_3_4 "
+  printf "test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_4_7 "
+  # our baseline again
+# printf "test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1 "
+
   # then we vary the baseline along the framework dimensions all together
   # some frameworks are not available for our baseline Python version 3.8, so we use Python 3.7
   # run_gloo_integration expects tf1 to have Gloo mpi kind to run 'Elastic Spark * Tests'
@@ -47,14 +54,6 @@ test_stages=$(if [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRA
 # printf "test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1 "
   # our head versions test is deferred to the end
 # printf "test-cpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_0_1 "
-  printf "\n"
-
-  # then we vary the baseline along the Python dimension and PySpark together
-  # run_gloo_integration expects these to have Gloo mpi kind to run 'Elastic Spark * Tests'
-  printf "test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_3_4 "
-  printf "test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_4_7 "
-  # our baseline again
-# printf "test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1 "
   printf "\n"
 
   # then we test with gpu
