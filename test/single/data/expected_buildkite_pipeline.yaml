@@ -14,6 +14,232 @@ steps:
     automatic: true
   agents:
     queue: cpu
+- label: ':docker: Build test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1'
+  plugins:
+  - docker-compose#v3.5.0:
+      build: test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
+      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
+      cache-from: test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1-latest
+      config: docker-compose.test.yml
+      push-retries: 5
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 30
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':docker: Build test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1'
+  plugins:
+  - docker-compose#v3.5.0:
+      build: test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
+      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
+      cache-from: test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1-latest
+      config: docker-compose.test.yml
+      push-retries: 5
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 30
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':docker: Build test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1'
+  plugins:
+  - docker-compose#v3.5.0:
+      build: test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
+      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
+      cache-from: test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1-latest
+      config: docker-compose.test.yml
+      push-retries: 5
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 30
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':docker: Build test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1'
+  plugins:
+  - docker-compose#v3.5.0:
+      build: test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
+      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
+      cache-from: test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1-latest
+      config: docker-compose.test.yml
+      push-retries: 5
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 30
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':docker: Build test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_1_p0-pyspark_3_0_1'
+  plugins:
+  - docker-compose#v3.5.0:
+      build: test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_1_p0-pyspark_3_0_1
+      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
+      cache-from: test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_1_p0-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_1_p0-pyspark_3_0_1-latest
+      config: docker-compose.test.yml
+      push-retries: 5
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 30
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':docker: Build test-cpu-gloo-py3_7-tf2_0_4-keras2_3_1-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1'
+  plugins:
+  - docker-compose#v3.5.0:
+      build: test-cpu-gloo-py3_7-tf2_0_4-keras2_3_1-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1
+      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
+      cache-from: test-cpu-gloo-py3_7-tf2_0_4-keras2_3_1-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-cpu-gloo-py3_7-tf2_0_4-keras2_3_1-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1-latest
+      config: docker-compose.test.yml
+      push-retries: 5
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 30
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':docker: Build test-cpu-gloo-py3_7-tf2_1_3-keras2_3_1-torch1_4_0-mxnet1_5_1_p0-pyspark_3_0_1'
+  plugins:
+  - docker-compose#v3.5.0:
+      build: test-cpu-gloo-py3_7-tf2_1_3-keras2_3_1-torch1_4_0-mxnet1_5_1_p0-pyspark_3_0_1
+      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
+      cache-from: test-cpu-gloo-py3_7-tf2_1_3-keras2_3_1-torch1_4_0-mxnet1_5_1_p0-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-cpu-gloo-py3_7-tf2_1_3-keras2_3_1-torch1_4_0-mxnet1_5_1_p0-pyspark_3_0_1-latest
+      config: docker-compose.test.yml
+      push-retries: 5
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 30
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':docker: Build test-cpu-gloo-py3_8-tf2_2_2-keras2_3_1-torch1_5_1-mxnet1_5_1_p0-pyspark_3_0_1'
+  plugins:
+  - docker-compose#v3.5.0:
+      build: test-cpu-gloo-py3_8-tf2_2_2-keras2_3_1-torch1_5_1-mxnet1_5_1_p0-pyspark_3_0_1
+      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
+      cache-from: test-cpu-gloo-py3_8-tf2_2_2-keras2_3_1-torch1_5_1-mxnet1_5_1_p0-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-cpu-gloo-py3_8-tf2_2_2-keras2_3_1-torch1_5_1-mxnet1_5_1_p0-pyspark_3_0_1-latest
+      config: docker-compose.test.yml
+      push-retries: 5
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 30
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':docker: Build test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_3_4'
+  plugins:
+  - docker-compose#v3.5.0:
+      build: test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_3_4
+      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
+      cache-from: test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_3_4:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_3_4-latest
+      config: docker-compose.test.yml
+      push-retries: 5
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 30
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':docker: Build test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_4_7'
+  plugins:
+  - docker-compose#v3.5.0:
+      build: test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_4_7
+      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
+      cache-from: test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_4_7:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_4_7-latest
+      config: docker-compose.test.yml
+      push-retries: 5
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 30
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':docker: Build test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1'
+  plugins:
+  - docker-compose#v3.5.0:
+      build: test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1
+      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
+      cache-from: test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1-latest
+      config: docker-compose.test.yml
+      push-retries: 5
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 30
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':docker: Build test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1'
+  plugins:
+  - docker-compose#v3.5.0:
+      build: test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1
+      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
+      cache-from: test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1-latest
+      config: docker-compose.test.yml
+      push-retries: 5
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 30
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':docker: Build test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_6_0_p0-pyspark_3_0_1'
+  plugins:
+  - docker-compose#v3.5.0:
+      build: test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_6_0_p0-pyspark_3_0_1
+      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
+      cache-from: test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_6_0_p0-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_6_0_p0-pyspark_3_0_1-latest
+      config: docker-compose.test.yml
+      push-retries: 5
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 30
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':docker: Build test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1'
+  plugins:
+  - docker-compose#v3.5.0:
+      build: test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1
+      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
+      cache-from: test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1-latest
+      config: docker-compose.test.yml
+      push-retries: 5
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 30
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':docker: Build test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras_none-torch1_7_1-mxnethead-pyspark_3_0_1'
+  plugins:
+  - docker-compose#v3.5.0:
+      build: test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras_none-torch1_7_1-mxnethead-pyspark_3_0_1
+      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
+      cache-from: test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras_none-torch1_7_1-mxnethead-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras_none-torch1_7_1-mxnethead-pyspark_3_0_1-latest
+      config: docker-compose.test.yml
+      push-retries: 5
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 30
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- wait
 - wait
 - label: ':pytest: Gloo Parallel PyTests (test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1)'
   command: bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
@@ -241,66 +467,6 @@ steps:
     queue: cpu
 - wait
 - wait
-- label: ':docker: Build test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1'
-  plugins:
-  - docker-compose#v3.5.0:
-      build: test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
-      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
-      cache-from: test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1-latest
-      config: docker-compose.test.yml
-      push-retries: 5
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 30
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
-- label: ':docker: Build test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1'
-  plugins:
-  - docker-compose#v3.5.0:
-      build: test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
-      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
-      cache-from: test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1-latest
-      config: docker-compose.test.yml
-      push-retries: 5
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 30
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
-- label: ':docker: Build test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1'
-  plugins:
-  - docker-compose#v3.5.0:
-      build: test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
-      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
-      cache-from: test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1-latest
-      config: docker-compose.test.yml
-      push-retries: 5
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 30
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
-- label: ':docker: Build test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1'
-  plugins:
-  - docker-compose#v3.5.0:
-      build: test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
-      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
-      cache-from: test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1-latest
-      config: docker-compose.test.yml
-      push-retries: 5
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 30
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
 - wait
 - label: ':pytest: MPI Parallel PyTests (test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1)'
   command: bash -c "  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
@@ -1248,66 +1414,6 @@ steps:
     queue: cpu
 - wait
 - wait
-- label: ':docker: Build test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_1_p0-pyspark_3_0_1'
-  plugins:
-  - docker-compose#v3.5.0:
-      build: test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_1_p0-pyspark_3_0_1
-      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
-      cache-from: test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_1_p0-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_1_p0-pyspark_3_0_1-latest
-      config: docker-compose.test.yml
-      push-retries: 5
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 30
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
-- label: ':docker: Build test-cpu-gloo-py3_7-tf2_0_4-keras2_3_1-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1'
-  plugins:
-  - docker-compose#v3.5.0:
-      build: test-cpu-gloo-py3_7-tf2_0_4-keras2_3_1-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1
-      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
-      cache-from: test-cpu-gloo-py3_7-tf2_0_4-keras2_3_1-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-cpu-gloo-py3_7-tf2_0_4-keras2_3_1-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1-latest
-      config: docker-compose.test.yml
-      push-retries: 5
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 30
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
-- label: ':docker: Build test-cpu-gloo-py3_7-tf2_1_3-keras2_3_1-torch1_4_0-mxnet1_5_1_p0-pyspark_3_0_1'
-  plugins:
-  - docker-compose#v3.5.0:
-      build: test-cpu-gloo-py3_7-tf2_1_3-keras2_3_1-torch1_4_0-mxnet1_5_1_p0-pyspark_3_0_1
-      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
-      cache-from: test-cpu-gloo-py3_7-tf2_1_3-keras2_3_1-torch1_4_0-mxnet1_5_1_p0-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-cpu-gloo-py3_7-tf2_1_3-keras2_3_1-torch1_4_0-mxnet1_5_1_p0-pyspark_3_0_1-latest
-      config: docker-compose.test.yml
-      push-retries: 5
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 30
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
-- label: ':docker: Build test-cpu-gloo-py3_8-tf2_2_2-keras2_3_1-torch1_5_1-mxnet1_5_1_p0-pyspark_3_0_1'
-  plugins:
-  - docker-compose#v3.5.0:
-      build: test-cpu-gloo-py3_8-tf2_2_2-keras2_3_1-torch1_5_1-mxnet1_5_1_p0-pyspark_3_0_1
-      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
-      cache-from: test-cpu-gloo-py3_8-tf2_2_2-keras2_3_1-torch1_5_1-mxnet1_5_1_p0-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-cpu-gloo-py3_8-tf2_2_2-keras2_3_1-torch1_5_1-mxnet1_5_1_p0-pyspark_3_0_1-latest
-      config: docker-compose.test.yml
-      push-retries: 5
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 30
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
 - wait
 - label: ':pytest: Gloo Parallel PyTests (test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_1_p0-pyspark_3_0_1)'
   command: bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
@@ -2143,36 +2249,6 @@ steps:
     queue: cpu
 - wait
 - wait
-- label: ':docker: Build test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_3_4'
-  plugins:
-  - docker-compose#v3.5.0:
-      build: test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_3_4
-      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
-      cache-from: test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_3_4:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_3_4-latest
-      config: docker-compose.test.yml
-      push-retries: 5
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 30
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
-- label: ':docker: Build test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_4_7'
-  plugins:
-  - docker-compose#v3.5.0:
-      build: test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_4_7
-      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
-      cache-from: test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_4_7:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_4_7-latest
-      config: docker-compose.test.yml
-      push-retries: 5
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 30
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
 - wait
 - label: ':pytest: Gloo Parallel PyTests (test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_3_4)'
   command: bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
@@ -2624,21 +2700,6 @@ steps:
     queue: cpu
 - wait
 - wait
-- label: ':docker: Build test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1'
-  plugins:
-  - docker-compose#v3.5.0:
-      build: test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1
-      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
-      cache-from: test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1-latest
-      config: docker-compose.test.yml
-      push-retries: 5
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 30
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
 - wait
 - wait
 - label: ':pytest: Gloo Parallel PyTests (test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1)'
@@ -2914,66 +2975,6 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v510
-- label: ':docker: Build test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1'
-  plugins:
-  - docker-compose#v3.5.0:
-      build: test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1
-      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
-      cache-from: test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1-latest
-      config: docker-compose.test.yml
-      push-retries: 5
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 30
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
-- label: ':docker: Build test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_6_0_p0-pyspark_3_0_1'
-  plugins:
-  - docker-compose#v3.5.0:
-      build: test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_6_0_p0-pyspark_3_0_1
-      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
-      cache-from: test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_6_0_p0-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_6_0_p0-pyspark_3_0_1-latest
-      config: docker-compose.test.yml
-      push-retries: 5
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 30
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
-- label: ':docker: Build test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1'
-  plugins:
-  - docker-compose#v3.5.0:
-      build: test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1
-      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
-      cache-from: test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1-latest
-      config: docker-compose.test.yml
-      push-retries: 5
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 30
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
-- label: ':docker: Build test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras_none-torch1_7_1-mxnethead-pyspark_3_0_1'
-  plugins:
-  - docker-compose#v3.5.0:
-      build: test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras_none-torch1_7_1-mxnethead-pyspark_3_0_1
-      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
-      cache-from: test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras_none-torch1_7_1-mxnethead-pyspark_3_0_1:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras_none-torch1_7_1-mxnethead-pyspark_3_0_1-latest
-      config: docker-compose.test.yml
-      push-retries: 5
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 30
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
 - wait
 - wait
 - label: ':pytest: Gloo Parallel PyTests (test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1)'

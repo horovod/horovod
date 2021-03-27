@@ -419,17 +419,34 @@ run_single_integration() {
 # begin the pipeline.yml file
 echo "steps:"
 
+# build all containers upfront, except those with all nightly head versions
+while read test_stage
+do
+  read -r -a tests <<< "$test_stage"
+  for test in ${tests[@]-}; do
+    if [[ "${test}" != *-tfhead-* ]]
+    then
+      build_test "${test}"
+    fi
+  done
+done <<< "$test_stages"
+
+# wait for all builds to finish
+echo "- wait"
+
 # iterate over the test blocks
 while read test_stage
 do
   read -r -a tests <<< "$test_stage"
 
-  # build every test container
+  # build only test containers that haven't been built yet: all nightly head versions
   for test in ${tests[@]-}; do
-    build_test "${test}"
+    if [[ "${test}" == *-tfhead-* ]]
+    then
+      build_test "${test}"
+    fi
   done
-
-  # wait for all builds to finish
+  # wait for those builds to finish
   echo "- wait"
 
   # cache test containers if built from master
