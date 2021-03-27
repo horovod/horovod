@@ -14,15 +14,15 @@ baseline="test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspar
 # skip tests when there are no code changes
 dir="$(dirname "$0")"
 code_files=$(python "$dir/get_changed_code_files.py" || echo failure)
-tests=$(if [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}" ]] || [[ -n "$code_files" ]]; then
-  # we vary the baseline along the Python dimension and PySpark together
-  # run_gloo_integration expects these to have Gloo mpi kind to run 'Elastic Spark * Tests'
-  printf "test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_3_4 "
-  printf "test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_4_7 "
-  # our baseline
-  printf "$baseline "
+test_stages=$(if [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}" ]] || [[ -n "$code_files" ]]; then
+  # on every newline (printf "\n") we build those images, run all tests and wait for completion
+  # before buildkite moves to the next block of tests
 
-  # then we vary the baseline along mpi kinds dimension
+  # our baseline first
+  printf "$baseline "
+  printf "\n"
+
+  # we vary the baseline along mpi kinds dimension
   # our baseline again
 # printf "test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1 "
   printf "test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1 "
@@ -30,6 +30,7 @@ tests=$(if [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}
   printf "test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1 "
   # note: we test openmpi-gloo mpi kind in this variation in each of [cpu, gpu, mixed]
   printf "test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1 "
+  printf "\n"
 
   # then we vary the baseline along the framework dimensions all together
   # some frameworks are not available for our baseline Python version 3.8, so we use Python 3.7
@@ -40,27 +41,47 @@ tests=$(if [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}
   printf "test-cpu-gloo-py3_8-tf2_2_2-keras2_3_1-torch1_5_1-mxnet1_5_1_p0-pyspark_3_0_1 "
   # there is no mxnet-1.6.0.post0 and mxnet-1.6.0 does not work with horovod
   # https://github.com/apache/incubator-mxnet/issues/16193
-  # however, there is an mxnet-cu101-1.6.0.post0, so we test this with gpu instead of cpu
-  printf "test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_6_0_p0-pyspark_3_0_1 "
+  # there is an mxnet-cu101-1.6.0.post0, so we test this with gpu instead of cpu further down
+# printf "test-cpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_6_0_p0-pyspark_3_0_1 "
   # our baseline again
-# printf "test-cpu-gloo-py3_8-tf2_4_1-keras_none-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1 "
-  printf "test-cpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_0_1 "
+# printf "test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1 "
+  # our head versions test is deferred to the end
+# printf "test-cpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_0_1 "
+  printf "\n"
 
-  # then we vary the frameworks for gpu
+  # then we vary the baseline along the Python dimension and PySpark together
+  # run_gloo_integration expects these to have Gloo mpi kind to run 'Elastic Spark * Tests'
+  printf "test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_3_4 "
+  printf "test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_4_7 "
+  # our baseline again
+# printf "test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1 "
+  printf "\n"
+
+  # then we test with gpu
+  # first something like our baseline with mixed cpu+gpu
+  # we deviate from mxnet1_7_0_p2 here as mxnet-cu110 does not exist, so we use mxnethead
+  printf "test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1 "
+  printf "\n"
+
+  # we vary the frameworks for gpu
   # we deviate from torch1_2_0 for tf1_15_5 as torch==1.2.0+cu100 does not exist but torch==1.3.*+cu100 does
   printf "test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1 "
+  # there is no mxnet-1.6.0.post0 and mxnet-1.6.0 does not work with horovod
+  # https://github.com/apache/incubator-mxnet/issues/16193
+  # there is an mxnet-cu101-1.6.0.post0, so we test this with gpu instead of cpu from above
+  printf "test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_6_0_p0-pyspark_3_0_1 "
   # we deviate from mxnet1_7_0_p2 here as for mxnet-cu101 the latest version is mxnet1_7_0_p1
   printf "test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1 "
   # we deviate from mxnet1_7_0_p2 here as mxnet-cu110 does not exist, so we use mxnethead
   printf "test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras_none-torch1_7_1-mxnethead-pyspark_3_0_1 "
+  # our head versions test is deferred to the end
+# printf "test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_0_1 "
+  printf "\n"
+
+  # finally we test all head versions (cpu and gpu)
+  printf "test-cpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_0_1 "
   printf "test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_0_1 "
-
-  # and one final test with mixed cpu+gpu
-  # we deviate from mxnet1_7_0_p2 here as mxnet-cu110 does not exist, so we use mxnethead
-  printf "test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1 "
 fi)
-read -r -a tests <<< "$tests"
-
 
 build_test() {
   local test=$1
@@ -398,95 +419,102 @@ run_single_integration() {
 # begin the pipeline.yml file
 echo "steps:"
 
-# build every test container
-for test in ${tests[@]-}; do
-  build_test "${test}"
-done
+# iterate over the test blocks
+while read test_stage
+do
+  read -r -a tests <<< "$test_stage"
 
-# wait for all builds to finish
-echo "- wait"
-
-# cache test containers if built from master
-if [[ "${BUILDKITE_BRANCH}" == "master" ]]; then
+  # build every test container
   for test in ${tests[@]-}; do
-    cache_test "${test}"
+    build_test "${test}"
   done
-fi
 
-oneccl_env="\\\$(cat:/oneccl_env):&&"
-oneccl_cmd_ofi="${oneccl_env}:echo:'/mpirun_command_ofi':>:/mpirun_command:&&"
-oneccl_cmd_mpi="${oneccl_env}:echo:'/mpirun_command_mpi':>:/mpirun_command:&&"
+  # wait for all builds to finish
+  echo "- wait"
 
-# run all the cpu unit tests and integration tests
-for test in ${tests[@]-}; do
-  if [[ ${test} == *-cpu-* ]]; then
-    # if gloo is specified, run gloo cpu unit tests and integration tests
-    if [[ ${test} == *-gloo* ]]; then
-      run_gloo ${test} "cpu"
-    fi
+  # cache test containers if built from master
+  if [[ "${BUILDKITE_BRANCH}" == "master" ]]; then
+    for test in ${tests[@]-}; do
+      cache_test "${test}"
+    done
+  fi
 
-    # if oneCCL is specified, run some tests twice,
-    # once with mpirun_command_ofi, and once with mpirun_command_mpi
-    if [[ ${test} == *oneccl* ]]; then
-      # run mpi cpu unit tests and integration tests
-      run_mpi ${test} "cpu" ${oneccl_cmd_mpi}
-      run_mpi ${test} "cpu" ${oneccl_cmd_ofi}
+  oneccl_env="\\\$(cat:/oneccl_env):&&"
+  oneccl_cmd_ofi="${oneccl_env}:echo:'/mpirun_command_ofi':>:/mpirun_command:&&"
+  oneccl_cmd_mpi="${oneccl_env}:echo:'/mpirun_command_mpi':>:/mpirun_command:&&"
 
-      # always run spark tests which use MPI and Gloo
-      run_spark_integration ${test} "cpu"
-
-      # no runner application, world size = 1
-      run_single_integration ${test} "cpu" ${oneccl_cmd_mpi}
-      run_single_integration ${test} "cpu" ${oneccl_cmd_ofi}
-    else
-      # run mpi cpu unit tests and integration tests
-      if [[ ${test} == *mpi* ]]; then
-        run_mpi ${test} "cpu"
+  # run all the cpu unit tests and integration tests
+  for test in ${tests[@]-}; do
+    if [[ ${test} == *-cpu-* ]]; then
+      # if gloo is specified, run gloo cpu unit tests and integration tests
+      if [[ ${test} == *-gloo* ]]; then
+        run_gloo ${test} "cpu"
       fi
 
-      # always run spark tests which use MPI and Gloo
-      run_spark_integration ${test} "cpu"
+      # if oneCCL is specified, run some tests twice,
+      # once with mpirun_command_ofi, and once with mpirun_command_mpi
+      if [[ ${test} == *oneccl* ]]; then
+        # run mpi cpu unit tests and integration tests
+        run_mpi ${test} "cpu" ${oneccl_cmd_mpi}
+        run_mpi ${test} "cpu" ${oneccl_cmd_ofi}
 
-      # no runner application, world size = 1
-      run_single_integration ${test} "cpu"
+        # always run spark tests which use MPI and Gloo
+        run_spark_integration ${test} "cpu"
+
+        # no runner application, world size = 1
+        run_single_integration ${test} "cpu" ${oneccl_cmd_mpi}
+        run_single_integration ${test} "cpu" ${oneccl_cmd_ofi}
+      else
+        # run mpi cpu unit tests and integration tests
+        if [[ ${test} == *mpi* ]]; then
+          run_mpi ${test} "cpu"
+        fi
+
+        # always run spark tests which use MPI and Gloo
+        run_spark_integration ${test} "cpu"
+
+        # no runner application, world size = 1
+        run_single_integration ${test} "cpu"
+      fi
     fi
-  fi
-done
+  done
 
-# wait for all cpu unit and integration tests to finish
-echo "- wait"
+  # wait for all cpu unit and integration tests to finish
+  echo "- wait"
 
-# run 4x gpu unit tests
-for test in ${tests[@]-}; do
-  if [[ ${test} == *-gpu-* ]] || [[ ${test} == *-mixed-* ]]; then
-    # if gloo is specified, run gloo gpu unit tests
-    if [[ ${test} == *-gloo* ]]; then
-      run_gloo_pytest ${test} "4x-gpu-v510"
+  # run 4x gpu unit tests
+  for test in ${tests[@]-}; do
+    if [[ ${test} == *-gpu-* ]] || [[ ${test} == *-mixed-* ]]; then
+      # if gloo is specified, run gloo gpu unit tests
+      if [[ ${test} == *-gloo* ]]; then
+        run_gloo_pytest ${test} "4x-gpu-v510"
+      fi
+
+      # if mpi is specified, run mpi gpu unit tests
+      if [[ ${test} == *mpi* ]]; then
+        run_mpi_pytest ${test} "4x-gpu-v510"
+      fi
     fi
+  done
 
-    # if mpi is specified, run mpi gpu unit tests
-    if [[ ${test} == *mpi* ]]; then
-      run_mpi_pytest ${test} "4x-gpu-v510"
+  # wait for all gpu unit tests to finish
+  echo "- wait"
+
+  # run 2x gpu integration tests
+  for test in ${tests[@]-}; do
+    if [[ ${test} == *-gpu-* ]] || [[ ${test} == *-mixed-* ]]; then
+      # if gloo is specified, run gloo gpu integration tests
+      if [[ ${test} == *-gloo* ]]; then
+        run_gloo_integration ${test} "2x-gpu-v510"
+      fi
+
+      # if mpi is specified, run mpi gpu integration tests
+      if [[ ${test} == *mpi* ]]; then
+        run_mpi_integration ${test} "2x-gpu-v510"
+      fi
+
+      run_spark_integration ${test} "2x-gpu-v510"
     fi
-  fi
-done
+  done
 
-# wait for all gpu unit tests to finish
-echo "- wait"
-
-# run 2x gpu integration tests
-for test in ${tests[@]-}; do
-  if [[ ${test} == *-gpu-* ]] || [[ ${test} == *-mixed-* ]]; then
-    # if gloo is specified, run gloo gpu integration tests
-    if [[ ${test} == *-gloo* ]]; then
-      run_gloo_integration ${test} "2x-gpu-v510"
-    fi
-
-    # if mpi is specified, run mpi gpu integration tests
-    if [[ ${test} == *mpi* ]]; then
-      run_mpi_integration ${test} "2x-gpu-v510"
-    fi
-
-    run_spark_integration ${test} "2x-gpu-v510"
-  fi
-done
+done <<< "$test_stages"
