@@ -147,7 +147,7 @@ RUN pip install "Pillow<7.0" --no-deps
 
 # Install MXNet.
 RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly" ]]; then \
-        pip install --pre mxnet==2.0.0b20210325 -f https://dist.mxnet.io/python/all; \
+        pip install --pre mxnet==2.0.0b20210319 -f https://dist.mxnet.io/python/all; \
     elif [[ ${MXNET_PACKAGE} == "mxnet=="*b* ]]; then \
         pip install --pre ${MXNET_PACKAGE} -f https://dist.mxnet.io/python; \
     else \
