@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Create a report to help us improve
+about: For questions about using Horovod or getting it to work in you environment, use https://github.com/horovod/horovod/discussions
 title: ''
 labels: bug
 assignees: ''
@@ -16,9 +16,10 @@ assignees: ''
 6. NCCL version:
 7. Python version:
 8. Spark / PySpark version:
-9. OS and version:
-10. GCC version:
-11. CMake version:
+9. Ray version:
+10. OS and version:
+11. GCC version:
+12. CMake version:
 
 **Checklist:**
 1. Did you search issues to find if somebody asked this question before?
