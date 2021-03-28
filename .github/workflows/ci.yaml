@@ -1,0 +1,72 @@
+name: CI
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - '*'
+  pull_request:
+
+jobs:
+  build-and-test:
+    name: "Build and Test"
+    runs-on: ubuntu-18.04
+    services:
+      registry:
+        image: registry:2
+        ports:
+          - 5000:5000
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+        with:
+          driver-opts: network=host
+
+      - name: Build and push to local registry
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: Dockerfile.test.cpu
+          build-args: |
+            UBUNTU_VERSION=18.04
+            GPP_VERSION=7
+            MPI_KIND=None
+            PYTHON_VERSION=3.8
+            TENSORFLOW_PACKAGE=tensorflow-cpu==2.4.1
+            KERAS_PACKAGE=keras==2.4.3
+            PYTORCH_PACKAGE=torch==1.7.1+cpu
+            TORCHVISION_PACKAGE=torchvision==0.8.2+cpu
+            MXNET_PACKAGE=mxnet==1.7.0.post2
+            PYSPARK_PACKAGE=pyspark==3.0.1
+            SPARK_PACKAGE=spark-3.0.1/spark-3.0.1-bin-hadoop2.7.tgz
+            HOROVOD_BUILD_FLAGS=HOROVOD_WITH_GLOO=1
+          push: true
+          tags: localhost:5000/name/app:latest
+
+      - name: Inspect
+        run: docker buildx imagetools inspect localhost:5000/name/app:latest
+
+      - name: Setup artifacts
+        run: mkdir -p artifacts
+
+      - name: "Run Gloo Parallel PyTests (test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1)"
+        run: docker run --rm --volume "$(pwd)/artifacts:/artifacts" localhost:5000/name/app:latest bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
+        shell: bash
+
+      - name: List artifacts
+        run: ls -lahR artifacts
+        shell: bash
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: Unit Test Results
+          path: artifacts/**/*.xml
