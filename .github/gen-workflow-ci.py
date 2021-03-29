@@ -25,10 +25,10 @@ def main():
     pipeline = yaml.load(proc.stdout, Loader=Loader)
     steps = pipeline.get('steps', [])
 
-    cpu_images = [plugin['docker-compose#v3.5.0']['build']
-                   for step in steps if isinstance(step, dict) and 'label' in step
-                                     and step['label'].startswith(':docker: Build ') and '-cpu-' in step['label']
-                   for plugin in step['plugins'] if 'docker-compose#v3.5.0' in plugin]
+    images = [plugin['docker-compose#v3.5.0']['build']
+              for step in steps if isinstance(step, dict) and 'label' in step
+                                and step['label'].startswith(':docker: Build ')
+              for plugin in step['plugins'] if 'docker-compose#v3.5.0' in plugin]
 
     cpu_tests = [(re.sub(r' \(test-.*', '', re.sub(':[^:]*: ', '', step['label'])),
                   step['command'],
@@ -78,7 +78,7 @@ def main():
     tests_per_image = {image: {test_id_per_label[label]
                                for label, command, test_image in cpu_tests
                                if test_image == image}
-                       for image in cpu_images}
+                       for image in images}
 
     # index tests by id
     tests = {test_id_per_label[label]: dict(label=label, command=command)
