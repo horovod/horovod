@@ -100,6 +100,7 @@ def main():
               f'    runs-on: ubuntu-18.04\n'
               f'    continue-on-error: true\n'
               f'    strategy:\n'
+              f'      max-parallel: {len(images)}\n'
               f'      fail-fast: false\n'
               f'      matrix:\n'
               f'        include:\n' +
