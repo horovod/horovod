@@ -97,7 +97,7 @@ def main():
               f'jobs:\n'
               f'  build-and-test:\n'
               f'    name: "Build and Test (${{{{ matrix.image }}}})"\n'
-              f'    runs-on: ubuntu-18.04\n'
+              f'    runs-on: ubuntu-latest\n'
               f'    continue-on-error: true\n'
               f'    strategy:\n'
               f'      max-parallel: {len(images)}\n'

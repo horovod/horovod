@@ -10,7 +10,7 @@ on:
 jobs:
   build-and-test:
     name: "Build and Test (${{ matrix.image }})"
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     continue-on-error: true
     strategy:
       max-parallel: 18
@@ -125,7 +125,7 @@ jobs:
             Spark_PyTests: true
             Spark_Torch_MNIST: true
 
-          - image: test-cpu-gloo-py3_8-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1
+          - image: test-cpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_0_1
             Elastic_Tests_1: true
             Gloo_Cluster_PyTests: true
             Gloo_MXNet2_MNIST: true
@@ -215,10 +215,10 @@ jobs:
           - image: test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1
 
 
-          - image: test-gpu-gloo-py3_8-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1
+          - image: test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_0_1
 
 
-          - image: test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1
+          - image: test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras_none-torch1_7_1-mxnethead-pyspark_3_0_1
 
 
           - image: test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1
