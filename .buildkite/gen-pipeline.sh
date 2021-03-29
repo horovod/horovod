@@ -14,7 +14,7 @@ baseline="test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_7_0_p2-pyspar
 # skip tests when there are no code changes
 dir="$(dirname "$0")"
 code_files=$(python "$dir/get_changed_code_files.py" || echo failure)
-tests=$(if [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}" ]] || [[ -n "$code_files" ]]; then
+tests=$(if [[ "${PIPELINE_MODE:-}" == "FULL" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}" ]] || [[ -n "$code_files" ]] ); then
   # we vary the baseline along the Python dimension and PySpark together
   # run_gloo_integration expects these to have Gloo mpi kind to run 'Elastic Spark * Tests'
   printf "test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_7_0_p2-pyspark_2_3_4 "

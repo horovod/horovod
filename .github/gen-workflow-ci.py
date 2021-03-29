@@ -13,6 +13,7 @@ def main():
     path = pathlib.Path(__file__).parent
     script = path.joinpath('..', '.buildkite', 'gen-pipeline.sh').absolute()
     env = dict(
+        PIPELINE_MODE='FULL',
         BUILDKITE_PIPELINE_SLUG='horovod',
         BUILDKITE_PIPELINE_DEFAULT_BRANCH='master',
         BUILDKITE_BRANCH='master'
@@ -32,6 +33,7 @@ def main():
 
     cpu_tests = [(re.sub(r' \(test-.*', '', re.sub(':[^:]*: ', '', step['label'])),
                   step['command'],
+                  step['timeout_in_minutes'],
                   plugin['docker-compose#v3.5.0']['run'])
                  for step in steps if isinstance(step, dict) and 'label' in step and 'command' in step
                  and not step['label'].startswith(':docker: Build ') and '-cpu-' in step['label']
@@ -40,11 +42,12 @@ def main():
     # we need to distinguish the two oneccl variants of some tests
     cpu_tests = [(label + (' [ONECCL OFI]' if 'mpirun_command_ofi' in command else (' [ONECCL MPI]' if 'mpirun_command_mpi' in command else '')),
                   command,
+                  timeout,
                   image)
-                 for label, command, image in cpu_tests]
+                 for label, command, timeout, image in cpu_tests]
 
     # check that labels are unique per image
-    cardinalities = Counter([(label, image) for label, command, image in cpu_tests])
+    cardinalities = Counter([(label, image) for label, command, timeout, image in cpu_tests])
     conflicts = [(label, image, card) for (label, image), card in cardinalities.items() if card > 1]
     if conflicts:
         summary = '\n'.join([f'"{label}" for image "{image}"' for label, image, card in conflicts])
@@ -53,7 +56,7 @@ def main():
     # commands for some labels may differ
     # we make their labels unique here
     label_commands = defaultdict(Counter)
-    for label, command, image in cpu_tests:
+    for label, command, timeout, image in cpu_tests:
         label_commands[label][command] += 1
 
     labels_with_multiple_commands = {label: c for label, c in label_commands.items() if len(c) > 1}
@@ -63,11 +66,12 @@ def main():
 
     cpu_tests = [(new_labels_per_label_command[(label, command)] if (label, command) in new_labels_per_label_command else label,
                   command,
+                  timeout,
                   image)
-                 for label, command, image in cpu_tests]
+                 for label, command, timeout, image in cpu_tests]
 
     # come up with test ids from test labels
-    test_labels = {label for label, command, image in cpu_tests}
+    test_labels = {label for label, command, timeout, image in cpu_tests}
     test_id_per_label = [(label, re.sub('[^a-zA-Z0-9_]', '', re.sub('[ .]', '_', label)))
                          for label in test_labels]
     if len({id for label, id in test_id_per_label}) != len(test_labels):
@@ -76,13 +80,13 @@ def main():
 
     # collect tests per image
     tests_per_image = {image: {test_id_per_label[label]
-                               for label, command, test_image in cpu_tests
+                               for label, command, timeout, test_image in cpu_tests
                                if test_image == image}
                        for image in sorted(images)}
 
     # index tests by id
-    tests = {test_id_per_label[label]: dict(label=label, command=command)
-             for label, command, image in cpu_tests}
+    tests = {test_id_per_label[label]: dict(label=label, command=command, timeout=timeout)
+             for label, command, timeout, image in cpu_tests}
 
     with open('workflows/ci.yaml', 'wt') as w:
         print(f'name: CI\n'
@@ -98,7 +102,6 @@ def main():
               f'  build-and-test:\n'
               f'    name: "Build and Test (${{{{ matrix.image }}}})"\n'
               f'    runs-on: ubuntu-latest\n'
-              f'    continue-on-error: true\n'
               f'    strategy:\n'
               f'      max-parallel: {len(images)}\n'
               f'      fail-fast: false\n'
@@ -124,34 +127,32 @@ def main():
               f'        run: pip install docker-compose\n'
               f'\n'
               f'      - name: Build\n'
+              f'        timeout-minutes: 30\n'
               f'        run: docker-compose -f docker-compose.test.yml build ${{{{ matrix.image }}}}\n'
-              f'\n'
-              f'      - name: Docker ls\n'
-              f'        run: docker image ls\n'
               f'\n' +
               '\n'.join([f'      - name: "{test["label"]}"\n'
-                         f'        if: matrix.{test_id}\n'
+                         f'        if: always() && matrix.{test_id}\n'
+                         f'        timeout-minutes: {test["timeout"]}\n'
                          f'        run: |\n'
                          f'          mkdir -p artifacts/${{{{ matrix.image }}}}/{test_id}\n'
                          f'          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{{{ matrix.image }}}}/{test_id}:/artifacts" ${{{{ matrix.image }}}} {test["command"]}\n'
                          f'        shell: bash\n'
                          for test_id, test in tests.items()]) +
               f'\n'
-              f'      - name: List artifacts\n'
-              f'        run: ls -lahR artifacts\n'
-              f'\n'
               f'      - name: Upload Test Results\n'
               f'        uses: actions/upload-artifact@v2\n'
               f'        if: always()\n'
               f'        with:\n'
-              f'          name: Unit Test Results\n'
-              f'          path: artifacts/**/*.xml\n'
+              f'          name: Unit Test Results - ${{{{ matrix.image }}}}\n'
+              f'          path: artifacts/${{{{ matrix.image }}}}/**/*.xml\n'
               f'\n'
               f'  publish-test-results:\n'
               f'    name: "Publish Unit Tests Results"\n'
               f'    needs: build-and-test\n'
               f'    runs-on: ubuntu-latest\n'
-              f'    if: ( github.event_name == \'push\' || github.event.pull_request.head.repo.full_name == github.repository )\n'
+              f'    if: >\n'
+              f'      always() &&\n'
+              f'      ( github.event_name == \'push\' || github.event.pull_request.head.repo.full_name == github.repository )\n'
               f'\n'
               f'    steps:\n'
               f'      - name: Download Artifacts\n'
