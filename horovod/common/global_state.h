@@ -54,9 +54,6 @@ struct HorovodGlobalState {
   // Timeline writer.
   Timeline timeline;
 
-  // Flag indicating whether timeline enabled.
-  bool timeline_enabled = false;
-
   // Flag indicating whether to mark cycles in the timeline.
   std::atomic_bool mark_cycles_in_timeline{false};
 
