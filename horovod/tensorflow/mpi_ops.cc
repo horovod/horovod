@@ -37,7 +37,7 @@ using GpuStreamHandle = cudaStream_t;
 #include <hip/hip_runtime.h>
 using GpuStreamHandle = hipStream_t;
 #define gpuMemsetAsync hipMemsetAsync
-#endif
+#endif // HAVE_CUDA, HAVE_ROCM
 
 // Forward declaration of AsGpuStreamValue
 namespace stream_executor {
@@ -46,7 +46,7 @@ GpuStreamHandle AsGpuStreamValue(Stream* stream);
 } // namespace stream_executor
 } // namespace gpu
 #include "tensorflow/stream_executor/stream.h"
-#endif
+#endif // HAVE_GPU
 
 #define OMPI_SKIP_MPICXX
 #include "../common/operations.h"
@@ -504,26 +504,29 @@ public:
     int num_tensors = num_tensors_;
 
     for (int i = 0; i < num_tensors_; ++i) {
-        auto tensor = context->input(i);
-        OP_REQUIRES_OK_ASYNC(
-            context, context->allocate_output(i, tensor.shape(), &outputs[i]), done);
-        // ReadyEvent makes sure input tensor is ready, and output is allocated.
-        ready_events.emplace_back(std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context)));
-        hvd_contexts.emplace_back(std::make_shared<TFOpContext>(context));
-        hvd_tensors.emplace_back(std::make_shared<TFTensor>(tensor));
-        names.emplace_back(node_name + "_" + std::to_string(i+1) + "of" + std::to_string(num_tensors));
-        hvd_outputs.emplace_back(std::make_shared<TFTensor>(*outputs[i]));
-        callbacks.emplace_back(
-            [context, done, callback_mutex, callback_count, num_tensors](const common::Status& status) mutable {
-                // Must only invoke callback on last tensor.
-                std::lock_guard<std::mutex> guard(*callback_mutex);
-                (*callback_count)++;
-                if (*callback_count == num_tensors) {
-                    context->SetStatus(ConvertStatus(status));
-                    done();
-                }
+      auto tensor = context->input(i);
+      OP_REQUIRES_OK_ASYNC(
+          context, context->allocate_output(i, tensor.shape(), &outputs[i]),
+          done);
+      // ReadyEvent makes sure input tensor is ready, and output is allocated.
+      ready_events.emplace_back(
+          std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context)));
+      hvd_contexts.emplace_back(std::make_shared<TFOpContext>(context));
+      hvd_tensors.emplace_back(std::make_shared<TFTensor>(tensor));
+      names.emplace_back(node_name + "_" + std::to_string(i + 1) + "of" +
+                         std::to_string(num_tensors));
+      hvd_outputs.emplace_back(std::make_shared<TFTensor>(*outputs[i]));
+      callbacks.emplace_back(
+          [context, done, callback_mutex, callback_count, num_tensors]
+          (const common::Status& status) {
+            // Must only invoke callback on last tensor.
+            std::lock_guard<std::mutex> guard(*callback_mutex);
+            (*callback_count)++;
+            if (*callback_count == num_tensors) {
+              context->SetStatus(ConvertStatus(status));
+              done();
             }
-        );
+          });
     }
 
     auto enqueue_result = EnqueueTensorAllreduces(
@@ -558,7 +561,6 @@ REGISTER_OP("HorovodGroupedAllreduce")
     .Input("tensors: num_tensors*T")
     .Output("sum: num_tensors*T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
-      int num_tensors;
       for (int i = 0; i < c->num_inputs(); ++i) {
           c->set_output(i, c->input(i));
       }

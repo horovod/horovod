@@ -24,6 +24,7 @@
 #include <unordered_map>
 
 #include "message.h"
+#include "nvtx_op_range.h"
 
 namespace horovod {
 namespace common {
@@ -92,6 +93,7 @@ namespace common {
 #define HOROVOD_ADASUM_MPI_CHUNK_SIZE "HOROVOD_ADASUM_MPI_CHUNK_SIZE"
 #define HOROVOD_THREAD_AFFINITY "HOROVOD_THREAD_AFFINITY"
 #define HOROVOD_DISABLE_GROUP_FUSION "HOROVOD_DISABLE_GROUP_FUSION"
+#define HOROVOD_DISABLE_NVTX_RANGES "HOROVOD_DISABLE_NVTX_RANGES"
 
 // String constant for gloo interface.
 #define GLOO_DEFAULT_IFACE ""
@@ -137,10 +139,10 @@ class Status {
 public:
   Status();
   static Status OK();
-  static Status UnknownError(std::string message);
-  static Status PreconditionError(std::string message);
-  static Status Aborted(std::string message);
-  static Status InvalidArgument(std::string message);
+  static Status UnknownError(const std::string& message);
+  static Status PreconditionError(const std::string& message);
+  static Status Aborted(const std::string& message);
+  static Status InvalidArgument(const std::string& message);
   static Status InProgress();
   bool ok() const;
   bool in_progress() const;
@@ -149,7 +151,7 @@ public:
 
 private:
   StatusType type_ = StatusType::OK;
-  std::string reason_ = "";
+  std::string reason_;
   Status(StatusType type, std::string reason);
 };
 
@@ -174,7 +176,7 @@ public:
   void AddDim(int64_t dim);
   void AppendShape(TensorShape& other);
 
-  const std::string DebugString() const;
+  std::string DebugString() const;
   int dims() const;
   int64_t dim_size(int idx) const;
   int64_t num_elements() const;
@@ -226,7 +228,7 @@ public:
   virtual Status AllocateOutput(int output_index, TensorShape shape,
                                 std::shared_ptr<Tensor>* tensor) {
     if (output_index == 0) {
-      return AllocateOutput(shape, tensor);
+      return AllocateOutput(std::move(shape), tensor);
     } else {
       throw std::logic_error("output_index != 0 not supported");
     }
@@ -243,7 +245,7 @@ public:
 using StatusCallback = std::function<void(const Status&)>;
 
 // Table storing Tensors to be reduced, keyed by unique name.
-// This table contains everything necessary to do the reduction.
+// This table contains everything necessary to do the distributed operation.
 struct TensorTableEntry {
   // Name of the tensor.
   std::string tensor_name;
@@ -261,6 +263,10 @@ struct TensorTableEntry {
   int device = CPU_DEVICE_ID;
   // A callback to call with the status.
   StatusCallback callback;
+  // If we build with NVTX support: A range marking the start
+  // and end of the distributed op for this tensor (may be
+  // shared by multiple tensors).
+  SharedNvtxOpRange nvtx_op_range;
 
   // Alltoall splits (if tensor is for an Alltoall operation)
   // Note: splits are stored in TensorTableEntry to avoid N^2
@@ -268,6 +274,9 @@ struct TensorTableEntry {
   // on coordinator rank.
   std::vector<int32_t> splits;
   std::shared_ptr<Tensor> received_splits;
+
+  // Execute callback and end NVTX range
+  void FinishWithCallback(const Status& status);
 };
 using TensorTable = std::unordered_map<std::string, TensorTableEntry>;
 

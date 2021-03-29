@@ -20,6 +20,7 @@
 #include <sstream>
 #include <cassert>
 #include <cstring>
+#include <utility>
 #include <limits.h>
 
 namespace horovod {
@@ -27,28 +28,27 @@ namespace common {
 
 Status::Status() = default;
 
-Status::Status(StatusType type, std::string reason) {
-  type_ = type;
-  reason_ = reason;
+Status::Status(StatusType type, std::string reason)
+    : type_(type), reason_(std::move(reason)) {
 }
 
 Status Status::OK() {
   return Status();
 }
 
-Status Status::UnknownError(std::string message) {
+Status Status::UnknownError(const std::string& message) {
   return Status(StatusType::UNKNOWN_ERROR, message);
 }
 
-Status Status::PreconditionError(std::string message) {
+Status Status::PreconditionError(const std::string& message) {
   return Status(StatusType::PRECONDITION_ERROR, message);
 }
 
-Status Status::Aborted(std::string message) {
+Status Status::Aborted(const std::string& message) {
   return Status(StatusType::ABORTED, message);
 }
 
-Status Status::InvalidArgument(std::string message) {
+Status Status::InvalidArgument(const std::string& message) {
   return Status(StatusType::INVALID_ARGUMENT, message);
 }
 
@@ -82,7 +82,7 @@ void TensorShape::AppendShape(TensorShape& other) {
   }
 }
 
-const std::string TensorShape::DebugString() const {
+std::string TensorShape::DebugString() const {
   std::stringstream args;
   args << "[";
   for (auto it = shape_.begin(); it != shape_.end(); ++it) {
@@ -197,6 +197,14 @@ void parse_and_set_affinity(const char* affinity, int local_size, int local_rank
   }
 
   free(affinity_copy);
+}
+
+void TensorTableEntry::FinishWithCallback(const Status& status) {
+  // Callback can be null if the rank sent Join request.
+  if (callback != nullptr) {
+    callback(status);
+  }
+  nvtx_op_range.End();
 }
 
 } // namespace common

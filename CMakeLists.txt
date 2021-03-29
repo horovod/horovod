@@ -234,6 +234,22 @@ message(FATAL_ERROR "You should not mix NCCL and MPI GPU due to a possible deadl
                     "HOROVOD_ALLOW_MIXED_GPU_IMPL environment variable to '1'.")
 endif()
 
+# NVTX
+if (NOT "$ENV{HOROVOD_WITHOUT_NVTX}" STREQUAL "1")
+    set(NVTX_REQUIRED "")
+    if ("$ENV{HOROVOD_WITH_NVTX}" STREQUAL "1")
+        set(NVTX_REQUIRED "REQUIRED")
+    endif ()
+    find_package(NVTX ${NVTX_REQUIRED})
+    if(NVTX_FOUND)
+        include_directories(SYSTEM ${NVTX_INCLUDE_DIRS})
+        list(APPEND LINKER_LIBS ${NVTX_LIBRARIES})
+        add_definitions(-DHAVE_NVTX=1)
+        list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/nvtx_op_range.cc")
+        set(HAVE_NVTX TRUE)
+    endif()
+endif()
+
 # Gloo
 if (NOT "$ENV{HOROVOD_WITHOUT_GLOO}" STREQUAL "1")
     if(HAVE_MPI)
