@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-18.04
     continue-on-error: true
     strategy:
+      max-parallel: 18
       fail-fast: false
       matrix:
         include:
