@@ -11,6 +11,7 @@ jobs:
   build-and-test:
     name: "Build and Test (${{ matrix.image }})"
     runs-on: ubuntu-18.04
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -583,3 +584,21 @@ jobs:
         with:
           name: Unit Test Results
           path: artifacts/**/*.xml
+
+  publish-test-results:
+    name: "Publish Unit Tests Results"
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: ( github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository )
+
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v2
+        with:
+          path: artifacts
+
+      - name: Publish Unit Test Results
+        uses: docker://ghcr.io/enricomi/publish-unit-test-result-action:v1
+        with:
+          github_token: ${ github.token }
+          files: "artifacts/Unit Test Results */**/*.xml"
