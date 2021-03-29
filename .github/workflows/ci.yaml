@@ -32,105 +32,6 @@ jobs:
             Spark_PyTests: true
             Spark_Torch_MNIST: true
 
-          - image: test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_4_7
-            Elastic_Spark_TensorFlow_Tests_1: true
-            Elastic_Spark_Torch_Tests: true
-            Elastic_Tests_1: true
-            Gloo_Cluster_PyTests: true
-            Gloo_MXNet_MNIST: true
-            Gloo_Parallel_PyTests: true
-            Gloo_PyTorch_MNIST: true
-            Gloo_Single_PyTests: true
-            Gloo_TensorFlow_2_0_Keras_MNIST: true
-            Gloo_TensorFlow_2_0_MNIST: true
-            Single_MXNet_MNIST: true
-            Single_PyTorch_MNIST: true
-            Spark_PyTests: true
-            Spark_Torch_MNIST: true
-
-          - image: test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
-            Elastic_Spark_TensorFlow_Tests_1: true
-            Elastic_Spark_Torch_Tests: true
-            Elastic_Tests_1: true
-            Gloo_Cluster_PyTests: true
-            Gloo_MXNet_MNIST: true
-            Gloo_Parallel_PyTests: true
-            Gloo_PyTorch_MNIST: true
-            Gloo_Single_PyTests: true
-            Gloo_TensorFlow_2_0_Keras_MNIST: true
-            Gloo_TensorFlow_2_0_MNIST: true
-            Single_MXNet_MNIST: true
-            Single_PyTorch_MNIST: true
-            Spark_PyTests: true
-            Spark_Torch_MNIST: true
-
-          - image: test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
-            MPI_Cluster_PyTests: true
-            MPI_MXNet_MNIST: true
-            MPI_Parallel_PyTests: true
-            MPI_PyTorch_MNIST: true
-            MPI_Single_PyTests: true
-            MPI_TensorFlow_2_0_Keras_MNIST: true
-            MPI_TensorFlow_2_0_MNIST: true
-            Single_MXNet_MNIST: true
-            Single_PyTorch_MNIST: true
-
-          - image: test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
-            MPI_Cluster_PyTests_ONECCL_MPI: true
-            MPI_Cluster_PyTests_ONECCL_OFI: true
-            MPI_MXNet_MNIST_ONECCL_MPI: true
-            MPI_MXNet_MNIST_ONECCL_OFI: true
-            MPI_Parallel_PyTests_ONECCL_MPI: true
-            MPI_Parallel_PyTests_ONECCL_OFI: true
-            MPI_PyTorch_MNIST_ONECCL_MPI: true
-            MPI_PyTorch_MNIST_ONECCL_OFI: true
-            MPI_Single_PyTests_ONECCL_MPI: true
-            MPI_Single_PyTests_ONECCL_OFI: true
-            MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI: true
-            MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI: true
-            MPI_TensorFlow_2_0_MNIST_ONECCL_MPI: true
-            MPI_TensorFlow_2_0_MNIST_ONECCL_OFI: true
-            Single_MXNet_MNIST_ONECCL_MPI: true
-            Single_MXNet_MNIST_ONECCL_OFI: true
-            Single_PyTorch_MNIST_ONECCL_MPI: true
-            Single_PyTorch_MNIST_ONECCL_OFI: true
-
-          - image: test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
-            MPI_Cluster_PyTests: true
-            MPI_MXNet_MNIST: true
-            MPI_Parallel_PyTests: true
-            MPI_PyTorch_MNIST: true
-            MPI_Single_PyTests: true
-            MPI_TensorFlow_2_0_Keras_MNIST: true
-            MPI_TensorFlow_2_0_MNIST: true
-            Run_PyTests_test_interactiverun: true
-            Single_MXNet_MNIST: true
-            Single_PyTorch_MNIST: true
-            Spark_PyTests: true
-            Spark_Torch_MNIST: true
-
-          - image: test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
-            Elastic_Tests_1: true
-            Gloo_Cluster_PyTests: true
-            Gloo_MXNet_MNIST: true
-            Gloo_Parallel_PyTests: true
-            Gloo_PyTorch_MNIST: true
-            Gloo_Single_PyTests: true
-            Gloo_TensorFlow_2_0_Keras_MNIST: true
-            Gloo_TensorFlow_2_0_MNIST: true
-            MPI_Cluster_PyTests: true
-            MPI_MXNet_MNIST: true
-            MPI_Parallel_PyTests: true
-            MPI_PyTorch_MNIST: true
-            MPI_Single_PyTests: true
-            MPI_TensorFlow_2_0_Keras_MNIST: true
-            MPI_TensorFlow_2_0_MNIST: true
-            Run_PyTests_test_interactiverun: true
-            Single_MXNet_MNIST: true
-            Single_PyTorch_MNIST: true
-            Spark_PyTests: true
-            Spark_Torch_MNIST: true
-
           - image: test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_1_p0-pyspark_3_0_1
             Elastic_Spark_TensorFlow_Tests_2: true
             Elastic_Spark_Torch_Tests: true
@@ -177,6 +78,22 @@ jobs:
             Spark_PyTests: true
             Spark_Torch_MNIST: true
 
+          - image: test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_4_7
+            Elastic_Spark_TensorFlow_Tests_1: true
+            Elastic_Spark_Torch_Tests: true
+            Elastic_Tests_1: true
+            Gloo_Cluster_PyTests: true
+            Gloo_MXNet_MNIST: true
+            Gloo_Parallel_PyTests: true
+            Gloo_PyTorch_MNIST: true
+            Gloo_Single_PyTests: true
+            Gloo_TensorFlow_2_0_Keras_MNIST: true
+            Gloo_TensorFlow_2_0_MNIST: true
+            Single_MXNet_MNIST: true
+            Single_PyTorch_MNIST: true
+            Spark_PyTests: true
+            Spark_Torch_MNIST: true
+
           - image: test-cpu-gloo-py3_8-tf2_2_2-keras2_3_1-torch1_5_1-mxnet1_5_1_p0-pyspark_3_0_1
             Elastic_Tests_1: true
             Gloo_Cluster_PyTests: true
@@ -191,8 +108,21 @@ jobs:
             Spark_PyTests: true
             Spark_Torch_MNIST: true
 
-          - image: test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_6_0_p0-pyspark_3_0_1
-
+          - image: test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
+            Elastic_Spark_TensorFlow_Tests_1: true
+            Elastic_Spark_Torch_Tests: true
+            Elastic_Tests_1: true
+            Gloo_Cluster_PyTests: true
+            Gloo_MXNet_MNIST: true
+            Gloo_Parallel_PyTests: true
+            Gloo_PyTorch_MNIST: true
+            Gloo_Single_PyTests: true
+            Gloo_TensorFlow_2_0_Keras_MNIST: true
+            Gloo_TensorFlow_2_0_MNIST: true
+            Single_MXNet_MNIST: true
+            Single_PyTorch_MNIST: true
+            Spark_PyTests: true
+            Spark_Torch_MNIST: true
 
           - image: test-cpu-gloo-py3_8-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1
             Elastic_Tests_1: true
@@ -208,16 +138,86 @@ jobs:
             Spark_PyTests: true
             Spark_Torch_MNIST: true
 
+          - image: test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
+            MPI_Cluster_PyTests: true
+            MPI_MXNet_MNIST: true
+            MPI_Parallel_PyTests: true
+            MPI_PyTorch_MNIST: true
+            MPI_Single_PyTests: true
+            MPI_TensorFlow_2_0_Keras_MNIST: true
+            MPI_TensorFlow_2_0_MNIST: true
+            Single_MXNet_MNIST: true
+            Single_PyTorch_MNIST: true
+
+          - image: test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
+            MPI_Cluster_PyTests_ONECCL_MPI: true
+            MPI_Cluster_PyTests_ONECCL_OFI: true
+            MPI_MXNet_MNIST_ONECCL_MPI: true
+            MPI_MXNet_MNIST_ONECCL_OFI: true
+            MPI_Parallel_PyTests_ONECCL_MPI: true
+            MPI_Parallel_PyTests_ONECCL_OFI: true
+            MPI_PyTorch_MNIST_ONECCL_MPI: true
+            MPI_PyTorch_MNIST_ONECCL_OFI: true
+            MPI_Single_PyTests_ONECCL_MPI: true
+            MPI_Single_PyTests_ONECCL_OFI: true
+            MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI: true
+            MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI: true
+            MPI_TensorFlow_2_0_MNIST_ONECCL_MPI: true
+            MPI_TensorFlow_2_0_MNIST_ONECCL_OFI: true
+            Single_MXNet_MNIST_ONECCL_MPI: true
+            Single_MXNet_MNIST_ONECCL_OFI: true
+            Single_PyTorch_MNIST_ONECCL_MPI: true
+            Single_PyTorch_MNIST_ONECCL_OFI: true
+
+          - image: test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
+            Elastic_Tests_1: true
+            Gloo_Cluster_PyTests: true
+            Gloo_MXNet_MNIST: true
+            Gloo_Parallel_PyTests: true
+            Gloo_PyTorch_MNIST: true
+            Gloo_Single_PyTests: true
+            Gloo_TensorFlow_2_0_Keras_MNIST: true
+            Gloo_TensorFlow_2_0_MNIST: true
+            MPI_Cluster_PyTests: true
+            MPI_MXNet_MNIST: true
+            MPI_Parallel_PyTests: true
+            MPI_PyTorch_MNIST: true
+            MPI_Single_PyTests: true
+            MPI_TensorFlow_2_0_Keras_MNIST: true
+            MPI_TensorFlow_2_0_MNIST: true
+            Run_PyTests_test_interactiverun: true
+            Single_MXNet_MNIST: true
+            Single_PyTorch_MNIST: true
+            Spark_PyTests: true
+            Spark_Torch_MNIST: true
+
+          - image: test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
+            MPI_Cluster_PyTests: true
+            MPI_MXNet_MNIST: true
+            MPI_Parallel_PyTests: true
+            MPI_PyTorch_MNIST: true
+            MPI_Single_PyTests: true
+            MPI_TensorFlow_2_0_Keras_MNIST: true
+            MPI_TensorFlow_2_0_MNIST: true
+            Run_PyTests_test_interactiverun: true
+            Single_MXNet_MNIST: true
+            Single_PyTorch_MNIST: true
+            Spark_PyTests: true
+            Spark_Torch_MNIST: true
+
           - image: test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1
+
+
+          - image: test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_6_0_p0-pyspark_3_0_1
 
 
           - image: test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_6_0-mxnet1_7_0_p1-pyspark_3_0_1
 
 
-          - image: test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1
-
-
           - image: test-gpu-gloo-py3_8-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1
+
+
+          - image: test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1
 
 
           - image: test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1

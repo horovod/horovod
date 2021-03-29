@@ -78,7 +78,7 @@ def main():
     tests_per_image = {image: {test_id_per_label[label]
                                for label, command, test_image in cpu_tests
                                if test_image == image}
-                       for image in images}
+                       for image in sorted(images)}
 
     # index tests by id
     tests = {test_id_per_label[label]: dict(label=label, command=command)
