@@ -9,8 +9,200 @@ on:
 
 jobs:
   build-and-test:
-    name: "Build and Test"
+    name: "Build and Test (${{ matrix.image }})"
     runs-on: ubuntu-18.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_3_4
+            Elastic_Spark_TensorFlow_Tests_1: true
+            Elastic_Spark_Torch_Tests: true
+            Elastic_Tests_1: true
+            Gloo_Cluster_PyTests: true
+            Gloo_MXNet_MNIST: true
+            Gloo_Parallel_PyTests: true
+            Gloo_PyTorch_MNIST: true
+            Gloo_Single_PyTests: true
+            Gloo_TensorFlow_2_0_Keras_MNIST: true
+            Gloo_TensorFlow_2_0_MNIST: true
+            Single_MXNet_MNIST: true
+            Single_PyTorch_MNIST: true
+            Spark_PyTests: true
+            Spark_Torch_MNIST: true
+
+          - image: test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_2_4_7
+            Elastic_Spark_TensorFlow_Tests_1: true
+            Elastic_Spark_Torch_Tests: true
+            Elastic_Tests_1: true
+            Gloo_Cluster_PyTests: true
+            Gloo_MXNet_MNIST: true
+            Gloo_Parallel_PyTests: true
+            Gloo_PyTorch_MNIST: true
+            Gloo_Single_PyTests: true
+            Gloo_TensorFlow_2_0_Keras_MNIST: true
+            Gloo_TensorFlow_2_0_MNIST: true
+            Single_MXNet_MNIST: true
+            Single_PyTorch_MNIST: true
+            Spark_PyTests: true
+            Spark_Torch_MNIST: true
+
+          - image: test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
+            Elastic_Spark_TensorFlow_Tests_1: true
+            Elastic_Spark_Torch_Tests: true
+            Elastic_Tests_1: true
+            Gloo_Cluster_PyTests: true
+            Gloo_MXNet_MNIST: true
+            Gloo_Parallel_PyTests: true
+            Gloo_PyTorch_MNIST: true
+            Gloo_Single_PyTests: true
+            Gloo_TensorFlow_2_0_Keras_MNIST: true
+            Gloo_TensorFlow_2_0_MNIST: true
+            Single_MXNet_MNIST: true
+            Single_PyTorch_MNIST: true
+            Spark_PyTests: true
+            Spark_Torch_MNIST: true
+
+          - image: test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
+            MPI_Cluster_PyTests: true
+            MPI_MXNet_MNIST: true
+            MPI_Parallel_PyTests: true
+            MPI_PyTorch_MNIST: true
+            MPI_Single_PyTests: true
+            MPI_TensorFlow_2_0_Keras_MNIST: true
+            MPI_TensorFlow_2_0_MNIST: true
+            Single_MXNet_MNIST: true
+            Single_PyTorch_MNIST: true
+
+          - image: test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
+            MPI_Cluster_PyTests_ONECCL_MPI: true
+            MPI_Cluster_PyTests_ONECCL_OFI: true
+            MPI_MXNet_MNIST_ONECCL_MPI: true
+            MPI_MXNet_MNIST_ONECCL_OFI: true
+            MPI_Parallel_PyTests_ONECCL_MPI: true
+            MPI_Parallel_PyTests_ONECCL_OFI: true
+            MPI_PyTorch_MNIST_ONECCL_MPI: true
+            MPI_PyTorch_MNIST_ONECCL_OFI: true
+            MPI_Single_PyTests_ONECCL_MPI: true
+            MPI_Single_PyTests_ONECCL_OFI: true
+            MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI: true
+            MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI: true
+            MPI_TensorFlow_2_0_MNIST_ONECCL_MPI: true
+            MPI_TensorFlow_2_0_MNIST_ONECCL_OFI: true
+            Single_MXNet_MNIST_ONECCL_MPI: true
+            Single_MXNet_MNIST_ONECCL_OFI: true
+            Single_PyTorch_MNIST_ONECCL_MPI: true
+            Single_PyTorch_MNIST_ONECCL_OFI: true
+
+          - image: test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
+            MPI_Cluster_PyTests: true
+            MPI_MXNet_MNIST: true
+            MPI_Parallel_PyTests: true
+            MPI_PyTorch_MNIST: true
+            MPI_Single_PyTests: true
+            MPI_TensorFlow_2_0_Keras_MNIST: true
+            MPI_TensorFlow_2_0_MNIST: true
+            Run_PyTests_test_interactiverun: true
+            Single_MXNet_MNIST: true
+            Single_PyTorch_MNIST: true
+            Spark_PyTests: true
+            Spark_Torch_MNIST: true
+
+          - image: test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
+            Elastic_Tests_1: true
+            Gloo_Cluster_PyTests: true
+            Gloo_MXNet_MNIST: true
+            Gloo_Parallel_PyTests: true
+            Gloo_PyTorch_MNIST: true
+            Gloo_Single_PyTests: true
+            Gloo_TensorFlow_2_0_Keras_MNIST: true
+            Gloo_TensorFlow_2_0_MNIST: true
+            MPI_Cluster_PyTests: true
+            MPI_MXNet_MNIST: true
+            MPI_Parallel_PyTests: true
+            MPI_PyTorch_MNIST: true
+            MPI_Single_PyTests: true
+            MPI_TensorFlow_2_0_Keras_MNIST: true
+            MPI_TensorFlow_2_0_MNIST: true
+            Run_PyTests_test_interactiverun: true
+            Single_MXNet_MNIST: true
+            Single_PyTorch_MNIST: true
+            Spark_PyTests: true
+            Spark_Torch_MNIST: true
+
+          - image: test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_1_p0-pyspark_3_0_1
+            Elastic_Spark_TensorFlow_Tests_2: true
+            Elastic_Spark_Torch_Tests: true
+            Elastic_Tests_2: true
+            Gloo_Cluster_PyTests: true
+            Gloo_Keras_MNIST: true
+            Gloo_MXNet_MNIST: true
+            Gloo_Parallel_PyTests: true
+            Gloo_Single_PyTests: true
+            Gloo_TensorFlow_MNIST: true
+            Single_Keras_MNIST: true
+            Single_MXNet_MNIST: true
+            Spark_Keras_MNIST: true
+            Spark_Keras_Rossmann_Estimator: true
+            Spark_Keras_Rossmann_Run: true
+            Spark_PyTests: true
+            Spark_Torch_MNIST: true
+
+          - image: test-cpu-gloo-py3_7-tf2_0_4-keras2_3_1-torch1_3_1-mxnet1_5_1_p0-pyspark_3_0_1
+            Elastic_Tests_1: true
+            Gloo_Cluster_PyTests: true
+            Gloo_MXNet_MNIST: true
+            Gloo_Parallel_PyTests: true
+            Gloo_PyTorch_MNIST: true
+            Gloo_Single_PyTests: true
+            Gloo_TensorFlow_2_0_Keras_MNIST: true
+            Gloo_TensorFlow_2_0_MNIST: true
+            Single_MXNet_MNIST: true
+            Single_PyTorch_MNIST: true
+            Spark_PyTests: true
+            Spark_Torch_MNIST: true
+
+          - image: test-cpu-gloo-py3_7-tf2_1_3-keras2_3_1-torch1_4_0-mxnet1_5_1_p0-pyspark_3_0_1
+            Elastic_Tests_1: true
+            Gloo_Cluster_PyTests: true
+            Gloo_MXNet_MNIST: true
+            Gloo_Parallel_PyTests: true
+            Gloo_PyTorch_MNIST: true
+            Gloo_Single_PyTests: true
+            Gloo_TensorFlow_2_0_Keras_MNIST: true
+            Gloo_TensorFlow_2_0_MNIST: true
+            Single_MXNet_MNIST: true
+            Single_PyTorch_MNIST: true
+            Spark_PyTests: true
+            Spark_Torch_MNIST: true
+
+          - image: test-cpu-gloo-py3_8-tf2_2_2-keras2_3_1-torch1_5_1-mxnet1_5_1_p0-pyspark_3_0_1
+            Elastic_Tests_1: true
+            Gloo_Cluster_PyTests: true
+            Gloo_MXNet_MNIST: true
+            Gloo_Parallel_PyTests: true
+            Gloo_PyTorch_MNIST: true
+            Gloo_Single_PyTests: true
+            Gloo_TensorFlow_2_0_Keras_MNIST: true
+            Gloo_TensorFlow_2_0_MNIST: true
+            Single_MXNet_MNIST: true
+            Single_PyTorch_MNIST: true
+            Spark_PyTests: true
+            Spark_Torch_MNIST: true
+
+          - image: test-cpu-gloo-py3_8-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1
+            Elastic_Tests_1: true
+            Gloo_Cluster_PyTests: true
+            Gloo_MXNet2_MNIST: true
+            Gloo_Parallel_PyTests: true
+            Gloo_PyTorch_MNIST: true
+            Gloo_Single_PyTests: true
+            Gloo_TensorFlow_2_0_Keras_MNIST: true
+            Gloo_TensorFlow_2_0_MNIST: true
+            Single_MXNet2_MNIST: true
+            Single_PyTorch_MNIST: true
+            Spark_PyTests: true
+            Spark_Torch_MNIST: true
 
     steps:
       - name: Checkout
@@ -27,17 +219,359 @@ jobs:
         run: pip install docker-compose
 
       - name: Build
-        run: docker-compose -f docker-compose.test.yml build test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
+        run: docker-compose -f docker-compose.test.yml build ${{ matrix.image }}
 
       - name: Docker ls
         run: docker image ls
 
-      - name: Setup artifacts
-        run: mkdir -p artifacts/test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1
+      - name: "Gloo Parallel PyTests"
+        if: matrix.Gloo_Parallel_PyTests
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_Parallel_PyTests
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Parallel_PyTests:/artifacts" ${{ matrix.image }} bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
+        shell: bash
 
-      - name: "Run Gloo Parallel PyTests (test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1)"
-        #run: docker run --rm --volume "$(pwd)/artifacts/test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1:/artifacts" test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1 /bin/bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
-        run: docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1:/artifacts" test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1 /bin/bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
+      - name: "Gloo Single PyTests"
+        if: matrix.Gloo_Single_PyTests
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_Single_PyTests
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Single_PyTests:/artifacts" ${{ matrix.image }} bash -c " cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh gloo)"
+        shell: bash
+
+      - name: "Gloo Cluster PyTests"
+        if: matrix.Gloo_Cluster_PyTests
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_Cluster_PyTests
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Cluster_PyTests:/artifacts" ${{ matrix.image }} bash -c " /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST"
+        if: matrix.Gloo_TensorFlow_2_0_MNIST
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST:/artifacts" ${{ matrix.image }} horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 Keras MNIST"
+        if: matrix.Gloo_TensorFlow_2_0_Keras_MNIST
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST:/artifacts" ${{ matrix.image }} horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
+        shell: bash
+
+      - name: "Gloo PyTorch MNIST"
+        if: matrix.Gloo_PyTorch_MNIST
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST:/artifacts" ${{ matrix.image }} horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
+        shell: bash
+
+      - name: "Gloo MXNet MNIST"
+        if: matrix.Gloo_MXNet_MNIST
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_MXNet_MNIST
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_MXNet_MNIST:/artifacts" ${{ matrix.image }} horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet_mnist.py
+        shell: bash
+
+      - name: "Elastic Tests 1"
+        if: matrix.Elastic_Tests_1
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Elastic_Tests_1
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_1:/artifacts" ${{ matrix.image }} bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow2.py"
+        shell: bash
+
+      - name: "Elastic Spark TensorFlow Tests 1"
+        if: matrix.Elastic_Spark_TensorFlow_Tests_1
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_1
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_1:/artifacts" ${{ matrix.image }} bash -c "cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow2.py"
+        shell: bash
+
+      - name: "Elastic Spark Torch Tests"
+        if: matrix.Elastic_Spark_Torch_Tests
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Elastic_Spark_Torch_Tests
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_Torch_Tests:/artifacts" ${{ matrix.image }} bash -c "cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py"
+        shell: bash
+
+      - name: "Spark PyTests"
+        if: matrix.Spark_PyTests
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Spark_PyTests
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_PyTests:/artifacts" ${{ matrix.image }} bash -c "cd /horovod/test/integration && (ls -1 test_spark*.py | xargs -n 1 /bin/bash /pytest_standalone.sh spark)"
+        shell: bash
+
+      - name: "Spark Torch MNIST"
+        if: matrix.Spark_Torch_MNIST
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Spark_Torch_MNIST
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Torch_MNIST:/artifacts" ${{ matrix.image }} bash -c "OMP_NUM_THREADS=1 python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+        shell: bash
+
+      - name: "Single PyTorch MNIST"
+        if: matrix.Single_PyTorch_MNIST
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Single_PyTorch_MNIST
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Single_PyTorch_MNIST:/artifacts" ${{ matrix.image }} bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
+        shell: bash
+
+      - name: "Single MXNet MNIST"
+        if: matrix.Single_MXNet_MNIST
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Single_MXNet_MNIST
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Single_MXNet_MNIST:/artifacts" ${{ matrix.image }} bash -c " python /horovod/examples/mxnet/mxnet_mnist.py --epochs 3"
+        shell: bash
+
+      - name: "MPI Parallel PyTests"
+        if: matrix.MPI_Parallel_PyTests
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_Parallel_PyTests
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests:/artifacts" ${{ matrix.image }} bash -c "  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
+        shell: bash
+
+      - name: "MPI Single PyTests"
+        if: matrix.MPI_Single_PyTests
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_Single_PyTests
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Single_PyTests:/artifacts" ${{ matrix.image }} bash -c "  cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh mpi)"
+        shell: bash
+
+      - name: "MPI Cluster PyTests"
+        if: matrix.MPI_Cluster_PyTests
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_Cluster_PyTests
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests:/artifacts" ${{ matrix.image }} bash -c "  /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+        shell: bash
+
+      - name: "MPI PyTorch MNIST"
+        if: matrix.MPI_PyTorch_MNIST
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST:/artifacts" ${{ matrix.image }} bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+        shell: bash
+
+      - name: "MPI MXNet MNIST"
+        if: matrix.MPI_MXNet_MNIST
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_MXNet_MNIST
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_MXNet_MNIST:/artifacts" ${{ matrix.image }} bash -c " OMP_NUM_THREADS=1 \$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST"
+        if: matrix.MPI_TensorFlow_2_0_MNIST
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST:/artifacts" ${{ matrix.image }} bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 Keras MNIST"
+        if: matrix.MPI_TensorFlow_2_0_Keras_MNIST
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST:/artifacts" ${{ matrix.image }} bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+        shell: bash
+
+      - name: "MPI Parallel PyTests [ONECCL MPI]"
+        if: matrix.MPI_Parallel_PyTests_ONECCL_MPI
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_MPI
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_MPI:/artifacts" ${{ matrix.image }} bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
+        shell: bash
+
+      - name: "MPI Single PyTests [ONECCL MPI]"
+        if: matrix.MPI_Single_PyTests_ONECCL_MPI
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_Single_PyTests_ONECCL_MPI
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Single_PyTests_ONECCL_MPI:/artifacts" ${{ matrix.image }} bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh mpi)"
+        shell: bash
+
+      - name: "MPI Cluster PyTests [ONECCL MPI]"
+        if: matrix.MPI_Cluster_PyTests_ONECCL_MPI
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_MPI
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_MPI:/artifacts" ${{ matrix.image }} bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+        shell: bash
+
+      - name: "MPI PyTorch MNIST [ONECCL MPI]"
+        if: matrix.MPI_PyTorch_MNIST_ONECCL_MPI
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_MPI
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_MPI:/artifacts" ${{ matrix.image }} bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+        shell: bash
+
+      - name: "MPI MXNet MNIST [ONECCL MPI]"
+        if: matrix.MPI_MXNet_MNIST_ONECCL_MPI
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_MXNet_MNIST_ONECCL_MPI
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_MXNet_MNIST_ONECCL_MPI:/artifacts" ${{ matrix.image }} bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && OMP_NUM_THREADS=1 \$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST [ONECCL MPI]"
+        if: matrix.MPI_TensorFlow_2_0_MNIST_ONECCL_MPI
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_MPI
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_MPI:/artifacts" ${{ matrix.image }} bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 Keras MNIST [ONECCL MPI]"
+        if: matrix.MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI:/artifacts" ${{ matrix.image }} bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+        shell: bash
+
+      - name: "MPI Parallel PyTests [ONECCL OFI]"
+        if: matrix.MPI_Parallel_PyTests_ONECCL_OFI
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_OFI
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_OFI:/artifacts" ${{ matrix.image }} bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
+        shell: bash
+
+      - name: "MPI Single PyTests [ONECCL OFI]"
+        if: matrix.MPI_Single_PyTests_ONECCL_OFI
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_Single_PyTests_ONECCL_OFI
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Single_PyTests_ONECCL_OFI:/artifacts" ${{ matrix.image }} bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh mpi)"
+        shell: bash
+
+      - name: "MPI Cluster PyTests [ONECCL OFI]"
+        if: matrix.MPI_Cluster_PyTests_ONECCL_OFI
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_OFI
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_OFI:/artifacts" ${{ matrix.image }} bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+        shell: bash
+
+      - name: "MPI PyTorch MNIST [ONECCL OFI]"
+        if: matrix.MPI_PyTorch_MNIST_ONECCL_OFI
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_OFI
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_OFI:/artifacts" ${{ matrix.image }} bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+        shell: bash
+
+      - name: "MPI MXNet MNIST [ONECCL OFI]"
+        if: matrix.MPI_MXNet_MNIST_ONECCL_OFI
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_MXNet_MNIST_ONECCL_OFI
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_MXNet_MNIST_ONECCL_OFI:/artifacts" ${{ matrix.image }} bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && OMP_NUM_THREADS=1 \$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST [ONECCL OFI]"
+        if: matrix.MPI_TensorFlow_2_0_MNIST_ONECCL_OFI
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_OFI
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_OFI:/artifacts" ${{ matrix.image }} bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 Keras MNIST [ONECCL OFI]"
+        if: matrix.MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI:/artifacts" ${{ matrix.image }} bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+        shell: bash
+
+      - name: "Single PyTorch MNIST [ONECCL MPI]"
+        if: matrix.Single_PyTorch_MNIST_ONECCL_MPI
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Single_PyTorch_MNIST_ONECCL_MPI
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Single_PyTorch_MNIST_ONECCL_MPI:/artifacts" ${{ matrix.image }} bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
+        shell: bash
+
+      - name: "Single MXNet MNIST [ONECCL MPI]"
+        if: matrix.Single_MXNet_MNIST_ONECCL_MPI
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Single_MXNet_MNIST_ONECCL_MPI
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Single_MXNet_MNIST_ONECCL_MPI:/artifacts" ${{ matrix.image }} bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/mxnet/mxnet_mnist.py --epochs 3"
+        shell: bash
+
+      - name: "Single PyTorch MNIST [ONECCL OFI]"
+        if: matrix.Single_PyTorch_MNIST_ONECCL_OFI
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Single_PyTorch_MNIST_ONECCL_OFI
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Single_PyTorch_MNIST_ONECCL_OFI:/artifacts" ${{ matrix.image }} bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
+        shell: bash
+
+      - name: "Single MXNet MNIST [ONECCL OFI]"
+        if: matrix.Single_MXNet_MNIST_ONECCL_OFI
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Single_MXNet_MNIST_ONECCL_OFI
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Single_MXNet_MNIST_ONECCL_OFI:/artifacts" ${{ matrix.image }} bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/mxnet/mxnet_mnist.py --epochs 3"
+        shell: bash
+
+      - name: "Run PyTests test_interactiverun"
+        if: matrix.Run_PyTests_test_interactiverun
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Run_PyTests_test_interactiverun
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Run_PyTests_test_interactiverun:/artifacts" ${{ matrix.image }} bash -c "cd /horovod/test && pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.integration.xml integration/test_interactiverun.py"
+        shell: bash
+
+      - name: "Gloo TensorFlow MNIST"
+        if: matrix.Gloo_TensorFlow_MNIST
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_MNIST
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_MNIST:/artifacts" ${{ matrix.image }} horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow/tensorflow_mnist.py
+        shell: bash
+
+      - name: "Gloo Keras MNIST"
+        if: matrix.Gloo_Keras_MNIST
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_Keras_MNIST
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Keras_MNIST:/artifacts" ${{ matrix.image }} horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/keras/keras_mnist_advanced.py
+        shell: bash
+
+      - name: "Elastic Tests 2"
+        if: matrix.Elastic_Tests_2
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Elastic_Tests_2
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_2:/artifacts" ${{ matrix.image }} bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow.py test_elastic_tensorflow_keras.py"
+        shell: bash
+
+      - name: "Elastic Spark TensorFlow Tests 2"
+        if: matrix.Elastic_Spark_TensorFlow_Tests_2
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_2
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_2:/artifacts" ${{ matrix.image }} bash -c "cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow.py"
+        shell: bash
+
+      - name: "Spark Keras Rossmann Run"
+        if: matrix.Spark_Keras_Rossmann_Run
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Run
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Run:/artifacts" ${{ matrix.image }} bash -c "OMP_NUM_THREADS=1 python /horovod/examples/spark/keras/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.01"
+        shell: bash
+
+      - name: "Spark Keras Rossmann Estimator"
+        if: matrix.Spark_Keras_Rossmann_Estimator
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Estimator
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Estimator:/artifacts" ${{ matrix.image }} bash -c "OMP_NUM_THREADS=1 python /horovod/examples/spark/keras/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01"
+        shell: bash
+
+      - name: "Spark Keras MNIST"
+        if: matrix.Spark_Keras_MNIST
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Spark_Keras_MNIST
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Keras_MNIST:/artifacts" ${{ matrix.image }} bash -c "OMP_NUM_THREADS=1 python /horovod/examples/spark/keras/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+        shell: bash
+
+      - name: "Single Keras MNIST"
+        if: matrix.Single_Keras_MNIST
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Single_Keras_MNIST
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Single_Keras_MNIST:/artifacts" ${{ matrix.image }} bash -c " python /horovod/examples/keras/keras_mnist_advanced.py --epochs 3 --batch-size 64"
+        shell: bash
+
+      - name: "Gloo MXNet2 MNIST"
+        if: matrix.Gloo_MXNet2_MNIST
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST:/artifacts" ${{ matrix.image }} horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet2_mnist.py
+        shell: bash
+
+      - name: "Single MXNet2 MNIST"
+        if: matrix.Single_MXNet2_MNIST
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Single_MXNet2_MNIST
+          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Single_MXNet2_MNIST:/artifacts" ${{ matrix.image }} bash -c " python /horovod/examples/mxnet/mxnet2_mnist.py --epochs 3"
         shell: bash
 
       - name: List artifacts
