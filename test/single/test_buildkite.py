@@ -142,6 +142,7 @@ class BuildKiteTests(unittest.TestCase):
             self.assertEqual("steps:\n"
                              "- wait\n"
                              "- wait\n"
+                             "- wait\n"
                              "- wait\n", actual_pipeline)
 
     """
