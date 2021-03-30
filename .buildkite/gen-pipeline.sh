@@ -14,7 +14,7 @@ baseline="test-cpu-gloo-py3_8-tf2_5_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspar
 # skip tests when there are no code changes
 dir="$(dirname "$0")"
 code_files=$(python "$dir/get_changed_code_files.py" || echo failure)
-tests=$(if [[ "${PIPELINE_MODE:-}" == "FULL" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}" ]] || [[ -n "$code_files" ]] ); then
+tests=$(if [[ "${PIPELINE_MODE:-}" == *"FULL"* ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}" ]] || [[ -n "$code_files" ]] ); then
   # we vary the baseline along the Python dimension and PySpark together
   # run_gloo_integration expects these to have Gloo mpi kind to run 'Elastic Spark * Tests'
   printf "test-cpu-gloo-py3_7-tf2_5_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark2_4_8 "
@@ -59,7 +59,7 @@ tests=$(if [[ "${PIPELINE_MODE:-}" == "FULL" ]] && ( [[ "${BUILDKITE_BRANCH:-}" 
 
   # and one final test with mixed cpu+gpu
   printf "test-mixed-openmpi-gloo-py3_8-tf2_5_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2 "
-fi)
+fi | if [[ "${PIPELINE_MODE:-}" == "GPU FULL" ]]; then sed -E "s/[^ ]*-cpu-[^ ]*//g"; else cat; fi)
 read -r -a tests <<< "$tests"
 
 
