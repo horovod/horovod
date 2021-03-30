@@ -648,22 +648,47 @@ jobs:
           name: Unit Test Results - ${{ matrix.image }}
           path: artifacts/${{ matrix.image }}/**/*.xml
 
+  buildkite:
+    name: "Build and Test (GPUs on Builtkite)"
+    needs: build-and-test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Buildkite Pipeline
+        uses: buildkite/trigger-pipeline-action@v1.2.0
+        env:
+          PIPELINE: "horovod/horovod"
+          MESSAGE: "GPU Tests triggered by GitHub"
+          BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
+          BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU FULL\"}"
+
   publish-test-results:
     name: "Publish Unit Tests Results"
-    needs: build-and-test
+    needs: [build-and-test, buildkite]
     runs-on: ubuntu-latest
     if: >
       always() &&
       ( github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository )
 
     steps:
-      - name: Download Artifacts
+      - name: Download GitHub Artifacts
         uses: actions/download-artifact@v2
         with:
           path: artifacts
 
+      - name: Download Buildkite Artifacts
+        uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1
+        if: always() && needs.buildkite.result == 'success'
+        with:
+          github_token: ${{ github.token }}
+          buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
+          ignore_build_states: blocked,canceled,skipped,not_run
+          ignore_job_states: timed_out
+          output_path: artifacts/Unit Test Results - Buildkite
+
       - name: Publish Unit Test Results
         uses: docker://ghcr.io/enricomi/publish-unit-test-result-action:v1
+        if: always()
         with:
-          github_token: ${ github.token }
+          github_token: ${{ github.token }}
           files: "artifacts/Unit Test Results */**/*.xml"
