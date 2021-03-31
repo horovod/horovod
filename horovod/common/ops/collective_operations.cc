@@ -153,9 +153,10 @@ Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
                                    const Response& response,
                                    int64_t**& entry_component_sizes,
                                    int*& recvcounts) {
-  int global_size = global_state_->controller->GetSize();
   for (size_t ec = 0; ec < entries.size(); ++ec) {
     auto& e = entries[ec];
+    auto& process_set = global_state_->process_set_table.Get(e.process_set_id);
+    int world_size = process_set.controller->GetSize();
     // Every tensor participating in Allgather operation may have different
     // first dimension size, but the rest of dimensions are same for all
     // tensors.  Here we get shape of tensor sliced by first dimension.
@@ -168,8 +169,8 @@ Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
     // and compute total size.  This is size of first dimension.
     int64_t total_entry_dimension_size = 0;
     const auto& tensor_sizes = response.tensor_sizes();
-    for (int rc = 0; rc < global_size; ++rc) {
-      auto component_size = tensor_sizes[ec * global_size + rc];
+    for (int rc = 0; rc < world_size; ++rc) {
+      auto component_size = tensor_sizes[ec * world_size + rc];
       total_entry_dimension_size += component_size;
 
       if (recvcounts) {
@@ -197,9 +198,9 @@ Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
   return Status::OK();
 }
 
-void AllgatherOp::SetDisplacements(const int* recvcounts, int*& displcmnts) {
-  int global_size = global_state_->controller->GetSize();
-  for (int rc = 0; rc < global_size; ++rc) {
+void AllgatherOp::SetDisplacements(const int* recvcounts, int*& displcmnts,
+                                   int world_size) {
+  for (int rc = 0; rc < world_size; ++rc) {
     if (rc == 0) {
       displcmnts[rc] = 0;
     } else {
@@ -212,9 +213,12 @@ void AllgatherOp::SetEntryComponentOffsets(
     const std::vector<TensorTableEntry>& entries,
     const int64_t* const* entry_component_sizes, const int* recvcounts,
     int64_t**& entry_component_offsets) {
+  assert(!entries.empty());
+  auto& process_set =
+      global_state_->process_set_table.Get(entries[0].process_set_id);
   unsigned int rank_displacement = 0;
-  int global_size = global_state_->controller->GetSize();
-  for (int rc = 0; rc < global_size; ++rc) {
+  int world_size = process_set.controller->GetSize();
+  for (int rc = 0; rc < world_size; ++rc) {
     for (size_t ec = 0; ec < entries.size(); ++ec) {
       if (ec == 0) {
         entry_component_offsets[ec][rc] = rank_displacement;
@@ -230,13 +234,16 @@ void AllgatherOp::SetEntryComponentOffsets(
 void AllgatherOp::MemcpyInFusionBuffer(
     const std::vector<TensorTableEntry>& entries, const int* displcmnts,
     int element_size, void*& buffer_data) {
+  assert(!entries.empty());
   // Access the fusion buffer.
   auto& first_entry = entries[0];
   auto buffer = global_state_->fusion_buffer.GetBuffer(
       first_entry.device, first_entry.context->framework(), global_state_->current_nccl_stream);
   buffer_data = const_cast<void*>(buffer->AccessData(first_entry.context));
 
-  int64_t offset = displcmnts[global_state_->controller->GetRank()] * element_size;
+  auto& process_set =
+      global_state_->process_set_table.Get(first_entry.process_set_id);
+  int64_t offset = displcmnts[process_set.controller->GetRank()] * element_size;
   for (auto& e : entries) {
     void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
     MemcpyEntryInFusionBuffer(entries, e, buffer_data_at_offset);
@@ -249,11 +256,12 @@ void AllgatherOp::MemcpyOutFusionBuffer(
     const int64_t* const* entry_component_sizes, const void* buffer_data,
     int element_size, std::vector<TensorTableEntry>& entries) {
   // Copy memory out of the fusion buffer.
-  int global_size = global_state_->controller->GetSize();
   for (size_t ec = 0; ec < entries.size(); ++ec) {
     auto& e = entries[ec];
+    auto& process_set = global_state_->process_set_table.Get(e.process_set_id);
+    int world_size = process_set.controller->GetSize();
     int64_t copy_offset = 0;
-    for (int rc = 0; rc < global_size; ++rc) {
+    for (int rc = 0; rc < world_size; ++rc) {
       int64_t entry_offset = entry_component_offsets[ec][rc] * element_size;
       int64_t entry_size = entry_component_sizes[ec][rc] * element_size;
       const void* buffer_data_at_offset = (uint8_t*)buffer_data + entry_offset;
@@ -286,16 +294,16 @@ AlltoallOp::AlltoallOp(HorovodGlobalState* global_state)
     : HorovodOp(global_state) {}
 
 // Join
-JoinOp::JoinOp(HorovodGlobalState* global_state) : HorovodOp(global_state) {}
+JoinOp::JoinOp(HorovodGlobalState* global_state) : global_state_(global_state) {}
 
 Status JoinOp::Execute(std::vector<TensorTableEntry>& entries,
-                       const Response& response) {
+                       const Response& response, ProcessSet& process_set) {
   WaitForData(entries);
 
-  assert(entries.size() == 0);
-  if (global_state_->joined) {
-    global_state_->tensor_queue.RemoveJoinTensor();
-    global_state_->joined = false;
+  assert(entries.empty());
+  if (process_set.joined) {
+    process_set.tensor_queue.RemoveJoinTensor();
+    process_set.joined = false;
   }
   return Status::OK();
 }

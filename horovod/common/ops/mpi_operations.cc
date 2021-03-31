@@ -24,15 +24,16 @@ MPIAllreduce::MPIAllreduce(MPIContext* mpi_context, HorovodGlobalState* global_s
     : AllreduceOp(global_state), mpi_context_(mpi_context) {}
 
 Status MPIAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+  assert(!entries.empty());
   WaitForData(entries);
 
   auto& first_entry = entries[0];
+  assert(first_entry.process_set_id == 0);  // TODO: generalize
 
   const void* fused_input_data;
   void* buffer_data;
   size_t buffer_len;
   int64_t num_elements = NumElements(entries);
-
 
   // Copy memory into the fusion buffer.
   auto& timeline = global_state_->timeline;
@@ -97,7 +98,13 @@ bool MPIAllgather::Enabled(const ParameterManager& param_manager,
 }
 
 Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+  assert(!entries.empty());
   WaitForData(entries);
+
+  auto& first_entry = entries[0];
+  assert(first_entry.process_set_id == 0);  // TODO: generalize
+  auto& process_set =
+      global_state_->process_set_table.Get(first_entry.process_set_id);
 
   auto& timeline = global_state_->timeline;
 
@@ -108,7 +115,7 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
   // allgatherv
   auto** entry_component_offsets = new int64_t* [entries.size()];
 
-  int global_size = global_state_->controller->GetSize();
+  int global_size = process_set.controller->GetSize();
   auto* recvcounts = new int[global_size]();
   auto* displcmnts = new int[global_size]();
 
@@ -116,8 +123,6 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
     entry_component_sizes[ec] = new int64_t[global_size]();
     entry_component_offsets[ec] = new int64_t[global_size]();
   }
-
-  auto& first_entry = entries[0];
 
   timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
   Status status = AllocateOutput(entries, response, entry_component_sizes, recvcounts);
@@ -135,7 +140,7 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
   }
   timeline.ActivityEndAll(entries);
 
-  SetDisplacements(recvcounts, displcmnts);
+  SetDisplacements(recvcounts, displcmnts, global_size);
   SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts, entry_component_offsets);
 
   int element_size = mpi_context_->GetMPITypeSize(first_entry.tensor->dtype());
@@ -193,7 +198,13 @@ MPIHierarchicalAllgather::MPIHierarchicalAllgather(MPIContext* mpi_context,
     : MPIAllgather(mpi_context, global_state) {}
 
 Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+  assert(!entries.empty());
   WaitForData(entries);
+
+  auto& first_entry = entries[0];
+  assert(first_entry.process_set_id == 0);  // TODO: generalize
+  auto& process_set =
+      global_state_->process_set_table.Get(first_entry.process_set_id);
 
   auto& timeline = global_state_->timeline;
 
@@ -204,7 +215,7 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
   // allgatherv
   auto** entry_component_offsets = new int64_t* [entries.size()];
 
-  int global_size = global_state_->controller->GetSize();
+  int global_size = process_set.controller->GetSize();
   auto* recvcounts = new int[global_size]();
   auto* displcmnts = new int[global_size]();
 
@@ -212,8 +223,6 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
     entry_component_sizes[ec] = new int64_t[global_size]();
     entry_component_offsets[ec] = new int64_t[global_size]();
   }
-
-  auto& first_entry = entries[0];
 
   timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
   Status status = AllocateOutput(entries, response, entry_component_sizes, recvcounts);
@@ -231,7 +240,7 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
   }
   timeline.ActivityEndAll(entries);
 
-  SetDisplacements(recvcounts, displcmnts);
+  SetDisplacements(recvcounts, displcmnts, global_size);
   SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts, entry_component_offsets);
 
   int element_size = mpi_context_->GetMPITypeSize(first_entry.tensor->dtype());
@@ -250,14 +259,14 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
 
     // Allocate shared memory, give each rank their respective pointer
     timeline.ActivityStartAll(entries, ALLOCATE_SHARED_BUFFER);
-    int64_t window_size = global_state_->controller->GetLocalRank() == 0 ? total_size_in_bytes : 0;
+    int64_t window_size = process_set.controller->GetLocalRank() == 0 ? total_size_in_bytes : 0;
     MPI_Win_allocate_shared(window_size,
                             element_size,
                             MPI_INFO_NULL,
                             mpi_context_->GetMPICommunicator(Communicator::LOCAL),
                             &global_state_->shared_buffer,
                             &mpi_context_->window);
-    if (global_state_->controller->GetLocalRank() != 0) {
+    if (process_set.controller->GetLocalRank() != 0) {
       int disp_unit;
       MPI_Aint winsize;
       MPI_Win_shared_query(mpi_context_->window,
@@ -272,33 +281,33 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
 
   // Compute cross-node allgather displacements and recvcounts for
   // homogeneous/parallelized case
-  int cross_size = global_state_->controller->GetCrossSize();
-  int local_size = global_state_->controller->GetLocalSize();
-  int local_rank = global_state_->controller->GetLocalRank();
+  int cross_size = process_set.controller->GetCrossSize();
+  int local_size = process_set.controller->GetLocalSize();
+  int local_rank = process_set.controller->GetLocalRank();
   auto* cross_recvcounts = new int[cross_size]();
   auto* cross_displcmnts = new int[cross_size]();
 
-  if (global_state_->controller->IsHomogeneous()) {
-    for (int i = 0; i < global_state_->controller->GetCrossSize(); ++i) {
+  if (process_set.controller->IsHomogeneous()) {
+    for (int i = 0; i < process_set.controller->GetCrossSize(); ++i) {
       cross_recvcounts[i] = recvcounts[local_size * i + local_rank];
       cross_displcmnts[i] = displcmnts[local_size * i + local_rank];
     }
-  } else if (global_state_->controller->GetLocalRank() == 0) {
+  } else if (process_set.controller->GetLocalRank() == 0) {
     // In this case local rank 0 will allgather with all local data
     int offset = 0;
     for (int i = 0; i < cross_size; ++i) {
-      for (int j = offset; j < offset + global_state_->controller->GetLocalSizeAtCrossRank(i);
+      for (int j = offset; j < offset + process_set.controller->GetLocalSizeAtCrossRank(i);
            ++j) {
         cross_recvcounts[i] += recvcounts[j];
       }
       cross_displcmnts[i] = displcmnts[offset];
-      offset += global_state_->controller->GetLocalSizeAtCrossRank(i);
+      offset += process_set.controller->GetLocalSizeAtCrossRank(i);
     }
   }
 
   timeline.ActivityStartAll(entries, MEMCPY_IN_SHARED_BUFFER);
 
-  int rank = global_state_->controller->GetRank();
+  int rank = process_set.controller->GetRank();
   for (size_t ec = 0; ec < entries.size(); ++ec) {
     auto& e = entries[ec];
     void* shared_buffer_at_offset =
@@ -315,7 +324,7 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
   // Perform the cross-node allgather. If the cluster is homogeneous all
   // local ranks participate, otherwise local rank 0 handles all data
   global_state_->timeline.ActivityStartAll(entries, MPI_CROSS_ALLGATHER);
-  if (global_state_->controller->IsHomogeneous() || global_state_->controller->GetLocalRank() == 0) {
+  if (process_set.controller->IsHomogeneous() || process_set.controller->GetLocalRank() == 0) {
     int op = MPI_Allgatherv(MPI_IN_PLACE,
                             0,
                             MPI_DATATYPE_NULL,
@@ -366,10 +375,12 @@ Status MPIBroadcast::Execute(std::vector<TensorTableEntry>& entries, const Respo
 
   assert(entries.size() == 1);
   auto e = entries[0];
+  assert(e.process_set_id == 0);  // TODO: Generalize
+  auto& process_set = global_state_->process_set_table.Get(e.process_set_id);
 
   // On root rank, MPI_Bcast sends data, on other ranks it receives data.
   void* data_ptr;
-  if (global_state_->controller->GetRank() == e.root_rank) {
+  if (process_set.controller->GetRank() == e.root_rank) {
     data_ptr = (void*) e.tensor->data();
   } else {
     data_ptr = (void*) e.output->data();
@@ -403,6 +414,7 @@ Status MPIAlltoall::Execute(std::vector<TensorTableEntry>& entries, const Respon
 
   assert(entries.size() == 1);
   auto e = entries[0];
+  assert(e.process_set_id == 0);  // TODO: generalize
 
   std::vector<int32_t> sdispls, rdispls;
   std::vector<int32_t> sendcounts, recvcounts;

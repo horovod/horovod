@@ -37,7 +37,7 @@ namespace common {
 
 class HorovodOp {
 public:
-  HorovodOp(HorovodGlobalState* global_state);
+  explicit HorovodOp(HorovodGlobalState* global_state);
 
   virtual Status Execute(std::vector<TensorTableEntry>& entries,
                          const Response& response) = 0;
@@ -52,7 +52,7 @@ protected:
 
 class AllreduceOp : public HorovodOp {
 public:
-  AllreduceOp(HorovodGlobalState* global_state);
+  explicit AllreduceOp(HorovodGlobalState* global_state);
 
   virtual ~AllreduceOp() = default;
 
@@ -128,7 +128,7 @@ void ScaleBufferCPUImpl(const unsigned short* input, unsigned short* output, int
 
 class AllgatherOp : public HorovodOp {
 public:
-  AllgatherOp(HorovodGlobalState* global_state);
+  explicit AllgatherOp(HorovodGlobalState* global_state);
 
   virtual ~AllgatherOp() = default;
 
@@ -145,7 +145,8 @@ protected:
                                 int64_t**& entry_component_sizes,
                                 int*& recvcounts);
 
-  virtual void SetDisplacements(const int* recvcounts, int*& displcmnts);
+  virtual void SetDisplacements(const int* recvcounts, int*& displcmnts,
+                                int world_size);
 
   virtual void
   SetEntryComponentOffsets(const std::vector<TensorTableEntry>& entries,
@@ -179,7 +180,7 @@ protected:
 
 class BroadcastOp : public HorovodOp {
 public:
-  BroadcastOp(HorovodGlobalState* global_state);
+  explicit BroadcastOp(HorovodGlobalState* global_state);
 
   virtual ~BroadcastOp() = default;
 
@@ -193,7 +194,7 @@ public:
 
 class AlltoallOp : public HorovodOp {
 public:
-  AlltoallOp(HorovodGlobalState* global_state);
+  explicit AlltoallOp(HorovodGlobalState* global_state);
 
   virtual ~AlltoallOp() = default;
 
@@ -211,12 +212,13 @@ protected:
                                 std::vector<T>& rdispls,
                                 std::vector<T>& sendcounts,
                                 std::vector<T>& recvcounts) {
-    auto world_size = global_state_->controller->GetSize();
+    auto& process_set = global_state_->process_set_table.Get(e.process_set_id);
+    auto world_size = process_set.controller->GetSize();
 
     const auto& splits = e.splits;
     std::vector<int32_t> recvsplits;
     // Perform alltoall of splits to get expected receive splits
-    global_state_->controller->AlltoallGetRecvSplits(splits, recvsplits);
+    process_set.controller->AlltoallGetRecvSplits(splits, recvsplits);
 
     // Every tensor participating in Alltoall operation may have different
     // first dimension size, but the rest of dimensions are same for all
@@ -270,19 +272,24 @@ protected:
   }
 };
 
-class JoinOp : public HorovodOp {
+class JoinOp {
+  // JoinOp does not derive from HorovodOp as its function Execute has a
+  // different signature and because it does comparatively little.
 public:
-  JoinOp(HorovodGlobalState* global_state);
+  explicit JoinOp(HorovodGlobalState* global_state);
 
   virtual ~JoinOp() = default;
 
   virtual Status Execute(std::vector<TensorTableEntry>& entries,
-                         const Response& response);
+                         const Response& response, ProcessSet& process_set);
+
+protected:
+  HorovodGlobalState* global_state_;
 };
 
 class ErrorOp : public HorovodOp {
 public:
-  ErrorOp(HorovodGlobalState* global_state);
+  explicit ErrorOp(HorovodGlobalState* global_state);
 
   virtual ~ErrorOp() = default;
 

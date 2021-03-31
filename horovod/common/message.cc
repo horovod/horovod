@@ -117,6 +117,10 @@ const std::string& Request::RequestType_Name(RequestType value) {
   }
 }
 
+int32_t Request::process_set_id() const { return process_set_id_; }
+
+void Request::set_process_set_id(int32_t value) { process_set_id_ = value; }
+
 int32_t Request::request_rank() const { return request_rank_; }
 
 void Request::set_request_rank(int32_t value) { request_rank_ = value; }

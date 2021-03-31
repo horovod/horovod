@@ -56,6 +56,12 @@ public:
 
   static const std::string& RequestType_Name(RequestType value);
 
+  // Request and root ranks are relative to the registered process set.
+  // TODO: Send over wire. Or will it turn out to be irrelevant?
+  int32_t process_set_id() const;
+
+  void set_process_set_id(int32_t value);
+
   // The request rank is necessary to create a consistent ordering of results,
   // for example in the allgather where the order of outputs should be sorted
   // by rank.
@@ -95,9 +101,9 @@ public:
 
   double postscale_factor() const;
 
-  void set_prescale_factor(const double prescale_factor);
+  void set_prescale_factor(double prescale_factor);
 
-  void set_postscale_factor(const double postscale_factor);
+  void set_postscale_factor(double postscale_factor);
 
   static void ParseFromBytes(Request& request, const uint8_t* input);
 
@@ -105,6 +111,7 @@ public:
 
 
 private:
+  int32_t process_set_id_ = 0;
   int32_t request_rank_ = 0;
   RequestType request_type_ = RequestType::ALLREDUCE;
   DataType tensor_type_ = DataType::HOROVOD_UINT8;
@@ -203,9 +210,9 @@ public:
 
   double postscale_factor() const;
 
-  void set_prescale_factor(const double prescale_factor);
+  void set_prescale_factor(double prescale_factor);
 
-  void set_postscale_factor(const double postscale_factor);
+  void set_postscale_factor(double postscale_factor);
 
   static void ParseFromBytes(Response& response, const uint8_t* input);
 

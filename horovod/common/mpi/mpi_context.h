@@ -53,6 +53,8 @@ struct MPIContext {
     ranks_.assign(ranks, ranks + nrank);
   }
 
+  const std::vector<int>& GetRanks() const { return ranks_; }
+
   // Take an argument of context manager pointer that will take care of
   // initialization of MPI environment.
   void Initialize(MPIContextManager& ctx_manager);
@@ -92,7 +94,7 @@ struct MPIContext {
   // MPI Window used for shared memory allgather
   MPI_Win window;
 
-  // Whether mpi context should be finalize.
+  // Whether mpi context should be finalized.
   bool should_finalize = false;
 };
 

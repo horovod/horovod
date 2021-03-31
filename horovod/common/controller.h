@@ -101,7 +101,8 @@ public:
   //      If instead of "DONE" they receive "SHUTDOWN", they mark it in the
   //      response list.
   ResponseList ComputeResponseList(std::atomic_bool& shut_down,
-                                   HorovodGlobalState& state);
+                                   HorovodGlobalState& state,
+                                   ProcessSet& process_set);
 
   // Get current tensors fusion threshold.
   int64_t TensorFusionThresholdBytes();

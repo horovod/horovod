@@ -44,7 +44,7 @@ void Controller::SynchronizeParameters() {
 
   void* buffer = (void*)(&param);
   size_t param_size = sizeof(param);
-  Bcast(buffer, param_size, 0, Communicator::GLOBAL);
+  Bcast(buffer, param_size, 0, Communicator::GLOBAL);  // TODO:
 
   if (!is_coordinator_) {
     parameter_manager_.SetParams(param);
@@ -69,7 +69,8 @@ void Controller::Initialize() {
 }
 
 ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
-                                             HorovodGlobalState& state) {
+                                             HorovodGlobalState& state,
+                                             ProcessSet& process_set) {
   // Update cache capacity if autotuning is active.
   if (parameter_manager_.IsAutoTuning()) {
     response_cache_.set_capacity((int)parameter_manager_.CacheEnabled() *
@@ -87,7 +88,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
   tensor_queue_.PopMessagesFromQueue(message_queue_tmp);
   for (auto& message : message_queue_tmp) {
     if (message.request_type() == Request::JOIN) {
-      state.joined = true;
+      process_set.joined = true;
       cache_coordinator.set_uncached_in_queue(true);
       continue;
     }
@@ -115,7 +116,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
     }
   }
 
-  if (state.joined && response_cache_.capacity() > 0) {
+  if (process_set.joined && response_cache_.capacity() > 0) {
     for (uint32_t bit : response_cache_.list_all_bits()) {
       cache_coordinator.record_hit(bit);
     }
@@ -254,11 +255,11 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
         message_queue_tmp.pop_front();
 
         if (message.request_type() == Request::JOIN) {
-          state.joined_size++;
+          process_set.joined_size++;
           continue;
         }
 
-        bool reduce = IncrementTensorCount(message, state.joined_size);
+        bool reduce = IncrementTensorCount(message, process_set.joined_size);
         stall_inspector_.RecordUncachedTensorStart(
             message.tensor_name(), message.request_rank(), size_);
         if (reduce) {
@@ -278,11 +279,12 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
           auto& received_name = received_message.tensor_name();
 
           if (received_message.request_type() == Request::JOIN) {
-            state.joined_size++;
+            process_set.joined_size++;
             continue;
           }
 
-          bool reduce = IncrementTensorCount(received_message, state.joined_size);
+          bool reduce =
+              IncrementTensorCount(received_message, process_set.joined_size);
           stall_inspector_.RecordUncachedTensorStart(
               received_message.tensor_name(), received_message.request_rank(),
               size_);
@@ -297,10 +299,10 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
       }
 
       // Check if tensors from previous ticks are ready to reduce after Joins.
-      if (state.joined_size > 0) {
+      if (process_set.joined_size > 0) {
         for (auto& table_iter : message_table_) {
           int count = (int)table_iter.second.size();
-          if (count == (size_ - state.joined_size) &&
+          if (count == (size_ - process_set.joined_size) &&
               std::find(ready_to_reduce.begin(), ready_to_reduce.end(),
                         table_iter.first) == ready_to_reduce.end()) {
             timeline_.NegotiateEnd(table_iter.first);
@@ -342,7 +344,8 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
           for (const auto &tensor_name : group_table_.GetGroupTensorNames(id)) {
             if (message_table_.find(tensor_name) != message_table_.end()) {
               // Uncached message
-              Response response = ConstructResponse(tensor_name, state.joined_size);
+              Response response =
+                  ConstructResponse(tensor_name, process_set.joined_size);
               responses.push_back(std::move(response));
 
             } else {
@@ -373,7 +376,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
         // coordinator rank calls this code, use peek instead of get here to
         // preserve cache order across workers.
         // No need to do this when all ranks did Join.
-        if (state.joined_size < size_) {
+        if (process_set.joined_size < size_) {
           for (auto bit : cache_coordinator.cache_hits()) {
             responses.push_back(response_cache_.peek_response(bit));
           }
@@ -388,16 +391,17 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
           continue;
         }
 
-        Response response = ConstructResponse(tensor_name, state.joined_size);
+        Response response =
+            ConstructResponse(tensor_name, process_set.joined_size);
         responses.push_back(std::move(response));
       }
-      if (state.joined_size == size_) {
+      if (process_set.joined_size == size_) {
         // All ranks did Join(). Send the response, reset joined size.
         Response join_response;
         join_response.set_response_type(Response::JOIN);
         join_response.add_tensor_name(JOIN_TENSOR_NAME);
         responses.push_back(std::move(join_response));
-        state.joined_size = 0;
+        process_set.joined_size = 0;
       }
       FuseResponses(responses, state, response_list);
       response_list.set_shutdown(should_shut_down);
@@ -440,7 +444,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
            response.response_type() == Response::ResponseType::ADASUM ||
            response.response_type() == Response::ResponseType::ALLTOALL) &&
           (int)response.devices().size() == size_) {
-        response_cache_.put(response, tensor_queue_, state.joined);
+        response_cache_.put(response, tensor_queue_, process_set.joined);
       }
     }
   }
