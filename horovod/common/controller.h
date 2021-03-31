@@ -38,7 +38,7 @@ class Controller : public std::enable_shared_from_this<Controller> {
 public:
   Controller(ResponseCache& response_cache, TensorQueue& tensor_queue,
              Timeline& timeline, ParameterManager& parameter_manager,
-             GroupTable& group_table);
+             GroupTable& group_table, TimelineController& timeline_controller);
 
   Controller(const Controller&) = delete;
 
@@ -117,13 +117,6 @@ public:
   const std::vector<int>& GetLocalCommRanks() const { return local_comm_ranks_; };
   bool IsCoordinator() const { return is_coordinator_; };
   bool IsHomogeneous() const { return is_homogeneous_; };
-  void SetTimelineEnabled(bool value);
-  bool TimelineEnabled();
-  void SetTimelineEnabledPending(bool value);
-  bool TimelineEnabledPending();
-  void SetMarkCyclesInTimelinePending(bool value);
-  bool MarkCyclesInTimelinePending();
-  void SynchronizeTimelineEnabled();
   StallInspector& GetStallInspector() { return stall_inspector_; };
 
 protected:
@@ -192,16 +185,12 @@ protected:
   // requests to allreduce every tensor (keyed by tensor name).
   MessageTable message_table_;
 
-  bool timeline_enabled_ = false;
-  bool timeline_enabled_pending_ = false;
-  bool mark_cycles_in_timeline_pending_ = false;
-  std::recursive_mutex timeline_mutex_;
-
-
   // Outside dependencies
   TensorQueue& tensor_queue_;
 
   Timeline& timeline_;
+
+  TimelineController& timeline_controller_;
 
   ResponseCache& response_cache_;
 
