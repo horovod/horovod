@@ -676,6 +676,7 @@ jobs:
         uses: buildkite/trigger-pipeline-action@v1.2.0
         env:
           PIPELINE: "horovod/horovod"
+          BRANCH: "${{ github.event.pull_request.head.ref }}"
           MESSAGE: "GPU Tests triggered by GitHub"
           BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
           BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU FULL\"}"
