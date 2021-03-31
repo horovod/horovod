@@ -68,7 +68,8 @@ public:
 
 private:
   void PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
-                                Communicator& nccl_id_bcast_comm);
+                                Communicator& nccl_id_bcast_comm,
+                                const ProcessSet& process_set);
 
   NCCLContext* nccl_context_;
   HorovodGlobalState* global_state_;
