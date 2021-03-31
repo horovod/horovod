@@ -156,6 +156,9 @@ def main():
               f'        uses: buildkite/trigger-pipeline-action@v1.2.0\n'
               f'        env:\n'
               f'          PIPELINE: "horovod/horovod"\n'
+              # on "push" event, github.event.pull_request.head.ref will be empty
+              # and trigger-pipeline-action falls back to github.ref
+              f'          BRANCH: "${{{{ github.event.pull_request.head.ref }}}}"\n'
               f'          MESSAGE: "GPU Tests triggered by GitHub"\n'
               f'          BUILDKITE_API_ACCESS_TOKEN: ${{{{ secrets.BUILDKITE_TOKEN }}}}\n'
               f'          BUILD_ENV_VARS: "{{\\"PIPELINE_MODE\\": \\"GPU FULL\\"}}"\n'
