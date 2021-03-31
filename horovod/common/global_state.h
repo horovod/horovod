@@ -54,8 +54,7 @@ struct HorovodGlobalState {
   // Timeline writer.
   Timeline timeline;
 
-  // Flag indicating whether timeline enabled.
-  bool timeline_enabled = false;
+  TimelineController timeline_controller;
 
   // Flag indicating whether running elastic.
   bool elastic_enabled = false;

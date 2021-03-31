@@ -409,7 +409,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     }
     should_enable_timeline = true;
   }
-  state.controller->SetTimelineEnabled(should_enable_timeline);
+  state.timeline_controller.SetTimelineEnabled(should_enable_timeline);
 
   SetBoolFromEnv(HOROVOD_ELASTIC, state.elastic_enabled, true);
 
@@ -417,7 +417,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   bool mark_cycles = false;
   SetBoolFromEnv(HOROVOD_TIMELINE_MARK_CYCLES, mark_cycles,
                  true);
-  state.controller->SetMarkCyclesInTimelinePending(mark_cycles);
+  state.timeline_controller.SetMarkCyclesInTimelinePending(mark_cycles);
   state.mark_cycles_in_timeline = mark_cycles;
 
   // Override Tensor Fusion threshold, if it's set.
@@ -585,8 +585,8 @@ bool RunLoopOnce(HorovodGlobalState& state) {
   auto response_list =
       state.controller->ComputeResponseList(horovod_global.shut_down, state);
 
-  state.mark_cycles_in_timeline =
-      state.controller->MarkCyclesInTimelinePending();
+    state.mark_cycles_in_timeline =
+        state.timeline_controller.MarkCyclesInTimelinePending();
 
   // Get tensor name and size data for autotuning.
   int64_t total_tensor_size = 0;
@@ -661,7 +661,7 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
           horovod_global.response_cache,
           horovod_global.tensor_queue, horovod_global.timeline,
           horovod_global.parameter_manager, horovod_global.group_table,
-          gloo_context));
+          horovod_global.timeline_controller, gloo_context));
     }
 #endif
     // Reset initialization flag
@@ -720,7 +720,7 @@ int horovod_start_timeline(const char* file_name, bool mark_cycles) {
   if (!horovod_global.initialization_done) {
     return -1;
   }
-  if (!horovod_global.controller->TimelineEnabled()) {
+  if (!horovod_global.timeline_controller.TimelineEnabled()) {
     return -2;
   }
   bool is_coordinator = horovod_global.controller->IsCoordinator();
@@ -728,7 +728,7 @@ int horovod_start_timeline(const char* file_name, bool mark_cycles) {
     horovod_global.timeline.Initialize(std::string(file_name), horovod_global.controller->GetSize());
     horovod_global.timeline.SetPendingTimelineFile(std::string(file_name));
   }
-  horovod_global.controller->SetMarkCyclesInTimelinePending(mark_cycles);
+  horovod_global.timeline_controller.SetMarkCyclesInTimelinePending(mark_cycles);
   return 1;
 }
 
@@ -736,7 +736,7 @@ int horovod_stop_timeline() {
   if (!horovod_global.initialization_done) {
     return -1;
   }
-  if(!horovod_global.controller->TimelineEnabledPending()){
+  if(!horovod_global.timeline_controller.TimelineEnabledPending()){
     LOG(INFO) << " Timeline is already stopped. Please start timeline before stopping it.";
     return 1;
   }

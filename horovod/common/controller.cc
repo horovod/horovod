@@ -54,10 +54,12 @@ void Controller::SynchronizeParameters() {
 
 Controller::Controller(ResponseCache& response_cache, TensorQueue& tensor_queue,
                        Timeline& timeline, ParameterManager& parameter_manager,
-                       GroupTable& group_table)
+                       GroupTable& group_table,
+                       TimelineController& timeline_controller)
     : stall_inspector_(response_cache), tensor_queue_(tensor_queue),
-      timeline_(timeline), response_cache_(response_cache),
-      parameter_manager_(parameter_manager), group_table_(group_table) {}
+      timeline_(timeline), timeline_controller_(timeline_controller),
+      response_cache_(response_cache), parameter_manager_(parameter_manager),
+      group_table_(group_table) {}
 
 void Controller::Initialize() {
   response_cache_.clear();
@@ -301,7 +303,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
           if (count == (size_ - state.joined_size) &&
               std::find(ready_to_reduce.begin(), ready_to_reduce.end(),
                         table_iter.first) == ready_to_reduce.end()) {
-            state.timeline.NegotiateEnd(table_iter.first);
+            timeline_.NegotiateEnd(table_iter.first);
             ready_to_reduce.push_back(table_iter.first);
           }
         }
@@ -750,7 +752,8 @@ Response Controller::ConstructResponse(const std::string& name, int joined_size)
 
 void Controller::CoordinateCacheAndState(CacheCoordinator& cache_coordinator) {
   // Sync cache and state information across workers.
-  cache_coordinator.sync(shared_from_this(), timeline_enabled_);
+  cache_coordinator.sync(shared_from_this(),
+                         timeline_controller_.TimelineEnabled());
 
   // If invalid cache entries exist, erase associated entries.
   if (!cache_coordinator.invalid_bits().empty()) {
@@ -759,7 +762,7 @@ void Controller::CoordinateCacheAndState(CacheCoordinator& cache_coordinator) {
     }
   }
 
-  if (timeline_enabled_) {
+  if (timeline_controller_.TimelineEnabled()) {
     // Start/continue negotiation phase on timeline bit entries.
     for (auto bit : cache_coordinator.timeline_bits()) {
       auto& response = response_cache_.peek_response(bit);
@@ -965,40 +968,5 @@ bool Controller::IncrementTensorCount(const Request& msg, int joined_size) {
   return ready_to_reduce;
 }
 
-void Controller::SetTimelineEnabled(bool value) {
-  std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
-  timeline_enabled_pending_ = value;
-  timeline_enabled_ = value;
-}
-
-void Controller::SetTimelineEnabledPending(bool value) {
-  std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
-  timeline_enabled_pending_ = value;
-}
-
-void Controller::SetMarkCyclesInTimelinePending(bool value) {
-  std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
-  mark_cycles_in_timeline_pending_ = value;
-}
-
-void Controller::SynchronizeTimelineEnabled() {
-  std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
-  timeline_enabled_ = timeline_enabled_pending_;
-}
-
-bool Controller::TimelineEnabled() {
-  std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
-  return timeline_enabled_;
-}
-
-bool Controller::TimelineEnabledPending() {
-  std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
-  return timeline_enabled_pending_;
-}
-
-bool Controller::MarkCyclesInTimelinePending() {
-  std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
-  return mark_cycles_in_timeline_pending_;
-}
 } // namespace common
 } // namespace horovod
