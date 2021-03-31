@@ -670,10 +670,13 @@ jobs:
     name: "Build and Test (GPUs on Builtkite)"
     needs: build-and-test
     runs-on: ubuntu-latest
+    outputs:
+      build_url: ${{ steps.build.outputs.url }}
 
     steps:
       - name: Trigger Buildkite Pipeline
-        uses: buildkite/trigger-pipeline-action@v1.2.0
+        id: build
+        uses: EnricoMi/trigger-pipeline-action@master
         env:
           PIPELINE: "horovod/horovod"
           BRANCH: "${{ github.event.pull_request.head.ref }}"
@@ -701,6 +704,7 @@ jobs:
         with:
           github_token: ${{ github.token }}
           buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
+          buildkite_build_url: ${{ needs.buildkite.outputs.build_url }}
           ignore_build_states: blocked,canceled,skipped,not_run
           ignore_job_states: timed_out
           output_path: artifacts/Unit Test Results - Buildkite
