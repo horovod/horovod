@@ -202,18 +202,19 @@ services:
         PYTORCH_PACKAGE: torch==1.7.1+cu110
         TORCHVISION_PACKAGE: torchvision==0.8.2+cu110
         MXNET_PACKAGE: mxnet-nightly-cu110
+  # torch-nightly does not publish to cu110 anymore, use cu111
   test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_0_1:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.0-devel-ubuntu18.04
-        CUDNN_VERSION: 8.0.5.39-1+cuda11.0
-        NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda11.0
+        CUDA_DOCKER_VERSION: 11.2.2-devel-ubuntu18.04
+        CUDNN_VERSION: 8.1.1.33-1+cuda11.2
+        NCCL_VERSION_OVERRIDE: 2.8.4-1+cuda11.2
         TENSORFLOW_PACKAGE: tf-nightly-gpu==2.6.0.dev20210331
         KERAS_PACKAGE: None
-        PYTORCH_PACKAGE: torch-nightly
+        PYTORCH_PACKAGE: torch-nightly-cu111
         TORCHVISION_PACKAGE: torchvision
-        MXNET_PACKAGE: mxnet-nightly-cu110
+        MXNET_PACKAGE: mxnet-nightly-cu112
 
   # mxnet-cu110 does not exist so we use mxnet_head
   test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1:
