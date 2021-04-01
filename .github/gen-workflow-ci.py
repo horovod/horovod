@@ -108,8 +108,9 @@ def main():
               f'      matrix:\n'
               f'        include:\n' +
               '\n'.join([f'          - image: {image}\n' +
-                         '\n'.join([f'            {test}: true'
-                                    for test in sorted(list(tests))]) + '\n'
+                         f''.join([f'            {test}: true\n'
+                                   for test in sorted(list(tests))]) +
+                         f'            build_timeout: {30 if "-cpu-" in image else 40}\n'
                          for image, tests in tests_per_image.items()]) +
               f'\n'
               f'    steps:\n'
@@ -127,7 +128,7 @@ def main():
               f'        run: pip install docker-compose\n'
               f'\n'
               f'      - name: Build\n'
-              f'        timeout-minutes: 30\n'
+              f'        timeout-minutes: ${{{{ matrix.build_timeout }}}}\n'
               f'        run: docker-compose -f docker-compose.test.yml build ${{{{ matrix.image }}}}\n'
               f'\n' +
               '\n'.join([f'      - name: "{test["label"]}"\n'

@@ -31,6 +31,7 @@ jobs:
             Single_PyTorch_MNIST: true
             Spark_PyTests: true
             Spark_Torch_MNIST: true
+            build_timeout: 30
 
           - image: test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_1_1
             Elastic_Spark_TensorFlow_Tests_2: true
@@ -51,6 +52,7 @@ jobs:
             Spark_Keras_Rossmann_Run: true
             Spark_PyTests: true
             Spark_Torch_MNIST: true
+            build_timeout: 30
 
           - image: test-cpu-gloo-py3_7-tf2_0_4-keras2_3_1-torch1_4_0-mxnet1_5_1_p0-pyspark_3_1_1
             Elastic_Tests_1: true
@@ -65,6 +67,7 @@ jobs:
             Single_PyTorch_MNIST: true
             Spark_PyTests: true
             Spark_Torch_MNIST: true
+            build_timeout: 30
 
           - image: test-cpu-gloo-py3_7-tf2_1_3-keras2_3_1-torch1_5_1-mxnet1_5_1_p0-pyspark_3_1_1
             Elastic_Tests_1: true
@@ -79,6 +82,7 @@ jobs:
             Single_PyTorch_MNIST: true
             Spark_PyTests: true
             Spark_Torch_MNIST: true
+            build_timeout: 30
 
           - image: test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_2_4_7
             Elastic_Spark_TensorFlow_Tests_1: true
@@ -95,6 +99,7 @@ jobs:
             Single_PyTorch_MNIST: true
             Spark_PyTests: true
             Spark_Torch_MNIST: true
+            build_timeout: 30
 
           - image: test-cpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_7_1-mxnet1_7_0_p2-pyspark_3_1_1
             Elastic_Tests_1: true
@@ -109,6 +114,7 @@ jobs:
             Single_PyTorch_MNIST: true
             Spark_PyTests: true
             Spark_Torch_MNIST: true
+            build_timeout: 30
 
           - image: test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_0_2
             Elastic_Spark_TensorFlow_Tests_1: true
@@ -125,6 +131,7 @@ jobs:
             Single_PyTorch_MNIST: true
             Spark_PyTests: true
             Spark_Torch_MNIST: true
+            build_timeout: 30
 
           - image: test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_1_1
             Elastic_Spark_TensorFlow_Tests_1: true
@@ -141,6 +148,7 @@ jobs:
             Single_PyTorch_MNIST: true
             Spark_PyTests: true
             Spark_Torch_MNIST: true
+            build_timeout: 30
 
           - image: test-cpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_1_1
             Elastic_Tests_1: true
@@ -155,6 +163,7 @@ jobs:
             Single_PyTorch_MNIST: true
             Spark_PyTests: true
             Spark_Torch_MNIST: true
+            build_timeout: 30
 
           - image: test-cpu-mpich-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_1_1
             MPI_Cluster_PyTests: true
@@ -166,6 +175,7 @@ jobs:
             MPI_TensorFlow_2_0_MNIST: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
+            build_timeout: 30
 
           - image: test-cpu-oneccl-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_1_1
             MPI_Cluster_PyTests_ONECCL_MPI: true
@@ -186,6 +196,7 @@ jobs:
             Single_MXNet_MNIST_ONECCL_OFI: true
             Single_PyTorch_MNIST_ONECCL_MPI: true
             Single_PyTorch_MNIST_ONECCL_OFI: true
+            build_timeout: 30
 
           - image: test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_1_1
             Elastic_Tests_1: true
@@ -208,6 +219,7 @@ jobs:
             Single_PyTorch_MNIST: true
             Spark_PyTests: true
             Spark_Torch_MNIST: true
+            build_timeout: 30
 
           - image: test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_1_1
             MPI_Cluster_PyTests: true
@@ -222,24 +234,25 @@ jobs:
             Single_PyTorch_MNIST: true
             Spark_PyTests: true
             Spark_Torch_MNIST: true
+            build_timeout: 30
 
           - image: test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_1_1
-
+            build_timeout: 40
 
           - image: test-gpu-gloo-py3_8-tf2_2_2-keras2_3_1-torch1_6_0-mxnet1_6_0_p0-pyspark_3_1_1
-
+            build_timeout: 40
 
           - image: test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_7_1-mxnet1_7_0_p1-pyspark_3_1_1
-
+            build_timeout: 40
 
           - image: test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_1_1
-
+            build_timeout: 40
 
           - image: test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_1_1
-
+            build_timeout: 40
 
           - image: test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_1_1
-
+            build_timeout: 40
 
     steps:
       - name: Checkout
@@ -256,7 +269,7 @@ jobs:
         run: pip install docker-compose
 
       - name: Build
-        timeout-minutes: 30
+        timeout-minutes: ${{ matrix.build_timeout }}
         run: docker-compose -f docker-compose.test.yml build ${{ matrix.image }}
 
       - name: "Elastic Spark TensorFlow Tests 1"
