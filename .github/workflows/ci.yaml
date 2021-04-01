@@ -611,7 +611,7 @@ jobs:
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v2
-        if: always()
+        if: always() && contains(matrix.image, '-cpu-')
         with:
           name: Unit Test Results - ${{ matrix.image }}
           path: artifacts/${{ matrix.image }}/**/*.xml
