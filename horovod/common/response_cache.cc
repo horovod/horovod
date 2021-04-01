@@ -174,6 +174,10 @@ void ResponseCache::put(const Response& response, TensorQueue& tensor_queue, boo
   // If response is fused, split back into individual responses
   if (response.tensor_names().size() > 1) {
     int64_t i = 0;
+    // tensor_sizes has m elements when doing allreduce,
+    // but has m * n elements when doing allgather
+    // where m = tensor_names().size(), n = global_size
+    int64_t global_size = response.tensor_sizes().size() / response.tensor_names().size();
     for (auto& name : response.tensor_names()) {
       Response new_response;
       new_response.add_tensor_name(name);
