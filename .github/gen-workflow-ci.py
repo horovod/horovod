@@ -140,7 +140,7 @@ def main():
               f'\n'
               f'      - name: Upload Test Results\n'
               f'        uses: actions/upload-artifact@v2\n'
-              f'        if: always()\n'
+              f'        if: always() && contains(matrix.image, \'-cpu-\')\n'
               f'        with:\n'
               f'          name: Unit Test Results - ${{{{ matrix.image }}}}\n'
               f'          path: artifacts/${{{{ matrix.image }}}}/**/*.xml\n'
