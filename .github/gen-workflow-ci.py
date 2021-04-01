@@ -134,7 +134,7 @@ def main():
                          f'        if: always() && matrix.{test_id}\n'
                          f'        run: |\n'
                          f'          mkdir -p artifacts/${{{{ matrix.image }}}}/{test_id}\n'
-                         f'          docker-compose -f docker-compose.test.yml run --rm --volume "$(pwd)/artifacts/${{{{ matrix.image }}}}/{test_id}:/artifacts" ${{{{ matrix.image }}}} /bin/bash /horovod/.github/timeout-and-retry.sh {test["timeout"]}m 3 10 {test["command"]}\n'
+                         f'          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{{{ matrix.image }}}}/{test_id}:/artifacts" ${{{{ matrix.image }}}} /bin/bash /horovod/.github/timeout-and-retry.sh {test["timeout"]}m 3 10 {test["command"]}\n'
                          f'        shell: bash\n'
                          for test_id, test in tests.items()]) +
               f'\n'
