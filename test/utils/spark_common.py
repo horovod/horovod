@@ -159,7 +159,7 @@ def create_xor_data(spark):
                          StructField('weight', FloatType())])
     raw_df = create_test_data_from_schema(spark, data, schema)
     df = with_features(raw_df, ['x1', 'x2'])
-    return df.coalesce(1)
+    return df#.coalesce(1)
 
 
 def create_noisy_xor_data(spark):
