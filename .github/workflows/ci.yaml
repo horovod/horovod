@@ -1024,8 +1024,6 @@ jobs:
     name: "Build and Test (GPUs on Builtkite)"
     needs: [build-and-test]
     runs-on: ubuntu-latest
-    outputs:
-      build_url: ${{ steps.build.outputs.url }}
 
     steps:
       - name: Trigger Buildkite Pipeline
@@ -1037,6 +1035,23 @@ jobs:
           MESSAGE: "GPU Tests triggered by GitHub"
           BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
           BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU FULL\"}"
+
+      - name: Download Buildkite Artifacts
+        uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1
+        with:
+          github_token: ${{ github.token }}
+          buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
+          buildkite_build_url: ${{ steps.build.outputs.url }}
+          ignore_build_states: blocked,canceled,skipped,not_run
+          ignore_job_states: timed_out
+          output_path: artifacts/Unit Test Results - GPUs on Buildkite
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: Unit Test Results - GPUs on Builtkite
+          path: artifacts/Unit Test Results - GPUs on Buildkite/**/*.xml
 
   publish-test-results:
     name: "Publish Unit Tests Results"
@@ -1051,17 +1066,6 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           path: artifacts
-
-      - name: Download Buildkite Artifacts
-        uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1
-        if: always() && needs.buildkite.result == 'success'
-        with:
-          github_token: ${{ github.token }}
-          buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
-          buildkite_build_url: ${{ needs.buildkite.outputs.build_url }}
-          ignore_build_states: blocked,canceled,skipped,not_run
-          ignore_job_states: timed_out
-          output_path: artifacts/Unit Test Results - Buildkite
 
       - name: Publish Unit Test Results
         uses: docker://ghcr.io/enricomi/publish-unit-test-result-action:v1
