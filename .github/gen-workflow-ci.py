@@ -145,11 +145,12 @@ def main():
               f'        run: pip install docker-compose\n'
               f'\n'
               f'      - name: Build\n'
+              f'        id: build\n'
               f'        run: |\n'
               f'          .github/timeout-and-retry.sh ${{{{ matrix.build_timeout }}}}m 3 10 docker-compose -f docker-compose.test.yml build ${{{{ matrix.image }}}}\n'
               f'\n' +
               '\n'.join([f'      - name: "{test["label"]}"\n'
-                         f'        if: always() && matrix.{test_id}\n'
+                         f'        if: always() && steps.build.outcome == \'success\' && matrix.{test_id}\n'
                          f'        run: |\n'
                          f'          mkdir -p artifacts/${{{{ matrix.image }}}}/{test_id}\n'
                          f'          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{{{ matrix.image }}}}/{test_id}:/artifacts" ${{{{ matrix.image }}}} /bin/bash /horovod/.github/timeout-and-retry.sh {test["timeout"]}m 3 10 {test["command"]}\n'
