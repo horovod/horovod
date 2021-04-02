@@ -145,8 +145,8 @@ def main():
               f'        run: pip install docker-compose\n'
               f'\n'
               f'      - name: Build\n'
-              f'        timeout-minutes: ${{{{ matrix.build_timeout }}}}\n'
-              f'        run: docker-compose -f docker-compose.test.yml build ${{{{ matrix.image }}}}\n'
+              f'        run: |\n'
+              f'          .github/timeout-and-retry.sh ${{{{ matrix.build_timeout }}}}m 3 10 docker-compose -f docker-compose.test.yml build ${{{{ matrix.image }}}}\n'
               f'\n' +
               '\n'.join([f'      - name: "{test["label"]}"\n'
                          f'        if: always() && matrix.{test_id}\n'
