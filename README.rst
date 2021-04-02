@@ -290,7 +290,7 @@ See `Run Horovod <docs/running.rst>`_ for more details, including RoCE/InfiniBan
 
        $ horovodrun -np 16 -H server1:4,server2:4,server3:4,server4:4 python train.py
 
-3. To run using Open MPI without the ``horovodrun`` wrapper, see `Running Horovod with Open MPI <docs/mpirun.rst>`_.
+3. To run using Open MPI without the ``horovodrun`` wrapper, see `Running Horovod with Open MPI <docs/mpi.rst>`_.
 
 4. To run in Docker, see `Horovod in Docker <docs/docker.rst>`_.
 
