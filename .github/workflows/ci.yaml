@@ -637,7 +637,7 @@ jobs:
 
   buildkite:
     name: "Build and Test (GPUs on Builtkite)"
-    needs: build-and-test
+    needs: [build-and-test]
     runs-on: ubuntu-latest
     outputs:
       build_url: ${{ steps.build.outputs.url }}
