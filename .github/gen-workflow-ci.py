@@ -14,7 +14,7 @@
 # ==============================================================================
 
 import re
-from typing import List, Dict
+from typing import List, Dict, Set
 
 import yaml
 from yaml import Loader
@@ -146,7 +146,7 @@ def main():
 
     def build_and_test_images(name: str,
                               images: List[str],
-                              tests_per_image: Dict[str, List[str]],
+                              tests_per_image: Dict[str, Set[str]],
                               tests: Dict[str, Dict]) -> str:
         return (f'  {name}:\n'
                 f'    name: "Build and Test (${{{{ matrix.image }}}})"\n'
@@ -159,9 +159,9 @@ def main():
                 f'        include:\n' +
                 '\n'.join([f'          - image: {image}\n' +
                            f''.join([f'            {test}: true\n'
-                                     for test in sorted(list(tests))]) +
+                                     for test in sorted(list(tests_per_image[image]))]) +
                            f'            build_timeout: {30 if "-cpu-" in image else 40}\n'
-                           for image, tests in tests_per_image.items()
+                           for image in sorted(images)
                            # oneccl does not compile on GitHub Workflows:
                            # https://github.com/horovod/horovod/issues/2846
                            if '-oneccl-' not in image]) +
@@ -255,11 +255,15 @@ def main():
                 f'          files: "artifacts/Unit Test Results */**/*.xml"\n')
 
     with open(path.joinpath('workflows', 'ci.yaml').absolute(), 'wt') as w:
+        heads = ['tfhead', 'torchhead', 'mxnethead']
+        release_images = [image for image in images if not all(head in image for head in heads)]
+        allhead_images = [image for image in images if all(head in image for head in heads)]
         workflow = workflow_header() + jobs(
             validate_workflow_job(),
-            build_and_test_images(name='build-and-test', images=images, tests_per_image=tests_per_image, tests=tests),
+            build_and_test_images(name='build-and-test', images=release_images, tests_per_image=tests_per_image, tests=tests),
+            build_and_test_images(name='build-and-test-heads', images=allhead_images, tests_per_image=tests_per_image, tests=tests),
             trigger_buildkite_job(name='buildkite', needs=['build-and-test']),
-            publish_unit_test_results(name='publish-test-results', needs=['build-and-test, buildkite'])
+            publish_unit_test_results(name='publish-test-results', needs=['build-and-test, build-and-test-heads, buildkite'])
         )
         print(workflow, file=w, end='')
 
