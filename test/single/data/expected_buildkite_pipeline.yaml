@@ -477,6 +477,22 @@ steps:
     automatic: true
   agents:
     queue: cpu
+- label: ':spark: Spark Lightning MNIST (test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_2_3_4)'
+  command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_2_3_4
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
 - label: ':fire: Single PyTorch MNIST (test-cpu-gloo-py3_6-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_2_3_4)'
   command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
@@ -687,6 +703,22 @@ steps:
     queue: cpu
 - label: ':spark: Spark Torch MNIST (test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_2_4_7)'
   command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_2_4_7
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':spark: Spark Lightning MNIST (test-cpu-gloo-py3_7-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_2_4_7)'
+  command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -925,6 +957,22 @@ steps:
     automatic: true
   agents:
     queue: cpu
+- label: ':spark: Spark Lightning MNIST (test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_0_2)'
+  command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_0_2
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
 - label: ':fire: Single PyTorch MNIST (test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_0_2)'
   command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
@@ -1135,6 +1183,22 @@ steps:
     queue: cpu
 - label: ':spark: Spark Torch MNIST (test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_1_1)'
   command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_1_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':spark: Spark Lightning MNIST (test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_1_1)'
+  command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -1773,6 +1837,22 @@ steps:
     automatic: true
   agents:
     queue: cpu
+- label: ':spark: Spark Lightning MNIST (test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_1_1)'
+  command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_1_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
 - label: ':fire: Single PyTorch MNIST (test-cpu-openmpi-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_1_1)'
   command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
@@ -2093,6 +2173,22 @@ steps:
     automatic: true
   agents:
     queue: cpu
+- label: ':spark: Spark Lightning MNIST (test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_1_1)'
+  command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_1_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
 - label: ':fire: Single PyTorch MNIST (test-cpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_1_1)'
   command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
@@ -2365,6 +2461,22 @@ steps:
     automatic: true
   agents:
     queue: cpu
+- label: ':spark: Spark Lightning MNIST (test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_1_1)'
+  command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_1_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
 - label: ':tensorflow: Single Keras MNIST (test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_1_1)'
   command: bash -c " python /horovod/examples/keras/keras_mnist_advanced.py --epochs 3 --batch-size 64"
   artifact_paths: "artifacts/**"
@@ -2573,6 +2685,22 @@ steps:
     automatic: true
   agents:
     queue: cpu
+- label: ':spark: Spark Lightning MNIST (test-cpu-gloo-py3_7-tf2_0_4-keras2_3_1-torch1_4_0-mxnet1_5_1_p0-pyspark_3_1_1)'
+  command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-cpu-gloo-py3_7-tf2_0_4-keras2_3_1-torch1_4_0-mxnet1_5_1_p0-pyspark_3_1_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
 - label: ':fire: Single PyTorch MNIST (test-cpu-gloo-py3_7-tf2_0_4-keras2_3_1-torch1_4_0-mxnet1_5_1_p0-pyspark_3_1_1)'
   command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
@@ -2751,6 +2879,22 @@ steps:
     queue: cpu
 - label: ':spark: Spark Torch MNIST (test-cpu-gloo-py3_7-tf2_1_3-keras2_3_1-torch1_5_1-mxnet1_5_1_p0-pyspark_3_1_1)'
   command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-cpu-gloo-py3_7-tf2_1_3-keras2_3_1-torch1_5_1-mxnet1_5_1_p0-pyspark_3_1_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':spark: Spark Lightning MNIST (test-cpu-gloo-py3_7-tf2_1_3-keras2_3_1-torch1_5_1-mxnet1_5_1_p0-pyspark_3_1_1)'
+  command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -2957,6 +3101,22 @@ steps:
     automatic: true
   agents:
     queue: cpu
+- label: ':spark: Spark Lightning MNIST (test-cpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_7_1-mxnet1_7_0_p2-pyspark_3_1_1)'
+  command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-cpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_7_1-mxnet1_7_0_p2-pyspark_3_1_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
 - label: ':fire: Single PyTorch MNIST (test-cpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_7_1-mxnet1_7_0_p2-pyspark_3_1_1)'
   command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
@@ -3135,6 +3295,22 @@ steps:
     queue: cpu
 - label: ':spark: Spark Torch MNIST (test-cpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_1_1)'
   command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-cpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_1_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':spark: Spark Lightning MNIST (test-cpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_1_1)'
+  command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -3711,6 +3887,22 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v510
+- label: ':spark: Spark Lightning MNIST (test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_1_1)'
+  command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_1_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: 2x-gpu-v510
 - label: ':tensorflow: Gloo TensorFlow 2.0 MNIST (test-gpu-gloo-py3_8-tf2_2_2-keras2_3_1-torch1_6_0-mxnet1_6_0_p0-pyspark_3_1_1)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
   artifact_paths: "artifacts/**"
@@ -3807,6 +3999,22 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v510
+- label: ':spark: Spark Lightning MNIST (test-gpu-gloo-py3_8-tf2_2_2-keras2_3_1-torch1_6_0-mxnet1_6_0_p0-pyspark_3_1_1)'
+  command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-gpu-gloo-py3_8-tf2_2_2-keras2_3_1-torch1_6_0-mxnet1_6_0_p0-pyspark_3_1_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: 2x-gpu-v510
 - label: ':tensorflow: Gloo TensorFlow 2.0 MNIST (test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_7_1-mxnet1_7_0_p1-pyspark_3_1_1)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
   artifact_paths: "artifacts/**"
@@ -3889,6 +4097,22 @@ steps:
     queue: 2x-gpu-v510
 - label: ':spark: Spark Torch MNIST (test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_7_1-mxnet1_7_0_p1-pyspark_3_1_1)'
   command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_7_1-mxnet1_7_0_p1-pyspark_3_1_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: 2x-gpu-v510
+- label: ':spark: Spark Lightning MNIST (test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_7_1-mxnet1_7_0_p1-pyspark_3_1_1)'
+  command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -4079,6 +4303,22 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v510
+- label: ':spark: Spark Lightning MNIST (test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_1_1)'
+  command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_1_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: 2x-gpu-v510
 - label: ':tensorflow: Gloo TensorFlow 2.0 MNIST (test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_1_1)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
   artifact_paths: "artifacts/**"
@@ -4161,6 +4401,22 @@ steps:
     queue: 2x-gpu-v510
 - label: ':spark: Spark Torch MNIST (test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_1_1)'
   command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_1_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: 2x-gpu-v510
+- label: ':spark: Spark Lightning MNIST (test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_1_1)'
+  command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
@@ -4337,6 +4593,22 @@ steps:
     queue: 2x-gpu-v510
 - label: ':spark: Spark Torch MNIST (test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_1_1)'
   command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+  artifact_paths: "artifacts/**"
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_1_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: 2x-gpu-v510
+- label: ':spark: Spark Lightning MNIST (test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_1_1)'
+  command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   plugins:
   - docker-compose#v3.5.0:
