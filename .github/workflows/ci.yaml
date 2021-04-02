@@ -10,8 +10,32 @@ on:
   pull_request:
 
 jobs:
+  validate-workflow:
+    name: "Verify GitHub Workflow"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Check ci.yaml is up-to-date
+        run: |
+          echo "::group::pip install -r .github/requirements.txt"
+          pip install -r .github/requirements.txt
+          echo "::endgroup::"
+          python .github/gen-workflow-ci.py
+          if [[ $(git diff .github/workflows/ci.yaml | wc -l) -gt 0 ]]
+          then
+            echo "::error::Workflow file .github/workflows/ci.yaml is out-dated, please run .github/gen-workflow-ci.py and commit changes"
+            exit 1
+          fi
+        shell: bash
+
   build-and-test:
     name: "Build and Test (${{ matrix.image }})"
+    needs: validate-workflow
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 19
