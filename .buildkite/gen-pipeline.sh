@@ -362,6 +362,10 @@ run_spark_integration() {
     run_test "${test}" "${queue}" \
       ":spark: Spark Torch MNIST (${test})" \
       "bash -c \"OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
+
+    run_test "${test}" "${queue}" \
+      ":spark: Spark Lightning MNIST (${test})" \
+      "bash -c \"OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
   fi
 }
 

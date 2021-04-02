@@ -15,7 +15,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-import horovod.spark.torch as hvd
+import horovod.spark.lightning as hvd
 from horovod.spark.common.store import Store
 
 parser = argparse.ArgumentParser(description='Keras Spark MNIST Example',

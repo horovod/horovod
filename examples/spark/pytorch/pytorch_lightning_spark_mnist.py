@@ -17,11 +17,14 @@ else:
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import udf
 
+from pytorch_lightning import LightningModule
+
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-import horovod.spark.torch as hvd
+import horovod.spark.lightning as hvd
 from horovod.spark.common.backend import SparkBackend
 from horovod.spark.common.store import Store
 
@@ -31,7 +34,7 @@ parser.add_argument('--master',
                     help='spark master to connect to')
 parser.add_argument('--num-proc', type=int,
                     help='number of worker processes for training, default: `spark.default.parallelism`')
-parser.add_argument('--batch-size', type=int, default=128,
+parser.add_argument('--batch-size', type=int, default=64,
                     help='input batch size for training')
 parser.add_argument('--epochs', type=int, default=12,
                     help='number of epochs to train')
@@ -75,9 +78,8 @@ if __name__ == '__main__':
     # Train/test split
     train_df, test_df = train_df.randomSplit([0.9, 0.1])
 
-
     # Define the PyTorch model without any Horovod-specific parameters
-    class Net(nn.Module):
+    class Net(LightningModule):
         def __init__(self):
             super(Net, self).__init__()
             self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
@@ -87,6 +89,7 @@ if __name__ == '__main__':
             self.fc2 = nn.Linear(50, 10)
 
         def forward(self, x):
+            #raise RuntimeError("x shape is {}".format(x.shape))
             x = x.float()
             x = F.relu(F.max_pool2d(self.conv1(x), 2))
             x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
@@ -94,12 +97,30 @@ if __name__ == '__main__':
             x = F.relu(self.fc1(x))
             x = F.dropout(x, training=self.training)
             x = self.fc2(x)
-            return F.log_softmax(x)
+            return F.log_softmax(x, -1)
+
+        def configure_optimizers(self):
+            return optim.SGD(self.parameters(), lr=0.01, momentum=0.5)
+
+        def training_step(self, batch, batch_nb):
+            x, y = batch['features'], batch['label']
+            y_hat = self(x)
+            loss = F.nll_loss(y_hat, y.long())
+            tensorboard_logs = {'train_loss': loss}
+            return {'loss': loss, 'log': tensorboard_logs}
+
+        def validation_step(self, batch, batch_nb):
+            x, y = batch['features'], batch['label']
+            y_hat = self(x)
+            return {'val_loss': F.nll_loss(y_hat, y.long())}
+
+        def validation_epoch_end(self, outputs):
+            avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
+            tensorboard_logs = {'val_loss': avg_loss}
+            return {'avg_val_loss': avg_loss, 'log': tensorboard_logs}
 
 
     model = Net()
-    optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
-    loss = nn.NLLLoss()
 
     # Train a Horovod Spark Estimator on the DataFrame
     backend = SparkBackend(num_proc=args.num_proc,
@@ -108,11 +129,10 @@ if __name__ == '__main__':
     torch_estimator = hvd.TorchEstimator(backend=backend,
                                          store=store,
                                          model=model,
-                                         optimizer=optimizer,
-                                         loss=lambda input, target: loss(input, target.long()),
                                          input_shapes=[[-1, 1, 28, 28]],
                                          feature_cols=['features'],
                                          label_cols=['label'],
+                                         validation=0.1,
                                          batch_size=args.batch_size,
                                          epochs=args.epochs,
                                          verbose=1)

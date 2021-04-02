@@ -16,14 +16,18 @@
 import horovod.spark.common._namedtuple_fix
 
 import copy
-import io
+import glob
 import numbers
+import os
 import time
+import warnings
 
 from pyspark import keyword_only
 from pyspark.ml.param.shared import Param, Params, TypeConverters
 from pyspark.ml.util import MLWritable, MLReadable
 from pyspark.sql import SparkSession
+
+from pytorch_lightning import LightningModule
 
 from horovod.runner.common.util import codec
 from horovod.spark.common import util
@@ -31,8 +35,9 @@ from horovod.spark.common.estimator import HorovodEstimator, HorovodModel
 from horovod.spark.common.params import EstimatorParams
 from horovod.spark.common.serialization import \
     HorovodParamsWriter, HorovodParamsReader
-from horovod.spark.torch import remote
-from horovod.spark.torch.util import deserialize_fn, serialize_fn, \
+from horovod.spark.lightning import remote
+from horovod.spark.lightning.legacy import to_lightning_module
+from horovod.spark.lightning.util import deserialize_fn, serialize_fn, \
     save_into_bio
 
 import numpy as np
@@ -91,6 +96,7 @@ class TorchEstimatorParamsReadable(MLReadable):
 class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                      TorchEstimatorParamsReadable):
     """Spark Estimator for fitting PyTorch models to a DataFrame.
+
     Args:
         num_proc: Number of Horovod processes.  Defaults to `spark.default.parallelism`.
         model: PyTorch model to train.
@@ -248,6 +254,27 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                                        input_shapes=self.getInputShapes(),
                                        label_shapes=self.getLabelShapes())
 
+    def _check_params(self, metadata):
+        super()._check_params(metadata)
+
+        model = self.getModel()
+        if isinstance(model, LightningModule):
+            if self._get_optimizer():
+                raise ValueError('Parameter `optimizer` cannot be specified with a `LightningModule`. '
+                                 'Implement `LightningModule.configure_optimizers` instead.')
+
+            if self.getLoss():
+                raise ValueError('Parameter `loss` cannot be specified with a `LightningModule`. '
+                                 'Implement `LightningModule.train_step` instead.')
+
+            if self.getLossWeights():
+                raise ValueError('Parameter `loss_weights` cannot be specified with a `LightningModule`. '
+                                 'Implement `LightningModule.train_step` instead.')
+        else:
+            if self.getLossWeights():
+                warnings.warn('Parameter `loss_weights` has been replaced by the `LightningModule` API '
+                              'and will be removed in v0.21.0', DeprecationWarning)
+
     def _fit_on_prepared_data(self, backend, train_rows, val_rows, metadata, avg_row_size, dataset_idx=None):
         self._check_params(metadata)
 
@@ -255,53 +282,57 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         if run_id is None:
             run_id = 'pytorch_' + str(int(time.time()))
 
-        last_checkpoint_state = None
-        if self._has_checkpoint(run_id):
-            last_checkpoint_state = self._load_checkpoint(run_id)
+        model = self.getModel()
+        is_legacy = not isinstance(model, LightningModule)
+        if is_legacy:
+            # Legacy: convert params to LightningModule
+            model = to_lightning_module(model=self.getModel(),
+                                        optimizer=self._get_optimizer(),
+                                        loss_fns=self.getLoss(),
+                                        loss_weights=self.getLossWeights(),
+                                        feature_cols=self.getFeatureCols(),
+                                        label_cols=self.getLabelCols(),
+                                        sample_weights_col=self.getSampleWeightCol(),
+                                        validation=self.getValidation())
 
-        # Model parameters
-        model_pre_train = self.getModel()
-        model_state = model_pre_train.state_dict()
-        serialized_model = serialize_fn()(model_pre_train)
-
-        # Optimizer parameters
-        optimizer = self._get_optimizer()
-        optimizer_cls = optimizer.__class__
-        optimizer_state = optimizer.state_dict()
-
-        # Combine model and optimizer state
-        model_opt_state = {'model': model_state, 'optimizer': optimizer_state} \
-            if last_checkpoint_state is None else last_checkpoint_state
-        model_opt_state_serialized = save_into_bio(model_opt_state, torch.save)
-
-        trainer = remote.RemoteTrainer(self, metadata, last_checkpoint_state, run_id, dataset_idx)
-        handle = backend.run(trainer,
-                             args=(serialized_model, optimizer_cls, model_opt_state_serialized,
-                                   train_rows, val_rows, avg_row_size),
-                             env={})
+        serialized_model = serialize_fn()(model)
+        ckpt_bytes = self._read_checkpoint(run_id) if self._has_checkpoint(run_id) else None
+        trainer = remote.RemoteTrainer(self,
+                                       metadata=metadata,
+                                       ckpt_bytes=ckpt_bytes,
+                                       run_id=run_id,
+                                       dataset_idx=dataset_idx,
+                                       train_rows=train_rows,
+                                       val_rows=val_rows,
+                                       avg_row_size=avg_row_size,
+                                       is_legacy=is_legacy)
+        handle = backend.run(trainer, args=(serialized_model,), env={})
         return self._create_model(handle, run_id, metadata)
 
-    def _load_checkpoint(self, run_id):
+    def _read_checkpoint(self, run_id):
         store = self.getStore()
-        last_ckpt_path = store.get_checkpoint_path(run_id)
+        checkpoints = store.get_checkpoints(run_id, suffix='.ckpt')
+        last_ckpt_path = checkpoints[-1]
 
         if self.getVerbose():
             print('Resuming training from last checkpoint: {}'.format(last_ckpt_path))
 
-        ckpt_file = io.BytesIO(store.read(last_ckpt_path))
-        return torch.load(ckpt_file)
+        return store.read(last_ckpt_path)
 
     def _create_model(self, run_results, run_id, metadata):
-        history, serialized_checkpoint = run_results[0]
+        serialized_checkpoint = run_results[0]
         serialized_checkpoint.seek(0)
         best_checkpoint = torch.load(serialized_checkpoint, map_location=torch.device('cpu'))
 
         model = copy.deepcopy(self.getModel())
-        optimizer = copy.deepcopy(self.getOptimizer())
+        # optimizer = copy.deepcopy(self.getOptimizer())
 
         model.load_state_dict(best_checkpoint['model'])
         model.eval()
-        optimizer.load_state_dict(best_checkpoint['optimizer'])
+
+        # optimizer.load_state_dict(best_checkpoint['optimizer'])
+        history = None
+        optimizer = None
 
         return self.get_model_class()(**self._get_model_kwargs(
             model, history, optimizer, run_id, metadata))
@@ -324,7 +355,9 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
 class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParamsReadable):
     """Spark Transformer wrapping a PyTorch model, used for making predictions on a DataFrame.
+
     Retrieve the underlying PyTorch model by calling `torch_model.getModel()`.
+
     Args:
         history: List of metrics, one entry per epoch during training.
         model: Trained PyTorch model.
