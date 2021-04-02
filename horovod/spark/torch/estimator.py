@@ -91,6 +91,7 @@ class TorchEstimatorParamsReadable(MLReadable):
 class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                      TorchEstimatorParamsReadable):
     """Spark Estimator for fitting PyTorch models to a DataFrame.
+
     Args:
         num_proc: Number of Horovod processes.  Defaults to `spark.default.parallelism`.
         model: PyTorch model to train.
@@ -324,7 +325,9 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
 class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParamsReadable):
     """Spark Transformer wrapping a PyTorch model, used for making predictions on a DataFrame.
+
     Retrieve the underlying PyTorch model by calling `torch_model.getModel()`.
+
     Args:
         history: List of metrics, one entry per epoch during training.
         model: Trained PyTorch model.
