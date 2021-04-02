@@ -28,7 +28,6 @@ do
   fi
   sleep $wait
 
-  echo
   echo "::group::Starting attempt #$attempt: $*"
 done
 echo "::endgroup::"
