@@ -192,7 +192,7 @@ Status GlooAllgather::Execute(std::vector<TensorTableEntry>& entries,
   // allgatherv
   auto** entry_component_offsets = new int64_t*[entries.size()];
 
-  int global_size = global_state_->controller->GetSize();
+  int global_size = global_state_->controller[0]->GetSize();
   auto* recvcounts = new int[global_size]();
   auto* displcmnts = new int[global_size]();
 
@@ -285,7 +285,7 @@ Status GlooBroadcast::Execute(std::vector<TensorTableEntry>& entries,
   // for gloo broadcast, only output needs to be set if inplace
 
   void* data_ptr;
-  if (global_state_->controller->GetRank() == e.root_rank) {
+  if (global_state_->controller[0]->GetRank() == e.root_rank) {
     data_ptr = (void*)e.tensor->data();
   } else {
     data_ptr = (void*)e.output->data();

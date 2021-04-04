@@ -64,7 +64,7 @@ struct HorovodGlobalState {
 
   // Encapsulates the fusion buffers, handles resizing and auto-tuning of buffer
   // size.
-  FusionBufferManager fusion_buffer;
+  FusionBufferManager fusion_buffer; //TODO: probably vectorize
 
   // Time point when last cycle started.
   std::chrono::steady_clock::time_point last_cycle_start;
@@ -72,18 +72,18 @@ struct HorovodGlobalState {
   // Whether collective context has been completed on the background thread.
   std::atomic_bool initialization_done{false};
 
-  std::shared_ptr<Controller> controller;
+  std::vector<std::shared_ptr<Controller>> controller;
 
-  TensorQueue tensor_queue;
+  std::vector<TensorQueue> tensor_queue;
 
   // Pointer to shared buffer for allgather
-  void* shared_buffer = nullptr;
+  void* shared_buffer = nullptr; //TODO: vectorize
 
   // Current shared buffer size
-  int64_t shared_buffer_size = 0;
+  int64_t shared_buffer_size = 0; //TODO: vectorize
 
   // LRU cache of Responses
-  ResponseCache response_cache;
+  std::vector<ResponseCache> response_cache;
 
   // Number of responses that can be cached
   uint32_t cache_capacity = 1024;
@@ -95,7 +95,7 @@ struct HorovodGlobalState {
   int current_nccl_stream = 0;
 
   // Information on registered groups.
-  GroupTable group_table;
+  std::vector<GroupTable> group_table;
 
   // A LibType indicating what framework we are using to perform CPU operations.
   LibType cpu_operation;

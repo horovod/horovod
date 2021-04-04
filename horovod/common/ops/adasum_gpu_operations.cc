@@ -61,8 +61,8 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
   // Determine GPU IDs of the devices participating in this communicator.
   std::vector<int32_t> nccl_device_map;
   nccl_device_map.reserve(
-      global_state_->controller->GetLocalCommRanks().size());
-  for (size_t rank : global_state_->controller->GetLocalCommRanks()) {
+      global_state_->controller[0]->GetLocalCommRanks().size());
+  for (size_t rank : global_state_->controller[0]->GetLocalCommRanks()) {
     nccl_device_map.push_back(response.devices()[rank]);
   }
   gpu_op_context_.InitGPU(entries);
@@ -96,14 +96,14 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
 
   // Do allreduce.
   int element_size = mpi_context_->GetMPITypeSize(first_entry.tensor->dtype());
-  int local_size = global_state_->controller->GetLocalSize();
-  int local_rank = global_state_->controller->GetLocalRank();
+  int local_size = global_state_->controller[0]->GetLocalSize();
+  int local_rank = global_state_->controller[0]->GetLocalRank();
 
   // If cluster is homogeneous and we are using fusion buffer, include
   // dummy elements from the buffer (if necessary) to make sure the data
   // is divisible by local_size. This is always possible since we
   // set the fusion buffer size divisible by local_size.
-  if (global_state_->controller->IsHomogeneous() && entries.size() > 1) {
+  if (global_state_->controller[0]->IsHomogeneous() && entries.size() > 1) {
     // Making sure the number of elements is divisible by
     // FUSION_BUFFER_ATOMIC_UNIT for improved performance
     int div = local_size * FUSION_BUFFER_ATOMIC_UNIT;
@@ -123,7 +123,7 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
   // non-divisible part (if any), do NCCL Reduce (at rank local_size-1),
   // MPI Allreduce (across rank (local_size-1)'s), and NCCL Bcast
 
-  int64_t num_elements_per_rank = global_state_->controller->IsHomogeneous()
+  int64_t num_elements_per_rank = global_state_->controller[0]->IsHomogeneous()
                                       ? num_elements / local_size
                                       : 0;
 
@@ -132,7 +132,7 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
   void* buffer_data_at_rank_offset =
       (uint8_t*)buffer_data + buffer_len_per_rank * local_rank;
 
-  int64_t num_elements_remaining = global_state_->controller->IsHomogeneous()
+  int64_t num_elements_remaining = global_state_->controller[0]->IsHomogeneous()
                                        ? num_elements % local_size
                                        : num_elements;
 
@@ -145,7 +145,7 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
       (uint8_t*)fused_input_data + buffer_len_per_rank * local_size;
 
   int root_rank =
-      global_state_->controller->IsHomogeneous() ? local_size - 1 : 0;
+      global_state_->controller[0]->IsHomogeneous() ? local_size - 1 : 0;
   bool is_root_rank = local_rank == root_rank;
 
   int64_t total_num_elements =
@@ -184,7 +184,7 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
     }
   }
 
-  if (global_state_->controller->IsHomogeneous() || is_root_rank) {
+  if (global_state_->controller[0]->IsHomogeneous() || is_root_rank) {
     // cudaHostAlloc is significantly slower than malloc.  Pre-allocating
     // a buffer is not safe since the tensor can be arbitrarily large.
     host_buffer = GetHostBuffer((uint64_t)total_buffer_len);
@@ -208,7 +208,7 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
     // tensors needs to know boundaries of tensors. Calculate here the count
     // of elements for each tensor owned by this rank.
     std::vector<int> tensor_counts(entries.size());
-    if (global_state_->controller->IsHomogeneous()) {
+    if (global_state_->controller[0]->IsHomogeneous()) {
       // For homogeneous clusters each rank owns a slice of the fused tensor.
 
       int64_t num_elements_sofar = 0;
@@ -252,7 +252,7 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
     DispatchFusedAllreduce(
         entries, (void*)host_buffer, (void*)recv_buffer, tensor_counts,
         local_size, // start_level
-        global_state_->controller->IsHomogeneous()
+        global_state_->controller[0]->IsHomogeneous()
             ? MPI_COMM_WORLD
             : mpi_context_->GetMPICommunicator(Communicator::CROSS),
         0, reduction_comms_, first_entry.tensor->dtype(), global_state_);

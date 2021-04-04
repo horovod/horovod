@@ -124,7 +124,7 @@ Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
                                    const Response& response,
                                    int64_t**& entry_component_sizes,
                                    int*& recvcounts) {
-  int global_size = global_state_->controller->GetSize();
+  int global_size = global_state_->controller[0]->GetSize();
   for (size_t ec = 0; ec < entries.size(); ++ec) {
     auto& e = entries[ec];
     // Every tensor participating in Allgather operation may have different
@@ -169,7 +169,7 @@ Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
 }
 
 void AllgatherOp::SetDisplacements(const int* recvcounts, int*& displcmnts) {
-  int global_size = global_state_->controller->GetSize();
+  int global_size = global_state_->controller[0]->GetSize();
   for (int rc = 0; rc < global_size; ++rc) {
     if (rc == 0) {
       displcmnts[rc] = 0;
@@ -184,7 +184,7 @@ void AllgatherOp::SetEntryComponentOffsets(
     const int64_t* const* entry_component_sizes, const int* recvcounts,
     int64_t**& entry_component_offsets) {
   unsigned int rank_displacement = 0;
-  int global_size = global_state_->controller->GetSize();
+  int global_size = global_state_->controller[0]->GetSize();
   for (int rc = 0; rc < global_size; ++rc) {
     for (size_t ec = 0; ec < entries.size(); ++ec) {
       if (ec == 0) {
@@ -207,7 +207,7 @@ void AllgatherOp::MemcpyInFusionBuffer(
       first_entry.device, first_entry.context->framework(), global_state_->current_nccl_stream);
   buffer_data = const_cast<void*>(buffer->AccessData(first_entry.context));
 
-  int64_t offset = displcmnts[global_state_->controller->GetRank()] * element_size;
+  int64_t offset = displcmnts[global_state_->controller[0]->GetRank()] * element_size;
   for (auto& e : entries) {
     void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
     MemcpyEntryInFusionBuffer(entries, e, buffer_data_at_offset);
@@ -220,7 +220,7 @@ void AllgatherOp::MemcpyOutFusionBuffer(
     const int64_t* const* entry_component_sizes, const void* buffer_data,
     int element_size, std::vector<TensorTableEntry>& entries) {
   // Copy memory out of the fusion buffer.
-  int global_size = global_state_->controller->GetSize();
+  int global_size = global_state_->controller[0]->GetSize();
   for (size_t ec = 0; ec < entries.size(); ++ec) {
     auto& e = entries[ec];
     int64_t copy_offset = 0;
@@ -263,7 +263,7 @@ Status JoinOp::Execute(std::vector<TensorTableEntry>& entries,
                        const Response& response) {
   assert(entries.size() == 0);
   if (global_state_->joined) {
-    global_state_->tensor_queue.RemoveJoinTensor();
+    global_state_->tensor_queue[0].RemoveJoinTensor();
     global_state_->joined = false;
   }
   return Status::OK();

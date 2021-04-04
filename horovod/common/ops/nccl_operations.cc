@@ -75,7 +75,7 @@ void NCCLOpContext::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
       nccl_context_->ErrorCheck("ncclGetUniqueId", ncclGetUniqueId(&nccl_id), nccl_comm);
     }
 
-    global_state_->controller->Bcast((void*)&nccl_id, sizeof(nccl_id), 0,
+    global_state_->controller[0]->Bcast((void*)&nccl_id, sizeof(nccl_id), 0,
                                          nccl_id_bcast_comm);
 
     ncclComm_t new_nccl_comm;
@@ -85,7 +85,7 @@ void NCCLOpContext::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
 
     // Barrier helps NCCL to synchronize after initialization and avoid
     // deadlock that we've been seeing without it.
-    global_state_->controller->Barrier(Communicator::GLOBAL);
+    global_state_->controller[0]->Barrier(Communicator::GLOBAL);
 
     timeline.ActivityEndAll(entries);
   }
@@ -111,11 +111,11 @@ void NCCLOpContext::AsyncErrorCheck() {
 void NCCLOpContext::PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
                                              Communicator& nccl_id_bcast_comm) {
   if (communicator_type_ == Communicator::GLOBAL) {
-    nccl_rank = global_state_->controller->GetRank();
-    nccl_size = global_state_->controller->GetSize();
+    nccl_rank = global_state_->controller[0]->GetRank();
+    nccl_size = global_state_->controller[0]->GetSize();
   } else if (communicator_type_ == Communicator::LOCAL) {
-    nccl_rank = global_state_->controller->GetLocalRank();
-    nccl_size = global_state_->controller->GetLocalSize();
+    nccl_rank = global_state_->controller[0]->GetLocalRank();
+    nccl_size = global_state_->controller[0]->GetLocalSize();
   } else {
     throw std::logic_error("Communicator type " + std::to_string(communicator_type_) +
                             " is not supported in NCCL mode.");
@@ -192,8 +192,8 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   // Determine GPU IDs of the devices participating in this communicator.
   std::vector<int32_t> nccl_device_map;
   nccl_device_map.reserve(
-      global_state_->controller->GetLocalCommRanks().size());
-  for (int rank : global_state_->controller->GetLocalCommRanks()) {
+      global_state_->controller[0]->GetLocalCommRanks().size());
+  for (int rank : global_state_->controller[0]->GetLocalCommRanks()) {
     nccl_device_map.push_back(response.devices()[rank]);
   }
 
@@ -228,14 +228,14 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
 
   // Do allreduce.
   int element_size = mpi_context_->GetMPITypeSize(first_entry.tensor->dtype());
-  int local_size = global_state_->controller->GetLocalSize();
-  int local_rank = global_state_->controller->GetLocalRank();
+  int local_size = global_state_->controller[0]->GetLocalSize();
+  int local_rank = global_state_->controller[0]->GetLocalRank();
 
   // If cluster is homogeneous and we are using fusion buffer, include
   // dummy elements from the buffer (if necessary) to make sure the data
   // is divisible by local_size. This is always possible since we
   // set the fusion buffer size divisible by local_size.
-  if (global_state_->controller->IsHomogeneous() && entries.size() > 1) {
+  if (global_state_->controller[0]->IsHomogeneous() && entries.size() > 1) {
     // Making sure the number of elements is divisible by
     // FUSION_BUFFER_ATOMIC_UNIT for improved performance
     int div = local_size * FUSION_BUFFER_ATOMIC_UNIT;
@@ -255,7 +255,7 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   // non-divisible part (if any), do NCCL Reduce (at rank local_size-1),
   // MPI Allreduce (across rank (local_size-1)'s), and NCCL Bcast
 
-  int64_t num_elements_per_rank = global_state_->controller->IsHomogeneous()
+  int64_t num_elements_per_rank = global_state_->controller[0]->IsHomogeneous()
                                       ? num_elements / local_size
                                       : 0;
 
@@ -264,7 +264,7 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   void* buffer_data_at_rank_offset =
       (uint8_t*)buffer_data + buffer_len_per_rank * local_rank;
 
-  int64_t num_elements_remaining = global_state_->controller->IsHomogeneous()
+  int64_t num_elements_remaining = global_state_->controller[0]->IsHomogeneous()
                                        ? num_elements % local_size
                                        : num_elements;
 
@@ -277,7 +277,7 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
       (uint8_t*)fused_input_data + buffer_len_per_rank * local_size;
 
   int root_rank =
-      global_state_->controller->IsHomogeneous() ? local_size - 1 : 0;
+      global_state_->controller[0]->IsHomogeneous() ? local_size - 1 : 0;
   bool is_root_rank = local_rank == root_rank;
 
   int64_t total_num_elements =
@@ -295,7 +295,7 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                                          GetNCCLDataType(first_entry.tensor),
                                          ncclSum, *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
     nccl_context_->ErrorCheck("ncclReduceScatter", nccl_result, *nccl_op_context_.nccl_comm_);
-    if (global_state_->timeline.Initialized()) {
+    if (timeline.Initialized()) {
       gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_REDUCESCATTER, *gpu_op_context_.stream);
     }
   }
@@ -309,12 +309,12 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                                   GetNCCLDataType(first_entry.tensor), ncclSum,
                                   root_rank, *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
     nccl_context_->ErrorCheck("ncclReduce", nccl_result, *nccl_op_context_.nccl_comm_);
-    if (global_state_->timeline.Initialized()) {
+    if (timeline.Initialized()) {
       gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_REDUCE, *gpu_op_context_.stream);
     }
   }
 
-  if (global_state_->controller->IsHomogeneous() || is_root_rank) {
+  if (global_state_->controller[0]->IsHomogeneous() || is_root_rank) {
     // cudaHostAlloc is significantly slower than malloc.  Pre-allocating
     // a buffer is not safe since the tensor can be arbitrarily large.
     gpu_op_context_.host_buffer = malloc(total_buffer_len);
@@ -355,7 +355,7 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                                             GetNCCLDataType(first_entry.tensor),
                                             *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream),
                               *nccl_op_context_.nccl_comm_);
-    if (global_state_->timeline.Initialized()) {
+    if (timeline.Initialized()) {
       gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_ALLGATHER, *gpu_op_context_.stream);
     }
   }
@@ -366,7 +366,7 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                                         GetNCCLDataType(first_entry.tensor), root_rank,
                                         *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream),
                               *nccl_op_context_.nccl_comm_);
-    if (global_state_->timeline.Initialized()) {
+    if (timeline.Initialized()) {
       gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_BCAST, *gpu_op_context_.stream);
     }
   }
@@ -380,7 +380,7 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   if (entries.size() > 1) {
     MemcpyOutFusionBuffer(buffer_data, entries);
 
-    if (global_state_->timeline.Initialized()) {
+    if (timeline.Initialized()) {
       gpu_context_->RecordEvent(gpu_op_context_.event_queue, MEMCPY_OUT_FUSION_BUFFER, *gpu_op_context_.stream);
     }
   }
@@ -409,7 +409,7 @@ Status NCCLBroadcast::Execute(std::vector<TensorTableEntry>& entries,
 
   // On root rank, ncclbcast sends data, on other ranks it receives data.
   void* data_ptr;
-  if (global_state_->controller->GetRank() == e.root_rank) {
+  if (global_state_->controller[0]->GetRank() == e.root_rank) {
     data_ptr = (void*) e.tensor->data();
   } else {
     data_ptr = (void*) e.output->data();
@@ -446,8 +446,8 @@ Status NCCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
   // allgatherv
   auto** entry_component_offsets = new int64_t* [entries.size()];
 
-  int global_size = global_state_->controller->GetSize();
-  int global_rank = global_state_->controller->GetRank();
+  int global_size = global_state_->controller[0]->GetSize();
+  int global_rank = global_state_->controller[0]->GetRank();
   auto* recvcounts = new int[global_size]();
   auto* displcmnts = new int[global_size]();
 
@@ -581,7 +581,7 @@ Status NCCLAlltoall::Execute(std::vector<TensorTableEntry>& entries,
     return status;
   }
 
-  auto world_size = global_state_->controller->GetSize();
+  auto world_size = global_state_->controller[0]->GetSize();
   const void* sendbuf = e.tensor->data();
   void* buffer_data = (void*) e.output->data();
 
