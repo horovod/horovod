@@ -98,6 +98,9 @@ public:
   void set_prescale_factor(const double prescale_factor);
 
   void set_postscale_factor(const double postscale_factor);
+  
+  int32_t communicator_id() const;
+  void set_communicator_id(int32_t value);
 
   static void ParseFromBytes(Request& request, const uint8_t* input);
 
@@ -117,6 +120,7 @@ private:
   std::vector<int64_t> tensor_shape_;
   double prescale_factor_ = 1.0;
   double postscale_factor_ = 1.0;
+  int32_t communicator_id_ = 0;
 };
 
 class RequestList {
@@ -154,6 +158,10 @@ public:
   enum ResponseType {
     ALLREDUCE = 0, ALLGATHER = 1, BROADCAST = 2, JOIN = 3, ADASUM = 4, ALLTOALL= 5, ERROR = 6
   };
+  
+  Response() {};
+  
+  Response(const Response& response);
 
   static const std::string& ResponseType_Name(ResponseType value);
 
@@ -206,6 +214,10 @@ public:
   void set_prescale_factor(const double prescale_factor);
 
   void set_postscale_factor(const double postscale_factor);
+  
+  int32_t communicator_id() const;
+  
+  void set_communicator_id(const int32_t value);
 
   static void ParseFromBytes(Response& response, const uint8_t* input);
 
@@ -221,6 +233,7 @@ private:
   std::vector<int64_t> tensor_sizes_;
   double prescale_factor_ = 1.0;
   double postscale_factor_ = 1.0;
+  int32_t communicator_id_ = 0;
 };
 
 class ResponseList {

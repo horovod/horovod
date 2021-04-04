@@ -119,7 +119,8 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               StatusCallback callback,
                               ReduceOp reduce_op = ReduceOp::SUM,
                               double prescale_factor = 1.0,
-                              double postscale_factor = 1.0);
+                              double postscale_factor = 1.0,
+                              int32_t communicator_id= 0);
 
 Status EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts,
                                std::vector<std::shared_ptr<Tensor>>& tensors,
@@ -130,32 +131,37 @@ Status EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts
                                std::vector<StatusCallback>& callbacks,
                                ReduceOp reduce_op = ReduceOp::SUM,
                                double prescale_factor = 1.0,
-                               double postscale_factor = 1.0);
+                               double postscale_factor = 1.0,
+                               int32_t communicator_id = 0);
 
 Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,
                               std::shared_ptr<ReadyEvent> ready_event,
                               const std::string& name, int device,
-                              StatusCallback callback);
+                              StatusCallback callback,
+                              int32_t communicator_id = 0);
 
 Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,
                               std::shared_ptr<Tensor> output, int root_rank,
                               std::shared_ptr<ReadyEvent> ready_event,
                               const std::string& name, int device,
-                              StatusCallback callback);
+                              StatusCallback callback,
+                              int32_t communicator_id = 0);
 
 Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
                              std::shared_ptr<Tensor> tensor,
                              std::shared_ptr<Tensor> splits,
                              std::shared_ptr<ReadyEvent> ready_event,
                              const std::string& name, int device,
-                             StatusCallback callback);
+                             StatusCallback callback,
+                             int32_t communicator_id = 0);
 
 Status EnqueueJoin(std::shared_ptr<OpContext> context,
                    std::shared_ptr<ReadyEvent> ready_event,
                    const std::string& name, int device,
-                   StatusCallback callback);
+                   StatusCallback callback,
+                   int32_t communicator_id = 0);
 
 } // namespace common
 } // namespace horovod

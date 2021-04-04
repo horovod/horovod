@@ -153,6 +153,10 @@ void Request::set_prescale_factor(const double prescale_factor) { prescale_facto
 
 void Request::set_postscale_factor(const double postscale_factor) { postscale_factor_ = postscale_factor; };
 
+int32_t Request::communicator_id() const { return communicator_id_; }
+
+void Request::set_communicator_id(int32_t value) { communicator_id_ = value; }
+
 int32_t Request::group_id() const { return group_id_; }
 
 void Request::set_group_id(int32_t value) { group_id_ = value; }
@@ -394,6 +398,25 @@ double Response::postscale_factor() const { return postscale_factor_; };
 void Response::set_prescale_factor(const double prescale_factor) { prescale_factor_ = prescale_factor; };
 
 void Response::set_postscale_factor(const double postscale_factor) { postscale_factor_ = postscale_factor; };
+
+int32_t Response::communicator_id() const { return communicator_id_; };
+
+void Response::set_communicator_id(const int32_t value)
+{ communicator_id_ = value; };
+
+Response::Response(const Response& response){
+  set_response_type(response.response_type());
+  for (const auto& tensor_name_obj : response.tensor_names()) {
+    add_tensor_name(tensor_name_obj);
+  }
+  set_tensor_type(response.tensor_type());
+  set_error_message(response.error_message());
+  set_devices(response.devices());
+  set_tensor_sizes(response.tensor_sizes());
+  set_prescale_factor(response.prescale_factor());
+  set_postscale_factor(response.postscale_factor());
+  set_communicator_id(response.communicator_id());
+};
 
 void Response_ParseFromWire(Response& response,
                             const wire::Response* obj) {
