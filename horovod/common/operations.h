@@ -57,7 +57,7 @@ void horovod_shutdown();
 
 // C interface to get index of current Horovod process.
 // Returns -1 if Horovod is not initialized.
-int horovod_rank();
+int horovod_rank(int32_t communicator_id=0);
 
 // C interface to get index of current Horovod process in the node it is on.
 // Returns -1 if Horovod is not initialized.
@@ -65,7 +65,7 @@ int horovod_local_rank();
 
 // C interface to return number of Horovod processes.
 // Returns -1 if Horovod is not initialized.
-int horovod_size();
+int horovod_size(int32_t communicator_id=0);
 
 // C interface to return number of Horovod processes in the node it is on.
 // Returns -1 if Horovod is not initialized.

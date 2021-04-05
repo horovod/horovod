@@ -110,13 +110,13 @@ class HorovodBasics(object):
         if not result:
             raise ValueError('Horovod has not been initialized; use hvd.init().')
 
-    def size(self):
+    def size(self, communicator_id=0):
         """A function that returns the number of Horovod processes.
 
         Returns:
           An integer scalar containing the number of Horovod processes.
         """
-        size = self.MPI_LIB_CTYPES.horovod_size()
+        size = self.MPI_LIB_CTYPES.horovod_size(ctypes.int(communicator_id))
         if size == -1:
             raise ValueError(
                 'Horovod has not been initialized; use hvd.init().')
@@ -150,13 +150,13 @@ class HorovodBasics(object):
                 'Horovod has not been initialized; use hvd.init().')
         return cross_size
 
-    def rank(self):
+    def rank(self, communicator_id=0):
         """A function that returns the Horovod rank of the calling process.
 
         Returns:
           An integer scalar with the Horovod rank of the calling process.
         """
-        rank = self.MPI_LIB_CTYPES.horovod_rank()
+        rank = self.MPI_LIB_CTYPES.horovod_rank(ctypes.int(communicator_id))
         if rank == -1:
             raise ValueError(
                 'Horovod has not been initialized; use hvd.init().')

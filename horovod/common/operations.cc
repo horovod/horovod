@@ -823,11 +823,11 @@ bool horovod_stop_timeline() {
   return true;
 }
 
-int horovod_rank() {
+int horovod_rank(int32_t communicator_id) {
   if (!horovod_global.initialization_done) {
     return -1;
   }
-  return horovod_global.controller[0]->GetRank();
+  return horovod_global.controller[communicator_id]->GetRank();
 }
 
 int horovod_local_rank() {
@@ -844,11 +844,11 @@ int horovod_cross_rank() {
   return horovod_global.controller[0]->GetCrossRank();
 }
 
-int horovod_size() {
+int horovod_size(int32_t communicator_id) {
   if (!horovod_global.initialization_done) {
     return -1;
   }
-  return horovod_global.controller[0]->GetSize();
+  return horovod_global.controller[communicator_id]->GetSize();
 }
 
 int horovod_local_size() {
