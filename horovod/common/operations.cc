@@ -140,7 +140,7 @@ CCLContext ccl_context;
 
 std::vector<std::unique_ptr<OperationManager>> op_manager(1);
 
-OperationManager* CreateOperationManager(HorovodGlobalState& state, int64_t context_index=0) {
+OperationManager* CreateOperationManager(HorovodGlobalState& state, int32_t communicator_id=0) {
   // Order of these operations is very important. Operations will be checked
   // sequentially from the first to the last. The first 'Enabled' operation will
   // be executed.
@@ -151,17 +151,17 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state, int64_t cont
   std::vector<std::shared_ptr<AlltoallOp>> alltoall_ops;
 
 #if HAVE_MPI && HAVE_GPU
-  if (mpi_context[context_index].IsEnabled()) {
+  if (mpi_context[communicator_id].IsEnabled()) {
 #if HOROVOD_GPU_ALLREDUCE == 'M'
     allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
-        new MPI_GPUAllreduce(&mpi_context[context_index], &gpu_context, &state)));
+        new MPI_GPUAllreduce(&mpi_context[communicator_id], &gpu_context, &state)));
 
 #elif HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
-    adasum_ops.push_back(std::shared_ptr<AllreduceOp>(new AdasumGpuAllreduceOp(&mpi_context[context_index], &nccl_context, &gpu_context, &state)));
+    adasum_ops.push_back(std::shared_ptr<AllreduceOp>(new AdasumGpuAllreduceOp(&mpi_context[communicator_id], &nccl_context, &gpu_context, &state)));
 
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new NCCLHierarchicalAllreduce(
-            &nccl_context, &mpi_context[context_index], &gpu_context, &state)));
+            &nccl_context, &mpi_context[communicator_id], &gpu_context, &state)));
 
 #elif HAVE_DDL && HOROVOD_GPU_ALLREDUCE == 'D'
     allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
@@ -170,14 +170,14 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state, int64_t cont
 
 #if HOROVOD_GPU_ALLGATHER == 'M'
     allgather_ops.push_back(std::shared_ptr<AllgatherOp>(
-        new MPI_GPUAllgather(&mpi_context[context_index], &gpu_context, &state)));
+        new MPI_GPUAllgather(&mpi_context[communicator_id], &gpu_context, &state)));
 #endif
     allgather_ops.push_back(std::shared_ptr<AllgatherOp>(
-        new MPIHierarchicalAllgather(&mpi_context[context_index], &state)));
+        new MPIHierarchicalAllgather(&mpi_context[communicator_id], &state)));
 
 #if HOROVOD_GPU_ALLTOALL == 'M'
     alltoall_ops.push_back(std::shared_ptr<AlltoallOp>(
-        new MPI_GPUAlltoall(&mpi_context[context_index], &gpu_context, &state)));
+        new MPI_GPUAlltoall(&mpi_context[communicator_id], &gpu_context, &state)));
 #endif
   }
 #endif
@@ -203,15 +203,15 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state, int64_t cont
 #endif
 
 #if HAVE_GLOO
-  if (gloo_context[context_index].IsEnabled()) {
+  if (gloo_context[communicator_id].IsEnabled()) {
     allreduce_ops.push_back(
-        std::shared_ptr<AllreduceOp>(new GlooAllreduce(&gloo_context[context_index], &state)));
+        std::shared_ptr<AllreduceOp>(new GlooAllreduce(&gloo_context[communicator_id], &state)));
     allgather_ops.push_back(
-        std::shared_ptr<AllgatherOp>(new GlooAllgather(&gloo_context[context_index], &state)));
+        std::shared_ptr<AllgatherOp>(new GlooAllgather(&gloo_context[communicator_id], &state)));
     broadcast_ops.push_back(
-        std::shared_ptr<BroadcastOp>(new GlooBroadcast(&gloo_context[context_index], &state)));
+        std::shared_ptr<BroadcastOp>(new GlooBroadcast(&gloo_context[communicator_id], &state)));
     alltoall_ops.push_back(
-        std::shared_ptr<AlltoallOp>(new GlooAlltoall(&gloo_context[context_index], &state)));
+        std::shared_ptr<AlltoallOp>(new GlooAlltoall(&gloo_context[communicator_id], &state)));
   }
 #endif
 
@@ -229,17 +229,17 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state, int64_t cont
 #endif
 
 #if HAVE_MPI
-  if (mpi_context[context_index].IsEnabled()){
+  if (mpi_context[communicator_id].IsEnabled()){
     adasum_ops.push_back(
-        std::shared_ptr<AllreduceOp>(new AdasumMPIAllreduceOp(&mpi_context[context_index], &state)));
+        std::shared_ptr<AllreduceOp>(new AdasumMPIAllreduceOp(&mpi_context[communicator_id], &state)));
     allreduce_ops.push_back(
-        std::shared_ptr<AllreduceOp>(new MPIAllreduce(&mpi_context[context_index],&state)));
+        std::shared_ptr<AllreduceOp>(new MPIAllreduce(&mpi_context[communicator_id],&state)));
     allgather_ops.push_back(
-        std::shared_ptr<AllgatherOp>(new MPIAllgather(&mpi_context[context_index], &state)));
+        std::shared_ptr<AllgatherOp>(new MPIAllgather(&mpi_context[communicator_id], &state)));
     broadcast_ops.push_back(
-        std::shared_ptr<BroadcastOp>(new MPIBroadcast(&mpi_context[context_index], &state)));
+        std::shared_ptr<BroadcastOp>(new MPIBroadcast(&mpi_context[communicator_id], &state)));
     alltoall_ops.push_back(
-        std::shared_ptr<AlltoallOp>(new MPIAlltoall(&mpi_context[context_index], &state)));
+        std::shared_ptr<AlltoallOp>(new MPIAlltoall(&mpi_context[communicator_id], &state)));
   }
 #endif
 
@@ -256,10 +256,10 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state, int64_t cont
 void PerformOperation(Response response, HorovodGlobalState& state) {
   std::vector<TensorTableEntry> entries;
   auto& timeline = horovod_global.timeline;
-  // Retrieve the context_index of the response
-  auto context_index = response.communicator_id();
+  // Retrieve the communicator_id of the response
+  auto communicator_id = response.communicator_id();
   if (response.response_type() != Response::JOIN) {
-    horovod_global.tensor_queue[context_index].GetTensorEntriesFromResponse(response, entries,
+    horovod_global.tensor_queue[communicator_id].GetTensorEntriesFromResponse(response, entries,
                                                              state.joined);
 
     for (auto& e : entries) {
@@ -272,7 +272,7 @@ void PerformOperation(Response response, HorovodGlobalState& state) {
       // since buffer allocated here is guaranteed to survive at least till the
       // end of this operation.
       Status status = horovod_global.fusion_buffer.InitializeBuffer(
-          horovod_global.controller[context_index]->TensorFusionThresholdBytes(),
+          horovod_global.controller[communicator_id]->TensorFusionThresholdBytes(),
           first_entry.device, first_entry.context,
           horovod_global.current_nccl_stream,
           [&]() { timeline.ActivityStartAll(entries, INIT_FUSION_BUFFER); },
@@ -316,7 +316,7 @@ void PerformOperation(Response response, HorovodGlobalState& state) {
 
   Status status;
   try {
-    status = op_manager[context_index]->ExecuteOperation(entries, response);
+    status = op_manager[communicator_id]->ExecuteOperation(entries, response);
   } catch (const std::exception& ex) {
     LOG(DEBUG, horovod_global.controller[0]->GetRank()) << "ExecuteOperation Failed";
     status = Status::UnknownError(ex.what());
@@ -370,12 +370,12 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   auto mpi_ctx_manager = MPIContextManager();
 #endif
   // Initialize each MPI context
-  for(int64_t i=0; i < mpi_context.size(); i++)
+  for(int32_t i=0; i < mpi_context.size(); i++)
     mpi_context[i].Initialize(state.controller[i]->GetRanks(), mpi_ctx_manager);
 #endif
 
   
-  for(int64_t i=0; i < mpi_context.size(); i++){
+  for(int32_t i=0; i < mpi_context.size(); i++){
 #if HAVE_GLOO
 #if HAVE_MPI
         if (mpi_context[i].IsEnabled()) {
@@ -447,7 +447,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
                  true);
   state.mark_cycles_in_timeline = mark_cycles;
   
-  for(int64_t i=0; i< mpi_context.size(); i++){
+  for(int32_t i=0; i< mpi_context.size(); i++){
     state.controller[i]->SetTimelineEnabled(should_enable_timeline);
     
     ParseStallInspectorFromEnv(state.controller[i]->GetStallInspector());
@@ -478,7 +478,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     state.cache_capacity = cache_capacity;
     state.parameter_manager.SetCacheEnabled(cache_capacity > 0, true);
   }
-  for(int64_t i=0; i< mpi_context.size(); i++){
+  for(int32_t i=0; i< mpi_context.size(); i++){
   state.response_cache[i].set_capacity(
       (int)state.parameter_manager.CacheEnabled() * state.cache_capacity);
   }
@@ -552,7 +552,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
   
   // Create operation manager for each context
-  for(int64_t i=0; i < mpi_context.size(); i++)
+  for(int32_t i=0; i < mpi_context.size(); i++)
     op_manager[i].reset(CreateOperationManager(state, i));
 
   // Signal that initialization is completed.
@@ -572,7 +572,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 #endif
 
 #if HAVE_GLOO
-  for(int64_t i=0; i < mpi_context.size(); i++)
+  for(int32_t i=0; i < mpi_context.size(); i++)
     gloo_context[i].Finalize();
 #endif
 
@@ -583,7 +583,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
   // Notify all outstanding operations that Horovod has been shut down
   // and finalize tensor queue.
-  for(int64_t i=0; i < mpi_context.size(); i++)
+  for(int32_t i=0; i < mpi_context.size(); i++)
     horovod_global.tensor_queue[i].FinalizeTensorQueue(SHUT_DOWN_ERROR);
 
 #if HAVE_GPU
@@ -591,7 +591,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 #endif
 
 #if HAVE_MPI
-  for(int64_t i=0; i < mpi_context.size(); i++)
+  for(int32_t i=0; i < mpi_context.size(); i++)
     mpi_context[i].Finalize(mpi_ctx_manager);
 #endif
 
@@ -682,8 +682,8 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
     horovod_global.control_operation = ParseControllerOpsFromEnv();
     horovod_global.cpu_operation = ParseCPUOpsFromEnv();
     
-    // Retrieve number of  contexts we are dealing with
-    int64_t n_contexts = mpi_context.size();
+    // Retrieve number of contexts we are dealing with, aka number of communicators
+    int32_t n_contexts = mpi_context.size();
     
     // Resize gloo context to match mpi_context
     gloo_context.resize(n_contexts);
@@ -701,12 +701,12 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
     // Enable mpi is it's used either in cpu data transfer or controller
     if (horovod_global.cpu_operation == LibType::MPI ||
         horovod_global.control_operation == LibType::MPI) {
-        for(int64_t i=0; i< n_contexts; i++)
+        for(int32_t i=0; i< n_contexts; i++)
             mpi_context[i].Enable();
     }
 
     if (horovod_global.control_operation == LibType::MPI){
-        for(int64_t i=0; i< n_contexts; i++){
+        for(int32_t i=0; i< n_contexts; i++){
             horovod_global.controller[i].reset(new MPIController(
                 horovod_global.response_cache[i],
                 horovod_global.tensor_queue[i], horovod_global.timeline,
@@ -721,12 +721,12 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
     // Enable gloo is it's used either in cpu data transfer or controller
     if (horovod_global.cpu_operation == LibType::GLOO ||
         horovod_global.control_operation == LibType::GLOO) {
-        for(int64_t i=0; i< n_contexts; i++)
+        for(int32_t i=0; i< n_contexts; i++)
             gloo_context[i].Enable();
     }
 
     if (horovod_global.control_operation == LibType::GLOO) {
-        for(int64_t i=0; i< n_contexts; i++){
+        for(int32_t i=0; i< n_contexts; i++){
         horovod_global.controller[i].reset(new GlooController(
             horovod_global.response_cache[i],
             horovod_global.tensor_queue[i], horovod_global.timeline,

@@ -301,7 +301,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
           if (count == (size_ - state.joined_size) &&
               std::find(ready_to_reduce.begin(), ready_to_reduce.end(),
                         table_iter.first) == ready_to_reduce.end()) {
-            timeline_.NegotiateEnd(table_iter.first);
+            state.timeline.NegotiateEnd(table_iter.first);
             ready_to_reduce.push_back(table_iter.first);
           }
         }
