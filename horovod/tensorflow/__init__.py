@@ -53,7 +53,7 @@ if tf.__version__.startswith('2.2.'):
 
 def allreduce(tensor, average=None, device_dense='', device_sparse='',
               compression=Compression.none, op=None,
-              prescale_factor=1.0, postscale_factor=1.0,
+              prescale_factor=1.0, postscale_factor=1.0, communicator_id=0,
               name=None):
     """Perform an allreduce on a tf.Tensor or tf.IndexedSlices.
 
@@ -81,6 +81,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
             Defaults to Average if None is given.
         prescale_factor: Multiplicative factor to scale tensor before allreduce.
         postscale_factor: Multiplicative factor to scale tensor after allreduce.
+        communicator_id: Id of the communicator to use for this operation
         name: A name of the allreduce operation
 
     Returns:
@@ -120,6 +121,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
             summed_tensor_compressed = _allreduce(tensor_compressed, op=op,
                                                   prescale_factor=prescale_factor,
                                                   postscale_factor=postscale_factor,
+                                                  communicator_id=communicator_id,
                                                   name=name)
             summed_tensor = compression.decompress(summed_tensor_compressed, ctx)
             if op == Adasum:
@@ -155,7 +157,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
 
 def grouped_allreduce(tensors, average=None, device_dense='', device_sparse='',
                       compression=Compression.none, op=None,
-                      prescale_factor=1.0, postscale_factor=1.0):
+                      prescale_factor=1.0, postscale_factor=1.0, communicator_id=0):
     if not tensors:
         return tensors
 
@@ -191,7 +193,8 @@ def grouped_allreduce(tensors, average=None, device_dense='', device_sparse='',
             tensors_compressed, ctxs = zip(*[compression.compress(tensor) for tensor in tensors])
             summed_tensors_compressed = _grouped_allreduce(tensors_compressed, op=op,
                                                            prescale_factor=prescale_factor,
-                                                           postscale_factor=postscale_factor)
+                                                           postscale_factor=postscale_factor,
+                                                           communicator_id=communicator_id)
             summed_tensors = [compression.decompress(t, ctx) for t, ctx in zip(summed_tensors_compressed, ctxs)]
             if op == Adasum:
                 if 'CPU' not in tensor.device and gpu_available('tensorflow'):

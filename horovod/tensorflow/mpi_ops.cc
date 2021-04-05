@@ -388,6 +388,7 @@ public:
     OP_REQUIRES_OK(context, context->GetAttr("prescale_factor", &prescale_factor_));
     OP_REQUIRES_OK(context, context->GetAttr("postscale_factor", &postscale_factor_));
     OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
+    OP_REQUIRES_OK(context, context->GetAttr("communicator_id", &communicator_id_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -417,7 +418,7 @@ public:
         [context, done](const common::Status& status) {
           context->SetStatus(ConvertStatus(status));
           done();
-        }, reduce_op, (double) prescale_factor_, (double) postscale_factor_);
+        }, reduce_op, (double) prescale_factor_, (double) postscale_factor_, (int32_t) communicator_id_);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 
@@ -427,6 +428,7 @@ private:
   float prescale_factor_;
   float postscale_factor_;
   bool ignore_name_scope_;
+  int communicator_id_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_CPU),
@@ -442,6 +444,7 @@ REGISTER_OP("HorovodAllreduce")
     .Attr("prescale_factor: float")
     .Attr("postscale_factor: float")
     .Attr("ignore_name_scope: bool = False")
+    .Attr("communicator_id: int = 0")
     .Input("tensor: T")
     .Output("sum: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
@@ -470,6 +473,7 @@ public:
     OP_REQUIRES_OK(context, context->GetAttr("postscale_factor", &postscale_factor_));
     OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
     OP_REQUIRES_OK(context, context->GetAttr("num_tensors", &num_tensors_));
+    OP_REQUIRES_OK(context, context->GetAttr("communicator_id", &communicator_id_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -531,7 +535,7 @@ public:
 
     auto enqueue_result = EnqueueTensorAllreduces(
         hvd_contexts, hvd_tensors, hvd_outputs, ready_events, names, device,
-        callbacks, reduce_op, (double) prescale_factor_, (double) postscale_factor_);
+        callbacks, reduce_op, (double) prescale_factor_, (double) postscale_factor_, (int32_t) communicator_id_);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 
@@ -542,6 +546,7 @@ private:
   float postscale_factor_;
   bool ignore_name_scope_;
   int num_tensors_;
+  int communicator_id_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodGroupedAllreduce").Device(DEVICE_CPU),
@@ -557,6 +562,7 @@ REGISTER_OP("HorovodGroupedAllreduce")
     .Attr("prescale_factor: float")
     .Attr("postscale_factor: float")
     .Attr("ignore_name_scope: bool = False")
+    .Attr("communicator_id: int = 0")
     .Attr("num_tensors: int")
     .Input("tensors: num_tensors*T")
     .Output("sum: num_tensors*T")
@@ -584,6 +590,7 @@ public:
   explicit HorovodAllgatherOp(OpKernelConstruction* context)
       : AsyncOpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
+    OP_REQUIRES_OK(context, context->GetAttr("communicator_id", &communicator_id_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -610,12 +617,13 @@ public:
         [context, done](const common::Status& status) {
           context->SetStatus(ConvertStatus(status));
           done();
-        });
+        },  (int32_t) communicator_id_);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 
 private:
   bool ignore_name_scope_;
+  int communicator_id_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodAllgather").Device(DEVICE_CPU),
@@ -629,6 +637,7 @@ REGISTER_OP("HorovodAllgather")
     .Attr(
         "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
     .Attr("ignore_name_scope: bool = False")
+    .Attr("communicator_id: int = 0")
     .Input("tensor: T")
     .Output("output: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
@@ -656,6 +665,7 @@ public:
       : AsyncOpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("root_rank", &root_rank_));
     OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
+    OP_REQUIRES_OK(context, context->GetAttr("communicator_id", &communicator_id_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -691,13 +701,14 @@ public:
         device, [context, done](const common::Status& status) {
           context->SetStatus(ConvertStatus(status));
           done();
-        });
+        }, (int32_t) communicator_id_);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 
 private:
   int root_rank_;
   bool ignore_name_scope_;
+  int communicator_id_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodBroadcast").Device(DEVICE_CPU),
@@ -712,6 +723,7 @@ REGISTER_OP("HorovodBroadcast")
         "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
     .Attr("root_rank: int")
     .Attr("ignore_name_scope: bool = False")
+    .Attr("communicator_id: int = 0")
     .Input("tensor: T")
     .Output("output: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
@@ -734,7 +746,9 @@ Output
 class HorovodJoinOp : public AsyncOpKernel {
 public:
   explicit HorovodJoinOp(OpKernelConstruction* context)
-      : AsyncOpKernel(context) {}
+      : AsyncOpKernel(context) {
+    OP_REQUIRES_OK(context, context->GetAttr("communicator_id", &communicator_id_));
+    }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(common::CheckInitialized()),
@@ -748,10 +762,13 @@ public:
         [context, done](const common::Status& status) {
           context->SetStatus(ConvertStatus(status));
           done();
-        });
+        }, (int32_t) communicator_id_);
 
    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
+
+private:
+  int communicator_id_;    
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodJoin").Device(DEVICE_CPU),
@@ -762,6 +779,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodJoin").Device(DEVICE_GPU),
 #endif
 
 REGISTER_OP("HorovodJoin")
+    .Attr("communicator_id: int = 0")
     .Doc(R"doc(
 Perform an join on a tensor,
 )doc");
@@ -886,6 +904,7 @@ public:
   explicit HorovodAlltoallOp(OpKernelConstruction* context)
       : AsyncOpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
+    OP_REQUIRES_OK(context, context->GetAttr("communicator_id", &communicator_id_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -911,11 +930,12 @@ public:
         [context, done](const common::Status& status) {
           context->SetStatus(ConvertStatus(status));
           done();
-        });
+        }, (int32_t) communicator_id_);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 private:
   bool ignore_name_scope_;
+  int communicator_id_;
 }; // namespace tensorflow
 
 REGISTER_KERNEL_BUILDER(Name("HorovodAlltoall").Device(DEVICE_CPU),
@@ -932,6 +952,7 @@ REGISTER_OP("HorovodAlltoall")
     .Attr(
         "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
     .Attr("ignore_name_scope: bool = False")
+    .Attr("communicator_id: int = 0")
     .Input("tensor: T")
     .Input("splits: int32")
     .Output("output: T")
