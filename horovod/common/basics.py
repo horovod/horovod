@@ -68,10 +68,14 @@ class HorovodBasics(object):
                 # Here we assume we are retrieving a list of MPI communicators
                 # TODO: assert that this is what we get
                 from mpi4py import MPI
+                if MPI._sizeof(MPI.Comm) == ctypes.sizeof(ctypes.c_int):
+                    MPI_Comm = ctypes.c_int
+                else:
+                    MPI_Comm = ctypes.c_void_p
+                    self.MPI_LIB_CTYPES.horovod_init_multi_comm.argtypes = [MPI_Comm, ctypes.c_int]
                 comms = [MPI_Comm.from_address(MPI._addressof(c)) for c in comm]
                 comm_size = len(comm)
-                self.MPI_LIB_CTYPES.horovod_init_multi_comm(*comms, ctypes.c_int(comm_size))
-                
+                self.MPI_LIB_CTYPES.horovod_init_multi_comm((ctypes.c_void_p * comm_size)(*comms), ctypes.c_int(comm_size))
 
     def shutdown(self):
         """A function that shuts Horovod down."""
