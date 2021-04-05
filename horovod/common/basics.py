@@ -60,7 +60,7 @@ class HorovodBasics(object):
             comm_obj = MPI_Comm.from_address(MPI._addressof(comm))
             self.MPI_LIB_CTYPES.horovod_init_comm(comm_obj)
         else:
-            if isinstance(comm[0], int):            
+            if (len(comm) ==0) or isinstance(comm[0], int):            
                 comm_size = len(comm)
                 self.MPI_LIB_CTYPES.horovod_init(
                     (ctypes.c_int * comm_size)(*comm), ctypes.c_int(comm_size))
