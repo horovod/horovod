@@ -448,10 +448,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.mark_cycles_in_timeline = mark_cycles;
   
   for(int64_t i=0; i< mpi_context.size(); i++){
-    state.controller[0]->SetTimelineEnabled(should_enable_timeline);
+    state.controller[i]->SetTimelineEnabled(should_enable_timeline);
     
-    ParseStallInspectorFromEnv(state.controller[0]->GetStallInspector());
-    state.controller[0]->SetMarkCyclesInTimelinePending(mark_cycles);
+    ParseStallInspectorFromEnv(state.controller[i]->GetStallInspector());
+    state.controller[i]->SetMarkCyclesInTimelinePending(mark_cycles);
   }
   
   // Override Tensor Fusion threshold, if it's set.
