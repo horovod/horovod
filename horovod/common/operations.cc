@@ -765,13 +765,16 @@ void horovod_init(const int* ranks, int nranks) {
 
 #if HAVE_MPI
 void horovod_init_comm(MPI_Comm comm) {
-  //TODO: Allow to manually specify the communicators, for now, I'm going to create several comms
-  // Allocating as many mpi contexts as there are communicators, so let's imagine 3
-  mpi_context.resize(3);
   MPI_Comm_dup(comm, &mpi_context[0].mpi_comm);
-  MPI_Comm_dup(comm, &mpi_context[1].mpi_comm);
-  MPI_Comm_dup(comm, &mpi_context[2].mpi_comm);
   InitializeHorovodOnce(nullptr, 0);
+}
+
+void horovod_init_multi_comm(MPI_Comm *comm, int ncomms) {
+    // Resizing mpi_context to hold one context per communicator
+    mpi_context.resize(ncomms);
+    for(int i=0; i< ncomms; i++) 
+        MPI_Comm_dup(comm[i], &mpi_context[i].mpi_comm);
+    InitializeHorovodOnce(nullptr, 0);
 }
 #endif
 

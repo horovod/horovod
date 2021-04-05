@@ -47,6 +47,9 @@ void horovod_init(const int *ranks, int nranks);
 #if HAVE_MPI
 // C interface to initialize Horovod with the given MPI communicator.
 void horovod_init_comm(MPI_Comm comm);
+
+// C interface to initialize Horovod with an array of existing MPI communicators.
+void horovod_init_multi_comm(MPI_Comm *comm, int ncomms);
 #endif
 
 // C interface to shut down Horovod.
