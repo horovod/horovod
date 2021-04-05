@@ -116,7 +116,7 @@ class HorovodBasics(object):
         Returns:
           An integer scalar containing the number of Horovod processes.
         """
-        size = self.MPI_LIB_CTYPES.horovod_communicator_size(ctypes.int(communicator_id))
+        size = self.MPI_LIB_CTYPES.horovod_communicator_size(ctypes.c_int32(communicator_id))
         if size == -1:
             raise ValueError(
                 'Horovod has not been initialized; use hvd.init().')
@@ -156,7 +156,7 @@ class HorovodBasics(object):
         Returns:
           An integer scalar with the Horovod rank of the calling process.
         """
-        rank = self.MPI_LIB_CTYPES.horovod_communicator_rank(ctypes.int(communicator_id))
+        rank = self.MPI_LIB_CTYPES.horovod_communicator_rank(ctypes.c_int32(communicator_id))
         if rank == -1:
             raise ValueError(
                 'Horovod has not been initialized; use hvd.init().')
