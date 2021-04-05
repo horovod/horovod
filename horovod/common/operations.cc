@@ -371,7 +371,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 #endif
   // Initialize each MPI context
   for(int64_t i=0; i < mpi_context.size(); i++)
-    mpi_context[0].Initialize(state.controller[0]->GetRanks(), mpi_ctx_manager);
+    mpi_context[i].Initialize(state.controller[i]->GetRanks(), mpi_ctx_manager);
 #endif
 
   
