@@ -823,7 +823,14 @@ bool horovod_stop_timeline() {
   return true;
 }
 
-int horovod_rank(int32_t communicator_id) {
+int horovod_rank() {
+  if (!horovod_global.initialization_done) {
+    return -1;
+  }
+  return horovod_global.controller[0]->GetRank();
+}
+
+int horovod_communicator_rank(int32_t communicator_id) {
   if (!horovod_global.initialization_done) {
     return -1;
   }
@@ -844,7 +851,14 @@ int horovod_cross_rank() {
   return horovod_global.controller[0]->GetCrossRank();
 }
 
-int horovod_size(int32_t communicator_id) {
+int horovod_size() {
+  if (!horovod_global.initialization_done) {
+    return -1;
+  }
+  return horovod_global.controller[0]->GetSize();
+}
+
+int horovod_communicator_size(int32_t communicator_id) {
   if (!horovod_global.initialization_done) {
     return -1;
   }
