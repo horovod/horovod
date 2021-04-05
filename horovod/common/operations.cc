@@ -757,7 +757,14 @@ Status CheckInitialized() {
 extern "C" {
 
 void horovod_init(const int* ranks, int nranks) {
-  InitializeHorovodOnce(ranks, nranks);
+  //TODO: Allow to manually specify the communicators, for now, I'm going to create several comms
+  // Allocating as many mpi contexts as there are communicators, so let's imagine 3
+  mpi_context.resize(3);
+  MPI_Comm_dup(MPI_COMM_WORLD, &mpi_context[0].mpi_comm);
+  MPI_Comm_dup(MPI_COMM_WORLD, &mpi_context[1].mpi_comm);
+  MPI_Comm_dup(MPI_COMM_WORLD, &mpi_context[2].mpi_comm);
+  InitializeHorovodOnce(nullptr, 0);
+  // InitializeHorovodOnce(ranks, nranks);
 }
 
 #if HAVE_MPI
