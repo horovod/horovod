@@ -184,6 +184,7 @@ bool GlooAllgather::Enabled(const ParameterManager& param_manager,
 Status GlooAllgather::Execute(std::vector<TensorTableEntry>& entries,
                               const Response& response) {
   auto& timeline = global_state_->timeline;
+  int32_t communicator_id = response.communicator_id();
 
   // Sizes of subcomponents of each entry from all ranks
   auto** entry_component_sizes = new int64_t*[entries.size()];
@@ -192,7 +193,7 @@ Status GlooAllgather::Execute(std::vector<TensorTableEntry>& entries,
   // allgatherv
   auto** entry_component_offsets = new int64_t*[entries.size()];
 
-  int global_size = global_state_->controller[0]->GetSize();
+  int global_size = global_state_->controller[communicator_id]->GetSize();
   auto* recvcounts = new int[global_size]();
   auto* displcmnts = new int[global_size]();
 
@@ -220,9 +221,9 @@ Status GlooAllgather::Execute(std::vector<TensorTableEntry>& entries,
   }
   timeline.ActivityEndAll(entries);
 
-  SetDisplacements(recvcounts, displcmnts);
+  SetDisplacements(recvcounts, displcmnts, communicator_id);
   SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts,
-                           entry_component_offsets);
+                           entry_component_offsets, communicator_id);
 
   std::unique_ptr<IGlooAlgorithms> gloo_algos(
       GetAlgorithmsForType(first_entry.tensor->dtype(), gloo_context_));
@@ -233,7 +234,7 @@ Status GlooAllgather::Execute(std::vector<TensorTableEntry>& entries,
 
   if (entries.size() > 1) {
     timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
-    MemcpyInFusionBuffer(entries, displcmnts, element_size, buffer_data);
+    MemcpyInFusionBuffer(entries, displcmnts, element_size, buffer_data, communicator_id);
     sendbuf = buffer_data;
     timeline.ActivityEndAll(entries);
   } else {
@@ -255,7 +256,7 @@ Status GlooAllgather::Execute(std::vector<TensorTableEntry>& entries,
   if (entries.size() > 1) {
     timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
     MemcpyOutFusionBuffer(entry_component_offsets, entry_component_sizes,
-                          buffer_data, element_size, entries);
+                          buffer_data, element_size, entries, communicator_id);
     timeline.ActivityEndAll(entries);
   }
 
@@ -280,12 +281,13 @@ Status GlooBroadcast::Execute(std::vector<TensorTableEntry>& entries,
                               const Response& response) {
   assert(entries.size() == 1);
   auto e = entries[0];
+  int32_t communicator_id = response.communicator_id();
 
   // On root rank, MPI_Bcast sends data, on other ranks it receives data.
   // for gloo broadcast, only output needs to be set if inplace
 
   void* data_ptr;
-  if (global_state_->controller[0]->GetRank() == e.root_rank) {
+  if (global_state_->controller[communicator_id]->GetRank() == e.root_rank) {
     data_ptr = (void*)e.tensor->data();
   } else {
     data_ptr = (void*)e.output->data();

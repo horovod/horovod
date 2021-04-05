@@ -143,24 +143,27 @@ protected:
                                 int64_t**& entry_component_sizes,
                                 int*& recvcounts);
 
-  virtual void SetDisplacements(const int* recvcounts, int*& displcmnts);
+  virtual void SetDisplacements(const int* recvcounts, int*& displcmnts, const int32_t communicator_id);
 
   virtual void
   SetEntryComponentOffsets(const std::vector<TensorTableEntry>& entries,
                            const int64_t* const* entry_component_sizes,
                            const int* recvcounts,
-                           int64_t**& entry_component_offsets);
+                           int64_t**& entry_component_offsets, 
+                           const int32_t communicator_id);
 
   virtual void
   MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries,
                        const int* displcmnts, int element_size,
-                       void*& buffer_data);
+                       void*& buffer_data, 
+                       const int32_t communicator_id);
 
   virtual void
   MemcpyOutFusionBuffer(const int64_t* const* entry_component_offsets,
                         const int64_t* const* entry_component_sizes,
                         const void* buffer_data, int element_size,
-                        std::vector<TensorTableEntry>& entries);
+                        std::vector<TensorTableEntry>& entries, 
+                        const int32_t communicator_id);
 
   virtual void
   MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
