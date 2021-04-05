@@ -211,13 +211,14 @@ protected:
                                 std::vector<T>& sdispls,
                                 std::vector<T>& rdispls,
                                 std::vector<T>& sendcounts,
-                                std::vector<T>& recvcounts) {
-    auto world_size = global_state_->controller[0]->GetSize();
+                                std::vector<T>& recvcounts,
+                                const int32_t communicator_id) {
+    auto world_size = global_state_->controller[communicator_id]->GetSize();
 
     const auto& splits = e.splits;
     std::vector<int32_t> recvsplits;
     // Perform alltoall of splits to get expected receive splits
-    global_state_->controller[0]->AlltoallGetRecvSplits(splits, recvsplits);
+    global_state_->controller[communicator_id]->AlltoallGetRecvSplits(splits, recvsplits);
 
     // Every tensor participating in Alltoall operation may have different
     // first dimension size, but the rest of dimensions are same for all

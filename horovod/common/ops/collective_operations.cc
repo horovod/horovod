@@ -266,7 +266,7 @@ Status JoinOp::Execute(std::vector<TensorTableEntry>& entries,
                        const Response& response) {
   assert(entries.size() == 0);
   if (global_state_->joined) {
-    global_state_->tensor_queue[0].RemoveJoinTensor();
+    global_state_->tensor_queue[response.communicator_id()].RemoveJoinTensor();
     global_state_->joined = false;
   }
   return Status::OK();

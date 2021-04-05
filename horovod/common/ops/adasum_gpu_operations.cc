@@ -66,7 +66,7 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
     nccl_device_map.push_back(response.devices()[rank]);
   }
   gpu_op_context_.InitGPU(entries);
-  nccl_op_context_.InitNCCLComm(entries, nccl_device_map);
+  nccl_op_context_.InitNCCLComm(entries, nccl_device_map, 0);
   gpu_op_context_.InitGPUQueue(entries, response);
   const void* fused_input_data;
   void* buffer_data;

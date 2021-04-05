@@ -98,7 +98,7 @@ MPI_GPUAllgather::MPI_GPUAllgather(MPIContext* mpi_context,
 
 Status MPI_GPUAllgather::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   auto& timeline = global_state_->timeline;
-
+  int32_t communicator_id = response.communicator_id();
   gpu_op_context_.InitGPU(entries);
 
   // Sizes of subcomponents of each entry from all ranks
@@ -108,7 +108,7 @@ Status MPI_GPUAllgather::Execute(std::vector<TensorTableEntry>& entries, const R
   // allgatherv
   auto** entry_component_offsets = new int64_t* [entries.size()];
 
-  int global_size = global_state_->controller[0]->GetSize();
+  int global_size = global_state_->controller[response.communicator_id()]->GetSize();
   auto* recvcounts = new int[global_size]();
   auto* displcmnts = new int[global_size]();
 
@@ -126,8 +126,8 @@ Status MPI_GPUAllgather::Execute(std::vector<TensorTableEntry>& entries, const R
   }
   timeline.ActivityEndAll(entries);
 
-  SetDisplacements(recvcounts, displcmnts);
-  SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts, entry_component_offsets);
+  SetDisplacements(recvcounts, displcmnts, communicator_id);
+  SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts, entry_component_offsets, communicator_id);
 
   int element_size = mpi_context_->GetMPITypeSize(first_entry.tensor->dtype());
 
@@ -137,7 +137,7 @@ Status MPI_GPUAllgather::Execute(std::vector<TensorTableEntry>& entries, const R
 
   if (entries.size() > 1) {
     timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
-    MemcpyInFusionBuffer(entries, displcmnts, element_size, buffer_data);
+    MemcpyInFusionBuffer(entries, displcmnts, element_size, buffer_data, communicator_id);
 
     gpu_context_->StreamSynchronize(gpu_context_->streams[global_state_->current_nccl_stream][entries[0].device]);
 
@@ -165,7 +165,7 @@ Status MPI_GPUAllgather::Execute(std::vector<TensorTableEntry>& entries, const R
   if (entries.size() > 1) {
     timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
     MemcpyOutFusionBuffer(entry_component_offsets, entry_component_sizes,
-                          buffer_data, element_size, entries);
+                          buffer_data, element_size, entries, communicator_id);
 
     gpu_context_->StreamSynchronize(gpu_context_->streams[global_state_->current_nccl_stream][entries[0].device]);
 
@@ -199,7 +199,7 @@ Status MPI_GPUAlltoall::Execute(std::vector<TensorTableEntry>& entries, const Re
 
   std::vector<int32_t> sdispls, rdispls;
   std::vector<int32_t> sendcounts, recvcounts;
-  Status status = PrepareOutputAndParams(e, sdispls, rdispls, sendcounts, recvcounts);
+  Status status = PrepareOutputAndParams(e, sdispls, rdispls, sendcounts, recvcounts, response.communicator_id());
   if (!status.ok()) {
     return status;
   }

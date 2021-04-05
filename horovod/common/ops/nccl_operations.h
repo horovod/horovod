@@ -59,7 +59,7 @@ public:
         communicator_type_(communicator_type){};
 
   void InitNCCLComm(const std::vector<TensorTableEntry>& entries,
-                    const std::vector<int32_t>& nccl_device_map);
+                    const std::vector<int32_t>& nccl_device_map, const int32_t communicator_id);
 
   void AsyncErrorCheck();
 
@@ -68,7 +68,7 @@ public:
 
 private:
   void PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
-                                Communicator& nccl_id_bcast_comm);
+                                Communicator& nccl_id_bcast_comm, const int32_t communicator_id);
 
   NCCLContext* nccl_context_;
   HorovodGlobalState* global_state_;
