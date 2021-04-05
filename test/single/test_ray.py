@@ -28,7 +28,7 @@ def ray_start_2_cpus():
 
 @pytest.fixture
 def ray_start_4_cpus():
-    address_info = ray.init(num_cpus=4)
+    address_info = ray.init(num_cpus=4, _redis_max_memory=1024*1024*1024)
     yield address_info
     # The code after the yield will run as teardown code.
     ray.shutdown()
