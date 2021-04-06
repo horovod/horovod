@@ -88,13 +88,12 @@ def test_coordinator_registration():
 
 
 def test_infeasible_placement(tmpdir, ray_start_2_cpus):
-    setting = RayExecutor.create_settings(timeout_s=30)
-    os.environ["HOROVOD_PLACEMENT_GROUP_TIMEOUT_S"] = "10"
+    setting = RayExecutor.create_settings(timeout_s=30,
+                                          placement_group_timeout_s=5)
     hjob = RayExecutor(setting, num_hosts=1, num_slots=4)
     with pytest.raises(TimeoutError):
         hjob.start()
     hjob.shutdown()
-    del os.environ["HOROVOD_PLACEMENT_GROUP_TIMEOUT_S"]
 
 @pytest.mark.skipif(torch.cuda.device_count() < 4, reason="GPU test requires 4 GPUs")
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="GPU test requires CUDA.")

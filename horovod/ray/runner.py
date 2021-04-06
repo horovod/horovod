@@ -30,6 +30,7 @@ class MiniSettings:
     ssh_port: int = None
     ssh_identity_file: str = None
     timeout_s: int = 300
+    placement_group_timeout_s = 100
 
     @property
     def start_timeout(self):
@@ -59,7 +60,7 @@ class BaseHorovodWorker:
         return socket.gethostname()
 
     def get_gpu_ids(self) -> List[int]:
-        """Return list of CUDA device Ids available to this worker."""
+        """Return list of CUDA device IDs available to this worker."""
         return ray.get_gpu_ids()
 
     def update_env_vars(self, env_vars: Dict[str, str]):
@@ -192,15 +193,18 @@ class RayExecutor:
     """
 
     @classmethod
-    def create_settings(cls, timeout_s, ssh_identity_file=None, ssh_str=None):
+    def create_settings(cls, timeout_s, ssh_identity_file=None,
+                        ssh_str=None, placement_group_timeout_s=100):
         """Create a mini setting object.
 
         Args:
-            timeout_s (int): Tiemout parameter for Gloo rendezvous.
+            timeout_s (int): Timeout parameter for Gloo rendezvous.
             ssh_identity_file (str): Path to the identity file to
                 ssh into different hosts on the cluster.
             ssh_str (str): CAUTION WHEN USING THIS. Private key
                 file contents. Writes the private key to ssh_identity_file.
+            placement_group_timeout_s (int): Timeout parameter for Ray
+                Placement Group creation.
 
         Returns:
             MiniSettings object.
@@ -210,7 +214,8 @@ class RayExecutor:
                 os.chmod(ssh_identity_file, 0o600)
                 f.write(ssh_str)
         return MiniSettings(
-            ssh_identity_file=ssh_identity_file, timeout_s=timeout_s)
+            ssh_identity_file=ssh_identity_file, timeout_s=timeout_s,
+            placement_group_timeout_s=placement_group_timeout_s)
 
     def __init__(self,
                  settings,
@@ -247,8 +252,7 @@ class RayExecutor:
         self.placement_group = pg
         logger.debug("Waiting for placement group to start.")
         ready, _ = ray.wait([pg.ready()],
-                            timeout=int(os.environ.get(
-                                "HOROVOD_PLACEMENT_GROUP_TIMEOUT_S", 100)))
+                            timeout=self.settings.placement_group_timeout_s)
         if ready:
             logger.debug("Placement group has started.")
         else:
