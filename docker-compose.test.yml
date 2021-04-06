@@ -12,6 +12,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-cpu==2.4.1
         KERAS_PACKAGE: keras==2.4.3
         PYTORCH_PACKAGE: torch==1.8.1+cpu
+        PYTORCH_LIGHTNING: pytorch_lightning==1.2.6
         TORCHVISION_PACKAGE: torchvision==0.9.1+cpu
         MXNET_PACKAGE: mxnet==1.8.0.post0
         PYSPARK_PACKAGE: pyspark==3.1.1
@@ -56,6 +57,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow==1.15.5
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: torch==1.3.1+cpu
+        PYTORCH_LIGHTNING: pytorch_lightning==1.1.0
         TORCHVISION_PACKAGE: torchvision==0.4.2+cpu
         MXNET_PACKAGE: mxnet==1.5.1.post0
   test-cpu-gloo-py3_7-tf2_0_4-keras2_3_1-torch1_4_0-mxnet1_5_1_p0-pyspark_3_1_1:
@@ -160,6 +162,7 @@ services:
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: torch==1.3.1+cu100
         TORCHVISION_PACKAGE: torchvision==0.4.2+cu100
+        PYTORCH_LIGHTNING: pytorch_lightning==1.1.0
         MXNET_PACKAGE: mxnet-cu100==1.5.1.post0
   test-gpu-gloo-py3_8-tf2_2_2-keras2_3_1-torch1_6_0-mxnet1_6_0_p0-pyspark_3_1_1:
     extends: test-gpu-base

@@ -10,10 +10,11 @@ ARG GPP_VERSION=7
 # NOTE: keep versions in sync with setup.py extras_require{'dev'}:
 ARG TENSORFLOW_PACKAGE=tensorflow-cpu==1.15.0
 ARG KERAS_PACKAGE=keras==2.2.4
-ARG PYTORCH_PACKAGE=torch==1.2.0+cpu
-ARG TORCHVISION_PACKAGE=torchvision==0.4.0+cpu
+ARG PYTORCH_PACKAGE=torch==1.4.0+cpu
+ARG TORCHVISION_PACKAGE=torchvision==0.5.0+cpu
 ARG MXNET_PACKAGE=mxnet==1.5.0
 ARG PYSPARK_PACKAGE=pyspark==2.4.7
+ARG PYTORCH_LIGHTNING=pytorch_lightning==1.2.6
 # if SPARK_PACKAGE is set, installs Spark into /spark from the tgz archive
 # if SPARK_PACKAGE is a preview version, installs PySpark from the tgz archive
 # see https://archive.apache.org/dist/spark/ for available packages, version must match PYSPARK_PACKAGE

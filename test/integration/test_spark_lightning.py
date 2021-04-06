@@ -30,7 +30,7 @@ import torch.optim as optim
 from pyspark.ml.linalg import VectorUDT
 from pyspark.sql.types import FloatType, IntegerType
 
-from pytorch_lightning import LightningModule
+import pytorch_lightning as pl
 
 import horovod
 import horovod.spark.lightning as hvd_spark
@@ -50,7 +50,7 @@ from common import tempdir, spawn, is_built
 from spark_common import CallbackBackend, create_noisy_xor_data, create_xor_data, local_store, spark_session
 
 
-class XOR(LightningModule):
+class XOR(pl.LightningModule):
     def __init__(self, input_dim=2, output_dim=1):
         super(XOR, self).__init__()
         self.lin1 = nn.Linear(input_dim, 8)
@@ -108,6 +108,7 @@ def create_legacy_xor_model(input_dim=2, output_dim=1):
     return LegacyXOR(input_dim, output_dim)
 
 
+@pytest.mark.skipif(LooseVersion(pl.__version__) < LooseVersion('1.2.6'), reason='Pytorch lightning version < 1.2.6 do not work with petastorm loader well.')
 class SparkLightningTests(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(SparkLightningTests, self).__init__(*args, **kwargs)
@@ -171,78 +172,84 @@ class SparkLightningTests(unittest.TestCase):
                 assert pred.dtype == torch.float32
 
     # TODO: Add this test back after checkpoint call back is supported
-    # def test_restore_from_checkpoint(self):
-    #     model = create_xor_model()
+    def test_restore_from_checkpoint(self):
+        self.skipTest('There is a bug in current lightning version for checkpoint'
+                      'call back. Will add this test back when it is solved.')
 
-    #     with spark_session('test_restore_from_checkpoint') as spark:
-    #         df = create_noisy_xor_data(spark)
+        model = create_xor_model()
 
-    #         ctx = CallbackBackend()
+        with spark_session('test_restore_from_checkpoint') as spark:
+            df = create_noisy_xor_data(spark)
 
-    #         run_id = 'run01'
-    #         with local_store() as store:
-    #             torch_estimator = hvd_spark.TorchEstimator(
-    #                 backend=ctx,
-    #                 store=store,
-    #                 model=model,
-    #                 input_shapes=[[-1, 2]],
-    #                 feature_cols=['features'],
-    #                 label_cols=['y'],
-    #                 validation=0.2,
-    #                 batch_size=4,
-    #                 epochs=2,
-    #                 verbose=2,
-    #                 run_id=run_id)
+            ctx = CallbackBackend()
 
-    #             torch_estimator._read_checkpoint = mock.Mock(side_effect=torch_estimator._read_checkpoint)
+            run_id = 'run01'
+            with local_store() as store:
+                torch_estimator = hvd_spark.TorchEstimator(
+                    backend=ctx,
+                    store=store,
+                    model=model,
+                    input_shapes=[[-1, 2]],
+                    feature_cols=['features'],
+                    label_cols=['y'],
+                    validation=0.2,
+                    batch_size=4,
+                    epochs=2,
+                    verbose=2,
+                    run_id=run_id)
 
-    #             ckpt_path = store.get_checkpoint_path(run_id)
-    #             assert not store.exists(ckpt_path)
-    #             torch_estimator._read_checkpoint.assert_not_called()
-    #             torch_estimator.fit(df)
+                torch_estimator._read_checkpoint = mock.Mock(side_effect=torch_estimator._read_checkpoint)
 
-    #             assert store.exists(ckpt_path)
-    #             torch_estimator.fit(df)
-    #             torch_estimator._read_checkpoint.assert_called()
+                ckpt_path = store.get_checkpoint_path(run_id)
+                assert not store.exists(ckpt_path)
+                torch_estimator._read_checkpoint.assert_not_called()
+                torch_estimator.fit(df)
 
-    # TODO: Add this test back after checkpoint call back is supported
-    # def test_legacy_restore_from_checkpoint(self):
-    #     model = create_legacy_xor_model()
-    #     optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
-    #     loss = nn.BCELoss()
+                assert store.exists(ckpt_path)
+                torch_estimator.fit(df)
+                torch_estimator._read_checkpoint.assert_called()
 
-    #     with spark_session('test_restore_from_checkpoint') as spark:
-    #         df = create_noisy_xor_data(spark)
+    #TODO: Add this test back after checkpoint call back is supported
+    def test_legacy_restore_from_checkpoint(self):
+        self.skipTest('There is a bug in current lightning version for checkpoint'
+                      'call back. Will add this test back when it is solved.')
 
-    #         ctx = CallbackBackend()
+        model = create_legacy_xor_model()
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+        loss = nn.BCELoss()
 
-    #         run_id = 'run01'
-    #         with local_store() as store:
-    #             torch_estimator = hvd_spark.TorchEstimator(
-    #                 backend=ctx,
-    #                 store=store,
-    #                 model=model,
-    #                 optimizer=optimizer,
-    #                 loss=loss,
-    #                 input_shapes=[[-1, 2]],
-    #                 feature_cols=['features'],
-    #                 label_cols=['y'],
-    #                 validation=0.2,
-    #                 batch_size=4,
-    #                 epochs=2,
-    #                 verbose=2,
-    #                 run_id=run_id)
+        with spark_session('test_restore_from_checkpoint') as spark:
+            df = create_noisy_xor_data(spark)
 
-    #             torch_estimator._read_checkpoint = mock.Mock(side_effect=torch_estimator._read_checkpoint)
+            ctx = CallbackBackend()
 
-    #             ckpt_path = store.get_checkpoint_path(run_id)
-    #             assert not store.exists(ckpt_path)
-    #             torch_estimator._read_checkpoint.assert_not_called()
-    #             torch_estimator.fit(df)
+            run_id = 'run01'
+            with local_store() as store:
+                torch_estimator = hvd_spark.TorchEstimator(
+                    backend=ctx,
+                    store=store,
+                    model=model,
+                    optimizer=optimizer,
+                    loss=loss,
+                    input_shapes=[[-1, 2]],
+                    feature_cols=['features'],
+                    label_cols=['y'],
+                    validation=0.2,
+                    batch_size=4,
+                    epochs=2,
+                    verbose=2,
+                    run_id=run_id)
 
-    #             assert store.exists(ckpt_path)
-    #             torch_estimator.fit(df)
-    #             torch_estimator._read_checkpoint.assert_called()
+                torch_estimator._read_checkpoint = mock.Mock(side_effect=torch_estimator._read_checkpoint)
+
+                ckpt_path = store.get_checkpoint_path(run_id)
+                assert not store.exists(ckpt_path)
+                torch_estimator._read_checkpoint.assert_not_called()
+                torch_estimator.fit(df)
+
+                assert store.exists(ckpt_path)
+                torch_estimator.fit(df)
+                torch_estimator._read_checkpoint.assert_called()
 
     def test_transform_multi_class(self):
         # set dim as 2, to mock a multi class model.
