@@ -156,6 +156,8 @@ RUN if [[ ${PYTORCH_PACKAGE} != "torch-nightly" ]]; then \
             pip install --no-cache-dir "Pillow<7.0" --no-deps; \
         fi; \
     fi
+RUN pip install ${PYTORCH_LIGHTNING}
+
 
 # Install MXNet (releases).
 RUN if [[ ${MXNET_PACKAGE} != "mxnet-nightly" ]]; then \
