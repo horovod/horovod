@@ -34,9 +34,9 @@ class MiniSettings:
         return timeout.Timeout(
             self.timeout_s,
             message="Timed out waiting for {activity}. Please "
-            "check connectivity between servers. You "
-            "may need to increase the --start-timeout "
-            "parameter if you have too many servers.")
+                    "check connectivity between servers. You "
+                    "may need to increase the --start-timeout "
+                    "parameter if you have too many servers.")
 
 
 def map_blocking(fn, collection):
@@ -253,7 +253,7 @@ class RayExecutor:
             use a standard Horovod Settings object or create one directly
             from RayExecutor.create_settings.
         num_hosts (int): Number of machines to execute the job on.
-        num_slots (int): Humber of workers to be placed on each machine.
+        num_slots (int): Number of workers to be placed on each machine.
         cpus_per_slot (int): Number of CPU resources to allocate to
             each worker.
         use_gpu (bool): Whether to use GPU for allocation. TODO: this
@@ -310,30 +310,81 @@ class RayExecutor:
         return self.num_hosts * self.num_slots
 
     def _create_workers(self, host_resources):
-        colocator_cls = NodeColocator.options(**host_resources)
-        # Create a number of coordinators.
-        colocators = [
-            colocator_cls.remote(
-                node_rank=node_rank,
-                num_slots=self.num_slots,
-                world_size=self.num_workers,
-                use_gpu=host_resources["num_gpus"] > 0)
-            for node_rank in range(self.num_hosts)
-        ]
-        # We must save a pointer to each colocator to prevent their resource
-        # allocation from being released, along with their children from
-        # going out of scope.
-        self.colocators = colocators
+        # colocator_cls = NodeColocator.options(**host_resources)
+        # # Create a number of coordinators.
+        # colocators = [
+        #     colocator_cls.remote(
+        #         node_rank=node_rank,
+        #         num_slots=self.num_slots,
+        #         world_size=self.num_workers,
+        #         use_gpu=host_resources["num_gpus"] > 0)
+        #     for node_rank in range(self.num_hosts)
+        # ]
+        # # We must save a pointer to each colocator to prevent their resource
+        # # allocation from being released, along with their children from
+        # # going out of scope.
+        # self.colocators = colocators
+        #
+        # node_ids = map_blocking(lambda a: a.create_workers.remote(),
+        #                         colocators)
+        # if not len(set(node_ids)) == len(node_ids):
+        #     raise RuntimeError("Colocator actors must "
+        #                        f"be placed on unique nodes! Got: {node_ids}")
+        #
+        # # Obtain handles to the workers
+        # workers = map_blocking(lambda w: w.get_workers.remote(), colocators)
+        # return sum(workers, [])
+        bundles = [host_resources.copy() for _ in range(self.num_hosts)]
+        pg = ray.util.placement_group(bundles, strategy="STRICT_SPREAD")
+        logger.debug("Waiting for placement group to start.")
+        ready, _ = ray.wait([pg.ready()],
+                            timeout=os.environ.get(
+                                "PLACEMENT_GROUP_TIMEOUT_S", 100))
+        if ready is not None:
+            logger.debug("Placement group has started.")
+        else:
+            raise TimeoutError("Placement group creation timed out. Make sure "
+                               "your cluster either has enough resources or use "
+                               "an autoscaling cluster. Current resources "
+                               "available: {}, resources requested by the "
+                               "placement group: {}".format(
+                ray.available_resources(), pg.bundle_specs))
 
-        node_ids = map_blocking(lambda a: a.create_workers.remote(),
-                                colocators)
-        if not len(set(node_ids)) == len(node_ids):
-            raise RuntimeError("Colocator actors must "
-                               f"be placed on unique nodes! Got: {node_ids}")
+        # Placement group has started. Now create the workers.
+        self.workers = []
+        # Create num_slots workers per bundle, i.e. per machine.
+        for bundle_index in bundles:
+            for i in range(self.num_slots):
+                remote_cls = ray.remote(BaseHorovodWorker)
+                remote_cls = remote_cls.options(num_cpus=self.cpus_per_slot,
+                                                num_gpus=self.gpus_per_slot,
+                                                placement_group=pg,
+                                                placement_group_bundle_index=bundle_index)
+                self.workers.append(remote_cls.remote(
+                    world_rank=self.num_slots*bundle_index + i,
+                    world_size=self.num_workers))
 
-        # Obtain handles to the workers
-        workers = map_blocking(lambda w: w.get_workers.remote(), colocators)
-        return sum(workers, [])
+        # Set the proper cuda visible devices to each worker.
+
+        return self.workers
+
+        # Propogate cuda visible devices to the underlying
+        # colocated workers.
+        gpu_ids = ray.get_gpu_ids()
+        all_ids = ",".join([str(gpu_id) for gpu_id in gpu_ids])
+        # By setting CUDA VISIBLE DEVICES to ALL GPUs,
+        # CUDA will be able to detect adjacent devices and use IPC
+        # allowing for better performance.
+        futures = []
+        for worker in self.workers:
+            futures.append(
+                worker.update_env_vars.remote({
+                    "CUDA_VISIBLE_DEVICES": all_ids
+                }))
+        # Avoid asynchrony for tests
+        ray.get(futures)
+        return node_id
+
 
     def _start_executables(self, executable_cls, executable_args,
                            executable_kwargs):
@@ -372,7 +423,7 @@ class RayExecutor:
         def resources_per_host():
             num_cpus = self.cpus_per_slot * self.num_slots
             num_gpus = self.gpus_per_slot * self.num_slots * int(self.use_gpu)
-            return dict(num_cpus=num_cpus, num_gpus=num_gpus)
+            return dict(CPU=num_cpus, GPU=num_gpus)
 
         self.coordinator = Coordinator(self.settings)
         executable_args = executable_args or []
