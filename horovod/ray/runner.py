@@ -8,7 +8,6 @@ import socket
 from typing import Dict, Callable, Any, Optional, List
 import logging
 
-from ray.util import remove_placement_group
 
 from horovod.runner.common.util import secret, timeout, hosts
 from horovod.runner.http.http_server import RendezvousServer
@@ -444,7 +443,7 @@ class RayExecutor:
             del worker
 
         if self.placement_group:
-            remove_placement_group(self.placement_group)
+            ray.util.remove_placement_group(self.placement_group)
 
         self.workers = []
         self.placement_group = None
