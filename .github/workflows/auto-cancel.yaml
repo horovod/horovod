@@ -1,0 +1,11 @@
+name: Auto-cancel
+on: pull_request
+
+jobs:
+  cancel:
+    name: Auto cancel earlier runs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: fauguste/auto-cancellation-running-action@0.1.4
+        with:
+          githubToken: ${{ github.token }}
