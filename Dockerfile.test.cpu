@@ -124,33 +124,32 @@ RUN if [[ ${MPI_KIND} != "None" ]]; then \
         pip install mpi4py; \
     fi
 
-# Install TensorFlow.
-RUN pip install ${TENSORFLOW_PACKAGE}
-
-# Install Keras.
-# Pin h5py: https://github.com/h5py/h5py/issues/1732
+# Install TensorFlow and Keras (releases).
+# Pin h5py only for tensorflow<2.5: https://github.com/h5py/h5py/issues/1732
 # Pin scipy!=1.4.0: https://github.com/scipy/scipy/issues/11237
-RUN if [[ ${KERAS_PACKAGE} != "None" ]]; then \
-        pip install ${KERAS_PACKAGE} "h5py<3" "scipy!=1.4.0" "pandas<1.1.0"; \
+RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly" ]]; then \
+        pip install ${TENSORFLOW_PACKAGE}; \
+        if [[ ${KERAS_PACKAGE} != "None" ]]; then \
+            if [[ ${TENSORFLOW_PACKAGE} == tensorflow*==1.* ]] || [[ ${TENSORFLOW_PACKAGE} == tensorflow*==2.[01234].* ]]; then \
+                h5py="h5py<3"; \
+            fi; \
+            pip install ${KERAS_PACKAGE} ${h5py:-} "scipy!=1.4.0" "pandas<1.1.0"; \
+        fi; \
+        mkdir -p ~/.keras; \
+        python -c "import tensorflow as tf; tf.keras.datasets.mnist.load_data()"; \
     fi
-RUN mkdir -p ~/.keras
-RUN python -c "import tensorflow as tf; tf.keras.datasets.mnist.load_data()"
 
-# Install PyTorch.
-RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
-        pip install --pre torch ${TORCHVISION_PACKAGE} -v -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html; \
-    else \
+# Install PyTorch (releases).
+# Pin Pillow<7.0 for torchvision < 0.5.0: https://github.com/pytorch/vision/issues/1718
+RUN if [[ ${PYTORCH_PACKAGE} != "torch-nightly" ]]; then \
         pip install ${PYTORCH_PACKAGE} ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/torch_stable.html; \
+        if [[ "${TORCHVISION_PACKAGE/%+*/}" == torchvision==0.[1234].* ]]; then \
+            pip install "Pillow<7.0" --no-deps; \
+        fi; \
     fi
-# Pin Pillow<7.0: https://github.com/pytorch/vision/issues/1718
-RUN pip install "Pillow<7.0" --no-deps
 
-# Install MXNet.
-RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly" ]]; then \
-        pip install --pre mxnet==2.0.0b20210319 -f https://dist.mxnet.io/python/all; \
-    elif [[ ${MXNET_PACKAGE} == "mxnet=="*b* ]]; then \
-        pip install --pre ${MXNET_PACKAGE} -f https://dist.mxnet.io/python; \
-    else \
+# Install MXNet (releases).
+RUN if [[ ${MXNET_PACKAGE} != "mxnet-nightly" ]]; then \
         pip install ${MXNET_PACKAGE} ; \
     fi
 
@@ -167,6 +166,34 @@ RUN wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/pytorch_d
 
 ### END OF CACHE ###
 COPY . /horovod
+
+# Install nightly packages here so they do not get cached
+
+# Install TensorFlow and Keras (nightly).
+# Do not pin h5py since tf>=2.5 requires h5py~=3.1
+# Pin scipy!=1.4.0: https://github.com/scipy/scipy/issues/11237
+RUN if [[ ${TENSORFLOW_PACKAGE} == "tf-nightly" ]]; then \
+        pip install ${TENSORFLOW_PACKAGE}; \
+        if [[ ${KERAS_PACKAGE} != "None" ]]; then \
+            pip install ${KERAS_PACKAGE} "scipy!=1.4.0" "pandas<1.1.0"; \
+        fi; \
+        mkdir -p ~/.keras; \
+        python -c "import tensorflow as tf; tf.keras.datasets.mnist.load_data()"; \
+    fi
+
+# Install PyTorch (nightly).
+# Pin Pillow<7.0 for torchvision < 0.5.0: https://github.com/pytorch/vision/issues/1718
+RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
+        pip install --pre torch ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html; \
+        if [[ "${TORCHVISION_PACKAGE/%+*/}" == torchvision==0.[1234].* ]]; then \
+            pip install "Pillow<7.0" --no-deps; \
+        fi; \
+    fi
+
+# Install MXNet (nightly).
+RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly" ]]; then \
+        pip install --pre mxnet==2.0.0b20210319 -f https://dist.mxnet.io/python/all; \
+    fi
 
 # Install Horovod.
 RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
