@@ -8,7 +8,6 @@ import socket
 from typing import Dict, Callable, Any, Optional, List
 import logging
 
-
 from horovod.runner.common.util import secret, timeout, hosts
 from horovod.runner.http.http_server import RendezvousServer
 from horovod.ray import ray_logger
@@ -36,9 +35,9 @@ class MiniSettings:
         return timeout.Timeout(
             self.timeout_s,
             message="Timed out waiting for {activity}. Please "
-                    "check connectivity between servers. You "
-                    "may need to increase the --start-timeout "
-                    "parameter if you have too many servers.")
+            "check connectivity between servers. You "
+            "may need to increase the --start-timeout "
+            "parameter if you have too many servers.")
 
 
 def map_blocking(fn, collection):
@@ -192,8 +191,11 @@ class RayExecutor:
     """
 
     @classmethod
-    def create_settings(cls, timeout_s, ssh_identity_file=None,
-                        ssh_str=None, placement_group_timeout_s=100):
+    def create_settings(cls,
+                        timeout_s,
+                        ssh_identity_file=None,
+                        ssh_str=None,
+                        placement_group_timeout_s=100):
         """Create a mini setting object.
 
         Args:
@@ -213,7 +215,8 @@ class RayExecutor:
                 os.chmod(ssh_identity_file, 0o600)
                 f.write(ssh_str)
         return MiniSettings(
-            ssh_identity_file=ssh_identity_file, timeout_s=timeout_s,
+            ssh_identity_file=ssh_identity_file,
+            timeout_s=timeout_s,
             placement_group_timeout_s=placement_group_timeout_s)
 
     def __init__(self,
@@ -250,8 +253,8 @@ class RayExecutor:
         pg = ray.util.placement_group(bundles, strategy="STRICT_SPREAD")
         self.placement_group = pg
         logger.debug("Waiting for placement group to start.")
-        ready, _ = ray.wait([pg.ready()],
-                            timeout=self.settings.placement_group_timeout_s)
+        ready, _ = ray.wait(
+            [pg.ready()], timeout=self.settings.placement_group_timeout_s)
         if ready:
             logger.debug("Placement group has started.")
         else:
@@ -260,8 +263,8 @@ class RayExecutor:
                 "your cluster either has enough resources or use "
                 "an autoscaling cluster. Current resources "
                 "available: {}, resources requested by the "
-                "placement group: {}".format(
-                    ray.available_resources(), pg.bundle_specs))
+                "placement group: {}".format(ray.available_resources(),
+                                             pg.bundle_specs))
 
         # Placement group has started. Now create the workers.
         self.workers = []
@@ -276,8 +279,7 @@ class RayExecutor:
             for i in range(self.num_slots):
                 remote_cls = remote_cls.options(
                     num_cpus=self.cpus_per_slot,
-                    num_gpus=self.gpus_per_slot * int(
-                        self.use_gpu),
+                    num_gpus=self.gpus_per_slot * int(self.use_gpu),
                     placement_group=pg,
                     placement_group_bundle_index=bundle_index)
                 worker = remote_cls.remote(
@@ -298,9 +300,11 @@ class RayExecutor:
                 all_ids = ",".join([str(gpu_id) for gpu_id in gpu_ids])
                 futures = []
                 for worker in curr_node_workers:
-                    futures.append(worker.update_env_vars.remote({
-                        "CUDA_VISIBLE_DEVICES": all_ids
-                    }))
+                    futures.append(
+                        worker.update_env_vars.remote({
+                            "CUDA_VISIBLE_DEVICES":
+                            all_ids
+                        }))
                 ray.get(futures)
             node_workers.append(curr_node_workers[0])
 
@@ -347,8 +351,7 @@ class RayExecutor:
 
         self.coordinator = Coordinator(self.settings)
         executable_args = executable_args or []
-        self.workers, node_workers = self._create_workers(
-            resources_per_host())
+        self.workers, node_workers = self._create_workers(resources_per_host())
         # Get all the hostnames of all workers
         hostnames = map_blocking(lambda w: w.hostname.remote(), self.workers)
         # Register each hostname to the coordinator. assumes the hostname
