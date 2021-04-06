@@ -89,20 +89,20 @@ services:
         PYTORCH_PACKAGE: torch==1.5.1+cpu
         TORCHVISION_PACKAGE: torchvision==0.6.1+cpu
         MXNET_PACKAGE: mxnet==1.5.1.post0
-  test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1:
+  test-cpu-gloo-py3_8-tf2_4_1-keras_none-torch1_7_1-mxnet1_7_0_p2-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
         TENSORFLOW_PACKAGE: tensorflow-cpu==2.4.1
-        KERAS_PACKAGE: keras==2.4.3
+        KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch==1.7.1+cpu
         TORCHVISION_PACKAGE: torchvision==0.8.2+cpu
-  test-cpu-gloo-py3_8-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1:
+  test-cpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_0_1:
     extends: test-cpu-base
     build:
       args:
         TENSORFLOW_PACKAGE: tf-nightly
-        KERAS_PACKAGE: keras==2.4.3
+        KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: torchvision
         MXNET_PACKAGE: mxnet-nightly
@@ -189,7 +189,7 @@ services:
         TORCHVISION_PACKAGE: torchvision==0.7.0+cu101
         MXNET_PACKAGE: mxnet-cu101==1.7.0.post1
   # mxnet-cu110 does not exist so we use mxnet_head
-  test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_7_1-mxnethead-pyspark_3_0_1:
+  test-gpu-openmpi-gloo-py3_8-tf2_4_1-keras_none-torch1_7_1-mxnethead-pyspark_3_0_1:
     extends: test-gpu-base
     build:
       args:
@@ -198,11 +198,11 @@ services:
         NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda11.0
         MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.4.1
-        KERAS_PACKAGE: keras==2.4.3
+        KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch==1.7.1+cu110
         TORCHVISION_PACKAGE: torchvision==0.8.2+cu110
         MXNET_PACKAGE: mxnet-nightly-cu110
-  test-gpu-gloo-py3_8-tfhead-keras2_4_3-torchhead-mxnethead-pyspark_3_0_1:
+  test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_0_1:
     extends: test-gpu-base
     build:
       args:
@@ -210,7 +210,7 @@ services:
         CUDNN_VERSION: 8.0.5.39-1+cuda11.0
         NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda11.0
         TENSORFLOW_PACKAGE: tf-nightly-gpu
-        KERAS_PACKAGE: keras==2.4.3
+        KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: torchvision
         MXNET_PACKAGE: mxnet-nightly-cu110

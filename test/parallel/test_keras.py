@@ -19,21 +19,25 @@ from distutils.version import LooseVersion
 import os
 import sys
 
-import keras
-from keras import backend as K
+try:
+    import keras
+    from keras import backend as K
+    import horovod.keras as hvd
+    _HAS_KERAS = True
+except ImportError:
+    _HAS_KERAS = False
 
 import numpy as np
 import pytest
 import tensorflow as tf
 import warnings
 
-import horovod.keras as hvd
-
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 from common import temppath
 
 
+@pytest.mark.skipif(not _HAS_KERAS, reason='Keras not available')
 @pytest.mark.skipif(LooseVersion(tf.__version__) >= LooseVersion('2.0.0'), reason='TensorFlow v1 tests')
 class KerasTests(tf.test.TestCase):
     """

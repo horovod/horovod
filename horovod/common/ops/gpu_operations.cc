@@ -47,7 +47,7 @@ void GPUOpContext::InitGPUQueue(const std::vector<TensorTableEntry>& entries, co
   }
 }
 
-Status GPUOpContext::FinalizeGPUQueue(const std::vector<TensorTableEntry>& entries, bool free_host_buffer /*= true*/,
+Status GPUOpContext::FinalizeGPUQueue(std::vector<TensorTableEntry>& entries, bool free_host_buffer /*= true*/,
                                       const std::function<void()>& error_check_callback) {
   // Use completion marker via event because it's faster than
   // blocking gpuStreamSynchronize() in this thread.
@@ -75,10 +75,7 @@ Status GPUOpContext::FinalizeGPUQueue(const std::vector<TensorTableEntry>& entri
 
     for (auto& e : entries) {
       timeline.End(e.tensor_name, e.output);
-      // Callback can be null if the rank sent Join request.
-      if (e.callback != nullptr) {
-        e.callback(Status::OK());
-      }
+      e.FinishWithCallback(Status::OK());
     }
   });
 

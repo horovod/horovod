@@ -37,19 +37,25 @@ def is_mx_cuda():
     return False
 
 def is_mx_mkldnn():
+    """
+    Detects if MXNet is build with MKLDNN or oneDNN support.
+    MXNET ≥ 2.0.0 uses oneDNN (renamed from MKLDNN) but still calls the feature 'MKLDNN'.
+    """
     try:
         from mxnet import runtime
         features = runtime.Features()
         return features.is_enabled('MKLDNN')
     except Exception:
-        msg = 'INFO: Cannot detect if MKLDNN is enabled in MXNet. Please \
-            set MXNET_USE_MKLDNN=1 if MKLDNN is enabled in your MXNet build.'
+        msg = f'INFO: Cannot detect if MKLDNN / ONEDNN is enabled in MXNet. Please ' \
+              f'set MXNET_USE_MKLDNN=1 if MKLDNN / MXNET_USE_ONEDNN=1 if ONEDNN is ' \
+              f'enabled in your MXNet build.'
         if 'linux' not in sys.platform:
-            # MKLDNN is only enabled by default in MXNet Linux build. Return
+            # MKLDNN / oneDNN is only enabled by default in MXNet Linux build. Return
             # False by default for non-linux build but still allow users to
-            # enable it by using MXNET_USE_MKLDNN env variable.
+            # enable it by using MXNET_USE_MKLDNN / MXNET_USE_ONEDNN env variable.
             print(msg)
-            return os.environ.get('MXNET_USE_MKLDNN', '0') == '1'
+            return os.environ.get(f'MXNET_USE_MKLDNN', '0') == '1' or \
+                   os.environ.get(f'MXNET_USE_ONEDNN', '0') == '1'
         else:
             try:
                 import mxnet as mx
@@ -61,7 +67,8 @@ def is_mx_mkldnn():
                 return False
             except Exception:
                 print(msg)
-                return os.environ.get('MXNET_USE_MKLDNN', '0') == '1'
+            return os.environ.get(f'MXNET_USE_MKLDNN', '0') == '1' or \
+                   os.environ.get(f'MXNET_USE_ONEDNN', '0') == '1'
 
 def get_nvcc_bin():
     cuda_home = os.environ.get('HOROVOD_CUDA_HOME', '/usr/local/cuda')

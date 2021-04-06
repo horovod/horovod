@@ -40,6 +40,7 @@
 #include "parameter_manager.h"
 #include "timeline.h"
 #include "utils/env_parser.h"
+#include "nvtx_op_range.h"
 
 #if HAVE_MPI
 #define OMPI_SKIP_MPICXX
@@ -260,7 +261,7 @@ void PerformOperation(Response response, HorovodGlobalState& state) {
                                                              state.joined);
 
     for (auto& e : entries) {
-      timeline.Start(e.tensor_name, response.response_type());
+      timeline.Start(e.tensor_name, response.response_type(), e.tensor->size());
     }
 
     if (entries.size() > 1) {
@@ -278,10 +279,7 @@ void PerformOperation(Response response, HorovodGlobalState& state) {
         LOG(DEBUG, horovod_global.controller->GetRank()) << "InitializeBuffer Failed";
         for (auto& e : entries) {
           timeline.End(e.tensor_name, nullptr);
-          // Callback can be null if the rank sent Join request.
-          if (e.callback != nullptr) {
-            e.callback(status);
-          }
+          e.FinishWithCallback(status);
         }
         return;
       }
@@ -325,10 +323,7 @@ void PerformOperation(Response response, HorovodGlobalState& state) {
   if (!status.in_progress()) {
     for (auto& e : entries) {
       timeline.End(e.tensor_name, status.ok() ? e.output : nullptr);
-      // Callback can be null if the rank sent Join request.
-      if (e.callback != nullptr) {
-        e.callback(status);
-      }
+      e.FinishWithCallback(status);
     }
   }
 }
@@ -416,6 +411,13 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // Create finalizer thread pool (one thread per stream)
   gpu_context.finalizer_thread_pool.create(state.num_nccl_streams);
 #endif
+
+#if HAVE_NVTX
+  if (GetBoolEnvOrDefault(HOROVOD_DISABLE_NVTX_RANGES, false)) {
+    NvtxOpRange::nvtx_ops_handle.Disable();
+    horovod_global.timeline.DisableNvtx();
+  }
+#endif // HAVE_NVTX
 
   // Open the timeline file on coordinator.
   auto timeline_env = std::getenv(HOROVOD_TIMELINE);
@@ -564,11 +566,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
   // Notify all outstanding operations that Horovod has been shut down
   // and finalize tensor queue.
-  std::vector<StatusCallback> callbacks;
-  horovod_global.tensor_queue.FinalizeTensorQueue(callbacks);
-  for (auto& cb : callbacks) {
-    cb(SHUT_DOWN_ERROR);
-  }
+  horovod_global.tensor_queue.FinalizeTensorQueue(SHUT_DOWN_ERROR);
 
 #if HAVE_GPU
   gpu_context.Finalize();
@@ -1010,7 +1008,23 @@ Status EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts
     e.callback = std::move(callbacks[n]);
 
     entries.push_back(std::move(e));
+  }
 
+  // Start appropriate NVTX range
+  if (tensors.size() == 1) {
+    auto& e = entries[0];
+    e.nvtx_op_range.Start(RegisteredNvtxOp::HorovodAllreduce, e.tensor->size());
+  } else {
+    auto total_size =
+        std::accumulate(entries.begin(), entries.end(), 0ll,
+                        [](int64_t size_sum, const TensorTableEntry& e) {
+                          return size_sum + e.tensor->size();
+                        });
+    SharedNvtxOpRange range;
+    range.Start(RegisteredNvtxOp::HorovodGroupedAllreduce, total_size);
+    for (auto& e : entries) {
+      e.nvtx_op_range = range;
+    }
   }
 
   std::string tensors_enqueued;
@@ -1041,7 +1055,7 @@ Status EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts
 Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,
                               std::shared_ptr<ReadyEvent> ready_event,
-                              const std::string name, const int device,
+                              const std::string& name, const int device,
                               StatusCallback callback) {
   Request message;
   message.set_request_rank(horovod_global.controller->GetRank());
@@ -1060,6 +1074,7 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
   e.ready_event = ready_event;
   e.device = device;
   e.callback = callback;
+  e.nvtx_op_range.Start(RegisteredNvtxOp::HorovodAllgather, e.tensor->size());
 
   if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
@@ -1077,7 +1092,7 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,
                               std::shared_ptr<Tensor> output, int root_rank,
                               std::shared_ptr<ReadyEvent> ready_event,
-                              const std::string name, const int device,
+                              const std::string& name, const int device,
                               StatusCallback callback) {
   Request message;
   message.set_request_rank(horovod_global.controller->GetRank());
@@ -1099,6 +1114,7 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   e.ready_event = ready_event;
   e.device = device;
   e.callback = callback;
+  e.nvtx_op_range.Start(RegisteredNvtxOp::HorovodBroadcast, e.tensor->size());
 
   if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
@@ -1116,7 +1132,7 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
                              std::shared_ptr<Tensor> tensor,
                              std::shared_ptr<Tensor> splits,
                              std::shared_ptr<ReadyEvent> ready_event,
-                             const std::string name, const int device,
+                             const std::string& name, const int device,
                              StatusCallback callback) {
   // Check arguments
   if (splits->shape().dims() > 1) {
@@ -1143,6 +1159,7 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
   e.ready_event = ready_event;
   e.device = device;
   e.callback = callback;
+  e.nvtx_op_range.Start(RegisteredNvtxOp::HorovodAlltoall, e.tensor->size());
 
   int64_t splits_first_dim = splits->shape().dim_size(0);
   int64_t tensor_first_dim = tensor->shape().dim_size(0);
@@ -1179,7 +1196,7 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
 // must be running before this function is called.
 Status EnqueueJoin(std::shared_ptr<OpContext> context,
                    std::shared_ptr<ReadyEvent> ready_event,
-                   const std::string name, const int device,
+                   const std::string& name, const int device,
                    StatusCallback callback) {
   Request message;
   message.set_request_rank(horovod_global.controller->GetRank());

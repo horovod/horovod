@@ -47,14 +47,14 @@ struct TimelineRecord {
 
 class TimelineWriter {
 public:
-  void Initialize(std::string file_name,
+  void Initialize(const std::string& file_name,
                   std::chrono::steady_clock::time_point start_time_);
   void Shutdown();
   void EnqueueWriteEvent(const std::string& tensor_name, char phase,
                          const std::string& op_name, const std::string& args,
                          long ts_micros);
   void EnqueueWriteMarker(const std::string& name, long ts_micros);
-  void SetPendingTimelineFile(std::string filename);
+  void SetPendingTimelineFile(const std::string& filename);
   short active();
   short healthy();
   TimelineWriter();
@@ -69,7 +69,7 @@ private:
   void WriterLoop();
   void WriteAtFileStart();
   std::string PendingTimelineFile();
-  void SetTimelineFile(std::string filename);
+  void SetTimelineFile(const std::string& filename);
 
   // Are we healthy?  Queue no longer accepts new work items and stops draining
   // immediately when false.
@@ -92,37 +92,44 @@ private:
   std::thread writer_thread_;
   std::string cur_filename_;
   std::string new_pending_filename_;
-  bool is_new_file_;
+  bool is_new_file_ = false;
   // stores actual wall clock when horovod timeline was initialized
-  long long start_time_since_epoch_utc_micros_;
+  long long start_time_since_epoch_utc_micros_ = -1;
   // mutex that protects timeline writer state
   std::recursive_mutex writer_mutex_;
 };
 
 enum TimelineState { UNKNOWN, NEGOTIATING, TOP_LEVEL, ACTIVITY };
 
+class TimelineNvtxHandle;
+
 // Writes timeline in Chrome Tracing format. Timeline spec is from:
 // https://github.com/catapult-project/catapult/tree/master/tracing
 class Timeline {
 public:
-  void Initialize(std::string file_name, unsigned int horovod_size);
+  Timeline();
+  void Initialize(const std::string& file_name, unsigned int horovod_size);
   void Shutdown();
+  ~Timeline();
   inline short Initialized() { return initialized_.fetch_and(1); }
   void NegotiateStart(const std::string& tensor_name,
                       Request::RequestType request_type);
   void NegotiateRankReady(const std::string& tensor_name, int rank);
   void NegotiateEnd(const std::string& tensor_name);
   void Start(const std::string& tensor_name,
-             const Response::ResponseType response_type);
+             Response::ResponseType response_type,
+             int64_t tensor_size = -1);
   void ActivityStartAll(const std::vector<TensorTableEntry>& entries,
                         const std::string& activity);
   void ActivityStart(const std::string& tensor_name,
                      const std::string& activity);
   void ActivityEndAll(const std::vector<TensorTableEntry>& entries);
   void ActivityEnd(const std::string& tensor_name);
-  void End(const std::string& tensor_name, std::shared_ptr<Tensor> tensor);
+  void End(const std::string& tensor_name,
+           const std::shared_ptr<Tensor>& output_tensor);
   void MarkCycleStart();
-  void SetPendingTimelineFile(std::string filename);
+  void SetPendingTimelineFile(const std::string& filename);
+  void DisableNvtx();
 
 private:
   long TimeSinceStartMicros() const;
@@ -151,6 +158,8 @@ private:
   // Map of ranks to their string representations.
   // std::to_string() is very slow.
   std::vector<std::string> rank_strings_;
+
+  std::unique_ptr<TimelineNvtxHandle> nvtx_handle_;
 };
 
 } // namespace common

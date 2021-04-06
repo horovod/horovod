@@ -104,7 +104,7 @@ public:
 
   void InitGPUQueue(const std::vector<TensorTableEntry>& entries, const Response& response);
 
-  Status FinalizeGPUQueue(const std::vector<TensorTableEntry>& entries, bool free_host_buffer = true,
+  Status FinalizeGPUQueue(std::vector<TensorTableEntry>& entries, bool free_host_buffer = true,
                           const std::function<void()>& error_check_callback = nullptr);
 
   // GPU events are used as an alternative to host-device synchronization (which stalls the GPU pipeline)
