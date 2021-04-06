@@ -272,8 +272,8 @@ class RayExecutor:
         for bundle_index in range(len(bundles)):
             gpu_id_futures = []
             curr_node_workers = []
+            remote_cls = ray.remote(BaseHorovodWorker)
             for i in range(self.num_slots):
-                remote_cls = ray.remote(BaseHorovodWorker)
                 remote_cls = remote_cls.options(num_cpus=self.cpus_per_slot,
                                                 num_gpus=self.gpus_per_slot*int(self.use_gpu),
                                                 placement_group=pg,
