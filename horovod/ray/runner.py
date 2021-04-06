@@ -28,7 +28,7 @@ class MiniSettings:
     ssh_port: int = None
     ssh_identity_file: str = None
     timeout_s: int = 300
-    placement_group_timeout_s = 100
+    placement_group_timeout_s: int = 100
 
     @property
     def start_timeout(self):
@@ -277,12 +277,12 @@ class RayExecutor:
             curr_node_workers = []
             remote_cls = ray.remote(BaseHorovodWorker)
             for i in range(self.num_slots):
-                remote_cls = remote_cls.options(
+                remote_cls_with_options = remote_cls.options(
                     num_cpus=self.cpus_per_slot,
                     num_gpus=self.gpus_per_slot * int(self.use_gpu),
                     placement_group=pg,
                     placement_group_bundle_index=bundle_index)
-                worker = remote_cls.remote(
+                worker = remote_cls_with_options.remote(
                     world_rank=self.num_slots * bundle_index + i,
                     world_size=self.num_workers)
                 if self.use_gpu:
