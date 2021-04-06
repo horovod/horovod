@@ -121,7 +121,6 @@ all_frameworks_require_list = tensorflow_require_list + \
                               tensorflow_gpu_require_list + \
                               keras_require_list + \
                               pytorch_require_list + \
-                              pytorch_lightning_require_list + \
                               mxnet_require_list + \
                               spark_require_list + \
                               pyspark_require_list
