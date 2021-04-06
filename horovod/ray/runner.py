@@ -255,12 +255,13 @@ class RayExecutor:
         if ready:
             logger.debug("Placement group has started.")
         else:
-            raise TimeoutError("Placement group creation timed out. Make sure "
-                               "your cluster either has enough resources or use "
-                               "an autoscaling cluster. Current resources "
-                               "available: {}, resources requested by the "
-                               "placement group: {}".format(
-                ray.available_resources(), pg.bundle_specs))
+            raise TimeoutError(
+                "Placement group creation timed out. Make sure "
+                "your cluster either has enough resources or use "
+                "an autoscaling cluster. Current resources "
+                "available: {}, resources requested by the "
+                "placement group: {}".format(
+                    ray.available_resources(), pg.bundle_specs))
 
         # Placement group has started. Now create the workers.
         self.workers = []
@@ -273,12 +274,14 @@ class RayExecutor:
             curr_node_workers = []
             remote_cls = ray.remote(BaseHorovodWorker)
             for i in range(self.num_slots):
-                remote_cls = remote_cls.options(num_cpus=self.cpus_per_slot,
-                                                num_gpus=self.gpus_per_slot*int(self.use_gpu),
-                                                placement_group=pg,
-                                                placement_group_bundle_index=bundle_index)
+                remote_cls = remote_cls.options(
+                    num_cpus=self.cpus_per_slot,
+                    num_gpus=self.gpus_per_slot * int(
+                        self.use_gpu),
+                    placement_group=pg,
+                    placement_group_bundle_index=bundle_index)
                 worker = remote_cls.remote(
-                    world_rank=self.num_slots*bundle_index + i,
+                    world_rank=self.num_slots * bundle_index + i,
                     world_size=self.num_workers)
                 if self.use_gpu:
                     gpu_id_futures.append(worker.get_gpu_ids.remote())
@@ -290,7 +293,8 @@ class RayExecutor:
                 # allowing for better performance.
                 gpu_ids = sum(ray.get(gpu_id_futures), [])
                 # Make sure that each worker on the node has unique device.
-                assert len(gpu_ids) == len(set(gpu_ids)) == self.num_slots, gpu_ids
+                assert len(gpu_ids) == len(
+                    set(gpu_ids)) == self.num_slots, gpu_ids
                 all_ids = ",".join([str(gpu_id) for gpu_id in gpu_ids])
                 futures = []
                 for worker in curr_node_workers:
@@ -301,7 +305,6 @@ class RayExecutor:
             node_workers.append(curr_node_workers[0])
 
         return self.workers, node_workers
-
 
     def _start_executables(self, executable_cls, executable_args,
                            executable_kwargs):

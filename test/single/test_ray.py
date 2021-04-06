@@ -95,8 +95,11 @@ def test_infeasible_placement(tmpdir, ray_start_2_cpus):
         hjob.start()
     hjob.shutdown()
 
-@pytest.mark.skipif(torch.cuda.device_count() < 4, reason="GPU test requires 4 GPUs")
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="GPU test requires CUDA.")
+
+@pytest.mark.skipif(torch.cuda.device_count() < 4,
+                    reason="GPU test requires 4 GPUs")
+@pytest.mark.skipif(not torch.cuda.is_available(),
+                    reason="GPU test requires CUDA.")
 def test_gpu_ids(tmpdir, ray_start_4_cpus_4_gpus):
     original_resources = ray.available_resources()
     setting = RayExecutor.create_settings(timeout_s=30)
