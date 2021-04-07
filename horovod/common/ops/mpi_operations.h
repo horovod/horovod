@@ -71,7 +71,7 @@ public:
                const Response& response) const override;
 
 private:
-  void Barrier();
+  static void Barrier(const ProcessSet& process_set);
 };
 
 class MPIBroadcast : public BroadcastOp {

@@ -8,6 +8,10 @@
 #include "response_cache.h"
 #include "tensor_queue.h"
 
+#if HAVE_MPI
+#include "mpi/mpi_context.h"
+#endif // HAVE_MPI
+
 // Forward declaration
 class Controller;
 
@@ -31,6 +35,12 @@ struct ProcessSet {
   // If a rank is Joined, AllReduce uses temporary 0 tensors for it.
   bool joined = false;
 
+#if HAVE_MPI
+  MPICommunicators mpi_comms;
+#endif // HAVE_MPI
+
+  // TODO: Initialize, Finalize
+
   ProcessSet() = default;
   ProcessSet(const ProcessSet&) = delete;
 };
@@ -42,7 +52,7 @@ public:
   ProcessSetTable() = default;
   ProcessSetTable(const ProcessSetTable&) = delete;
 
-  int32_t RegisterProcessSet(const std::vector<int32_t>& global_ranks);
+  int32_t RegisterProcessSet();
   void DeregisterProcessSet(int32_t process_set_id);
 
   // TODO: thread safe?

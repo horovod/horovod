@@ -172,7 +172,7 @@ protected:
   bool is_coordinator_ = false;
   bool is_homogeneous_ = false;
 
-  // COMM_WORLD ranks of processes running on this node.
+  // COMM_WORLD ranks of processes running on this node.  // TODO: Update comment
   std::vector<int> local_comm_ranks_;
 
   // Numbers of ranks running per node

@@ -41,19 +41,17 @@ public:
 
 struct MPIContext {
 
-  void Enable() {
+  // Pass ranks that will be used to create global communicator. If no ranks are
+  // passed, we will duplicate the entire MPI_COMM_WORLD.
+  void Enable(const int* ranks = nullptr, int nrank = 0) {
+    if (ranks && nrank > 0) {
+      ranks_.assign(ranks, ranks + nrank);
+    }
     enabled_ = true;
     LOG(DEBUG) << "MPI context enabled.";
   };
 
   bool IsEnabled() const { return enabled_; }
-
-  // Set ranks that will be used to create global communicator.
-  void SetRanks(const int* ranks, int nrank) {
-    ranks_.assign(ranks, ranks + nrank);
-  }
-
-  const std::vector<int>& GetRanks() const { return ranks_; }
 
   // Take an argument of context manager pointer that will take care of
   // initialization of MPI environment.
@@ -69,8 +67,6 @@ struct MPIContext {
 
   MPI_Op GetMPISumOp(DataType dtype) const;
 
-  MPI_Comm GetMPICommunicator(CommunicatorType comm) const;
-
   int GetMPITypeSize(DataType dtype) const;
 
   std::vector<int> ranks_;
@@ -83,20 +79,37 @@ struct MPIContext {
   MPI_Op mpi_float16_sum;
 
   // Private MPI communicator for Horovod to ensure no collisions with other
-  // threads using MPI.
-  MPI_Comm mpi_comm;
-
-  // Node-local communicator.
-  MPI_Comm local_comm;
-
-  // Cross-node communicator for hierarchical allreduce.
-  MPI_Comm cross_comm;
+  // threads using MPI, incorporates all processes known to Horovod.
+  // Communicators for process subsets will be based on global_comm.
+  MPI_Comm global_comm;
 
   // MPI Window used for shared memory allgather
   MPI_Win window;
 
   // Whether mpi context should be finalized.
   bool should_finalize = false;
+};
+
+struct MPICommunicators {
+  // If passed ranks are empty, the global communicator from mpi_context will
+  // be duplicated.
+  // TODO: Describe
+  void Initialize(const MPIContext& mpi_context,
+                  const std::vector<int>& ranks = {});
+
+  void Finalize();
+
+  // Communicators handled here are restricted to a single process set.
+  MPI_Comm Get(CommunicatorType comm) const;
+
+  // All-encompassing communicator.
+  MPI_Comm all_comm = MPI_COMM_NULL;
+
+  // Node-local communicator.
+  MPI_Comm local_comm = MPI_COMM_NULL;
+
+  // Cross-node communicator for hierarchical allreduce.
+  MPI_Comm cross_comm = MPI_COMM_NULL;
 };
 
 } // namespace common
