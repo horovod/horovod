@@ -63,7 +63,7 @@ MPI_Op MPIContext::GetMPISumOp(DataType dtype) const {
   return dtype == HOROVOD_FLOAT16 ? mpi_float16_sum : MPI_SUM;
 }
 
-MPI_Comm MPIContext::GetMPICommunicator(Communicator comm) const {
+MPI_Comm MPIContext::GetMPICommunicator(CommunicatorType comm) const {
   switch (comm) {
   case GLOBAL:
     return mpi_comm;
@@ -72,7 +72,7 @@ MPI_Comm MPIContext::GetMPICommunicator(Communicator comm) const {
   case CROSS:
     return cross_comm;
   default:
-    throw std::logic_error("Communicator " + CommunicatorName(comm) +
+    throw std::logic_error("CommunicatorType " + CommunicatorName(comm) +
                            " is not supported in MPI mode.");
   }
 }

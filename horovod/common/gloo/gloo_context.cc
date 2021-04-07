@@ -227,13 +227,13 @@ void GlooContext::Finalize() {
 }
 
 std::shared_ptr<gloo::Context>
-GlooContext::GetGlooContext(Communicator communicator) {
+GlooContext::GetGlooContext(CommunicatorType communicator) {
   switch (communicator) {
-  case Communicator::GLOBAL:
+  case CommunicatorType::GLOBAL:
     return ctx;
-  case Communicator::LOCAL:
+  case CommunicatorType::LOCAL:
     return local_ctx;
-  case Communicator::CROSS:
+  case CommunicatorType::CROSS:
     return cross_ctx;
   default:
     throw std::logic_error("Unsupported communicator type.");

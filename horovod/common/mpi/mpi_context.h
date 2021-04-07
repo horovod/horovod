@@ -69,7 +69,7 @@ struct MPIContext {
 
   MPI_Op GetMPISumOp(DataType dtype) const;
 
-  MPI_Comm GetMPICommunicator(Communicator comm) const;
+  MPI_Comm GetMPICommunicator(CommunicatorType comm) const;
 
   int GetMPITypeSize(DataType dtype) const;
 

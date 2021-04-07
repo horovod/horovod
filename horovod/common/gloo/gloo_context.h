@@ -55,7 +55,7 @@ struct GlooContext {
 
   void Finalize();
 
-  std::shared_ptr<gloo::Context> GetGlooContext(Communicator communicator);
+  std::shared_ptr<gloo::Context> GetGlooContext(CommunicatorType communicator);
 
   void Enable() {
     enabled_ = true;

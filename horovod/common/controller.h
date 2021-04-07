@@ -53,12 +53,12 @@ public:
                                   int count) = 0;
 
   virtual void Bcast(void* buffer, size_t size, int root_rank,
-                     Communicator communicator) = 0;
+                     CommunicatorType communicator) = 0;
 
   virtual void AlltoallGetRecvSplits(const std::vector<int32_t>& splits,
                                      std::vector<int32_t>& recvsplits) = 0;
 
-  virtual void Barrier(Communicator communicator) = 0;
+  virtual void Barrier(CommunicatorType communicator) = 0;
 
   // Concrete controller functions
   void SynchronizeParameters();
