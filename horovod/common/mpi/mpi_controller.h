@@ -28,10 +28,12 @@ public:
   MPIController(ResponseCache& response_cache, TensorQueue& tensor_queue,
                 Timeline& timeline, ParameterManager& parameter_manager,
                 GroupTable& group_table,
-                TimelineController& timeline_controller, MPIContext& mpi_ctx)
+                TimelineController& timeline_controller,
+                MPIContext& mpi_ctx,
+                MPICommunicators& mpi_comms)
       : Controller(response_cache, tensor_queue, timeline, parameter_manager,
                    group_table, timeline_controller),
-        mpi_ctx_(mpi_ctx) {
+        mpi_ctx_(mpi_ctx), mpi_comms_(mpi_comms) {
     LOG(DEBUG) << "MPI Controller Initialized.";
   }
 
@@ -68,6 +70,8 @@ protected:
   void DoInitialization() override;
 
   MPIContext& mpi_ctx_;
+
+  MPICommunicators& mpi_comms_;
 
   // flag indicating whether MPI multi-threading is supported
   bool mpi_threads_supported_ = false;

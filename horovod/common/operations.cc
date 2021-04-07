@@ -344,6 +344,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   auto mpi_ctx_manager = MPIContextManager();
 #endif
   mpi_context.Initialize(mpi_ctx_manager);
+  state.process_set_table.Get(0).mpi_comms.Initialize(mpi_context); // TODO: should move into some initialization function for process_set
 #endif
 
 #if HAVE_GLOO
@@ -556,6 +557,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 #endif
 
 #if HAVE_MPI
+  horovod_global.process_set_table.Get(0).mpi_comms.Finalize();  // TODO: need to finalize these for each process set
   mpi_context.Finalize(mpi_ctx_manager);
 #endif
 
@@ -646,13 +648,12 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
     // Enable mpi is it's used either in cpu data transfer or controller
     if (horovod_global.cpu_operation == LibType::MPI ||
         horovod_global.control_operation == LibType::MPI) {
-      mpi_context.Enable();
-      mpi_context.SetRanks(ranks, nranks);
+      mpi_context.Enable(ranks, nranks);
     }
 
     if (horovod_global.control_operation == LibType::MPI) {
-      auto process_set_id = horovod_global.process_set_table.RegisterProcessSet(
-          mpi_context.GetRanks());
+      // TODO: Pull most of this into a construction function for ProcessSet
+      auto process_set_id = horovod_global.process_set_table.RegisterProcessSet();
       assert(process_set_id == 0);
       auto& process_set = horovod_global.process_set_table.Get(process_set_id);
 
@@ -660,7 +661,7 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
           process_set.response_cache, process_set.tensor_queue,
           horovod_global.timeline, horovod_global.parameter_manager,
           process_set.group_table, horovod_global.timeline_controller,
-          mpi_context));
+          mpi_context, process_set.mpi_comms));
       horovod_global.global_controller = process_set.controller;
     }
 #endif
@@ -710,7 +711,7 @@ void horovod_init(const int* ranks, int nranks) {
 
 #if HAVE_MPI
 void horovod_init_comm(MPI_Comm comm) {
-  MPI_Comm_dup(comm, &mpi_context.mpi_comm);
+  MPI_Comm_dup(comm, &mpi_context.global_comm);
   InitializeHorovodOnce(nullptr, 0);
 }
 #endif

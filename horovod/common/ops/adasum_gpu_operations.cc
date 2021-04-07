@@ -262,9 +262,9 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
     DispatchFusedAllreduce(
         entries, (void*)host_buffer, (void*)recv_buffer, tensor_counts,
         local_size, // start_level
-        process_set.controller->IsHomogeneous()
-            ? MPI_COMM_WORLD
-            : mpi_context_->GetMPICommunicator(CommunicatorType::CROSS),
+        process_set.mpi_comms.Get(process_set.controller->IsHomogeneous()
+                                  ? CommunicatorType::GLOBAL
+                                  : CommunicatorType::CROSS),
         0, reduction_comms_, first_entry.tensor->dtype(), global_state_);
     timeline.ActivityEndAll(entries);
 

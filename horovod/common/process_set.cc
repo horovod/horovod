@@ -5,8 +5,7 @@
 namespace horovod {
 namespace common {
 
-int32_t ProcessSetTable::RegisterProcessSet(
-    const std::vector<int32_t>& global_ranks) {
+int32_t ProcessSetTable::RegisterProcessSet() {
   int32_t id;
   if (!free_ids_.empty()) {
     id = free_ids_.front();
@@ -19,7 +18,7 @@ int32_t ProcessSetTable::RegisterProcessSet(
   // nicer in C++17 with try_emplace)
   id_to_process_set_.emplace(std::piecewise_construct,
                              std::forward_as_tuple(id),
-                             std::forward_as_tuple());   // TODO: ranks, MPI_Context
+                             std::forward_as_tuple());   // TODO: ranks, MPI_Context potentially at a later time of initialization
   ids_.push_back(id);
 
   return id;
