@@ -164,10 +164,10 @@ private:
 class NCCLAllgather : public GPUAllgather {
 public:
   NCCLAllgather(NCCLContext* nccl_context, GPUContext* gpu_context,
-                  HorovodGlobalState* global_state)
-      : GPUAllgather(gpu_context, global_state),
+                HorovodGlobalState* global_state)
+      : GPUAllgather(gpu_context, global_state), nccl_context_(nccl_context),
         nccl_op_context_(nccl_context, global_state, Communicator::GLOBAL),
-        global_state_(global_state){};
+        global_state_(global_state) {}
 
   Status Execute(std::vector<TensorTableEntry>& entries,
                  const Response& response) override;
