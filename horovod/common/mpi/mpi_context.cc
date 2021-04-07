@@ -27,11 +27,11 @@
 namespace horovod {
 namespace common {
 
-MPI_Datatype MPIContext::GetMPIDataType(const std::shared_ptr<Tensor> tensor) {
+MPI_Datatype MPIContext::GetMPIDataType(const std::shared_ptr<Tensor> tensor) const {
   return GetMPIDataType(tensor->dtype());
 }
 
-MPI_Datatype MPIContext::GetMPIDataType(const DataType dtype) {
+MPI_Datatype MPIContext::GetMPIDataType(const DataType dtype) const {
   switch (dtype) {
   case HOROVOD_UINT8:
     return MPI_UINT8_T;
@@ -59,11 +59,11 @@ MPI_Datatype MPIContext::GetMPIDataType(const DataType dtype) {
   }
 }
 
-MPI_Op MPIContext::GetMPISumOp(DataType dtype) {
+MPI_Op MPIContext::GetMPISumOp(DataType dtype) const {
   return dtype == HOROVOD_FLOAT16 ? mpi_float16_sum : MPI_SUM;
 }
 
-MPI_Comm MPIContext::GetMPICommunicator(Communicator comm) {
+MPI_Comm MPIContext::GetMPICommunicator(Communicator comm) const {
   switch (comm) {
   case GLOBAL:
     return mpi_comm;
@@ -77,7 +77,7 @@ MPI_Comm MPIContext::GetMPICommunicator(Communicator comm) {
   }
 }
 
-int MPIContext::GetMPITypeSize(DataType dtype) {
+int MPIContext::GetMPITypeSize(DataType dtype) const {
   int out;
   MPI_Type_size(GetMPIDataType(dtype), &out);
   return out;

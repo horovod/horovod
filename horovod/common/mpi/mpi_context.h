@@ -62,15 +62,16 @@ struct MPIContext {
   // Take an argument of context manager pointer that will take care of
   // finalization of MPI environment.
   void Finalize(MPIContextManager& ctx_manager);
-  MPI_Datatype GetMPIDataType(std::shared_ptr<Tensor> tensor);
 
-  MPI_Datatype GetMPIDataType(DataType dtype);
+  MPI_Datatype GetMPIDataType(std::shared_ptr<Tensor> tensor) const;
 
-  MPI_Op GetMPISumOp(DataType dtype);
+  MPI_Datatype GetMPIDataType(DataType dtype) const;
 
-  MPI_Comm GetMPICommunicator(Communicator comm);
+  MPI_Op GetMPISumOp(DataType dtype) const;
 
-  int GetMPITypeSize(DataType dtype);
+  MPI_Comm GetMPICommunicator(Communicator comm) const;
+
+  int GetMPITypeSize(DataType dtype) const;
 
   std::vector<int> ranks_;
 
