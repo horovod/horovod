@@ -68,7 +68,7 @@ Status MPI_GPUAllreduce::Execute(std::vector<TensorTableEntry>& entries, const R
                          (int) num_elements,
                          mpi_context_->GetMPIDataType(first_entry.tensor),
                          mpi_context_->GetMPISumOp(first_entry.tensor->dtype()),
-                         mpi_context_->GetMPICommunicator(Communicator::GLOBAL));
+                         mpi_context_->GetMPICommunicator(CommunicatorType::GLOBAL));
   if (op != MPI_SUCCESS) {
     throw std::runtime_error("MPI_Allreduce failed, see MPI output for details.");
   }
@@ -164,7 +164,7 @@ Status MPI_GPUAllgather::Execute(std::vector<TensorTableEntry>& entries, const R
                           recvcounts,
                           displcmnts,
                           dtype,
-                          mpi_context_->GetMPICommunicator(Communicator::GLOBAL));
+                          mpi_context_->GetMPICommunicator(CommunicatorType::GLOBAL));
   if (op != MPI_SUCCESS) {
     throw std::runtime_error("MPI_Allgatherv failed, see MPI output for details.");
   }
@@ -223,7 +223,7 @@ Status MPI_GPUAlltoall::Execute(std::vector<TensorTableEntry>& entries, const Re
                          mpi_context_->GetMPIDataType(e.tensor->dtype()),
                          buffer_data, recvcounts.data(), rdispls.data(),
                          mpi_context_->GetMPIDataType(e.output->dtype()),
-                         mpi_context_->GetMPICommunicator(Communicator::GLOBAL));
+                         mpi_context_->GetMPICommunicator(CommunicatorType::GLOBAL));
   if (op != MPI_SUCCESS) {
     throw std::runtime_error("MPI_Alltoallv failed, see MPI output for details.");
   }

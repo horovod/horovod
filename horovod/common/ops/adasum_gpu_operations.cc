@@ -23,7 +23,8 @@ AdasumGpuAllreduceOp::AdasumGpuAllreduceOp(MPIContext* mpi_context,
                                            GPUContext* gpu_context,
                                            HorovodGlobalState* global_state)
     : AdasumMPI(mpi_context, global_state),
-      NCCLAllreduce(nccl_context, gpu_context, global_state, Communicator::LOCAL) {
+      NCCLAllreduce(nccl_context, gpu_context, global_state,
+                    CommunicatorType::LOCAL) {
   // Pre-allocate host buffer size equal to the fusion buffer length
   current_host_buffer_length =
       global_state->parameter_manager.TensorFusionThresholdBytes();
@@ -263,7 +264,7 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
         local_size, // start_level
         process_set.controller->IsHomogeneous()
             ? MPI_COMM_WORLD
-            : mpi_context_->GetMPICommunicator(Communicator::CROSS),
+            : mpi_context_->GetMPICommunicator(CommunicatorType::CROSS),
         0, reduction_comms_, first_entry.tensor->dtype(), global_state_);
     timeline.ActivityEndAll(entries);
 

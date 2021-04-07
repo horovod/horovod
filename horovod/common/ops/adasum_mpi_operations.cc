@@ -78,7 +78,7 @@ Status AdasumMPIAllreduceOp::Execute(std::vector<TensorTableEntry>& entries,
   auto recv_buffer = GetRecvBuffer(buffer_len);
   DispatchFusedAllreduce(entries, buffer_data, recv_buffer, tensor_counts,
                          1, // start_level
-                         mpi_context_->GetMPICommunicator(Communicator::GLOBAL),
+                         mpi_context_->GetMPICommunicator(CommunicatorType::GLOBAL),
                          0, // tag
                          reduction_comms_, first_entry.tensor->dtype(),
                          global_state_);

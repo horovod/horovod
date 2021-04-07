@@ -200,7 +200,7 @@ void MPIController::RecvFinalTensors(ResponseList& response_list) {
 }
 
 void MPIController::Bcast(void* buffer, size_t size, int root_rank,
-                          Communicator communicator) {
+                          CommunicatorType communicator) {
   MPI_Comm comm = mpi_ctx_.GetMPICommunicator(communicator);
   int ret_code = MPI_Bcast(buffer, size, MPI_BYTE, root_rank, comm);
   if (ret_code != MPI_SUCCESS) {
@@ -212,7 +212,7 @@ void MPIController::Bcast(void* buffer, size_t size, int root_rank,
 void MPIController::AlltoallGetRecvSplits(const std::vector<int32_t>& splits,
                                           std::vector<int32_t>& recvsplits) {
   recvsplits.resize(size_);
-  MPI_Comm comm = mpi_ctx_.GetMPICommunicator(Communicator::GLOBAL);
+  MPI_Comm comm = mpi_ctx_.GetMPICommunicator(CommunicatorType::GLOBAL);
   int ret_code = MPI_Alltoall(splits.data(), 1, MPI_INT,
                               recvsplits.data(), 1, MPI_INT,
                               comm);
@@ -222,7 +222,7 @@ void MPIController::AlltoallGetRecvSplits(const std::vector<int32_t>& splits,
   }
 };
 
-void MPIController::Barrier(Communicator communicator) {
+void MPIController::Barrier(CommunicatorType communicator) {
   MPI_Comm comm = mpi_ctx_.GetMPICommunicator(communicator);
   int ret_code = MPI_Barrier(comm);
   if (ret_code != MPI_SUCCESS) {

@@ -158,13 +158,13 @@ enum StatusType { OK, UNKNOWN_ERROR, PRECONDITION_ERROR, ABORTED, INVALID_ARGUME
 
 enum DeviceType { CPU, GPU };
 
-enum Communicator {
+enum CommunicatorType {
   GLOBAL = 0,
   LOCAL = 1,
   CROSS = 2
 };
 
-inline std::string CommunicatorName(Communicator comm) {
+inline std::string CommunicatorName(CommunicatorType comm) {
   switch (comm) {
     case GLOBAL:
       return "global";

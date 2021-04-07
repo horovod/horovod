@@ -260,7 +260,7 @@ void GlooController::RecvFinalTensors(ResponseList& response_list) {
 }
 
 void GlooController::Bcast(void* buffer, size_t size, int root_rank,
-                           Communicator communicator) {
+                           CommunicatorType communicator) {
   gloo::BroadcastOptions opts(gloo_context_.GetGlooContext(communicator));
   opts.setOutput((uint8_t*)buffer, size);
   opts.setRoot(root_rank);
@@ -270,13 +270,14 @@ void GlooController::Bcast(void* buffer, size_t size, int root_rank,
 void GlooController::AlltoallGetRecvSplits(const std::vector<int32_t>& splits,
                                            std::vector<int32_t>& recvsplits) {
   recvsplits.resize(size_);
-  gloo::AlltoallOptions opts(gloo_context_.GetGlooContext(Communicator::GLOBAL));
+  gloo::AlltoallOptions opts(
+      gloo_context_.GetGlooContext(CommunicatorType::GLOBAL));
   opts.setInput((int32_t*)splits.data(), size_);
   opts.setOutput(recvsplits.data(), size_);
   gloo::alltoall(opts);
 }
 
-void GlooController::Barrier(Communicator communicator) {
+void GlooController::Barrier(CommunicatorType communicator) {
   gloo::BarrierOptions opts(gloo_context_.GetGlooContext(communicator));
   gloo::barrier(opts);
 }

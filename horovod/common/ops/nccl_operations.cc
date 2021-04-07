@@ -71,7 +71,7 @@ void NCCLOpContext::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
     timeline.ActivityStartAll(entries, INIT_NCCL);
 
     int nccl_rank, nccl_size;
-    Communicator nccl_id_bcast_comm;
+    CommunicatorType nccl_id_bcast_comm;
     PopulateNCCLCommStrategy(nccl_rank, nccl_size, nccl_id_bcast_comm,
                              process_set);
 
@@ -90,7 +90,8 @@ void NCCLOpContext::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
 
     // Barrier helps NCCL to synchronize after initialization and avoid
     // deadlock that we've been seeing without it.
-    process_set.controller->Barrier(Communicator::GLOBAL);  // TODO: do we need a global barrier instead of a process set barrier here?
+    process_set.controller->Barrier(
+        CommunicatorType::GLOBAL);  // TODO: do we need a global barrier instead of a process set barrier here?
 
     timeline.ActivityEndAll(entries);
   }
@@ -113,17 +114,16 @@ void NCCLOpContext::AsyncErrorCheck() {
 
 }
 
-void NCCLOpContext::PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
-                                             Communicator& nccl_id_bcast_comm,
+void NCCLOpContext::PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size, CommunicatorType& nccl_id_bcast_comm,
                                              const ProcessSet& process_set) {
-  if (communicator_type_ == Communicator::GLOBAL) {
+  if (communicator_type_ == CommunicatorType::GLOBAL) {
     nccl_rank = process_set.controller->GetRank();
     nccl_size = process_set.controller->GetSize();
-  } else if (communicator_type_ == Communicator::LOCAL) {
+  } else if (communicator_type_ == CommunicatorType::LOCAL) {
     nccl_rank = process_set.controller->GetLocalRank();
     nccl_size = process_set.controller->GetLocalSize();
   } else {
-    throw std::logic_error("Communicator type " + std::to_string(communicator_type_) +
+    throw std::logic_error("CommunicatorType type " + std::to_string(communicator_type_) +
                             " is not supported in NCCL mode.");
   }
   nccl_id_bcast_comm = communicator_type_;
@@ -379,7 +379,7 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                            (int) total_num_elements,
                            mpi_context_->GetMPIDataType(first_entry.tensor),
                            mpi_context_->GetMPISumOp(first_entry.tensor->dtype()),
-                           mpi_context_->GetMPICommunicator(Communicator::CROSS));
+                           mpi_context_->GetMPICommunicator(CommunicatorType::CROSS));
     if (op != MPI_SUCCESS) {
       throw std::runtime_error("MPI_Allreduce failed, see MPI output for details.");
     }
