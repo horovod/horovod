@@ -21,6 +21,7 @@ import unittest
 import warnings
 
 import mock
+import pytest
 import numpy as np
 
 import torch
