@@ -12,6 +12,10 @@
 #include "mpi/mpi_context.h"
 #endif // HAVE_MPI
 
+#if HAVE_GLOO
+#include "gloo/gloo_context.h"
+#endif // HAVE_GLOO
+
 // Forward declaration
 class Controller;
 
@@ -37,9 +41,19 @@ struct ProcessSet {
 
 #if HAVE_MPI
   MPICommunicators mpi_comms;
+
+  // TODO: doc
+  void Initialize(const MPIContext& mpi_context,
+                  const std::vector<int>& global_ranks = {});
 #endif // HAVE_MPI
 
-  // TODO: Initialize, Finalize
+#if HAVE_GLOO
+  void Initialize(const GlooContext& gloo_context,
+                  const std::vector<int>& global_ranks = {});
+#endif // HAVE_GLOO
+
+  // Finalize tensor queue and communicators.
+  void Finalize(const Status& status);
 
   bool IsCurrentProcessIncluded() const;
 
@@ -51,14 +65,27 @@ struct ProcessSet {
 
 class ProcessSetTable {
 public:
-  ProcessSetTable() = default;
+  ProcessSetTable();
   ProcessSetTable(const ProcessSetTable&) = delete;
 
+#if HAVE_MPI
+  // TODO: doc
+  void Initialize(const MPIContext& mpi_context);
+#endif // HAVE_MPI
+
+#if HAVE_GLOO
+  void Initialize(const GlooContext& gloo_context);
+#endif // HAVE_GLOO
+
+  // Finalize tensor queues and communicators and deregister process sets.
+  void Finalize(const Status& status);
+
   int32_t RegisterProcessSet();
+
   void DeregisterProcessSet(int32_t process_set_id);
 
   // TODO: thread safe?
-  const std::list<int32_t>& Ids() const { return ids_; }
+  const std::vector<int32_t>& Ids() const { return ids_; }
 
   ProcessSet& Get(int32_t id) { return id_to_process_set_.at(id); }
 
@@ -68,7 +95,7 @@ private:
   std::unordered_map<int32_t, ProcessSet> id_to_process_set_;
 
   // Tracks ids by insertion order
-  std::list<int32_t> ids_;
+  std::vector<int32_t> ids_;
 
   // Queue of ids that can be reused
   std::queue<int32_t> free_ids_;

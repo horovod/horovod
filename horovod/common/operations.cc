@@ -344,7 +344,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   auto mpi_ctx_manager = MPIContextManager();
 #endif
   mpi_context.Initialize(mpi_ctx_manager);
-  state.process_set_table.Get(0).mpi_comms.Initialize(mpi_context); // TODO: should move into some initialization function for process_set
+  state.process_set_table.Initialize(mpi_context);
 #endif
 
 #if HAVE_GLOO
@@ -548,16 +548,15 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // Signal that shutdown has been requested.
   state.shut_down = true;
 
-  // Notify all outstanding operations that Horovod has been shut down
-  // and finalize tensor queue.
-  horovod_global.process_set_table.Get(0).tensor_queue.FinalizeTensorQueue(SHUT_DOWN_ERROR);  // TODO: need to finalize tensor queue for each process set
+  // For each process set: Notify all outstanding operations that Horovod has
+  // been shut down, finalize tensor queue and communicators
+  horovod_global.process_set_table.Finalize(SHUT_DOWN_ERROR);
 
 #if HAVE_GPU
   gpu_context.Finalize();
 #endif
 
 #if HAVE_MPI
-  horovod_global.process_set_table.Get(0).mpi_comms.Finalize();  // TODO: need to finalize these for each process set
   mpi_context.Finalize(mpi_ctx_manager);
 #endif
 
@@ -611,7 +610,7 @@ bool RunLoopOnce(HorovodGlobalState& state) {
 
     // Perform the collective operation. All nodes in the process set should end
     // up performing the same operation.
-    if (process_set.IsCurrentProcessIncluded()) {
+    if (process_set.IsCurrentProcessIncluded()) {   // TODO: maybe switch this to checking the global-rank -> rank mapping
       int global_rank = state.global_controller->GetRank();
       for (auto& response : response_list.responses()) {
         if (!process_set.group_table.empty()) {
@@ -660,11 +659,8 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
     }
 
     if (horovod_global.control_operation == LibType::MPI) {
-      // TODO: Pull most of this into a construction function for ProcessSet
-      auto process_set_id = horovod_global.process_set_table.RegisterProcessSet();
-      assert(process_set_id == 0);
-      auto& process_set = horovod_global.process_set_table.Get(process_set_id);
-
+      auto& process_set = horovod_global.process_set_table.Get(0);
+      // TODO: Move the controller resetting into a ProcessSet member function
       process_set.controller.reset(new MPIController(
           process_set.response_cache, process_set.tensor_queue,
           horovod_global.timeline, horovod_global.parameter_manager,
@@ -1114,7 +1110,6 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
                               const std::string& name, const int device,
                               StatusCallback callback,
                               int32_t process_set_id) {
-  assert(process_set_id == 0);   // TODO: generalize
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
 
   int root_rank_in_process_set;
