@@ -18,7 +18,7 @@ jobs:
         - KERAS=2.2.4
         - PYTORCH=1.2.0
         - TORCHVISION=0.4.0
-        - PYTORCH_LIGHTNING=0.7.6
+        - PYTORCH_LIGHTNING=0.7.5
         - MXNET=1.5.0
     - env:
         - HOROVOD_WITH_GLOO=1
