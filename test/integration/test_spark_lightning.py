@@ -23,11 +23,13 @@ import warnings
 import mock
 import pytest
 import numpy as np
+from distutils.version import LooseVersion
 
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
 import torch.optim as optim
+from torch.nn import functional as F
+
 from pyspark.ml.linalg import VectorUDT
 from pyspark.sql.types import FloatType, IntegerType
 
