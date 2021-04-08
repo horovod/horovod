@@ -56,15 +56,9 @@ public:
 
   static const std::string& RequestType_Name(RequestType value);
 
-  // Request and root ranks are relative to the registered process set.
-  // TODO: Send over wire. Or will it turn out to be irrelevant?
-  int32_t process_set_id() const;
-
-  void set_process_set_id(int32_t value);
-
   // The request rank is necessary to create a consistent ordering of results,
   // for example in the allgather where the order of outputs should be sorted
-  // by rank.
+  // by rank. This rank is counted relative to the process set.
   int32_t request_rank() const;
 
   void set_request_rank(int32_t value);
@@ -81,6 +75,7 @@ public:
 
   void set_tensor_name(const std::string& value);
 
+  // The root rank is counted relative to the process set.
   int32_t root_rank() const;
 
   void set_root_rank(int32_t value);
@@ -111,7 +106,6 @@ public:
 
 
 private:
-  int32_t process_set_id_ = 0;
   int32_t request_rank_ = 0;
   RequestType request_type_ = RequestType::ALLREDUCE;
   DataType tensor_type_ = DataType::HOROVOD_UINT8;

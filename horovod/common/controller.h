@@ -60,7 +60,10 @@ public:
 
   virtual void Barrier(CommunicatorType communicator) = 0;
 
+  //
   // Concrete controller functions
+  //
+
   void SynchronizeParameters();
 
   // This function performs all the preparation work for workers to agree
@@ -115,13 +118,22 @@ public:
   int GetSize() const { return size_; };
   int GetLocalSize() const { return local_size_; };
   int GetCrossSize() const { return cross_size_; };
-  const std::vector<int>& GetLocalCommRanks() const { return local_comm_ranks_; };
+  const std::vector<int>& GetGlobalRanks() const { return global_ranks_; }
+  const std::unordered_map<int, int>& GetGlobalRankToAllRank() const {
+    return global_rank_to_all_rank_;
+  }
+  const std::vector<int>& GetLocalCommRanks() const {
+    return local_comm_ranks_;
+  };
   bool IsCoordinator() const { return is_coordinator_; };
   bool IsHomogeneous() const { return is_homogeneous_; };
   StallInspector& GetStallInspector() { return stall_inspector_; };
 
 protected:
+  //
   // Functions must be overridden by concrete controller
+  //
+
   virtual void DoInitialization() = 0;
 
   // For rank 0 to receive other ranks' ready tensors.
@@ -131,10 +143,10 @@ protected:
   // For other ranks to send their ready tensors to rank 0
   virtual void SendReadyTensors(RequestList& message_list) = 0;
 
-  // For rank 0 to send final ready tensors to be allreaduce/allgather to other ranks.
+  // For rank 0 to send final tensors ready to be allreduced/allgatherd to other ranks.
   virtual void SendFinalTensors(ResponseList& response_list) = 0;
 
-  // For other ranks to receive to final ready tensors.
+  // For other ranks to receive final ready tensors.
   virtual void RecvFinalTensors(ResponseList& response_list) = 0;
 
   // Once a tensor is ready to be reduced, the coordinator sends a Response
@@ -172,7 +184,13 @@ protected:
   bool is_coordinator_ = false;
   bool is_homogeneous_ = false;
 
-  // COMM_WORLD ranks of processes running on this node.  // TODO: Update comment
+  // Global rank of each process in the set associated to this controller.
+  std::vector<int> global_ranks_;
+
+  // Map (global rank) -> (all-controller rank) for each process in this set.
+  std::unordered_map<int,int> global_rank_to_all_rank_;
+
+  // All-controller ranks of processes running on this node.
   std::vector<int> local_comm_ranks_;
 
   // Numbers of ranks running per node

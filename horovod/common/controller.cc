@@ -44,7 +44,7 @@ void Controller::SynchronizeParameters() {
 
   void* buffer = (void*)(&param);
   size_t param_size = sizeof(param);
-  Bcast(buffer, param_size, 0, CommunicatorType::GLOBAL);  // TODO:
+  Bcast(buffer, param_size, 0, CommunicatorType::GLOBAL);
 
   if (!is_coordinator_) {
     parameter_manager_.SetParams(param);
@@ -248,7 +248,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
     std::vector<std::string> ready_to_reduce;
 
     if (is_coordinator_) {
-      LOG(TRACE) << "Adding messages from rank 0";
+      LOG(TRACE) << "Adding messages from process-set rank 0";
       while (!message_queue_tmp.empty()) {
         // Pop the first available message
         Request message = message_queue_tmp.front();
@@ -273,7 +273,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
 
       // Process messages.
       for (int i = 1; i < size_; ++i) {
-        LOG(TRACE) << "Adding messages from rank " << i;
+        LOG(TRACE) << "Adding messages from process-set rank " << i;
         auto received_message_list = ready_list[i];
         for (auto& received_message : received_message_list.requests()) {
           auto& received_name = received_message.tensor_name();
@@ -603,7 +603,7 @@ Response Controller::ConstructResponse(const std::string& name, int joined_size)
 
     if (tensor_shape.dims() == 0) {
       error = true;
-      error_message_stream << "Rank zero tried to "
+      error_message_stream << "Process-set rank zero tried to "
                            << Request::RequestType_Name(message_type)
                            << " a rank-zero tensor.";
     } else {
@@ -678,12 +678,15 @@ Response Controller::ConstructResponse(const std::string& name, int joined_size)
 
       int this_root_rank = requests[i].root_rank();
       if (first_root_rank != this_root_rank) {
+        int first_global_root_rank = GetGlobalRanks()[first_root_rank];
+        int this_global_root_rank = GetGlobalRanks()[this_root_rank];
         error = true;
-        error_message_stream
-            << "Mismatched " << Request::RequestType_Name(message_type)
-            << " root ranks: One rank specified root rank " << first_root_rank
-            << ", but another rank specified root rank " << this_root_rank
-            << ".";
+        error_message_stream << "Mismatched "
+                             << Request::RequestType_Name(message_type)
+                             << " root ranks: One rank specified root rank "
+                             << first_global_root_rank
+                             << ", but another rank specified root rank "
+                             << this_global_root_rank << ".";
         break;
       }
     }

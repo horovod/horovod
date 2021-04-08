@@ -348,7 +348,7 @@ struct TensorTableEntry {
   std::shared_ptr<Tensor> output;
   // Identifier for the subset of Horovod processes partaking in this operation.
   int32_t process_set_id = 0;
-  // Root rank for broadcast operation.
+  // Root rank for broadcast operation (relative to process set).
   int root_rank = 0;
   // List of events indicating that data is ready.
   ReadyEventList ready_event_list;
