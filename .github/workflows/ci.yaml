@@ -255,6 +255,25 @@ jobs:
       - name: Setup docker-compose
         run: pip install docker-compose
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        continue-on-error: true
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: ecr
+        continue-on-error: true
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Pull latest image
+        continue-on-error: true
+        run: |
+          docker pull ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
+          docker tag ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest ${{ matrix.image }}
+
       - name: Build
         id: build
         run: |
@@ -657,6 +676,25 @@ jobs:
 
       - name: Setup docker-compose
         run: pip install docker-compose
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        continue-on-error: true
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: ecr
+        continue-on-error: true
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Pull latest image
+        continue-on-error: true
+        run: |
+          docker pull ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
+          docker tag ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest ${{ matrix.image }}
 
       - name: Build
         id: build
