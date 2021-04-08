@@ -586,43 +586,51 @@ bool RunLoopOnce(HorovodGlobalState& state) {
     state.timeline.MarkCycleStart();
   }
 
-  bool should_shutdown = false;
-  for (auto process_set_id : state.process_set_table.Ids()) {   // TODO: might be better to first build the entire response_list, then start PerformOperation calls (then the different ProcessSets don't wait for each other)
+  std::unordered_map<int32_t, ResponseList> process_set_response_lists;
+  for (auto process_set_id : state.process_set_table.Ids()) {
     auto& process_set = state.process_set_table.Get(process_set_id);
+    process_set_response_lists.emplace(
+        process_set_id, process_set.controller->ComputeResponseList(
+                            horovod_global.shut_down, state, process_set));
+  }
+  state.mark_cycles_in_timeline =
+      state.timeline_controller.MarkCyclesInTimelinePending();
 
-    auto response_list = process_set.controller->ComputeResponseList(
-        horovod_global.shut_down, state, process_set);
+  bool should_shutdown = false;
+  for (auto process_set_id : state.process_set_table.Ids()) {
+    auto& process_set = state.process_set_table.Get(process_set_id);
+    auto& response_list = process_set_response_lists[process_set_id];
 
-    state.mark_cycles_in_timeline =
-        state.timeline_controller.MarkCyclesInTimelinePending();
-
-    // Get tensor name and size data for autotuning.
+    // Get tensor name and size data for autotuning. // TODO: extend for all process sets?
     int64_t total_tensor_size = 0;
     std::vector<std::string> tensor_names;
-    if (state.parameter_manager.IsAutoTuning()) {  // TODO: only for global set?
+    if (process_set_id == 0 && state.parameter_manager.IsAutoTuning()) {
       total_tensor_size = process_set.tensor_queue.GetTensorDataForAutotuner(
           response_list, tensor_names);
     }
 
     // Perform the collective operation. All nodes in the process set should end
     // up performing the same operation.
-    // TODO: only if part of process_set
-    int rank = process_set.controller->GetRank();
-    for (auto& response : response_list.responses()) {
-      if (!process_set.group_table.empty()) {
-        // Deregister any completed groups
-        process_set.group_table.DeregisterGroups(response.tensor_names());
-      }
+    if (process_set.IsCurrentProcessIncluded()) {
+      int global_rank = state.global_controller->GetRank();
+      for (auto& response : response_list.responses()) {
+        if (!process_set.group_table.empty()) {
+          // Deregister any completed groups
+          process_set.group_table.DeregisterGroups(response.tensor_names());
+        }
 
-      LOG(TRACE, rank) << "Performing " << response.tensor_names_string();
-      LOG(TRACE, rank) << "Processing " << response.tensor_names().size()
-                       << " tensors";
-      PerformOperation(response, process_set);
-      LOG(TRACE, rank) << "Finished performing "
-                       << response.tensor_names_string();
+        LOG(TRACE, global_rank) << "Process set id " << process_set_id;
+        LOG(TRACE, global_rank)
+            << "Performing " << response.tensor_names_string();
+        LOG(TRACE, global_rank)
+            << "Processing " << response.tensor_names().size() << " tensors";
+        PerformOperation(response, process_set);
+        LOG(TRACE, global_rank)
+            << "Finished performing " << response.tensor_names_string();
+      }
     }
 
-    if (state.parameter_manager.IsAutoTuning()) {  // TODO: only for global set?
+    if (process_set_id == 0 && state.parameter_manager.IsAutoTuning()) {
       bool should_sync =
           state.parameter_manager.Update(tensor_names, total_tensor_size);
 

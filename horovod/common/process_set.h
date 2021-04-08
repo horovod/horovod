@@ -1,8 +1,8 @@
 #ifndef HOROVOD_PROCESS_SET_H
 #define HOROVOD_PROCESS_SET_H
 
-#include <unordered_map>
 #include <list>
+#include <unordered_map>
 #include <queue>
 
 #include "response_cache.h"
@@ -40,6 +40,8 @@ struct ProcessSet {
 #endif // HAVE_MPI
 
   // TODO: Initialize, Finalize
+
+  bool IsCurrentProcessIncluded() const;
 
   ProcessSet() = default;
   ProcessSet(const ProcessSet&) = delete;

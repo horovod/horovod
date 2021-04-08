@@ -5,6 +5,14 @@
 namespace horovod {
 namespace common {
 
+bool ProcessSet::IsCurrentProcessIncluded() const {
+#if HAVE_MPI
+  return mpi_comms.Get(CommunicatorType::GLOBAL) != MPI_COMM_NULL;
+#endif // HAVE_MPI
+  return true;
+}
+
+
 int32_t ProcessSetTable::RegisterProcessSet() {
   int32_t id;
   if (!free_ids_.empty()) {

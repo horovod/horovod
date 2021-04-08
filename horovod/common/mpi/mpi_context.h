@@ -100,6 +100,8 @@ struct MPICommunicators {
   void Finalize();
 
   // Communicators handled here are restricted to a single process set.
+  // If the running process is not part of that set, these communicators
+  // remain MPI_COMM_NULL.
   MPI_Comm Get(CommunicatorType comm) const;
 
   // All-encompassing communicator.
