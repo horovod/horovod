@@ -2,8 +2,8 @@
 #define HOROVOD_PROCESS_SET_H
 
 #include <list>
-#include <unordered_map>
 #include <queue>
+#include <unordered_map>
 
 #include "response_cache.h"
 #include "tensor_queue.h"
@@ -59,7 +59,9 @@ public:
 
   // TODO: thread safe?
   const std::list<int32_t>& Ids() const { return ids_; }
+
   ProcessSet& Get(int32_t id) { return id_to_process_set_.at(id); }
+
   bool Empty() const { return id_to_process_set_.empty(); }
 
 private:

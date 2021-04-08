@@ -40,6 +40,20 @@ void MPIController::DoInitialization() {
     LOG(DEBUG) << "Started Horovod process set with " << size_ << " processes";
   }
 
+  // Build mappings (process-set specific rank) <-> (global rank)
+  {
+    int global_rank;
+    MPI_Comm_rank(mpi_ctx_.global_comm, &global_rank);
+    global_ranks_ = std::vector<int>(size_);
+    global_ranks_[rank_] = global_rank;
+    MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, global_ranks_.data(), 1,
+                  MPI_INT, mpi_comms_.all_comm);
+    global_rank_to_all_rank_ = std::unordered_map<int, int>(size_);
+    for (int rank = 0; rank < size_; ++rank) {
+      global_rank_to_all_rank_[global_ranks_[rank]] = rank;
+    }
+  }
+
   // Determine local rank by querying the local communicator.
   MPI_Comm_rank(mpi_comms_.local_comm, &local_rank_);
   MPI_Comm_size(mpi_comms_.local_comm, &local_size_);

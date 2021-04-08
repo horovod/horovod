@@ -969,7 +969,8 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
 
   return EnqueueTensorAllreduces(contexts, tensors, outputs, ready_events,
                                  names, device, callbacks, reduce_op,
-                                 prescale_factor, postscale_factor);
+                                 prescale_factor, postscale_factor,
+                                 process_set_id);
 }
 
 Status EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts,
@@ -983,7 +984,6 @@ Status EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts
                                double prescale_factor,
                                double postscale_factor,
                                int32_t process_set_id) {
-  assert(process_set_id == 0);  // TODO: generalize
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
   Status status;
 
@@ -1011,7 +1011,6 @@ Status EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts
 
   for (int n = 0; n < tensors.size(); ++n) {
     Request message;
-    message.set_process_set_id(process_set_id);
     message.set_request_rank(process_set.controller->GetRank());
     message.set_tensor_name(names[n]);
     message.set_tensor_type(tensors[n]->dtype());
@@ -1039,6 +1038,7 @@ Status EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts
       e.tensor = tensors[n];
       e.output = outputs[n];
     }
+    e.process_set_id = process_set_id;
     e.ready_event = std::move(ready_events[n]);
     e.device = device;
     e.callback = std::move(callbacks[n]);
@@ -1094,11 +1094,9 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
                               const std::string& name, const int device,
                               StatusCallback callback,
                               int32_t process_set_id) {
-  assert(process_set_id == 0);   // TODO: generalize
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
 
   Request message;
-  message.set_process_set_id(process_set_id);
   message.set_request_rank(process_set.controller->GetRank());
   message.set_tensor_name(name);
   message.set_tensor_type(tensor->dtype());
@@ -1112,6 +1110,7 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
   e.tensor_name = name;
   e.context = context;
   e.tensor = tensor;
+  e.process_set_id = process_set_id;
   e.ready_event = ready_event;
   e.device = device;
   e.callback = callback;
@@ -1139,12 +1138,21 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   assert(process_set_id == 0);   // TODO: generalize
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
 
+  int root_rank_in_process_set;
+  try {
+    root_rank_in_process_set =
+        process_set.controller->GetGlobalRankToAllRank().at(root_rank);
+  } catch (const std::out_of_range& e) {
+    return Status::InvalidArgument(
+        "broadcast received invalid root rank " + std::to_string(root_rank) +
+        "for process set " + std::to_string(process_set_id));
+  }
+
   Request message;
-  message.set_process_set_id(process_set_id);
   message.set_request_rank(process_set.controller->GetRank());
   message.set_tensor_name(name);
   message.set_tensor_type(tensor->dtype());
-  message.set_root_rank(root_rank);
+  message.set_root_rank(root_rank_in_process_set);
   message.set_device(device);
   message.set_request_type(Request::BROADCAST);
   for (int i = 0; i < tensor->shape().dims(); ++i) {
@@ -1156,7 +1164,8 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   e.context = context;
   e.tensor = tensor;
   e.output = output;
-  e.root_rank = root_rank;
+  e.process_set_id = process_set_id;
+  e.root_rank = root_rank_in_process_set;
   e.ready_event = ready_event;
   e.device = device;
   e.callback = callback;
@@ -1181,7 +1190,6 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
                              const std::string& name, const int device,
                              StatusCallback callback,
                              int32_t process_set_id) {
-  assert(process_set_id == 0);   // TODO: generalize
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
 
   // Check arguments
@@ -1193,7 +1201,6 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
   }
 
   Request message;
-  message.set_process_set_id(process_set_id);
   message.set_request_rank(process_set.controller->GetRank());
   message.set_tensor_name(name);
   message.set_tensor_type(tensor->dtype());
@@ -1207,6 +1214,7 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
   e.tensor_name = name;
   e.context = context;
   e.tensor = tensor;
+  e.process_set_id = process_set_id;
   e.ready_event = ready_event;
   e.device = device;
   e.callback = callback;
@@ -1250,11 +1258,9 @@ Status EnqueueJoin(std::shared_ptr<OpContext> context,
                    const std::string& name, const int device,
                    StatusCallback callback,
                    int32_t process_set_id) {
-  assert(process_set_id == 0);   // TODO: generalize
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
 
   Request message;
-  message.set_process_set_id(process_set_id);
   message.set_request_rank(process_set.controller->GetRank());
   message.set_device(device);
   message.set_request_type(Request::JOIN);
@@ -1262,6 +1268,7 @@ Status EnqueueJoin(std::shared_ptr<OpContext> context,
   TensorTableEntry e;
   e.tensor_name = name;
   e.context = context;
+  e.process_set_id = process_set_id;
   e.ready_event = ready_event;
   e.device = device;
   e.callback = callback;
