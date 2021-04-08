@@ -182,7 +182,7 @@ void MPICommunicators::Initialize(const MPIContext& mpi_context, const std::vect
     MPI_Comm_create_group(mpi_context.global_comm, work_group, 0, &(all_comm));
     if (all_comm == MPI_COMM_NULL) {
       throw std::runtime_error(
-          "Failed to create communicator via MPI_Comm_create_group");
+          "Failed to create communicator via MPI_Comm_create_group");   // TODO: can probably be removed, this is the expected result for calling processes outside of this process set
     }
     MPI_Group_free(&world_group);
     MPI_Group_free(&work_group);

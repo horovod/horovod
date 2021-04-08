@@ -12,6 +12,39 @@ bool ProcessSet::IsCurrentProcessIncluded() const {
   return true;
 }
 
+#if HAVE_MPI
+void ProcessSet::Initialize(const MPIContext& mpi_context,
+                            const std::vector<int>& global_ranks) {
+  mpi_comms.Initialize(mpi_context, global_ranks);
+}
+#endif // HAVE_MPI
+
+void ProcessSet::Finalize(const Status& status) {
+  tensor_queue.FinalizeTensorQueue(status);
+#if HAVE_MPI
+  mpi_comms.Finalize();
+#endif // HAVE_MPI
+}
+
+ProcessSetTable::ProcessSetTable() {
+  auto process_set_id = RegisterProcessSet();
+  assert(process_set_id == 0);
+}
+
+#if HAVE_MPI
+void ProcessSetTable::Initialize(const MPIContext& mpi_context) {
+  assert(next_id_ == 1);  // exactly one process set is registered
+  Get(0).Initialize(mpi_context);
+}
+#endif // HAVE_MPI
+
+void ProcessSetTable::Finalize(const Status& status) {
+  std::vector<int32_t> ids_copy(ids_.begin(), ids_.end());
+  for (auto id: ids_copy) {
+    id_to_process_set_[id].Finalize(status);
+    DeregisterProcessSet(id);
+  }
+}
 
 int32_t ProcessSetTable::RegisterProcessSet() {
   int32_t id;
@@ -26,7 +59,7 @@ int32_t ProcessSetTable::RegisterProcessSet() {
   // nicer in C++17 with try_emplace)
   id_to_process_set_.emplace(std::piecewise_construct,
                              std::forward_as_tuple(id),
-                             std::forward_as_tuple());   // TODO: ranks, MPI_Context potentially at a later time of initialization
+                             std::forward_as_tuple());
   ids_.push_back(id);
 
   return id;
