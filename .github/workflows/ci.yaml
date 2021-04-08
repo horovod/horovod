@@ -268,11 +268,17 @@ jobs:
         continue-on-error: true
         uses: aws-actions/amazon-ecr-login@v1
 
+      - name: Add cache_from to docker-compose YAML
+        run: |
+          mv docker-compose.test.yml docker-compose.test.yml.bak
+          .github/add-cache-to-docker-compose.sh "${{ steps.ecr.outputs.registry }}" < docker-compose.test.yml.bak > docker-compose.test.yml
+          git diff
+        shell: bash
+
       - name: Pull latest image
         continue-on-error: true
         run: |
           docker pull ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-          docker tag ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest ${{ matrix.image }}
 
       - name: Build
         id: build
@@ -690,11 +696,17 @@ jobs:
         continue-on-error: true
         uses: aws-actions/amazon-ecr-login@v1
 
+      - name: Add cache_from to docker-compose YAML
+        run: |
+          mv docker-compose.test.yml docker-compose.test.yml.bak
+          .github/add-cache-to-docker-compose.sh "${{ steps.ecr.outputs.registry }}" < docker-compose.test.yml.bak > docker-compose.test.yml
+          git diff
+        shell: bash
+
       - name: Pull latest image
         continue-on-error: true
         run: |
           docker pull ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-          docker tag ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest ${{ matrix.image }}
 
       - name: Build
         id: build
