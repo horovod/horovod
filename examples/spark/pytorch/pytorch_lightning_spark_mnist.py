@@ -43,7 +43,7 @@ parser.add_argument('--work-dir', default='/tmp',
 parser.add_argument('--data-dir', default='/tmp',
                     help='location of the training dataset in the local filesystem (will be downloaded if needed)')
 
-def train_mnist_model(args):
+def train_model(args):
     # do not support lightning version before 1.2.6
     import pytorch_lightning as pl
     if LooseVersion(pl.__version__) > LooseVersion('1.2.6'):
