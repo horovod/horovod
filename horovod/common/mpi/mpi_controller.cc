@@ -24,6 +24,11 @@ namespace common {
 
 // MPIController
 void MPIController::DoInitialization() {
+  assert(mpi_ctx_.global_comm != MPI_COMM_NULL);
+  assert(mpi_comms_.all_comm != MPI_COMM_NULL);
+  assert(mpi_comms_.local_comm != MPI_COMM_NULL);
+  assert(mpi_comms_.cross_comm != MPI_COMM_NULL);
+
   // Check if multi-thread is supported.
   int provided;
   MPI_Query_thread(&provided);
@@ -244,6 +249,19 @@ void MPIController::Barrier(CommunicatorType communicator) {
     throw std::runtime_error("MPI_Barrier failed, see MPI output for details.");
   }
 }
+
+void MPIController::AllgatherInt(int value, std::vector<int>& recv_values) {
+  recv_values.resize(size_);
+  MPI_Comm comm = mpi_comms_.Get(CommunicatorType::GLOBAL);
+  int ret_code = MPI_Allgather(&value, 1, MPI_INT,
+                               recv_values.data(), 1, MPI_INT,
+                               comm);
+  if (ret_code != MPI_SUCCESS) {
+    throw std::runtime_error(
+        "MPI_Allgather failed, see MPI output for details.");
+  }
+}
+
 
 } // namespace common
 } // namespace horovod

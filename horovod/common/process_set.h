@@ -1,6 +1,7 @@
 #ifndef HOROVOD_PROCESS_SET_H
 #define HOROVOD_PROCESS_SET_H
 
+#include <atomic>
 #include <list>
 #include <queue>
 #include <unordered_map>
@@ -33,6 +34,12 @@ struct ProcessSet {
   // Information on registered groups.
   GroupTable group_table;
 
+  // If empty, all Horovod processes belong to this set. (Then ranks are stored
+  // explicitly in controller).
+  std::vector<int> registered_global_ranks_;
+
+  std::atomic_bool initialization_done{false};
+
   // Number of ranks that did Join()
   int joined_size = 0;
 
@@ -42,9 +49,9 @@ struct ProcessSet {
 #if HAVE_MPI
   MPICommunicators mpi_comms;
 
+  // Before calling Initialize the controller must be populated.
   // TODO: doc
-  void Initialize(const MPIContext& mpi_context,
-                  const std::vector<int>& global_ranks = {});
+  void Initialize(const MPIContext& mpi_context);
 #endif // HAVE_MPI
 
 #if HAVE_GLOO
@@ -57,7 +64,10 @@ struct ProcessSet {
 
   bool IsCurrentProcessIncluded() const;
 
-  ProcessSet() = default;
+  // If an empty vector is passed, all Horovod processes will be part of this
+  // process set.
+  explicit ProcessSet(std::vector<int> global_ranks = {});
+
   ProcessSet(const ProcessSet&) = delete;
 };
 
@@ -71,25 +81,26 @@ public:
 #if HAVE_MPI
   // TODO: doc
   void Initialize(const MPIContext& mpi_context);
+
+  void InitializeRegisteredIfReady(const MPIContext& mpi_context);
 #endif // HAVE_MPI
 
 #if HAVE_GLOO
   void Initialize(const GlooContext& gloo_context);
+
+  void InitializeRegisteredIfReady(const GlooContext& gloo_context);
 #endif // HAVE_GLOO
 
   // Finalize tensor queues and communicators and deregister process sets.
   void Finalize(const Status& status);
 
-  int32_t RegisterProcessSet();
+  int32_t RegisterProcessSet(const std::vector<int>& global_ranks = {});
 
   void DeregisterProcessSet(int32_t process_set_id);
 
-  // TODO: thread safe?
-  const std::vector<int32_t>& Ids() const { return ids_; }
+  std::vector<int32_t> Ids() const; // Returns copy to be threadsafe
 
   ProcessSet& Get(int32_t id) { return id_to_process_set_.at(id); }
-
-  bool Empty() const { return id_to_process_set_.empty(); }
 
 private:
   std::unordered_map<int32_t, ProcessSet> id_to_process_set_;
@@ -103,7 +114,8 @@ private:
   // Next available id (increases when a process set is added and no id is reused)
   int32_t next_id_ = 0;
 
-  // TODO: mutex?
+  // Guard access to this table by this mutex
+  mutable std::recursive_mutex mutex_;
 };
 
 } // namespace common
