@@ -27,6 +27,7 @@ from pyspark.ml.param.shared import Param, Params, TypeConverters
 from pyspark.ml.util import MLWritable, MLReadable
 from pyspark.sql import SparkSession
 
+import pytorch_lightning as pl
 from pytorch_lightning import LightningModule
 
 from horovod.runner.common.util import codec
@@ -44,6 +45,7 @@ import numpy as np
 import torch
 import torch.utils.data
 
+MIN_PL_VERSION = "1.2.6"
 
 def _torch_param_serialize(param_name, param_val):
     if param_val is None:
@@ -202,6 +204,10 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
         kwargs = self._input_kwargs
 
+        # pl version check
+        if LooseVersion(pl.__version__) < LooseVersion(MIN_PL_VERSION):
+            raise RuntimeError("Only support pytorch_lightning version > {}, found version {}".format(MIN_PL_VERSION, pl.__version__))
+
         if EstimatorParams.loss.name in kwargs and TorchEstimator.loss_constructors.name in kwargs:
             raise ValueError("only one of loss_constructors and loss parameters can be specified.")
 
@@ -258,7 +264,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         super()._check_params(metadata)
 
         model = self.getModel()
-        if isinstance(model, LightningModule):
+        if isinstance(model, pl.LightningModule):
             if self._get_optimizer():
                 raise ValueError('Parameter `optimizer` cannot be specified with a `LightningModule`. '
                                  'Implement `LightningModule.configure_optimizers` instead.')
@@ -273,7 +279,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         else:
             if self.getLossWeights():
                 warnings.warn('Parameter `loss_weights` has been replaced by the `LightningModule` API '
-                              'and will be removed in v0.21.0', DeprecationWarning)
+                              'and will be removed later', DeprecationWarning)
 
     def _fit_on_prepared_data(self, backend, train_rows, val_rows, metadata, avg_row_size, dataset_idx=None):
         self._check_params(metadata)

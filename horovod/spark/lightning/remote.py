@@ -173,11 +173,9 @@ def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calcula
         import horovod.torch as hvd
 
         is_loader_overridden = False
-        if LooseVersion(pl.__version__) >= LooseVersion('1.2.0'):
+        if LooseVersion(pl.__version__) >= LooseVersion('1.0.0'):
             from pytorch_lightning.utilities.model_helpers import is_overridden
             is_loader_overridden = is_overridden(dataloader_attr, model)
-        else:
-            is_loader_overridden = trainer.is_overridden(dataloader_attr, model)
 
         if not should_read or is_loader_overridden:
             yield
