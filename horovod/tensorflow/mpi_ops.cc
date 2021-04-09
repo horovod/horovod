@@ -388,6 +388,7 @@ public:
     OP_REQUIRES_OK(context, context->GetAttr("prescale_factor", &prescale_factor_));
     OP_REQUIRES_OK(context, context->GetAttr("postscale_factor", &postscale_factor_));
     OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
+    OP_REQUIRES_OK(context, context->GetAttr("process_set", &process_set_id_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -417,7 +418,9 @@ public:
         [context, done](const common::Status& status) {
           context->SetStatus(ConvertStatus(status));
           done();
-        }, reduce_op, (double) prescale_factor_, (double) postscale_factor_);
+        },
+        reduce_op, (double)prescale_factor_, (double)postscale_factor_,
+        process_set_id_);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 
@@ -427,6 +430,7 @@ private:
   float prescale_factor_;
   float postscale_factor_;
   bool ignore_name_scope_;
+  int process_set_id_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_CPU),
@@ -442,6 +446,7 @@ REGISTER_OP("HorovodAllreduce")
     .Attr("prescale_factor: float")
     .Attr("postscale_factor: float")
     .Attr("ignore_name_scope: bool = False")
+    .Attr("process_set: int = 0")
     .Input("tensor: T")
     .Output("sum: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
