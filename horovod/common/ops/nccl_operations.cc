@@ -61,7 +61,6 @@ void NCCLContext::ShutDown(){
 void NCCLOpContext::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
                                  const std::vector<int32_t>& nccl_device_map) {
   assert(!entries.empty());
-  assert(entries[0].process_set_id == 0);  // TODO: generalize
   auto& process_set =
       global_state_->process_set_table.Get(entries[0].process_set_id);
   // Ensure NCCL communicator is in the map before executing operation.
@@ -90,9 +89,7 @@ void NCCLOpContext::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
 
     // Barrier helps NCCL to synchronize after initialization and avoid
     // deadlock that we've been seeing without it.
-    process_set.controller->Barrier(
-        CommunicatorType::GLOBAL);  // TODO: do we need a global barrier instead of a process set barrier here?
-
+    process_set.controller->Barrier(CommunicatorType::GLOBAL);
     timeline.ActivityEndAll(entries);
   }
 
