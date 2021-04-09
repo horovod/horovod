@@ -100,9 +100,18 @@ public:
 
   std::vector<int32_t> Ids() const; // Returns copy to be threadsafe
 
-  ProcessSet& Get(int32_t id) { return id_to_process_set_.at(id); }
+  ProcessSet& Get(int32_t id);
+
+  void MarkProcessSetForRemoval(int32_t process_set_id);
+
+  bool ProcessSetHasJustBeenRemoved();
+
+  void RemoveMarkedProcessSetIfReady();
 
 private:
+  // Guard access to the table by this mutex
+  mutable std::recursive_mutex mutex_;
+
   std::unordered_map<int32_t, ProcessSet> id_to_process_set_;
 
   // Tracks ids by insertion order
@@ -114,8 +123,9 @@ private:
   // Next available id (increases when a process set is added and no id is reused)
   int32_t next_id_ = 0;
 
-  // Guard access to this table by this mutex
-  mutable std::recursive_mutex mutex_;
+  static constexpr int32_t NO_PENDING_REMOVAL = -1;
+  static constexpr int32_t SUCCESSFUL_REMOVAL = -2;
+  int32_t id_to_be_removed_ = NO_PENDING_REMOVAL;
 };
 
 } // namespace common

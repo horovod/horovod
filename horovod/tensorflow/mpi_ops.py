@@ -76,6 +76,7 @@ ccl_built = _basics.ccl_built
 cuda_built = _basics.cuda_built
 rocm_built = _basics.rocm_built
 add_process_set = _basics.add_process_set
+remove_process_set = _basics.remove_process_set
 
 # import reduction op values
 Average = _basics.Average
