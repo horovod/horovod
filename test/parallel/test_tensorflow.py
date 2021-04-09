@@ -341,6 +341,52 @@ class TensorFlowTests(tf.test.TestCase):
             self.assertTrue(diff <= threshold,
                             "hvd.allreduce produces incorrect results")
 
+    def test_horovod_allreduce_cpu_process_sets(self):
+        """ Test on CPU that allreduce correctly sums if restricted to non-global process sets"""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
+        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
+
+        even_set = hvd.add_process_set(even_ranks)
+        odd_set = hvd.add_process_set(odd_ranks)
+
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                even_rank_tensor = self.random_uniform([17] * dim, -100, 100, dtype=dtype)
+                odd_rank_tensor = self.random_uniform([17] * dim, -100, 100, dtype=dtype)
+                if rank in even_ranks:
+                    summed = hvd.allreduce(even_rank_tensor, average=False, process_set=even_set)
+                    multiplied = even_rank_tensor * len(even_ranks)
+                if rank in odd_ranks:
+                    summed = hvd.allreduce(odd_rank_tensor, average=False, process_set=odd_set)
+                    multiplied = odd_rank_tensor * len(odd_ranks)
+                max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            max_process_set_size = max(len(even_ranks), len(odd_ranks))
+            if max_process_set_size <= 3 or dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif max_process_set_size < 10:
+                threshold = 1e-4
+            elif max_process_set_size < 15:
+                threshold = 5e-4
+            else:
+                self.skipTest("Horovod cluster too large for precise multiplication comparison")
+
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results")
+
+        # TODO: removal
+        # hvd.remove_process_set(odd_set)
+        # hvd.remove_process_set(even_set)
+
+
     def test_horovod_allreduce_gpu(self):
         """Test that the allreduce works on GPUs."""
         # Only do this test if there are GPUs available.

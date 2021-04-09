@@ -102,7 +102,7 @@ def _normalize_name(name):
 
 
 def _allreduce(tensor, name=None, op=Sum, prescale_factor=1.0, postscale_factor=1.0,
-               ignore_name_scope=False):
+               ignore_name_scope=False, process_set=0):
     """An op which reduces an input tensor over all the Horovod processes. The
     default reduction is a sum.
 
@@ -119,7 +119,8 @@ def _allreduce(tensor, name=None, op=Sum, prescale_factor=1.0, postscale_factor=
     return MPI_LIB.horovod_allreduce(tensor, name=name, reduce_op=op,
                                      prescale_factor=prescale_factor,
                                      postscale_factor=postscale_factor,
-                                     ignore_name_scope=ignore_name_scope)
+                                     ignore_name_scope=ignore_name_scope,
+                                     process_set=process_set)
 
 
 @ops.RegisterGradient('HorovodAllreduce')
