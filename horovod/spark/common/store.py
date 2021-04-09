@@ -87,7 +87,7 @@ class Store(object):
         raise NotImplementedError()
 
     def get_checkpoints(self, run_id, suffix='.ckpt'):
-        """Returns a list of paths for all chceckpoints saved this run."""
+        """Returns a list of paths for all checkpoints saved this run."""
         raise NotImplementedError()
 
     def get_logs_path(self, run_id):
