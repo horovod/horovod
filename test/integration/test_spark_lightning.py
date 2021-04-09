@@ -39,6 +39,11 @@ import horovod
 import horovod.torch as hvd
 from horovod.torch.elastic import run
 
+import horovod.spark.lightning as hvd_spark
+from horovod.spark.lightning import remote
+from horovod.spark.lightning.estimator import EstimatorParams, _torch_param_serialize
+from horovod.spark.lightning.legacy import to_lightning_module
+
 from horovod.common.util import gloo_built, mpi_built
 from horovod.runner.mpi_run import is_open_mpi
 from horovod.spark.common import constants, util
@@ -106,12 +111,8 @@ def create_xor_model(input_dim=2, output_dim=1):
 def create_legacy_xor_model(input_dim=2, output_dim=1):
     return LegacyXOR(input_dim, output_dim)
 
-@pytest.mark.skipif(LooseVersion(pl.__version__) < LooseVersion('1.2.6'), 'Pytorch lightning version < 1.2.6 is not supported.')
+@pytest.mark.skipif(LooseVersion(pl.__version__) < LooseVersion('1.2.6'), reason='Pytorch lightning version < 1.2.6 is not supported.')
 class SparkLightningTests(unittest.TestCase):
-    import horovod.spark.lightning as hvd_spark
-    from horovod.spark.lightning import remote
-    from horovod.spark.lightning.estimator import EstimatorParams, _torch_param_serialize
-    from horovod.spark.lightning.legacy import to_lightning_module
 
     def __init__(self, *args, **kwargs):
         super(SparkLightningTests, self).__init__(*args, **kwargs)
