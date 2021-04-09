@@ -17,7 +17,7 @@ jobs:
         - TENSORFLOW=1.15.0
         - KERAS=2.2.4
         - PYTORCH=1.2.0
-        - PYTORCH_LIGHTNING=0.7.5
+        - PYTORCH_LIGHTNING=0.7.6
         - TORCHVISION=0.4.0
         - MXNET=1.5.0
     - env:

@@ -249,7 +249,7 @@ steps:
       push-retries: 5
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 30
+  timeout_in_minutes: 60
   retry:
     automatic: true
   agents:
@@ -264,7 +264,7 @@ steps:
       push-retries: 5
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 30
+  timeout_in_minutes: 60
   retry:
     automatic: true
   agents:
