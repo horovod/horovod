@@ -587,6 +587,9 @@ bool RunLoopOnce(HorovodGlobalState& state) {
   // Initialize any newly added process set that has been registered by all
   // Horovod processes.
   state.process_set_table.InitializeRegisteredIfReady(mpi_context);
+  // Remove a process set that has been marked for removal by all Horovod
+  // processes.
+  state.process_set_table.RemoveMarkedProcessSetIfReady();
 
   std::unordered_map<int32_t, ResponseList> process_set_response_lists;
   for (auto process_set_id : state.process_set_table.Ids()) {
@@ -957,8 +960,20 @@ int horovod_add_process_set(const int *ranks, int nrank) {
 }
 
 int horovod_remove_process_set(int process_set_id) {
-  // TODO: implement
-  return -1;
+  if (!horovod_global.initialization_done) {
+    return -1;
+  }
+  // TODO: check if process_set_id is valid
+
+  horovod_global.process_set_table.MarkProcessSetForRemoval(process_set_id);
+
+  // Block until the background thread has removed the process set.
+  while (true) {
+    if (horovod_global.process_set_table.ProcessSetHasJustBeenRemoved()) {
+      return process_set_id;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
 }
 
 

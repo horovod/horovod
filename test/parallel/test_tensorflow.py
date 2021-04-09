@@ -382,9 +382,8 @@ class TensorFlowTests(tf.test.TestCase):
             diff = self.evaluate(max_difference)
             self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results")
 
-        # TODO: removal
-        # hvd.remove_process_set(odd_set)
-        # hvd.remove_process_set(even_set)
+        hvd.remove_process_set(odd_set)
+        hvd.remove_process_set(even_set)
 
 
     def test_horovod_allreduce_gpu(self):

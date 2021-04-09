@@ -292,6 +292,10 @@ class HorovodBasics(object):
     def add_process_set(self, ranks):
         assert isinstance(ranks, list)
         nrank = len(ranks)
-        return self.MPI_LIB_CTYPES.horovod_add_process_set(
-            (ctypes.c_int * nrank)(*ranks), ctypes.c_int(nrank))
+        return int(self.MPI_LIB_CTYPES.horovod_add_process_set(
+            (ctypes.c_int * nrank)(*ranks), ctypes.c_int(nrank)))
 
+    def remove_process_set(self, process_set_id):
+        assert isinstance(process_set_id, int)
+        return int(self.MPI_LIB_CTYPES.horovod_remove_process_set(
+            ctypes.c_int(process_set_id)))

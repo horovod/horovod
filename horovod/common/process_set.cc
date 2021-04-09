@@ -122,5 +122,49 @@ std::vector<int32_t> ProcessSetTable::Ids() const {
   return ids_;
 }
 
+ProcessSet& ProcessSetTable::Get(int32_t id) {
+  std::lock_guard<std::recursive_mutex> guard(mutex_);
+  return id_to_process_set_.at(id);
+}
+
+void ProcessSetTable::MarkProcessSetForRemoval(int32_t process_set_id) {
+  std::lock_guard<std::recursive_mutex> guard(mutex_);
+  assert(id_to_be_removed_ == NO_PENDING_REMOVAL);
+  id_to_be_removed_ = process_set_id;
+}
+
+bool ProcessSetTable::ProcessSetHasJustBeenRemoved() {
+  std::lock_guard<std::recursive_mutex> guard(mutex_);
+  if (id_to_be_removed_ == SUCCESSFUL_REMOVAL) {
+    id_to_be_removed_ = NO_PENDING_REMOVAL;
+    return true;
+  }
+  return false;
+}
+
+void ProcessSetTable::RemoveMarkedProcessSetIfReady() {
+  std::lock_guard<std::recursive_mutex> guard(mutex_);
+
+  auto& global_controller = *Get(0).controller;
+  auto ids_marked_on_all_ranks = std::vector<int>(global_controller.GetSize());
+  global_controller.AllgatherInt(id_to_be_removed_, ids_marked_on_all_ranks);
+  if (std::any_of(
+          ids_marked_on_all_ranks.begin(), ids_marked_on_all_ranks.end(),
+          [this](int other_id) { return other_id != id_to_be_removed_; })) {
+    // Do not remove marked process set until every process has marked the same.
+    return;
+  }
+  if (id_to_be_removed_ == NO_PENDING_REMOVAL ||
+      id_to_be_removed_ == SUCCESSFUL_REMOVAL) {
+    return;
+  }
+
+  id_to_process_set_[id_to_be_removed_].Finalize(
+      Status::Aborted("Process set has been removed"));
+  DeregisterProcessSet(id_to_be_removed_);
+
+  id_to_be_removed_ = SUCCESSFUL_REMOVAL;
+}
+
 } // common
 } // horovod
