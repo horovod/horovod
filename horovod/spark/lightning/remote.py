@@ -17,12 +17,13 @@ import contextlib
 import io
 import os
 import tempfile
-import torch
+from distutils.version import LooseVersion
 
+import torch
+import pytorch_lightning as pl
 from pytorch_lightning import Trainer, Callback
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
-from pytorch_lightning.utilities.model_helpers import is_overridden
 
 from horovod.spark.common import constants
 from horovod.spark.common.util import _get_assigned_gpu_or_default, to_list
@@ -116,8 +117,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             print("Creating trainer with: \n ", kwargs)
             trainer = Trainer(**kwargs)
 
-            import pytorch_lightning
-            print(f"pytorch_lightning version={pytorch_lightning.__version__}")
+            print(f"pytorch_lightning version={pl.__version__}")
 
             # print row group
             # pq.ParquetFile(remote_store.train_data_path)
@@ -172,7 +172,14 @@ def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calcula
         from petastorm import TransformSpec, make_reader, make_batch_reader
         import horovod.torch as hvd
 
-        if not should_read or is_overridden(dataloader_attr, model):
+        is_loader_overridden = False
+        if LooseVersion(pl.__version__) >= LooseVersion('1.2.0'):
+            from pytorch_lightning.utilities.model_helpers import is_overridden
+            is_loader_overridden = is_overridden(dataloader_attr, model)
+        else:
+            is_loader_overridden = trainer.is_overridden(dataloader_attr, model)
+
+        if not should_read or is_loader_overridden:
             yield
             return
 
