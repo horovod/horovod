@@ -288,3 +288,10 @@ class HorovodBasics(object):
           A boolean value indicating whether ROCm support was compiled.
         """
         return bool(self.MPI_LIB_CTYPES.horovod_rocm_built())
+
+    def add_process_set(self, ranks):
+        assert isinstance(ranks, list)
+        nrank = len(ranks)
+        return self.MPI_LIB_CTYPES.horovod_add_process_set(
+            (ctypes.c_int * nrank)(*ranks), ctypes.c_int(nrank))
+

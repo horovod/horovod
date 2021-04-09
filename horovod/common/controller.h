@@ -60,6 +60,8 @@ public:
 
   virtual void Barrier(CommunicatorType communicator) = 0;
 
+  virtual void AllgatherInt(int value, std::vector<int>& recv_values) = 0;
+
   //
   // Concrete controller functions
   //
@@ -127,6 +129,7 @@ public:
   };
   bool IsCoordinator() const { return is_coordinator_; };
   bool IsHomogeneous() const { return is_homogeneous_; };
+  bool IsInitialized() const { return is_initialized_; }
   StallInspector& GetStallInspector() { return stall_inspector_; };
 
 protected:
@@ -174,6 +177,8 @@ protected:
   // Requests for that tensor is now equal to the HOROVOD size (and thus we are
   // ready to reduce the tensor).
   bool IncrementTensorCount(const Request& msg, int joined_size = 0);
+
+  bool is_initialized_ = false;
 
   int rank_ = 0;
   int local_rank_ = 0;

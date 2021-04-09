@@ -66,11 +66,15 @@ void Controller::Initialize() {
 
   // Initialize concrete implementations.
   DoInitialization();
+
+  is_initialized_ = true;
 }
 
 ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
                                              HorovodGlobalState& state,
                                              ProcessSet& process_set) {
+  assert(IsInitialized());
+
   // Update cache capacity if autotuning is active.
   if (parameter_manager_.IsAutoTuning()) {
     response_cache_.set_capacity((int)parameter_manager_.CacheEnabled() *

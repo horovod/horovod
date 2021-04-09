@@ -64,6 +64,8 @@ public:
 
   void Barrier(CommunicatorType communicator) override;
 
+  void AllgatherInt(int value, std::vector<int>& recv_values) override;
+
   bool IsMpiThreadsSupported() const { return mpi_threads_supported_; }
 
 protected:

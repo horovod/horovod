@@ -109,6 +109,14 @@ int horovod_reduce_op_sum();
 // C interface to return value of the ReduceOp::ADASUM enum field.
 int horovod_reduce_op_adasum();
 
+// C interface to register a new process set containing the given ranks.
+// Returns positive process set id or -1 if Horovod is not initialized.
+int horovod_add_process_set(const int *ranks, int nranks);
+
+// C interface to deregister a previously registered process set.
+// Returns -1 if Horovod is not initialized.
+int horovod_remove_process_set(int process_set_id);
+
 }
 
 Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,

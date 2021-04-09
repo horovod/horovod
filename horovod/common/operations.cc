@@ -344,7 +344,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   auto mpi_ctx_manager = MPIContextManager();
 #endif
   mpi_context.Initialize(mpi_ctx_manager);
-  state.process_set_table.Initialize(mpi_context);
+  state.process_set_table.Initialize(mpi_context); // Initializes global controller as well
 #endif
 
 #if HAVE_GLOO
@@ -359,9 +359,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
       gloo_context.Initialize(ParseGlooIface());
     }
 #endif
-  // Initialize controller
-  state.global_controller->Initialize();
 
+  assert(state.global_controller->IsInitialized());
   bool is_coordinator = state.global_controller->IsCoordinator();
   bool is_homogeneous = state.global_controller->IsHomogeneous();
   int size = state.global_controller->GetSize();
@@ -585,12 +584,21 @@ bool RunLoopOnce(HorovodGlobalState& state) {
     state.timeline.MarkCycleStart();
   }
 
+  // Initialize any newly added process set that has been registered by all
+  // Horovod processes.
+  state.process_set_table.InitializeRegisteredIfReady(mpi_context);
+
   std::unordered_map<int32_t, ResponseList> process_set_response_lists;
   for (auto process_set_id : state.process_set_table.Ids()) {
     auto& process_set = state.process_set_table.Get(process_set_id);
+    if (!process_set.initialization_done) {
+      continue;
+    }
     process_set_response_lists.emplace(
-        process_set_id, process_set.controller->ComputeResponseList(
-                            horovod_global.shut_down, state, process_set));
+        process_set_id, process_set.IsCurrentProcessIncluded()
+                            ? process_set.controller->ComputeResponseList(
+                                  horovod_global.shut_down, state, process_set)
+                            : ResponseList());
   }
   state.mark_cycles_in_timeline =
       state.timeline_controller.MarkCyclesInTimelinePending();
@@ -598,6 +606,9 @@ bool RunLoopOnce(HorovodGlobalState& state) {
   bool should_shutdown = false;
   for (auto process_set_id : state.process_set_table.Ids()) {
     auto& process_set = state.process_set_table.Get(process_set_id);
+    if (!process_set.initialization_done) {
+      continue;
+    }
     auto& response_list = process_set_response_lists[process_set_id];
 
     // Get tensor name and size data for autotuning. // TODO: extend for all process sets?
@@ -644,6 +655,16 @@ bool RunLoopOnce(HorovodGlobalState& state) {
   return !should_shutdown;
 }
 
+#if HAVE_MPI
+void EnrichProcessSetWithMPIController(ProcessSet& process_set) {
+  process_set.controller.reset(new MPIController(
+      process_set.response_cache, process_set.tensor_queue,
+      horovod_global.timeline, horovod_global.parameter_manager,
+      process_set.group_table, horovod_global.timeline_controller, mpi_context,
+      process_set.mpi_comms));
+}
+#endif // HAVE_MPI
+
 // Start Horovod background thread. Ensure that this is
 // only done once no matter how many times this function is called.
 void InitializeHorovodOnce(const int* ranks, int nranks) {
@@ -660,12 +681,7 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
 
     if (horovod_global.control_operation == LibType::MPI) {
       auto& process_set = horovod_global.process_set_table.Get(0);
-      // TODO: Move the controller resetting into a ProcessSet member function
-      process_set.controller.reset(new MPIController(
-          process_set.response_cache, process_set.tensor_queue,
-          horovod_global.timeline, horovod_global.parameter_manager,
-          process_set.group_table, horovod_global.timeline_controller,
-          mpi_context, process_set.mpi_comms));
+      EnrichProcessSetWithMPIController(process_set);
       horovod_global.global_controller = process_set.controller;
     }
 #endif
@@ -912,6 +928,40 @@ int horovod_reduce_op_sum() {
 int horovod_reduce_op_adasum() {
   return ReduceOp::ADASUM;
 }
+
+int horovod_add_process_set(const int *ranks, int nrank) {
+  if (!horovod_global.initialization_done) {
+    return -1;
+  }
+  // TODO: check if ranks are valid
+  int id = horovod_global.process_set_table.RegisterProcessSet(
+      ranks && nrank > 0
+          ? std::vector<int>(ranks, ranks + nrank)
+          : std::vector<int>());
+  auto& process_set = horovod_global.process_set_table.Get(id);
+#if HAVE_MPI
+  EnrichProcessSetWithMPIController(process_set);
+  // TODO: Replace by generic call that builds a Gloo or MPI controller as nececssary
+#endif // HAVE_MPI
+  process_set.response_cache.set_capacity(
+      (int)horovod_global.parameter_manager.CacheEnabled() *
+      horovod_global.cache_capacity);
+
+  // Block until the background thread has initialized the process set.
+  while (true) {
+    if (process_set.initialization_done) {
+      return id;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+}
+
+int horovod_remove_process_set(int process_set_id) {
+  // TODO: implement
+  return -1;
+}
+
+
 
 }
 
