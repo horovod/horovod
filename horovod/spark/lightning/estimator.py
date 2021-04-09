@@ -21,6 +21,7 @@ import numbers
 import os
 import time
 import warnings
+from distutils.version import LooseVersion
 
 from pyspark import keyword_only
 from pyspark.ml.param.shared import Param, Params, TypeConverters
