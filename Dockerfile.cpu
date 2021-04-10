@@ -45,7 +45,7 @@ RUN pip install future typing
 RUN pip install tensorflow-cpu==${TENSORFLOW_VERSION} \
                 keras \
                 h5py
-RUN pip install torch==${PYTORCH_VERSION} torchvision==${TORCHVISION_VERSION} pytorch_lightning=={PYTORCH_LIGHTNING_VERSION}
+RUN pip install torch==${PYTORCH_VERSION} torchvision==${TORCHVISION_VERSION} pytorch_lightning==${PYTORCH_LIGHTNING_VERSION}
 RUN pip install mxnet==${MXNET_VERSION}
 
 # Install Spark stand-alone cluster.
