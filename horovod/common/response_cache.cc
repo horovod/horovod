@@ -360,8 +360,8 @@ const std::set<uint32_t>& CacheCoordinator::timeline_bits() const {
   return timeline_bits_;
 }
 
-bool CacheCoordinator::should_shut_down() const {
-  assert(synced_);
+bool CacheCoordinator::should_shut_down(bool dont_worry_about_synced) const {
+  assert(dont_worry_about_synced || synced_);
   return should_shut_down_;
 }
 
