@@ -71,7 +71,7 @@ struct ProcessSet {
   ProcessSet(const ProcessSet&) = delete;
 };
 
-// TODO: Special handling for id=0 (global process set)?
+// TODO: Make more explicit that id=0 (the global process set) is special?
 
 class ProcessSetTable {
 public:

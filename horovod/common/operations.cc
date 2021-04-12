@@ -270,7 +270,7 @@ void PerformOperation(Response response, ProcessSet& process_set) {
       // since buffer allocated here is guaranteed to survive at least till the
       // end of this operation.
       Status status = horovod_global.fusion_buffer.InitializeBuffer(
-          process_set.controller->TensorFusionThresholdBytes(),   // TODO: Should TensorFusionThresholdBytes be process_set specific?
+          process_set.controller->TensorFusionThresholdBytes(),
           first_entry.device, first_entry.context,
           horovod_global.current_nccl_stream,
           [&]() { timeline.ActivityStartAll(entries, INIT_FUSION_BUFFER); },
@@ -447,7 +447,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     state.parameter_manager.SetCacheEnabled(cache_capacity > 0, true);
   }
   state.process_set_table.Get(0).response_cache.set_capacity(
-      (int)state.parameter_manager.CacheEnabled() * state.cache_capacity); // TODO: need to do that for each process set
+      (int)state.parameter_manager.CacheEnabled() * state.cache_capacity);
 
   // Set flag for hierarchical allgather. Ignore if Horovod is running on a
   // single node.
@@ -937,6 +937,7 @@ int horovod_add_process_set(const int *ranks, int nrank) {
     return -1;
   }
   // TODO: check if ranks are valid
+  // TODO: Verify that each process adds matching ranks
   int id = horovod_global.process_set_table.RegisterProcessSet(
       ranks && nrank > 0
           ? std::vector<int>(ranks, ranks + nrank)
