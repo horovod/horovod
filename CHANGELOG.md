@@ -20,6 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Added retry when sending host discovery updates. ([#2838](https://github.com/horovod/horovod/pull/2838))
+
 ## [v0.21.3] - 2021-02-15
 
 ### Added
