@@ -22,7 +22,7 @@ void ProcessSet::Initialize(const MPIContext& mpi_context) {
   if (initialization_done) {
     return;
   }
-  LOG(TRACE) << "Initializing new process set.";
+  LOG(TRACE) << "Initializing new process set with MPI.";
   assert(controller != nullptr);
   mpi_comms.Initialize(mpi_context, registered_global_ranks_);
   if (IsCurrentProcessIncluded()) {
@@ -31,6 +31,18 @@ void ProcessSet::Initialize(const MPIContext& mpi_context) {
   initialization_done = true;
 }
 #endif // HAVE_MPI
+
+#if HAVE_GLOO
+void ProcessSet::Initialize(const GlooContext& gloo_context) {
+  if (initialization_done) {
+    return;
+  }
+  assert(controller != nullptr);
+  controller->Initialize();
+  initialization_done = true;
+}
+#endif // HAVE_GLOO
+
 
 void ProcessSet::Finalize(const Status& status) {
   tensor_queue.FinalizeTensorQueue(status);
@@ -72,6 +84,14 @@ void ProcessSetTable::InitializeRegisteredIfReady(const MPIContext& mpi_context)
   }
 }
 #endif // HAVE_MPI
+
+#if HAVE_GLOO
+void ProcessSetTable::Initialize(const GlooContext& gloo_context) {
+  std::lock_guard<std::recursive_mutex> guard(mutex_);
+  assert(next_id_ == 1);  // exactly one process set is registered
+  Get(0).Initialize(gloo_context);
+}
+#endif // HAVE_GLOO
 
 void ProcessSetTable::Finalize(const Status& status) {
   std::lock_guard<std::recursive_mutex> guard(mutex_);
