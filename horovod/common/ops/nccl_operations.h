@@ -34,7 +34,7 @@
 #include "gpu_operations.h"
 
 #include <functional>
-#include <boost/functional/hash.hpp>
+#include <boost/container_hash/hash.hpp>
 
 namespace horovod {
 namespace common {
