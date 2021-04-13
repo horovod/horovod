@@ -91,12 +91,10 @@ public:
   void InitializeRegisteredIfReady(const GlooContext& gloo_context);
 #endif // HAVE_GLOO
 
-  // Finalize tensor queues and communicators and deregister process sets.
+  // Finalize tensor queues and communicators and remove all process sets.
   void Finalize(const Status& status);
 
   int32_t RegisterProcessSet(const std::vector<int>& global_ranks = {});
-
-  void DeregisterProcessSet(int32_t process_set_id);
 
   std::vector<int32_t> Ids() const; // Returns copy to be threadsafe
 
@@ -109,6 +107,8 @@ public:
   void RemoveMarkedProcessSetIfReady();
 
 private:
+  void DeregisterProcessSet(int32_t process_set_id);
+
   // Guard access to the table by this mutex
   mutable std::recursive_mutex mutex_;
 
