@@ -350,6 +350,9 @@ class TensorFlowTests(tf.test.TestCase):
         if hvd.gloo_enabled():
             self.skipTest("Multiple process sets currently do not support Gloo controller.")
 
+        if hvd.ccl_built:
+            self.skipTest("Multiple process sets currently do not support CCL.")
+
         even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
         odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
 
