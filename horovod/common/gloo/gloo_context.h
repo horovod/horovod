@@ -47,7 +47,8 @@ namespace common {
 struct GlooContext {
 
 #if HAVE_MPI
-  void InitializeFromMPI(MPIContext& mpi_ctx, const std::string& gloo_iface);
+  void InitializeFromMPI(const MPICommunicators& mpi_comms,
+                         const std::string& gloo_iface);
 #endif
 
   void Initialize(const std::string& gloo_iface);

@@ -351,7 +351,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 #if HAVE_MPI
     if (mpi_context.IsEnabled()) {
       // Initialize gloo context if mpi context is available
-      gloo_context.InitializeFromMPI(mpi_context, ParseGlooIface());
+      gloo_context.InitializeFromMPI(state.process_set_table.Get(0).mpi_comms,
+                                     ParseGlooIface());
     }
     else
 #endif
@@ -668,6 +669,16 @@ void EnrichProcessSetWithMPIController(ProcessSet& process_set) {
 }
 #endif // HAVE_MPI
 
+#if HAVE_GLOO
+void EnrichProcessSetWithGlooController(ProcessSet& process_set) {
+  process_set.controller.reset(new GlooController(
+      process_set.response_cache, process_set.tensor_queue,
+      horovod_global.timeline, horovod_global.parameter_manager,
+      process_set.group_table, horovod_global.timeline_controller,
+      gloo_context));
+}
+#endif // HAVE_GLOO
+
 // Start Horovod background thread. Ensure that this is
 // only done once no matter how many times this function is called.
 void InitializeHorovodOnce(const int* ranks, int nranks) {
@@ -676,7 +687,7 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
     horovod_global.control_operation = ParseControllerOpsFromEnv();
     horovod_global.cpu_operation = ParseCPUOpsFromEnv();
 #if HAVE_MPI
-    // Enable mpi is it's used either in cpu data transfer or controller
+    // Enable mpi if it's used either in cpu data transfer or controller
     if (horovod_global.cpu_operation == LibType::MPI ||
         horovod_global.control_operation == LibType::MPI) {
       mpi_context.Enable(ranks, nranks);
@@ -697,11 +708,9 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
     }
 
     if (horovod_global.control_operation == LibType::GLOO) {
-      horovod_global.controller.reset(new GlooController(
-          horovod_global.response_cache,
-          horovod_global.tensor_queue, horovod_global.timeline,
-          horovod_global.parameter_manager, horovod_global.group_table,
-          horovod_global.timeline_controller, gloo_context));
+      auto& process_set = horovod_global.process_set_table.Get(0);
+      EnrichProcessSetWithGlooController(process_set);
+      horovod_global.global_controller = process_set.controller;
     }
 #endif
     // Reset initialization flag
@@ -933,6 +942,10 @@ int horovod_reduce_op_adasum() {
 }
 
 int horovod_add_process_set(const int *ranks, int nrank) {
+  if (horovod_gloo_enabled()) {
+    throw std::logic_error("Multiple process sets are only supported with "
+                           "MPI controllers, not Gloo.");  // TODO: extend this
+  }
   if (!horovod_global.initialization_done) {
     return -1;
   }
@@ -961,6 +974,10 @@ int horovod_add_process_set(const int *ranks, int nrank) {
 }
 
 int horovod_remove_process_set(int process_set_id) {
+  if (horovod_gloo_enabled()) {
+    throw std::logic_error("Multiple process sets are only supported with "
+                           "MPI controllers, not Gloo.");
+  }
   if (!horovod_global.initialization_done) {
     return -1;
   }

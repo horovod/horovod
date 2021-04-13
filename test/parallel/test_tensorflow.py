@@ -347,6 +347,9 @@ class TensorFlowTests(tf.test.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
+        if hvd.gloo_enabled():
+            self.skipTest("Multiple process sets currently do not support Gloo controller.")
+
         even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
         odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
 
@@ -663,6 +666,9 @@ class TensorFlowTests(tf.test.TestCase):
         if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        if hvd.gloo_enabled():
+            self.skipTest("Multiple process sets currently do not support Gloo controller.")
 
         hvd.init()
         local_rank = hvd.local_rank()

@@ -118,8 +118,10 @@ GlooAllreduce::GlooAllreduce(GlooContext* gloo_context,
 
 Status GlooAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                               const Response& response) {
+  assert(!entries.empty());
   WaitForData(entries);
   auto& first_entry = entries[0];
+  assert(first_entry.process_set_id == 0);  // TODO: generalize
 
   const void* fused_input_data;
   void* buffer_data;
@@ -186,6 +188,9 @@ Status GlooAllgather::Execute(std::vector<TensorTableEntry>& entries,
                               const Response& response) {
   WaitForData(entries);
 
+  assert(!entries.empty());
+  auto& first_entry = entries[0];
+  assert(first_entry.process_set_id == 0);  // TODO: generalize
   auto& timeline = global_state_->timeline;
 
   // Sizes of subcomponents of each entry from all ranks
@@ -195,7 +200,7 @@ Status GlooAllgather::Execute(std::vector<TensorTableEntry>& entries,
   // allgatherv
   auto** entry_component_offsets = new int64_t*[entries.size()];
 
-  int global_size = global_state_->controller->GetSize();
+  int global_size = global_state_->global_controller->GetSize();
   auto* recvcounts = new int[global_size]();
   auto* displcmnts = new int[global_size]();
 
@@ -204,7 +209,6 @@ Status GlooAllgather::Execute(std::vector<TensorTableEntry>& entries,
     entry_component_offsets[ec] = new int64_t[global_size]();
   }
 
-  auto& first_entry = entries[0];
 
   timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
   Status status =
@@ -223,7 +227,7 @@ Status GlooAllgather::Execute(std::vector<TensorTableEntry>& entries,
   }
   timeline.ActivityEndAll(entries);
 
-  SetDisplacements(recvcounts, displcmnts);
+  SetDisplacements(recvcounts, displcmnts, global_size);
   SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts,
                            entry_component_offsets);
 
@@ -285,12 +289,13 @@ Status GlooBroadcast::Execute(std::vector<TensorTableEntry>& entries,
 
   assert(entries.size() == 1);
   auto e = entries[0];
+  assert(e.process_set_id == 0);  // TODO: generalize
 
   // On root rank, MPI_Bcast sends data, on other ranks it receives data.
   // for gloo broadcast, only output needs to be set if inplace
 
   void* data_ptr;
-  if (global_state_->controller->GetRank() == e.root_rank) {
+  if (global_state_->global_controller->GetRank() == e.root_rank) {
     data_ptr = (void*)e.tensor->data();
   } else {
     data_ptr = (void*)e.output->data();
@@ -321,6 +326,7 @@ Status GlooAlltoall::Execute(std::vector<TensorTableEntry>& entries, const Respo
 
   assert(entries.size() == 1);
   auto e = entries[0];
+  assert(e.process_set_id == 0);  // TODO: generalize
 
   std::vector<int64_t> sdispls, rdispls;
   std::vector<int64_t> sendcounts, recvcounts;

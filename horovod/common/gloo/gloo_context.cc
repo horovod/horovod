@@ -84,7 +84,7 @@ std::shared_ptr<gloo::Context> Rendezvous(const std::string& prefix,
 }
 
 #if HAVE_MPI
-void GlooContext::InitializeFromMPI(MPIContext& mpi_ctx,
+void GlooContext::InitializeFromMPI(const MPICommunicators& mpi_comms,
                                     const std::string& gloo_iface) {
   if (!enabled_) {
     return;
@@ -99,19 +99,19 @@ void GlooContext::InitializeFromMPI(MPIContext& mpi_ctx,
   auto timeout = GetTimeoutFromEnv();
 
   auto context =
-      std::make_shared<gloo::mpi::Context>(mpi_ctx.GetMPICommunicator(GLOBAL));
+      std::make_shared<gloo::mpi::Context>(mpi_comms.Get(GLOBAL));
   context->setTimeout(timeout);
   context->connectFullMesh(dev);
   ctx = context;
 
   auto cross_context =
-      std::make_shared<gloo::mpi::Context>(mpi_ctx.GetMPICommunicator(CROSS));
+      std::make_shared<gloo::mpi::Context>(mpi_comms.Get(CROSS));
   cross_context->setTimeout(timeout);
   cross_context->connectFullMesh(dev);
   cross_ctx = cross_context;
 
   auto local_context =
-      std::make_shared<gloo::mpi::Context>(mpi_ctx.GetMPICommunicator(LOCAL));
+      std::make_shared<gloo::mpi::Context>(mpi_comms.Get(LOCAL));
   local_context->setTimeout(timeout);
   local_context->connectFullMesh(dev);
   local_ctx = local_context;

@@ -282,5 +282,14 @@ void GlooController::Barrier(CommunicatorType communicator) {
   gloo::barrier(opts);
 }
 
+void GlooController::AllgatherInt(int value, std::vector<int>& recv_values) {
+  recv_values.resize(size_);
+  gloo::AllgatherOptions opts(
+      gloo_context_.GetGlooContext(CommunicatorType::GLOBAL));
+  opts.setInput(&value, 1);
+  opts.setOutput(recv_values.data(), size_);
+  gloo::allgather(opts);
+}
+
 } // namespace common
 } // namespace horovod
