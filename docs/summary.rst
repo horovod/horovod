@@ -282,11 +282,11 @@ See `Run Horovod <running.rst>`_ for more details, including RoCE/InfiniBand twe
 
        $ horovodrun -np 16 -H server1:4,server2:4,server3:4,server4:4 python train.py
 
-3. To run using Open MPI without the ``horovodrun`` wrapper, see `Running Horovod with Open MPI <mpirun.rst>`_.
+3. To run using Open MPI without the ``horovodrun`` wrapper, see `Running Horovod with Open MPI <mpi.rst>`_.
 
 4. To run in Docker, see `Horovod in Docker <docker.rst>`_.
 
-5. To run in Kubernetes, see `Kubeflow <https://github.com/kubeflow/examples/tree/master/demos/yelp_demo/ks_app/vendor/kubeflow/mpi-job>`_, `MPI Operator <https://github.com/kubeflow/mpi-operator/>`_, `Helm Chart <https://github.com/kubernetes/charts/tree/master/stable/horovod/>`_, `FfDL <https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/>`_, and `Polyaxon <https://docs.polyaxon.com/integrations/horovod/>`_.
+5. To run on Kubernetes, see `Kubeflow MPI Operator <https://github.com/kubeflow/mpi-operator/>`_, `Helm Chart <https://github.com/kubernetes/charts/tree/master/stable/horovod/>`_, `FfDL <https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/>`_, and `Polyaxon <https://docs.polyaxon.com/integrations/horovod/>`_.
 
 6. To run on Spark, see `Horovod on Spark <spark.rst>`_.
 
