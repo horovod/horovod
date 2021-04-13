@@ -46,6 +46,12 @@
 [submodule "third_party/boost/container_hash"]
 	path = third_party/boost/container_hash
 	url = https://github.com/boostorg/container_hash.git
+[submodule "third_party/boost/integer"]
+	path = third_party/boost/integer
+	url = https://github.com/boostorg/integer.git
+[submodule "third_party/boost/throw_exception"]
+	path = third_party/boost/throw_exception
+	url = https://github.com/boostorg/throw_exception.git
 [submodule "third_party/flatbuffers"]
 	path = third_party/flatbuffers
 	url = https://github.com/google/flatbuffers.git
