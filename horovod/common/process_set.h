@@ -55,8 +55,7 @@ struct ProcessSet {
 #endif // HAVE_MPI
 
 #if HAVE_GLOO
-  void Initialize(const GlooContext& gloo_context,
-                  const std::vector<int>& global_ranks = {});
+  void Initialize(const GlooContext& gloo_context);
 #endif // HAVE_GLOO
 
   // Finalize tensor queue and communicators.
@@ -88,7 +87,7 @@ public:
 #if HAVE_GLOO
   void Initialize(const GlooContext& gloo_context);
 
-  void InitializeRegisteredIfReady(const GlooContext& gloo_context);
+  // void InitializeRegisteredIfReady(const GlooContext& gloo_context);
 #endif // HAVE_GLOO
 
   // Finalize tensor queues and communicators and remove all process sets.

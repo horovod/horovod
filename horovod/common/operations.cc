@@ -372,6 +372,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 #endif
     {
       gloo_context.Initialize(ParseGlooIface());
+      state.process_set_table.Initialize(gloo_context); // Initializes global controller
     }
 #endif
 
@@ -600,12 +601,16 @@ bool RunLoopOnce(HorovodGlobalState& state) {
     state.timeline.MarkCycleStart();
   }
 
+#if HAVE_MPI
   // Initialize any newly added process set that has been registered by all
   // Horovod processes.
-  state.process_set_table.InitializeRegisteredIfReady(mpi_context);
-  // Remove a process set that has been marked for removal by all Horovod
-  // processes.
-  state.process_set_table.RemoveMarkedProcessSetIfReady();
+  if (mpi_context.IsEnabled()) {
+    state.process_set_table.InitializeRegisteredIfReady(mpi_context);
+    // Remove a process set that has been marked for removal by all Horovod
+    // processes.
+    state.process_set_table.RemoveMarkedProcessSetIfReady();
+  }
+#endif // HAVE_MPI
 
   std::unordered_map<int32_t, ResponseList> process_set_response_lists;
   for (auto process_set_id : state.process_set_table.Ids()) {
@@ -729,7 +734,7 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
 #endif
 
 #if HAVE_GLOO
-    // Enable gloo is it's used either in cpu data transfer or controller
+    // Enable gloo if it's used either in cpu data transfer or controller
     if (horovod_global.cpu_operation == LibType::GLOO ||
         horovod_global.control_operation == LibType::GLOO) {
       gloo_context.Enable();
