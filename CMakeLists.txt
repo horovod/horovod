@@ -32,6 +32,7 @@ create_metadata()
 include_directories("third_party/HTTPRequest/include"
         "third_party/boost/assert/include"
         "third_party/boost/config/include"
+        "third_party/boost/container_hash/include"
         "third_party/boost/core/include"
         "third_party/boost/detail/include"
         "third_party/boost/iterator/include"
