@@ -11,10 +11,8 @@ ProcessSet::ProcessSet(std::vector<int> global_ranks)
     : registered_global_ranks_(std::move(global_ranks)) {}
 
 bool ProcessSet::IsCurrentProcessIncluded() const {
-#if HAVE_MPI
-  return mpi_comms.Get(CommunicatorType::GLOBAL) != MPI_COMM_NULL;
-#endif // HAVE_MPI
-  return true;
+  assert(initialization_done);
+  return controller->IsInitialized();
 }
 
 #if HAVE_MPI
@@ -25,7 +23,8 @@ void ProcessSet::Initialize(const MPIContext& mpi_context) {
   LOG(TRACE) << "Initializing new process set with MPI.";
   assert(controller != nullptr);
   mpi_comms.Initialize(mpi_context, registered_global_ranks_);
-  if (IsCurrentProcessIncluded()) {
+  if (mpi_comms.Get(CommunicatorType::GLOBAL) != MPI_COMM_NULL) {
+    // The running process is part of this process set.
     controller->Initialize();
   }
   initialization_done = true;
@@ -38,7 +37,7 @@ void ProcessSet::Initialize(const GlooContext& gloo_context) {
     return;
   }
   assert(controller != nullptr);
-  controller->Initialize();
+  controller->Initialize();  // TODO: only initialize controller if this process belongs to the process set
   initialization_done = true;
 }
 #endif // HAVE_GLOO

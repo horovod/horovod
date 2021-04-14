@@ -343,8 +343,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // Otherwise, let MPI ops be in charge.
   auto mpi_ctx_manager = MPIContextManager();
 #endif
-  mpi_context.Initialize(mpi_ctx_manager);
-  state.process_set_table.Initialize(mpi_context); // Initializes global controller as well
+  if (mpi_context.IsEnabled()) {
+    mpi_context.Initialize(mpi_ctx_manager);
+    state.process_set_table.Initialize(mpi_context); // Initializes global controller as well
+  }
 #endif
 
 #if HAVE_GLOO
