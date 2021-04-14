@@ -89,6 +89,13 @@ void GlooController::DoInitialization() {
     cross_size_ = gloo_context_.cross_ctx->size;
   }
 
+  // TODO: Update for process set support
+  global_ranks_.reserve(size_);
+  for (int r = 0; r < size_; ++r) {
+    global_ranks_.push_back(r);
+    global_rank_to_all_rank_.emplace(r, r);
+  }
+
   LOG(DEBUG) << "Gloo controller initialized.";
 }
 

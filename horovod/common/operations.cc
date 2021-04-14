@@ -1207,7 +1207,7 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   } catch (const std::out_of_range& e) {
     return Status::InvalidArgument(
         "broadcast received invalid root rank " + std::to_string(root_rank) +
-        "for process set " + std::to_string(process_set_id));
+        " for process set " + std::to_string(process_set_id));
   }
 
   Request message;

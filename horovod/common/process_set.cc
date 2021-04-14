@@ -49,6 +49,7 @@ void ProcessSet::Finalize(const Status& status) {
 #if HAVE_MPI
   mpi_comms.Finalize();
 #endif // HAVE_MPI
+  initialization_done = false;
 }
 
 ProcessSetTable::ProcessSetTable() {
@@ -97,6 +98,13 @@ void ProcessSetTable::Finalize(const Status& status) {
   std::lock_guard<std::recursive_mutex> guard(mutex_);
   std::vector<int32_t> ids_copy(ids_.begin(), ids_.end());
   for (auto id: ids_copy) {
+    if (id == 0) {
+      // The process set hosting the global controller needs to remain in the
+      // table to allow a future re-initialization of Horovod (it must still
+      // be re-initialized then).
+      id_to_process_set_[id].initialization_done = false;
+      continue;
+    }
     id_to_process_set_[id].Finalize(status);
     DeregisterProcessSet(id);
   }
