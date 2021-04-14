@@ -17,20 +17,6 @@
 // limitations under the License.
 // =============================================================================
 
-#include <csignal>
-#include <cstdio>
-#include <unistd.h>
-
-
-void maxg_signal_handler(int signo)
-{
-  int i = 1;
-  fprintf(stderr, "pid=%d, got signal=%d\n", getpid(), signo);
-  while (i) { }
-}
-
-
-
 #include "operations.h"
 
 #include <atomic>
@@ -547,7 +533,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     while (RunLoopOnce(state));
   } catch (const std::exception& ex) {
     LOG(ERROR) << "Horovod background loop uncaught exception: " << ex.what();
-    maxg_signal_handler(-1);
   }
 
     // Finalize all contexts
@@ -702,19 +687,6 @@ void EnrichProcessSetWithGlooController(ProcessSet& process_set) {
 // Start Horovod background thread. Ensure that this is
 // only done once no matter how many times this function is called.
 void InitializeHorovodOnce(const int* ranks, int nranks) {
-    fputs("Setting SIGSEGV signal handler\n", stderr);
-    if (signal(SIGSEGV, maxg_signal_handler) == SIG_ERR) {
-        fputs("An error occurred while setting a signal handler.\n", stderr);
-        exit(EXIT_FAILURE);
-    }
-
-    fputs("Setting SIGABRT signal handler\n", stderr);
-    if (signal(SIGABRT, maxg_signal_handler) == SIG_ERR) {
-        fputs("An error occurred while setting a signal handler.\n", stderr);
-        exit(EXIT_FAILURE);
-    }
-
-
   // Ensure background thread is only started once.
   if (!horovod_global.initialize_flag.test_and_set()) {
     horovod_global.control_operation = ParseControllerOpsFromEnv();
