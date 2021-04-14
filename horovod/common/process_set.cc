@@ -97,15 +97,13 @@ void ProcessSetTable::Finalize(const Status& status) {
   std::lock_guard<std::recursive_mutex> guard(mutex_);
   std::vector<int32_t> ids_copy(ids_.begin(), ids_.end());
   for (auto id: ids_copy) {
-    if (id == 0) {
+    id_to_process_set_[id].Finalize(status);
+    if (id != 0) {
       // The process set hosting the global controller needs to remain in the
       // table to allow a future re-initialization of Horovod (it must still
-      // be re-initialized then).
-      id_to_process_set_[id].initialization_done = false;
-      continue;
+      // be finalized now and re-initialized then).
+      DeregisterProcessSet(id);
     }
-    id_to_process_set_[id].Finalize(status);
-    DeregisterProcessSet(id);
   }
 }
 
