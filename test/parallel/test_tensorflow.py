@@ -767,6 +767,9 @@ class TensorFlowTests(tf.test.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
+        if hvd.gloo_enabled():
+            self.skipTest("Multiple process sets currently do not support Gloo controller.")
+
         # This test does not apply if there is only one worker.
         if size == 1:
             self.skipTest("Only one worker available")
