@@ -16,12 +16,18 @@
 
 from horovod.common.util import check_extension
 
+_MPI_LIB_AVAILABLE = True
 try:
     check_extension('horovod.torch', 'HOROVOD_WITH_PYTORCH',
                     __file__, 'mpi_lib_v2')
 except:
-    check_extension('horovod.torch', 'HOROVOD_WITH_PYTORCH',
+    try:
+        check_extension('horovod.torch', 'HOROVOD_WITH_PYTORCH',
                     __file__, 'mpi_lib', '_mpi_lib')
+    except:
+        print("MPI libs is not a not be loaded. Only works in unit tests.")
+        _MPI_LIB_AVAILABLE = False
+
 
 from horovod.torch import elastic
 from horovod.torch.compression import Compression
