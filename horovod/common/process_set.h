@@ -97,6 +97,8 @@ public:
 
   std::vector<int32_t> Ids() const; // Returns copy to be threadsafe
 
+  bool Contains(int32_t id) const;
+
   ProcessSet& Get(int32_t id);
 
   void MarkProcessSetForRemoval(int32_t process_set_id);

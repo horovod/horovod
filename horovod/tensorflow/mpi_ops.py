@@ -239,7 +239,7 @@ def _allgather_grad(op, grad):
     return splits[rank()]
 
 
-def broadcast(tensor, root_rank, name=None, ignore_name_scope=False):
+def broadcast(tensor, root_rank, name=None, ignore_name_scope=False, process_set=0):
     """An op which broadcasts the input tensor on root rank to the same input tensor
     on all other Horovod processes.
 
@@ -254,7 +254,8 @@ def broadcast(tensor, root_rank, name=None, ignore_name_scope=False):
     if name is None and not _executing_eagerly():
         name = 'HorovodBroadcast_%s' % _normalize_name(tensor.name)
     return MPI_LIB.horovod_broadcast(tensor, name=name, root_rank=root_rank,
-                                     ignore_name_scope=ignore_name_scope)
+                                     ignore_name_scope=ignore_name_scope,
+                                     process_set=process_set)
 
 
 @ops.RegisterGradient('HorovodBroadcast')
@@ -277,7 +278,7 @@ def _broadcast_grad(op, grad):
     return grad_reduced
 
 
-def alltoall(tensor, splits=None, name=None, ignore_name_scope=False):
+def alltoall(tensor, splits=None, name=None, ignore_name_scope=False, process_set=0):
     """An op that scatters slices of the input tensor to all other Horovod processes
     and returns a tensor of gathered slices from all other Horovod processes.
 
@@ -311,7 +312,8 @@ def alltoall(tensor, splits=None, name=None, ignore_name_scope=False):
     if name is None and not _executing_eagerly():
         name = 'HorovodAlltoall_%s' % _normalize_name(tensor.name)
     output, rsplits = MPI_LIB.horovod_alltoall(tensor, splits=splits_, name=name,
-                                               ignore_name_scope=ignore_name_scope)
+                                               ignore_name_scope=ignore_name_scope,
+                                               process_set=process_set)
     return (output, rsplits) if splits is not None else output
 
 @ops.RegisterGradient('HorovodAlltoall')

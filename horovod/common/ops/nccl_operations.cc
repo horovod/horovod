@@ -413,7 +413,6 @@ Status NCCLBroadcast::Execute(std::vector<TensorTableEntry>& entries,
                               const Response& response) {
   assert(entries.size() == 1);
   auto e = entries[0];
-  assert(e.process_set_id == 0);  // TODO: generalize
   auto& process_set = global_state_->process_set_table.Get(e.process_set_id);
 
   gpu_op_context_.InitGPU(entries);
@@ -586,7 +585,6 @@ Status NCCLAlltoall::Execute(std::vector<TensorTableEntry>& entries,
 #ifdef NCCL_P2P_SUPPORTED
   assert(entries.size() == 1);
   auto e = entries[0];
-  assert(e.process_set_id == 0);  // TODO: generalize
   auto& process_set = global_state_->process_set_table.Get(e.process_set_id);
 
   gpu_op_context_.InitGPU(entries);
@@ -601,8 +599,6 @@ Status NCCLAlltoall::Execute(std::vector<TensorTableEntry>& entries,
   }
 
   auto world_size = process_set.controller->GetSize();
-  const void* sendbuf = e.tensor->data();
-  void* buffer_data = (void*) e.output->data();
 
   nccl_context_->ErrorCheck("ncclGroupStart", ncclGroupStart(), *nccl_op_context_.nccl_comm_);
 
