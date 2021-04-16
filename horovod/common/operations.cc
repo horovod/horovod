@@ -1049,6 +1049,10 @@ Status EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts
                                double prescale_factor,
                                double postscale_factor,
                                int32_t process_set_id) {
+  if (!horovod_global.process_set_table.Contains(process_set_id)) {
+    return Status::InvalidArgument("Allreduce: Invalid process set id: " +
+                                   std::to_string(process_set_id));
+  }
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
   Status status;
 
@@ -1128,6 +1132,12 @@ Status EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts
     }
   }
 
+  if (!process_set.IsCurrentProcessIncluded()) {
+    return Status::InvalidArgument(
+        "Allreduce: Invalid process set for this rank: " +
+        std::to_string(process_set_id));
+  }
+
   std::string tensors_enqueued;
   for (const auto& n : names) {
     tensors_enqueued += n + "; ";
@@ -1200,6 +1210,10 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
                               const std::string& name, const int device,
                               StatusCallback callback,
                               int32_t process_set_id) {
+  if (!horovod_global.process_set_table.Contains(process_set_id)) {
+    return Status::InvalidArgument("Broadcast: Invalid process set id: " +
+                                   std::to_string(process_set_id));
+  }
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
 
   int root_rank_in_process_set;
@@ -1235,6 +1249,12 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   e.callback = callback;
   e.nvtx_op_range.Start(RegisteredNvtxOp::HorovodBroadcast, e.tensor->size());
 
+  if (!process_set.IsCurrentProcessIncluded()) {
+    return Status::InvalidArgument(
+        "Broadcast: Invalid process set for this rank: " +
+        std::to_string(process_set_id));
+  }
+
   if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
   }
@@ -1254,6 +1274,10 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
                              const std::string& name, const int device,
                              StatusCallback callback,
                              int32_t process_set_id) {
+  if (!horovod_global.process_set_table.Contains(process_set_id)) {
+    return Status::InvalidArgument("Alltoall: Invalid process set id: " +
+                                   std::to_string(process_set_id));
+  }
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
 
   // Check arguments
@@ -1287,7 +1311,11 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
   int64_t splits_first_dim = splits->shape().dim_size(0);
   int64_t tensor_first_dim = tensor->shape().dim_size(0);
   int world_size = process_set.controller->GetSize();
-  if (splits_first_dim == world_size) {
+  if (!process_set.IsCurrentProcessIncluded()) {
+    return Status::InvalidArgument(
+        "Alltoall: Invalid process set for this rank: " +
+        std::to_string(process_set_id));
+  } else if (splits_first_dim == world_size) {
     auto splits_data = static_cast<const int32_t*>(splits->data());
     auto sum = std::accumulate(splits_data, splits_data + splits_first_dim, 0);
     if (sum > tensor_first_dim) {

@@ -147,6 +147,11 @@ std::vector<int32_t> ProcessSetTable::Ids() const {
   return ids_;
 }
 
+bool ProcessSetTable::Contains(int32_t id) const {
+  std::lock_guard<std::recursive_mutex> guard(mutex_);
+  return id_to_process_set_.find(id) != id_to_process_set_.end();
+}
+
 ProcessSet& ProcessSetTable::Get(int32_t id) {
   std::lock_guard<std::recursive_mutex> guard(mutex_);
   return id_to_process_set_.at(id);

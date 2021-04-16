@@ -290,7 +290,8 @@ class HorovodBasics(object):
         return bool(self.MPI_LIB_CTYPES.horovod_rocm_built())
 
     def add_process_set(self, ranks):
-        assert isinstance(ranks, list)
+        if not isinstance(ranks, list):
+            ranks = list(ranks)
         nrank = len(ranks)
         return int(self.MPI_LIB_CTYPES.horovod_add_process_set(
             (ctypes.c_int * nrank)(*ranks), ctypes.c_int(nrank)))

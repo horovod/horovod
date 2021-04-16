@@ -350,7 +350,7 @@ class TensorFlowTests(tf.test.TestCase):
         if hvd.gloo_enabled():
             self.skipTest("Multiple process sets currently do not support Gloo controller.")
 
-        if hvd.ccl_built:
+        if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
 
         even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
@@ -759,6 +759,36 @@ class TensorFlowTests(tf.test.TestCase):
                          dtype=tf.int32 if rank % 2 == 0 else tf.float32)
         with self.assertRaises(tf.errors.FailedPreconditionError):
             self.evaluate(hvd.allreduce(tensor))
+
+    def test_horovod_allreduce_process_set_id_error(self):
+        """Test that allreduce raises an error if an invalid process set id
+        is specified."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            self.skipTest("Only one worker available")
+
+        single_set = hvd.add_process_set([0])
+        rest_set = hvd.add_process_set(range(1, size))
+
+        try:
+            with tf.device("/cpu:0"):
+                tensor = tf.ones(4)
+                if rank == 0:
+                    with self.assertRaises(tf.errors.InvalidArgumentError):
+                        self.evaluate(hvd.allreduce(tensor, process_set=rest_set))
+                else:
+                    with self.assertRaises(tf.errors.InvalidArgumentError):
+                        self.evaluate(hvd.allreduce(tensor, process_set=single_set))
+                with self.assertRaises(tf.errors.InvalidArgumentError):
+                    self.evaluate(hvd.allreduce(tensor, process_set=10))
+        finally:
+            hvd.remove_process_set(rest_set)
+            hvd.remove_process_set(single_set)
+
 
     def test_horovod_allreduce_cpu_gpu_error(self):
         """Test that the allreduce raises an error if different ranks try to
@@ -1718,6 +1748,126 @@ class TensorFlowTests(tf.test.TestCase):
                     tf.cast(root_tensor, tf.int32), tf.cast(broadcasted_tensor, tf.int32)))),
                 "hvd.broadcast produces incorrect broadcasted tensor")
 
+    def test_horovod_broadcast_cpu_process_sets(self):
+        """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors on CPU
+         if restricted to non-global process sets"""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        if hvd.gloo_enabled():
+            self.skipTest("Multiple process sets currently do not support Gloo controller.")
+
+        if hvd.ccl_built():
+            self.skipTest("Multiple process sets currently do not support CCL.")
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            self.skipTest("Only one worker available")
+
+        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
+        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
+
+        even_set = hvd.add_process_set(even_ranks)
+        odd_set = hvd.add_process_set(odd_ranks)
+
+        if rank in even_ranks:
+            set_size = len(even_ranks)
+            set_ranks = even_ranks
+            this_set = even_set
+        elif rank in odd_ranks:
+            set_size = len(odd_ranks)
+            set_ranks = odd_ranks
+            this_set = odd_set
+
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64, tf.bool]
+        dims = [1, 2, 3]
+        root_ranks = list(set_ranks)
+        for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
+            with tf.device("/cpu:0"):
+                tensor = tf.ones([17] * dim) * rank
+                root_tensor = tf.ones([17] * dim) * root_rank
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                    root_tensor = root_tensor % 2
+                tensor = tf.cast(tensor, dtype=dtype)
+                root_tensor = tf.cast(root_tensor, dtype=dtype)
+                broadcasted_tensor = hvd.broadcast(tensor, root_rank, process_set=this_set)
+            self.assertTrue(
+                self.evaluate(tf.reduce_all(tf.equal(
+                    tf.cast(root_tensor, tf.int32), tf.cast(broadcasted_tensor, tf.int32)))),
+                "hvd.broadcast produces incorrect broadcasted tensor")
+
+        hvd.remove_process_set(odd_set)
+        hvd.remove_process_set(even_set)
+
+    def test_horovod_broadcast_gpu_process_sets(self):
+        """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors on GPU
+         if restricted to non-global process sets"""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest("No GPUs available")
+
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        hvd.init()
+        rank = hvd.rank()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
+        if hvd.gloo_enabled():
+            self.skipTest("Multiple process sets currently do not support Gloo controller.")
+
+        if hvd.ccl_built():
+            self.skipTest("Multiple process sets currently do not support CCL.")
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            self.skipTest("Only one worker available")
+
+        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
+        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
+
+        even_set = hvd.add_process_set(even_ranks)
+        odd_set = hvd.add_process_set(odd_ranks)
+
+        if rank in even_ranks:
+            set_size = len(even_ranks)
+            set_ranks = even_ranks
+            this_set = even_set
+        elif rank in odd_ranks:
+            set_size = len(odd_ranks)
+            set_ranks = odd_ranks
+            this_set = odd_set
+
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64, tf.bool]
+        dims = [1, 2, 3]
+        root_ranks = list(set_ranks)
+        for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
+            tensor = tf.ones([17] * dim) * rank
+            root_tensor = tf.ones([17] * dim) * root_rank
+            if dtype == tf.bool:
+                tensor = tensor % 2
+                root_tensor = root_tensor % 2
+            tensor = tf.cast(tensor, dtype=dtype)
+            root_tensor = tf.cast(root_tensor, dtype=dtype)
+            with tf.device("/gpu:%d" % local_rank):
+                broadcasted_tensor = hvd.broadcast(tensor, root_rank, process_set=this_set)
+            self.assertTrue(
+                self.evaluate(tf.reduce_all(tf.equal(
+                    tf.cast(root_tensor, tf.int32), tf.cast(broadcasted_tensor, tf.int32)))),
+                "hvd.broadcast produces incorrect broadcasted tensor")
+
+        hvd.remove_process_set(odd_set)
+        hvd.remove_process_set(even_set)
+
+
     def test_horovod_broadcast_error(self):
         """Test that the broadcast returns an error if any dimension besides
         the first is different among the tensors being broadcasted."""
@@ -2368,6 +2518,134 @@ class TensorFlowTests(tf.test.TestCase):
             expected_rsplits = silent_splits
         self.assertSequenceEqual(self.evaluate(received_splits).tolist(), expected_rsplits,
                                  "hvd.alltoall returned incorrect received_splits")
+
+    def test_horovod_alltoall_cpu_process_sets(self):
+        """Test that the alltoall on restricted process sets correctly distributes 1D, 2D, and 3D tensors."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        if hvd.gloo_enabled():
+            self.skipTest("Multiple process sets currently do not support Gloo controller.")
+
+        if hvd.ccl_built():
+            self.skipTest("Multiple process sets currently do not support CCL.")
+
+        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
+        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
+
+        even_set = hvd.add_process_set(even_ranks)
+        odd_set = hvd.add_process_set(odd_ranks)
+
+        if rank in even_ranks:
+            set_size = len(even_ranks)
+            set_ranks = even_ranks
+        elif rank in odd_ranks:
+            set_size = len(odd_ranks)
+            set_ranks = odd_ranks
+
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.uint16, tf.int16,
+                                              tf.int32, tf.int64, tf.float16, tf.float32,
+                                              tf.float64])
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                vals = []
+                for i in set_ranks:
+                  vals += [i] * (rank+1)
+                tensor = tf.convert_to_tensor(vals, dtype=dtype)
+                for _ in range(dim - 1):
+                  tensor = tf.expand_dims(tensor, axis=1)
+                  tensor = tf.concat([tensor, tensor], axis=1)
+                splits = tf.convert_to_tensor([rank+1] * set_size, dtype=tf.int32)
+                if rank in even_ranks:
+                    collected, received_splits = hvd.alltoall(tensor, splits, process_set=even_set)
+                elif rank in odd_ranks:
+                    collected, received_splits = hvd.alltoall(tensor, splits, process_set=odd_set)
+
+                self.assertTrue(
+                    self.evaluate(tf.reduce_all(
+                        tf.equal(tf.cast(collected, tf.int32), rank))),
+                    "hvd.alltoall produces incorrect collected tensor")
+
+                self.assertTrue(
+                    self.evaluate(tf.equal(tf.size(collected), sum(rk + 1 for rk in set_ranks) * 2**(dim - 1))),
+                    "hvd.alltoall collected wrong number of values")
+
+                self.assertSequenceEqual(self.evaluate(received_splits).tolist(), [rk + 1 for rk in set_ranks],
+                                         "hvd.alltoall returned incorrect received_splits")
+
+        hvd.remove_process_set(odd_set)
+        hvd.remove_process_set(even_set)
+
+    def test_horovod_alltoall_gpu_process_sets(self):
+        """Test that the GPU alltoall on restricted process sets correctly distributes 1D, 2D, and 3D tensors."""
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest("No GPUs available")
+
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        # This test does not apply if NCCL version < 2.7.0
+        if hvd.nccl_built() and hvd.nccl_built() < 2700:
+            self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
+
+        hvd.init()
+        rank = hvd.rank()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
+        if hvd.gloo_enabled():
+            self.skipTest("Multiple process sets currently do not support Gloo controller.")
+
+        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
+        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
+
+        even_set = hvd.add_process_set(even_ranks)
+        odd_set = hvd.add_process_set(odd_ranks)
+
+        if rank in even_ranks:
+            set_size = len(even_ranks)
+            set_ranks = even_ranks
+        elif rank in odd_ranks:
+            set_size = len(odd_ranks)
+            set_ranks = odd_ranks
+
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%s" % local_rank):
+                vals = []
+                for i in set_ranks:
+                  vals += [i] * (rank+1)
+                tensor = tf.convert_to_tensor(vals, dtype=dtype)
+                for _ in range(dim - 1):
+                  tensor = tf.expand_dims(tensor, axis=1)
+                  tensor = tf.concat([tensor, tensor], axis=1)
+                splits = tf.convert_to_tensor([rank+1] * set_size, dtype=tf.int32)
+                if rank in even_ranks:
+                    collected, received_splits = hvd.alltoall(tensor, splits, process_set=even_set)
+                elif rank in odd_ranks:
+                    collected, received_splits = hvd.alltoall(tensor, splits, process_set=odd_set)
+
+                self.assertTrue(
+                    self.evaluate(tf.reduce_all(
+                        tf.equal(tf.cast(collected, tf.int32), rank))),
+                    "hvd.alltoall produces incorrect collected tensor")
+
+                self.assertTrue(
+                    self.evaluate(tf.equal(tf.size(collected), sum(rk + 1 for rk in set_ranks) * 2**(dim - 1))),
+                    "hvd.alltoall collected wrong number of values")
+
+                self.assertSequenceEqual(self.evaluate(received_splits).tolist(), [rk + 1 for rk in set_ranks],
+                                         "hvd.alltoall returned incorrect received_splits")
+
+        hvd.remove_process_set(odd_set)
+        hvd.remove_process_set(even_set)
+
 
     def test_horovod_alltoall_type_error(self):
         """Test that the alltoall returns an error if the tensor types differ
