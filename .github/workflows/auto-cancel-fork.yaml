@@ -1,10 +1,10 @@
-name: Auto-cancel
+name: Auto-cancel (Fork)
 on: pull_request
 
 jobs:
   cancel:
     name: Auto cancel earlier runs
-    # run this on fork and non-fork pull requests so we can cancel jobs on either repos
+    if: github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
 
     steps:
