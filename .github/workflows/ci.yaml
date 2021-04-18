@@ -269,6 +269,8 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v1
 
       - name: Add cache_from to docker-compose YAML
+        # disabled as 1) the cache image is not been picked up and 2) image is too large for github workers
+        if: false
         run: |
           mv docker-compose.test.yml docker-compose.test.yml.bak
           .github/add-cache-to-docker-compose.sh "${{ steps.ecr.outputs.registry }}" < docker-compose.test.yml.bak > docker-compose.test.yml
@@ -276,6 +278,7 @@ jobs:
         shell: bash
 
       - name: Pull latest image
+        if: false
         continue-on-error: true
         run: |
           docker pull ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
@@ -697,6 +700,8 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v1
 
       - name: Add cache_from to docker-compose YAML
+        # disabled as 1) the cache image is not been picked up and 2) image is too large for github workers
+        if: false
         run: |
           mv docker-compose.test.yml docker-compose.test.yml.bak
           .github/add-cache-to-docker-compose.sh "${{ steps.ecr.outputs.registry }}" < docker-compose.test.yml.bak > docker-compose.test.yml
@@ -704,6 +709,7 @@ jobs:
         shell: bash
 
       - name: Pull latest image
+        if: false
         continue-on-error: true
         run: |
           docker pull ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
