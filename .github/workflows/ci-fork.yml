@@ -7,11 +7,12 @@ on:
       - completed
 
 jobs:
-  workflow:
-    name: "Inspect CI workflow"
+  buildkite:
+    name: "Build and Test (GPUs on Builtkite)"
     runs-on: ubuntu-latest
-    outputs:
-      build-and-test: ${{ steps.workflow-conclusion.outputs.build-and-test }}
+    if: >
+      github.event.workflow_run.conclusion != 'skipped' &&
+      github.event.workflow_run.head_repository.full_name != github.repository
 
     steps:
       - name: Fetch workflow conclusion
@@ -22,39 +23,13 @@ jobs:
           echo "::set-output name=build-and-test::${conclusion}"
         shell: bash
 
-  buildkite:
-    name: "Build and Test (GPUs on Builtkite)"
-    needs: workflow
-    runs-on: ubuntu-latest
-    # only run if CI workflow's build-and-test job succeeded and CI workflow ran on a fork
-    if: >
-      github.event.workflow_run.conclusion != 'skipped' &&
-      needs.workflow.outputs.build-and-test == 'success' &&
-      github.event.workflow_run.head_repository.full_name != github.repository
-
-    steps:
-      - name: Cancel running Buildkite builds
-        continue-on-error: true
-        env:
-          branch: ${{ github.event.pull_request.head.label }}
-        run: |
-          echo "::group::Identify running builds"
-          curl -s -H "Authorization: Bearer ${{ secrets.BUILDKITE_TOKEN }}" "https://api.buildkite.com/v2/organizations/horovod/pipelines/horovod/builds?branch=${branch/#horovod:/}&state[]=scheduled&state[]=running" > buildkite.running-builds.json
-          ids=$(jq -r .[].id buildkite.running-builds.json)
-          echo "::endgroup::"
-
-          echo "::group::Cancelling running builds"
-          for id in ${ids}
-          do
-            echo -n "- Build $id: "
-            curl -s -H "Authorization: Bearer ${{ secrets.BUILDKITE_TOKEN }}" -X PUT "https://api.buildkite.com/v2/organizations/horovod/pipelines/horovod/builds/${id}/cancel" | jq -r .state
-          done
-          echo "::endgroup::"
-        shell: bash
-
       - name: Trigger Buildkite Pipeline
         id: build
         uses: EnricoMi/trigger-pipeline-action@master
+        # only run if CI workflow's build-and-test job succeeded and CI workflow ran on a fork
+        if: >
+          steps.workflow-conclusion.outputs.build-and-test == 'success'
+
         env:
           PIPELINE: "horovod/horovod"
           BRANCH: "${{ github.event.pull_request.head.ref }}"
