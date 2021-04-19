@@ -1,26 +1,18 @@
-name: Auto-cancel
-on: pull_request
+name: Auto-cancel (Fork)
+on:
+  workflow_run:
+    workflows: ["Auto-cancel"]
+    types:
+      - requested
 
 jobs:
-  cancel-github:
-    name: Auto-cancel earlier GitHub runs
-    # run this on fork and non-fork pull requests so we can cancel jobs on either repos
+  cancel:
+    name: Auto cancel earlier Buildkite builds
+    if: github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
 
     steps:
-      - name: Cancel runs
-        uses: fauguste/auto-cancellation-running-action@0.1.4
-        with:
-          githubToken: ${{ github.token }}
-
-  cancel-buildkite:
-    name: Auto-cancel earlier Buildkite builds
-    # only run this on non-fork pull requests as we do not have the BUILDKITE_TOKEN secret on forks
-    if: github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Cancel builds
+      - name: Cancel running Buildkite builds
         continue-on-error: true
         env:
           branch: ${{ github.event.pull_request.head.label }}
