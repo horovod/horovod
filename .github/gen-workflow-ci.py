@@ -109,6 +109,8 @@ def main():
                 f'\n'
                 f'name: CI\n'
                 f'on:\n'
+                f'  schedule:\n'
+                f'    - cron: "0 12 * * *"\n'
                 f'  push:\n'
                 f'    branches:\n'
                 f'      - master\n'
