@@ -54,32 +54,17 @@ class BuildKiteTests(unittest.TestCase):
             stderr.close()
 
     """
-    Tests the generated buildkite pipeline.
+    Tests the generated GPU buildkite pipeline.
     
     Compares output of .buildkite/gen-pipeline.sh with test/single/data/expected_buildkite_pipeline.yaml.
     To see the changes in the output, run the following in your Horovod project root:
     
-        BUILDKITE_PIPELINE_SLUG=SLUG BUILDKITE_BRANCH=BRANCH PIPELINE_MODE=FULL .buildkite/gen-pipeline.sh > test/single/data/expected_buildkite_pipeline.yaml
+        BUILDKITE_PIPELINE_SLUG=SLUG BUILDKITE_BRANCH=BRANCH PIPELINE_MODE="GPU FULL" .buildkite/gen-pipeline.sh > test/single/data/expected_buildkite_gpu_pipeline.yaml
     
     Then run `git diff` to see the changes in the generated pipeline YAML.
-    Commit `test/single/data/expected_buildkite_pipeline.yaml` to get those changes into your PR.
+    Commit `test/single/data/expected_buildkite_gpu_pipeline.yaml` to get those changes into your PR.
     """
-    def test_gen_full_pipeline(self):
-        expected_filename = os.path.join(os.path.dirname(__file__), 'data/expected_buildkite_pipeline.yaml')
-        with open(expected_filename, 'r') as f:
-            lines = f.readlines()
-            expected_pipeline = ''.join(lines)
-
-        gen_pipeline_env = dict(BUILDKITE_PIPELINE_SLUG='SLUG', BUILDKITE_BRANCH='BRANCH', PIPELINE_MODE='FULL')
-        gen_pipeline_cmd = GEN_PIPELINE_FNAME
-
-        exit_code, actual_pipeline, gen_pipeline_log = self._run(gen_pipeline_cmd, gen_pipeline_env)
-
-        self.assertEqual(0, exit_code)
-        self.assertEqual('WARNING:root:no commit (None) or default branch (None) given\n', gen_pipeline_log)
-        self.assertEqual(expected_pipeline, actual_pipeline)
-
-    def test_gen_gpu_pipeline(self):
+    def test_gen_pipeline(self):
         expected_filename = os.path.join(os.path.dirname(__file__), 'data/expected_buildkite_gpu_pipeline.yaml')
         with open(expected_filename, 'r') as f:
             lines = f.readlines()
@@ -98,12 +83,12 @@ class BuildKiteTests(unittest.TestCase):
     Tests the given command produces the full pipeline.
     """
     def do_test_gen_full_pipeline(self, cmd, env=dict()):
-        expected_filename = os.path.join(os.path.dirname(__file__), 'data/expected_buildkite_pipeline.yaml')
+        expected_filename = os.path.join(os.path.dirname(__file__), 'data/expected_buildkite_gpu_pipeline.yaml')
         with open(expected_filename, 'r') as f:
             lines = f.readlines()
             expected_pipeline = ''.join(lines)
 
-        cmd_env = dict(BUILDKITE_PIPELINE_SLUG='SLUG', BUILDKITE_BRANCH='BRANCH', PIPELINE_MODE='FULL')
+        cmd_env = dict(BUILDKITE_PIPELINE_SLUG='SLUG', BUILDKITE_BRANCH='BRANCH', PIPELINE_MODE='GPU FULL')
         cmd_env.update(env)
         exit_code, pipeline, log = self._run(cmd, cmd_env)
 
