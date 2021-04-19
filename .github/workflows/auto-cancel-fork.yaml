@@ -7,26 +7,26 @@ on:
 
 jobs:
   cancel:
-    name: Auto cancel earlier Buildkite builds
+    name: Auto cancel earlier runs
     if: github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
 
     steps:
-      - name: Cancel running Buildkite builds
-        continue-on-error: true
+      - name: Cancel Buildkite builds
         env:
           branch: ${{ github.event.pull_request.head.label }}
         run: |
           echo "::group::Identify running builds"
+          echo Getting running builds for branch ${branch/#horovod:/}
           curl -s -H "Authorization: Bearer ${{ secrets.BUILDKITE_TOKEN }}" "https://api.buildkite.com/v2/organizations/horovod/pipelines/horovod/builds?branch=${branch/#horovod:/}&state[]=scheduled&state[]=running" > buildkite.running-builds.json
-          ids=$(jq -r .[].id buildkite.running-builds.json)
+          numbers=$(jq -r .[].number buildkite.running-builds.json)
           echo "::endgroup::"
 
           echo "::group::Cancelling running builds"
-          for id in ${ids}
+          for number in ${numbers}
           do
-            echo -n "- Build $id: "
-            curl -s -H "Authorization: Bearer ${{ secrets.BUILDKITE_TOKEN }}" -X PUT "https://api.buildkite.com/v2/organizations/horovod/pipelines/horovod/builds/${id}/cancel" | jq -r .state
+            echo -n "- Build #$number: "
+            curl -s -H "Authorization: Bearer ${{ secrets.BUILDKITE_TOKEN }}" -X PUT "https://api.buildkite.com/v2/organizations/horovod/pipelines/horovod/builds/${number}/cancel" | jq -r .state
           done
           echo "::endgroup::"
         shell: bash
