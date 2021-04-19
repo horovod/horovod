@@ -2,39 +2,33 @@ name: Auto-cancel
 on: pull_request
 
 jobs:
-  cancel-github:
-    name: Auto-cancel earlier GitHub runs
+  cancel:
+    name: Auto-cancel earlier runs
     # run this on fork and non-fork pull requests so we can cancel jobs on either repos
     runs-on: ubuntu-latest
 
     steps:
-      - name: Cancel runs
+      - name: Cancel GitHub runs
         uses: fauguste/auto-cancellation-running-action@0.1.4
         with:
           githubToken: ${{ github.token }}
 
-  cancel-buildkite:
-    name: Auto-cancel earlier Buildkite builds
-    # only run this on non-fork pull requests as we do not have the BUILDKITE_TOKEN secret on forks
-    if: github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Cancel builds
-        continue-on-error: true
+      - name: Cancel Buildkite builds
+        if: always() && github.event.pull_request.head.repo.full_name == github.repository
         env:
           branch: ${{ github.event.pull_request.head.label }}
         run: |
           echo "::group::Identify running builds"
+          echo Getting running builds for branch ${branch/#horovod:/}
           curl -s -H "Authorization: Bearer ${{ secrets.BUILDKITE_TOKEN }}" "https://api.buildkite.com/v2/organizations/horovod/pipelines/horovod/builds?branch=${branch/#horovod:/}&state[]=scheduled&state[]=running" > buildkite.running-builds.json
-          ids=$(jq -r .[].id buildkite.running-builds.json)
+          numbers=$(jq -r .[].number buildkite.running-builds.json)
           echo "::endgroup::"
 
           echo "::group::Cancelling running builds"
-          for id in ${ids}
+          for number in ${numbers}
           do
-            echo -n "- Build $id: "
-            curl -s -H "Authorization: Bearer ${{ secrets.BUILDKITE_TOKEN }}" -X PUT "https://api.buildkite.com/v2/organizations/horovod/pipelines/horovod/builds/${id}/cancel" | jq -r .state
+            echo -n "- Build #$number: "
+            curl -s -H "Authorization: Bearer ${{ secrets.BUILDKITE_TOKEN }}" -X PUT "https://api.buildkite.com/v2/organizations/horovod/pipelines/horovod/builds/${number}/cancel" | jq -r .state
           done
           echo "::endgroup::"
         shell: bash
