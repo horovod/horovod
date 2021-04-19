@@ -1169,7 +1169,17 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
                               const std::string& name, const int device,
                               StatusCallback callback,
                               int32_t process_set_id) {
+  if (!horovod_global.process_set_table.Contains(process_set_id)) {
+    return Status::InvalidArgument("Allgather: Invalid process set id: " +
+                                   std::to_string(process_set_id));
+  }
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
+
+  if (!process_set.IsCurrentProcessIncluded()) {
+    return Status::InvalidArgument(
+        "Allgather: Invalid process set for this rank: " +
+        std::to_string(process_set_id));
+  }
 
   Request message;
   message.set_request_rank(process_set.controller->GetRank());

@@ -158,7 +158,8 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
 
 def grouped_allreduce(tensors, average=None, device_dense='', device_sparse='',
                       compression=Compression.none, op=None,
-                      prescale_factor=1.0, postscale_factor=1.0):
+                      prescale_factor=1.0, postscale_factor=1.0,
+                      process_set=0):
     if not tensors:
         return tensors
 
@@ -194,7 +195,8 @@ def grouped_allreduce(tensors, average=None, device_dense='', device_sparse='',
             tensors_compressed, ctxs = zip(*[compression.compress(tensor) for tensor in tensors])
             summed_tensors_compressed = _grouped_allreduce(tensors_compressed, op=op,
                                                            prescale_factor=prescale_factor,
-                                                           postscale_factor=postscale_factor)
+                                                           postscale_factor=postscale_factor,
+                                                           process_set=process_set)
             summed_tensors = [compression.decompress(t, ctx) for t, ctx in zip(summed_tensors_compressed, ctxs)]
             if op == Adasum:
                 if 'CPU' not in tensor.device and gpu_available('tensorflow'):

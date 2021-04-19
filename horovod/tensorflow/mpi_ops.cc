@@ -514,6 +514,7 @@ public:
     OP_REQUIRES_OK(context, context->GetAttr("postscale_factor", &postscale_factor_));
     OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
     OP_REQUIRES_OK(context, context->GetAttr("num_tensors", &num_tensors_));
+    OP_REQUIRES_OK(context, context->GetAttr("process_set", &process_set_id_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -593,7 +594,8 @@ public:
 
     auto enqueue_result = EnqueueTensorAllreduces(
         hvd_contexts, hvd_tensors, hvd_outputs, ready_event_lists, names, device,
-        callbacks, reduce_op, (double) prescale_factor_, (double) postscale_factor_);
+        callbacks, reduce_op, (double)prescale_factor_,
+        (double)postscale_factor_, process_set_id_);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 
@@ -604,6 +606,7 @@ private:
   float postscale_factor_;
   bool ignore_name_scope_;
   int num_tensors_;
+  int process_set_id_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodGroupedAllreduce").Device(DEVICE_CPU),
@@ -620,6 +623,7 @@ REGISTER_OP("HorovodGroupedAllreduce")
     .Attr("postscale_factor: float")
     .Attr("ignore_name_scope: bool = False")
     .Attr("num_tensors: int")
+    .Attr("process_set: int = 0")
     .Input("tensors: num_tensors*T")
     .Output("sum: num_tensors*T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
@@ -646,6 +650,7 @@ public:
   explicit HorovodAllgatherOp(OpKernelConstruction* context)
       : AsyncOpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
+    OP_REQUIRES_OK(context, context->GetAttr("process_set", &process_set_id_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -685,12 +690,14 @@ public:
 #endif
           context->SetStatus(ConvertStatus(status));
           done();
-        });
+        },
+        process_set_id_);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 
 private:
   bool ignore_name_scope_;
+  int process_set_id_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodAllgather").Device(DEVICE_CPU),
@@ -704,6 +711,7 @@ REGISTER_OP("HorovodAllgather")
     .Attr(
         "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
     .Attr("ignore_name_scope: bool = False")
+    .Attr("process_set: int = 0")
     .Input("tensor: T")
     .Output("output: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
