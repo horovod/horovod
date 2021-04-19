@@ -198,7 +198,6 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                                    const Response& response) {
   assert(!entries.empty());
   auto& first_entry = entries[0];
-  assert(first_entry.process_set_id == 0);  // TODO: generalize
   auto& process_set =
       global_state_->process_set_table.Get(entries[0].process_set_id);
 
@@ -447,7 +446,6 @@ Status NCCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
                                 const Response& response) {
   assert(!entries.empty());
   auto& first_entry = entries[0];
-  assert(first_entry.process_set_id == 0);  // TODO: generalize
   auto& process_set =
       global_state_->process_set_table.Get(first_entry.process_set_id);
 

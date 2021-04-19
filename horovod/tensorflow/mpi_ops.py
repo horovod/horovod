@@ -145,7 +145,7 @@ def _allreduce_grad(op, grad):
 
 
 def _grouped_allreduce(tensors, name=None, op=Sum, prescale_factor=1.0, postscale_factor=1.0,
-                       ignore_name_scope=False):
+                       ignore_name_scope=False, process_set=0):
     """An op which reduces input tensors over all the Horovod processes. The
     default reduction is a sum.
 
@@ -168,7 +168,8 @@ def _grouped_allreduce(tensors, name=None, op=Sum, prescale_factor=1.0, postscal
     return MPI_LIB.horovod_grouped_allreduce(tensors, name=name, reduce_op=op,
                                              prescale_factor=prescale_factor,
                                              postscale_factor=postscale_factor,
-                                             ignore_name_scope=ignore_name_scope)
+                                             ignore_name_scope=ignore_name_scope,
+                                             process_set=process_set)
 
 
 @ops.RegisterGradient('HorovodGroupedAllreduce')
@@ -192,7 +193,7 @@ def _grouped_allreduce_grad(op, *grads):
                       ignore_name_scope=ignore_name_scope)
 
 
-def allgather(tensor, name=None, ignore_name_scope=False):
+def allgather(tensor, name=None, ignore_name_scope=False, process_set=0):
     """An op which concatenates the input tensor with the same input tensor on
     all other Horovod processes.
 
@@ -209,7 +210,8 @@ def allgather(tensor, name=None, ignore_name_scope=False):
     if name is None and not _executing_eagerly():
         name = 'HorovodAllgather_%s' % _normalize_name(tensor.name)
     return MPI_LIB.horovod_allgather(tensor, name=name,
-                                     ignore_name_scope=ignore_name_scope)
+                                     ignore_name_scope=ignore_name_scope,
+                                     process_set=process_set)
 
 
 @ops.RegisterGradient('HorovodAllgather')
