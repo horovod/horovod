@@ -59,18 +59,33 @@ class BuildKiteTests(unittest.TestCase):
     Compares output of .buildkite/gen-pipeline.sh with test/single/data/expected_buildkite_pipeline.yaml.
     To see the changes in the output, run the following in your Horovod project root:
     
-        BUILDKITE_PIPELINE_SLUG=SLUG BUILDKITE_BRANCH=BRANCH .buildkite/gen-pipeline.sh > test/single/data/expected_buildkite_pipeline.yaml
+        BUILDKITE_PIPELINE_SLUG=SLUG BUILDKITE_BRANCH=BRANCH PIPELINE_MODE=FULL .buildkite/gen-pipeline.sh > test/single/data/expected_buildkite_pipeline.yaml
     
     Then run `git diff` to see the changes in the generated pipeline YAML.
     Commit `test/single/data/expected_buildkite_pipeline.yaml` to get those changes into your PR.
     """
-    def test_gen_pipeline(self):
+    def test_gen_full_pipeline(self):
         expected_filename = os.path.join(os.path.dirname(__file__), 'data/expected_buildkite_pipeline.yaml')
         with open(expected_filename, 'r') as f:
             lines = f.readlines()
             expected_pipeline = ''.join(lines)
 
-        gen_pipeline_env = dict(BUILDKITE_PIPELINE_SLUG='SLUG', BUILDKITE_BRANCH='BRANCH')
+        gen_pipeline_env = dict(BUILDKITE_PIPELINE_SLUG='SLUG', BUILDKITE_BRANCH='BRANCH', PIPELINE_MODE='FULL')
+        gen_pipeline_cmd = GEN_PIPELINE_FNAME
+
+        exit_code, actual_pipeline, gen_pipeline_log = self._run(gen_pipeline_cmd, gen_pipeline_env)
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual('WARNING:root:no commit (None) or default branch (None) given\n', gen_pipeline_log)
+        self.assertEqual(expected_pipeline, actual_pipeline)
+
+    def test_gen_gpu_pipeline(self):
+        expected_filename = os.path.join(os.path.dirname(__file__), 'data/expected_buildkite_gpu_pipeline.yaml')
+        with open(expected_filename, 'r') as f:
+            lines = f.readlines()
+            expected_pipeline = ''.join(lines)
+
+        gen_pipeline_env = dict(BUILDKITE_PIPELINE_SLUG='SLUG', BUILDKITE_BRANCH='BRANCH', PIPELINE_MODE='GPU FULL')
         gen_pipeline_cmd = GEN_PIPELINE_FNAME
 
         exit_code, actual_pipeline, gen_pipeline_log = self._run(gen_pipeline_cmd, gen_pipeline_env)
@@ -88,7 +103,7 @@ class BuildKiteTests(unittest.TestCase):
             lines = f.readlines()
             expected_pipeline = ''.join(lines)
 
-        cmd_env = dict(BUILDKITE_PIPELINE_SLUG='SLUG', BUILDKITE_BRANCH='BRANCH')
+        cmd_env = dict(BUILDKITE_PIPELINE_SLUG='SLUG', BUILDKITE_BRANCH='BRANCH', PIPELINE_MODE='FULL')
         cmd_env.update(env)
         exit_code, pipeline, log = self._run(cmd, cmd_env)
 
@@ -139,10 +154,10 @@ class BuildKiteTests(unittest.TestCase):
 
             self.assertEqual(0, exit_code)
             self.assertEqual('', gen_pipeline_log)
-            self.assertEqual("steps:\n"
-                             "- wait\n"
-                             "- wait\n"
-                             "- wait\n", actual_pipeline)
+            self.assertEqual('steps:\n'
+                             '- wait\n'
+                             '- wait\n'
+                             '- wait\n', actual_pipeline)
 
     """
     Tests no changed code files on master produces the full pipeline.
@@ -198,3 +213,18 @@ class BuildKiteTests(unittest.TestCase):
                      'test/file',
                      'Dockerfile.cpu']:
             self.assertTrue(is_code_file(file), file)
+
+    def test_empty_pipeline(self):
+        expected_pipeline = ('steps:\n'
+                             '- wait\n'
+                             '- wait\n'
+                             '- wait\n')
+
+        gen_pipeline_env = dict(BUILDKITE_PIPELINE_SLUG='SLUG', BUILDKITE_BRANCH='BRANCH', PIPELINE_MODE='')
+        gen_pipeline_cmd = GEN_PIPELINE_FNAME
+
+        exit_code, actual_pipeline, gen_pipeline_log = self._run(gen_pipeline_cmd, gen_pipeline_env)
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual('WARNING:root:no commit (None) or default branch (None) given\n', gen_pipeline_log)
+        self.assertEqual(expected_pipeline, actual_pipeline)
