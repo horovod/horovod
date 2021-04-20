@@ -107,11 +107,11 @@ public:
 
   void RemoveMarkedProcessSetIfReady();
 
+  // Guard access to the table by this mutex
+  mutable std::recursive_mutex mutex;
+
 private:
   void DeregisterProcessSet(int32_t process_set_id);
-
-  // Guard access to the table by this mutex
-  mutable std::recursive_mutex mutex_;
 
   std::unordered_map<int32_t, ProcessSet> id_to_process_set_;
 

@@ -83,13 +83,13 @@ ProcessSetTable::ProcessSetTable() {
 
 #if HAVE_MPI
 void ProcessSetTable::Initialize(const MPIContext& mpi_context) {
-  std::lock_guard<std::recursive_mutex> guard(mutex_);
+  std::lock_guard<std::recursive_mutex> guard(mutex);
   assert(next_id_ == 1);  // exactly one process set is registered
   Get(0).Initialize(mpi_context);
 }
 
 void ProcessSetTable::InitializeRegisteredIfReady(const MPIContext& mpi_context) {
-  std::lock_guard<std::recursive_mutex> guard(mutex_);
+  std::lock_guard<std::recursive_mutex> guard(mutex);
 
   int locally_registered_count = ids_.size();
   auto& global_controller = *Get(0).controller;
@@ -112,14 +112,14 @@ void ProcessSetTable::InitializeRegisteredIfReady(const MPIContext& mpi_context)
 
 #if HAVE_GLOO
 void ProcessSetTable::Initialize(const GlooContext& gloo_context) {
-  std::lock_guard<std::recursive_mutex> guard(mutex_);
+  std::lock_guard<std::recursive_mutex> guard(mutex);
   assert(next_id_ == 1);  // exactly one process set is registered
   Get(0).Initialize(gloo_context);
 }
 #endif // HAVE_GLOO
 
 void ProcessSetTable::Finalize(const Status& status) {
-  std::lock_guard<std::recursive_mutex> guard(mutex_);
+  std::lock_guard<std::recursive_mutex> guard(mutex);
   std::vector<int32_t> ids_copy(ids_.begin(), ids_.end());
   for (auto id: ids_copy) {
     id_to_process_set_[id].Finalize(status);
@@ -133,7 +133,7 @@ void ProcessSetTable::Finalize(const Status& status) {
 }
 
 int32_t ProcessSetTable::RegisterProcessSet(std::vector<int> global_ranks) {
-  std::lock_guard<std::recursive_mutex> guard(mutex_);
+  std::lock_guard<std::recursive_mutex> guard(mutex);
 
   if (!global_ranks.empty() && Contains(0)) {
     // We are registering a potentially non-global process set and we have
@@ -173,7 +173,7 @@ int32_t ProcessSetTable::RegisterProcessSet(std::vector<int> global_ranks) {
 }
 
 void ProcessSetTable::DeregisterProcessSet(int32_t process_set_id) {
-  std::lock_guard<std::recursive_mutex> guard(mutex_);
+  std::lock_guard<std::recursive_mutex> guard(mutex);
   auto map_it = id_to_process_set_.find(process_set_id);
   if (map_it != id_to_process_set_.end()) {
     id_to_process_set_.erase(map_it);
@@ -187,28 +187,28 @@ void ProcessSetTable::DeregisterProcessSet(int32_t process_set_id) {
   }
 }
 std::vector<int32_t> ProcessSetTable::Ids() const {
-  std::lock_guard<std::recursive_mutex> guard(mutex_);
+  std::lock_guard<std::recursive_mutex> guard(mutex);
   return ids_;
 }
 
 bool ProcessSetTable::Contains(int32_t id) const {
-  std::lock_guard<std::recursive_mutex> guard(mutex_);
+  std::lock_guard<std::recursive_mutex> guard(mutex);
   return id_to_process_set_.find(id) != id_to_process_set_.end();
 }
 
 ProcessSet& ProcessSetTable::Get(int32_t id) {
-  std::lock_guard<std::recursive_mutex> guard(mutex_);
+  std::lock_guard<std::recursive_mutex> guard(mutex);
   return id_to_process_set_.at(id);
 }
 
 void ProcessSetTable::MarkProcessSetForRemoval(int32_t process_set_id) {
-  std::lock_guard<std::recursive_mutex> guard(mutex_);
+  std::lock_guard<std::recursive_mutex> guard(mutex);
   assert(id_to_be_removed_ == NO_PENDING_REMOVAL);
   id_to_be_removed_ = process_set_id;
 }
 
 bool ProcessSetTable::ProcessSetHasJustBeenRemoved() {
-  std::lock_guard<std::recursive_mutex> guard(mutex_);
+  std::lock_guard<std::recursive_mutex> guard(mutex);
   if (id_to_be_removed_ == SUCCESSFUL_REMOVAL) {
     id_to_be_removed_ = NO_PENDING_REMOVAL;
     return true;
@@ -217,7 +217,7 @@ bool ProcessSetTable::ProcessSetHasJustBeenRemoved() {
 }
 
 void ProcessSetTable::RemoveMarkedProcessSetIfReady() {
-  std::lock_guard<std::recursive_mutex> guard(mutex_);
+  std::lock_guard<std::recursive_mutex> guard(mutex);
 
   auto& global_controller = *Get(0).controller;
   auto ids_marked_on_all_ranks = std::vector<int>(global_controller.GetSize());
