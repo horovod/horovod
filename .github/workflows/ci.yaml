@@ -1062,11 +1062,11 @@ jobs:
     name: "Build and Test (GPUs on Builtkite)"
     needs: [build-and-test]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
 
     steps:
       - name: Trigger Buildkite Pipeline
         id: build
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
         uses: EnricoMi/trigger-pipeline-action@master
         env:
           PIPELINE: "horovod/horovod"
@@ -1075,40 +1075,21 @@ jobs:
           BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
           BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU FULL\"}"
 
-      - name: Download Buildkite Artifacts
-        uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1
-        with:
-          github_token: ${{ github.token }}
-          buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
-          buildkite_build_url: ${{ steps.build.outputs.url }}
-          ignore_build_states: blocked,canceled,skipped,not_run
-          ignore_job_states: timed_out
-          output_path: artifacts/Unit Test Results - GPUs on Buildkite
+      - name: Write artifacts
+        run: |
+          mkdir -p artifacts
+          if [[ "${{ steps.build.outcome }}" == "skipped" ]]
+          then
+            echo ${{ github.event.pull_request.head.ref }} > artifacts/head_ref.txt
+          else
+            cat > artifacts/buildkite.build.json <<"EOF"
+          ${{ steps.build.outputs.json }}
+          EOF
+          fi
+        shell: bash
 
-      - name: Upload Test Results
+      - name: Upload artifacts
         uses: actions/upload-artifact@v2
-        if: always()
         with:
-          name: Unit Test Results - GPUs on Builtkite
-          path: artifacts/Unit Test Results - GPUs on Buildkite/**/*.xml
-
-  publish-test-results:
-    name: "Publish Unit Tests Results"
-    needs: [build-and-test, build-and-test-heads, buildkite]
-    runs-on: ubuntu-latest
-    if: >
-      always() &&
-      ( github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository )
-
-    steps:
-      - name: Download GitHub Artifacts
-        uses: actions/download-artifact@v2
-        with:
-          path: artifacts
-
-      - name: Publish Unit Test Results
-        uses: docker://ghcr.io/enricomi/publish-unit-test-result-action:v1
-        if: always()
-        with:
-          github_token: ${{ github.token }}
-          files: "artifacts/Unit Test Results */**/*.xml"
+          name: Builtkite trigger artifacts
+          path: artifacts/*

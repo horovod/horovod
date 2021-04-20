@@ -1,0 +1,80 @@
+# this workflow collects unit test results from CI and CI (Fork) workflows
+# this is separated from those upstream workflows so they can be rerun any time
+# without repeating the long running GitHub or Buildkite CIs
+name: Unit Test Results
+
+on:
+  workflow_run:
+    workflows: ["CI", "CI (Fork)"]
+    types:
+      - completed
+
+jobs:
+  publish-unit-test-results:
+    name: "Publish Unit Tests Results"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Debug Action
+        uses: hmarr/debug-action@v2.0.0
+
+      - name: Download GitHub Artifacts
+        uses: actions/github-script@v3
+        with:
+          script: |
+            var fs = require('fs');
+            var path = require('path');
+            var artifacts_path = path.join('${{github.workspace}}', 'artifacts')
+            fs.mkdirSync(artifacts_path, { recursive: true })
+
+            var artifacts = await github.actions.listWorkflowRunArtifacts({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               run_id: ${{ github.event.workflow_run.id }},
+            });
+
+            for (const artifact of artifacts.data.artifacts) {
+               var download = await github.actions.downloadArtifact({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  artifact_id: artifact.id,
+                  archive_format: 'zip',
+               });
+               var artifact_path = path.join(artifacts_path, `${artifact.name}.zip`)
+               fs.writeFileSync(artifact_path, Buffer.from(download.data));
+               console.log(`Downloaded ${artifact_path}`);
+            }
+      - name: Extract Artifacts
+        run: |
+          for file in artifacts/*.zip
+          do
+            if [ -f "$file" ]
+            then
+              dir="${file/%.zip/}"
+              mkdir -p "$dir"
+              unzip -d "$dir" "$file"
+            fi
+          done
+
+      - name: Debug artifacts
+        run: find artifacts
+
+      - name: Identify Buildkite build
+        id: build
+        run: echo "::set-output name=url::$(jq -r .url "artifacts/Builtkite trigger artifacts/builtkite.build.json")"
+
+      - name: Download Buildkite Artifacts
+        uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1
+        with:
+          github_token: ${{ github.token }}
+          buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
+          buildkite_build_url: ${{ steps.build.outputs.url }}
+          ignore_build_states: blocked,canceled,skipped,not_run
+          ignore_job_states: timed_out
+          output_path: artifacts/Unit Test Results - GPUs on Buildkite
+
+      - name: Publish Unit Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v1
+        with:
+          commit: ${{ github.event.workflow_run.head_sha }}
+          files: "artifacts/*/**/*.xml"

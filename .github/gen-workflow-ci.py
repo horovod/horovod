@@ -235,11 +235,11 @@ def main():
                 f'    name: "Build and Test (GPUs on Builtkite)"\n'
                 f'    needs: [{",".join(needs)}]\n'
                 f'    runs-on: ubuntu-latest\n'
-                f'    if: github.event_name == \'push\' || github.event.pull_request.head.repo.full_name == github.repository\n'
                 f'\n'
                 f'    steps:\n'
                 f'      - name: Trigger Buildkite Pipeline\n'
                 f'        id: build\n'
+                f'        if: github.event_name == \'push\' || github.event.pull_request.head.repo.full_name == github.repository\n'
                 f'        uses: EnricoMi/trigger-pipeline-action@master\n'
                 f'        env:\n'
                 f'          PIPELINE: "horovod/horovod"\n'
@@ -250,44 +250,24 @@ def main():
                 f'          BUILDKITE_API_ACCESS_TOKEN: ${{{{ secrets.BUILDKITE_TOKEN }}}}\n'
                 f'          BUILD_ENV_VARS: "{{\\"PIPELINE_MODE\\": \\"GPU FULL\\"}}"\n'
                 f'\n'
-                f'      - name: Download Buildkite Artifacts\n'
-                f'        uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1\n'
-                f'        with:\n'
-                f'          github_token: ${{{{ github.token }}}}\n'
-                f'          buildkite_token: ${{{{ secrets.BUILDKITE_TOKEN }}}}\n'
-                f'          buildkite_build_url: ${{{{ steps.build.outputs.url }}}}\n'
-                f'          ignore_build_states: blocked,canceled,skipped,not_run\n'
-                f'          ignore_job_states: timed_out\n'
-                f'          output_path: artifacts/Unit Test Results - GPUs on Buildkite\n'
+                f'      - name: Write artifacts\n'
+                f'        run: |\n'
+                f'          mkdir -p artifacts\n'
+                f'          if [[ "${{{{ steps.build.outcome }}}}" == "skipped" ]]\n'
+                f'          then\n'
+                f'            echo ${{{{ github.event.pull_request.head.ref }}}} > artifacts/head_ref.txt\n'
+                f'          else\n'
+                f'            cat > artifacts/buildkite.build.json <<"EOF"\n'
+                f'          ${{{{ steps.build.outputs.json }}}}\n'
+                f'          EOF\n'
+                f'          fi\n'
+                f'        shell: bash\n'
                 f'\n'
-                f'      - name: Upload Test Results\n'
+                f'      - name: Upload artifacts\n'
                 f'        uses: actions/upload-artifact@v2\n'
-                f'        if: always()\n'
                 f'        with:\n'
-                f'          name: Unit Test Results - GPUs on Builtkite\n'
-                f'          path: artifacts/Unit Test Results - GPUs on Buildkite/**/*.xml\n')
-
-    def publish_unit_test_results(name: str, needs: List[str]) -> str:
-        return (f'  {name}:\n'
-                f'    name: "Publish Unit Tests Results"\n'
-                f'    needs: [{",".join(needs)}]\n'
-                f'    runs-on: ubuntu-latest\n'
-                f'    if: >\n'
-                f'      always() &&\n'
-                f'      ( github.event_name == \'push\' || github.event.pull_request.head.repo.full_name == github.repository )\n'
-                f'\n'
-                f'    steps:\n'
-                f'      - name: Download GitHub Artifacts\n'
-                f'        uses: actions/download-artifact@v2\n'
-                f'        with:\n'
-                f'          path: artifacts\n'
-                f'\n'
-                f'      - name: Publish Unit Test Results\n'
-                f'        uses: docker://ghcr.io/enricomi/publish-unit-test-result-action:v1\n'
-                f'        if: always()\n'
-                f'        with:\n'
-                f'          github_token: ${{{{ github.token }}}}\n'
-                f'          files: "artifacts/Unit Test Results */**/*.xml"\n')
+                f'          name: Builtkite trigger artifacts\n'
+                f'          path: artifacts/*\n')
 
     with open(path.joinpath('workflows', 'ci.yaml').absolute(), 'wt') as w:
         heads = ['tfhead', 'torchhead', 'mxnethead']
@@ -297,8 +277,7 @@ def main():
             validate_workflow_job(),
             build_and_test_images(name='build-and-test', images=release_images, tests_per_image=tests_per_image, tests=tests),
             build_and_test_images(name='build-and-test-heads', images=allhead_images, tests_per_image=tests_per_image, tests=tests),
-            trigger_buildkite_job(name='buildkite', needs=['build-and-test']),
-            publish_unit_test_results(name='publish-test-results', needs=['build-and-test, build-and-test-heads, buildkite'])
+            trigger_buildkite_job(name='buildkite', needs=['build-and-test'])
         )
         print(workflow, file=w, end='')
 
