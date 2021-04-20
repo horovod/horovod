@@ -956,6 +956,10 @@ int horovod_add_process_set(const int *ranks, int nrank) {
   if (!horovod_global.initialization_done) {
     return -1;
   }
+
+  std::unique_lock<std::recursive_mutex> table_lock(
+      horovod_global.process_set_table.mutex);
+
   int id = horovod_global.process_set_table.RegisterProcessSet(
       ranks && nrank > 0
           ? std::vector<int>(ranks, ranks + nrank)
@@ -968,6 +972,8 @@ int horovod_add_process_set(const int *ranks, int nrank) {
   process_set.response_cache.set_capacity(
       (int)horovod_global.parameter_manager.CacheEnabled() *
       horovod_global.cache_capacity);
+
+  table_lock.unlock();
 
   // Block until the background thread has initialized the process set.
   while (true) {
@@ -989,12 +995,18 @@ int horovod_remove_process_set(int process_set_id) {
   if (!horovod_global.initialization_done) {
     return -1;
   }
+
+  std::unique_lock<std::recursive_mutex> table_lock(
+      horovod_global.process_set_table.mutex);
+
   if (!horovod_global.process_set_table.Contains(process_set_id)) {
     throw std::logic_error("Tried to remove unknown process set id " +
                            std::to_string(process_set_id));
   }
 
   horovod_global.process_set_table.MarkProcessSetForRemoval(process_set_id);
+
+  table_lock.unlock();
 
   // Block until the background thread has removed the process set.
   while (true) {
