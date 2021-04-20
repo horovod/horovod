@@ -632,7 +632,7 @@ bool RunLoopOnce(HorovodGlobalState& state) {
 
     // Perform the collective operation. All nodes in the process set should end
     // up performing the same operation.
-    if (process_set.IsCurrentProcessIncluded()) {   // TODO: maybe switch this to checking the global-rank -> rank mapping
+    if (process_set.IsCurrentProcessIncluded()) {
       int global_rank = state.global_controller->GetRank();
       for (auto& response : response_list.responses()) {
         if (!process_set.group_table.empty()) {
@@ -956,8 +956,6 @@ int horovod_add_process_set(const int *ranks, int nrank) {
   if (!horovod_global.initialization_done) {
     return -1;
   }
-  // TODO: check if ranks are valid
-  // TODO: Verify that each process adds matching ranks
   int id = horovod_global.process_set_table.RegisterProcessSet(
       ranks && nrank > 0
           ? std::vector<int>(ranks, ranks + nrank)
@@ -965,7 +963,7 @@ int horovod_add_process_set(const int *ranks, int nrank) {
   auto& process_set = horovod_global.process_set_table.Get(id);
 #if HAVE_MPI
   EnrichProcessSetWithMPIController(process_set);
-  // TODO: Replace by generic call that builds a Gloo or MPI controller as nececssary
+  // TODO: Replace by generic call that builds a Gloo or MPI controller as necesssary
 #endif // HAVE_MPI
   process_set.response_cache.set_capacity(
       (int)horovod_global.parameter_manager.CacheEnabled() *
@@ -975,6 +973,9 @@ int horovod_add_process_set(const int *ranks, int nrank) {
   while (true) {
     if (process_set.initialization_done) {
       return id;
+    }
+    if (horovod_global.shut_down) {
+      return -1;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
@@ -988,7 +989,10 @@ int horovod_remove_process_set(int process_set_id) {
   if (!horovod_global.initialization_done) {
     return -1;
   }
-  // TODO: check if process_set_id is valid
+  if (!horovod_global.process_set_table.Contains(process_set_id)) {
+    throw std::logic_error("Tried to remove unknown process set id " +
+                           std::to_string(process_set_id));
+  }
 
   horovod_global.process_set_table.MarkProcessSetForRemoval(process_set_id);
 
@@ -996,6 +1000,9 @@ int horovod_remove_process_set(int process_set_id) {
   while (true) {
     if (horovod_global.process_set_table.ProcessSetHasJustBeenRemoved()) {
       return process_set_id;
+    }
+    if (horovod_global.shut_down) {
+      return -1;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
