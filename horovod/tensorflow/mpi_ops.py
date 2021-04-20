@@ -77,6 +77,8 @@ cuda_built = _basics.cuda_built
 rocm_built = _basics.rocm_built
 add_process_set = _basics.add_process_set
 remove_process_set = _basics.remove_process_set
+process_set_rank = _basics.process_set_rank
+process_set_size = _basics.process_set_size
 
 # import reduction op values
 Average = _basics.Average
@@ -139,9 +141,11 @@ def _allreduce_grad(op, grad):
     prescale_factor = op.get_attr('prescale_factor')
     postscale_factor = op.get_attr('postscale_factor')
     ignore_name_scope = op.get_attr('ignore_name_scope')
+    process_set = op.get_attr('process_set')
     return _allreduce(grad, op=reduce_op, prescale_factor=prescale_factor,
                       postscale_factor=postscale_factor,
-                      ignore_name_scope=ignore_name_scope)
+                      ignore_name_scope=ignore_name_scope,
+                      process_set=process_set)
 
 
 def _grouped_allreduce(tensors, name=None, op=Sum, prescale_factor=1.0, postscale_factor=1.0,
@@ -187,10 +191,12 @@ def _grouped_allreduce_grad(op, *grads):
     prescale_factor = op.get_attr('prescale_factor')
     postscale_factor = op.get_attr('postscale_factor')
     ignore_name_scope = op.get_attr('ignore_name_scope')
+    process_set = op.get_attr('process_set')
     # TODO(joshr): should this be done as separate allreduce ops?
     return _grouped_allreduce(list(grads), op=reduce_op, prescale_factor=prescale_factor,
-                      postscale_factor=postscale_factor,
-                      ignore_name_scope=ignore_name_scope)
+                              postscale_factor=postscale_factor,
+                              ignore_name_scope=ignore_name_scope,
+                              process_set=process_set)
 
 
 def allgather(tensor, name=None, ignore_name_scope=False, process_set=0):
@@ -226,7 +232,8 @@ def _allgather_grad(op, grad):
       The gradient with respect to the input of the op.
     """
     ignore_name_scope = op.get_attr('ignore_name_scope')
-    grad = _allreduce(grad, op=Average, ignore_name_scope=ignore_name_scope)
+    process_set = op.get_attr('process_set')
+    grad = _allreduce(grad, op=Average, ignore_name_scope=ignore_name_scope, process_set=process_set)
 
     with tf.device('/cpu:0'):
         # Keep the tensor of split sizes on CPU.
@@ -234,11 +241,11 @@ def _allgather_grad(op, grad):
         d = tf.shape(x)
         d = tf.reshape(d[0], [1])
 
-        s = size()
-        d = tf.reshape(allgather(d, ignore_name_scope=ignore_name_scope), [s])
+        s = process_set_size(process_set)
+        d = tf.reshape(allgather(d, ignore_name_scope=ignore_name_scope, process_set=process_set), [s])
 
     splits = tf.split(grad, num_or_size_splits=d, axis=0)
-    return splits[rank()]
+    return splits[process_set_rank(process_set)]
 
 
 def broadcast(tensor, root_rank, name=None, ignore_name_scope=False, process_set=0):
@@ -273,8 +280,10 @@ def _broadcast_grad(op, grad):
     """
     root_rank = op.get_attr('root_rank')
     ignore_name_scope = op.get_attr('ignore_name_scope')
+    process_set = op.get_attr('process_set')
     grad_reduced = _allreduce(grad, op=Average,
-                              ignore_name_scope=ignore_name_scope)
+                              ignore_name_scope=ignore_name_scope,
+                              process_set=process_set)
     if rank() != root_rank:
         return grad_reduced * 0
     return grad_reduced
@@ -331,9 +340,11 @@ def _alltoall_grad(op, grad_wrt_output, grad_wrt_received_splits):
       The gradient with respect to the input of the op.
     """
     ignore_name_scope = op.get_attr('ignore_name_scope')
+    process_set = op.get_attr('process_set')
     recvsplits = op.outputs[1]
 
-    grad_wrt_tensor, _ = alltoall(grad_wrt_output, splits=recvsplits, ignore_name_scope=ignore_name_scope)
+    grad_wrt_tensor, _ = alltoall(grad_wrt_output, splits=recvsplits, ignore_name_scope=ignore_name_scope,
+                                  process_set=process_set)
     grad_wrt_splits = None # not differentiable (integer variable)
 
     return [grad_wrt_tensor, grad_wrt_splits]

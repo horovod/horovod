@@ -117,6 +117,17 @@ int horovod_add_process_set(const int *ranks, int nranks);
 // Returns -1 if Horovod is not initialized.
 int horovod_remove_process_set(int process_set_id);
 
+// C interface to return the rank of this process counted in the specified
+// process set. Returns -1 if not part of that process set, if that process
+// set does not exist, or if Horovod is not initialized.
+int horovod_process_set_rank(int process_set_id);
+
+// C interface to return the size of the specified process set.
+// Returns -1 if not part of that process set, if that process set does not
+// exist, or if Horovod is not initialized.
+int horovod_process_set_size(int process_set_id);
+
+
 }
 
 Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
