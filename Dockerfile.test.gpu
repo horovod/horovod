@@ -193,7 +193,7 @@ RUN sed -i "s/dataset.take(10000/dataset.take(100/" /horovod/examples/tensorflow
 RUN sed -i "s/'--epochs', type=int, default=24,/'--epochs', type=int, default=9,/" /horovod/examples/keras/keras_mnist_advanced.py
 
 # Hack TensorFlow 2.0 Keras MNIST advanced example to be smaller.
-RUN sed -i "s/epochs = .*/epochs = 9/" /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
+RUN sed -i "s/epochs=24/epochs=9/" /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
 
 # Hack PyTorch MNIST example to be smaller.
 RUN sed -i "s/'--epochs', type=int, default=10,/'--epochs', type=int, default=2,/" /horovod/examples/pytorch/pytorch_mnist.py

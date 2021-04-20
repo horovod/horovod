@@ -614,6 +614,9 @@ class BaseElasticSparkTests(unittest.TestCase):
                                   conf.SPARK_CONF_DONT_REUSE_FAILED_EXECUTOR])
 
     @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    @pytest.mark.skipif(os.environ.get('GITHUB_ACTIONS', 'false') == 'true',
+                        reason='This test fails on GitHub Workflow, '
+                               'see https://github.com/horovod/horovod/issues/2813')
     def test_fault_tolerance_all_hosts_lost(self):
         discovery_schedule = [
             (0, ['node-1:1', 'node-2:1']),
@@ -628,6 +631,9 @@ class BaseElasticSparkTests(unittest.TestCase):
 
     @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     @mock.patch('horovod.runner.gloo_run._get_min_start_hosts', return_value=1)
+    @pytest.mark.skipif(os.environ.get('GITHUB_ACTIONS', 'false') == 'true',
+                        reason='This test fails on GitHub Workflow, '
+                               'see https://github.com/horovod/horovod/issues/2813')
     def test_auto_scale_up(self, mock_get_min_start_hosts):
         discovery_schedule = [
             (0, ['host-1:1']),

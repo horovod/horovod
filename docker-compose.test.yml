@@ -93,7 +93,7 @@ services:
   # https://github.com/apache/incubator-mxnet/issues/16193
   # however, there is an mxnet-cu101-1.6.0.post0, so we test this with gpu instead of cpu
   # this cpu test variation is defined as gpu in gpu frameworks variations below
-# test-cpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_7_1-mxnet1_6_0_p0-pyspark_3_1_1:
+# test-cpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_7_1-mxnet1_6_0_p0-pyspark_3_0_1:
   # then our baseline again, omitted ...
   test-cpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_0_1:
     extends: test-cpu-base
