@@ -11,6 +11,7 @@ ProcessSet::ProcessSet(std::vector<int> global_ranks)
     : registered_global_ranks_(std::move(global_ranks)) {}
 
 bool ProcessSet::IsCurrentProcessIncluded() const {
+  // TODO: maybe switch this to checking the global-rank -> rank mapping
   assert(initialization_done);
   return controller->IsInitialized();
 }
@@ -22,6 +23,31 @@ void ProcessSet::Initialize(const MPIContext& mpi_context) {
   }
   LOG(TRACE) << "Initializing new process set with MPI.";
   assert(controller != nullptr);
+  if (!registered_global_ranks_.empty()) {
+    // Verify that each process has registered the same set of processes.
+    int size;
+    MPI_Comm_size(mpi_context.global_comm, &size);
+    std::vector<int> buf(size);
+    assert(registered_global_ranks_.size() <= size);
+    auto len = static_cast<int>(registered_global_ranks_.size());
+    MPI_Allgather(&len, 1, MPI_INT, buf.data(), 1, MPI_INT,
+                  mpi_context.global_comm);
+    if (std::any_of(buf.begin(), buf.end(), [len](int other_len) {
+          return len != other_len;
+        })) {
+      throw std::logic_error("Attempted to register process set with "
+                             "mismatching size on different ranks");
+    }
+    for (auto reduction_op : {MPI_MAX, MPI_MIN}) {
+      buf.resize(len);
+      MPI_Allreduce(registered_global_ranks_.data(), buf.data(), len, MPI_INT,
+                    reduction_op, mpi_context.global_comm);
+      if (registered_global_ranks_ != buf) {
+        throw std::logic_error("Attempted to register process set with "
+                               "mismatching values on different ranks");
+      }
+    }
+  }
   mpi_comms.Initialize(mpi_context, registered_global_ranks_);
   if (mpi_comms.Get(CommunicatorType::GLOBAL) != MPI_COMM_NULL) {
     // The running process is part of this process set.
@@ -41,7 +67,6 @@ void ProcessSet::Initialize(const GlooContext& gloo_context) {
   initialization_done = true;
 }
 #endif // HAVE_GLOO
-
 
 void ProcessSet::Finalize(const Status& status) {
   tensor_queue.FinalizeTensorQueue(status);
@@ -107,8 +132,27 @@ void ProcessSetTable::Finalize(const Status& status) {
   }
 }
 
-int32_t ProcessSetTable::RegisterProcessSet(const std::vector<int>& global_ranks) {
+int32_t ProcessSetTable::RegisterProcessSet(std::vector<int> global_ranks) {
   std::lock_guard<std::recursive_mutex> guard(mutex_);
+
+  if (!global_ranks.empty() && Contains(0)) {
+    // We are registering a potentially non-global process set and we have
+    // already registered the global process set 0. -> Check global_ranks
+    std::sort(global_ranks.begin(), global_ranks.end());
+    auto dup_it = std::adjacent_find(global_ranks.begin(), global_ranks.end());
+    if (dup_it != global_ranks.end()) {
+      throw std::logic_error(
+          "Tried to register process set with duplicate rank: " +
+          std::to_string(*dup_it));
+    }
+    for (auto rk : global_ranks) {
+      if (rk < 0 || rk >= Get(0).controller->GetSize()) {
+        throw std::logic_error(
+            "Tried to register process set with invalid rank: " +
+            std::to_string(rk));
+      }
+    }
+  }
 
   int32_t id;
   if (!free_ids_.empty()) {

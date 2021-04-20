@@ -70,7 +70,7 @@ struct ProcessSet {
   ProcessSet(const ProcessSet&) = delete;
 };
 
-// TODO: Make more explicit that id=0 (the global process set) is special?
+// TODO: Make more explicit that id=0 (the global process set) is special? Prevent removal?
 
 class ProcessSetTable {
 public:
@@ -93,7 +93,7 @@ public:
   // Finalize tensor queues and communicators and remove all process sets.
   void Finalize(const Status& status);
 
-  int32_t RegisterProcessSet(const std::vector<int>& global_ranks = {});
+  int32_t RegisterProcessSet(std::vector<int> global_ranks = {});
 
   std::vector<int32_t> Ids() const; // Returns copy to be threadsafe
 
