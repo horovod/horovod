@@ -1008,7 +1008,39 @@ int horovod_remove_process_set(int process_set_id) {
   }
 }
 
+int horovod_process_set_rank(int process_set_id) {
+  if (process_set_id == 0) {
+    return horovod_rank();
+  }
+  if (!horovod_global.initialization_done) {
+    return -1;
+  }
+  if (!horovod_global.process_set_table.Contains(process_set_id)) {
+    return -1;
+  }
+  auto& process_set = horovod_global.process_set_table.Get(process_set_id);
+  if (process_set.IsCurrentProcessIncluded()) {
+    return process_set.controller->GetRank();
+  }
+  return -1;
+}
 
+int horovod_process_set_size(int process_set_id) {
+  if (process_set_id == 0) {
+    return horovod_size();
+  }
+  if (!horovod_global.initialization_done) {
+    return -1;
+  }
+  if (!horovod_global.process_set_table.Contains(process_set_id)) {
+    return -1;
+  }
+  auto& process_set = horovod_global.process_set_table.Get(process_set_id);
+  if (process_set.IsCurrentProcessIncluded()) {
+    return process_set.controller->GetSize();
+  }
+  return -1;
+}
 
 }
 

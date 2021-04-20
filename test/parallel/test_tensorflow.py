@@ -888,6 +888,76 @@ class TensorFlowTests(tf.test.TestCase):
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
 
+    def test_horovod_allreduce_grad_cpu_process_sets(self):
+        """Test the correctness of the allreduce gradient on CPU if restricted to non-global process sets."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        if hvd.gloo_enabled():
+            self.skipTest("Multiple process sets currently do not support Gloo controller.")
+
+        if hvd.ccl_built():
+            self.skipTest("Multiple process sets currently do not support CCL.")
+
+        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
+        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
+
+        even_set = hvd.add_process_set(even_ranks)
+        odd_set = hvd.add_process_set(odd_ranks)
+
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                if _executing_eagerly():
+                    even_rank_tensor = self.tfe.Variable(self.random_uniform(
+                        [5] * dim, -100, 100, dtype=dtype))
+                    odd_rank_tensor = self.tfe.Variable(self.random_uniform(
+                        [5] * dim, -100, 100, dtype=dtype))
+                    with tf.GradientTape() as tape:
+                        if rank in even_ranks:
+                            summed = hvd.allreduce(even_rank_tensor, average=False,
+                                                   process_set=even_set)
+                        elif rank in odd_ranks:
+                            summed = hvd.allreduce(odd_rank_tensor, average=False,
+                                                   process_set=odd_set)
+                else:
+                    even_rank_tensor = self.random_uniform([5] * dim, -100, 100, dtype=dtype)
+                    odd_rank_tensor = self.random_uniform([5] * dim, -100, 100, dtype=dtype)
+                    if rank in even_ranks:
+                        summed = hvd.allreduce(even_rank_tensor, average=False,
+                                               process_set=even_set)
+                    elif rank in odd_ranks:
+                        summed = hvd.allreduce(odd_rank_tensor, average=False,
+                                               process_set=odd_set)
+
+                if rank in even_ranks:
+                    tensor = even_rank_tensor
+                    set_size = len(even_ranks)
+                elif rank in odd_ranks:
+                    tensor = odd_rank_tensor
+                    set_size = len(odd_ranks)
+
+                grad_ys = tf.ones([5] * dim)
+                if _executing_eagerly():
+                    grad_out = tape.gradient(summed, tensor, grad_ys)
+                else:
+                    grad = tf.gradients(summed, tensor, grad_ys)[0]
+                    grad_out = self.evaluate(grad)
+
+            expected = np.ones([5] * dim) * set_size
+            err = np.linalg.norm(expected - grad_out)
+            self.assertLess(err, 0.00000001,
+                            "gradient %s differs from expected %s, "
+                            "error: %s" % (grad_out, expected, str(err)))
+
+        hvd.remove_process_set(odd_set)
+        hvd.remove_process_set(even_set)
+
+
     def test_horovod_allreduce_grad_gpu(self):
         """Test the correctness of the allreduce gradient on GPU."""
         # Only do this test if there are GPUs available.
@@ -1221,6 +1291,79 @@ class TensorFlowTests(tf.test.TestCase):
             diff = self.evaluate(max_difference)
             self.assertTrue(diff <= threshold, "hvd.grouped_allreduce produces incorrect results")
 
+        hvd.remove_process_set(odd_set)
+        hvd.remove_process_set(even_set)
+
+    def test_horovod_grouped_allreduce_grad_cpu_process_sets(self):
+        """Test the correctness of the grouped allreduce gradient on CPU 
+        if restricted to non-global process sets."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        if hvd.gloo_enabled():
+            self.skipTest("Multiple process sets currently do not support Gloo controller.")
+
+        if hvd.ccl_built():
+            self.skipTest("Multiple process sets currently do not support CCL.")
+
+        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
+        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
+
+        even_set = hvd.add_process_set(even_ranks)
+        odd_set = hvd.add_process_set(odd_ranks)
+
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                if _executing_eagerly():
+                    even_rank_tensors = [self.tfe.Variable(self.random_uniform(
+                        [5] * dim, -100, 100, dtype=dtype)) for _ in range(5)]
+                    odd_rank_tensors = [self.tfe.Variable(self.random_uniform(
+                        [5] * dim, -100, 100, dtype=dtype)) for _ in range(5)]
+                    with tf.GradientTape(persistent=True) as tape:
+                        if rank in even_ranks:
+                            summed = hvd.grouped_allreduce(even_rank_tensors, average=False,
+                                                           process_set=even_set)
+                        elif rank in odd_ranks:
+                            summed = hvd.grouped_allreduce(odd_rank_tensors, average=False,
+                                                           process_set=odd_set)
+                else:
+                    even_rank_tensors = [self.random_uniform(
+                        [5] * dim, -100, 100, dtype=dtype) for _ in range(5)]
+                    odd_rank_tensors = [self.random_uniform(
+                        [5] * dim, -100, 100, dtype=dtype) for _ in range(5)]
+                    if rank in even_ranks:
+                        summed = hvd.grouped_allreduce(even_rank_tensors, average=False,
+                                                       process_set=even_set)
+                    elif rank in odd_ranks:
+                        summed = hvd.grouped_allreduce(odd_rank_tensors, average=False,
+                                                       process_set=odd_set)
+
+                if rank in even_ranks:
+                    tensors = even_rank_tensors
+                    set_size = len(even_ranks)
+                elif rank in odd_ranks:
+                    tensors = odd_rank_tensors
+                    set_size = len(odd_ranks)
+
+                grads_ys = [tf.ones([5] * dim, dtype=dtype) for _ in range(5)]
+                if _executing_eagerly():
+                    grads_out = [tape.gradient(s, t, g) for s, t, g in zip(summed, tensors, grads_ys)]
+                else:
+                    grads = [tf.gradients(s, t, g)[0] for s, t, g in zip(summed, tensors, grads_ys)]
+                    grads_out = [self.evaluate(grad) for grad in grads]
+
+            expected = np.ones([5] * dim) * set_size
+            for grad_out in grads_out:
+                err = np.linalg.norm(expected - grad_out)
+                self.assertLess(err, 0.00000001,
+                                "gradient %s differs from expected %s, "
+                                "error: %s" % (grad_out, expected, str(err)))
+                
         hvd.remove_process_set(odd_set)
         hvd.remove_process_set(even_set)
 
@@ -1923,6 +2066,84 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.remove_process_set(even_set)
 
 
+    def test_horovod_allgather_grad_cpu_process_sets(self):
+        """Test the correctness of the allgather gradient on CPU if restricted to non-global process sets."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        if hvd.gloo_enabled():
+            self.skipTest("Multiple process sets currently do not support Gloo controller.")
+
+        if hvd.ccl_built():
+            self.skipTest("Multiple process sets currently do not support CCL.")
+
+        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
+        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
+
+        even_set = hvd.add_process_set(even_ranks)
+        odd_set = hvd.add_process_set(odd_ranks)
+
+        if rank in even_ranks:
+            set_ranks = even_ranks
+            this_set = even_set
+        elif rank in odd_ranks:
+            set_ranks = odd_ranks
+            this_set = odd_set
+
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            tensor_sizes = [3, 2, 7, 4, 6, 8, 10] * 5
+            tensor_sizes = tensor_sizes[:size]
+            set_tensor_sizes = [tensor_sizes[rk] for rk in set_ranks]
+
+            with tf.device("/cpu:0"):
+                if _executing_eagerly():
+                    with tf.GradientTape() as tape:
+                        tensor = self.tfe.Variable(
+                            tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank)
+                        if dtype == tf.bool:
+                            tensor = tensor % 2
+                        tensor = tf.cast(tensor, dtype=dtype)
+                        gathered = hvd.allgather(tensor, process_set=this_set)
+                        grad_list = []
+                        for r, tensor_size in zip(set_ranks, set_tensor_sizes):
+                            g = tf.ones([tensor_size] + [17] * (dim - 1)) * r
+                            grad_list.append(g)
+                        grad_ys = tf.concat(grad_list, axis=0)
+                    grad_out = tape.gradient(gathered, tensor, grad_ys)
+                else:
+                    tensor = tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank
+                    if dtype == tf.bool:
+                        tensor = tensor % 2
+                    tensor = tf.cast(tensor, dtype=dtype)
+                    gathered = hvd.allgather(tensor, process_set=this_set)
+
+                    grad_list = []
+                    for r, tensor_size in zip(set_ranks, set_tensor_sizes):
+                        g = tf.ones([tensor_size] + [17] * (dim - 1)) * r
+                        grad_list.append(g)
+                    grad_ys = tf.concat(grad_list, axis=0)
+
+                    grad = tf.gradients(gathered, tensor, grad_ys)[0]
+                    grad_out = self.evaluate(grad)
+
+            expected = np.ones(
+                [tensor_sizes[rank]] + [17] * (dim - 1)
+            ) * rank
+            err = np.linalg.norm(expected - grad_out)
+            self.assertLess(err, 0.00000001,
+                            "gradient %s differs from expected %s, "
+                            "error: %s" %
+                            (grad_out, expected, str(err)))
+
+        hvd.remove_process_set(odd_set)
+        hvd.remove_process_set(even_set)
+
+
     def test_horovod_broadcast_cpu(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors on CPU."""
         hvd.init()
@@ -2253,6 +2474,75 @@ class TensorFlowTests(tf.test.TestCase):
             self.assertLess(err, 0.00000001,
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
+
+    def test_horovod_broadcast_grad_cpu_process_sets(self):
+        """Test the correctness of the broadcast gradient on CPU if restricted to non-global process sets."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        if hvd.gloo_enabled():
+            self.skipTest("Multiple process sets currently do not support Gloo controller.")
+
+        if hvd.ccl_built():
+            self.skipTest("Multiple process sets currently do not support CCL.")
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            self.skipTest("Only one worker available")
+
+        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
+        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
+
+        even_set = hvd.add_process_set(even_ranks)
+        odd_set = hvd.add_process_set(odd_ranks)
+
+        if rank in even_ranks:
+            set_size = len(even_ranks)
+            set_ranks = even_ranks
+            this_set = even_set
+        elif rank in odd_ranks:
+            set_size = len(odd_ranks)
+            set_ranks = odd_ranks
+            this_set = odd_set
+
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        root_ranks = list(set_ranks)
+        for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
+            with tf.device("/cpu:0"):
+                if _executing_eagerly():
+                    tensor = self.tfe.Variable(tf.ones([5] * dim) * rank)
+                else:
+                    tensor = tf.ones([5] * dim) * rank
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                if _executing_eagerly():
+                    with tf.GradientTape() as tape:
+                        tensor = tf.cast(tensor, dtype=dtype)
+                        broadcasted_tensor = hvd.broadcast(tensor, root_rank,
+                                                           process_set=this_set)
+                    grad_out = tape.gradient(broadcasted_tensor, tensor)
+                else:
+                    tensor = tf.cast(tensor, dtype=dtype)
+                    broadcasted_tensor = hvd.broadcast(tensor, root_rank,
+                                                       process_set=this_set)
+                    grad_ys = tf.ones([5] * dim)
+                    grad = tf.gradients(broadcasted_tensor, tensor, grad_ys)[0]
+                    grad_out = self.evaluate(grad)
+
+            c = 1 if rank == root_rank else 0
+            expected = np.ones([5] * dim) * c
+            err = np.linalg.norm(expected - grad_out)
+            self.assertLess(err, 0.00000001,
+                            "gradient %s differs from expected %s, "
+                            "error: %s" % (grad_out, expected, str(err)))
+
+        hvd.remove_process_set(odd_set)
+        hvd.remove_process_set(even_set)
+
 
     def test_horovod_alltoall_cpu(self):
         """Test that the alltoall correctly distributes 1D, 2D, and 3D tensors."""
@@ -3154,6 +3444,70 @@ class TensorFlowTests(tf.test.TestCase):
             self.assertLess(err, 0.00000001,
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
+
+    def test_horovod_alltoall_grad_cpu_process_sets(self):
+        """Test the correctness of the alltoall gradient on CPU with restricted process sets."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        if hvd.gloo_enabled():
+            self.skipTest("Multiple process sets currently do not support Gloo controller.")
+
+        if hvd.ccl_built():
+            self.skipTest("Multiple process sets currently do not support CCL.")
+
+        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
+        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
+
+        even_set = hvd.add_process_set(even_ranks)
+        odd_set = hvd.add_process_set(odd_ranks)
+
+        if rank in even_ranks:
+            set_size = len(even_ranks)
+            this_set = even_set
+        elif rank in odd_ranks:
+            set_size = len(odd_ranks)
+            this_set = odd_set
+
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                vals = []
+                for i in range(set_size):
+                  vals += [i] * (rank+1)
+                tensor = tf.convert_to_tensor(vals, dtype=dtype)
+                for _ in range(dim - 1):
+                  tensor = tf.expand_dims(tensor, axis=1)
+                  tensor = tf.concat([tensor, tensor], axis=1)
+
+                if _executing_eagerly():
+                    tensor = self.tfe.Variable(tensor)
+                    splits = tf.convert_to_tensor([rank + 1] * set_size, dtype=tf.int32)
+                    with tf.GradientTape() as tape:
+                        collected, received_splits = hvd.alltoall(tensor, splits, process_set=this_set)
+                else:
+                    splits = tf.convert_to_tensor([rank + 1] * set_size, dtype=tf.int32)
+                    collected, received_splits = hvd.alltoall(tensor, splits, process_set=this_set)
+
+                grad_ys = tf.ones(tf.shape(collected))
+                if _executing_eagerly():
+                    grad_out = tape.gradient(collected, tensor, grad_ys)
+                else:
+                    grad = tf.gradients(collected, tensor, grad_ys)[0]
+                    grad_out = self.evaluate(grad)
+
+            expected = np.ones(tensor.get_shape().as_list())
+            err = np.linalg.norm(expected - grad_out)
+            self.assertLess(err, 0.00000001,
+                            "gradient %s differs from expected %s, "
+                            "error: %s" % (grad_out, expected, str(err)))
+
+        hvd.remove_process_set(odd_set)
+        hvd.remove_process_set(even_set)
 
 
     def test_horovod_broadcast_eager_mode_error(self):
