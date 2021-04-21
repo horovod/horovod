@@ -111,7 +111,7 @@ def create_xor_model(input_dim=2, output_dim=1):
 def create_legacy_xor_model(input_dim=2, output_dim=1):
     return LegacyXOR(input_dim, output_dim)
 
-@pytest.mark.skipif(LooseVersion(pl.__version__) < LooseVersion('1.2.6'), reason='Pytorch lightning version < 1.2.6 is not supported.')
+@pytest.mark.skipif(LooseVersion(pl.__version__) < LooseVersion('1.2.8'), reason='Pytorch lightning version is not supported.')
 class SparkLightningTests(unittest.TestCase):
 
     def __init__(self, *args, **kwargs):

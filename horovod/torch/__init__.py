@@ -24,8 +24,10 @@ except:
     try:
         check_extension('horovod.torch', 'HOROVOD_WITH_PYTORCH',
                     __file__, 'mpi_lib', '_mpi_lib')
-    except:
-        print("WARNING! MPI libs is not available. This only use this mode in unit tests.")
+    except Exception as e:
+        # MPI libs are missing, but python applications are still avaiable.
+        print(e)
+        print("Warning! MPI libs are missing, but python applications are still avaiable.")
         _MPI_LIB_AVAILABLE = False
 
 # only import following function when mpi is available.

@@ -13,23 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
-import contextlib
-import os
-import platform
-import stat
-import sys
 
-from tempfile import TemporaryDirectory
 
-import numpy as np
-
-from pyspark.ml import Pipeline
-from pyspark.ml.feature import VectorAssembler
-from pyspark.ml.linalg import DenseVector, VectorUDT
-from pyspark.sql.types import FloatType, IntegerType, StructField, StructType
-
-from horovod.runner.common.util import secret
-from horovod.spark.common.store import LocalStore
 from horovod.spark.driver.driver_service import SparkDriverService, SparkDriverClient
 from horovod.spark.task.task_service import SparkTaskService, SparkTaskClient
 

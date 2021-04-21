@@ -44,9 +44,9 @@ parser.add_argument('--data-dir', default='/tmp',
                     help='location of the training dataset in the local filesystem (will be downloaded if needed)')
 
 def train_model(args):
-    # do not support lightning version before 1.2.6
+    # do not support lightning version before 1.2.8
     import pytorch_lightning as pl
-    if LooseVersion(pl.__version__) < LooseVersion('1.2.6'):
+    if LooseVersion(pl.__version__) < LooseVersion('1.2.8'):
         print("Skip test, lightning estimator do not support pl version {}".format(pl.__version__))
         return
 
