@@ -475,17 +475,19 @@ if _LegacyOptimizer is not None:
                 avg_grads = self._allreduce_grads(grads, vars)
             return list(zip(avg_grads, vars))
 
-        def apply_gradients(self, *args, **kwargs):
+        def apply_gradients(self, grads_and_vars, global_step=None, name=None):
             """Calls this same method on the underlying optimizer."""
             if self._agg_helper:
                 return self._agg_helper.apply_gradients(
-                    lambda: self._optimizer.apply_gradients(*args, **kwargs),
+                    lambda: self._optimizer.apply_gradients(
+                        grads_and_vars, global_step=global_step, name=name),
                     self._optimizer,
-                    *args,
-                    **kwargs,
+                    grads_and_vars,
+                    global_step=global_step,
+                    name=name,
                 )
-
-            return self._optimizer.apply_gradients(*args, **kwargs)
+            return self._optimizer.apply_gradients(
+                grads_and_vars, global_step=global_step, name=name)
 
         def get_slot(self, *args, **kwargs):
             """Calls this same method on the underlying optimizer."""

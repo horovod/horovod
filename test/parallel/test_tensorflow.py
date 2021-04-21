@@ -2828,6 +2828,23 @@ class TensorFlowTests(tf.test.TestCase):
                 self.assertAllClose(self.evaluate(sync_bn.moving_mean), self.evaluate(bn.moving_mean))
                 self.assertAllClose(self.evaluate(sync_bn.moving_variance), self.evaluate(bn.moving_variance))
 
+    def _grad_agg_compute_expected_value(self, backward_passes_per_step, batch_id):
+        sum_per_aggregation = 0.0
+        for _ in range(backward_passes_per_step):
+            grads_for_batch = 0.0
+            for rank in range(hvd.size()):
+                grads_for_batch += rank
+
+            # Apply `average_aggregated_gradients`.
+            grads_for_batch /= float(backward_passes_per_step)
+
+            # Averages across workers.
+            sum_per_aggregation += grads_for_batch / float(hvd.size())
+
+        aggregations_completed = math.floor((batch_id + 1) / backward_passes_per_step)
+        return aggregations_completed * sum_per_aggregation
+
+
     def test_local_gradient_aggregation(self):
         """Test that local gradient aggregation works as expected."""
 
@@ -2858,9 +2875,14 @@ class TensorFlowTests(tf.test.TestCase):
 
             grads_and_vars = opt.compute_gradients()
 
+            # Use custom variable for global_step instead of default one from
+            # `tf.compat.v1.train.get_or_create_global_step` to ensure
+            # the correct counter is being incremented.
+            global_step = tf.compat.v1.get_variable(
+                'test_global_step', initializer=tf.constant(0, dtype=tf.int64),
+                trainable=False)
             # Check the global_step before the update_op to ensure that the global step is
             # well-ordered in the graph, occuring within apply_gradients().
-            global_step = tf.compat.v1.train.get_or_create_global_step()
             with tf.compat.v1.control_dependencies(g for g, _ in grads_and_vars):
                 # Use +0 instead of tf.identity() since tf.identity() has some weird semantics
                 # with control_dependencies: github.com/tensorflow/tensorflow/issues/4663
@@ -2871,30 +2893,58 @@ class TensorFlowTests(tf.test.TestCase):
             sess.run(tf.compat.v1.global_variables_initializer())
             sess.run(tf.compat.v1.local_variables_initializer())
 
-            def compute_expected_value(batch_id):
-                sum_per_aggregation = 0.0
-                for _ in range(backward_passes_per_step):
-                    grads_for_batch = 0.0
-                    for rank in range(hvd.size()):
-                        grads_for_batch += rank
-
-                    # Apply `average_aggregated_gradients`.
-                    grads_for_batch /= float(backward_passes_per_step)
-
-                    # Averages across workers.
-                    sum_per_aggregation += grads_for_batch / float(hvd.size())
-
-                aggregations_completed = math.floor((batch_id + 1) / backward_passes_per_step)
-                return aggregations_completed * sum_per_aggregation
-
             steps_seen = []
             for idx in range(10):
                 step, _ = sess.run((global_step_before_update, update_op))
                 computed_value = sess.run(opt._optimizer.variable.read_value())[0]
                 steps_seen.append(step)
-                assert computed_value == compute_expected_value(idx)
+                self.assertEquals(computed_value, self._grad_agg_compute_expected_value(
+                    backward_passes_per_step, idx))
 
             assert steps_seen == list(range(10))
+
+    def test_local_gradient_aggregation_sparse(self):
+        """Test the the gradient aggregation works for sparse gradients."""
+
+        if _executing_eagerly() or not hasattr(tf, 'ConfigProto'):
+            pytest.skip("Gradient aggregation for Legacy Optimizer only support graph mode.")
+
+        hvd.init()
+        with self.test_session(config=config) as sess:
+            class SparseGradientOptimizer(tf.compat.v1.train.Optimizer):
+                def __init__(self, *args, **kwargs):
+                    super().__init__(*args, **kwargs)
+                    self.variable = tf.Variable([0.0])
+                    self.grad = tf.IndexedSlices(
+                        tf.constant([float(hvd.rank())]), tf.constant([0]), tf.constant([1])
+                    )
+
+                def compute_gradients(self, *args, **kwargs):
+                    return [(self.grad, self.variable)]
+
+                def _apply_dense(self, grad, var):
+                    return var.assign_add(grad)
+
+            backward_passes_per_step = 4
+            opt = SparseGradientOptimizer(name="sparse_test", use_locking=False)
+            opt = hvd.DistributedOptimizer(
+                optimizer=opt,
+                backward_passes_per_step=backward_passes_per_step,
+                average_aggregated_gradients=True,
+                sparse_as_dense=True,
+            )
+
+            grads_and_vars = opt.compute_gradients()
+            update_op = opt.apply_gradients(grads_and_vars)
+
+            sess.run(tf.compat.v1.global_variables_initializer())
+            sess.run(tf.compat.v1.local_variables_initializer())
+
+            for idx in range(10):
+                sess.run(update_op)
+                computed_value = sess.run(opt._optimizer.variable.read_value())[0]
+                self.assertEquals(computed_value, self._grad_agg_compute_expected_value(
+                    backward_passes_per_step, idx))
 
 
 from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes

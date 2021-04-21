@@ -205,7 +205,11 @@ class LocalGradientAggregationHelper:
             allreduced_grads = tf.cond(
                 tf.equal(self.counter, self.backward_passes_per_step),
                 lambda: self._allreduce_grads_helper(grads, vars),
-                lambda: grads,
+                lambda: (
+                    [tf.convert_to_tensor(g) if g is not None and isinstance(g, tf.IndexedSlices) else g
+                     for g in grads
+                     ] if self.sparse_as_dense else grads
+                ),
             )
 
             # Handle case where there is only one variable.
@@ -250,7 +254,7 @@ class LocalGradientAggregationHelper:
         # still want to increment the global step if it is being tracked
         # (e.g., Tensorflow Estimators).
         def increment_global_step_counter():
-            global_step_counter = tf.compat.v1.train.get_global_step()
+            global_step_counter = kwargs.get('global_step')
             if global_step_counter is None:
                 return tf.no_op()
             return global_step_counter.assign_add(
