@@ -2269,22 +2269,6 @@ steps:
     automatic: true
   agents:
     queue: cpu
-- label: ':factory: Elastic Spark Torch Tests (test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_1_1)'
-  command: bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py"
-  artifact_paths: "artifacts/**"
-  plugins:
-  - docker-compose#v3.5.0:
-      run: test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_1_1
-      volumes: "./artifacts:/artifacts"
-      config: docker-compose.test.yml
-      pull-retries: 3
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 20
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
 - label: ':spark: Spark PyTests (test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_1_1)'
   command: bash -c "cd /horovod/test/integration && (ls -1 test_spark*.py | xargs -n 1 /bin/bash /pytest_standalone.sh spark)"
   artifact_paths: "artifacts/**"
