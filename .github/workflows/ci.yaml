@@ -63,7 +63,6 @@ jobs:
 
           - image: test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark_3_1_1
             Elastic_Spark_TensorFlow_Tests_2: true
-            Elastic_Spark_Torch_Tests: true
             Elastic_Tests_2: true
             Gloo_Cluster_PyTests: true
             Gloo_Keras_MNIST: true
