@@ -13,8 +13,23 @@
 # limitations under the License.
 # ==============================================================================
 
+import contextlib
+import os
+import platform
+import stat
+import sys
 
+from tempfile import TemporaryDirectory
 
+import numpy as np
+
+from pyspark.ml import Pipeline
+from pyspark.ml.feature import VectorAssembler
+from pyspark.ml.linalg import DenseVector, VectorUDT
+from pyspark.sql.types import FloatType, IntegerType, StructField, StructType
+
+from horovod.runner.common.util import secret
+from horovod.spark.common.store import LocalStore
 from horovod.spark.driver.driver_service import SparkDriverService, SparkDriverClient
 from horovod.spark.task.task_service import SparkTaskService, SparkTaskClient
 
@@ -144,7 +159,7 @@ def create_xor_data(spark):
                          StructField('weight', FloatType())])
     raw_df = create_test_data_from_schema(spark, data, schema)
     df = with_features(raw_df, ['x1', 'x2'])
-    return df#.coalesce(1)
+    return df
 
 
 def create_noisy_xor_data(spark):
