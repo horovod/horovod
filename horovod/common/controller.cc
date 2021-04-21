@@ -132,7 +132,8 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
   // Check for stalled tensors.
   if (stall_inspector_.ShouldPerformCheck()) {
     if (is_coordinator_) {
-      should_shut_down |= stall_inspector_.CheckForStalledTensors(size_);
+      should_shut_down |=
+          stall_inspector_.CheckForStalledTensors(global_ranks_);
     }
 
     if (response_cache_.capacity() > 0) {
