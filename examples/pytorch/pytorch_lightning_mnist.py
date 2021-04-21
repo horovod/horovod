@@ -124,7 +124,6 @@ if __name__ == '__main__':
     args.cuda = not args.no_cuda and torch.cuda.is_available()
     hvd.init()
 
-    #kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else{}
     kwargs = {'num_workers': 2}
     # When supported, use 'forkserver' to spawn dataloader workers instead of 'fork' to prevent
     # issues with Infiniband implementations that are not fork-safe
