@@ -304,8 +304,9 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                     def print_metrics(batch_idx, loss, metric_value_groups, phase):
                         if user_verbose > 0 and hvd.rank() == 0 and \
                                 batch_idx % METRIC_PRINT_FREQUENCY == 0:
-                            print("epoch:\t{epoch}\tstep\t{batch_idx}:\t{metrics}".
-                                  format(epoch=epoch,
+                            print("{phase}\tepoch:\t{epoch}\tstep\t{batch_idx}:\t{metrics}".
+                                  format(phase=phase,
+                                         epoch=epoch,
                                          batch_idx=batch_idx,
                                          metrics=aggregate_metrics(phase, epoch, loss,
                                                                    metric_value_groups)))
