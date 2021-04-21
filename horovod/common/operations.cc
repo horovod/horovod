@@ -419,7 +419,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
   SetBoolFromEnv(HOROVOD_ELASTIC, state.elastic_enabled, true);
 
-  ParseStallInspectorFromEnv(state.global_controller->GetStallInspector());   // TODO: each ProcessSet needs its own StallInspector that should be initialized like this
+  ParseStallInspectorFromEnv(
+      state.process_set_table.Get(0).controller->GetStallInspector());
   bool mark_cycles = false;
   SetBoolFromEnv(HOROVOD_TIMELINE_MARK_CYCLES, mark_cycles,
                  true);
@@ -969,6 +970,7 @@ int horovod_add_process_set(const int *ranks, int nrank) {
   EnrichProcessSetWithMPIController(process_set);
   // TODO: Replace by generic call that builds a Gloo or MPI controller as necesssary
 #endif // HAVE_MPI
+  ParseStallInspectorFromEnv(process_set.controller->GetStallInspector());
   process_set.response_cache.set_capacity(
       (int)horovod_global.parameter_manager.CacheEnabled() *
       horovod_global.cache_capacity);
