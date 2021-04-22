@@ -26,7 +26,7 @@ jobs:
         - TENSORFLOW=2.2.0
         - KERAS=2.3.1
         - PYTORCH=1.5.0
-        - PYTORCH_LIGHTNING=1.2.8
+        - PYTORCH_LIGHTNING=1.2.9
         - TORCHVISION=0.6.0
         - MXNET=1.5.0
     - env:
@@ -35,7 +35,7 @@ jobs:
         - TENSORFLOW=2.3.0
         - KERAS=2.3.1
         - PYTORCH=1.6.0
-        - PYTORCH_LIGHTNING=1.2.8
+        - PYTORCH_LIGHTNING=1.2.9
         - TORCHVISION=0.7.0
         - MXNET=1.5.0
 before_install:

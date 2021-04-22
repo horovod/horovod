@@ -17,6 +17,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 import horovod.spark.lightning as hvd
+from horovod.spark.lightning.estimator import MIN_PL_VERSION
 from horovod.spark.common.store import Store
 
 parser = argparse.ArgumentParser(description='Keras Spark MNIST Example',
@@ -36,10 +37,10 @@ parser.add_argument('--data-dir', default='/tmp',
 
 
 def train_model(args):
-    # do not support lightning version before 1.2.8
+    # do not run this test for pytorch lightning below min supported verson
     import pytorch_lightning as pl
-    if LooseVersion(pl.__version__) < LooseVersion('1.2.8'):
-        print("Skip test, lightning estimator do not support pl version {}".format(pl.__version__))
+    if LooseVersion(pl.__version__) < LooseVersion(MIN_PL_VERSION):
+        print("Skip test for pytorch_ligthning=={}, min support version is {}".format(pl.__version__, MIN_PL_VERSION))
         return
 
     # Initialize SparkSession
