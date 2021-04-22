@@ -471,17 +471,18 @@ class TensorFlowTests(tf.test.TestCase):
         if not tf.test.is_gpu_available(cuda_only=True):
             self.skipTest(("No GPUs available"))
 
+        hvd.init()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+        local_size = hvd.local_size()
+
         # Only do this test if there are enough GPUs available.
-        if len(tf.config.experimental.list_physical_devices('GPU')) < 2:
-            self.skipTest(("Too few GPUs available"))
+        if len(tf.config.experimental.list_physical_devices('GPU')) < 2 * local_size:
+            self.skipTest("Too few GPUs available")
 
         if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
-
-        hvd.init()
-        local_rank = hvd.local_rank()
-        size = hvd.size()
 
         iter = 0
         gpu_ids = [local_rank * 2, local_rank * 2 + 1]
