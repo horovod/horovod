@@ -76,7 +76,7 @@ RUN if [[ ${SPARK_PACKAGE} != *"-preview"* ]]; then \
     fi
 
 # Install Ray.
-RUN pip install --no-cache-dir ray==1.2.0
+RUN pip install --no-cache-dir ray==1.3.0
 
 # Install MPI.
 RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
