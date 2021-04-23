@@ -154,8 +154,8 @@ if __name__ == '__main__':
         df = df.join(google_trend_all, ['State', 'Year', 'Week']).select(df['*'], google_trend_all.trend)
 
         # Merge in Google Trend for whole Germany.
-        google_trend_de = google_trend_all[google_trend_all.file == 'Rossmann_DE']
-        df = df.join(google_trend_de, ['Year', 'Week']).select(df['*'], google_trend_all.trend.alias('trend_de'))
+        google_trend_de = google_trend_all[google_trend_all.file == 'Rossmann_DE'].withColumnRenamed('trend', 'trend_de')
+        df = df.join(google_trend_de, ['Year', 'Week']).select(df['*'], google_trend_de.trend_de)
 
         # Merge in weather.
         weather = weather_csv.join(state_names_csv, weather_csv.file == state_names_csv.StateName)
@@ -257,7 +257,7 @@ if __name__ == '__main__':
 
     continuous_cols = [
         'CompetitionDistance', 'Max_TemperatureC', 'Mean_TemperatureC', 'Min_TemperatureC', 'Max_Humidity',
-        'Mean_Humidity', 'Min_Humidity', 'Max_Wind_SpeedKm_h', 'Mean_Wind_SpeedKm_h', 'CloudCover', 'trend', 'trend_DE',
+        'Mean_Humidity', 'Min_Humidity', 'Max_Wind_SpeedKm_h', 'Mean_Wind_SpeedKm_h', 'CloudCover', 'trend', 'trend_de',
         'BeforePromo', 'AfterPromo', 'AfterStateHoliday', 'BeforeStateHoliday', 'BeforeSchoolHoliday', 'AfterSchoolHoliday'
     ]
 

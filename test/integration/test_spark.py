@@ -376,6 +376,7 @@ class SparkTests(unittest.TestCase):
             with is_built(gloo_is_built=use_gloo, mpi_is_built=use_mpi):
                 res = horovod.spark.run(fn, start_timeout=10,
                                         use_mpi=use_mpi, use_gloo=use_gloo,
+                                        env={'HOROVOD_LOG_LEVEL': 'WARNING'},
                                         stdout=stdout if use_gloo else None,
                                         stderr=stderr if use_gloo else None,
                                         verbose=2)
@@ -413,6 +414,7 @@ class SparkTests(unittest.TestCase):
         stderr = io.StringIO()
         with spark_session('test_happy_run_elastic'):
             res = horovod.spark.run_elastic(fn, num_proc=2, min_np=2, max_np=2,
+                                            env={'HOROVOD_LOG_LEVEL': 'WARNING'},
                                             stdout=stdout, stderr=stderr,
                                             start_timeout=10, verbose=2)
             self.assertListEqual([([0, 1], 0), ([0, 1], 1)], res)
@@ -1692,7 +1694,10 @@ class SparkTests(unittest.TestCase):
                         reason='get_available_devices only supported in Spark 3.0 and above')
     def test_get_available_devices(self):
         res = run_get_available_devices()
-        self.assertListEqual([(['1'], 0), (['0'], 1)], res)
+        # we expect res being list of (devices, rank)
+        # to be either [(['0'], 0), (['1'], 1)] or [(['1'], 0), (['0'], 1)]
+        self.assertEqual([0, 1], [rank for (_, rank) in res])
+        self.assertListEqual([['0'], ['1']], sorted([devices for (devices, _) in res]))
 
     def test_to_list(self):
         none_output = util.to_list(None, 1)

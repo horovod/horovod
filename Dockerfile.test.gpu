@@ -50,12 +50,17 @@ RUN ssh-keygen -f /root/.ssh/id_rsa -q -N ''
 RUN cp -v /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
 
 # Install Python.
-RUN apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-distutils
+RUN apt-get update -qq && apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-distutils
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
+RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python${PYTHON_VERSION/%.*/}
 RUN wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
-RUN pip install -U --force pip setuptools requests pytest mock pytest-forked parameterized
-RUN echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.\$1.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.\$2.xml \${@:2} > /pytest.sh
-RUN echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.\$1.standalone.\$2.xml \${@:2} > /pytest_standalone.sh
+RUN pip install --no-cache-dir -U --force pip setuptools requests pytest mock pytest-forked parameterized
+
+# Add launch helper scripts
+RUN echo "env SPARK_HOME=/spark SPARK_DRIVER_MEM=512m PYSPARK_PYTHON=/usr/bin/python${PYTHON_VERSION} PYSPARK_DRIVER_PYTHON=/usr/bin/python${PYTHON_VERSION} \"\$@\"" > /spark_env.sh
+RUN echo /spark_env.sh pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.\$1.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.\$2.xml \${@:2} > /pytest.sh
+RUN echo /spark_env.sh pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.\$1.standalone.\$2.xml \${@:2} > /pytest_standalone.sh
+RUN chmod a+x /spark_env.sh
 RUN chmod a+x /pytest.sh
 RUN chmod a+x /pytest_standalone.sh
 
@@ -68,11 +73,11 @@ RUN if [[ -n ${SPARK_PACKAGE} ]]; then \
 # Install PySpark.
 RUN apt-get update -qq && apt install -y openjdk-8-jdk-headless
 RUN if [[ ${SPARK_PACKAGE} != *"-preview"* ]]; then \
-        pip install ${PYSPARK_PACKAGE}; \
+        pip install --no-cache-dir ${PYSPARK_PACKAGE}; \
     else \
-        apt-get install pandoc; \
-        pip install pypandoc; \
-        (cd /spark/python && python setup.py sdist && pip install dist/pyspark-*.tar.gz && rm dist/pyspark-*); \
+        apt-get update -qq && apt-get install pandoc; \
+        pip install --no-cache-dir pypandoc; \
+        (cd /spark/python && python setup.py sdist && pip install --no-cache-dir dist/pyspark-*.tar.gz && rm dist/pyspark-*); \
     fi
 
 # Install MPI.
@@ -81,7 +86,7 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
             cd /usr/local && tar -zxf /tmp/openmpi-3.0.0-bin.tar.gz && ldconfig && \
             echo "mpirun -allow-run-as-root -np 2 -H localhost:2 -bind-to none -map-by slot -mca mpi_abort_print_stack 1" > /mpirun_command; \
     elif [[ ${MPI_KIND} == "MPICH" ]]; then \
-        apt-get install -y mpich && \
+        apt-get update -qq && apt-get install -y mpich && \
             echo "mpirun -np 2" > /mpirun_command; \
     fi
 
@@ -90,42 +95,38 @@ RUN echo NCCL_DEBUG=INFO >> /etc/nccl.conf
 
 # Install mpi4py.
 RUN if [[ ${MPI_KIND} != "None" ]]; then \
-        pip install mpi4py; \
+        pip install --no-cache-dir mpi4py; \
     fi
 
-# Install TensorFlow.
-RUN pip install ${TENSORFLOW_PACKAGE}
-
-# Install Keras.
-# Pin h5py: https://github.com/h5py/h5py/issues/1732
+# Install TensorFlow and Keras (releases).
+# Pin h5py only for tensorflow<2.5: https://github.com/h5py/h5py/issues/1732
 # Pin scipy!=1.4.0: https://github.com/scipy/scipy/issues/11237
-RUN if [[ ${KERAS_PACKAGE} != "None" ]]; then \
-        pip install ${KERAS_PACKAGE} "h5py<3" "scipy!=1.4.0" "pandas<1.1.0"; \
+RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly-gpu" ]]; then \
+        pip install --no-cache-dir ${TENSORFLOW_PACKAGE}; \
+        if [[ ${KERAS_PACKAGE} != "None" ]]; then \
+            if [[ ${TENSORFLOW_PACKAGE} == tensorflow*==1.* ]] || [[ ${TENSORFLOW_PACKAGE} == tensorflow*==2.[01234].* ]]; then \
+                h5py="h5py<3"; \
+            fi; \
+            pip install --no-cache-dir ${KERAS_PACKAGE} ${h5py:-} "scipy!=1.4.0" "pandas<1.1.0"; \
+        fi; \
+        mkdir -p ~/.keras; \
+        ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs; \
+        python -c "import tensorflow as tf; tf.keras.datasets.mnist.load_data()"; \
+        ldconfig; \
     fi
-RUN mkdir -p ~/.keras
-RUN ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
-    python -c "import tensorflow as tf; tf.keras.datasets.mnist.load_data()" && \
-    ldconfig
 
-# Install PyTorch.
-RUN PYTORCH_CUDA=$(echo ${CUDA_DOCKER_VERSION} | awk -F- '{print $1}' | sed 's/\.//'); \
-    if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
-	    pip install --pre torch ${TORCHVISION_PACKAGE} -v -f https://download.pytorch.org/whl/nightly/cu${PYTORCH_CUDA}/torch_nightly.html; \
-    else \
-        pip install ${PYTORCH_PACKAGE} ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/cu${PYTORCH_CUDA}/torch_stable.html; \
+# Install PyTorch (releases).
+# Pin Pillow<7.0 for torchvision < 0.5.0: https://github.com/pytorch/vision/issues/1718
+RUN if [[ ${PYTORCH_PACKAGE} != "torch-nightly-cu"* ]]; then \
+        pip install --no-cache-dir ${PYTORCH_PACKAGE} ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/${PYTORCH_PACKAGE/*+/}/torch_stable.html; \
+        if [[ "${TORCHVISION_PACKAGE/%+*/}" == torchvision==0.[1234].* ]]; then \
+            pip install --no-cache-dir "Pillow<7.0" --no-deps; \
+        fi; \
     fi
-# Pin Pillow<7.0: https://github.com/pytorch/vision/issues/1718
-RUN pip install "Pillow<7.0" --no-deps
 
-# Install MXNet.
-RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly" ]]; then \
-        pip install --pre mxnet-cu101==2.0.0b20210319 -f https://dist.mxnet.io/python/cu101; \
-    elif [[ ${MXNET_PACKAGE} == "mxnet-cu101=="*b* ]]; then \
-        pip install --pre ${MXNET_PACKAGE} -f https://dist.mxnet.io/python/cu101; \
-    elif [[ ${MXNET_PACKAGE} == "mxnet-nightly-cu110" ]]; then \
-        pip install --pre mxnet-cu110==2.0.0b20210319 -f https://dist.mxnet.io/python/cu110; \
-    else \
-        pip install ${MXNET_PACKAGE} ; \
+# Install MXNet (releases).
+RUN if [[ ${MXNET_PACKAGE} != "mxnet-nightly-cu"* ]]; then \
+        pip install --no-cache-dir ${MXNET_PACKAGE} ; \
     fi
 
 # Prefetch Spark MNIST dataset.
@@ -142,11 +143,41 @@ RUN wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/pytorch_d
 ### END OF CACHE ###
 COPY . /horovod
 
+# Install nightly packages here so they do not get cached
+
+# Install TensorFlow and Keras (nightly).
+# Do not pin h5py since tf>=2.5 requires h5py~=3.1
+# Pin scipy!=1.4.0: https://github.com/scipy/scipy/issues/11237
+RUN if [[ ${TENSORFLOW_PACKAGE} == "tf-nightly-gpu" ]]; then \
+        pip install --no-cache-dir ${TENSORFLOW_PACKAGE}; \
+        if [[ ${KERAS_PACKAGE} != "None" ]]; then \
+            pip install --no-cache-dir ${KERAS_PACKAGE} "scipy!=1.4.0" "pandas<1.1.0"; \
+        fi; \
+        mkdir -p ~/.keras; \
+        ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs; \
+        python -c "import tensorflow as tf; tf.keras.datasets.mnist.load_data()"; \
+        ldconfig; \
+    fi
+
+# Install PyTorch (nightly).
+# Pin Pillow<7.0 for torchvision < 0.5.0: https://github.com/pytorch/vision/issues/1718
+RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly-cu"* ]]; then \
+        pip install --no-cache-dir --pre torch==1.9.0.dev20210303+${PYTORCH_PACKAGE/#torch-nightly-/} ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/nightly/${PYTORCH_PACKAGE/#torch-nightly-/}/torch_nightly.html; \
+        if [[ "${TORCHVISION_PACKAGE/%+*/}" == torchvision==0.[1234].* ]]; then \
+            pip install --no-cache-dir "Pillow<7.0" --no-deps; \
+        fi; \
+    fi
+
+# Install MXNet (nightly).
+RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly-cu"* ]]; then \
+        pip install --no-cache-dir --pre ${MXNET_PACKAGE/-nightly/}==2.0.0b20210319 -f https://dist.mxnet.io/python/${MXNET_PACKAGE/#mxnet-nightly-/}; \
+    fi
+
 # Install Horovod.
 RUN cd /horovod && \
     python setup.py sdist && \
     ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
-    bash -c "${HOROVOD_BUILD_FLAGS} HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]" && \
+    bash -c "${HOROVOD_BUILD_FLAGS} HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]" && \
     ldconfig
 
 # Hack for compatibility of MNIST example with TensorFlow 1.1.0.

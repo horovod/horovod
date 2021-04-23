@@ -267,10 +267,16 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                 for gp, output, gctx in zip(p, outputs, ctx):
                     self._allreduce_delay[gp] = self.backward_passes_per_step
                     gp.grad.set_(self._compression.decompress(output, gctx))
+                if self._groups is not None and self._group_counts[p] != 0:
+                    self._group_counts[p] = 0
             else:
                 # When handle is a callable function, it returns the aggregated tensor result
                 output = synchronize(handle) if not callable(handle) else handle()
                 self._allreduce_delay[p] = self.backward_passes_per_step
+                if self._groups is not None:
+                    group = self._p_to_group[p]
+                    if self._group_counts[group] != 0:
+                        self._group_counts[group] = 0
                 if p.grad.is_sparse:
                     aggregated = self._compression.decompress(output, ctx)
                     if not aggregated.is_sparse:
