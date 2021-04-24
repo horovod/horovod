@@ -57,7 +57,7 @@ RUN PYTAGS=$(python -c "from packaging import tags; tag = list(tags.sys_tags())[
 RUN pip install mxnet-cu101==${MXNET_VERSION}
 
 # Install Spark stand-alone cluster.
-RUN wget --progress=dot:giga https://archive.apache.org/dist/spark/${SPARK_PACKAGE} -O - | tar -xzC /tmp; \
+RUN wget --progress=dot:giga "https://www.apache.org/dyn/closer.lua/spark/${SPARK_PACKAGE}?action=download" -O - | tar -xzC /tmp; \
     archive=$(basename "${SPARK_PACKAGE}") bash -c "mv -v /tmp/\${archive/%.tgz/} /spark"
 
 # Install PySpark.

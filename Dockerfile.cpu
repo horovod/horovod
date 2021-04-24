@@ -48,7 +48,7 @@ RUN pip install torch==${PYTORCH_VERSION} torchvision==${TORCHVISION_VERSION}
 RUN pip install mxnet==${MXNET_VERSION}
 
 # Install Spark stand-alone cluster.
-RUN wget --progress=dot:giga https://archive.apache.org/dist/spark/${SPARK_PACKAGE} -O - | tar -xzC /tmp; \
+RUN wget --progress=dot:giga "https://www.apache.org/dyn/closer.lua/spark/${SPARK_PACKAGE}?action=download" -O - | tar -xzC /tmp; \
     archive=$(basename "${SPARK_PACKAGE}") bash -c "mv -v /tmp/\${archive/%.tgz/} /spark"
 
 # Install PySpark.
