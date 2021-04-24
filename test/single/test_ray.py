@@ -12,7 +12,7 @@ from ray import services
 import torch
 
 from horovod.common.util import gloo_built
-from horovod.ray.runner import (BaseHorovodWorker, NodeColocator, Coordinator,
+from horovod.ray.runner import (BaseHorovodWorker, Coordinator,
                                 MiniSettings, RayExecutor)
 
 sys.path.append(os.path.dirname(__file__))
@@ -87,47 +87,31 @@ def test_coordinator_registration():
             for info in rank_to_info.values()} == {0, 1, 2, 3}
 
 
-def test_colocator(tmpdir, ray_start_6_cpus):
-    SetColocator = NodeColocator.options(num_cpus=4)
-    colocator = SetColocator.remote(
-        node_rank=4, num_slots=4, world_size=5, use_gpu=False)
-    colocator.create_workers.remote()
-    worker_handles = ray.get(colocator.get_workers.remote())
-    assert len(set(ray.get(
-        [h.hostname.remote() for h in worker_handles]))) == 1
-
-    resources = ray.available_resources()
-    ip_address = services.get_node_ip_address()
-    assert resources.get("CPU", 0) == 2, resources
-
-    # TODO: https://github.com/horovod/horovod/issues/2438
-    # assert resources.get(f"node:{ip_address}", 0) == 1 - 4 * 0.01
+def test_infeasible_placement(ray_start_2_cpus):
+    setting = RayExecutor.create_settings(timeout_s=30,
+                                          placement_group_timeout_s=5)
+    hjob = RayExecutor(setting, num_hosts=1, num_slots=4)
+    with pytest.raises(TimeoutError):
+        hjob.start()
+    hjob.shutdown()
 
 
-@pytest.mark.skipif(
-    torch.cuda.device_count() < 4, reason='GPU colocator test requires 4 GPUs')
-@pytest.mark.skipif(
-    not torch.cuda.is_available(), reason='GPU colocator test requires CUDA')
-def test_colocator_gpu(tmpdir, ray_start_4_cpus_4_gpus):
-    SetColocator = NodeColocator.options(num_cpus=4, num_gpus=4)
-    colocator = SetColocator.remote(
-        node_rank=0, num_slots=4, world_size=4, use_gpu=True)
-    colocator.create_workers.remote()
-    worker_handles = ray.get(colocator.get_workers.remote())
-    assert len(set(ray.get(
-        [h.hostname.remote() for h in worker_handles]))) == 1
-    resources = ray.available_resources()
-    ip_address = services.get_node_ip_address()
-    assert resources.get("CPU", 0) == 0, resources
-    assert resources.get("GPU", 0) == 0, resources
-
-    # TODO: https://github.com/horovod/horovod/issues/2438
-    # assert resources.get(f"node:{ip_address}", 0) == 1 - 4 * 0.01, resources
-
+@pytest.mark.skipif(torch.cuda.device_count() < 4,
+                    reason="GPU test requires 4 GPUs")
+@pytest.mark.skipif(not torch.cuda.is_available(),
+                    reason="GPU test requires CUDA.")
+def test_gpu_ids(ray_start_4_cpus_4_gpus):
+    original_resources = ray.available_resources()
+    setting = RayExecutor.create_settings(timeout_s=30)
+    hjob = RayExecutor(setting, num_hosts=1, num_slots=4, use_gpu=True)
+    hjob.start()
+    worker_handles = hjob.workers
     all_envs = ray.get([h.env_vars.remote() for h in worker_handles])
     all_cudas = {ev["CUDA_VISIBLE_DEVICES"] for ev in all_envs}
     assert len(all_cudas) == 1, all_cudas
     assert len(all_envs[0]["CUDA_VISIBLE_DEVICES"].split(",")) == 4
+    hjob.shutdown()
+    assert check_resources(original_resources)
 
 
 def test_horovod_mixin(ray_start_2_cpus):

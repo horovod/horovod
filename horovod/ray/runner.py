@@ -28,6 +28,7 @@ class MiniSettings:
     ssh_port: int = None
     ssh_identity_file: str = None
     timeout_s: int = 300
+    placement_group_timeout_s: int = 100
 
     @property
     def start_timeout(self):
@@ -55,6 +56,10 @@ class BaseHorovodWorker:
         # TODO: This is probably not the right way to retrieve
         # the intended hostname.
         return socket.gethostname()
+
+    def get_gpu_ids(self) -> List[int]:
+        """Return list of CUDA device IDs available to this worker."""
+        return ray.get_gpu_ids()
 
     def update_env_vars(self, env_vars: Dict[str, str]):
         """Update the env vars in the actor process."""
@@ -94,83 +99,6 @@ class BaseHorovodWorker:
     def set_queue(self, queue):
         """Sets the queue for multi-node logging."""
         ray_logger.configure(queue=queue)
-
-
-@ray.remote
-class NodeColocator:
-    """Responsible for colocation of child actors.
-
-    These actors are given resources equal to the sum of resources
-    to be effectively allocated to their children. The child
-    workers are currently allocated 0 resources in this implementation.
-
-    This is a mechanism for gang-scheduling and could be replaced
-    later on with placement groups. Gang-scheduling must occur because
-    otherwise another concurrent group could be placed on this node.
-
-    Right now, the only resources that are explicitly propogated to
-    underlying colocated workers are cuda visible devices.
-
-    Args:
-        node_rank (int): Rank of the node that this colocator is placed on.
-        num_slots (int): Total number of slots on this machine.
-        world_size (int): Total number of workers (slots) participating
-            in the job across all nodes.
-        use_gpu (bool): Whether to utilize the GPUs on the node.
-    """
-
-    def __init__(self, *, node_rank: int, num_slots: int, world_size: int,
-                 use_gpu: bool):
-        self.node_rank = node_rank
-        self.num_slots = num_slots
-        self.world_size = world_size
-        if use_gpu:
-            gpu_ids = ray.get_gpu_ids()
-            assert len(gpu_ids) == num_slots, gpu_ids
-        self.workers = []
-
-    def create_workers(self):
-        """Colocates a number of workers.
-
-        Also passes on the CUDA_VISIBLE_DEVICES to each worker.
-        """
-        # Create a node ip resource label so that we can pin
-        # all of the child actors to the same node. This ensures
-        # colocation and balanced training.
-        node_id = f"node:{services.get_node_ip_address()}"
-        remote_cls = ray.remote(BaseHorovodWorker)
-        remote_cls = remote_cls.options(
-            num_cpus=0, num_gpus=0, resources={node_id: 0.01})
-
-        rank_start = self.num_slots * self.node_rank
-        self.workers = [
-            remote_cls.remote(world_rank=rank, world_size=self.world_size)
-            for rank in range(rank_start, rank_start + self.num_slots)
-        ]
-
-        # Propogate cuda visible devices to the underlying
-        # colocated workers.
-        gpu_ids = ray.get_gpu_ids()
-        all_ids = ",".join([str(gpu_id) for gpu_id in gpu_ids])
-        # By setting CUDA VISIBLE DEVICES to ALL GPUs,
-        # CUDA will be able to detect adjacent devices and use IPC
-        # allowing for better performance.
-        futures = []
-        for worker in self.workers:
-            futures.append(
-                worker.update_env_vars.remote({
-                    "CUDA_VISIBLE_DEVICES": all_ids
-                }))
-        # Avoid asynchrony for tests
-        ray.get(futures)
-        return node_id
-
-    def get_workers(self) -> List:
-        return self.workers
-
-    def execute(self, func):
-        """Executes an arbitrary function on self."""
-        return func(self)
 
 
 class Coordinator:
@@ -253,7 +181,7 @@ class RayExecutor:
             use a standard Horovod Settings object or create one directly
             from RayExecutor.create_settings.
         num_hosts (int): Number of machines to execute the job on.
-        num_slots (int): Humber of workers to be placed on each machine.
+        num_slots (int): Number of workers to be placed on each machine.
         cpus_per_slot (int): Number of CPU resources to allocate to
             each worker.
         use_gpu (bool): Whether to use GPU for allocation. TODO: this
@@ -263,15 +191,21 @@ class RayExecutor:
     """
 
     @classmethod
-    def create_settings(cls, timeout_s, ssh_identity_file=None, ssh_str=None):
+    def create_settings(cls,
+                        timeout_s,
+                        ssh_identity_file=None,
+                        ssh_str=None,
+                        placement_group_timeout_s=100):
         """Create a mini setting object.
 
         Args:
-            timeout_s (int): Tiemout parameter for Gloo rendezvous.
+            timeout_s (int): Timeout parameter for Gloo rendezvous.
             ssh_identity_file (str): Path to the identity file to
                 ssh into different hosts on the cluster.
             ssh_str (str): CAUTION WHEN USING THIS. Private key
                 file contents. Writes the private key to ssh_identity_file.
+            placement_group_timeout_s (int): Timeout parameter for Ray
+                Placement Group creation.
 
         Returns:
             MiniSettings object.
@@ -281,7 +215,9 @@ class RayExecutor:
                 os.chmod(ssh_identity_file, 0o600)
                 f.write(ssh_str)
         return MiniSettings(
-            ssh_identity_file=ssh_identity_file, timeout_s=timeout_s)
+            ssh_identity_file=ssh_identity_file,
+            timeout_s=timeout_s,
+            placement_group_timeout_s=placement_group_timeout_s)
 
     def __init__(self,
                  settings,
@@ -305,35 +241,74 @@ class RayExecutor:
         self.use_gpu = use_gpu
         self.gpus_per_slot = gpus_per_slot or 1
 
+        self.workers = []
+        self.placement_group = None
+
     @property
     def num_workers(self):
         return self.num_hosts * self.num_slots
 
     def _create_workers(self, host_resources):
-        colocator_cls = NodeColocator.options(**host_resources)
-        # Create a number of coordinators.
-        colocators = [
-            colocator_cls.remote(
-                node_rank=node_rank,
-                num_slots=self.num_slots,
-                world_size=self.num_workers,
-                use_gpu=host_resources["num_gpus"] > 0)
-            for node_rank in range(self.num_hosts)
-        ]
-        # We must save a pointer to each colocator to prevent their resource
-        # allocation from being released, along with their children from
-        # going out of scope.
-        self.colocators = colocators
+        bundles = [host_resources.copy() for _ in range(self.num_hosts)]
+        pg = ray.util.placement_group(bundles, strategy="STRICT_SPREAD")
+        self.placement_group = pg
+        logger.debug("Waiting for placement group to start.")
+        ready, _ = ray.wait(
+            [pg.ready()], timeout=self.settings.placement_group_timeout_s)
+        if ready:
+            logger.debug("Placement group has started.")
+        else:
+            raise TimeoutError(
+                "Placement group creation timed out. Make sure "
+                "your cluster either has enough resources or use "
+                "an autoscaling cluster. Current resources "
+                "available: {}, resources requested by the "
+                "placement group: {}".format(ray.available_resources(),
+                                             pg.bundle_specs))
 
-        node_ids = map_blocking(lambda a: a.create_workers.remote(),
-                                colocators)
-        if not len(set(node_ids)) == len(node_ids):
-            raise RuntimeError("Colocator actors must "
-                               f"be placed on unique nodes! Got: {node_ids}")
+        # Placement group has started. Now create the workers.
+        self.workers = []
+        # Keep ref of one worker per node for NIC detection.
+        node_workers = []
+        # STRICT_SPREAD guarantees each bundle is on a different node.
+        # Create num_slots workers per bundle, i.e. per machine.
+        for bundle_index in range(len(bundles)):
+            gpu_id_futures = []
+            curr_node_workers = []
+            remote_cls = ray.remote(BaseHorovodWorker)
+            for i in range(self.num_slots):
+                remote_cls_with_options = remote_cls.options(
+                    num_cpus=self.cpus_per_slot,
+                    num_gpus=self.gpus_per_slot * int(self.use_gpu),
+                    placement_group=pg,
+                    placement_group_bundle_index=bundle_index)
+                worker = remote_cls_with_options.remote(
+                    world_rank=self.num_slots * bundle_index + i,
+                    world_size=self.num_workers)
+                if self.use_gpu:
+                    gpu_id_futures.append(worker.get_gpu_ids.remote())
+                self.workers.append(worker)
+                curr_node_workers.append(worker)
+            if len(gpu_id_futures) > 0:
+                # By setting CUDA VISIBLE DEVICES to ALL GPUs,
+                # CUDA will be able to detect adjacent devices and use IPC
+                # allowing for better performance.
+                gpu_ids = sum(ray.get(gpu_id_futures), [])
+                # Make sure that each worker on the node has unique device.
+                assert len(gpu_ids) == len(
+                    set(gpu_ids)) == self.num_slots, gpu_ids
+                all_ids = ",".join([str(gpu_id) for gpu_id in gpu_ids])
+                futures = []
+                for worker in curr_node_workers:
+                    futures.append(
+                        worker.update_env_vars.remote({
+                            "CUDA_VISIBLE_DEVICES":
+                            all_ids
+                        }))
+                ray.get(futures)
+            node_workers.append(curr_node_workers[0])
 
-        # Obtain handles to the workers
-        workers = map_blocking(lambda w: w.get_workers.remote(), colocators)
-        return sum(workers, [])
+        return self.workers, node_workers
 
     def _start_executables(self, executable_cls, executable_args,
                            executable_kwargs):
@@ -372,11 +347,11 @@ class RayExecutor:
         def resources_per_host():
             num_cpus = self.cpus_per_slot * self.num_slots
             num_gpus = self.gpus_per_slot * self.num_slots * int(self.use_gpu)
-            return dict(num_cpus=num_cpus, num_gpus=num_gpus)
+            return dict(CPU=num_cpus, GPU=num_gpus)
 
         self.coordinator = Coordinator(self.settings)
         executable_args = executable_args or []
-        self.workers = self._create_workers(resources_per_host())
+        self.workers, node_workers = self._create_workers(resources_per_host())
         # Get all the hostnames of all workers
         hostnames = map_blocking(lambda w: w.hostname.remote(), self.workers)
         # Register each hostname to the coordinator. assumes the hostname
@@ -394,7 +369,7 @@ class RayExecutor:
         nics = detect_nics(
             self.settings,
             all_host_names=list(self.coordinator.hostnames_by_rank),
-            node_workers=self.colocators)
+            node_workers=node_workers)
         coordinator_envs.update(nics_to_env_var(nics))
 
         map_blocking(lambda w: w.update_env_vars.remote(coordinator_envs),
@@ -470,11 +445,11 @@ class RayExecutor:
 
     def shutdown(self):
         """Destroys the provided workers."""
-        for colocator in self.colocators:
-            del colocator
-
         for worker in self.workers:
             del worker
 
-        self.colocators = []
+        if self.placement_group:
+            ray.util.remove_placement_group(self.placement_group)
+
         self.workers = []
+        self.placement_group = None
