@@ -273,10 +273,10 @@ class RayExecutor:
         node_workers = {}
         # STRICT_SPREAD guarantees each bundle is on a different node.
         # Create num_slots workers per bundle, i.e. per machine.
-        remote_cls = ray.remote(BaseHorovodWorker)
         for bundle_index in range(len(bundles)):
             gpu_id_futures = []
             curr_node_workers = []
+            remote_cls = ray.remote(BaseHorovodWorker)
             for i in range(self.num_slots):
                 remote_cls_with_options = remote_cls.options(
                     num_cpus=self.cpus_per_slot,
