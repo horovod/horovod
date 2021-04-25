@@ -268,14 +268,15 @@ class RayExecutor:
 
         # Placement group has started. Now create the workers.
         self.workers = []
-        # Keep ref of one worker per node for NIC detection.
-        node_workers = []
+        # Keep ref of one worker per node for NIC detection. Maps
+        # hostname to worker
+        node_workers = {}
         # STRICT_SPREAD guarantees each bundle is on a different node.
         # Create num_slots workers per bundle, i.e. per machine.
+        remote_cls = ray.remote(BaseHorovodWorker)
         for bundle_index in range(len(bundles)):
             gpu_id_futures = []
             curr_node_workers = []
-            remote_cls = ray.remote(BaseHorovodWorker)
             for i in range(self.num_slots):
                 remote_cls_with_options = remote_cls.options(
                     num_cpus=self.cpus_per_slot,
@@ -306,9 +307,12 @@ class RayExecutor:
                             all_ids
                         }))
                 ray.get(futures)
-            node_workers.append(curr_node_workers[0])
+            # In some setups (i.e., Peloton), ray nodes may not have
+            # unique host names.
+            hostname = ray.get(curr_node_workers[0].hostname.remote())
+            node_workers[hostname] = curr_node_workers[0]
 
-        return self.workers, node_workers
+        return self.workers, list(node_workers.values())
 
     def _start_executables(self, executable_cls, executable_args,
                            executable_kwargs):
