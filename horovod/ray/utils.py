@@ -85,3 +85,7 @@ def nics_to_env_var(nics: List[str]) -> Dict[str, str]:
         "HOROVOD_GLOO_IFACE": list(nics)[0],
         "NCCL_SOCKET_IFNAME": ",".join(nics),  # TODO
     }
+
+
+def map_blocking(fn, collection):
+    return ray.get([fn(w) for w in collection])
