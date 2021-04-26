@@ -90,7 +90,7 @@ def test_coordinator_registration():
 def test_infeasible_placement(ray_start_2_cpus):
     setting = RayExecutor.create_settings(timeout_s=30,
                                           placement_group_timeout_s=5)
-    hjob = RayExecutor(setting, num_hosts=1, num_slots=4)
+    hjob = RayExecutor(setting, num_workers=4)
     with pytest.raises(TimeoutError):
         hjob.start()
     hjob.shutdown()
@@ -128,7 +128,7 @@ def test_horovod_mixin(ray_start_2_cpus):
 def test_local(ray_start_4_cpus):
     original_resources = ray.available_resources()
     setting = RayExecutor.create_settings(timeout_s=30)
-    hjob = RayExecutor(setting, num_hosts=1, num_slots=4)
+    hjob = RayExecutor(setting, num_workers=4)
     hjob.start()
     hostnames = hjob.execute(lambda _: socket.gethostname())
     assert len(set(hostnames)) == 1, hostnames
@@ -148,7 +148,7 @@ def test_ray_init(ray_start_4_cpus):
 
     setting = RayExecutor.create_settings(timeout_s=30)
     hjob = RayExecutor(
-        setting, num_hosts=1, num_slots=4, use_gpu=torch.cuda.is_available())
+        setting, num_workers=4, use_gpu=torch.cuda.is_available())
     hjob.start()
     result = hjob.execute(simple_fn)
     assert len(set(result)) == 4
@@ -166,7 +166,7 @@ def test_ray_exec_func(ray_start_4_cpus):
 
     setting = RayExecutor.create_settings(timeout_s=30)
     hjob = RayExecutor(
-        setting, num_hosts=1, num_slots=4, use_gpu=torch.cuda.is_available())
+        setting, num_workers=4, use_gpu=torch.cuda.is_available())
     hjob.start()
     result = hjob.run(simple_fn, args=[0])
     assert len(set(result)) == 1
@@ -183,7 +183,7 @@ def test_ray_exec_remote_func(ray_start_4_cpus):
 
     setting = RayExecutor.create_settings(timeout_s=30)
     hjob = RayExecutor(
-        setting, num_hosts=1, num_slots=4, use_gpu=torch.cuda.is_available())
+        setting, num_workers=4, use_gpu=torch.cuda.is_available())
     hjob.start()
     object_refs = hjob.run_remote(simple_fn, args=[0])
     result = ray.get(object_refs)
@@ -206,7 +206,7 @@ def test_ray_executable(ray_start_4_cpus):
 
     setting = RayExecutor.create_settings(timeout_s=30)
     hjob = RayExecutor(
-        setting, num_hosts=1, num_slots=4, use_gpu=torch.cuda.is_available())
+        setting, num_workers=4, use_gpu=torch.cuda.is_available())
     hjob.start(executable_cls=Executable, executable_args=[2])
     result = hjob.execute(lambda w: w.rank_epoch())
     assert set(result) == {0, 2, 4, 6}
@@ -259,7 +259,7 @@ def test_horovod_train(ray_start_4_cpus):
 
     setting = RayExecutor.create_settings(timeout_s=30)
     hjob = RayExecutor(
-        setting, num_hosts=1, num_slots=4, use_gpu=torch.cuda.is_available())
+        setting, num_workers=4, use_gpu=torch.cuda.is_available())
     hjob.start()
     result = hjob.execute(simple_fn)
     assert set(result) == {0, 1, 2, 3}

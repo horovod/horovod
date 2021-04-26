@@ -180,13 +180,12 @@ class RayExecutor:
         settings (horovod.Settings): Configuration for job setup. You can
             use a standard Horovod Settings object or create one directly
             from RayExecutor.create_settings.
-        num_hosts (int): Number of machines to execute the job on.
-        num_slots (int): Number of workers to be placed on each machine.
-        cpus_per_slot (int): Number of CPU resources to allocate to
+        num_workers (int): Number of workers to use for training.
+        cpus_per_worker (int): Number of CPU resources to allocate to
             each worker.
         use_gpu (bool): Whether to use GPU for allocation. TODO: this
             can be removed.
-        gpus_per_slot (int): Number of GPU resources to allocate to
+        gpus_per_worker (int): Number of GPU resources to allocate to
             each worker.
     """
 
@@ -221,36 +220,30 @@ class RayExecutor:
 
     def __init__(self,
                  settings,
-                 num_hosts: int = 1,
-                 num_slots: int = 1,
-                 cpus_per_slot: int = 1,
+                 num_workers: int = 1,
+                 cpus_per_worker: int = 1,
                  use_gpu: bool = False,
-                 gpus_per_slot: Optional[int] = None):
+                 gpus_per_worker: Optional[int] = None):
 
-        if gpus_per_slot and not use_gpu:
+        if gpus_per_worker and not use_gpu:
             raise ValueError("gpus_per_slot is set, but use_gpu is False. "
                              "use_gpu must be True if gpus_per_slot is set. ")
-        if use_gpu and isinstance(gpus_per_slot, int) and gpus_per_slot < 1:
+        if use_gpu and isinstance(gpus_per_worker, int) and gpus_per_worker < 1:
             raise ValueError(
-                f"gpus_per_slot must be >= 1: Got {gpus_per_slot}.")
+                f"gpus_per_slot must be >= 1: Got {gpus_per_worker}.")
 
         self.settings = settings
-        self.num_hosts = num_hosts
-        self.num_slots = num_slots
-        self.cpus_per_slot = cpus_per_slot
+        self.num_workers = num_workers
+        self.cpus_per_worker = cpus_per_worker
         self.use_gpu = use_gpu
-        self.gpus_per_slot = gpus_per_slot or 1
+        self.gpus_per_worker = gpus_per_worker or 1
 
         self.workers = []
         self.placement_group = None
 
-    @property
-    def num_workers(self):
-        return self.num_hosts * self.num_slots
-
-    def _create_workers(self, host_resources):
-        bundles = [host_resources.copy() for _ in range(self.num_hosts)]
-        pg = ray.util.placement_group(bundles, strategy="STRICT_SPREAD")
+    def _create_workers(self, worker_resources):
+        bundles = [worker_resources.copy() for _ in range(self.num_workers)]
+        pg = ray.util.placement_group(bundles, strategy="PACK")
         self.placement_group = pg
         logger.debug("Waiting for placement group to start.")
         ready, _ = ray.wait(
@@ -269,46 +262,44 @@ class RayExecutor:
         # Placement group has started. Now create the workers.
         self.workers = []
         # Keep ref of one worker per node for NIC detection.
-        node_workers = []
-        # STRICT_SPREAD guarantees each bundle is on a different node.
-        # Create num_slots workers per bundle, i.e. per machine.
+        # node_workers = []
         for bundle_index in range(len(bundles)):
-            gpu_id_futures = []
-            curr_node_workers = []
+            # gpu_id_futures = []
+            # curr_node_workers = []
             remote_cls = ray.remote(BaseHorovodWorker)
-            for i in range(self.num_slots):
-                remote_cls_with_options = remote_cls.options(
-                    num_cpus=self.cpus_per_slot,
-                    num_gpus=self.gpus_per_slot * int(self.use_gpu),
-                    placement_group=pg,
-                    placement_group_bundle_index=bundle_index)
-                worker = remote_cls_with_options.remote(
-                    world_rank=self.num_slots * bundle_index + i,
-                    world_size=self.num_workers)
-                if self.use_gpu:
-                    gpu_id_futures.append(worker.get_gpu_ids.remote())
-                self.workers.append(worker)
-                curr_node_workers.append(worker)
-            if len(gpu_id_futures) > 0:
-                # By setting CUDA VISIBLE DEVICES to ALL GPUs,
-                # CUDA will be able to detect adjacent devices and use IPC
-                # allowing for better performance.
-                gpu_ids = sum(ray.get(gpu_id_futures), [])
-                # Make sure that each worker on the node has unique device.
-                assert len(gpu_ids) == len(
-                    set(gpu_ids)) == self.num_slots, gpu_ids
-                all_ids = ",".join([str(gpu_id) for gpu_id in gpu_ids])
-                futures = []
-                for worker in curr_node_workers:
-                    futures.append(
-                        worker.update_env_vars.remote({
-                            "CUDA_VISIBLE_DEVICES":
-                            all_ids
-                        }))
-                ray.get(futures)
-            node_workers.append(curr_node_workers[0])
+            remote_cls_with_options = remote_cls.options(
+                num_cpus=self.cpus_per_worker,
+                num_gpus=self.gpus_per_worker * int(self.use_gpu),
+                placement_group=pg,
+                placement_group_bundle_index=bundle_index)
+            worker = remote_cls_with_options.remote(
+                world_rank=bundle_index,
+                world_size=self.num_workers)
+            # if self.use_gpu:
+            #     gpu_id_futures.append(worker.get_gpu_ids.remote())
+            self.workers.append(worker)
+            # curr_node_workers.append(worker)
+            # if len(gpu_id_futures) > 0:
+            #     # By setting CUDA VISIBLE DEVICES to ALL GPUs,
+            #     # CUDA will be able to detect adjacent devices and use IPC
+            #     # allowing for better performance.
+            #     gpu_ids = sum(ray.get(gpu_id_futures), [])
+            #     # Make sure that each worker on the node has unique device.
+            #     assert len(gpu_ids) == len(
+            #         set(gpu_ids)) == self.num_slots, gpu_ids
+            #     all_ids = ",".join([str(gpu_id) for gpu_id in gpu_ids])
+            #     futures = []
+            #     for worker in curr_node_workers:
+            #         futures.append(
+            #             worker.update_env_vars.remote({
+            #                 "CUDA_VISIBLE_DEVICES":
+            #                 all_ids
+            #             }))
+            #     ray.get(futures)
+            # node_workers.append(curr_node_workers[0])
 
-        return self.workers, node_workers
+        #return self.workers, node_workers
+        return self.workers
 
     def _start_executables(self, executable_cls, executable_args,
                            executable_kwargs):
@@ -344,14 +335,21 @@ class RayExecutor:
         """
         extra_env_vars = extra_env_vars or {}
 
-        def resources_per_host():
-            num_cpus = self.cpus_per_slot * self.num_slots
-            num_gpus = self.gpus_per_slot * self.num_slots * int(self.use_gpu)
+        # def resources_per_host():
+        #     num_cpus = self.cpus_per_slot * self.num_slots
+        #     num_gpus = self.gpus_per_slot * self.num_slots * int(self.use_gpu)
+        #     return dict(CPU=num_cpus, GPU=num_gpus)
+
+        def resources_per_worker():
+            num_cpus = self.cpus_per_worker
+            num_gpus = self.gpus_per_worker * int(self.use_gpu)
             return dict(CPU=num_cpus, GPU=num_gpus)
 
         self.coordinator = Coordinator(self.settings)
         executable_args = executable_args or []
-        self.workers, node_workers = self._create_workers(resources_per_host())
+        # self.workers, node_workers = self._create_workers(
+        # resources_per_host())
+        self.workers = self._create_workers(resources_per_worker())
         # Get all the hostnames of all workers
         hostnames = map_blocking(lambda w: w.hostname.remote(), self.workers)
         # Register each hostname to the coordinator. assumes the hostname
@@ -369,7 +367,8 @@ class RayExecutor:
         nics = detect_nics(
             self.settings,
             all_host_names=list(self.coordinator.hostnames_by_rank),
-            node_workers=node_workers)
+        )
+            #node_workers=node_workers)
         coordinator_envs.update(nics_to_env_var(nics))
 
         map_blocking(lambda w: w.update_env_vars.remote(coordinator_envs),
