@@ -193,12 +193,14 @@ class RayExecutor:
     def _create_strategy(self):
         if self.num_workers:
             return PackStrategy(
+                settings=self.settings,
                 num_workers=self.num_workers,
                 use_gpu=self.use_gpu,
                 cpus_per_worker=self.cpus_per_worker,
                 gpus_per_worker=self.gpus_per_worker)
         elif self.num_workers is None and self.num_hosts:
             return ColocatedStrategy(
+                settings=self.settings,
                 num_hosts=self.num_hosts,
                 num_workers_per_host=self.num_workers_per_host,
                 use_gpu=self.use_gpu,

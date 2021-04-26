@@ -25,8 +25,9 @@ class StrategyInterface:
 
 
 class ColocatedStrategy(StrategyInterface):
-    def __init__(self, *, num_hosts, num_workers_per_host, use_gpu,
+    def __init__(self, *, settings, num_hosts, num_workers_per_host, use_gpu,
                  cpus_per_worker, gpus_per_worker):
+        self.settings = settings
         self.num_hosts = num_hosts
         self.num_workers_per_host = num_workers_per_host
         self.use_gpu = use_gpu
@@ -114,7 +115,8 @@ class ColocatedStrategy(StrategyInterface):
 
 
 class PackStrategy(StrategyInterface):
-    def __init__(self, num_workers, use_gpu, cpus_per_worker, gpus_per_worker):
+    def __init__(self, *, settings, num_workers, use_gpu, cpus_per_worker, gpus_per_worker):
+        self.settings = settings
         self._num_workers = num_workers
         self.cpus_per_worker = cpus_per_worker
         self.gpus_per_worker = gpus_per_worker or 1
