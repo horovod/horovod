@@ -111,7 +111,6 @@ class Coordinator:
         self.rendezvous.init(host_alloc_plan)
 
         return {
-            "HOROVOD_LOG_LEVEL": "DEBUG",
             "HOROVOD_GLOO_RENDEZVOUS_ADDR": services.get_node_ip_address(),
             "HOROVOD_GLOO_RENDEZVOUS_PORT": str(self.global_rendezv_port),
             "HOROVOD_CONTROLLER": "gloo",
