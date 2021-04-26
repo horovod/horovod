@@ -1778,10 +1778,12 @@ class SparkTests(unittest.TestCase):
             get_local_output_dir = local_store.get_local_output_dir_fn("0")
             with get_local_output_dir() as run_output_dir:
                 local_ckpt_path = run_output_dir + "/" + local_store.get_checkpoint_filename()
-                model.save(local_ckpt_path)
+                model.save(local_ckpt_path, save_format='h5')
+
                 serialized_model_local = \
                     local_store.read_serialized_keras_model(local_ckpt_path, model,
                                                             custom_objects={})
+
                 reconstructed_model_local = deserialize_keras_model(serialized_model_local)
                 if LooseVersion(tensorflow.__version__) >= LooseVersion("2.3.0"):
                     assert reconstructed_model_local.get_config() == model.get_config()

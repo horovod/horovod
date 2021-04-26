@@ -11,6 +11,7 @@ ARG GPP_VERSION=7
 ARG TENSORFLOW_PACKAGE=tensorflow-cpu==1.15.0
 ARG KERAS_PACKAGE=keras==2.2.4
 ARG PYTORCH_PACKAGE=torch==1.2.0+cpu
+ARG PYTORCH_LIGHTNING_PACKAGE=pytorch_lightning==0.7.6
 ARG TORCHVISION_PACKAGE=torchvision==0.4.0+cpu
 ARG MXNET_PACKAGE=mxnet==1.5.0
 ARG PYSPARK_PACKAGE=pyspark==2.4.7
@@ -155,6 +156,8 @@ RUN if [[ ${PYTORCH_PACKAGE} != "torch-nightly" ]]; then \
             pip install --no-cache-dir "Pillow<7.0" --no-deps; \
         fi; \
     fi
+RUN pip install ${PYTORCH_LIGHTNING_PACKAGE}
+
 
 # Install MXNet (releases).
 RUN if [[ ${MXNET_PACKAGE} != "mxnet-nightly" ]]; then \

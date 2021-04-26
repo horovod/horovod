@@ -76,6 +76,13 @@ MOCK_MODULES = [
     'torch.utils.data',
     'torch.utils.data.distributed',
     'torch.utils.tensorboard',
+    'torch.distributed',
+
+    'pytorch_lightning',
+    'pytorch_lightning.callbacks',
+    'pytorch_lightning.loggers',
+    'pytorch_lightning.utilities',
+    'pytorch_lightning.utilities.model_helpers',
 
     'mxnet',
     'mxnet.base',

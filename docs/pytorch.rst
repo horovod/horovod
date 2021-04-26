@@ -119,10 +119,12 @@ With PyTorch Lightning, distributed training using Horovod requires only a singl
 .. code-block:: python
 
     # train Horovod on GPU (number of GPUs / machines provided on command-line)
-    trainer = pl.Trainer(distributed_backend='horovod', gpus=1)
+    trainer = pl.Trainer(accelerator='horovod', gpus=1)
 
     # train Horovod on CPU (number of processes / machines provided on command-line)
-    trainer = pl.Trainer(distributed_backend='horovod')
+    trainer = pl.Trainer(accelerator='horovod')
+
+May need to change parameter "accelerator" name to "distributed_backend" in some older version of pytorch_lightning.
 
 Start the training job and specify the number of workers on the command line as you normally would when using Horovod:
 
@@ -133,5 +135,7 @@ Start the training job and specify the number of workers on the command line as 
 
     # run training with 8 GPUs on two machines (4 GPUs each)
     $ horovodrun -np 8 -H hostname1:4,hostname2:4 python train.py
+
+You can find an example of use pytorch lightning trainer with horovod backend in `pytorch_lightning_mnist.py script <../examples/pytorch/pytorch_lightning_mnist.py>`__
 
 See the PyTorch Lightning `docs <https://pytorch-lightning.readthedocs.io/en/stable/multi_gpu.html#horovod>`_ for more details.

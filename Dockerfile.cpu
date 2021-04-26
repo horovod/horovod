@@ -2,6 +2,7 @@ FROM ubuntu:18.04
 
 ENV TENSORFLOW_VERSION=2.3.0
 ENV PYTORCH_VERSION=1.6.0
+ENV PYTORCH_LIGHTNING_VERSION=1.2.9
 ENV TORCHVISION_VERSION=0.7.0
 ENV MXNET_VERSION=1.5.0
 
@@ -44,7 +45,7 @@ RUN pip install future typing
 RUN pip install tensorflow-cpu==${TENSORFLOW_VERSION} \
                 keras \
                 h5py
-RUN pip install torch==${PYTORCH_VERSION} torchvision==${TORCHVISION_VERSION}
+RUN pip install torch==${PYTORCH_VERSION} torchvision==${TORCHVISION_VERSION} pytorch_lightning==${PYTORCH_LIGHTNING_VERSION}
 RUN pip install mxnet==${MXNET_VERSION}
 
 # Install Spark stand-alone cluster.

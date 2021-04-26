@@ -97,6 +97,7 @@ class TFKerasUtil(object):
     @staticmethod
     def keras_fn():
         def fn():
+            #print(f"horovod.spark.keras.util: using keras in tensorflow=={tf.__version__}")
             import tensorflow.keras as tf_keras
             return tf_keras
         return fn

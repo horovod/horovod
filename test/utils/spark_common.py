@@ -21,6 +21,8 @@ import sys
 
 from tempfile import TemporaryDirectory
 
+import numpy as np
+
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.linalg import DenseVector, VectorUDT
@@ -141,6 +143,14 @@ def spark_task_service(index, key=None, nics=None, match_intf=False,
         task.shutdown()
 
 
+def with_features(raw_df, feature_cols):
+    vector_assembler = VectorAssembler().setInputCols(feature_cols).setOutputCol('features')
+    pipeline = Pipeline().setStages([vector_assembler])
+
+    df = pipeline.fit(raw_df).transform(raw_df)
+    return df
+
+
 def create_xor_data(spark):
     data = [[0, 0, 0.0, 0.1], [0, 1, 1.0, 0.2], [1, 0, 1.0, 0.3], [1, 1, 0.0, 0.4]]
     schema = StructType([StructField('x1', IntegerType()),
@@ -148,11 +158,28 @@ def create_xor_data(spark):
                          StructField('y', FloatType()),
                          StructField('weight', FloatType())])
     raw_df = create_test_data_from_schema(spark, data, schema)
+    df = with_features(raw_df, ['x1', 'x2'])
+    return df
 
-    vector_assembler = VectorAssembler().setInputCols(['x1', 'x2']).setOutputCol('features')
-    pipeline = Pipeline().setStages([vector_assembler])
 
-    df = pipeline.fit(raw_df).transform(raw_df)
+def create_noisy_xor_data(spark):
+    schema = StructType([StructField('x1', FloatType()),
+                         StructField('x2', FloatType()),
+                         StructField('y', FloatType()),
+                         StructField('weight', FloatType())])
+    data = [[0.0, 0.0, 0.0], [0.0, 1.0, 1.0], [1.0, 0.0, 1.0], [1.0, 1.0, 0.0]]
+    n = 1024
+    weights = np.random.uniform(0, 1, n)
+
+    samples = []
+    noise = np.random.normal(0, 0.1, [n, 2])
+    for i, eps in enumerate(noise):
+        original = data[i % len(data)]
+        sample = original[0:2] + eps
+        samples.append(sample.tolist() + [original[2]] + [float(weights[i])])
+
+    raw_df = create_test_data_from_schema(spark, samples, schema)
+    df = with_features(raw_df, ['x1', 'x2'])
     return df
 
 

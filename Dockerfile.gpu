@@ -3,6 +3,7 @@ FROM nvidia/cuda:10.1-devel-ubuntu18.04
 # TensorFlow version is tightly coupled to CUDA and cuDNN so it should be selected carefully
 ENV TENSORFLOW_VERSION=2.3.0
 ENV PYTORCH_VERSION=1.6.0
+ENV PYTORCH_LIGHTNING_VERSION=1.2.9
 ENV TORCHVISION_VERSION=0.7.0
 ENV CUDNN_VERSION=7.6.5.32-1+cuda10.1
 ENV NCCL_VERSION=2.7.8-1+cuda10.1
@@ -54,6 +55,7 @@ RUN pip install tensorflow==${TENSORFLOW_VERSION} \
 RUN PYTAGS=$(python -c "from packaging import tags; tag = list(tags.sys_tags())[0]; print(f'{tag.interpreter}-{tag.abi}')") && \
     pip install https://download.pytorch.org/whl/cu101/torch-${PYTORCH_VERSION}%2Bcu101-${PYTAGS}-linux_x86_64.whl \
         https://download.pytorch.org/whl/cu101/torchvision-${TORCHVISION_VERSION}%2Bcu101-${PYTAGS}-linux_x86_64.whl
+RUN pip install pytorch_lightning==${PYTORCH_LIGHTNING_VERSION}
 RUN pip install mxnet-cu101==${MXNET_VERSION}
 
 # Install Spark stand-alone cluster.
