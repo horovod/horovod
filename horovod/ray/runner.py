@@ -135,12 +135,20 @@ class Coordinator:
     def finalize_registration(self) -> dict:
         """Return a dictionary for all ranks."""
         rank_to_info = {}
+
+        cross_sizes = defaultdict(int)
+        cross_ranks = {}
+        for rank_list in self.hostnames_by_rank.values():
+            for local_rank, world_rank in enumerate(rank_list):
+                cross_ranks[world_rank] = cross_sizes[local_rank]
+                cross_sizes[local_rank] += 1
+
         for node_world_rank, (hostname, ranks) in enumerate(
                 self.hostnames_by_rank.items()):
             for local_rank, world_rank in enumerate(ranks):
                 rank_to_info[world_rank] = dict(
-                    HOROVOD_CROSS_RANK=node_world_rank,
-                    HOROVOD_CROSS_SIZE=len(self.hostnames_by_rank),
+                    HOROVOD_CROSS_RANK=cross_ranks[world_rank],
+                    HOROVOD_CROSS_SIZE=cross_sizes[local_rank],
                     HOROVOD_LOCAL_RANK=local_rank,
                     HOROVOD_LOCAL_SIZE=len(ranks))
         return rank_to_info
