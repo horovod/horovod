@@ -4,65 +4,8 @@ import os
 import ray
 from typing import Dict, List
 from horovod.ray.utils import map_blocking
-from horovod.ray import ray_logger
+from horovod.ray.worker import BaseHorovodWorker
 logger = logging.getLogger(__name__)
-
-
-class BaseHorovodWorker:
-    executable = None
-
-    def __init__(self, world_rank=0, world_size=1):
-        os.environ["HOROVOD_HOSTNAME"] = self.hostname()
-        os.environ["HOROVOD_RANK"] = str(world_rank)
-        os.environ["HOROVOD_SIZE"] = str(world_size)
-
-    def hostname(self) -> str:
-        # TODO: This is probably not the right way to retrieve
-        # the intended hostname.
-        return socket.gethostname()
-
-    def get_gpu_ids(self) -> List[int]:
-        """Return list of CUDA device IDs available to this worker."""
-        return ray.get_gpu_ids()
-
-    def update_env_vars(self, env_vars: Dict[str, str]):
-        """Update the env vars in the actor process."""
-        sanitized = {k: str(v) for k, v in env_vars.items()}
-        os.environ.update(sanitized)
-
-    def env_vars(self):
-        """Check the env vars in the actor process."""
-        return dict(os.environ)
-
-    def start_executable(self,
-                         executable_cls: type = None,
-                         executable_args: list = None,
-                         executable_kwargs: dict = None):
-        """Instantiates the executable class with provided args.
-
-        If none, self.executable = None.
-
-        Args:
-            executable_cls (type): Class of object to be created on all
-                workers.
-            executable_args (list): Initialization arguments for the
-                executable_cls.
-            executable_kwargs (dict): Initialization arguments for the
-                executable_cls.
-        """
-        executable_args = executable_args or []
-        executable_kwargs = executable_kwargs or {}
-        if executable_cls:
-            self.executable = executable_cls(*executable_args,
-                                             **executable_kwargs)
-
-    def execute(self, func):
-        """Executes an arbitrary function on self."""
-        return func(self.executable)
-
-    def set_queue(self, queue):
-        """Sets the queue for multi-node logging."""
-        ray_logger.configure(queue=queue)
 
 
 class StrategyInterface:
@@ -81,18 +24,18 @@ class StrategyInterface:
         self.placement_group = None
 
 
-class _ColocatedStrategy:
-    def __init__(self, num_hosts, num_slots_per_host, use_gpu, cpus_per_slot,
-                 gpus_per_slot):
+class ColocatedStrategy(StrategyInterface):
+    def __init__(self, *, num_hosts, num_workers_per_host, use_gpu,
+                 cpus_per_worker, gpus_per_worker):
         self.num_hosts = num_hosts
-        self.num_slots_per_host = num_slots_per_host
+        self.num_workers_per_host = num_workers_per_host
         self.use_gpu = use_gpu
-        self.cpus_per_slot = cpus_per_slot
-        self.gpus_per_slot = gpus_per_slot or 1
+        self.cpus_per_worker = cpus_per_worker
+        self.gpus_per_worker = gpus_per_worker or 1
 
     def _resources_per_host(self):
-        num_cpus = self.cpus_per_slot * self.num_slots_per_host
-        num_gpus = self.gpus_per_slot * self.num_slots_per_host * int(
+        num_cpus = self.cpus_per_worker * self.num_workers_per_host
+        num_gpus = self.gpus_per_worker * self.num_workers_per_host * int(
             self.use_gpu)
         return dict(CPU=num_cpus, GPU=num_gpus)
 
@@ -119,19 +62,19 @@ class _ColocatedStrategy:
         # Keep ref of one worker per node for NIC detection.
         node_workers = []
         # STRICT_SPREAD guarantees each bundle is on a different node.
-        # Create num_slots_per_host workers per bundle, i.e. per machine.
+        # Create num_workers_per_host workers per bundle, i.e. per machine.
         for bundle_index in range(len(bundles)):
             gpu_id_futures = []
             curr_node_workers = []
             remote_cls = ray.remote(BaseHorovodWorker)
-            for i in range(self.num_slots_per_host):
+            for i in range(self.num_workers_per_host):
                 remote_cls_with_options = remote_cls.options(
-                    num_cpus=self.cpus_per_slot,
-                    num_gpus=self.gpus_per_slot * int(self.use_gpu),
+                    num_cpus=self.cpus_per_worker,
+                    num_gpus=self.gpus_per_worker * int(self.use_gpu),
                     placement_group=pg,
                     placement_group_bundle_index=bundle_index)
                 worker = remote_cls_with_options.remote(
-                    world_rank=self.num_slots_per_host * bundle_index + i,
+                    world_rank=self.num_workers_per_host * bundle_index + i,
                     world_size=self.num_workers)
                 if self.use_gpu:
                     gpu_id_futures.append(worker.get_gpu_ids.remote())
@@ -144,7 +87,7 @@ class _ColocatedStrategy:
                 gpu_ids = sum(ray.get(gpu_id_futures), [])
                 # Make sure that each worker on the node has unique device.
                 assert len(gpu_ids) == len(
-                    set(gpu_ids)) == self.num_slots_per_host, gpu_ids
+                    set(gpu_ids)) == self.num_workers_per_host, gpu_ids
                 all_ids = ",".join([str(gpu_id) for gpu_id in gpu_ids])
                 futures = []
                 for worker in curr_node_workers:
@@ -167,10 +110,10 @@ class _ColocatedStrategy:
 
     @property
     def num_workers(self):
-        return self.num_hosts * self.num_slots_per_host
+        return self.num_hosts * self.num_workers_per_host
 
 
-class _PackStrategy:
+class PackStrategy(StrategyInterface):
     def __init__(self, num_workers, use_gpu, cpus_per_worker, gpus_per_worker):
         self._num_workers = num_workers
         self.cpus_per_worker = cpus_per_worker

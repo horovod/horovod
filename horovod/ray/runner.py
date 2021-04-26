@@ -11,7 +11,7 @@ import logging
 from horovod.runner.common.util import secret, timeout, hosts
 from horovod.runner.http.http_server import RendezvousServer
 from horovod.ray.utils import detect_nics, nics_to_env_var, map_blocking
-
+from horovod.ray.strategy import ColocatedStrategy, PackStrategy
 logger = logging.getLogger(__name__)
 
 
@@ -158,7 +158,9 @@ class RayExecutor:
 
     def __init__(self,
                  settings,
-                 num_workers: int = 1,
+                 num_workers: Optional[int] = None,
+                 num_hosts: Optional[int] = None,
+                 num_workers_per_host: Optional[int] = None,
                  cpus_per_worker: int = 1,
                  use_gpu: bool = False,
                  gpus_per_worker: Optional[int] = None):
@@ -178,66 +180,7 @@ class RayExecutor:
         self.gpus_per_worker = gpus_per_worker or 1
 
         self.workers = []
-        self.placement_group = None
-
-    def _create_workers(self, worker_resources):
-        bundles = [worker_resources.copy() for _ in range(self.num_workers)]
-        pg = ray.util.placement_group(bundles, strategy="PACK")
-        self.placement_group = pg
-        logger.debug("Waiting for placement group to start.")
-        ready, _ = ray.wait(
-            [pg.ready()], timeout=self.settings.placement_group_timeout_s)
-        if ready:
-            logger.debug("Placement group has started.")
-        else:
-            raise TimeoutError(
-                "Placement group creation timed out. Make sure "
-                "your cluster either has enough resources or use "
-                "an autoscaling cluster. Current resources "
-                "available: {}, resources requested by the "
-                "placement group: {}".format(ray.available_resources(),
-                                             pg.bundle_specs))
-
-        # Placement group has started. Now create the workers.
-        self.workers = []
-        # Keep ref of one worker per node for NIC detection.
-        # node_workers = []
-        for bundle_index in range(len(bundles)):
-            # gpu_id_futures = []
-            # curr_node_workers = []
-            remote_cls = ray.remote(BaseHorovodWorker)
-            remote_cls_with_options = remote_cls.options(
-                num_cpus=self.cpus_per_worker,
-                num_gpus=self.gpus_per_worker * int(self.use_gpu),
-                placement_group=pg,
-                placement_group_bundle_index=bundle_index)
-            worker = remote_cls_with_options.remote(
-                world_rank=bundle_index, world_size=self.num_workers)
-            # if self.use_gpu:
-            #     gpu_id_futures.append(worker.get_gpu_ids.remote())
-            self.workers.append(worker)
-            # curr_node_workers.append(worker)
-            # if len(gpu_id_futures) > 0:
-            #     # By setting CUDA VISIBLE DEVICES to ALL GPUs,
-            #     # CUDA will be able to detect adjacent devices and use IPC
-            #     # allowing for better performance.
-            #     gpu_ids = sum(ray.get(gpu_id_futures), [])
-            #     # Make sure that each worker on the node has unique device.
-            #     assert len(gpu_ids) == len(
-            #         set(gpu_ids)) == self.num_slots, gpu_ids
-            #     all_ids = ",".join([str(gpu_id) for gpu_id in gpu_ids])
-            #     futures = []
-            #     for worker in curr_node_workers:
-            #         futures.append(
-            #             worker.update_env_vars.remote({
-            #                 "CUDA_VISIBLE_DEVICES":
-            #                 all_ids
-            #             }))
-            #     ray.get(futures)
-            # node_workers.append(curr_node_workers[0])
-
-        #return self.workers, node_workers
-        return self.workers
+        self.strategy = None
 
     def _start_executables(self, executable_cls, executable_args,
                            executable_kwargs):
@@ -246,6 +189,24 @@ class RayExecutor:
                 executable_cls, executable_args, executable_kwargs)
 
         map_blocking(_start_exec, self.workers)
+
+    def _create_strategy(self):
+        if self.num_workers:
+            return PackStrategy(
+                num_workers=self.num_workers,
+                use_gpu=self.use_gpu,
+                cpus_per_worker=self.cpus_per_worker,
+                gpus_per_worker=self.gpus_per_worker)
+        elif self.num_workers is None and self.num_hosts:
+            return ColocatedStrategy(
+                num_hosts=self.num_hosts,
+                num_workers_per_host=self.num_workers_per_host,
+                use_gpu=self.use_gpu,
+                cpus_per_worker=self.cpus_per_worker,
+                gpus_per_worker=self.gpus_per_worker)
+        else:
+            # TODO: raise better errror here
+            raise ValueError("Improper strategy creation")
 
     def start(self,
               executable_cls: type = None,
@@ -277,17 +238,10 @@ class RayExecutor:
         #     num_cpus = self.cpus_per_slot * self.num_slots
         #     num_gpus = self.gpus_per_slot * self.num_slots * int(self.use_gpu)
         #     return dict(CPU=num_cpus, GPU=num_gpus)
-
-        def resources_per_worker():
-            num_cpus = self.cpus_per_worker
-            num_gpus = self.gpus_per_worker * int(self.use_gpu)
-            return dict(CPU=num_cpus, GPU=num_gpus)
-
+        self.strategy = self._create_strategy()
         self.coordinator = Coordinator(self.settings)
         executable_args = executable_args or []
-        # self.workers, node_workers = self._create_workers(
-        # resources_per_host())
-        self.workers = self._create_workers(resources_per_worker())
+        self.workers, node_workers = self.strategy.create_workers()
         # Get all the hostnames of all workers
         hostnames = map_blocking(lambda w: w.hostname.remote(), self.workers)
         # Register each hostname to the coordinator. assumes the hostname
@@ -305,8 +259,7 @@ class RayExecutor:
         nics = detect_nics(
             self.settings,
             all_host_names=list(self.coordinator.hostnames_by_rank),
-        )
-        #node_workers=node_workers)
+            node_workers=node_workers)
         coordinator_envs.update(nics_to_env_var(nics))
 
         map_blocking(lambda w: w.update_env_vars.remote(coordinator_envs),
@@ -385,8 +338,5 @@ class RayExecutor:
         for worker in self.workers:
             del worker
 
-        if self.placement_group:
-            ray.util.remove_placement_group(self.placement_group)
-
-        self.workers = []
-        self.placement_group = None
+        if self.strategy:
+            self.strategy.shutdown()
