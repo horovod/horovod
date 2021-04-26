@@ -4,7 +4,6 @@ from ray import services
 from collections import defaultdict
 from dataclasses import dataclass
 import os
-import socket
 from typing import Dict, Callable, Any, Optional, List
 import logging
 
@@ -73,12 +72,20 @@ class Coordinator:
     def finalize_registration(self) -> dict:
         """Return a dictionary for all ranks."""
         rank_to_info = {}
+
+        cross_sizes = defaultdict(int)
+        cross_ranks = {}
+        for rank_list in self.hostnames_by_rank.values():
+            for local_rank, world_rank in enumerate(rank_list):
+                cross_ranks[world_rank] = cross_sizes[local_rank]
+                cross_sizes[local_rank] += 1
+
         for node_world_rank, (hostname, ranks) in enumerate(
                 self.hostnames_by_rank.items()):
             for local_rank, world_rank in enumerate(ranks):
                 rank_to_info[world_rank] = dict(
-                    HOROVOD_CROSS_RANK=node_world_rank,
-                    HOROVOD_CROSS_SIZE=len(self.hostnames_by_rank),
+                    HOROVOD_CROSS_RANK=cross_ranks[world_rank],
+                    HOROVOD_CROSS_SIZE=cross_sizes[local_rank],
                     HOROVOD_LOCAL_RANK=local_rank,
                     HOROVOD_LOCAL_SIZE=len(ranks))
         return rank_to_info
@@ -104,6 +111,7 @@ class Coordinator:
         self.rendezvous.init(host_alloc_plan)
 
         return {
+            "HOROVOD_LOG_LEVEL": "DEBUG",
             "HOROVOD_GLOO_RENDEZVOUS_ADDR": services.get_node_ip_address(),
             "HOROVOD_GLOO_RENDEZVOUS_PORT": str(self.global_rendezv_port),
             "HOROVOD_CONTROLLER": "gloo",
@@ -236,10 +244,6 @@ class RayExecutor:
         """
         extra_env_vars = extra_env_vars or {}
 
-        # def resources_per_host():
-        #     num_cpus = self.cpus_per_slot * self.num_slots
-        #     num_gpus = self.gpus_per_slot * self.num_slots * int(self.use_gpu)
-        #     return dict(CPU=num_cpus, GPU=num_gpus)
         self.strategy = self._create_strategy()
         self.coordinator = Coordinator(self.settings)
         executable_args = executable_args or []

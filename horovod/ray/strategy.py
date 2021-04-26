@@ -1,10 +1,8 @@
-import socket
 import logging
-import os
 import ray
-from typing import Dict, List
 from horovod.ray.utils import map_blocking
 from horovod.ray.worker import BaseHorovodWorker
+
 logger = logging.getLogger(__name__)
 
 
@@ -115,7 +113,8 @@ class ColocatedStrategy(StrategyInterface):
 
 
 class PackStrategy(StrategyInterface):
-    def __init__(self, *, settings, num_workers, use_gpu, cpus_per_worker, gpus_per_worker):
+    def __init__(self, *, settings, num_workers, use_gpu, cpus_per_worker,
+                 gpus_per_worker):
         self.settings = settings
         self._num_workers = num_workers
         self.cpus_per_worker = cpus_per_worker

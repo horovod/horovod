@@ -13,6 +13,8 @@ parser.add_argument('--address', type=str, help="Ray cluster address")
 
 def train(num_epochs):
     # Horovod: initialize Horovod.
+    import os
+    print({k: v for k, v in os.environ.items() if "HOROVOD" in k})
     hvd.init()
 
     # Horovod: pin GPU to be used to process local rank (one GPU per process)
