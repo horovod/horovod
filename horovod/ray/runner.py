@@ -171,18 +171,19 @@ class RayExecutor:
             timeout_s=timeout_s,
             placement_group_timeout_s=placement_group_timeout_s)
 
-    def __init__(self,
-                 settings,
-                 num_workers: Optional[int] = None,
-                 num_hosts: Optional[int] = None,
-                 num_workers_per_host: int = 1,
-                 cpus_per_worker: int = 1,
-                 use_gpu: bool = False,
-                 gpus_per_worker: Optional[int] = None,
-                 # Deprecated Args.
-                 num_slots: Optional[int] = None,
-                 cpus_per_slot: Optional[int] = None,
-                 gpus_per_slot: Optional[int] = None):
+    def __init__(
+            self,
+            settings,
+            num_workers: Optional[int] = None,
+            num_hosts: Optional[int] = None,
+            num_workers_per_host: int = 1,
+            cpus_per_worker: int = 1,
+            use_gpu: bool = False,
+            gpus_per_worker: Optional[int] = None,
+            # Deprecated Args.
+            num_slots: Optional[int] = None,
+            cpus_per_slot: Optional[int] = None,
+            gpus_per_slot: Optional[int] = None):
 
         if num_slots:
             raise DeprecationWarning("`num_slots` is now deprecated. Please "

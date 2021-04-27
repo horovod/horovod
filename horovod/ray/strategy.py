@@ -14,20 +14,19 @@ def create_placement_group(resources_per_bundle: Dict[str, int],
     bundles = [resources_per_bundle.copy() for _ in range(num_bundles)]
     pg = ray.util.placement_group(bundles, strategy=pg_strategy)
     logger.debug("Waiting for placement group to start.")
-    ready, _ = ray.wait(
-        [pg.ready()], timeout=pg_timeout)
+    ready, _ = ray.wait([pg.ready()], timeout=pg_timeout)
     if ready:
         logger.debug("Placement group has started.")
     else:
-        raise TimeoutError(
-            "Placement group creation timed out. Make sure "
-            "your cluster either has enough resources or use "
-            "an autoscaling cluster. Current resources "
-            "available: {}, resources requested by the "
-            "placement group: {}".format(ray.available_resources(),
-                                         pg.bundle_specs))
+        raise TimeoutError("Placement group creation timed out. Make sure "
+                           "your cluster either has enough resources or use "
+                           "an autoscaling cluster. Current resources "
+                           "available: {}, resources requested by the "
+                           "placement group: {}".format(
+                               ray.available_resources(), pg.bundle_specs))
 
     return pg, bundles
+
 
 class BaseStrategy:
     placement_group = None
@@ -61,8 +60,7 @@ class BaseStrategy:
 
 class ColocatedStrategy(BaseStrategy):
     def __init__(self, *, settings, num_hosts: int, num_workers_per_host: int,
-                 use_gpu: bool,
-                 cpus_per_worker: int, gpus_per_worker: int):
+                 use_gpu: bool, cpus_per_worker: int, gpus_per_worker: int):
         self.settings = settings
         self.num_hosts = num_hosts
         self.num_workers_per_host = num_workers_per_host
@@ -147,7 +145,8 @@ class PackStrategy(BaseStrategy):
     def create_workers(self):
         self.placement_group, bundles = create_placement_group(
             resources_per_bundle=self.resources_per_worker(),
-            num_bundles=self.num_workers, pg_strategy="PACK",
+            num_bundles=self.num_workers,
+            pg_strategy="PACK",
             pg_timeout=self.settings.placement_group_timeout_s)
 
         # Placement group has started. Now create the workers.
