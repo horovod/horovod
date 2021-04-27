@@ -113,7 +113,7 @@ def test_infeasible_placement(ray_start_2_cpus, num_workers, num_hosts,
 def test_gpu_ids(ray_start_4_cpus_4_gpus):
     original_resources = ray.available_resources()
     setting = RayExecutor.create_settings(timeout_s=30)
-    hjob = RayExecutor(setting, num_hosts=1, num_slots=4, use_gpu=True)
+    hjob = RayExecutor(setting, num_hosts=1, num_workers_per_host=4, use_gpu=True)
     hjob.start()
     worker_handles = hjob.workers
     all_envs = ray.get([h.env_vars.remote() for h in worker_handles])
