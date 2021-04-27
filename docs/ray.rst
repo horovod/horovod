@@ -34,12 +34,11 @@ which is a wrapper over a group of `Ray actors (stateful processes) <https://doc
     # Start the Ray cluster or attach to an existing Ray cluster
     ray.init()
 
-    # Start num_hosts * num_slots actors on the cluster
+    # Start num_workers actors on the cluster
     executor = RayExecutor(
-        setting, num_hosts=num_hosts, num_slots=num_slots, use_gpu=True)
+        setting, num_workers=num_workers, use_gpu=True)
 
-    # Launch the Ray actors on each machine
-    # This will launch `num_slots` actors on each machine
+    # This will launch `num_workers` actors on the Ray Cluster.
     executor.start()
 
 

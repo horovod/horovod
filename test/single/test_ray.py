@@ -8,12 +8,11 @@ import sys
 import socket
 import pytest
 import ray
-from ray import services
 import torch
 
 from horovod.common.util import gloo_built
-from horovod.ray.runner import (BaseHorovodWorker, Coordinator,
-                                MiniSettings, RayExecutor)
+from horovod.ray.runner import (Coordinator, MiniSettings, RayExecutor)
+from horovod.ray.worker import BaseHorovodWorker
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -87,10 +86,21 @@ def test_coordinator_registration():
             for info in rank_to_info.values()} == {0, 1, 2, 3}
 
 
-def test_infeasible_placement(ray_start_2_cpus):
+# Used for Pytest parametrization.
+parameter_str = "num_workers,num_hosts,num_workers_per_host"
+ray_executor_parametrized = [
+    (4, None, None), (None, 1, 4)
+]
+
+
+@pytest.mark.parametrize(parameter_str, ray_executor_parametrized)
+def test_infeasible_placement(ray_start_2_cpus, num_workers, num_hosts,
+                              num_workers_per_host):
     setting = RayExecutor.create_settings(timeout_s=30,
                                           placement_group_timeout_s=5)
-    hjob = RayExecutor(setting, num_workers=4)
+    hjob = RayExecutor(setting, num_workers=num_workers,
+                       num_hosts=num_hosts,
+                       num_workers_per_host=num_workers_per_host)
     with pytest.raises(TimeoutError):
         hjob.start()
     hjob.shutdown()
@@ -125,10 +135,13 @@ def test_horovod_mixin(ray_start_2_cpus):
     assert ray.get(actor.env_vars.remote())["TEST"] == str(DUMMY_VALUE)
 
 
-def test_local(ray_start_4_cpus):
+@pytest.mark.parametrize(parameter_str, ray_executor_parametrized)
+def test_local(ray_start_4_cpus, num_workers, num_hosts, num_workers_per_host):
     original_resources = ray.available_resources()
     setting = RayExecutor.create_settings(timeout_s=30)
-    hjob = RayExecutor(setting, num_workers=4)
+    hjob = RayExecutor(setting, num_workers=num_workers,
+                       num_hosts=num_hosts,
+                       num_workers_per_host=num_workers_per_host)
     hjob.start()
     hostnames = hjob.execute(lambda _: socket.gethostname())
     assert len(set(hostnames)) == 1, hostnames
@@ -138,7 +151,9 @@ def test_local(ray_start_4_cpus):
 
 @pytest.mark.skipif(
     not gloo_built(), reason='Gloo is required for Ray integration')
-def test_ray_init(ray_start_4_cpus):
+@pytest.mark.parametrize(parameter_str, ray_executor_parametrized)
+def test_ray_init(ray_start_4_cpus, num_workers, num_hosts,
+                  num_workers_per_host):
     original_resources = ray.available_resources()
 
     def simple_fn(worker):
@@ -148,7 +163,9 @@ def test_ray_init(ray_start_4_cpus):
 
     setting = RayExecutor.create_settings(timeout_s=30)
     hjob = RayExecutor(
-        setting, num_workers=4, use_gpu=torch.cuda.is_available())
+        setting, num_workers=num_workers,
+        num_hosts=num_hosts, num_workers_per_host=num_workers_per_host,
+        use_gpu=torch.cuda.is_available())
     hjob.start()
     result = hjob.execute(simple_fn)
     assert len(set(result)) == 4
@@ -158,7 +175,9 @@ def test_ray_init(ray_start_4_cpus):
 
 @pytest.mark.skipif(
     not gloo_built(), reason='Gloo is required for Ray integration')
-def test_ray_exec_func(ray_start_4_cpus):
+@pytest.mark.parametrize(parameter_str, ray_executor_parametrized)
+def test_ray_exec_func(ray_start_4_cpus, num_workers, num_hosts,
+                       num_workers_per_host):
     def simple_fn(num_epochs):
         import horovod.torch as hvd
         hvd.init()
@@ -166,7 +185,9 @@ def test_ray_exec_func(ray_start_4_cpus):
 
     setting = RayExecutor.create_settings(timeout_s=30)
     hjob = RayExecutor(
-        setting, num_workers=4, use_gpu=torch.cuda.is_available())
+        setting, num_workers=num_workers, num_hosts=num_hosts,
+        num_workers_per_host=num_workers_per_host,
+        use_gpu=torch.cuda.is_available())
     hjob.start()
     result = hjob.run(simple_fn, args=[0])
     assert len(set(result)) == 1
@@ -175,7 +196,8 @@ def test_ray_exec_func(ray_start_4_cpus):
 
 @pytest.mark.skipif(
     not gloo_built(), reason='Gloo is required for Ray integration')
-def test_ray_exec_remote_func(ray_start_4_cpus):
+@pytest.mark.parametrize(parameter_str, ray_executor_parametrized)
+def test_ray_exec_remote_func(ray_start_4_cpus, num_workers, num_hosts, num_workers_per_host):
     def simple_fn(num_epochs):
         import horovod.torch as hvd
         hvd.init()
@@ -183,7 +205,9 @@ def test_ray_exec_remote_func(ray_start_4_cpus):
 
     setting = RayExecutor.create_settings(timeout_s=30)
     hjob = RayExecutor(
-        setting, num_workers=4, use_gpu=torch.cuda.is_available())
+        setting, num_workers=num_workers,
+        num_hosts=num_hosts, num_workers_per_host=num_workers_per_host,
+        use_gpu=torch.cuda.is_available())
     hjob.start()
     object_refs = hjob.run_remote(simple_fn, args=[0])
     result = ray.get(object_refs)
@@ -193,7 +217,8 @@ def test_ray_exec_remote_func(ray_start_4_cpus):
 
 @pytest.mark.skipif(
     not gloo_built(), reason='Gloo is required for Ray integration')
-def test_ray_executable(ray_start_4_cpus):
+@pytest.mark.parametrize(parameter_str, ray_executor_parametrized)
+def test_ray_executable(ray_start_4_cpus, num_workers, num_hosts, num_workers_per_host):
     class Executable:
         def __init__(self, epochs):
             import horovod.torch as hvd
@@ -206,7 +231,9 @@ def test_ray_executable(ray_start_4_cpus):
 
     setting = RayExecutor.create_settings(timeout_s=30)
     hjob = RayExecutor(
-        setting, num_workers=4, use_gpu=torch.cuda.is_available())
+        setting, num_workers=num_workers,
+        num_hosts=num_hosts, num_workers_per_host=num_workers_per_host,
+        use_gpu=torch.cuda.is_available())
     hjob.start(executable_cls=Executable, executable_args=[2])
     result = hjob.execute(lambda w: w.rank_epoch())
     assert set(result) == {0, 2, 4, 6}
@@ -252,14 +279,18 @@ def _train(batch_size=32, batch_per_iter=10):
 
 @pytest.mark.skipif(
     not gloo_built(), reason='Gloo is required for Ray integration')
-def test_horovod_train(ray_start_4_cpus):
+@pytest.mark.parametrize(parameter_str, ray_executor_parametrized)
+def test_horovod_train(ray_start_4_cpus, num_workers,
+                       num_hosts, num_workers_per_host):
     def simple_fn(worker):
         local_rank = _train()
         return local_rank
 
     setting = RayExecutor.create_settings(timeout_s=30)
     hjob = RayExecutor(
-        setting, num_workers=4, use_gpu=torch.cuda.is_available())
+        setting, num_workers=num_workers,
+        num_hosts=num_hosts, num_workers_per_host=num_workers_per_host,
+        use_gpu=torch.cuda.is_available())
     hjob.start()
     result = hjob.execute(simple_fn)
     assert set(result) == {0, 1, 2, 3}
@@ -269,4 +300,5 @@ def test_horovod_train(ray_start_4_cpus):
 if __name__ == "__main__":
     import pytest
     import sys
+
     sys.exit(pytest.main(["-v", __file__] + sys.argv[1:]))

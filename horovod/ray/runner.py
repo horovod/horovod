@@ -132,6 +132,14 @@ class RayExecutor:
             can be removed.
         gpus_per_worker (int): Number of GPU resources to allocate to
             each worker.
+        num_hosts (int): Alternative API to ``num_workers``. Number of
+            machines to execute the job on. Used to enforce equal number of
+            workers on each machine.
+        num_workers_per_host (int): Alternative API to
+            ``num_workers``. Number of workers to be placed on each machine.
+            Used to enforce equal number of workers on each machine. Only
+            used in conjunction with `num_hosts`.
+
     """
 
     @classmethod
@@ -167,21 +175,48 @@ class RayExecutor:
                  settings,
                  num_workers: Optional[int] = None,
                  num_hosts: Optional[int] = None,
-                 num_workers_per_host: Optional[int] = None,
+                 num_workers_per_host: int = 1,
                  cpus_per_worker: int = 1,
                  use_gpu: bool = False,
-                 gpus_per_worker: Optional[int] = None):
+                 gpus_per_worker: Optional[int] = None,
+                 # Deprecated Args.
+                 num_slots: Optional[int] = None,
+                 cpus_per_slot: Optional[int] = None,
+                 gpus_per_slot: Optional[int] = None):
+
+        if num_slots:
+            raise DeprecationWarning("`num_slots` is now deprecated. Please "
+                                     "use the `num_workers` API, "
+                                     "or to enforce an equal number of "
+                                     "workers on each node, set "
+                                     "`num_hosts` and `num_workers_per_host`")
+        if cpus_per_slot or gpus_per_slot:
+            raise DeprecationWarning("`cpus_per_slot` and `gpus_per_slot` "
+                                     "have been deprecated. Use "
+                                     "`cpus_per_worker` and "
+                                     "`gpus_per_worker` instead.")
+
+        if num_workers is None and num_hosts is None:
+            raise ValueError("Either `num_workers` or `num_hosts` must be "
+                             "set.")
+
+        if num_workers and num_hosts:
+            raise ValueError("Both `num_workers` and `num_hosts` cannot be "
+                             "set.")
 
         if gpus_per_worker and not use_gpu:
-            raise ValueError("gpus_per_slot is set, but use_gpu is False. "
-                             "use_gpu must be True if gpus_per_slot is set. ")
+            raise ValueError("gpus_per_worker is set, but use_gpu is False. "
+                             "use_gpu must be True if gpus_per_worker is "
+                             "set. ")
         if use_gpu and isinstance(gpus_per_worker,
                                   int) and gpus_per_worker < 1:
             raise ValueError(
-                f"gpus_per_slot must be >= 1: Got {gpus_per_worker}.")
+                f"gpus_per_worker must be >= 1: Got {gpus_per_worker}.")
 
         self.settings = settings
         self.num_workers = num_workers
+        self.num_hosts = num_hosts
+        self.num_workers_per_host = num_workers_per_host
         self.cpus_per_worker = cpus_per_worker
         self.use_gpu = use_gpu
         self.gpus_per_worker = gpus_per_worker or 1
@@ -198,6 +233,7 @@ class RayExecutor:
         map_blocking(_start_exec, self.workers)
 
     def _create_strategy(self):
+        assert self.num_workers is None or self.num_hosts is None
         if self.num_workers:
             return PackStrategy(
                 settings=self.settings,
@@ -205,7 +241,7 @@ class RayExecutor:
                 use_gpu=self.use_gpu,
                 cpus_per_worker=self.cpus_per_worker,
                 gpus_per_worker=self.gpus_per_worker)
-        elif self.num_workers is None and self.num_hosts:
+        else:
             return ColocatedStrategy(
                 settings=self.settings,
                 num_hosts=self.num_hosts,
@@ -213,9 +249,6 @@ class RayExecutor:
                 use_gpu=self.use_gpu,
                 cpus_per_worker=self.cpus_per_worker,
                 gpus_per_worker=self.gpus_per_worker)
-        else:
-            # TODO: raise better errror here
-            raise ValueError("Improper strategy creation")
 
     def start(self,
               executable_cls: type = None,
