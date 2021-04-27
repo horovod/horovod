@@ -434,6 +434,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
     // order consistently across workers.
     for (auto& response : response_list.responses()) {
       if ((response.response_type() == Response::ResponseType::ALLREDUCE ||
+      if ((response.response_type() == Response::ResponseType::ALLGATHER ||
            response.response_type() == Response::ResponseType::ADASUM ||
            response.response_type() == Response::ResponseType::ALLTOALL) &&
           (int)response.devices().size() == size_) {
