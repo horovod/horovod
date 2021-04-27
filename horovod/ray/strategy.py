@@ -68,6 +68,10 @@ class ColocatedStrategy(BaseStrategy):
         self.cpus_per_worker = cpus_per_worker
         self.gpus_per_worker = gpus_per_worker or 1
 
+    @property
+    def num_workers(self):
+        return self.num_hosts * self.num_workers_per_host
+
     def _resources_per_host(self):
         num_cpus = self.cpus_per_worker * self.num_workers_per_host
         num_gpus = self.gpus_per_worker * self.num_workers_per_host * int(
@@ -123,19 +127,19 @@ class ColocatedStrategy(BaseStrategy):
 
         return self.workers, self.get_node_workers()
 
-    @property
-    def num_workers(self):
-        return self.num_hosts * self.num_workers_per_host
-
 
 class PackStrategy(BaseStrategy):
     def __init__(self, *, settings, num_workers, use_gpu, cpus_per_worker,
                  gpus_per_worker):
         self.settings = settings
-        self.num_workers = num_workers
+        self._num_workers = num_workers
         self.cpus_per_worker = cpus_per_worker
         self.gpus_per_worker = gpus_per_worker or 1
         self.use_gpu = use_gpu
+
+    @property
+    def num_workers(self):
+        return self._num_workers
 
     def resources_per_worker(self):
         num_cpus = self.cpus_per_worker
