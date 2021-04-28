@@ -127,7 +127,7 @@ public:
   bool IsCoordinator() const { return is_coordinator_; };
   bool IsHomogeneous() const { return is_homogeneous_; };
   void SetTimelineEnabled(bool value);
-  bool TimeLineEnabled();
+  bool TimelineEnabled();
   void SetTimelineEnabledPending(bool value);
   bool TimelineEnabledPending();
   void SetMarkCyclesInTimelinePending(bool value);

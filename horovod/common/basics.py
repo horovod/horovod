@@ -85,8 +85,10 @@ class HorovodBasics(object):
         result = self.MPI_LIB_CTYPES.horovod_start_timeline(
             ctypes.c_char_p(file_path.encode('utf-8')),
             ctypes.c_bool(mark_cycles))
-        if not result:
+        if result == -1:
             raise ValueError('Horovod has not been initialized; use hvd.init().')
+        elif result == -2:
+            raise ValueError('Set HOROVOD_TIMELINE=DYNAMIC to enable dynamic timeline usage.');
 
     def stop_timeline(self):
         """Stops the active timeline recording and closes the file.
@@ -94,7 +96,7 @@ class HorovodBasics(object):
         Raises a `ValueError` if Horovod is not initialized.
         """
         result = self.MPI_LIB_CTYPES.horovod_stop_timeline()
-        if not result:
+        if result == -1:
             raise ValueError('Horovod has not been initialized; use hvd.init().')
 
     def size(self):
