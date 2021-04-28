@@ -51,7 +51,7 @@ else:
     # tests from running in the graph mode.
     tf.enable_eager_execution(config=config)
 
-ccl_supported_types = set([tf.uint8, tf.int8, tf.uint16, tf.int16, 
+ccl_supported_types = set([tf.uint8, tf.int8, tf.uint16, tf.int16,
                            tf.int32, tf.int64, tf.float32, tf.float64])
 
 _IS_TF2 = LooseVersion(tf.__version__) >= LooseVersion('2.0.0')
@@ -2689,7 +2689,7 @@ class TensorFlowTests(tf.test.TestCase):
                 self.assertAllClose(w1, w2)
             assert state.batch == 21
             assert state.epoch == 11
-            
+
     def test_horovod_join_allreduce(self):
         """Test that the hvd.join with allreduce works on GPUs."""
         # Only do this test if there are GPUs available.
@@ -2719,13 +2719,13 @@ class TensorFlowTests(tf.test.TestCase):
                         [17] * dim, -100, 100, dtype=dtype)
                 if local_rank == first_join_rank:
                     self.evaluate(hvd.join())
-                else:		
+                else:
                     summed = hvd.allreduce(tensor, average=False)
                     multiplied = tensor * (size-1)
                     max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
                     if size <= 3 or dtype in [tf.int32, tf.int64]:
-                        threshold = 0 
+                        threshold = 0
                     elif size < 10:
                         threshold = 1e-4
                     elif size < 15:
@@ -2857,7 +2857,17 @@ class TensorFlowTests(tf.test.TestCase):
             )
 
             grads_and_vars = opt.compute_gradients()
-            update_op = opt.apply_gradients(grads_and_vars)
+
+            # Check the global_step before the update_op to ensure that the global step is
+            # well-ordered in the graph, occuring within apply_gradients().
+            global_step = tf.compat.v1.train.get_or_create_global_step()
+            with tf.compat.v1.control_dependencies(g for g, _ in grads_and_vars):
+                # Use +0 instead of tf.identity() since tf.identity() has some weird semantics
+                # with control_dependencies: github.com/tensorflow/tensorflow/issues/4663
+                global_step_before_update = global_step + 0
+            with tf.compat.v1.control_dependencies([global_step_before_update]):
+                update_op = opt.apply_gradients(grads_and_vars, global_step=global_step)
+
             sess.run(tf.compat.v1.global_variables_initializer())
             sess.run(tf.compat.v1.local_variables_initializer())
 
@@ -2877,10 +2887,14 @@ class TensorFlowTests(tf.test.TestCase):
                 aggregations_completed = math.floor((batch_id + 1) / backward_passes_per_step)
                 return aggregations_completed * sum_per_aggregation
 
+            steps_seen = []
             for idx in range(10):
-                _ = sess.run(update_op)
+                step, _ = sess.run((global_step_before_update, update_op))
                 computed_value = sess.run(opt._optimizer.variable.read_value())[0]
+                steps_seen.append(step)
                 assert computed_value == compute_expected_value(idx)
+
+            assert steps_seen == list(range(10))
 
 
 from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
