@@ -985,7 +985,7 @@ void Controller::SynchronizeTimelineEnabled() {
   timeline_enabled_ = timeline_enabled_pending_;
 }
 
-bool Controller::TimeLineEnabled() {
+bool Controller::TimelineEnabled() {
   std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
   return timeline_enabled_;
 }
