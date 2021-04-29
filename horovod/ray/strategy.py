@@ -134,6 +134,7 @@ class ColocatedStrategy(BaseStrategy):
 
 class PackStrategy(BaseStrategy):
     """Packs workers together but does not guarantee balanced hosts."""
+
     def __init__(self, *, settings, num_workers, use_gpu, cpus_per_worker,
                  gpus_per_worker):
         self.settings = settings

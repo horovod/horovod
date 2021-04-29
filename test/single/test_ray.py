@@ -289,12 +289,36 @@ def test_ray_executable(ray_start_4_cpus, num_workers, num_hosts,
     hjob.shutdown()
 
 
+@pytest.mark.skipif(
+    not gloo_built(), reason='Gloo is required for Ray integration')
+def test_ray_deprecation(ray_start_4_cpus):
+    class Executable:
+        def __init__(self, epochs):
+            import horovod.torch as hvd
+            self.hvd = hvd
+            self.epochs = epochs
+            self.hvd.init()
+
+        def rank_epoch(self):
+            return self.hvd.rank() * self.epochs
+
+    setting = RayExecutor.create_settings(timeout_s=30)
+    hjob = RayExecutor(
+        setting,
+        num_hosts=1,
+        num_slots=2,
+        cpus_per_slot=2,
+        use_gpu=torch.cuda.is_available())
+    hjob.start(executable_cls=Executable, executable_args=[2])
+    result = hjob.execute(lambda w: w.rank_epoch())
+    assert set(result) == {0, 2}
+    hjob.shutdown()
+
+
 def _train(batch_size=32, batch_per_iter=10):
-    import torch.backends.cudnn as cudnn
     import torch.nn.functional as F
     import torch.optim as optim
     import torch.utils.data.distributed
-    from torchvision import models
     import horovod.torch as hvd
     import timeit
 
@@ -322,7 +346,7 @@ def _train(batch_size=32, batch_per_iter=10):
         loss.backward()
         optimizer.step()
 
-    time = timeit.timeit(benchmark_step, number=batch_per_iter)
+    timeit.timeit(benchmark_step, number=batch_per_iter)
     return hvd.local_rank()
 
 

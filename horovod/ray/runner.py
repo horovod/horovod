@@ -1,6 +1,6 @@
 import ray
-from ray import services
 
+import warnings
 from collections import defaultdict
 from dataclasses import dataclass
 import os
@@ -111,7 +111,7 @@ class Coordinator:
         self.rendezvous.init(host_alloc_plan)
 
         return {
-            "HOROVOD_GLOO_RENDEZVOUS_ADDR": services.get_node_ip_address(),
+            "HOROVOD_GLOO_RENDEZVOUS_ADDR": ray.util.get_node_ip_address(),
             "HOROVOD_GLOO_RENDEZVOUS_PORT": str(self.global_rendezv_port),
             "HOROVOD_CONTROLLER": "gloo",
             "HOROVOD_CPU_OPERATIONS": "gloo",
@@ -186,16 +186,26 @@ class RayExecutor:
             gpus_per_slot: Optional[int] = None):
 
         if num_slots:
-            raise DeprecationWarning("`num_slots` is now deprecated. Please "
-                                     "use the `num_workers` API, "
-                                     "or to enforce an equal number of "
-                                     "workers on each node, set "
-                                     "`num_hosts` and `num_workers_per_host`")
+            warnings.warn(
+                "`num_slots` is now deprecated. Please use the `num_workers` "
+                "API, or to enforce an equal number of workers on each node, "
+                "set `num_hosts` and `num_workers_per_host`. "
+                "This will raise an error in a later release of Horovod. "
+                "Setting num_workers_per_host = num_slots.",
+                category=DeprecationWarning,
+                stacklevel=2)
+            num_workers_per_host = num_slots
+
         if cpus_per_slot or gpus_per_slot:
-            raise DeprecationWarning("`cpus_per_slot` and `gpus_per_slot` "
-                                     "have been deprecated. Use "
-                                     "`cpus_per_worker` and "
-                                     "`gpus_per_worker` instead.")
+            warnings.warn(
+                "`cpus_per_slot` and `gpus_per_slot` have been deprecated. "
+                "Use `cpus_per_worker` and `gpus_per_worker` instead. "
+                "This will raise an error in a later release of Horovod. "
+                "Setting cpus/gpus_per_slot = cpus/gpus_per_worker.",
+                category=DeprecationWarning,
+                stacklevel=2)
+            cpus_per_worker = cpus_per_slot
+            gpus_per_worker = gpus_per_slot
 
         if num_workers is None and num_hosts is None:
             raise ValueError("Either `num_workers` or `num_hosts` must be "
