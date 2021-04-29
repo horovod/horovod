@@ -29,6 +29,7 @@ def create_placement_group(resources_per_bundle: Dict[str, int],
 
 
 class BaseStrategy:
+    """Base class for implementing different placement strategies."""
     placement_group = None
     workers = None
 
@@ -61,6 +62,7 @@ class BaseStrategy:
 
 class ColocatedStrategy(BaseStrategy):
     """Ensures that the workers are balanced across all hosts."""
+
     def __init__(self, *, settings, num_hosts: int, num_workers_per_host: int,
                  use_gpu: bool, cpus_per_worker: int, gpus_per_worker: int):
         self.settings = settings
@@ -131,6 +133,7 @@ class ColocatedStrategy(BaseStrategy):
 
 
 class PackStrategy(BaseStrategy):
+    """Packs workers together but does not guarantee balanced hosts."""
     def __init__(self, *, settings, num_workers, use_gpu, cpus_per_worker,
                  gpus_per_worker):
         self.settings = settings
