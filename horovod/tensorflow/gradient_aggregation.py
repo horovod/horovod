@@ -146,7 +146,7 @@ class LocalGradientAggregationHelper:
 
         return aggregation_ops_list
 
-    def _allreduce_grads_helper(self, grads, vars):
+    def _allreduce_grads_helper(self, vars):
         # Read in latest variables values.
         aggregated_grads = []
         aggregation_read_ops_list = []
@@ -210,7 +210,7 @@ class LocalGradientAggregationHelper:
             # the counter back to 0.
             allreduced_grads = tf.cond(
                 tf.equal(self.counter, self.backward_passes_per_step),
-                lambda: self._allreduce_grads_helper(grads, vars),
+                lambda: self._allreduce_grads_helper(vars),
                 lambda: [self._maybe_convert_grad(g) for g in grads]
             )
 
