@@ -25,6 +25,25 @@
 namespace horovod {
 namespace common {
 
+static Response::ResponseType RequestTypeToResponseType(Request::RequestType value) {
+  switch (value) {
+    case Request::RequestType::ALLREDUCE:
+      return Response::ResponseType::ALLREDUCE;
+    case Request::RequestType::ALLGATHER:
+      return Response::ResponseType::ALLGATHER;
+    case Request::RequestType::BROADCAST:
+      return Response::ResponseType::BROADCAST;
+    case Request::RequestType::JOIN:
+      return Response::ResponseType::JOIN;
+    case Request::RequestType::ADASUM:
+      return Response::ResponseType::ADASUM;
+    case Request::RequestType::ALLTOALL:
+      return Response::ResponseType::ALLTOALL;
+    default:
+      throw std::logic_error("No corresponding ResponseType for provided RequestType.");
+  }
+}
+
 void ResponseCache::clear() {
   bits_outdated_ = false;
   cache_.clear();
@@ -59,7 +78,8 @@ ResponseCache::CacheState ResponseCache::cached(const Request& message) const {
             cache_params.dtype == message.tensor_type() &&
             cache_params.shape == message.tensor_shape() &&
             cache_response.prescale_factor() == message.prescale_factor() &&
-            cache_response.postscale_factor() == message.postscale_factor())
+            cache_response.postscale_factor() == message.postscale_factor() &&
+            cache_response.response_type() == RequestTypeToResponseType(message.request_type()))
                ? CacheState::HIT
                : CacheState::INVALID;
   } else {
@@ -94,7 +114,8 @@ ResponseCache::cached(const Response& response,
     return (cache_params.device == params.device &&
             cache_params.dtype == params.dtype && same_shape &&
             cache_response.prescale_factor() == response.prescale_factor() &&
-            cache_response.postscale_factor() == response.postscale_factor())
+            cache_response.postscale_factor() == response.postscale_factor() &&
+            cache_response.response_type() == response.response_type())
                ? CacheState::HIT
                : CacheState::INVALID;
   } else {
