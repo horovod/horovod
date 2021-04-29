@@ -43,6 +43,7 @@ class BaseStrategy:
     @classmethod
     def get_node_workers(cls, workers):
         """Returns list of one worker per node to use for NIC detection."""
+
         # In some setups (i.e., Peloton), ray nodes may not have
         # unique host names.
         hostnames = map_blocking(lambda w: w.hostname.remote(), workers)
