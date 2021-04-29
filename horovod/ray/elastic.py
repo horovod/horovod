@@ -19,7 +19,7 @@ from horovod.runner.elastic.driver import ElasticDriver
 
 import ray
 import ray.exceptions
-from horovod.ray.runner import BaseHorovodWorker
+from horovod.ray.worker import BaseHorovodWorker
 from horovod.ray.utils import detect_nics
 
 logger = logging.getLogger(__name__)
