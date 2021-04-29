@@ -225,16 +225,12 @@ class RayExecutor:
                 f"gpus_per_worker must be >= 1: Got {gpus_per_worker}.")
 
         kwargs = dict(
-                num_workers=num_workers,
-                num_hosts=num_hosts,
-                num_workers_per_host=num_workers_per_host,
-                cpus_per_worker=cpus_per_worker,
-                use_gpu=use_gpu,
-                gpus_per_worker=gpus_per_worker,
-                # Deprecated Args.
-                num_slots=num_slots,
-                cpus_per_slot=cpus_per_slot,
-                gpus_per_slot=gpus_per_slot
+            num_workers=num_workers,
+            num_hosts=num_hosts,
+            num_workers_per_host=num_workers_per_host,
+            cpus_per_worker=cpus_per_worker,
+            use_gpu=use_gpu,
+            gpus_per_worker=gpus_per_worker,
         )
         self._is_remote = False
         if ray.is_connected():
@@ -243,7 +239,6 @@ class RayExecutor:
             self._is_remote = True
         else:
             self.driver = _ExecutorDriver(settings, **kwargs)
-
 
     def start(self,
               executable_cls: type = None,
@@ -269,13 +264,12 @@ class RayExecutor:
                 on the actors (worker processes) before initialization.
 
         """
-        kwargs = dict(
+        kwargs_ = dict(
             executable_cls=executable_cls,
             executable_args=executable_args,
             executable_kwargs=executable_kwargs,
-            extra_env_vars=extra_env_vars
-        )
-        return self._maybe_call_ray(self.driver.start, **kwargs)
+            extra_env_vars=extra_env_vars)
+        return self._maybe_call_ray(self.driver.start, **kwargs_)
 
     def execute(self, fn: Callable[["executable_cls"], Any]) -> List[Any]:
         """Executes the provided function on all workers.
@@ -286,8 +280,8 @@ class RayExecutor:
         Returns:
             Deserialized return values from the target function.
         """
-        kwargs = dict(fn=fn)
-        return self._maybe_call_ray(self.driver.execute, **kwargs)
+        kwargs_ = dict(fn=fn)
+        return self._maybe_call_ray(self.driver.execute, **kwargs_)
 
     def run(self,
             fn: Callable[[Any], Any],
@@ -305,8 +299,8 @@ class RayExecutor:
         Returns:
             Deserialized return values from the target function.
         """
-        kwargs = dict(fn=fn, args=args, kwargs=kwargs)
-        return self._maybe_call_ray(self.driver.run, **kwargs)
+        kwargs_ = dict(fn=fn, args=args, kwargs=kwargs)
+        return self._maybe_call_ray(self.driver.run, **kwargs_)
 
     def run_remote(self,
                    fn: Callable[[Any], Any],
@@ -325,7 +319,7 @@ class RayExecutor:
             list: List of ObjectRefs that you can run `ray.get` on to
                 retrieve values.
         """
-        kwargs = dict(fn=fn, args=args, kwargs=kwargs)
+        kwargs_ = dict(fn=fn, args=args, kwargs=kwargs)
         return self._maybe_call_ray(self.driver.run_remote, **kwargs)
 
     def execute_single(self,
@@ -347,25 +341,22 @@ class RayExecutor:
 
     def _maybe_call_ray(self, driver_func, *args, **kwargs):
         if self._is_remote:
-            return ray.get(driver_func.remote(**kwargs))
+            return ray.get(driver_func.remote(*args, **kwargs))
         else:
             return driver_func(**kwargs)
 
 
 class _ExecutorDriver:
-    def __init__(
-            self,
-            settings,
-            num_workers: Optional[int] = None,
-            num_hosts: Optional[int] = None,
-            num_workers_per_host: int = 1,
-            cpus_per_worker: int = 1,
-            use_gpu: bool = False,
-            gpus_per_worker: Optional[int] = None,
-            # Deprecated Args.
-            num_slots: Optional[int] = None,
-            cpus_per_slot: Optional[int] = None,
-            gpus_per_slot: Optional[int] = None):
+    """Base driver for executing Ray calls."""
+
+    def __init__(self,
+                 settings,
+                 num_workers: Optional[int] = None,
+                 num_hosts: Optional[int] = None,
+                 num_workers_per_host: int = 1,
+                 cpus_per_worker: int = 1,
+                 use_gpu: bool = False,
+                 gpus_per_worker: Optional[int] = None):
 
         self.settings = settings
         self.num_workers = num_workers
