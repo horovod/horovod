@@ -63,6 +63,20 @@ class LocalGradientAggregationHelper:
         self.not_none_indexes = {}
         self.num_none_grad_updates = 0
 
+    def _maybe_convert_grad(self, grad):
+        # Handle IndexedSlices.
+        if isinstance(grad, tf.IndexedSlices):
+            if self.sparse_as_dense:
+                return tf.convert_to_tensor(grad)
+            else:
+                raise ValueError(
+                    "IndexedSlices are not supported when "
+                    "`backward_passes_per_step` > 1 and "
+                    "`sparse_as_dense` is False."
+                )
+
+        return grad
+
     def _init_aggregation_vars(self, grads):
         """
         Initializes the counter that is used when to communicate and aggregate gradients
@@ -76,15 +90,7 @@ class LocalGradientAggregationHelper:
                 collections=[tf.compat.v1.GraphKeys.LOCAL_VARIABLES],
             )
             for idx, grad in enumerate(grads):
-                # Handle IndexedSlices.
-                if self.sparse_as_dense and isinstance(grad, tf.IndexedSlices):
-                    grad = tf.convert_to_tensor(grad)
-                elif isinstance(grad, tf.IndexedSlices):
-                    raise ValueError(
-                        "IndexedSlices are not supported when "
-                        "`backward_passes_per_step` > 1 and "
-                        "`sparse_as_dense` is False."
-                    )
+                grad = self._maybe_convert_grad(grad)
 
                 # Handle grads that are None.
                 if grad is None:
@@ -205,11 +211,7 @@ class LocalGradientAggregationHelper:
             allreduced_grads = tf.cond(
                 tf.equal(self.counter, self.backward_passes_per_step),
                 lambda: self._allreduce_grads_helper(grads, vars),
-                lambda: (
-                    [tf.convert_to_tensor(g) if g is not None and isinstance(g, tf.IndexedSlices) else g
-                     for g in grads
-                     ] if self.sparse_as_dense else grads
-                ),
+                lambda: [self._maybe_convert_grad(g) for g in grads]
             )
 
             # Handle case where there is only one variable.
