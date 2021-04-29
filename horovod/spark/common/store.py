@@ -83,7 +83,11 @@ class Store(object):
         raise NotImplementedError()
 
     def get_checkpoint_path(self, run_id):
-        """Returns the path to the checkpoint file for the given run."""
+        """Returns the path to the checkpoint file(s) for the given run."""
+        raise NotImplementedError()
+
+    def get_checkpoints(self, run_id, suffix='.ckpt'):
+        """Returns a list of paths for all checkpoints saved this run."""
         raise NotImplementedError()
 
     def get_logs_path(self, run_id):
@@ -231,12 +235,17 @@ class FilesystemStore(Store):
         return os.path.join(self.get_run_path(run_id), self.get_checkpoint_filename()) \
             if self._save_runs else None
 
+    def get_checkpoints(self, run_id, suffix='.ckpt'):
+        checkpoint_dir = self.get_localized_path(self.get_checkpoint_path(run_id))
+        filenames = self.get_filesystem().ls(checkpoint_dir)
+        return sorted([name for name in filenames if name.endswith(suffix)])
+
     def get_logs_path(self, run_id):
         return os.path.join(self.get_run_path(run_id), self.get_logs_subdir()) \
             if self._save_runs else None
 
     def get_checkpoint_filename(self):
-        return 'checkpoint.h5'
+        return 'checkpoint'
 
     def get_logs_subdir(self):
         return 'logs'

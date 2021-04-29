@@ -52,7 +52,9 @@ def DistributedOptimizer(optimizer, name=None,
                          gradient_predivide_factor=1.0,
                          op=Average,
                          backward_passes_per_step=1,
-                         average_aggregated_gradients=False):
+                         average_aggregated_gradients=False,
+                         num_groups=0,
+                         groups=None):
     """
     An optimizer that wraps another keras.optimizers.Optimizer, using an allreduce to
     average gradient values before applying gradients to model weights.
@@ -87,12 +89,33 @@ def DistributedOptimizer(optimizer, name=None,
                                       If true divides gradient updates by
                                       backward_passes_per_step.
                                       Only applicable for backward_passes_per_step > 1.
+        num_groups: Number of groups to assign gradient allreduce ops to for explicit
+                    grouping. Defaults to no explicit groups.
+        groups: The parameter to group the gradient allreduce ops. Accept values is a
+                non-negative integer or a list of list of tf.Variable.
+                If groups is a non-negative integer, it is the number of groups to assign
+                gradient allreduce ops to for explicit grouping.
+                If groups is a list of list of tf.Variable. Variables in the same
+                inner list will be assigned to the same group, while parameter that does
+                not appear in any list will form a group itself.
+                Defaults as None, which is no explicit groups.
     """
     if gradient_predivide_factor != 1.0 and rocm_built():
             raise ValueError('gradient_predivide_factor not supported yet with ROCm')
 
     if op != Average and op != Sum:
         raise ValueError('op currently only supports Average and Sum')
+
+    if num_groups != 0:
+        warnings.warn('Parameter `num_groups` has been replaced by `groups` '
+                      'and will be removed in v0.23.0.', DeprecationWarning)
+        if groups is None:
+            groups = num_groups
+
+    if groups is not None:
+        if not (isinstance(groups, list) or groups > 0):
+            raise ValueError('groups should be a non-negative integer or '
+                            'a list of list of tf.Variable.')
 
     return _impl.create_distributed_optimizer(
         keras=keras,
@@ -106,6 +129,7 @@ def DistributedOptimizer(optimizer, name=None,
         op=op,
         backward_passes_per_step=backward_passes_per_step,
         average_aggregated_gradients=average_aggregated_gradients,
+        groups=groups,
     )
 
 

@@ -42,6 +42,7 @@ Horovod Spark Estimators additionally require at least one of these combinations
 
 *  ``tensorflow-gpu >= 1.12.0`` or ``tensorflow >= 1.12.0`` (for ``KerasEstimator``)
 *  ``torch >= 1.0.0`` and ``tensorboard >= 1.14.0`` (for ``TorchEstimator``)
+*  ``torch >= 1.4.0`` and ``pytorch_lightning >= 1.2.9`` (for ``LightningEstimator``)
 
 
 Horovod Spark Estimators
@@ -116,6 +117,7 @@ To run the example, be sure to install Horovod with ``[spark]``, then:
     $ tar zxvf rossmann.tgz
     $ python keras_spark_rossmann_estimator.py
 
+For pytorch, you can check `pytorch_lightning_spark_mnist.py script <../examples/spark/pytorch/pytorch_lightning_spark_mnist.py>`__ for how to use use lightning estimator with horovod backend to train mnist model on spark.
 
 Training on existing Parquet datasets
 -------------------------------------

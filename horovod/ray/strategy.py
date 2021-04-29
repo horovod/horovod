@@ -43,6 +43,7 @@ class BaseStrategy:
     @classmethod
     def get_node_workers(cls, workers):
         """Returns list of one worker per node to use for NIC detection."""
+
         # In some setups (i.e., Peloton), ray nodes may not have
         # unique host names.
         hostnames = map_blocking(lambda w: w.hostname.remote(), workers)
@@ -134,6 +135,7 @@ class ColocatedStrategy(BaseStrategy):
 
 class PackStrategy(BaseStrategy):
     """Packs workers together but does not guarantee balanced hosts."""
+
     def __init__(self, *, settings, num_workers, use_gpu, cpus_per_worker,
                  gpus_per_worker):
         self.settings = settings

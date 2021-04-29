@@ -232,6 +232,20 @@ class LocalGradientAggregationHelper:
         """
         flattended_args0 = [item for tup in args[0] for item in tup]
 
+        # If optimizer tracks iterations, we increment it on steps where we
+        # are not going to call `apply_gradients()`.
+        def increment_optimizer_iteration():
+            if hasattr(optimizer, "_iterations") and optimizer._iterations is not None:
+                return optimizer._iterations.assign_add(1).op
+            return tf.no_op()
+
+        with tf.control_dependencies([tf.group(*get_not_none_from_list(flattended_args0))]):
+            train_op = tf.cond(
+                pred=tf.equal(self.counter, 0),
+                true_fn=apply_grads_closure,
+                false_fn=increment_optimizer_iteration,
+            )
+
         # Since we skip applying updates when the counter is not at zero we
         # still want to increment the global step if it is being tracked
         # (e.g., Tensorflow Estimators).
@@ -245,24 +259,10 @@ class LocalGradientAggregationHelper:
                 read_value=False
             )
 
-        # Increment global step on iterations where we don't call `apply_gradients()`.
-        cond_increment_global_step_counter = tf.cond(
-            pred=tf.equal(self.counter, 0),
-            true_fn=tf.no_op,
-            false_fn=increment_global_step_counter,
-        )
-        flattended_args0.append(cond_increment_global_step_counter)
-
-        # If optimizer tracks iterations, we increment it on steps where we
-        # are not going to call `apply_gradients()`.
-        def increment_optimizer_iteration():
-            if hasattr(optimizer, "_iterations") and optimizer._iterations is not None:
-                return optimizer._iterations.assign_add(1).op
-            return tf.no_op()
-
-        with tf.control_dependencies([tf.group(*get_not_none_from_list(flattended_args0))]):
+        with tf.control_dependencies([train_op]):
+            # Increment global step on iterations where we don't call `apply_gradients()`.
             return tf.cond(
                 pred=tf.equal(self.counter, 0),
-                true_fn=apply_grads_closure,
-                false_fn=increment_optimizer_iteration,
+                true_fn=tf.no_op,
+                false_fn=increment_global_step_counter,
             )

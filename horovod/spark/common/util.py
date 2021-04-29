@@ -472,13 +472,14 @@ def get_simple_meta_from_parquet(store, label_columns, feature_columns, sample_w
     # In the try block we try to read the data metadata from the cached metadata in the store. If
     # anything goes wrong, we will ignore the cache and create the metadata from data.
     try:
-        if store.exists(train_data_meta_path):
+        if store.exists(train_data_meta_path) and \
+                (store.exists(val_data_meta_path) or not store.exists(validation_data_path)):
             train_data_schema, train_rows, train_data_total_byte_size = \
                 _load_metadata_from_fs(fs, train_data_meta_path)
             metadata, avg_row_size = make_metadata_dictionary(train_data_schema)
 
             val_rows = 0
-            if store.exists(validation_data_path) and store.exists(val_data_meta_path):
+            if store.exists(val_data_meta_path):
                 val_data_schema, val_rows, val_data_total_byte_size = _load_metadata_from_fs(fs,
                                                                                              val_data_meta_path)
 
@@ -609,7 +610,7 @@ def _get_or_create_dataset(key, store, df, feature_columns, label_columns,
             if val_df:
                 if val_rows == 0:
                     raise ValueError(
-                        'Validation DataFrame does not any samples with validation param {}'
+                        'Validation DataFrame is empty with validation param: {}'
                         .format(validation))
                 if verbose:
                     print('val_rows={}'.format(val_rows))
@@ -689,11 +690,9 @@ def to_list(var, length):
     if len(var) == 1:
         var = [var[0] for _ in range(length)]
     else:
-        if len(var) != length:
-            raise ValueError("loss_constructors and loss functions must be a "
-                             "list with length that matches the length of "
-                             "label_cols")
-
+        count = len(var)
+        if count != length:
+            raise ValueError(f'List {var} must be length {length} (found: {count})')
     return var
 
 

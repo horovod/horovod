@@ -107,13 +107,16 @@ tensorflow_require_list = ['tensorflow']
 tensorflow_cpu_require_list = ['tensorflow-cpu']
 tensorflow_gpu_require_list = ['tensorflow-gpu']
 keras_require_list = ['keras>=2.0.8,!=2.0.9,!=2.1.0,!=2.1.1']
-pytorch_require_list = ['torch']
+pytorch_require_list = ['torch', 'pytorch_lightning']
 mxnet_require_list = ['mxnet>=1.4.1']
 pyspark_require_list = ['pyspark>=2.3.2;python_version<"3.8"',
                         'pyspark>=3.0.0;python_version>="3.8"']
 # Pin h5py: https://github.com/h5py/h5py/issues/1732
 spark_require_list = ['h5py<3', 'numpy', 'petastorm>=0.9.8', 'pyarrow>=0.15.0']
 ray_require_list = ['ray']
+pytorch_spark_require_list = pytorch_require_list + \
+                             spark_require_list + \
+                             pyspark_require_list
 
 # all frameworks' dependencies
 all_frameworks_require_list = tensorflow_require_list + \
@@ -132,6 +135,7 @@ dev_require_list = ['tensorflow-cpu==2.2.0',
                     'keras==2.3.1',
                     'torch==1.4.0',
                     'torchvision==0.5.0',
+                    'pytorch_lightning>=1.2.9',
                     'mxnet==1.5.0',
                     'pyspark==3.0.1'] + spark_require_list
 # torchvision 0.5.0 depends on torch==1.4.0
@@ -184,6 +188,7 @@ setup(name='horovod',
           'pytorch': pytorch_require_list,
           'mxnet': mxnet_require_list,
           'spark': spark_require_list + pyspark_require_list,
+          'pytorch-spark': pytorch_spark_require_list,
           'ray': ray_require_list,
           'dev': dev_require_list,
           'test': test_require_list,

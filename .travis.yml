@@ -17,6 +17,7 @@ jobs:
         - TENSORFLOW=1.15.0
         - KERAS=2.2.4
         - PYTORCH=1.2.0
+        - PYTORCH_LIGHTNING=0.7.6
         - TORCHVISION=0.4.0
         - MXNET=1.5.0
     - env:
@@ -25,6 +26,7 @@ jobs:
         - TENSORFLOW=2.2.0
         - KERAS=2.3.1
         - PYTORCH=1.5.0
+        - PYTORCH_LIGHTNING=1.2.9
         - TORCHVISION=0.6.0
         - MXNET=1.5.0
     - env:
@@ -33,6 +35,7 @@ jobs:
         - TENSORFLOW=2.3.0
         - KERAS=2.3.1
         - PYTORCH=1.6.0
+        - PYTORCH_LIGHTNING=1.2.9
         - TORCHVISION=0.7.0
         - MXNET=1.5.0
 before_install:
@@ -43,7 +46,7 @@ before_install:
 install:
   - python -m pip install -U pip
   - pip install tensorflow==${TENSORFLOW} keras==${KERAS}
-  - pip install torch==${PYTORCH} torchvision==${TORCHVISION}
+  - pip install torch==${PYTORCH} torchvision==${TORCHVISION} pytorch-lightning==${PYTORCH_LIGHTNING}
   - pip install mxnet==${MXNET}
   - HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir '.[test]'
   - horovodrun --check-build

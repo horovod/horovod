@@ -420,19 +420,21 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 #endif // HAVE_NVTX
 
   // Open the timeline file on coordinator.
-  auto timeline_env = std::getenv(HOROVOD_TIMELINE);
-  auto horovod_timeline = timeline_env != nullptr ? std::string(timeline_env) : std::string("");
   bool should_enable_timeline = false;
-  if (is_coordinator) {
-    state.timeline.Initialize(horovod_timeline,
-                              static_cast<unsigned int>(size));
+  auto timeline_env = std::getenv(HOROVOD_TIMELINE);
+  if (timeline_env) {
+    if (is_coordinator) {
+      auto horovod_timeline = std::string(timeline_env);
+      if (horovod_timeline != "DYNAMIC") {
+        state.timeline.Initialize(horovod_timeline,
+                                  static_cast<unsigned int>(size));
+      } else {
+        state.timeline.Initialize("",
+                                  static_cast<unsigned int>(size));
+      }
+    }
+    should_enable_timeline = true;
   }
-
-  should_enable_timeline = true;
-  if (horovod_timeline == "DISABLED") {
-    should_enable_timeline = false;
-  }
-
   state.controller->SetTimelineEnabled(should_enable_timeline);
 
   ParseStallInspectorFromEnv(state.controller->GetStallInspector());
@@ -735,9 +737,12 @@ bool horovod_is_initialized() {
   return horovod_global.initialization_done;
 }
 
-bool horovod_start_timeline(const char* file_name, bool mark_cycles) {
+int horovod_start_timeline(const char* file_name, bool mark_cycles) {
   if (!horovod_global.initialization_done) {
-    return false;
+    return -1;
+  }
+  if (!horovod_global.controller->TimelineEnabled()) {
+    return -2;
   }
   bool is_coordinator = horovod_global.controller->IsCoordinator();
   if (is_coordinator) {
@@ -745,22 +750,22 @@ bool horovod_start_timeline(const char* file_name, bool mark_cycles) {
     horovod_global.timeline.SetPendingTimelineFile(std::string(file_name));
   }
   horovod_global.controller->SetMarkCyclesInTimelinePending(mark_cycles);
-  return true;
+  return 1;
 }
 
-bool horovod_stop_timeline() {
+int horovod_stop_timeline() {
   if (!horovod_global.initialization_done) {
-    return false;
+    return -1;
   }
   if(!horovod_global.controller->TimelineEnabledPending()){
     LOG(INFO) << " Timeline is already stopped. Please start timeline before stopping it.";
-    return true;
+    return 1;
   }
   bool is_coordinator = horovod_global.controller->IsCoordinator();
   if (is_coordinator) {
       horovod_global.timeline.SetPendingTimelineFile(std::string(""));
   }
-  return true;
+  return 1;
 }
 
 int horovod_rank() {
