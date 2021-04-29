@@ -39,13 +39,14 @@ class BaseStrategy:
     def num_workers(self):
         raise NotImplementedError
 
-    def get_node_workers(self):
+    @classmethod
+    def get_node_workers(cls, workers):
         """Returns list of one worker per node to use for NIC detection."""
         # In some setups (i.e., Peloton), ray nodes may not have
         # unique host names.
-        hostnames = map_blocking(lambda w: w.hostname.remote(), self.workers)
+        hostnames = map_blocking(lambda w: w.hostname.remote(), workers)
         host_worker_map = {}
-        for hostname, worker in zip(hostnames, self.workers):
+        for hostname, worker in zip(hostnames, workers):
             host_worker_map[hostname] = worker
 
         return list(host_worker_map.values())
@@ -59,6 +60,7 @@ class BaseStrategy:
 
 
 class ColocatedStrategy(BaseStrategy):
+    """Ensures that the workers are balanced across all hosts."""
     def __init__(self, *, settings, num_hosts: int, num_workers_per_host: int,
                  use_gpu: bool, cpus_per_worker: int, gpus_per_worker: int):
         self.settings = settings
@@ -125,7 +127,7 @@ class ColocatedStrategy(BaseStrategy):
                         }))
                 ray.get(futures)
 
-        return self.workers, self.get_node_workers()
+        return self.workers, self.get_node_workers(self.workers)
 
 
 class PackStrategy(BaseStrategy):
@@ -168,4 +170,4 @@ class PackStrategy(BaseStrategy):
 
             self.workers.append(worker)
 
-        return self.workers, self.get_node_workers()
+        return self.workers, self.get_node_workers(self.workers)
