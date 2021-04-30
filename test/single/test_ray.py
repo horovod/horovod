@@ -152,8 +152,7 @@ def test_gpu_ids(ray_start_4_cpus_4_gpus):
     hjob = RayExecutor(
         setting, num_hosts=1, num_workers_per_host=4, use_gpu=True)
     hjob.start()
-    worker_handles = hjob.workers
-    all_envs = ray.get([h.env_vars.remote() for h in worker_handles])
+    all_envs = hjob.execute(lambda _: os.environ.copy())
     all_cudas = {ev["CUDA_VISIBLE_DEVICES"] for ev in all_envs}
     assert len(all_cudas) == 1, all_cudas
     assert len(all_envs[0]["CUDA_VISIBLE_DEVICES"].split(",")) == 4
