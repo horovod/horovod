@@ -46,28 +46,28 @@ class Coordinator:
     rendezvous = None
     global_rendezv_port = None
     nics = None
-    hostnames = None
+    node_id_by_rank = None
 
     def __init__(
             self,
             settings,
     ):
         self.settings = settings
-        self.hostnames_by_rank = defaultdict(list)
+        self.node_id_by_rank = defaultdict(list)
 
     @property
     def world_size(self) -> int:
-        return sum(len(ranks) for ranks in self.hostnames_by_rank.values())
+        return sum(len(ranks) for ranks in self.node_id_by_rank.values())
 
     @property
-    def hoststring(self) -> str:
+    def node_id_string(self) -> str:
         return ",".join([
-            f"{host}:{len(ranks)}"
-            for host, ranks in self.hostnames_by_rank.items()
+            f"{node_id}:{len(ranks)}"
+            for node_id, ranks in self.node_id_by_rank.items()
         ])
 
-    def register(self, hostname: str, world_rank: int):
-        self.hostnames_by_rank[hostname].append(world_rank)
+    def register(self, node_id: str, world_rank: int):
+        self.node_id_by_rank[node_id].append(world_rank)
 
     def finalize_registration(self) -> dict:
         """Return a dictionary for all ranks."""
@@ -75,13 +75,13 @@ class Coordinator:
 
         cross_sizes = defaultdict(int)
         cross_ranks = {}
-        for rank_list in self.hostnames_by_rank.values():
+        for rank_list in self.node_id_by_rank.values():
             for local_rank, world_rank in enumerate(rank_list):
                 cross_ranks[world_rank] = cross_sizes[local_rank]
                 cross_sizes[local_rank] += 1
 
-        for node_world_rank, (hostname, ranks) in enumerate(
-                self.hostnames_by_rank.items()):
+        for node_world_rank, (node_id, ranks) in enumerate(
+                self.node_id_by_rank.items()):
             for local_rank, world_rank in enumerate(ranks):
                 rank_to_info[world_rank] = dict(
                     HOROVOD_CROSS_RANK=cross_ranks[world_rank],
@@ -102,8 +102,8 @@ class Coordinator:
 
         # allocate processes into slots
         # hosts = parse_hosts(hosts_string="10.11.11.11:4,10.11.11.12:4")
-        parsed_hosts = hosts.parse_hosts(hosts_string=self.hoststring)
-        host_alloc_plan = hosts.get_host_assignments(parsed_hosts,
+        parsed_node_ids = hosts.parse_hosts(hosts_string=self.node_id_string)
+        host_alloc_plan = hosts.get_host_assignments(parsed_node_ids,
                                                      self.world_size)
 
         # start global rendezvous server and get port that it is listening on
@@ -111,6 +111,7 @@ class Coordinator:
         self.rendezvous.init(host_alloc_plan)
 
         return {
+            # needs to be real address
             "HOROVOD_GLOO_RENDEZVOUS_ADDR": ray.util.get_node_ip_address(),
             "HOROVOD_GLOO_RENDEZVOUS_PORT": str(self.global_rendezv_port),
             "HOROVOD_CONTROLLER": "gloo",
@@ -426,11 +427,11 @@ class _ExecutorDriver:
         executable_args = executable_args or []
         self.workers, node_workers = self.strategy.create_workers()
         # Get all the hostnames of all workers
-        hostnames = map_blocking(lambda w: w.hostname.remote(), self.workers)
+        node_ids = map_blocking(lambda w: w.node_id.remote(), self.workers)
         # Register each hostname to the coordinator. assumes the hostname
         # ordering is the same.
-        for rank, hostname in enumerate(hostnames):
-            self.coordinator.register(hostname, rank)
+        for rank, node_id in enumerate(node_ids):
+            self.coordinator.register(node_id, rank)
         all_info = self.coordinator.finalize_registration()
 
         indexed_runners = dict(enumerate(self.workers))
@@ -438,6 +439,7 @@ class _ExecutorDriver:
             indexed_runners[rank].update_env_vars.remote(local_cross_env_var)
 
         coordinator_envs = self.coordinator.establish_rendezvous()
+        # TODO: fix this
         coordinator_envs.update(extra_env_vars)
         nics = detect_nics(
             self.settings,
