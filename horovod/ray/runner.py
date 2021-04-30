@@ -233,7 +233,7 @@ class RayExecutor:
             gpus_per_worker=gpus_per_worker,
         )
         self._is_remote = False
-        if ray.is_connected():
+        if ray.util.client.ray.is_connected():
             RemoteDriver = ray.remote(_ExecutorDriver)
             self.driver = RemoteDriver.remote(settings, **kwargs)
             self._is_remote = True
@@ -320,7 +320,7 @@ class RayExecutor:
                 retrieve values.
         """
         kwargs_ = dict(fn=fn, args=args, kwargs=kwargs)
-        return self._maybe_call_ray(self.driver.run_remote, **kwargs)
+        return self._maybe_call_ray(self.driver.run_remote, **kwargs_)
 
     def execute_single(self,
                        fn: Callable[["executable_cls"], Any]) -> List[Any]:
