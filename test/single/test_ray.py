@@ -82,13 +82,13 @@ def test_coordinator_registration():
     settings = MiniSettings()
     coord = Coordinator(settings)
     assert coord.world_size == 0
-    assert coord.hoststring == ""
+    assert coord.node_id_string == ""
     ranks = list(range(12))
 
     for i, hostname in enumerate(["a", "b", "c"]):
         for r in ranks:
             if r % 3 == i:
-                coord.register(hostname, world_rank=r)
+                coord.register(hostname, node_id=str(i), world_rank=r)
 
     rank_to_info = coord.finalize_registration()
     assert len(rank_to_info) == len(ranks)
@@ -106,16 +106,16 @@ def test_cross_rank():
     settings = MiniSettings()
     coord = Coordinator(settings)
     assert coord.world_size == 0
-    assert coord.hoststring == ""
+    assert coord.node_id_string == ""
     ranks = list(range(12))
 
     for r in ranks:
         if r < 5:
-            coord.register("host1", world_rank=r)
+            coord.register("host1", node_id="host1", world_rank=r)
         elif r < 9:
-            coord.register("host2", world_rank=r)
+            coord.register("host2", node_id="host2",  world_rank=r)
         else:
-            coord.register("host3", world_rank=r)
+            coord.register("host3", node_id="host3",  world_rank=r)
 
     rank_to_info = coord.finalize_registration()
     assert len(rank_to_info) == len(ranks)
