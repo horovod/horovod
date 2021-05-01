@@ -121,6 +121,10 @@ class HostManager(object):
     def current_hosts(self):
         return self._current_hosts.update(self._hosts_state)
 
+    @current_hosts.setter
+    def current_hosts(self, hosts):
+        self._current_hosts = hosts
+
     def blacklist(self, host):
         if not self._hosts_state[host].is_blacklisted():
             logging.warning('blacklist failing host: {}'.format(host))

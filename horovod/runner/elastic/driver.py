@@ -183,9 +183,15 @@ class ElasticDriver(object):
         while not self._shutdown.is_set():
             self._wait_hosts_cond.acquire()
             try:
+                prev_hosts = self._host_manager.current_hosts
                 update_res = self._host_manager.update_available_hosts()
                 if update_res != HostUpdateResult.no_update:
-                    self._notify_workers_host_changes(self._host_manager.current_hosts, update_res)
+                    success = self._notify_workers_host_changes(
+                        self._host_manager.current_hosts, update_res
+                    )
+                    if not success:
+                        # Failed to notify workers about host changes, so try again next iteration
+                        self._host_manager.current_hosts = prev_hosts
                     self._wait_hosts_cond.notify_all()
             except RuntimeError as e:
                 if first_update:
@@ -209,26 +215,28 @@ class ElasticDriver(object):
         if next_host_assignments == self.host_assignments:
             # Skip notifying workers when host changes would not result in changes of host assignments
             logging.debug('no host assignment changes, skipping notifications')
-            return
+            return True
 
         coordinator_slot_info = self.get_coordinator_info()
         if not coordinator_slot_info:
             logging.debug('no coordinator info, skipping notifications')
-            return
+            return False
 
         coordinator_client = self.get_worker_client(coordinator_slot_info)
         if not coordinator_client:
             logging.debug('no coordinator client, skipping notifications')
-            return
+            return False
 
         timestamp = _epoch_time_s()
         try:
             coordinator_client.notify_hosts_updated(timestamp, update_res)
+            return True
         except:
             if self._verbose >= 2:
                 logging.exception('failed to notify {}[{}] of host updates'
                                   .format(coordinator_slot_info.hostname,
                                           coordinator_slot_info.local_rank))
+            return False
 
     def _update_host_assignments(self, current_hosts):
         # Determine the slots that are already filled so we do not respawn these processes
