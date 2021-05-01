@@ -54,10 +54,15 @@ class Coordinator:
     ):
         self.settings = settings
         self.node_id_by_rank = defaultdict(list)
+        self._hostnames = list()
 
     @property
     def world_size(self) -> int:
         return sum(len(ranks) for ranks in self.node_id_by_rank.values())
+
+    @property
+    def hostnames(self):
+        return self._hostnames
 
     @property
     def node_id_string(self) -> str:
@@ -66,7 +71,8 @@ class Coordinator:
             for node_id, ranks in self.node_id_by_rank.items()
         ])
 
-    def register(self, node_id: str, world_rank: int):
+    def register(self, hostname, node_id: str, world_rank: int):
+        self._hostnames.append(hostname)
         self.node_id_by_rank[node_id].append(world_rank)
 
     def finalize_registration(self) -> dict:
@@ -428,10 +434,11 @@ class _ExecutorDriver:
         self.workers, node_workers = self.strategy.create_workers()
         # Get all the hostnames of all workers
         node_ids = map_blocking(lambda w: w.node_id.remote(), self.workers)
+        hostnames = map_blocking(lambda w: w.hostname.remote(), self.workers)
         # Register each hostname to the coordinator. assumes the hostname
         # ordering is the same.
-        for rank, node_id in enumerate(node_ids):
-            self.coordinator.register(node_id, rank)
+        for rank, (hostname, node_id) in enumerate(zip(hostnames, node_ids)):
+            self.coordinator.register(hostname, node_id, rank)
         all_info = self.coordinator.finalize_registration()
 
         indexed_runners = dict(enumerate(self.workers))
@@ -443,7 +450,7 @@ class _ExecutorDriver:
         coordinator_envs.update(extra_env_vars)
         nics = detect_nics(
             self.settings,
-            all_host_names=list(self.coordinator.hostnames_by_rank),
+            all_host_names=self.coordinator.hostnames,
             node_workers=node_workers)
         coordinator_envs.update(nics_to_env_var(nics))
 
