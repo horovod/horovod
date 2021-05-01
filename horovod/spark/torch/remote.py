@@ -221,7 +221,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
             # and enables ranks to perform training and validation with
             # unequal number of samples
             with reader_factory(remote_store.train_data_path,
-                                num_epochs=1 if inmemory_cache_all else None,
+                                num_epochs=1,
                                 cur_shard=hvd.rank(),
                                 reader_pool_type='process',
                                 workers_count=train_reader_worker_count,
@@ -231,7 +231,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                                 transform_spec=transform_spec,
                                 **reader_factory_kwargs) as train_reader:
                 with reader_factory(remote_store.val_data_path,
-                                    num_epochs=1 if inmemory_cache_all else None,
+                                    num_epochs=1,
                                     cur_shard=hvd.rank(),
                                     reader_pool_type='process',
                                     workers_count=val_reader_worker_count,
