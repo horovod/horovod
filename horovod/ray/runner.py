@@ -54,7 +54,7 @@ class Coordinator:
     ):
         self.settings = settings
         self.node_id_by_rank = defaultdict(list)
-        self._hostnames = list()
+        self._hostnames = set()
 
     @property
     def world_size(self) -> int:
@@ -72,7 +72,7 @@ class Coordinator:
         ])
 
     def register(self, hostname: str, node_id: str, world_rank: int):
-        self._hostnames.append(hostname)
+        self._hostnames.add(hostname)
         self.node_id_by_rank[node_id].append(world_rank)
 
     def finalize_registration(self) -> dict:
@@ -450,7 +450,7 @@ class _ExecutorDriver:
         coordinator_envs.update(extra_env_vars)
         nics = detect_nics(
             self.settings,
-            all_host_names=self.coordinator.hostnames,
+            all_host_names=list(self.coordinator.hostnames),
             node_workers=node_workers)
         coordinator_envs.update(nics_to_env_var(nics))
 
