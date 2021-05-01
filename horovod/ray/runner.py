@@ -71,7 +71,7 @@ class Coordinator:
             for node_id, ranks in self.node_id_by_rank.items()
         ])
 
-    def register(self, hostname, node_id: str, world_rank: int):
+    def register(self, hostname: str, node_id: str, world_rank: int):
         self._hostnames.append(hostname)
         self.node_id_by_rank[node_id].append(world_rank)
 
