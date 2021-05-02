@@ -446,7 +446,6 @@ class _ExecutorDriver:
             indexed_runners[rank].update_env_vars.remote(local_cross_env_var)
 
         coordinator_envs = self.coordinator.establish_rendezvous()
-        # TODO: fix this
         coordinator_envs.update(extra_env_vars)
         nics = detect_nics(
             self.settings,
