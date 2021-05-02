@@ -8,6 +8,7 @@ import sys
 import socket
 import pytest
 import ray
+from ray.util.client.ray_client_helpers import ray_start_client_server
 import torch
 
 from horovod.common.util import gloo_built
@@ -27,7 +28,7 @@ def ray_start_2_cpus():
 
 @pytest.fixture
 def ray_start_4_cpus():
-    address_info = ray.init(num_cpus=4, _redis_max_memory=1024*1024*1024)
+    address_info = ray.init(num_cpus=4, _redis_max_memory=1024 * 1024 * 1024)
     yield address_info
     # The code after the yield will run as teardown code.
     ray.shutdown()
@@ -49,6 +50,21 @@ def ray_start_4_cpus_4_gpus():
     # The code after the yield will run as teardown code.
     ray.shutdown()
     del os.environ["CUDA_VISIBLE_DEVICES"]
+
+
+@pytest.fixture
+def ray_start_client():
+    def ray_connect_handler(job_config=None):
+        # Ray client will disconnect from ray when
+        # num_clients == 0.
+        if ray.is_initialized():
+            return
+        else:
+            return ray.init(job_config=job_config, num_cpus=4)
+
+    assert not ray.util.client.ray.is_connected()
+    with ray_start_client_server(ray_connect_handler=ray_connect_handler):
+        yield
 
 
 def check_resources(original_resources):
@@ -152,8 +168,7 @@ def test_gpu_ids(ray_start_4_cpus_4_gpus):
     hjob = RayExecutor(
         setting, num_hosts=1, num_workers_per_host=4, use_gpu=True)
     hjob.start()
-    worker_handles = hjob.workers
-    all_envs = ray.get([h.env_vars.remote() for h in worker_handles])
+    all_envs = hjob.execute(lambda _: os.environ.copy())
     all_cudas = {ev["CUDA_VISIBLE_DEVICES"] for ev in all_envs}
     assert len(all_cudas) == 1, all_cudas
     assert len(all_envs[0]["CUDA_VISIBLE_DEVICES"].split(",")) == 4
@@ -369,6 +384,26 @@ def test_horovod_train(ray_start_4_cpus, num_workers, num_hosts,
     hjob.start()
     result = hjob.execute(simple_fn)
     assert set(result) == {0, 1, 2, 3}
+    hjob.shutdown()
+
+
+@pytest.mark.skipif(
+    not gloo_built(), reason='Gloo is required for Ray integration')
+def test_remote_client_train(ray_start_client):
+    def simple_fn(worker):
+        local_rank = _train()
+        return local_rank
+
+    assert ray.util.client.ray.is_connected()
+
+    setting = RayExecutor.create_settings(timeout_s=30)
+    hjob = RayExecutor(
+        setting, num_workers=3, use_gpu=torch.cuda.is_available())
+    hjob.start()
+    result = hjob.execute(simple_fn)
+    assert set(result) == {0, 1, 2}
+    result = ray.get(hjob.run_remote(simple_fn, args=[None]))
+    assert set(result) == {0, 1, 2}
     hjob.shutdown()
 
 

@@ -224,6 +224,142 @@ class RayExecutor:
             raise ValueError(
                 f"gpus_per_worker must be >= 1: Got {gpus_per_worker}.")
 
+        kwargs = dict(
+            num_workers=num_workers,
+            num_hosts=num_hosts,
+            num_workers_per_host=num_workers_per_host,
+            cpus_per_worker=cpus_per_worker,
+            use_gpu=use_gpu,
+            gpus_per_worker=gpus_per_worker,
+        )
+        self._is_remote = False
+        if ray.util.client.ray.is_connected():
+            RemoteDriver = ray.remote(_ExecutorDriver)
+            self.driver = RemoteDriver.remote(settings, **kwargs)
+            self._is_remote = True
+        else:
+            self.driver = _ExecutorDriver(settings, **kwargs)
+
+    def start(self,
+              executable_cls: type = None,
+              executable_args: Optional[List] = None,
+              executable_kwargs: Optional[Dict] = None,
+              extra_env_vars: Optional[Dict] = None):
+        """Starts the workers and colocates them on all machines.
+
+        We implement a node grouping because it seems like
+        our implementation doesn't quite work for imbalanced nodes.
+        Also, colocation performance is typically much better than
+        non-colocated workers.
+
+        Args:
+            executable_cls (type): The class that will be created within
+                an actor (BaseHorovodWorker). This will allow Horovod
+                to establish its connections and set env vars.
+            executable_args (List): Arguments to be passed into the
+                worker class upon initialization.
+            executable_kwargs (Dict): Keyword arguments to be passed into the
+                worker class upon initialization.
+            extra_env_vars (Dict): Environment variables to be set
+                on the actors (worker processes) before initialization.
+
+        """
+        kwargs_ = dict(
+            executable_cls=executable_cls,
+            executable_args=executable_args,
+            executable_kwargs=executable_kwargs,
+            extra_env_vars=extra_env_vars)
+        return self._maybe_call_ray(self.driver.start, **kwargs_)
+
+    def execute(self, fn: Callable[["executable_cls"], Any]) -> List[Any]:
+        """Executes the provided function on all workers.
+
+        Args:
+            fn: Target function to be invoked on every object.
+
+        Returns:
+            Deserialized return values from the target function.
+        """
+        kwargs_ = dict(fn=fn)
+        return self._maybe_call_ray(self.driver.execute, **kwargs_)
+
+    def run(self,
+            fn: Callable[[Any], Any],
+            args: Optional[List] = None,
+            kwargs: Optional[Dict] = None) -> List[Any]:
+        """Executes the provided function on all workers.
+
+        Args:
+            fn: Target function that can be executed with arbitrary
+                args and keyword arguments.
+            args: List of arguments to be passed into the target function.
+            kwargs: Dictionary of keyword arguments to be
+                passed into the target function.
+
+        Returns:
+            Deserialized return values from the target function.
+        """
+        kwargs_ = dict(fn=fn, args=args, kwargs=kwargs)
+        return self._maybe_call_ray(self.driver.run, **kwargs_)
+
+    def run_remote(self,
+                   fn: Callable[[Any], Any],
+                   args: Optional[List] = None,
+                   kwargs: Optional[Dict] = None) -> List[Any]:
+        """Executes the provided function on all workers.
+
+        Args:
+            fn: Target function that can be executed with arbitrary
+                args and keyword arguments.
+            args: List of arguments to be passed into the target function.
+            kwargs: Dictionary of keyword arguments to be
+                passed into the target function.
+
+        Returns:
+            list: List of ObjectRefs that you can run `ray.get` on to
+                retrieve values.
+        """
+        kwargs_ = dict(fn=fn, args=args, kwargs=kwargs)
+        return self._maybe_call_ray(self.driver.run_remote, **kwargs_)
+
+    def execute_single(self,
+                       fn: Callable[["executable_cls"], Any]) -> List[Any]:
+        """Executes the provided function on the rank 0 worker (chief).
+
+        Args:
+            fn: Target function to be invoked on the chief object.
+
+        Returns:
+            Deserialized return values from the target function.
+        """
+        kwargs = dict(fn=fn)
+        return self._maybe_call_ray(self.driver.execute_single, **kwargs)
+
+    def shutdown(self):
+        """Destroys the provided workers."""
+        result = self._maybe_call_ray(self.driver.shutdown)
+        del self.driver
+        return result
+
+    def _maybe_call_ray(self, driver_func, *args, **kwargs):
+        if self._is_remote:
+            return ray.get(driver_func.remote(*args, **kwargs))
+        else:
+            return driver_func(**kwargs)
+
+
+class _ExecutorDriver:
+    """Base driver for executing Ray calls."""
+
+    def __init__(self,
+                 settings,
+                 num_workers: Optional[int] = None,
+                 num_hosts: Optional[int] = None,
+                 num_workers_per_host: int = 1,
+                 cpus_per_worker: int = 1,
+                 use_gpu: bool = False,
+                 gpus_per_worker: Optional[int] = None):
+
         self.settings = settings
         self.num_workers = num_workers
         self.num_hosts = num_hosts
