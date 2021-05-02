@@ -387,6 +387,8 @@ def test_horovod_train(ray_start_4_cpus, num_workers, num_hosts,
     hjob.shutdown()
 
 
+@pytest.mark.skipif(
+    not gloo_built(), reason='Gloo is required for Ray integration')
 def test_remote_client_train(ray_start_client):
     def simple_fn(worker):
         local_rank = _train()
