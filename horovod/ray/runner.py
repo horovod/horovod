@@ -337,7 +337,9 @@ class RayExecutor:
 
     def shutdown(self):
         """Destroys the provided workers."""
-        return self._maybe_call_ray(self.driver.shutdown)
+        result = self._maybe_call_ray(self.driver.shutdown)
+        del self.driver
+        return result
 
     def _maybe_call_ray(self, driver_func, *args, **kwargs):
         if self._is_remote:
