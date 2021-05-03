@@ -1,3 +1,4 @@
+from collections import defaultdict
 import logging
 from typing import Dict
 
@@ -162,9 +163,9 @@ class PackStrategy(BaseStrategy):
 
         # Placement group has started. Now create the workers.
         self.workers = []
+        remote_cls = ray.remote(BaseHorovodWorker)
 
         for bundle_index in range(len(bundles)):
-            remote_cls = ray.remote(BaseHorovodWorker)
             remote_cls_with_options = remote_cls.options(
                 num_cpus=self.cpus_per_worker,
                 num_gpus=self.gpus_per_worker * int(self.use_gpu),
@@ -175,4 +176,27 @@ class PackStrategy(BaseStrategy):
 
             self.workers.append(worker)
 
+        if self.use_gpu:
+            node_ids = ray.get(
+                [worker.node_id.remote() for worker in self.workers])
+            gpus = ray.get(
+                [worker.get_gpu_ids.remote() for worker in self.workers])
+            node_workers = defaultdict(list)
+            node_id_to_gpus = defaultdict(list)
+            for worker, node_id, worker_gpu_ids in zip(self.workers, node_ids,
+                                                       gpus):
+                node_workers[node_id].append(worker)
+                node_id_to_gpus[node_id].extend(worker_gpu_ids)
+
+            futures = []
+            for node_id, gpu_ids in node_id_to_gpus.items():
+                all_ids = ",".join([str(gpu_id) for gpu_id in gpu_ids])
+
+                for worker in node_workers[node_id]:
+                    futures.append(
+                        worker.update_env_vars.remote({
+                            "CUDA_VISIBLE_DEVICES":
+                            all_ids
+                        }))
+            ray.get(futures)
         return self.workers, self.get_node_workers(self.workers)

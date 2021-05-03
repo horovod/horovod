@@ -9,9 +9,12 @@ class BaseHorovodWorker:
     executable = None
 
     def __init__(self, world_rank=0, world_size=1):
-        os.environ["HOROVOD_HOSTNAME"] = self.hostname()
+        os.environ["HOROVOD_HOSTNAME"] = self.node_id()
         os.environ["HOROVOD_RANK"] = str(world_rank)
         os.environ["HOROVOD_SIZE"] = str(world_size)
+
+    def node_id(self) -> str:
+        return ray.get_runtime_context().node_id.hex()
 
     def hostname(self) -> str:
         # TODO: This is probably not the right way to retrieve

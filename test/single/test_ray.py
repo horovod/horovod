@@ -82,13 +82,13 @@ def test_coordinator_registration():
     settings = MiniSettings()
     coord = Coordinator(settings)
     assert coord.world_size == 0
-    assert coord.hoststring == ""
+    assert coord.node_id_string == ""
     ranks = list(range(12))
 
     for i, hostname in enumerate(["a", "b", "c"]):
         for r in ranks:
             if r % 3 == i:
-                coord.register(hostname, world_rank=r)
+                coord.register(hostname, node_id=str(i), world_rank=r)
 
     rank_to_info = coord.finalize_registration()
     assert len(rank_to_info) == len(ranks)
@@ -102,20 +102,27 @@ def test_coordinator_registration():
             for info in rank_to_info.values()} == {0, 1, 2, 3}
 
 
-def test_cross_rank():
+@pytest.mark.parametrize("use_same_host", [True, False])
+def test_cross_rank(use_same_host):
     settings = MiniSettings()
     coord = Coordinator(settings)
     assert coord.world_size == 0
-    assert coord.hoststring == ""
+    assert coord.node_id_string == ""
     ranks = list(range(12))
 
     for r in ranks:
         if r < 5:
-            coord.register("host1", world_rank=r)
+            coord.register("host1", node_id="host1", world_rank=r)
         elif r < 9:
-            coord.register("host2", world_rank=r)
+            coord.register(
+                "host1" if use_same_host else "host2",
+                node_id="host2",
+                world_rank=r)
         else:
-            coord.register("host3", world_rank=r)
+            coord.register(
+                "host1" if use_same_host else "host3",
+                node_id="host3",
+                world_rank=r)
 
     rank_to_info = coord.finalize_registration()
     assert len(rank_to_info) == len(ranks)
@@ -172,6 +179,33 @@ def test_gpu_ids(ray_start_4_cpus_4_gpus):
     all_cudas = {ev["CUDA_VISIBLE_DEVICES"] for ev in all_envs}
     assert len(all_cudas) == 1, all_cudas
     assert len(all_envs[0]["CUDA_VISIBLE_DEVICES"].split(",")) == 4
+    hjob.shutdown()
+    assert check_resources(original_resources)
+
+
+@pytest.mark.skipif(
+    torch.cuda.device_count() < 4, reason="GPU test requires 4 GPUs")
+@pytest.mark.skipif(
+    not torch.cuda.is_available(), reason="GPU test requires CUDA.")
+def test_gpu_ids_num_workers(ray_start_4_cpus_4_gpus):
+    original_resources = ray.available_resources()
+    setting = RayExecutor.create_settings(timeout_s=30)
+    hjob = RayExecutor(setting, num_workers=4, use_gpu=True)
+    hjob.start()
+    all_envs = hjob.execute(lambda _: os.environ.copy())
+    all_cudas = {ev["CUDA_VISIBLE_DEVICES"] for ev in all_envs}
+
+    assert len(all_cudas) == 1, all_cudas
+    assert len(all_envs[0]["CUDA_VISIBLE_DEVICES"].split(",")) == 4
+
+    def _test(worker):
+        import horovod.torch as hvd
+        hvd.init()
+        local_rank = str(hvd.local_rank())
+        return local_rank in os.environ["CUDA_VISIBLE_DEVICES"]
+
+    all_valid_local_rank = hjob.execute(_test)
+    assert all(all_valid_local_rank)
     hjob.shutdown()
     assert check_resources(original_resources)
 
