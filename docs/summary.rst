@@ -296,6 +296,8 @@ See `Run Horovod <running.rst>`_ for more details, including RoCE/InfiniBand twe
 
 9. To run in a LSF HPC cluster (e.g. Summit), see `LSF <lsf.rst>`_.
 
+10. To run on Hadoop Yarn, see `TonY <https://github.com/linkedin/TonY/>`_.
+
 Gloo
 ----
 `Gloo <https://github.com/facebookincubator/gloo>`_ is an open source collective communications library developed by Facebook.

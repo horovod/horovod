@@ -304,7 +304,7 @@ See `Run Horovod <docs/running.rst>`_ for more details, including RoCE/InfiniBan
 
 9. To run in a LSF HPC cluster (e.g. Summit), see `LSF <docs/lsf.rst>`_.
 
-10. To run on Hadoop Yarn, see `TonY <https://github.com/linkedin/TonY/>`_ 
+10. To run on Hadoop Yarn, see `TonY <https://github.com/linkedin/TonY/>`_.
 
 Gloo
 ----
