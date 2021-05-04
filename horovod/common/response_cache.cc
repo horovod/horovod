@@ -192,6 +192,7 @@ void ResponseCache::put(const Response& response, TensorQueue& tensor_queue, boo
                                               joined);
   }
 
+  int64_t global_size = response.tensor_sizes().size() / response.tensor_names().size();
   // If response is fused, split back into individual responses
   if (response.tensor_names().size() > 1) {
     int64_t i = 0;
@@ -200,7 +201,11 @@ void ResponseCache::put(const Response& response, TensorQueue& tensor_queue, boo
       new_response.add_tensor_name(name);
       new_response.set_response_type(response.response_type());
       new_response.set_devices(response.devices());
-      new_response.add_tensor_size(response.tensor_sizes()[i]);
+      // For allreduce, adasum and alltoall, tensor_sizes are the num_elements of response
+      // For allgather, tensor_sizes are the first dim of all ranks
+      for (int64_t j = 0; j < global_size; ++j) {
+        new_response.add_tensor_size(response.tensor_sizes()[i * global_size + j]);
+      }
       new_response.set_tensor_type(response.tensor_type());
       new_response.set_prescale_factor(response.prescale_factor());
       new_response.set_postscale_factor(response.postscale_factor());
