@@ -50,6 +50,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     user_shuffle_buffer_size = estimator.getShufflingBufferSize()
     user_verbose = estimator.getVerbose()
     checkpoint_callback = estimator.getCheckpointCallback()
+    inmemory_cache_all = estimator.getInMemoryCacheAll()
 
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
@@ -208,12 +209,8 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 reader_factory = make_batch_reader
                 is_batch_reader = True
 
-            # Petastorm: read data from the store with the correct shard for this rank
-            # setting num_epochs=None will cause an infinite iterator
-            # and enables ranks to perform training and validation with
-            # unequal number of samples
             with reader_factory(remote_store.train_data_path,
-                                num_epochs=None,
+                                num_epochs=1,
                                 cur_shard=hvd.rank(),
                                 reader_pool_type=reader_pool_type,
                                 workers_count=train_reader_worker_count,
@@ -223,7 +220,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                                 transform_spec=transform_spec,
                                 **reader_factory_kwargs) as train_reader:
                 with reader_factory(remote_store.val_data_path,
-                                    num_epochs=None,
+                                    num_epochs=1,
                                     cur_shard=hvd.rank(),
                                     reader_pool_type=reader_pool_type,
                                     workers_count=val_reader_worker_count,
@@ -235,9 +232,9 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                     if should_validate else empty_batch_reader() as val_reader:
 
                     train_data = make_dataset(train_reader, batch_size, shuffle_buffer_size,
-                                              is_batch_reader, shuffle=True)
+                                              is_batch_reader, shuffle=True, cache=inmemory_cache_all)
                     val_data = make_dataset(val_reader, val_batch_size, shuffle_buffer_size,
-                                            is_batch_reader, shuffle=False) \
+                                            is_batch_reader, shuffle=False, cache=inmemory_cache_all) \
                         if val_reader else None
 
                     history = fit(model, train_data, val_data, steps_per_epoch,
