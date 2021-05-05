@@ -84,7 +84,7 @@ std::shared_ptr<gloo::Context> Rendezvous(const std::string& prefix,
 }
 
 #if HAVE_MPI
-void GlooContext::InitializeFromMPI(const MPICommunicators& mpi_comms,
+void GlooContext::InitializeFromMPI(MPIContext& mpi_ctx,
                                     const std::string& gloo_iface) {
   if (!enabled_) {
     return;
@@ -99,19 +99,19 @@ void GlooContext::InitializeFromMPI(const MPICommunicators& mpi_comms,
   auto timeout = GetTimeoutFromEnv();
 
   auto context =
-      std::make_shared<gloo::mpi::Context>(mpi_comms.Get(GLOBAL));
+      std::make_shared<gloo::mpi::Context>(mpi_ctx.GetMPICommunicator(GLOBAL));
   context->setTimeout(timeout);
   context->connectFullMesh(dev);
   ctx = context;
 
   auto cross_context =
-      std::make_shared<gloo::mpi::Context>(mpi_comms.Get(CROSS));
+      std::make_shared<gloo::mpi::Context>(mpi_ctx.GetMPICommunicator(CROSS));
   cross_context->setTimeout(timeout);
   cross_context->connectFullMesh(dev);
   cross_ctx = cross_context;
 
   auto local_context =
-      std::make_shared<gloo::mpi::Context>(mpi_comms.Get(LOCAL));
+      std::make_shared<gloo::mpi::Context>(mpi_ctx.GetMPICommunicator(LOCAL));
   local_context->setTimeout(timeout);
   local_context->connectFullMesh(dev);
   local_ctx = local_context;
@@ -227,13 +227,13 @@ void GlooContext::Finalize() {
 }
 
 std::shared_ptr<gloo::Context>
-GlooContext::GetGlooContext(CommunicatorType communicator) {
+GlooContext::GetGlooContext(Communicator communicator) {
   switch (communicator) {
-  case CommunicatorType::GLOBAL:
+  case Communicator::GLOBAL:
     return ctx;
-  case CommunicatorType::LOCAL:
+  case Communicator::LOCAL:
     return local_ctx;
-  case CommunicatorType::CROSS:
+  case Communicator::CROSS:
     return cross_ctx;
   default:
     throw std::logic_error("Unsupported communicator type.");

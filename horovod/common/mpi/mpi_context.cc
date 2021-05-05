@@ -16,6 +16,7 @@
 
 #include "mpi_context.h"
 
+#include <cassert>
 #include <iostream>
 #include <memory>
 #include <vector>
@@ -63,11 +64,54 @@ MPI_Op MPIContext::GetMPISumOp(DataType dtype) const {
   return dtype == HOROVOD_FLOAT16 ? mpi_float16_sum : MPI_SUM;
 }
 
+MPI_Comm MPIContext::GetMPICommunicator(Communicator comm) const {
+  switch (comm) {
+  case GLOBAL:
+    return mpi_comm;
+  case LOCAL:
+    return local_comm;
+  case CROSS:
+    return cross_comm;
+  default:
+    throw std::logic_error("Communicator " + CommunicatorName(comm) +
+                           " is not supported in MPI mode.");
+  }
+}
+
 int MPIContext::GetMPITypeSize(DataType dtype) const {
   int out;
   MPI_Type_size(GetMPIDataType(dtype), &out);
   return out;
 }
+
+namespace {
+
+void CreateMPIFloat16TypeAndSumOp(MPI_Datatype& mpi_float16_t,
+                                MPI_Op& mpi_float16_sum) {
+  // Create custom MPI float16 data type.
+  MPI_Type_contiguous(2, MPI_BYTE, &mpi_float16_t);
+  MPI_Type_commit(&mpi_float16_t);
+
+  // Create custom MPI float16 summation op.
+  MPI_Op_create(&float16_sum, 1, &mpi_float16_sum);
+}
+
+void CreateMPILocalAndCrossComm(MPI_Comm mpi_comm, MPI_Comm& local_comm,
+                                MPI_Comm& cross_comm) {
+  // Create local comm, Determine local rank by querying the local communicator.
+  MPI_Comm_split_type(mpi_comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
+                      &local_comm);
+
+  // Get ranks corresponding to mpi_comm and local_comm for cross comm establishment.
+  int local_rank, all_rank;
+  MPI_Comm_rank(mpi_comm, &all_rank);
+  MPI_Comm_rank(local_comm, &local_rank);
+
+  // Create cross node communicator.
+  MPI_Comm_split(mpi_comm, local_rank, all_rank, &cross_comm);
+}
+
+} // namespace
 
 void MPIContext::Initialize(MPIContextManager& ctx_manager) {
 
@@ -121,39 +165,83 @@ void MPIContext::Initialize(MPIContextManager& ctx_manager) {
     }
     MPI_Group_free(&world_group);
     MPI_Group_free(&work_group);
-  } else if (!global_comm) {
+  } else if (global_comm == MPI_COMM_NULL) {
     // No ranks were given and no communicator provided to horovod_init() so use
     // MPI_COMM_WORLD
     LOG(DEBUG) << "Using MPI_COMM_WORLD as global communicator.";
     MPI_Comm_dup(MPI_COMM_WORLD, &global_comm);
   }
 
-  // Create custom MPI float16 data type.
-  MPI_Type_contiguous(2, MPI_BYTE, &mpi_float16_t);
-  MPI_Type_commit(&mpi_float16_t);
+  MPI_Comm_dup(global_comm, &(mpi_comm));
 
-  // Create custom MPI float16 summation op.
-  MPI_Op_create(&float16_sum, 1, &mpi_float16_sum);
+  CreateMPILocalAndCrossComm(mpi_comm, local_comm, cross_comm);
+
+  CreateMPIFloat16TypeAndSumOp(mpi_float16_t, mpi_float16_sum);
+}
+
+void MPIContext::InitializeForProcessSet(const MPIContext& global_context,
+                                         const std::vector<int>& ranks) {
+  assert(global_context.IsEnabled());
+  assert(global_context.global_comm != MPI_COMM_NULL);
+
+  enabled_ = true;
+  should_finalize = false;
+  MPI_Comm_dup(global_context.global_comm, &global_comm);
+  if (ranks.empty()) {
+    MPI_Comm_dup(global_comm, &(mpi_comm));
+  } else {
+    // Create mpi_comm for this process set.
+    MPI_Group world_group;
+    MPI_Comm_group(global_comm, &world_group);
+    MPI_Group work_group;
+    MPI_Group_incl(world_group, ranks.size(), ranks.data(), &work_group);
+    MPI_Comm_create_group(global_comm, work_group, 0, &(mpi_comm));
+    MPI_Group_free(&world_group);
+    MPI_Group_free(&work_group);
+  }
+  if (mpi_comm == MPI_COMM_NULL) {
+    // This process does not belong to the group.
+    local_comm = MPI_COMM_NULL;
+    cross_comm = MPI_COMM_NULL;
+  } else {
+    CreateMPILocalAndCrossComm(mpi_comm, local_comm, cross_comm);
+  }
+
+  CreateMPIFloat16TypeAndSumOp(mpi_float16_t, mpi_float16_sum);
 }
 
 void MPIContext::Finalize(MPIContextManager& ctx_manager) {
   if (!enabled_) {
     return;
   }
+  FinalizeWithoutEnv();
+  if (should_finalize) {
+    ctx_manager.EnvFinalize();
+  }
+}
+
+void MPIContext::FinalizeWithoutEnv() {
+   if (!enabled_) {
+    return;
+  }
+  // It is OK to call MPI_Comm_free multiple times on multiple handles to the same communicator object
   if (global_comm != MPI_COMM_NULL && global_comm != MPI_COMM_WORLD) {
     MPI_Comm_free(&global_comm);
   }
-
+  if (mpi_comm != MPI_COMM_NULL && mpi_comm != MPI_COMM_WORLD) {
+    MPI_Comm_free(&mpi_comm);
+  }
+  if (local_comm != MPI_COMM_NULL) {
+    MPI_Comm_free(&local_comm);
+  }
+  if (cross_comm != MPI_COMM_NULL) {
+    MPI_Comm_free(&cross_comm);
+  }
   if (mpi_float16_t != MPI_DATATYPE_NULL) {
     MPI_Type_free(&mpi_float16_t);
   }
-
   if (mpi_float16_sum != MPI_OP_NULL) {
     MPI_Op_free(&mpi_float16_sum);
-  }
-
-  if (should_finalize) {
-    ctx_manager.EnvFinalize();
   }
 }
 
@@ -168,66 +256,6 @@ void MPIContextManager::EnvFinalize() {
   MPI_Finalized(&is_mpi_finalized);
   if (!is_mpi_finalized) {
     MPI_Finalize();
-  }
-}
-
-void MPICommunicators::Initialize(const MPIContext& mpi_context, const std::vector<int>& ranks) {
-  if (ranks.empty()) {
-    MPI_Comm_dup(mpi_context.global_comm, &(all_comm));
-  } else {
-    MPI_Group world_group;
-    MPI_Comm_group(mpi_context.global_comm, &world_group);
-    MPI_Group work_group;
-    MPI_Group_incl(world_group, ranks.size(), ranks.data(), &work_group);
-    MPI_Comm_create_group(mpi_context.global_comm, work_group, 0, &(all_comm));
-    MPI_Group_free(&world_group);
-    MPI_Group_free(&work_group);
-    if (all_comm == MPI_COMM_NULL) {
-      // This process does not belong to the group.
-      local_comm = MPI_COMM_NULL;
-      cross_comm = MPI_COMM_NULL;
-      return;
-    }
-  }
-  // Create local comm, Determine local rank by querying the local communicator.
-  MPI_Comm_split_type(all_comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
-                      &local_comm);
-
-  // Get ranks correspaonding to all_comm and local_comm for cross comm establishment.
-  int local_rank, all_rank;
-  MPI_Comm_rank(all_comm, &all_rank);
-  MPI_Comm_rank(local_comm, &local_rank);
-
-  // Create cross node communicator.
-  MPI_Comm_split(all_comm, local_rank, all_rank, &cross_comm);
-}
-
-void MPICommunicators::Finalize() {
-  if (all_comm != MPI_COMM_NULL && all_comm != MPI_COMM_WORLD) {
-    MPI_Comm_free(&all_comm);
-    // It is OK to call MPI_Comm_free multiple times on multiple handles to the same communicator object
-  }
-
-  if (local_comm != MPI_COMM_NULL) {
-    MPI_Comm_free(&local_comm);
-  }
-
-  if (cross_comm != MPI_COMM_NULL) {
-    MPI_Comm_free(&cross_comm);
-  }
-}
-
-MPI_Comm MPICommunicators::Get(CommunicatorType comm) const {
-  switch (comm) {
-  case GLOBAL:
-    return all_comm;
-  case LOCAL:
-    return local_comm;
-  case CROSS:
-    return cross_comm;
-  default:
-    throw std::logic_error("CommunicatorType " + CommunicatorName(comm) +
-                           " is not supported in MPI mode.");
   }
 }
 

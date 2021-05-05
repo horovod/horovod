@@ -29,12 +29,11 @@ public:
                 Timeline& timeline, ParameterManager& parameter_manager,
                 GroupTable& group_table,
                 TimelineController& timeline_controller,
-                MPIContext& mpi_ctx,
-                MPICommunicators& mpi_comms)
+                MPIContext& mpi_ctx)
       : Controller(response_cache, tensor_queue, timeline, parameter_manager,
                    group_table, timeline_controller),
-        mpi_ctx_(mpi_ctx), mpi_comms_(mpi_comms) {
-    LOG(DEBUG) << "MPI Controller Initialized.";
+        mpi_ctx_(mpi_ctx) {
+    LOG(DEBUG) << "MPI Controller constructed.";
   }
 
   virtual ~MPIController()=default;
@@ -57,12 +56,12 @@ public:
   void RecvFinalTensors(ResponseList& response_list) override;
 
   void Bcast(void* buffer, size_t size, int root_rank,
-             CommunicatorType communicator) override;
+             Communicator communicator) override;
 
   void AlltoallGetRecvSplits(const std::vector<int32_t>& splits,
                              std::vector<int32_t>& recvsplits) override;
 
-  void Barrier(CommunicatorType communicator) override;
+  void Barrier(Communicator communicator) override;
 
   void AllgatherInt(int value, std::vector<int>& recv_values) override;
 
@@ -72,8 +71,6 @@ protected:
   void DoInitialization() override;
 
   MPIContext& mpi_ctx_;
-
-  MPICommunicators& mpi_comms_;
 
   // flag indicating whether MPI multi-threading is supported
   bool mpi_threads_supported_ = false;

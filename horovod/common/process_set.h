@@ -47,11 +47,11 @@ struct ProcessSet {
   bool joined = false;
 
 #if HAVE_MPI
-  MPICommunicators mpi_comms;
+  MPIContext mpi_context;
 
   // Before calling Initialize the controller must be populated.
   // TODO: doc
-  void Initialize(const MPIContext& mpi_context);
+  void Initialize(const MPIContext& global_mpi_context);
 #endif // HAVE_MPI
 
 #if HAVE_GLOO
@@ -79,9 +79,9 @@ public:
 
 #if HAVE_MPI
   // TODO: doc
-  void Initialize(const MPIContext& mpi_context);
+  void Initialize(const MPIContext& global_mpi_context);
 
-  void InitializeRegisteredIfReady(const MPIContext& mpi_context);
+  void InitializeRegisteredIfReady(const MPIContext& global_mpi_context);
 #endif // HAVE_MPI
 
 #if HAVE_GLOO

@@ -52,12 +52,12 @@ public:
   void RecvFinalTensors(ResponseList& response_list) override;
 
   void Bcast(void* buffer, size_t size, int root_rank,
-             CommunicatorType communicator) override;
+             Communicator communicator) override;
 
   void AlltoallGetRecvSplits(const std::vector<int32_t>& splits,
                              std::vector<int32_t>& recvsplits) override;
 
-  void Barrier(CommunicatorType communicator) override;
+  void Barrier(Communicator communicator) override;
 
   void AllgatherInt(int value, std::vector<int>& recv_values) override;
 

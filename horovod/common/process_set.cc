@@ -17,7 +17,7 @@ bool ProcessSet::IsCurrentProcessIncluded() const {
 }
 
 #if HAVE_MPI
-void ProcessSet::Initialize(const MPIContext& mpi_context) {
+void ProcessSet::Initialize(const MPIContext& global_mpi_context) {
   if (initialization_done) {
     return;
   }
@@ -26,12 +26,12 @@ void ProcessSet::Initialize(const MPIContext& mpi_context) {
   if (!registered_global_ranks_.empty()) {
     // Verify that each process has registered the same set of processes.
     int size;
-    MPI_Comm_size(mpi_context.global_comm, &size);
+    MPI_Comm_size(global_mpi_context.global_comm, &size);
     std::vector<int> buf(size);
     assert(registered_global_ranks_.size() <= size);
     auto len = static_cast<int>(registered_global_ranks_.size());
     MPI_Allgather(&len, 1, MPI_INT, buf.data(), 1, MPI_INT,
-                  mpi_context.global_comm);
+                  global_mpi_context.global_comm);
     if (std::any_of(buf.begin(), buf.end(), [len](int other_len) {
           return len != other_len;
         })) {
@@ -41,15 +41,16 @@ void ProcessSet::Initialize(const MPIContext& mpi_context) {
     for (auto reduction_op : {MPI_MAX, MPI_MIN}) {
       buf.resize(len);
       MPI_Allreduce(registered_global_ranks_.data(), buf.data(), len, MPI_INT,
-                    reduction_op, mpi_context.global_comm);
+                    reduction_op, global_mpi_context.global_comm);
       if (registered_global_ranks_ != buf) {
         throw std::logic_error("Attempted to register process set with "
                                "mismatching values on different ranks");
       }
     }
   }
-  mpi_comms.Initialize(mpi_context, registered_global_ranks_);
-  if (mpi_comms.Get(CommunicatorType::GLOBAL) != MPI_COMM_NULL) {
+  mpi_context.InitializeForProcessSet(global_mpi_context,
+                                      registered_global_ranks_);
+  if (mpi_context.GetMPICommunicator(Communicator::GLOBAL) != MPI_COMM_NULL) {
     // The running process is part of this process set.
     controller->Initialize();
   }
@@ -71,7 +72,7 @@ void ProcessSet::Initialize(const GlooContext& gloo_context) {
 void ProcessSet::Finalize(const Status& status) {
   tensor_queue.FinalizeTensorQueue(status);
 #if HAVE_MPI
-  mpi_comms.Finalize();
+  mpi_context.FinalizeWithoutEnv();
 #endif // HAVE_MPI
   initialization_done = false;
 }
@@ -82,13 +83,13 @@ ProcessSetTable::ProcessSetTable() {
 }
 
 #if HAVE_MPI
-void ProcessSetTable::Initialize(const MPIContext& mpi_context) {
+void ProcessSetTable::Initialize(const MPIContext& global_mpi_context) {
   std::lock_guard<std::recursive_mutex> guard(mutex);
   assert(next_id_ == 1);  // exactly one process set is registered
-  Get(0).Initialize(mpi_context);
+  Get(0).Initialize(global_mpi_context);
 }
 
-void ProcessSetTable::InitializeRegisteredIfReady(const MPIContext& mpi_context) {
+void ProcessSetTable::InitializeRegisteredIfReady(const MPIContext& global_mpi_context) {
   std::lock_guard<std::recursive_mutex> guard(mutex);
 
   int locally_registered_count = ids_.size();
@@ -105,7 +106,7 @@ void ProcessSetTable::InitializeRegisteredIfReady(const MPIContext& mpi_context)
   }
 
   for (auto id: Ids()) {
-    Get(id).Initialize(mpi_context);
+    Get(id).Initialize(global_mpi_context);
   }
 }
 #endif // HAVE_MPI

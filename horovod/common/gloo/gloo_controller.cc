@@ -93,7 +93,7 @@ void GlooController::DoInitialization() {
   global_ranks_.reserve(size_);
   for (int r = 0; r < size_; ++r) {
     global_ranks_.push_back(r);
-    global_rank_to_all_rank_.emplace(r, r);
+    global_rank_to_controller_rank_.emplace(r, r);
   }
 
   LOG(DEBUG) << "Gloo controller initialized.";
@@ -267,7 +267,7 @@ void GlooController::RecvFinalTensors(ResponseList& response_list) {
 }
 
 void GlooController::Bcast(void* buffer, size_t size, int root_rank,
-                           CommunicatorType communicator) {
+                           Communicator communicator) {
   gloo::BroadcastOptions opts(gloo_context_.GetGlooContext(communicator));
   opts.setOutput((uint8_t*)buffer, size);
   opts.setRoot(root_rank);
@@ -278,13 +278,13 @@ void GlooController::AlltoallGetRecvSplits(const std::vector<int32_t>& splits,
                                            std::vector<int32_t>& recvsplits) {
   recvsplits.resize(size_);
   gloo::AlltoallOptions opts(
-      gloo_context_.GetGlooContext(CommunicatorType::GLOBAL));
+      gloo_context_.GetGlooContext(Communicator::GLOBAL));
   opts.setInput((int32_t*)splits.data(), size_);
   opts.setOutput(recvsplits.data(), size_);
   gloo::alltoall(opts);
 }
 
-void GlooController::Barrier(CommunicatorType communicator) {
+void GlooController::Barrier(Communicator communicator) {
   gloo::BarrierOptions opts(gloo_context_.GetGlooContext(communicator));
   gloo::barrier(opts);
 }
@@ -292,7 +292,7 @@ void GlooController::Barrier(CommunicatorType communicator) {
 void GlooController::AllgatherInt(int value, std::vector<int>& recv_values) {
   recv_values.resize(size_);
   gloo::AllgatherOptions opts(
-      gloo_context_.GetGlooContext(CommunicatorType::GLOBAL));
+      gloo_context_.GetGlooContext(Communicator::GLOBAL));
   opts.setInput(&value, 1);
   opts.setOutput(recv_values.data(), size_);
   gloo::allgather(opts);

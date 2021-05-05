@@ -53,12 +53,12 @@ public:
                                   int count) = 0;
 
   virtual void Bcast(void* buffer, size_t size, int root_rank,
-                     CommunicatorType communicator) = 0;
+                     Communicator communicator) = 0;
 
   virtual void AlltoallGetRecvSplits(const std::vector<int32_t>& splits,
                                      std::vector<int32_t>& recvsplits) = 0;
 
-  virtual void Barrier(CommunicatorType communicator) = 0;
+  virtual void Barrier(Communicator communicator) = 0;
 
   virtual void AllgatherInt(int value, std::vector<int>& recv_values) = 0;
 
@@ -121,8 +121,8 @@ public:
   int GetLocalSize() const { return local_size_; };
   int GetCrossSize() const { return cross_size_; };
   const std::vector<int>& GetGlobalRanks() const { return global_ranks_; }
-  const std::unordered_map<int, int>& GetGlobalRankToAllRank() const {
-    return global_rank_to_all_rank_;
+  const std::unordered_map<int, int>& GetGlobalRankToControllerRank() const {
+    return global_rank_to_controller_rank_;
   }
   const std::vector<int>& GetLocalCommRanks() const {
     return local_comm_ranks_;
@@ -146,7 +146,7 @@ protected:
   // For other ranks to send their ready tensors to rank 0
   virtual void SendReadyTensors(RequestList& message_list) = 0;
 
-  // For rank 0 to send final tensors ready to be allreduced/allgatherd to other ranks.
+  // For rank 0 to send final tensors ready to be allreduced/allgathered to other ranks.
   virtual void SendFinalTensors(ResponseList& response_list) = 0;
 
   // For other ranks to receive final ready tensors.
@@ -192,10 +192,11 @@ protected:
   // Global rank of each process in the set associated to this controller.
   std::vector<int> global_ranks_;
 
-  // Map (global rank) -> (all-controller rank) for each process in this set.
-  std::unordered_map<int,int> global_rank_to_all_rank_;
+  // Map (global rank) -> (process set controller rank) for each process in this
+  // set.
+  std::unordered_map<int,int> global_rank_to_controller_rank_;
 
-  // All-controller ranks of processes running on this node.
+  // Controller process set ranks of processes running on this node.
   std::vector<int> local_comm_ranks_;
 
   // Numbers of ranks running per node
