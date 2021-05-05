@@ -17,6 +17,10 @@
 
 #include "nccl_operations.h"
 
+#if HAVE_MPI
+#include "../mpi/mpi_context.h"
+#endif
+
 namespace horovod {
 namespace common {
 
@@ -76,7 +80,7 @@ void NCCLOpContext::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
     timeline.ActivityStartAll(entries, INIT_NCCL);
 
     int nccl_rank, nccl_size;
-    CommunicatorType nccl_id_bcast_comm;
+    Communicator nccl_id_bcast_comm;
     PopulateNCCLCommStrategy(nccl_rank, nccl_size, nccl_id_bcast_comm,
                              process_set);
 
@@ -95,7 +99,7 @@ void NCCLOpContext::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
 
     // Barrier helps NCCL to synchronize after initialization and avoid
     // deadlock that we've been seeing without it.
-    process_set.controller->Barrier(CommunicatorType::GLOBAL);
+    process_set.controller->Barrier(Communicator::GLOBAL);
     timeline.ActivityEndAll(entries);
   }
 
@@ -117,16 +121,17 @@ void NCCLOpContext::AsyncErrorCheck() {
 
 }
 
-void NCCLOpContext::PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size, CommunicatorType& nccl_id_bcast_comm,
+void NCCLOpContext::PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
+                                             Communicator& nccl_id_bcast_comm,
                                              const ProcessSet& process_set) {
-  if (communicator_type_ == CommunicatorType::GLOBAL) {
+  if (communicator_type_ == Communicator::GLOBAL) {
     nccl_rank = process_set.controller->GetRank();
     nccl_size = process_set.controller->GetSize();
-  } else if (communicator_type_ == CommunicatorType::LOCAL) {
+  } else if (communicator_type_ == Communicator::LOCAL) {
     nccl_rank = process_set.controller->GetLocalRank();
     nccl_size = process_set.controller->GetLocalSize();
   } else {
-    throw std::logic_error("CommunicatorType type " + std::to_string(communicator_type_) +
+    throw std::logic_error("Communicator type " + std::to_string(communicator_type_) +
                             " is not supported in NCCL mode.");
   }
   nccl_id_bcast_comm = communicator_type_;
@@ -232,6 +237,7 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   auto& first_entry = entries[0];
   auto& process_set =
       global_state_->process_set_table.Get(entries[0].process_set_id);
+  const auto& mpi_context = process_set.mpi_context;
 
   // Determine GPU IDs of the devices participating in this communicator.
   std::vector<int32_t> nccl_device_map;
@@ -272,7 +278,7 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   }
 
   // Do allreduce.
-  int element_size = mpi_context_->GetMPITypeSize(first_entry.tensor->dtype());
+  int element_size = mpi_context.GetMPITypeSize(first_entry.tensor->dtype());
   int local_size = process_set.controller->GetLocalSize();
   int local_rank = process_set.controller->GetLocalRank();
 
@@ -379,9 +385,9 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     timeline.ActivityStartAll(entries, MPI_ALLREDUCE);
     int op = MPI_Allreduce(MPI_IN_PLACE, gpu_op_context_.host_buffer,
                            (int) total_num_elements,
-                           mpi_context_->GetMPIDataType(first_entry.tensor),
-                           mpi_context_->GetMPISumOp(first_entry.tensor->dtype()),
-                           process_set.mpi_comms.Get(CommunicatorType::CROSS));
+                           mpi_context.GetMPIDataType(first_entry.tensor),
+                           mpi_context.GetMPISumOp(first_entry.tensor->dtype()),
+                           mpi_context.GetMPICommunicator(Communicator::CROSS));
     if (op != MPI_SUCCESS) {
       throw std::runtime_error("MPI_Allreduce failed, see MPI output for details.");
     }

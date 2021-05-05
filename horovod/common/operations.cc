@@ -115,7 +115,7 @@ namespace {
 HorovodGlobalState horovod_global;
 
 #if HAVE_MPI
-MPIContext mpi_context;
+MPIContext global_mpi_context;
 #endif
 
 #if HAVE_GLOO
@@ -151,17 +151,17 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   std::vector<std::shared_ptr<AlltoallOp>> alltoall_ops;
 
 #if HAVE_MPI && HAVE_GPU
-  if (mpi_context.IsEnabled()) {
+  if (global_mpi_context.IsEnabled()) {
 #if HOROVOD_GPU_ALLREDUCE == 'M'
     allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
-        new MPI_GPUAllreduce(&mpi_context, &gpu_context, &state)));
+        new MPI_GPUAllreduce(&gpu_context, &state)));
 
 #elif HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
-    adasum_ops.push_back(std::shared_ptr<AllreduceOp>(new AdasumGpuAllreduceOp(&mpi_context, &nccl_context, &gpu_context, &state)));
+    adasum_ops.push_back(std::shared_ptr<AllreduceOp>(new AdasumGpuAllreduceOp(&global_mpi_context, &nccl_context, &gpu_context, &state)));
 
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new NCCLHierarchicalAllreduce(
-            &nccl_context, &mpi_context, &gpu_context, &state)));
+            &nccl_context, &gpu_context, &state)));
 
 #elif HAVE_DDL && HOROVOD_GPU_ALLREDUCE == 'D'
     allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
@@ -170,14 +170,14 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 
 #if HOROVOD_GPU_ALLGATHER == 'M'
     allgather_ops.push_back(std::shared_ptr<AllgatherOp>(
-        new MPI_GPUAllgather(&mpi_context, &gpu_context, &state)));
+        new MPI_GPUAllgather(&gpu_context, &state)));
 #endif
     allgather_ops.push_back(std::shared_ptr<AllgatherOp>(
-        new MPIHierarchicalAllgather(&mpi_context, &state)));
+        new MPIHierarchicalAllgather(&state)));
 
 #if HOROVOD_GPU_ALLTOALL == 'M'
     alltoall_ops.push_back(std::shared_ptr<AlltoallOp>(
-        new MPI_GPUAlltoall(&mpi_context, &gpu_context, &state)));
+        new MPI_GPUAlltoall(&gpu_context, &state)));
 #endif
   }
 #endif
@@ -229,17 +229,17 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #endif
 
 #if HAVE_MPI
-  if (mpi_context.IsEnabled()){
+  if (global_mpi_context.IsEnabled()){
     adasum_ops.push_back(
-        std::shared_ptr<AllreduceOp>(new AdasumMPIAllreduceOp(&mpi_context, &state)));
+        std::shared_ptr<AllreduceOp>(new AdasumMPIAllreduceOp(&global_mpi_context, &state)));
     allreduce_ops.push_back(
-        std::shared_ptr<AllreduceOp>(new MPIAllreduce(&mpi_context,&state)));
+        std::shared_ptr<AllreduceOp>(new MPIAllreduce(&state)));
     allgather_ops.push_back(
-        std::shared_ptr<AllgatherOp>(new MPIAllgather(&mpi_context, &state)));
+        std::shared_ptr<AllgatherOp>(new MPIAllgather(&state)));
     broadcast_ops.push_back(
-        std::shared_ptr<BroadcastOp>(new MPIBroadcast(&mpi_context, &state)));
+        std::shared_ptr<BroadcastOp>(new MPIBroadcast(&state)));
     alltoall_ops.push_back(
-        std::shared_ptr<AlltoallOp>(new MPIAlltoall(&mpi_context, &state)));
+        std::shared_ptr<AlltoallOp>(new MPIAlltoall(&state)));
   }
 #endif
 
@@ -343,17 +343,17 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // Otherwise, let MPI ops be in charge.
   auto mpi_ctx_manager = MPIContextManager();
 #endif
-  if (mpi_context.IsEnabled()) {
-    mpi_context.Initialize(mpi_ctx_manager);
-    state.process_set_table.Initialize(mpi_context); // Initializes global controller as well
+  if (global_mpi_context.IsEnabled()) {
+    global_mpi_context.Initialize(mpi_ctx_manager);
+    state.process_set_table.Initialize(global_mpi_context); // Initializes global controller as well
   }
 #endif
 
 #if HAVE_GLOO
 #if HAVE_MPI
-    if (mpi_context.IsEnabled()) {
+    if (global_mpi_context.IsEnabled()) {
       // Initialize gloo context if mpi context is available
-      gloo_context.InitializeFromMPI(state.process_set_table.Get(0).mpi_comms,
+      gloo_context.InitializeFromMPI(state.process_set_table.Get(0).mpi_context,
                                      ParseGlooIface());
     }
     else
@@ -561,7 +561,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 #endif
 
 #if HAVE_MPI
-  mpi_context.Finalize(mpi_ctx_manager);
+  global_mpi_context.Finalize(mpi_ctx_manager);
 #endif
 
 #if HAVE_CCL
@@ -592,8 +592,8 @@ bool RunLoopOnce(HorovodGlobalState& state) {
 #if HAVE_MPI
   // Initialize any newly added process set that has been registered by all
   // Horovod processes.
-  if (mpi_context.IsEnabled()) {
-    state.process_set_table.InitializeRegisteredIfReady(mpi_context);
+  if (global_mpi_context.IsEnabled()) {
+    state.process_set_table.InitializeRegisteredIfReady(global_mpi_context);
     // Remove a process set that has been marked for removal by all Horovod
     // processes.
     state.process_set_table.RemoveMarkedProcessSetIfReady();
@@ -672,8 +672,8 @@ void EnrichProcessSetWithMPIController(ProcessSet& process_set) {
   process_set.controller.reset(new MPIController(
       process_set.response_cache, process_set.tensor_queue,
       horovod_global.timeline, horovod_global.parameter_manager,
-      process_set.group_table, horovod_global.timeline_controller, mpi_context,
-      process_set.mpi_comms));
+      process_set.group_table, horovod_global.timeline_controller,
+      process_set.mpi_context));
 }
 #endif // HAVE_MPI
 
@@ -698,7 +698,7 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
     // Enable mpi if it's used either in cpu data transfer or controller
     if (horovod_global.cpu_operation == LibType::MPI ||
         horovod_global.control_operation == LibType::MPI) {
-      mpi_context.Enable(ranks, nranks);
+      global_mpi_context.Enable(ranks, nranks);
     }
 
     if (horovod_global.control_operation == LibType::MPI) {
@@ -751,7 +751,7 @@ void horovod_init(const int* ranks, int nranks) {
 
 #if HAVE_MPI
 void horovod_init_comm(MPI_Comm comm) {
-  MPI_Comm_dup(comm, &mpi_context.global_comm);
+  MPI_Comm_dup(comm, &global_mpi_context.global_comm);
   InitializeHorovodOnce(nullptr, 0);
 }
 #endif
@@ -867,7 +867,7 @@ int horovod_mpi_threads_supported() {
 
 bool horovod_mpi_enabled() {
 #if HAVE_MPI
-  return mpi_context.IsEnabled();
+  return global_mpi_context.IsEnabled();
 #else
   return false;
 #endif
@@ -1282,7 +1282,7 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   int root_rank_in_process_set;
   try {
     root_rank_in_process_set =
-        process_set.controller->GetGlobalRankToAllRank().at(root_rank);
+        process_set.controller->GetGlobalRankToControllerRank().at(root_rank);
   } catch (const std::out_of_range& e) {
     return Status::InvalidArgument(
         "broadcast received invalid root rank " + std::to_string(root_rank) +

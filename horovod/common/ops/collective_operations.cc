@@ -156,7 +156,7 @@ Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
   for (size_t ec = 0; ec < entries.size(); ++ec) {
     auto& e = entries[ec];
     auto& process_set = global_state_->process_set_table.Get(e.process_set_id);
-    int world_size = process_set.controller->GetSize();
+    int global_size = process_set.controller->GetSize();
     // Every tensor participating in Allgather operation may have different
     // first dimension size, but the rest of dimensions are same for all
     // tensors.  Here we get shape of tensor sliced by first dimension.
@@ -169,8 +169,8 @@ Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
     // and compute total size.  This is size of first dimension.
     int64_t total_entry_dimension_size = 0;
     const auto& tensor_sizes = response.tensor_sizes();
-    for (int rc = 0; rc < world_size; ++rc) {
-      auto component_size = tensor_sizes[ec * world_size + rc];
+    for (int rc = 0; rc < global_size; ++rc) {
+      auto component_size = tensor_sizes[ec * global_size + rc];
       total_entry_dimension_size += component_size;
 
       if (recvcounts) {
@@ -199,8 +199,8 @@ Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
 }
 
 void AllgatherOp::SetDisplacements(const int* recvcounts, int*& displcmnts,
-                                   int world_size) {
-  for (int rc = 0; rc < world_size; ++rc) {
+                                   int global_size) {
+  for (int rc = 0; rc < global_size; ++rc) {
     if (rc == 0) {
       displcmnts[rc] = 0;
     } else {
@@ -217,8 +217,8 @@ void AllgatherOp::SetEntryComponentOffsets(
   auto& process_set =
       global_state_->process_set_table.Get(entries[0].process_set_id);
   unsigned int rank_displacement = 0;
-  int world_size = process_set.controller->GetSize();
-  for (int rc = 0; rc < world_size; ++rc) {
+  int global_size = process_set.controller->GetSize();
+  for (int rc = 0; rc < global_size; ++rc) {
     for (size_t ec = 0; ec < entries.size(); ++ec) {
       if (ec == 0) {
         entry_component_offsets[ec][rc] = rank_displacement;
@@ -259,9 +259,9 @@ void AllgatherOp::MemcpyOutFusionBuffer(
   for (size_t ec = 0; ec < entries.size(); ++ec) {
     auto& e = entries[ec];
     auto& process_set = global_state_->process_set_table.Get(e.process_set_id);
-    int world_size = process_set.controller->GetSize();
+    int global_size = process_set.controller->GetSize();
     int64_t copy_offset = 0;
-    for (int rc = 0; rc < world_size; ++rc) {
+    for (int rc = 0; rc < global_size; ++rc) {
       int64_t entry_offset = entry_component_offsets[ec][rc] * element_size;
       int64_t entry_size = entry_component_sizes[ec][rc] * element_size;
       const void* buffer_data_at_offset = (uint8_t*)buffer_data + entry_offset;

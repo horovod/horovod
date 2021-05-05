@@ -146,7 +146,7 @@ protected:
                                 int*& recvcounts);
 
   virtual void SetDisplacements(const int* recvcounts, int*& displcmnts,
-                                int world_size);
+                                int global_size);
 
   virtual void
   SetEntryComponentOffsets(const std::vector<TensorTableEntry>& entries,

@@ -20,8 +20,8 @@
 namespace horovod {
 namespace common {
 
-MPIAllreduce::MPIAllreduce(MPIContext* mpi_context, HorovodGlobalState* global_state)
-    : AllreduceOp(global_state), mpi_context_(mpi_context) {}
+MPIAllreduce::MPIAllreduce(HorovodGlobalState* global_state)
+    : AllreduceOp(global_state) {}
 
 Status MPIAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   assert(!entries.empty());
@@ -30,6 +30,7 @@ Status MPIAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
   auto& first_entry = entries[0];
   auto& process_set =
       global_state_->process_set_table.Get(first_entry.process_set_id);
+  const auto& mpi_context = process_set.mpi_context;
 
   const void* fused_input_data;
   void* buffer_data;
@@ -58,11 +59,11 @@ Status MPIAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
   timeline.ActivityStartAll(entries, MPI_ALLREDUCE);
   const void* sendbuf = entries.size() > 1 || fused_input_data == buffer_data
                         ? MPI_IN_PLACE : fused_input_data;
-  int op = MPI_Allreduce(sendbuf, buffer_data,
-                         (int) num_elements,
-                         mpi_context_->GetMPIDataType(first_entry.tensor),
-                         mpi_context_->GetMPISumOp(first_entry.tensor->dtype()),
-                         process_set.mpi_comms.Get(CommunicatorType::GLOBAL));
+  int op =
+      MPI_Allreduce(sendbuf, buffer_data, (int)num_elements,
+                    mpi_context.GetMPIDataType(first_entry.tensor),
+                    mpi_context.GetMPISumOp(first_entry.tensor->dtype()),
+                    mpi_context.GetMPICommunicator(Communicator::GLOBAL));
   if (op != MPI_SUCCESS) {
     throw std::runtime_error("MPI_Allreduce failed, see MPI output for details.");
   }
@@ -89,8 +90,8 @@ bool MPIAllreduce::Enabled(const ParameterManager& param_manager,
   return true;
 }
 
-MPIAllgather::MPIAllgather(MPIContext* mpi_context, HorovodGlobalState* global_state)
-    : AllgatherOp(global_state), mpi_context_(mpi_context) {}
+MPIAllgather::MPIAllgather(HorovodGlobalState* global_state)
+    : AllgatherOp(global_state) {}
 
 bool MPIAllgather::Enabled(const ParameterManager& param_manager,
                            const std::vector<TensorTableEntry>& entries,
@@ -105,6 +106,7 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
   auto& first_entry = entries[0];
   auto& process_set =
       global_state_->process_set_table.Get(first_entry.process_set_id);
+  const auto& mpi_context = process_set.mpi_context;
 
   auto& timeline = global_state_->timeline;
 
@@ -143,7 +145,7 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
   SetDisplacements(recvcounts, displcmnts, global_size);
   SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts, entry_component_offsets);
 
-  int element_size = mpi_context_->GetMPITypeSize(first_entry.tensor->dtype());
+  int element_size = mpi_context.GetMPITypeSize(first_entry.tensor->dtype());
 
   const void* sendbuf = nullptr;
   void* buffer_data;
@@ -159,7 +161,7 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
   }
 
   global_state_->timeline.ActivityStartAll(entries, MPI_ALLGATHER);
-  auto dtype = mpi_context_->GetMPIDataType(first_entry.tensor->dtype());
+  auto dtype = mpi_context.GetMPIDataType(first_entry.tensor->dtype());
   int op = MPI_Allgatherv(sendbuf != nullptr ? sendbuf : MPI_IN_PLACE,
                           (int) total_num_elements,
                           dtype,
@@ -167,7 +169,7 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
                           recvcounts,
                           displcmnts,
                           dtype,
-                          process_set.mpi_comms.Get(CommunicatorType::GLOBAL));
+                          mpi_context.GetMPICommunicator(Communicator::GLOBAL));
   if (op != MPI_SUCCESS) {
     throw std::runtime_error("MPI_Allgatherv failed, see MPI output for details.");
   }
@@ -193,9 +195,9 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
   return Status::OK();
 }
 
-MPIHierarchicalAllgather::MPIHierarchicalAllgather(MPIContext* mpi_context,
-                                                   HorovodGlobalState* global_state)
-    : MPIAllgather(mpi_context, global_state) {}
+MPIHierarchicalAllgather::MPIHierarchicalAllgather(
+    HorovodGlobalState* global_state)
+    : MPIAllgather(global_state) {}
 
 Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   assert(!entries.empty());
@@ -204,6 +206,7 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
   auto& first_entry = entries[0];
   auto& process_set =
       global_state_->process_set_table.Get(first_entry.process_set_id);
+  auto& mpi_context = process_set.mpi_context;
 
   auto& timeline = global_state_->timeline;
 
@@ -242,7 +245,7 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
   SetDisplacements(recvcounts, displcmnts, global_size);
   SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts, entry_component_offsets);
 
-  int element_size = mpi_context_->GetMPITypeSize(first_entry.tensor->dtype());
+  int element_size = mpi_context.GetMPITypeSize(first_entry.tensor->dtype());
 
   int64_t total_size = displcmnts[global_size - 1] +
                        recvcounts[global_size - 1];
@@ -251,8 +254,8 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
   int64_t total_size_in_bytes = total_size * element_size;
   if (global_state_->shared_buffer == nullptr || global_state_->shared_buffer_size < total_size_in_bytes) {
     if (global_state_->shared_buffer != nullptr) {
-      MPI_Win_fence(0, mpi_context_->window);
-      MPI_Win_free(&mpi_context_->window);
+      MPI_Win_fence(0, mpi_context.window);
+      MPI_Win_free(&mpi_context.window);
       global_state_->shared_buffer = nullptr;
     }
 
@@ -262,13 +265,13 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
     MPI_Win_allocate_shared(window_size,
                             element_size,
                             MPI_INFO_NULL,
-                            process_set.mpi_comms.Get(CommunicatorType::LOCAL),
+                            mpi_context.GetMPICommunicator(Communicator::LOCAL),
                             &global_state_->shared_buffer,
-                            &mpi_context_->window);
+                            &mpi_context.window);
     if (process_set.controller->GetLocalRank() != 0) {
       int disp_unit;
       MPI_Aint winsize;
-      MPI_Win_shared_query(mpi_context_->window,
+      MPI_Win_shared_query(mpi_context.window,
                            0,
                            &winsize,
                            &disp_unit,
@@ -330,8 +333,8 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
                             global_state_->shared_buffer,
                             cross_recvcounts,
                             cross_displcmnts,
-                            mpi_context_->GetMPIDataType(first_entry.tensor->dtype()),
-                            process_set.mpi_comms.Get(CommunicatorType::CROSS));
+                            mpi_context.GetMPIDataType(first_entry.tensor->dtype()),
+                            mpi_context.GetMPICommunicator(Communicator::CROSS));
     if (op != MPI_SUCCESS) {
       throw std::runtime_error("MPI_Allgatherv failed, see MPI output for details.");
     }
@@ -360,14 +363,15 @@ bool MPIHierarchicalAllgather::Enabled(const ParameterManager& param_manager,
 }
 
 void MPIHierarchicalAllgather::Barrier(const ProcessSet& process_set) {
-  int op = MPI_Barrier(process_set.mpi_comms.Get(CommunicatorType::GLOBAL));
+  int op =
+      MPI_Barrier(process_set.mpi_context.GetMPICommunicator(Communicator::GLOBAL));
   if (op != MPI_SUCCESS) {
     throw std::runtime_error("MPI_Barrier failed, see MPI output for details.");
   }
 }
 
-MPIBroadcast::MPIBroadcast(MPIContext* mpi_context, HorovodGlobalState* global_state)
-    : BroadcastOp(global_state), mpi_context_(mpi_context) {}
+MPIBroadcast::MPIBroadcast(HorovodGlobalState* global_state)
+    : BroadcastOp(global_state) {}
 
 Status MPIBroadcast::Execute(std::vector<TensorTableEntry>& entries,
                              const Response& response) {
@@ -376,6 +380,7 @@ Status MPIBroadcast::Execute(std::vector<TensorTableEntry>& entries,
   assert(entries.size() == 1);
   auto e = entries[0];
   auto& process_set = global_state_->process_set_table.Get(e.process_set_id);
+  const auto& mpi_context = process_set.mpi_context;
 
   // On root rank, MPI_Bcast sends data, on other ranks it receives data.
   void* data_ptr;
@@ -388,9 +393,9 @@ Status MPIBroadcast::Execute(std::vector<TensorTableEntry>& entries,
   global_state_->timeline.ActivityStartAll(entries, MPI_BCAST);
   int op = MPI_Bcast(data_ptr,
                      (int) e.tensor->shape().num_elements(),
-                     mpi_context_->GetMPIDataType(e.tensor->dtype()),
+                     mpi_context.GetMPIDataType(e.tensor->dtype()),
                      e.root_rank,
-                     process_set.mpi_comms.Get(CommunicatorType::GLOBAL));
+                     mpi_context.GetMPICommunicator(Communicator::GLOBAL));
   if (op != MPI_SUCCESS) {
     throw std::runtime_error("MPI_Broadcast failed, see MPI output for details.");
   }
@@ -405,8 +410,8 @@ bool MPIBroadcast::Enabled(const ParameterManager& param_manager,
   return true;
 }
 
-MPIAlltoall::MPIAlltoall(MPIContext* mpi_context, HorovodGlobalState* global_state)
-    : AlltoallOp(global_state), mpi_context_(mpi_context) {}
+MPIAlltoall::MPIAlltoall(HorovodGlobalState* global_state)
+    : AlltoallOp(global_state) {}
 
 Status MPIAlltoall::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   WaitForData(entries);
@@ -414,6 +419,7 @@ Status MPIAlltoall::Execute(std::vector<TensorTableEntry>& entries, const Respon
   assert(entries.size() == 1);
   auto e = entries[0];
   auto& process_set = global_state_->process_set_table.Get(e.process_set_id);
+  const auto& mpi_context = process_set.mpi_context;
 
   std::vector<int32_t> sdispls, rdispls;
   std::vector<int32_t> sendcounts, recvcounts;
@@ -427,10 +433,10 @@ Status MPIAlltoall::Execute(std::vector<TensorTableEntry>& entries, const Respon
   global_state_->timeline.ActivityStartAll(entries, MPI_ALLTOALL);
 
   int op = MPI_Alltoallv(sendbuf, sendcounts.data(), sdispls.data(),
-                         mpi_context_->GetMPIDataType(e.tensor->dtype()),
+                         mpi_context.GetMPIDataType(e.tensor->dtype()),
                          buffer_data, recvcounts.data(), rdispls.data(),
-                         mpi_context_->GetMPIDataType(e.output->dtype()),
-                         process_set.mpi_comms.Get(CommunicatorType::GLOBAL));
+                         mpi_context.GetMPIDataType(e.output->dtype()),
+                         mpi_context.GetMPICommunicator(Communicator::GLOBAL));
   if (op != MPI_SUCCESS) {
     throw std::runtime_error("MPI_Alltoallv failed, see MPI output for details.");
   }

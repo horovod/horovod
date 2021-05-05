@@ -44,7 +44,7 @@ void Controller::SynchronizeParameters() {
 
   void* buffer = (void*)(&param);
   size_t param_size = sizeof(param);
-  Bcast(buffer, param_size, 0, CommunicatorType::GLOBAL);
+  Bcast(buffer, param_size, 0, Communicator::GLOBAL);
 
   if (!is_coordinator_) {
     parameter_manager_.SetParams(param);
