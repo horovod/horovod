@@ -28,6 +28,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - Changed RayExecutor to use Ray node ID to enable multi-container:single-host setups. ([#2883](https://github.com/horovod/horovod/pull/2882))
+- Support sparse gradients aggregation in TF1 Keras. ([#2879](https://github.com/horovod/horovod/pull/2879))
+- Respect `global_step` parameter for LegacyOptimizers when aggregating gradients.  ([#2879](https://github.com/horovod/horovod/pull/2879))
 
 ## [v0.21.3] - 2021-02-15
 
