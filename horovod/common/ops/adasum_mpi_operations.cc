@@ -41,8 +41,6 @@ Status AdasumMPIAllreduceOp::Execute(std::vector<TensorTableEntry>& entries,
   }
 
   auto& first_entry = entries[0];
-  auto& process_set =
-      global_state_->process_set_table.Get(first_entry.process_set_id);
 
   const void* fused_input_data;
   void* buffer_data;

@@ -51,12 +51,12 @@ private:
       auto main_addr = this->kvs_->get_address();
       global_state->global_controller->Bcast((void*)main_addr.data(),
                                              main_addr.size(), 0,
-                                             CommunicatorType::GLOBAL);
+                                             Communicator::GLOBAL);
     } else {
       ccl::kvs::address_type main_addr;
       global_state->global_controller->Bcast((void*)main_addr.data(),
                                              main_addr.size(), 0,
-                                             CommunicatorType::GLOBAL);
+                                             Communicator::GLOBAL);
       this->kvs_ = ccl::create_kvs(main_addr);
     }
   }
