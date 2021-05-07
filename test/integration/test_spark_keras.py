@@ -213,21 +213,23 @@ class SparkKerasTests(tf.test.TestCase):
                     optimizer = tf.keras.optimizers.SGD(lr=0.1)
                     loss = 'binary_crossentropy'
 
-                    est = hvd.KerasEstimator(
-                        backend=backend,
-                        store=store,
-                        model=model,
-                        optimizer=optimizer,
-                        loss=loss,
-                        feature_cols=['features'],
-                        label_cols=['y'],
-                        batch_size=1,
-                        epochs=3,
-                        verbose=2)
+                    for reader_pool_type in ['process', 'thread']:
+                        est = hvd.KerasEstimator(
+                            backend=backend,
+                            store=store,
+                            model=model,
+                            optimizer=optimizer,
+                            loss=loss,
+                            feature_cols=['features'],
+                            label_cols=['y'],
+                            batch_size=1,
+                            epochs=3,
+                            reader_pool_type=reader_pool_type,
+                            verbose=2)
 
-                    transformer = est.fit_on_parquet()
-                    predictions = transformer.transform(df)
-                assert predictions.count() == df.count()
+                        transformer = est.fit_on_parquet()
+                        predictions = transformer.transform(df)
+                        assert predictions.count() == df.count()
 
     @mock.patch('horovod.spark.keras.remote._pin_gpu_fn')
     @mock.patch('horovod.spark.keras.util.TFKerasUtil.fit_fn')

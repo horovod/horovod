@@ -73,6 +73,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
     val_reader_worker_count = estimator.getValReaderNumWorker()
+    reader_pool_type = estimator.getReaderPoolType()
 
     # Utility functions
     deserialize = deserialize_fn()
@@ -223,7 +224,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
             with reader_factory(remote_store.train_data_path,
                                 num_epochs=1 if inmemory_cache_all else None,
                                 cur_shard=hvd.rank(),
-                                reader_pool_type='process',
+                                reader_pool_type=reader_pool_type,
                                 workers_count=train_reader_worker_count,
                                 shard_count=hvd.size(),
                                 hdfs_driver=PETASTORM_HDFS_DRIVER,
@@ -233,7 +234,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                 with reader_factory(remote_store.val_data_path,
                                     num_epochs=1 if inmemory_cache_all else None,
                                     cur_shard=hvd.rank(),
-                                    reader_pool_type='process',
+                                    reader_pool_type=reader_pool_type,
                                     workers_count=val_reader_worker_count,
                                     shard_count=hvd.size(),
                                     hdfs_driver=PETASTORM_HDFS_DRIVER,

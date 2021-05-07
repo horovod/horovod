@@ -56,6 +56,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
     val_reader_worker_count = estimator.getValReaderNumWorker()
+    reader_pool_type = estimator.getReaderPoolType()
 
     # Utility functions
     deserialize = deserialize_fn()
@@ -126,9 +127,9 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             #     print(row_group)
 
             with make_petastorm_reader(model, remote_store.train_data_path, 'train_dataloader',
-                                       train_reader_worker_count), \
+                                       train_reader_worker_count, reader_pool_type), \
                     make_petastorm_reader(model, remote_store.val_data_path, 'val_dataloader',
-                                          val_reader_worker_count, should_validate):
+                                          val_reader_worker_count, reader_pool_type, should_validate):
 
                 trainer.fit(model)
 
@@ -168,7 +169,7 @@ def _make_callbacks():
 def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calculate_shuffle_buffer_size, dataloader_cls):
 
     @contextlib.contextmanager
-    def make_petastorm_reader(model, data_path, dataloader_attr, reader_worker_count, should_read=True):
+    def make_petastorm_reader(model, data_path, dataloader_attr, reader_worker_count, reader_pool_type, should_read=True):
         from petastorm import TransformSpec, make_reader, make_batch_reader
         import horovod.torch as hvd
 
@@ -201,7 +202,7 @@ def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calcula
         with reader_factory(data_path,
                             num_epochs=1,
                             cur_shard=hvd.rank(),
-                            reader_pool_type='process',
+                            reader_pool_type=reader_pool_type,
                             workers_count=reader_worker_count,
                             shard_count=hvd.size(),
                             hdfs_driver=PETASTORM_HDFS_DRIVER,
