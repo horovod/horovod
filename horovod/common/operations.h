@@ -42,7 +42,8 @@ enum ReduceOp {
 extern "C" {
 
 // C interface to initialize Horovod.
-void horovod_init(const int *ranks, int nranks);
+void horovod_init(const int* ranks, int nranks, const int* process_set_ranks,
+                  const int* process_set_sizes, int num_process_sets);
 
 #if HAVE_MPI
 // C interface to initialize Horovod with the given MPI communicator.

@@ -66,6 +66,10 @@ struct HorovodGlobalState {
 
   ProcessSetTable process_set_table;
 
+  // Rank storage for process sets requested in InitializeHorovodOnce to be
+  // initialized in the background thread.
+  std::vector<std::vector<int>> process_set_ranks_to_register;
+
   // Time point when last cycle started.
   std::chrono::steady_clock::time_point last_cycle_start;
 

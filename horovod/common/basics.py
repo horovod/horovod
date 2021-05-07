@@ -30,16 +30,28 @@ class HorovodBasics(object):
         self.Sum = self.MPI_LIB_CTYPES.horovod_reduce_op_sum()
         self.Adasum = self.MPI_LIB_CTYPES.horovod_reduce_op_adasum()
 
-    def init(self, comm=None):
+    def init(self, comm=None, process_sets=None):
         """A function that initializes Horovod.
 
         Args:
           comm: List specifying ranks for the communicator, relative to the MPI_COMM_WORLD
             communicator OR the MPI communicator to use. Given communicator will be duplicated.
             If None, Horovod will use MPI_COMM_WORLD Communicator.
+          process_sets: None or List[List[int]] to initialize process subsets containing these
+            Horovod ranks.
         """
         if comm is None:
             comm = []
+        if process_sets is None:
+            process_sets = []
+
+        process_set_sizes = [len(ps) for ps in process_sets]
+        process_set_ranks = [rank for process_set in process_sets for rank in process_set]
+        process_set_args = [
+            (ctypes.c_int * len(process_set_ranks))(*process_set_ranks),
+            (ctypes.c_int * len(process_set_sizes))(*process_set_sizes),
+            ctypes.c_int(len(process_set_sizes))
+        ]
 
         atexit.register(self.shutdown)
 
@@ -62,7 +74,8 @@ class HorovodBasics(object):
         else:
             comm_size = len(comm)
             self.MPI_LIB_CTYPES.horovod_init(
-                (ctypes.c_int * comm_size)(*comm), ctypes.c_int(comm_size))
+                (ctypes.c_int * comm_size)(*comm), ctypes.c_int(comm_size),
+                *process_set_args)
 
     def shutdown(self):
         """A function that shuts Horovod down."""
