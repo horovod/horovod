@@ -52,7 +52,7 @@ bool StallInspector::CheckForStalledTensors(
       }
 
       auto process_set_size = global_ranks.size();
-      for (int32_t rank = 0; rank < process_set_size; ++rank) {
+      for (int32_t rank = 0; rank < static_cast<int32_t>(process_set_size); ++rank) {
         if (ready_ranks.find(rank) == ready_ranks.end()) {
           missing_ranks[rank].insert(tensor_name);
           if (stall_shutdown_time > std::chrono::seconds(0) &&
