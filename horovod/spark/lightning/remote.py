@@ -52,6 +52,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     transformation_fn = estimator.getTransformationFn()
     transformation = transformation_fn if transformation_fn else None
     inmemory_cache_all = estimator.getInMemoryCacheAll()
+    callbacks = estimator.getCallbacks()
 
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
@@ -82,9 +83,6 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     val_steps_per_epoch = estimator.getValidationStepsPerEpoch()
     val_percent = val_rows / val_steps_per_epoch if val_steps_per_epoch else 1.0
 
-    # disable call back for now. Because petastorm can not reset index during training.
-    callbacks = None #_make_callbacks()
-
     def train(serialized_model):
         with tempfile.TemporaryDirectory() as last_ckpt_dir, remote_store.get_local_output_dir() as run_output_dir:
             last_ckpt_file = os.path.join(last_ckpt_dir, 'last.ckpt')
@@ -95,12 +93,10 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             logs_path = os.path.join(run_output_dir, remote_store.logs_subdir)
             logger = TensorBoardLogger(logs_path)
 
-            ckpt_path = os.path.join(run_output_dir, remote_store.checkpoint_filename)
-            os.makedirs(ckpt_path, exist_ok=True)
-
-            # disable checkpoint call back for now, waiting for the fix of
-            # https://github.com/PyTorchLightning/pytorch-lightning/issues/6343
-            checkpoint_callback = None# ModelCheckpoint(dirpath=ckpt_path)
+            # TODO: find out a way to use ckpt_path created from remote store, but all other parameters ingest from estimator config
+            # ckpt_path = os.path.join(run_output_dir, remote_store.checkpoint_filename)
+            # os.makedirs(ckpt_path, exist_ok=True)
+            # checkpoint_callback = ModelCheckpoint(dirpath=ckpt_path)
 
             model = deserialize(serialized_model)
             kwargs = {'accelerator': 'horovod',
@@ -110,7 +106,6 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                 'limit_train_batches': train_percent,
                 'limit_val_batches': val_percent,
                 'logger': logger,
-                'checkpoint_callback': checkpoint_callback,
                 'resume_from_checkpoint': (last_ckpt_file if ckpt_bytes else None),
                 'num_sanity_val_steps': 0
             }
@@ -139,6 +134,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             return serialized_checkpoint
     return train
 
+
 def _reset_loader(loader):
     from petastorm.pytorch import BatchedDataLoader
     from pytorch_lightning.trainer.supporters import CombinedLoader
@@ -149,7 +145,8 @@ def _reset_loader(loader):
     else:
         loader.reader.reset()
 
-def _make_callbacks():
+# TODO: enable this when petastorm loader supports reset before epoch ends.
+def _make_reset_callbacks():
     class ResetCallback(Callback):
         def on_train_end(self, trainer, model):
             _reset_loader(trainer.train_dataloader)
@@ -163,7 +160,6 @@ def _make_callbacks():
                 _reset_loader(loader)
 
     return [ResetCallback()]
-
 
 def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calculate_shuffle_buffer_size, dataloader_cls):
 
