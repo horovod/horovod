@@ -370,22 +370,24 @@ class SparkLightningTests(unittest.TestCase):
                     model = create_xor_model()
 
                     for inmemory_cache_all in [False, True]:
-                        est = hvd_spark.TorchEstimator(
-                            backend=backend,
-                            store=store,
-                            model=model,
-                            input_shapes=[[-1, 2]],
-                            feature_cols=['features'],
-                            label_cols=['y'],
-                            validation=0.2,
-                            batch_size=1,
-                            epochs=3,
-                            verbose=2,
-                            inmemory_cache_all=inmemory_cache_all)
+                        for reader_pool_type in ['process', 'thread']:
+                            est = hvd_spark.TorchEstimator(
+                                backend=backend,
+                                store=store,
+                                model=model,
+                                input_shapes=[[-1, 2]],
+                                feature_cols=['features'],
+                                label_cols=['y'],
+                                validation=0.2,
+                                batch_size=1,
+                                epochs=3,
+                                verbose=2,
+                                inmemory_cache_all=inmemory_cache_all,
+                                reader_pool_type=reader_pool_type)
 
-                        transformer = est.fit_on_parquet()
-                        predictions = transformer.transform(df)
-                        assert predictions.count() == df.count()
+                            transformer = est.fit_on_parquet()
+                            predictions = transformer.transform(df)
+                            assert predictions.count() == df.count()
 
     def test_legacy_calculate_loss_with_sample_weight(self):
         labels = torch.tensor([[1.0, 2.0, 3.0]])

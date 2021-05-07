@@ -28,6 +28,7 @@ class EstimatorParams(Params):
                                      'number of parallel worker processes to read train data')
     val_reader_num_workers = Param(Params._dummy(), 'val_reader_num_workers',
                                    'number of parallel worker processes to read validation data')
+    reader_pool_type = Param(Params._dummy(), 'reader_pool_type', 'type of worker pool to read data')
     optimizer = Param(Params._dummy(), 'optimizer', 'optimizer')
     model = Param(Params._dummy(), 'model', 'model')
     backend = Param(Params._dummy(), 'backend', 'backend')
@@ -122,6 +123,7 @@ class EstimatorParams(Params):
             transformation_fn=None,
             train_reader_num_workers=2,
             val_reader_num_workers=2,
+            reader_pool_type='process',
             label_shapes=None)
 
     def _check_params(self, metadata):
@@ -308,6 +310,12 @@ class EstimatorParams(Params):
 
     def getValReaderNumWorker(self):
         return self.getOrDefault(self.val_reader_num_workers)
+
+    def setReaderPoolType(self, value):
+        return self._set(reader_pool_type=value)
+
+    def getReaderPoolType(self):
+        return self.getOrDefault(self.reader_pool_type)
 
     def setLabelShapes(self, value):
         return self._set(label_shapes=value)

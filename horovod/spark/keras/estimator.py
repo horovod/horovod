@@ -158,6 +158,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                                high enough, or users need to apply transformation such as
                                decompression or data augmentation on raw data.
         val_reader_num_workers: Similar to the train_reader_num_workers.
+        reader_pool_type: Type of worker pool used to parallelize reading data from the dataset.
+                          Should be one of ['thread', 'process']. Defaults to 'process'.
     """
 
     custom_objects = Param(Params._dummy(), 'custom_objects', 'custom objects')
@@ -194,6 +196,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                  transformation_fn=None,
                  train_reader_num_workers=None,
                  val_reader_num_workers=None,
+                 reader_pool_type=None,
                  label_shapes=None,
                  checkpoint_callback=None):
 
