@@ -252,11 +252,12 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
 
   // If shared buffer is not initialized or is not large enough, reallocate
   int64_t total_size_in_bytes = total_size * element_size;
-  if (global_state_->shared_buffer == nullptr || global_state_->shared_buffer_size < total_size_in_bytes) {
-    if (global_state_->shared_buffer != nullptr) {
+  if (process_set.shared_buffer == nullptr ||
+      process_set.shared_buffer_size < total_size_in_bytes) {
+    if (process_set.shared_buffer != nullptr) {
       MPI_Win_fence(0, mpi_context.window);
       MPI_Win_free(&mpi_context.window);
-      global_state_->shared_buffer = nullptr;
+      process_set.shared_buffer = nullptr;
     }
 
     // Allocate shared memory, give each rank their respective pointer
@@ -266,7 +267,7 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
                             element_size,
                             MPI_INFO_NULL,
                             mpi_context.GetMPICommunicator(Communicator::LOCAL),
-                            &global_state_->shared_buffer,
+                            &process_set.shared_buffer,
                             &mpi_context.window);
     if (process_set.controller->GetLocalRank() != 0) {
       int disp_unit;
@@ -275,9 +276,9 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
                            0,
                            &winsize,
                            &disp_unit,
-                           &global_state_->shared_buffer);
+                           &process_set.shared_buffer);
     }
-    global_state_->shared_buffer_size = total_size_in_bytes;
+    process_set.shared_buffer_size = total_size_in_bytes;
     timeline.ActivityEndAll(entries);
   }
 
@@ -313,7 +314,7 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
   for (size_t ec = 0; ec < entries.size(); ++ec) {
     auto& e = entries[ec];
     void* shared_buffer_at_offset =
-        (uint8_t*) global_state_->shared_buffer +
+        (uint8_t*)process_set.shared_buffer +
         entry_component_offsets[ec][rank] * element_size;
 
     // CPU copy to shared buffer
@@ -330,7 +331,7 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
     int op = MPI_Allgatherv(MPI_IN_PLACE,
                             0,
                             MPI_DATATYPE_NULL,
-                            global_state_->shared_buffer,
+                            process_set.shared_buffer,
                             cross_recvcounts,
                             cross_displcmnts,
                             mpi_context.GetMPIDataType(first_entry.tensor->dtype()),
@@ -345,7 +346,7 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
   // Copy memory out of the fusion buffer.
   timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
   MemcpyOutFusionBuffer(entry_component_offsets, entry_component_sizes,
-                        global_state_->shared_buffer, element_size, entries);
+                        process_set.shared_buffer, element_size, entries);
   Barrier(process_set);
   timeline.ActivityEndAll(entries);
 

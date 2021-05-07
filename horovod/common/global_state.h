@@ -75,12 +75,6 @@ struct HorovodGlobalState {
   // Pointer to Controller of zero'th ProcessSet
   std::shared_ptr<Controller> global_controller;
 
-  // Pointer to shared buffer for allgather
-  void* shared_buffer = nullptr;
-
-  // Current shared buffer size
-  int64_t shared_buffer_size = 0;
-
   // Number of responses that can be cached (RepsonseCache lives in ProcessSet)
   uint32_t cache_capacity = 1024;
 

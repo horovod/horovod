@@ -46,6 +46,12 @@ struct ProcessSet {
   // If a rank is Joined, AllReduce uses temporary 0 tensors for it.
   bool joined = false;
 
+  // Pointer to shared buffer for allgather
+  void* shared_buffer = nullptr;
+
+  // Current shared buffer size
+  int64_t shared_buffer_size = 0;
+
 #if HAVE_MPI
   MPIContext mpi_context;
 
