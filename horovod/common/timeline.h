@@ -162,6 +162,26 @@ private:
   std::unique_ptr<TimelineNvtxHandle> nvtx_handle_;
 };
 
+class TimelineController {
+public:
+  TimelineController() = default;
+  TimelineController(const TimelineController&) = delete;
+
+  void SetTimelineEnabled(bool value);
+  bool TimelineEnabled();
+  void SetTimelineEnabledPending(bool value);
+  bool TimelineEnabledPending();
+  void SetMarkCyclesInTimelinePending(bool value);
+  bool MarkCyclesInTimelinePending();
+  void SynchronizeTimelineEnabled();
+
+private:
+  bool timeline_enabled_ = false;
+  bool timeline_enabled_pending_ = false;
+  bool mark_cycles_in_timeline_pending_ = false;
+  std::recursive_mutex timeline_mutex_;
+};
+
 } // namespace common
 } // namespace horovod
 

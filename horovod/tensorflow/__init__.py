@@ -34,6 +34,7 @@ from horovod.tensorflow.mpi_ops import rank_op, local_rank_op, size_op, local_si
 from horovod.tensorflow.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.tensorflow.mpi_ops import gloo_enabled, gloo_built
 from horovod.tensorflow.mpi_ops import nccl_built, ddl_built, ccl_built, cuda_built, rocm_built
+from horovod.tensorflow.mpi_ops import add_process_set, remove_process_set, process_set_rank, process_set_size
 from horovod.tensorflow.mpi_ops import Average, Sum, Adasum
 from horovod.tensorflow.mpi_ops import handle_average_backwards_compatibility, check_num_rank_power_of_2
 from horovod.tensorflow.util import _executing_eagerly, _make_subgraph, _cache, vars_to_refs, refs_to_vars
@@ -54,7 +55,7 @@ if tf.__version__.startswith('2.2.'):
 def allreduce(tensor, average=None, device_dense='', device_sparse='',
               compression=Compression.none, op=None,
               prescale_factor=1.0, postscale_factor=1.0,
-              name=None):
+              name=None, process_set=0):
     """Perform an allreduce on a tf.Tensor or tf.IndexedSlices.
 
     This function performs a bandwidth-optimal ring allreduce on the input
@@ -81,6 +82,8 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
             Defaults to Average if None is given.
         prescale_factor: Multiplicative factor to scale tensor before allreduce.
         postscale_factor: Multiplicative factor to scale tensor after allreduce.
+        process_set: Numeric ID of the process set this operation should be
+            restricted to. Default is 0 for all processes.
         name: A name of the allreduce operation
 
     Returns:
@@ -120,7 +123,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
             summed_tensor_compressed = _allreduce(tensor_compressed, op=op,
                                                   prescale_factor=prescale_factor,
                                                   postscale_factor=postscale_factor,
-                                                  name=name)
+                                                  name=name, process_set=process_set)
             summed_tensor = compression.decompress(summed_tensor_compressed, ctx)
             if op == Adasum:
                 if 'CPU' not in tensor.device and gpu_available('tensorflow'):
@@ -155,7 +158,8 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
 
 def grouped_allreduce(tensors, average=None, device_dense='', device_sparse='',
                       compression=Compression.none, op=None,
-                      prescale_factor=1.0, postscale_factor=1.0):
+                      prescale_factor=1.0, postscale_factor=1.0,
+                      process_set=0):
     if not tensors:
         return tensors
 
@@ -191,7 +195,8 @@ def grouped_allreduce(tensors, average=None, device_dense='', device_sparse='',
             tensors_compressed, ctxs = zip(*[compression.compress(tensor) for tensor in tensors])
             summed_tensors_compressed = _grouped_allreduce(tensors_compressed, op=op,
                                                            prescale_factor=prescale_factor,
-                                                           postscale_factor=postscale_factor)
+                                                           postscale_factor=postscale_factor,
+                                                           process_set=process_set)
             summed_tensors = [compression.decompress(t, ctx) for t, ctx in zip(summed_tensors_compressed, ctxs)]
             if op == Adasum:
                 if 'CPU' not in tensor.device and gpu_available('tensorflow'):

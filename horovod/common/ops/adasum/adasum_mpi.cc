@@ -101,7 +101,8 @@ void AdasumMPI::PointToPointSendRecv(
     DataType horovod_datatype, int dst_src_rank, int tag, MPI_Comm communicator,
     HorovodGlobalState* global_state) {
   int status;
-  int element_size = global_state->controller->GetTypeSize(horovod_datatype);
+  int element_size =
+      global_state->global_controller->GetTypeSize(horovod_datatype);
   int input_count = input_buffer_length / element_size;
   int output_count = output_buffer_length / element_size;
   int chunk_count =

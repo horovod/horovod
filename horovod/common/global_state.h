@@ -23,16 +23,12 @@
 #include "fusion_buffer_manager.h"
 #include "group_table.h"
 #include "parameter_manager.h"
-#include "response_cache.h"
-#include "tensor_queue.h"
+#include "process_set.h"
 #include "timeline.h"
 #include "utils/env_parser.h"
 
 namespace horovod {
 namespace common {
-
-// Forward declaration
-class Controller;
 
 // The global state shared by threads.
 //
@@ -54,8 +50,7 @@ struct HorovodGlobalState {
   // Timeline writer.
   Timeline timeline;
 
-  // Flag indicating whether timeline enabled.
-  bool timeline_enabled = false;
+  TimelineController timeline_controller;
 
   // Flag indicating whether to mark cycles in the timeline.
   std::atomic_bool mark_cycles_in_timeline{false};
@@ -66,26 +61,18 @@ struct HorovodGlobalState {
   // size.
   FusionBufferManager fusion_buffer;
 
+  ProcessSetTable process_set_table;
+
   // Time point when last cycle started.
   std::chrono::steady_clock::time_point last_cycle_start;
 
   // Whether collective context has been completed on the background thread.
   std::atomic_bool initialization_done{false};
 
-  std::shared_ptr<Controller> controller;
+  // Pointer to Controller of zero'th ProcessSet
+  std::shared_ptr<Controller> global_controller;
 
-  TensorQueue tensor_queue;
-
-  // Pointer to shared buffer for allgather
-  void* shared_buffer = nullptr;
-
-  // Current shared buffer size
-  int64_t shared_buffer_size = 0;
-
-  // LRU cache of Responses
-  ResponseCache response_cache;
-
-  // Number of responses that can be cached
+  // Number of responses that can be cached (RepsonseCache lives in ProcessSet)
   uint32_t cache_capacity = 1024;
 
   // Number of GPU streams to use
@@ -94,21 +81,12 @@ struct HorovodGlobalState {
   // Index of current GPU stream to use
   int current_nccl_stream = 0;
 
-  // Information on registered groups.
-  GroupTable group_table;
-
   // A LibType indicating what framework we are using to perform CPU operations.
   LibType cpu_operation;
 
   // A LibType indicating what framework we are using to perform controller
   // operations.
   LibType control_operation;
-
-  // Number of ranks that did Join()
-  int joined_size = 0;
-
-  // If a rank is Joined, AllReduce uses temporary 0 tensors for it.
-  bool joined = false;
 
   // Chunk size for MPI send/recv in Adasum allreduce. Some versions of Intel MPI
   // benefit from a smaller chunk size.

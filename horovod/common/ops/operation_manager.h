@@ -47,11 +47,14 @@ public:
 
   Status ExecuteError(std::vector<TensorTableEntry>& entries, const Response& response) const;
 
-  Status ExecuteJoin(std::vector<TensorTableEntry>& entries, const Response& response) const;
+  Status ExecuteJoin(std::vector<TensorTableEntry>& entries,
+                     const Response& response, ProcessSet& process_set) const;
 
   Status ExecuteAdasum(std::vector<TensorTableEntry>& entries, const Response& response) const;
 
-  Status ExecuteOperation(std::vector<TensorTableEntry>& entries, const Response& response) const;
+  Status ExecuteOperation(std::vector<TensorTableEntry>& entries,
+                          const Response& response,
+                          ProcessSet& process_set) const;
 
 private:
   ParameterManager* param_manager_;

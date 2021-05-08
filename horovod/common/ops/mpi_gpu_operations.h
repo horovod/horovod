@@ -19,44 +19,34 @@
 #define HOROVOD_MPI_GPU_OPERATIONS_H
 
 #include "gpu_operations.h"
-#include "../mpi/mpi_context.h"
 
 namespace horovod {
 namespace common {
 
 class MPI_GPUAllreduce : public GPUAllreduce {
 public:
-  MPI_GPUAllreduce(MPIContext* mpi_context, GPUContext* gpu_context, HorovodGlobalState* global_state);
+  MPI_GPUAllreduce(GPUContext* gpu_context, HorovodGlobalState* global_state);
   virtual ~MPI_GPUAllreduce()=default;
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
-
-protected:
-  MPIContext* mpi_context_;
 };
 
 class MPI_GPUAllgather : public GPUAllgather {
 public:
-  MPI_GPUAllgather(MPIContext* mpi_context, GPUContext* gpu_context, HorovodGlobalState* global_state);
+  MPI_GPUAllgather(GPUContext* gpu_context, HorovodGlobalState* global_state);
   virtual ~MPI_GPUAllgather()=default;
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
-
-protected:
-  MPIContext* mpi_context_;
 };
 
 // TODO: Add MPI_GPUBroadcast implementation
 
 class MPI_GPUAlltoall : public GPUAlltoall {
 public:
-  MPI_GPUAlltoall(MPIContext* mpi_context, GPUContext* gpu_context, HorovodGlobalState* global_state);
+  MPI_GPUAlltoall(GPUContext* gpu_context, HorovodGlobalState* global_state);
   virtual ~MPI_GPUAlltoall()=default;
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
-
-protected:
-  MPIContext* mpi_context_;
 };
 
 } // namespace common
