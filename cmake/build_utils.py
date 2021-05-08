@@ -61,7 +61,7 @@ def is_mx_dnn(dnn_flavour: str):
             # MKLDNN / oneDNN is only enabled by default in MXNet Linux build. Return
             # False by default for non-linux build but still allow users to
             # enable it by using MXNET_USE_MKLDNN / MXNET_USE_ONEDNN env variable.
-            print(msg)
+            print(msg, file=sys.stderr)
             return os.environ.get(f'MXNET_USE_{dnn_flavour}', '0') == '1'
         else:
             try:
@@ -73,7 +73,7 @@ def is_mx_dnn(dnn_flavour: str):
                         return True
                 return False
             except Exception:
-                print(msg)
+                print(msg, file=sys.stderr)
             return os.environ.get(f'MXNET_USE_{dnn_flavour}', '0') == '1'
 
 def get_nvcc_bin():
