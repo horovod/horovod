@@ -195,7 +195,7 @@ RUN if [[ ${TENSORFLOW_PACKAGE} == "tf-nightly" ]]; then \
 # Install PyTorch (nightly).
 # Pin Pillow<7.0 for torchvision < 0.5.0: https://github.com/pytorch/vision/issues/1718
 RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
-        pip install --no-cache-dir --pre torch==1.9.0.dev20210303+cpu ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html; \
+        pip install --no-cache-dir --pre torch ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html; \
         if [[ "${TORCHVISION_PACKAGE/%+*/}" == torchvision==0.[1234].* ]]; then \
             pip install --no-cache-dir "Pillow<7.0" --no-deps; \
         fi; \
