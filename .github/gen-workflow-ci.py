@@ -230,6 +230,81 @@ def main():
                 f'          name: Unit Test Results - ${{{{ matrix.image }}}}\n'
                 f'          path: artifacts/${{{{ matrix.image }}}}/**/*.xml\n')
 
+    def build_and_test_macos() -> str:
+        return (f'  build-and-test-macos:\n'
+                f'    name: "Build and Test (${{{{ matrix.name }}}})"\n'
+                f'    needs: validate-workflow\n'
+                f'    runs-on: macos-latest\n'
+                f'    strategy:\n'
+                f'      max-parallel: 3\n'
+                f'      fail-fast: false\n'
+                f'      matrix:\n'
+                f'        include:\n'
+                f''
+                f'          - name: one\n'
+                f'            HOROVOD_WITH_MPI: 1\n'
+                f'            HOROVOD_WITHOUT_GLOO: 1\n'
+                f'            TENSORFLOW: 1.15.0\n'
+                f'            KERAS: 2.2.4\n'
+                f'            PYTORCH: 1.2.0\n'
+                f'            TORCHVISION: 0.4.0\n'
+                f'            MXNET: 1.5.0\n'
+                f'\n'
+                f'          - name: two\n'
+                f'            HOROVOD_WITHOUT_MPI: 1\n'
+                f'            HOROVOD_WITH_GLOO: 1\n'
+                f'            TENSORFLOW: 2.2.0\n'
+                f'            KERAS: 2.3.1\n'
+                f'            PYTORCH: 1.5.0\n'
+                f'            TORCHVISION: 0.6.0\n'
+                f'            MXNET: 1.5.0\n'
+                f'\n'
+                f'          - name: three\n'
+                f'            HOROVOD_WITH_MPI: 1\n'
+                f'            HOROVOD_WITH_GLOO: 1\n'
+                f'            TENSORFLOW: 2.3.0\n'
+                f'            KERAS: 2.3.1\n'
+                f'            PYTORCH: 1.6.0\n'
+                f'            TORCHVISION: 0.7.0\n'
+                f'            MXNET: 1.5.0\n'
+                f'\n'
+                f'    steps:\n'
+                f'      - name: Checkout\n'
+                f'        uses: actions/checkout@v2\n'
+                f'        with:\n'
+                f'          submodules: recursive\n'
+                f'\n'
+                f'      - name: Install homebrew packages\n'
+                f'        run: brew install openmpi cmake libuv pyenv\n'
+                f'\n'
+                f'      - name: Setup Test Environment\n'
+                f'        env:\n'
+                f'          HOROVOD_WITH_MPI: ${{{{ matrix.HOROVOD_WITH_MPI }}}}\n'
+                f'          HOROVOD_WITHOUT_MPI: ${{{{ matrix.HOROVOD_WITHOUT_MPI }}}}\n'
+                f'          HOROVOD_WITH_GLOO: ${{{{ matrix.HOROVOD_WITH_GLOO }}}}\n'
+                f'          HOROVOD_WITHOUT_GLOO: ${{{{ matrix.HOROVOD_WITHOUT_GLOO }}}}\n'
+                f'          TENSORFLOW: ${{{{ matrix.TENSORFLOW }}}}\n'
+                f'          KERAS: ${{{{ matrix.KERAS }}}}\n'
+                f'          PYTORCH: ${{{{ matrix.PYTORCH }}}}\n'
+                f'          TORCHVISION: ${{{{ matrix.TORCHVISION }}}}\n'
+                f'          MXNET: ${{{{ matrix.MXNET }}}}\n'
+                f'\n'
+                f'        run: |\n'
+                f'          export PATH=$(pyenv root)/shims:$PATH\n'
+                f'          pyenv install 3.7.7\n'
+                f'          pyenv global 3.7.7\n'
+                f'          python --version\n'
+                f'\n'
+                f'          python -m pip install -U pip\n'
+                f'          pip install tensorflow==${{TENSORFLOW}} keras==${{KERAS}}\n'
+                f'          pip install torch==${{PYTORCH}} torchvision==${{TORCHVISION}}\n'
+                f'          pip install mxnet==${{MXNET}}\n'
+                f'          HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir "${{{{ matrix.name }}}}"\n'
+                f'          horovodrun --check-build\n'
+                f'\n'
+                f'      - name: Run Tests\n'
+                f'        run: cd test && (ls parallel/test_*.py | xargs -n 1 horovodrun -np 2 pytest -v)\n')
+
     def trigger_buildkite_job(name: str, needs: List[str]) -> str:
         return (f'  {name}:\n'
                 f'    name: "Build and Test (GPUs on Builtkite)"\n'
@@ -296,8 +371,9 @@ def main():
         workflow = workflow_header() + jobs(
             validate_workflow_job(),
             build_and_test_images(name='build-and-test', images=release_images, tests_per_image=tests_per_image, tests=tests),
+            build_and_test_macos(),
             build_and_test_images(name='build-and-test-heads', images=allhead_images, tests_per_image=tests_per_image, tests=tests),
-            trigger_buildkite_job(name='buildkite', needs=['build-and-test']),
+            trigger_buildkite_job(name='buildkite', needs=['build-and-test', 'build-and-test-macos']),
             publish_unit_test_results(name='publish-test-results', needs=['build-and-test, build-and-test-heads, buildkite'])
         )
         print(workflow, file=w, end='')

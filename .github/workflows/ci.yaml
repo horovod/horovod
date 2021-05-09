@@ -646,6 +646,79 @@ jobs:
           name: Unit Test Results - ${{ matrix.image }}
           path: artifacts/${{ matrix.image }}/**/*.xml
 
+  build-and-test-macos:
+    name: "Build and Test (${{ matrix.test }})"
+    needs: validate-workflow
+    runs-on: macos-latest
+    strategy:
+      max-parallel: 3
+      fail-fast: false
+      matrix:
+        include:
+          - name: one
+            HOROVOD_WITH_MPI: 1
+            HOROVOD_WITHOUT_GLOO: 1
+            TENSORFLOW: 1.15.0
+            KERAS: 2.2.4
+            PYTORCH: 1.2.0
+            TORCHVISION: 0.4.0
+            MXNET: 1.5.0
+
+          - name: two
+            HOROVOD_WITHOUT_MPI: 1
+            HOROVOD_WITH_GLOO: 1
+            TENSORFLOW: 2.2.0
+            KERAS: 2.3.1
+            PYTORCH: 1.5.0
+            TORCHVISION: 0.6.0
+            MXNET: 1.5.0
+
+          - name: three
+            HOROVOD_WITH_MPI: 1
+            HOROVOD_WITH_GLOO: 1
+            TENSORFLOW: 2.3.0
+            KERAS: 2.3.1
+            PYTORCH: 1.6.0
+            TORCHVISION: 0.7.0
+            MXNET: 1.5.0
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Install homebrew packages
+        run: brew install openmpi cmake libuv pyenv
+
+      - name: Setup Test Environment
+        env:
+          HOROVOD_WITH_MPI: ${{ matrix.HOROVOD_WITH_MPI }}
+          HOROVOD_WITHOUT_MPI: ${{ matrix.HOROVOD_WITHOUT_MPI }}
+          HOROVOD_WITH_GLOO: ${{ matrix.HOROVOD_WITH_GLOO }}
+          HOROVOD_WITHOUT_GLOO: ${{ matrix.HOROVOD_WITHOUT_GLOO }}
+          TENSORFLOW: ${{ matrix.TENSORFLOW }}
+          KERAS: ${{ matrix.KERAS }}
+          PYTORCH: ${{ matrix.PYTORCH }}
+          TORCHVISION: ${{ matrix.TORCHVISION }}
+          MXNET: ${{ matrix.MXNET }}
+
+        run: |
+          export PATH=$(pyenv root)/shims:$PATH
+          pyenv install 3.7.7
+          pyenv global 3.7.7
+          python --version
+
+          python -m pip install -U pip
+          pip install tensorflow==${TENSORFLOW} keras==${KERAS}
+          pip install torch==${PYTORCH} torchvision==${TORCHVISION}
+          pip install mxnet==${MXNET}
+          HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir "${ matrix.name }"
+          horovodrun --check-build
+
+      - name: Run Tests
+        run: cd test && (ls parallel/test_*.py | xargs -n 1 horovodrun -np 2 pytest -v)
+
   build-and-test-heads:
     name: "Build and Test (${{ matrix.image }})"
     needs: validate-workflow
@@ -1079,7 +1152,7 @@ jobs:
 
   buildkite:
     name: "Build and Test (GPUs on Builtkite)"
-    needs: [build-and-test]
+    needs: [build-and-test,build-and-test-macos]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
 
