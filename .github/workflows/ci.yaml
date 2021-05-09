@@ -57,6 +57,7 @@ jobs:
             Gloo_TensorFlow_2_0_MNIST: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
+            Spark_Lightning_MNIST: true
             Spark_PyTests: true
             Spark_Torch_MNIST: true
             build_timeout: 30
@@ -77,6 +78,7 @@ jobs:
             Spark_Keras_MNIST: true
             Spark_Keras_Rossmann_Estimator: true
             Spark_Keras_Rossmann_Run: true
+            Spark_Lightning_MNIST: true
             Spark_PyTests: true
             Spark_Torch_MNIST: true
             build_timeout: 30
@@ -92,6 +94,7 @@ jobs:
             Gloo_TensorFlow_2_0_MNIST: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
+            Spark_Lightning_MNIST: true
             Spark_PyTests: true
             Spark_Torch_MNIST: true
             build_timeout: 30
@@ -107,6 +110,7 @@ jobs:
             Gloo_TensorFlow_2_0_MNIST: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
+            Spark_Lightning_MNIST: true
             Spark_PyTests: true
             Spark_Torch_MNIST: true
             build_timeout: 30
@@ -124,6 +128,7 @@ jobs:
             Gloo_TensorFlow_2_0_MNIST: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
+            Spark_Lightning_MNIST: true
             Spark_PyTests: true
             Spark_Torch_MNIST: true
             build_timeout: 30
@@ -139,6 +144,7 @@ jobs:
             Gloo_TensorFlow_2_0_MNIST: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
+            Spark_Lightning_MNIST: true
             Spark_PyTests: true
             Spark_Torch_MNIST: true
             build_timeout: 30
@@ -156,6 +162,7 @@ jobs:
             Gloo_TensorFlow_2_0_MNIST: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
+            Spark_Lightning_MNIST: true
             Spark_PyTests: true
             Spark_Torch_MNIST: true
             build_timeout: 30
@@ -173,6 +180,7 @@ jobs:
             Gloo_TensorFlow_2_0_MNIST: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
+            Spark_Lightning_MNIST: true
             Spark_PyTests: true
             Spark_Torch_MNIST: true
             build_timeout: 30
@@ -208,6 +216,7 @@ jobs:
             Run_PyTests_test_interactiverun: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
+            Spark_Lightning_MNIST: true
             Spark_PyTests: true
             Spark_Torch_MNIST: true
             build_timeout: 30
@@ -223,6 +232,7 @@ jobs:
             Run_PyTests_test_interactiverun: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
+            Spark_Lightning_MNIST: true
             Spark_PyTests: true
             Spark_Torch_MNIST: true
             build_timeout: 30
@@ -625,6 +635,13 @@ jobs:
           docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Run:/artifacts" ${{ matrix.image }} /bin/bash /horovod/.github/timeout-and-retry.sh 10m 3 10 bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.01"
         shell: bash
 
+      - name: "Spark Lightning MNIST"
+        if: always() && steps.build.outcome == 'success' && matrix.Spark_Lightning_MNIST
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Spark_Lightning_MNIST
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Lightning_MNIST:/artifacts" ${{ matrix.image }} /bin/bash /horovod/.github/timeout-and-retry.sh 10m 3 10 bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
+        shell: bash
+
       - name: "Spark PyTests"
         if: always() && steps.build.outcome == 'success' && matrix.Spark_PyTests
         run: |
@@ -647,7 +664,7 @@ jobs:
           path: artifacts/${{ matrix.image }}/**/*.xml
 
   build-and-test-macos:
-    name: "Build and Test (${{ matrix.test }})"
+    name: "Build and Test (${{ matrix.name }})"
     needs: validate-workflow
     runs-on: macos-latest
     strategy:
@@ -661,6 +678,7 @@ jobs:
             TENSORFLOW: 1.15.0
             KERAS: 2.2.4
             PYTORCH: 1.2.0
+            PYTORCH_LIGHTNING: 0.7.6
             TORCHVISION: 0.4.0
             MXNET: 1.5.0
 
@@ -670,6 +688,7 @@ jobs:
             TENSORFLOW: 2.2.0
             KERAS: 2.3.1
             PYTORCH: 1.5.0
+            PYTORCH_LIGHTNING: 1.2.9
             TORCHVISION: 0.6.0
             MXNET: 1.5.0
 
@@ -679,6 +698,7 @@ jobs:
             TENSORFLOW: 2.3.0
             KERAS: 2.3.1
             PYTORCH: 1.6.0
+            PYTORCH_LIGHTNING: 1.2.9
             TORCHVISION: 0.7.0
             MXNET: 1.5.0
 
@@ -713,7 +733,7 @@ jobs:
           pip install tensorflow==${TENSORFLOW} keras==${KERAS}
           pip install torch==${PYTORCH} torchvision==${TORCHVISION}
           pip install mxnet==${MXNET}
-          HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir "${ matrix.name }"
+          HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir "${{ matrix.name }}"
           horovodrun --check-build
 
       - name: Run Tests
@@ -739,6 +759,7 @@ jobs:
             Gloo_TensorFlow_2_0_MNIST: true
             Single_MXNet2_MNIST: true
             Single_PyTorch_MNIST: true
+            Spark_Lightning_MNIST: true
             Spark_PyTests: true
             Spark_Torch_MNIST: true
             build_timeout: 30
@@ -1127,6 +1148,13 @@ jobs:
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Run
           docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Run:/artifacts" ${{ matrix.image }} /bin/bash /horovod/.github/timeout-and-retry.sh 10m 3 10 bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.01"
+        shell: bash
+
+      - name: "Spark Lightning MNIST"
+        if: always() && steps.build.outcome == 'success' && matrix.Spark_Lightning_MNIST
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Spark_Lightning_MNIST
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Lightning_MNIST:/artifacts" ${{ matrix.image }} /bin/bash /horovod/.github/timeout-and-retry.sh 10m 3 10 bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
         shell: bash
 
       - name: "Spark PyTests"
