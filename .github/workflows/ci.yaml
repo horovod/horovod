@@ -1103,7 +1103,7 @@ jobs:
           path: artifacts/${{ matrix.image }}/**/*.xml
 
   build-and-test-macos:
-    name: "Build and Test (${{ matrix.name }})"
+    name: "Build and Test (${{ matrix.name }}-macos)"
     needs: [build-and-test]
     runs-on: macos-latest
     strategy:
@@ -1176,12 +1176,12 @@ jobs:
           HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir .[test]
           horovodrun --check-build
 
-          rm -f /artifacts
           mkdir -p artifacts/${{ matrix.image }}-macos
-          ln -s artifacts/${{ matrix.image }}-macos /artifacts
+          echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=artifacts/${{ matrix.image }}-macos/junit.\$1.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.\$2.xml \${@:2} > pytest.sh
+          chmod u+x pytest.sh
 
       - name: Run Tests
-        run: cd test && (ls parallel/test_*.py | xargs -n 1 horovodrun -np 2 pytest -v)
+        run: cd test && (ls parallel/test_*.py | xargs -n 1 horovodrun -np 2 ./pytest.sh)
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v2
