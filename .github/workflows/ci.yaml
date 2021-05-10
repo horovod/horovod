@@ -1103,7 +1103,7 @@ jobs:
           path: artifacts/${{ matrix.image }}/**/*.xml
 
   build-and-test-macos:
-    name: "Build and Test (${{ matrix.name }}-macos)"
+    name: "Build and Test (${{ matrix.image }}-macos)"
     needs: [build-and-test]
     runs-on: macos-latest
     strategy:
@@ -1111,7 +1111,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: test-cpu-openmpi-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_0
+          - image: test-cpu-openmpi-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_0
             HOROVOD_WITH_MPI: 1
             HOROVOD_WITHOUT_GLOO: 1
             TENSORFLOW: 1.15.0
@@ -1121,7 +1121,7 @@ jobs:
             TORCHVISION: 0.4.0
             MXNET: 1.5.0
 
-          - name: test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0
+          - image: test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0
             HOROVOD_WITHOUT_MPI: 1
             HOROVOD_WITH_GLOO: 1
             TENSORFLOW: 2.2.0
@@ -1131,7 +1131,7 @@ jobs:
             TORCHVISION: 0.6.0
             MXNET: 1.5.0
 
-          - name: test-openmpi-cpu-gloo-py3_8-tf2_3_0-keras2_3_1-torch1_6_0-mxnet1_5_0
+          - image: test-openmpi-cpu-gloo-py3_8-tf2_3_0-keras2_3_1-torch1_6_0-mxnet1_5_0
             HOROVOD_WITH_MPI: 1
             HOROVOD_WITH_GLOO: 1
             TENSORFLOW: 2.3.0
@@ -1147,7 +1147,7 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Build Horovod
+      - name: Build and Test
         env:
           HOROVOD_WITH_MPI: ${{ matrix.HOROVOD_WITH_MPI }}
           HOROVOD_WITHOUT_MPI: ${{ matrix.HOROVOD_WITHOUT_MPI }}
@@ -1175,13 +1175,11 @@ jobs:
           horovodrun --check-build
 
           mkdir -p artifacts/${{ matrix.image }}-macos
-          echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=artifacts/${{ matrix.image }}-macos/junit.\$1.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.\$2.xml \${@:2} > pytest.sh
+          echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=$(dirname "$0")/artifacts/${{ matrix.image }}-macos/junit.\$1.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.\$2.xml \${@:2} > pytest.sh
           chmod u+x pytest.sh
-          cat pytest.sh
-          which horovodrun
-
-      - name: Run Tests
-        run: cd test && (ls parallel/test_*.py | xargs -n 1 horovodrun -np 2 ./pytest.sh)
+          cd test/parallel
+          ls test_*.py | xargs -n 1 horovodrun -np 2 /bin/bash ../../pytest.sh macos
+          find ../..
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v2
