@@ -147,12 +147,13 @@ def main():
                 f'        shell: bash\n')
 
     def build_and_test_images(name: str,
+                              needs: List[str],
                               images: List[str],
                               tests_per_image: Dict[str, Set[str]],
                               tests: Dict[str, Dict]) -> str:
         return (f'  {name}:\n'
                 f'    name: "Build and Test (${{{{ matrix.image }}}})"\n'
-                f'    needs: validate-workflow\n'
+                f'    needs: [{", ".join(needs)}]\n'
                 f'    runs-on: ubuntu-latest\n'
                 f'    strategy:\n'
                 f'      max-parallel: {len(images)}\n'
@@ -230,10 +231,10 @@ def main():
                 f'          name: Unit Test Results - ${{{{ matrix.image }}}}\n'
                 f'          path: artifacts/${{{{ matrix.image }}}}/**/*.xml\n')
 
-    def build_and_test_macos() -> str:
-        return (f'  build-and-test-macos:\n'
+    def build_and_test_macos(name: str, needs: List[str]) -> str:
+        return (f'  {name}:\n'
                 f'    name: "Build and Test (${{{{ matrix.name }}}})"\n'
-                f'    needs: validate-workflow\n'
+                f'    needs: [{", ".join(needs)}]\n'
                 f'    runs-on: macos-latest\n'
                 f'    strategy:\n'
                 f'      max-parallel: 3\n'
@@ -311,7 +312,7 @@ def main():
     def trigger_buildkite_job(name: str, needs: List[str]) -> str:
         return (f'  {name}:\n'
                 f'    name: "Build and Test (GPUs on Builtkite)"\n'
-                f'    needs: [{",".join(needs)}]\n'
+                f'    needs: [{", ".join(needs)}]\n'
                 f'    runs-on: ubuntu-latest\n'
                 f'    if: github.event_name == \'push\' || github.event.pull_request.head.repo.full_name == github.repository\n'
                 f'\n'
@@ -348,7 +349,7 @@ def main():
     def publish_unit_test_results(name: str, needs: List[str]) -> str:
         return (f'  {name}:\n'
                 f'    name: "Publish Unit Tests Results"\n'
-                f'    needs: [{",".join(needs)}]\n'
+                f'    needs: [{", ".join(needs)}]\n'
                 f'    runs-on: ubuntu-latest\n'
                 f'    if: >\n'
                 f'      always() &&\n'
@@ -373,11 +374,11 @@ def main():
         allhead_images = [image for image in images if all(head in image for head in heads)]
         workflow = workflow_header() + jobs(
             validate_workflow_job(),
-            build_and_test_images(name='build-and-test', images=release_images, tests_per_image=tests_per_image, tests=tests),
-            build_and_test_macos(),
-            build_and_test_images(name='build-and-test-heads', images=allhead_images, tests_per_image=tests_per_image, tests=tests),
-            trigger_buildkite_job(name='buildkite', needs=['build-and-test', 'build-and-test-macos']),
-            publish_unit_test_results(name='publish-test-results', needs=['build-and-test, build-and-test-heads, buildkite'])
+            build_and_test_images(name='build-and-test', needs=['validate-workflow'], images=release_images, tests_per_image=tests_per_image, tests=tests),
+            build_and_test_images(name='build-and-test-heads', needs=['build-and-test'], images=allhead_images, tests_per_image=tests_per_image, tests=tests),
+            build_and_test_macos(name='build-and-test-macos', needs=['build-and-test']),
+            trigger_buildkite_job(name='buildkite', needs=['build-and-test']),
+            publish_unit_test_results(name='publish-test-results', needs=['build-and-test', 'build-and-test-heads', 'build-and-test-macos', 'buildkite'])
         )
         print(workflow, file=w, end='')
 
