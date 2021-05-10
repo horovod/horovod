@@ -3929,6 +3929,47 @@ class TensorFlowTests(tf.test.TestCase):
                 self.assertEquals(computed_value, self._grad_agg_compute_expected_value(
                     backward_passes_per_step, idx))
 
+    def test_horovod_add_get_remove_process_set(self):
+        hvd.init()
+        size = hvd.size()
+
+        if hvd.gloo_enabled():
+            self.skipTest("Multiple process sets currently do not support Gloo controller.")
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            self.skipTest("Only one worker available")
+
+        ps = hvd.get_process_sets()
+        self.assertDictEqual(ps, {0: list(range(size))})
+
+        set1 = hvd.add_process_set([0])
+        set2 = hvd.add_process_set(range(1, size))
+
+        ps = hvd.get_process_sets()
+        self.assertDictEqual(ps, {0: list(range(size)),
+                                  set1: [0],
+                                  set2: list(range(1, size))})
+
+        hvd.remove_process_set(set1)
+
+        ps = hvd.get_process_sets()
+        self.assertDictEqual(ps, {0: list(range(size)),
+                                  set2: list(range(1, size))})
+
+        set3 = hvd.add_process_set([0, size-1])
+        self.assertEqual(set1, set3) # id reuse
+
+        ps = hvd.get_process_sets()
+        self.assertDictEqual(ps, {0: list(range(size)),
+                                  set2: list(range(1, size)),
+                                  set3: [0, size-1]})
+
+        hvd.remove_process_set(set2)
+        hvd.remove_process_set(set3)
+
+        ps = hvd.get_process_sets()
+        self.assertDictEqual(ps, {0: list(range(size))})
 
 from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
 run_all_in_graph_and_eager_modes(TensorFlowTests)

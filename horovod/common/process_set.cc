@@ -8,10 +8,10 @@ namespace horovod {
 namespace common {
 
 ProcessSet::ProcessSet(std::vector<int> global_ranks)
-    : registered_global_ranks_(std::move(global_ranks)) {}
+    : registered_global_ranks(std::move(global_ranks)) {}
 
 bool ProcessSet::IsCurrentProcessIncluded() const {
-  // TODO: maybe switch this to checking the global-rank -> rank mapping
+  // TODO: could also query registered_global_ranks
   assert(initialization_done);
   return controller->IsInitialized();
 }
@@ -23,13 +23,13 @@ void ProcessSet::Initialize(const MPIContext& global_mpi_context) {
   }
   LOG(TRACE) << "Initializing new process set with MPI.";
   assert(controller != nullptr);
-  if (!registered_global_ranks_.empty()) {
+  int size;
+  MPI_Comm_size(global_mpi_context.global_comm, &size);
+  if (!registered_global_ranks.empty()) {
     // Verify that each process has registered the same set of processes.
-    int size;
-    MPI_Comm_size(global_mpi_context.global_comm, &size);
     std::vector<int> buf(size);
-    assert(registered_global_ranks_.size() <= size);
-    auto len = static_cast<int>(registered_global_ranks_.size());
+    assert(registered_global_ranks.size() <= size);
+    auto len = static_cast<int>(registered_global_ranks.size());
     MPI_Allgather(&len, 1, MPI_INT, buf.data(), 1, MPI_INT,
                   global_mpi_context.global_comm);
     if (std::any_of(buf.begin(), buf.end(), [len](int other_len) {
@@ -40,19 +40,23 @@ void ProcessSet::Initialize(const MPIContext& global_mpi_context) {
     }
     for (auto reduction_op : {MPI_MAX, MPI_MIN}) {
       buf.resize(len);
-      MPI_Allreduce(registered_global_ranks_.data(), buf.data(), len, MPI_INT,
+      MPI_Allreduce(registered_global_ranks.data(), buf.data(), len, MPI_INT,
                     reduction_op, global_mpi_context.global_comm);
-      if (registered_global_ranks_ != buf) {
+      if (registered_global_ranks != buf) {
         throw std::logic_error("Attempted to register process set with "
                                "mismatching values on different ranks");
       }
     }
   }
   mpi_context.InitializeForProcessSet(global_mpi_context,
-                                      registered_global_ranks_);
+                                      registered_global_ranks);
   if (mpi_context.GetMPICommunicator(Communicator::GLOBAL) != MPI_COMM_NULL) {
     // The running process is part of this process set.
     controller->Initialize();
+  }
+  if (registered_global_ranks.empty()) {
+    registered_global_ranks.resize(size);
+    std::iota(registered_global_ranks.begin(), registered_global_ranks.end(), 0);
   }
   initialization_done = true;
 }

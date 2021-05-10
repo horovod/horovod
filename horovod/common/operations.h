@@ -128,6 +128,18 @@ int horovod_process_set_rank(int process_set_id);
 // exist, or if Horovod is not initialized.
 int horovod_process_set_size(int process_set_id);
 
+// C interface to return the current number of process sets.
+int horovod_get_number_of_process_sets();
+
+// C interface to assign the ids of all process sets to the preallocated array.
+void horovod_get_process_set_ids(int* ids_prealloc);
+
+// C interface to return the size of the process set with the given id.
+int horovod_get_process_set_size(int id);
+
+// C interface to assign the ranks belonging to the process sets with the given
+// id to the preallocated array.
+void horovod_get_process_set_ranks(int id, int* ranks_prealloc);
 
 }
 

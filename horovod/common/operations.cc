@@ -1084,6 +1084,28 @@ int horovod_process_set_size(int process_set_id) {
   return -1;
 }
 
+int horovod_get_number_of_process_sets() {
+  return static_cast<int>(horovod_global.process_set_table.Ids().size());
+}
+
+void horovod_get_process_set_ids(int* ids_prealloc) {
+  const auto ids_vec = horovod_global.process_set_table.Ids();
+  std::copy(ids_vec.begin(), ids_vec.end(), ids_prealloc);
+}
+
+int horovod_get_process_set_size(int id) {
+  const auto& process_set = horovod_global.process_set_table.Get(id);
+  assert(process_set.initialization_done);
+  return static_cast<int>(process_set.registered_global_ranks.size());
+}
+
+void horovod_get_process_set_ranks(int id, int* ranks_prealloc) {
+  const auto& process_set = horovod_global.process_set_table.Get(id);
+  assert(process_set.initialization_done);
+  std::copy(process_set.registered_global_ranks.begin(),
+            process_set.registered_global_ranks.end(), ranks_prealloc);
+}
+
 }
 
 // Contexts and controller must be initialized and the background thread

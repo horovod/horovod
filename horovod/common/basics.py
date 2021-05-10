@@ -15,6 +15,7 @@
 
 import atexit
 import ctypes
+from typing import Dict, List
 
 from horovod.common import util as util
 
@@ -323,3 +324,16 @@ class HorovodBasics(object):
         assert isinstance(process_set_id, int)
         return int(self.MPI_LIB_CTYPES.horovod_process_set_size(
             ctypes.c_int(process_set_id)))
+
+    def get_process_sets(self) -> Dict[int, List[int]]:
+        """ Returns a dictionary { process_set_id: list of process set ranks } """
+        num = int(self.MPI_LIB_CTYPES.horovod_get_number_of_process_sets())
+        ids_array = (ctypes.c_int * num)()
+        self.MPI_LIB_CTYPES.horovod_get_process_set_ids(ids_array)
+        ret = {}
+        for ps_id in ids_array:
+            ps_size = int(self.MPI_LIB_CTYPES.horovod_get_process_set_size(ctypes.c_int(ps_id)))
+            ranks_array = (ctypes.c_int * ps_size)()
+            self.MPI_LIB_CTYPES.horovod_get_process_set_ranks(ctypes.c_int(ps_id), ranks_array)
+            ret[ps_id] = list(ranks_array)
+        return ret
