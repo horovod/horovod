@@ -15,6 +15,7 @@
 
 import atexit
 import ctypes
+import os
 from typing import Dict, List
 
 from horovod.common import util as util
@@ -38,13 +39,19 @@ class HorovodBasics(object):
           comm: List specifying ranks for the communicator, relative to the MPI_COMM_WORLD
             communicator OR the MPI communicator to use. Given communicator will be duplicated.
             If None, Horovod will use MPI_COMM_WORLD Communicator.
-          process_sets: None or List[List[int]] to initialize process subsets containing these
-            Horovod ranks.
+          process_sets: Value is one of these possibilities:
+             1) None -- do not initialize any process sets
+             2) List[List[int]] -- initialize process sets containing these Horovod ranks
+             3) "dynamic": do not initialize any process sets now, but set
+                HOROVOD_DYNAMIC_PROCESS_SETS=1 .
         """
         if comm is None:
             comm = []
         if process_sets is None:
             process_sets = []
+        elif isinstance(process_sets, str) and process_sets.lower() == "dynamic":
+            process_sets = []
+            os.environ["HOROVOD_DYNAMIC_PROCESS_SETS"] = "1"
 
         process_set_sizes = [len(ps) for ps in process_sets]
         process_set_ranks = [rank for process_set in process_sets for rank in process_set]

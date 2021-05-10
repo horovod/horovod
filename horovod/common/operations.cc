@@ -562,6 +562,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
   op_manager.reset(CreateOperationManager(state));
 
+  state.dynamic_process_sets =
+      GetBoolEnvOrDefault(HOROVOD_DYNAMIC_PROCESS_SETS, false);
+
 #if HAVE_MPI
   // Register and initialize any non-global process set requested during Horovod
   // initialization.
@@ -638,13 +641,15 @@ bool RunLoopOnce(HorovodGlobalState& state) {
   }
 
 #if HAVE_MPI
-  // Initialize any newly added process set that has been registered by all
-  // Horovod processes.
-  if (global_mpi_context.IsEnabled()) {
-    state.process_set_table.InitializeRegisteredIfReady(global_mpi_context);
-    // Remove a process set that has been marked for removal by all Horovod
-    // processes.
-    state.process_set_table.RemoveMarkedProcessSetIfReady();
+  if (state.dynamic_process_sets) {
+    // Initialize any newly added process set that has been registered by all
+    // Horovod processes.
+    if (global_mpi_context.IsEnabled()) {
+      state.process_set_table.InitializeRegisteredIfReady(global_mpi_context);
+      // Remove a process set that has been marked for removal by all Horovod
+      // processes.
+      state.process_set_table.RemoveMarkedProcessSetIfReady();
+    }
   }
 #endif // HAVE_MPI
 
@@ -992,8 +997,13 @@ int horovod_reduce_op_adasum() {
 
 int horovod_add_process_set(const int* ranks, int nrank) {
   if (horovod_gloo_enabled()) {
-    throw std::logic_error("Multiple process sets are only supported with "
-                           "MPI controllers, not Gloo."); // TODO: extend this
+    throw std::runtime_error("Multiple process sets are only supported with "
+                             "MPI controllers, not Gloo."); // TODO: extend this
+  }
+  if (!horovod_global.dynamic_process_sets) {
+    throw std::runtime_error(
+        "Set HOROVOD_DYNAMIC_PROCESS_SETS=1 to allow adding process sets after "
+        "Horovod initialization.");
   }
   if (!horovod_global.initialization_done) {
     return -1;
@@ -1019,8 +1029,13 @@ int horovod_add_process_set(const int* ranks, int nrank) {
 
 int horovod_remove_process_set(int process_set_id) {
   if (horovod_gloo_enabled()) {
-    throw std::logic_error("Multiple process sets are only supported with "
-                           "MPI controllers, not Gloo.");
+    throw std::runtime_error("Multiple process sets are only supported with "
+                             "MPI controllers, not Gloo."); // TODO: extend this
+  }
+  if (!horovod_global.dynamic_process_sets) {
+    throw std::runtime_error("Set HOROVOD_DYNAMIC_PROCESS_SETS=1 to allow "
+                             "removing process sets after "
+                             "Horovod initialization.");
   }
   if (!horovod_global.initialization_done) {
     return -1;

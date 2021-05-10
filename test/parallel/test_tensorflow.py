@@ -56,6 +56,9 @@ ccl_supported_types = set([tf.uint8, tf.int8, tf.uint16, tf.int16,
 
 _IS_TF2 = LooseVersion(tf.__version__) >= LooseVersion('2.0.0')
 
+# Set environment variable to enable adding/removing process sets after initializing Horovod.
+os.environ["HOROVOD_DYNAMIC_PROCESS_SETS"] = "1"
+
 
 class TensorFlowTests(tf.test.TestCase):
     """

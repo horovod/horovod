@@ -66,6 +66,9 @@ struct HorovodGlobalState {
 
   ProcessSetTable process_set_table;
 
+  // Whether process sets can be added/removed after initialization.
+  std::atomic_bool dynamic_process_sets{false};
+
   // Rank storage for process sets requested in InitializeHorovodOnce to be
   // initialized in the background thread.
   std::vector<std::vector<int>> process_set_ranks_to_register;
