@@ -1148,6 +1148,7 @@ jobs:
           submodules: recursive
 
       - name: Build and Test
+        id: build-and-test
         env:
           HOROVOD_WITH_MPI: ${{ matrix.HOROVOD_WITH_MPI }}
           HOROVOD_WITHOUT_MPI: ${{ matrix.HOROVOD_WITHOUT_MPI }}
@@ -1174,19 +1175,21 @@ jobs:
           HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir .[test]
           horovodrun --check-build
 
-          mkdir -p artifacts/${{ matrix.image }}-macos
-          echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=$(dirname "$0")/artifacts/${{ matrix.image }}-macos/junit.\$1.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.\$2.xml \${@:2} > pytest.sh
+          artifacts_path="$(pwd)/artifacts/${{ matrix.image }}-macos"
+          mkdir -p "$artifacts_path"
+          echo "::set-output name=artifacts-path::$artifacts_path"
+          echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=$artifacts_path/junit.\$1.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.\$2.xml \${@:2} > pytest.sh
           chmod u+x pytest.sh
+
           cd test/parallel
           ls test_*.py | xargs -n 1 horovodrun -np 2 /bin/bash ../../pytest.sh macos
-          find ../..
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v2
         if: always()
         with:
           name: Unit Test Results - ${{ matrix.image }}-macos
-          path: artifacts/${{ matrix.image }}-macos/**/*.xml
+          path: ${{ steps.build-and-test.outputs.artifacts-path }}/**/*.xml
 
   buildkite:
     name: "Build and Test (GPUs on Builtkite)"

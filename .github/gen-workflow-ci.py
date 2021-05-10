@@ -279,6 +279,7 @@ def main():
                 f'          submodules: recursive\n'
                 f'\n'
                 f'      - name: Build and Test\n'
+                f'        id: build-and-test\n'
                 f'        env:\n'
                 f'          HOROVOD_WITH_MPI: ${{{{ matrix.HOROVOD_WITH_MPI }}}}\n'
                 f'          HOROVOD_WITHOUT_MPI: ${{{{ matrix.HOROVOD_WITHOUT_MPI }}}}\n'
@@ -305,19 +306,21 @@ def main():
                 f'          HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir .[test]\n'
                 f'          horovodrun --check-build\n'
                 f'\n'
-                f'          mkdir -p artifacts/${{{{ matrix.image }}}}-macos\n'
-                f'          echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=$(dirname "$0")/artifacts/${{{{ matrix.image }}}}-macos/junit.\$1.\${{HOROVOD_RANK:-\${{OMPI_COMM_WORLD_RANK:-\${{PMI_RANK}}}}}}.\$2.xml \${{@:2}} > pytest.sh\n'
+                f'          artifacts_path="$(pwd)/artifacts/${{{{ matrix.image }}}}-macos"\n'
+                f'          mkdir -p "$artifacts_path"\n'
+                f'          echo "::set-output name=artifacts-path::$artifacts_path"\n'
+                f'          echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=$artifacts_path/junit.\$1.\${{HOROVOD_RANK:-\${{OMPI_COMM_WORLD_RANK:-\${{PMI_RANK}}}}}}.\$2.xml \${{@:2}} > pytest.sh\n'
                 f'          chmod u+x pytest.sh\n'
+                f'\n'
                 f'          cd test/parallel\n'
                 f'          ls test_*.py | xargs -n 1 horovodrun -np 2 /bin/bash ../../pytest.sh macos\n'
-                f'          find ../..\n'
                 f'\n'
                 f'      - name: Upload Test Results\n'
                 f'        uses: actions/upload-artifact@v2\n'
                 f'        if: always()\n'
                 f'        with:\n'
                 f'          name: Unit Test Results - ${{{{ matrix.image }}}}-macos\n'
-                f'          path: artifacts/${{{{ matrix.image }}}}-macos/**/*.xml\n')
+                f'          path: ${{{{ steps.build-and-test.outputs.artifacts-path }}}}/**/*.xml\n')
 
     def trigger_buildkite_job(name: str, needs: List[str]) -> str:
         return (f'  {name}:\n'
