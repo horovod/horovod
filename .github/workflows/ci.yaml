@@ -1111,7 +1111,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: one
+          - name: test-cpu-openmpi-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_0
             HOROVOD_WITH_MPI: 1
             HOROVOD_WITHOUT_GLOO: 1
             TENSORFLOW: 1.15.0
@@ -1121,7 +1121,7 @@ jobs:
             TORCHVISION: 0.4.0
             MXNET: 1.5.0
 
-          - name: two
+          - name: test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0
             HOROVOD_WITHOUT_MPI: 1
             HOROVOD_WITH_GLOO: 1
             TENSORFLOW: 2.2.0
@@ -1131,7 +1131,7 @@ jobs:
             TORCHVISION: 0.6.0
             MXNET: 1.5.0
 
-          - name: three
+          - name: test-openmpi-cpu-gloo-py3_8-tf2_3_0-keras2_3_1-torch1_6_0-mxnet1_5_0
             HOROVOD_WITH_MPI: 1
             HOROVOD_WITH_GLOO: 1
             TENSORFLOW: 2.3.0
@@ -1159,6 +1159,7 @@ jobs:
           TENSORFLOW: ${{ matrix.TENSORFLOW }}
           KERAS: ${{ matrix.KERAS }}
           PYTORCH: ${{ matrix.PYTORCH }}
+          PYTORCH_LIGHTNING: ${{ matrix.PYTORCH_LIGHTNING }}
           TORCHVISION: ${{ matrix.TORCHVISION }}
           MXNET: ${{ matrix.MXNET }}
 
@@ -1170,13 +1171,24 @@ jobs:
 
           python -m pip install -U pip
           pip install tensorflow==${TENSORFLOW} keras==${KERAS}
-          pip install torch==${PYTORCH} torchvision==${TORCHVISION}
+          pip install torch==${PYTORCH} pytorch_lightning==${PYTORCH_LIGHTNING} torchvision==${TORCHVISION}
           pip install mxnet==${MXNET}
-          HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir "${{ matrix.name }}"
+          HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir .[test]
           horovodrun --check-build
+
+          rm -f /artifacts
+          mkdir -p artifacts/${{ matrix.image }}-macos
+          ln -s artifacts/${{ matrix.image }}-macos /artifacts
 
       - name: Run Tests
         run: cd test && (ls parallel/test_*.py | xargs -n 1 horovodrun -np 2 pytest -v)
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: Unit Test Results - ${{ matrix.image }}-macos
+          path: artifacts/${{ matrix.image }}-macos/**/*.xml
 
   buildkite:
     name: "Build and Test (GPUs on Builtkite)"
