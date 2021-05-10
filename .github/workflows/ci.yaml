@@ -1147,10 +1147,7 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install homebrew packages
-        run: brew install openmpi cmake libuv pyenv
-
-      - name: Setup Test Environment
+      - name: Build Horovod
         env:
           HOROVOD_WITH_MPI: ${{ matrix.HOROVOD_WITH_MPI }}
           HOROVOD_WITHOUT_MPI: ${{ matrix.HOROVOD_WITHOUT_MPI }}
@@ -1164,6 +1161,7 @@ jobs:
           MXNET: ${{ matrix.MXNET }}
 
         run: |
+          brew install openmpi cmake libuv pyenv
           export PATH=$(pyenv root)/shims:$PATH
           pyenv install 3.7.7
           pyenv global 3.7.7
@@ -1179,6 +1177,8 @@ jobs:
           mkdir -p artifacts/${{ matrix.image }}-macos
           echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=artifacts/${{ matrix.image }}-macos/junit.\$1.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.\$2.xml \${@:2} > pytest.sh
           chmod u+x pytest.sh
+          cat pytest.sh
+          which horovodrun
 
       - name: Run Tests
         run: cd test && (ls parallel/test_*.py | xargs -n 1 horovodrun -np 2 ./pytest.sh)
