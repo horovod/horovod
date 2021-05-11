@@ -714,7 +714,10 @@ bool RunLoopOnce(HorovodGlobalState& state) {
       }
     }
 
-    should_shutdown = (should_shutdown || response_list.shutdown());
+    should_shutdown |= response_list.shutdown();
+    if (should_shutdown) {
+      break;
+    }
   }
 
   return !should_shutdown;
