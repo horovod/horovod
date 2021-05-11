@@ -910,7 +910,7 @@ int horovod_comm_process_set(MPI_Comm comm) {
       }
     }
   }
-  return -1;
+  return -2;
 }
 
 #endif
@@ -1109,17 +1109,14 @@ int horovod_reduce_op_adasum() {
 }
 
 int horovod_add_process_set(const int* ranks, int nrank) {
-  if (horovod_gloo_enabled()) {
-    throw std::runtime_error("Multiple process sets are only supported with "
-                             "MPI controllers, not Gloo."); // TODO: extend this
-  }
-  if (!horovod_global.dynamic_process_sets) {
-    throw std::runtime_error(
-        "Set HOROVOD_DYNAMIC_PROCESS_SETS=1 to allow adding process sets after "
-        "Horovod initialization.");
-  }
   if (!horovod_global.initialization_done) {
     return -1;
+  }
+  if (!horovod_global.dynamic_process_sets) {
+    return -2;
+  }
+  if (horovod_gloo_enabled()) {
+    return -10;
   }
 
   int id;
@@ -1141,23 +1138,21 @@ int horovod_add_process_set(const int* ranks, int nrank) {
 }
 
 int horovod_remove_process_set(int process_set_id) {
-  if (horovod_gloo_enabled()) {
-    throw std::runtime_error("Multiple process sets are only supported with "
-                             "MPI controllers, not Gloo."); // TODO: extend this
-  }
-  if (!horovod_global.dynamic_process_sets) {
-    throw std::runtime_error("Set HOROVOD_DYNAMIC_PROCESS_SETS=1 to allow "
-                             "removing process sets after "
-                             "Horovod initialization.");
-  }
   if (!horovod_global.initialization_done) {
     return -1;
+  }
+  if (!horovod_global.dynamic_process_sets) {
+    return -2;
+  }
+  if (horovod_gloo_enabled()) {
+    return -10;
   }
 
   std::unique_lock<std::recursive_mutex> table_lock(
       horovod_global.process_set_table.mutex);
 
   if (!horovod_global.process_set_table.Contains(process_set_id)) {
+    return -3;
     throw std::logic_error("Tried to remove unknown process set id " +
                            std::to_string(process_set_id));
   }
@@ -1186,13 +1181,13 @@ int horovod_process_set_rank(int process_set_id) {
     return -1;
   }
   if (!horovod_global.process_set_table.Contains(process_set_id)) {
-    return -1;
+    return -3;
   }
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
   if (process_set.IsCurrentProcessIncluded()) {
     return process_set.controller->GetRank();
   }
-  return -1;
+  return -2;
 }
 
 int horovod_process_set_size(int process_set_id) {
@@ -1203,13 +1198,13 @@ int horovod_process_set_size(int process_set_id) {
     return -1;
   }
   if (!horovod_global.process_set_table.Contains(process_set_id)) {
-    return -1;
+    return -3;
   }
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
   if (process_set.IsCurrentProcessIncluded()) {
     return process_set.controller->GetSize();
   }
-  return -1;
+  return -2;
 }
 
 int horovod_get_number_of_process_sets() {
@@ -1222,16 +1217,25 @@ void horovod_get_process_set_ids(int* ids_prealloc) {
 }
 
 int horovod_get_process_set_size(int id) {
-  const auto& process_set = horovod_global.process_set_table.Get(id);
-  assert(process_set.initialization_done);
-  return static_cast<int>(process_set.registered_global_ranks.size());
+  try {
+    const auto& process_set = horovod_global.process_set_table.Get(id);
+    assert(process_set.initialization_done);
+    return static_cast<int>(process_set.registered_global_ranks.size());
+  } catch (const std::out_of_range& ex) {
+    return -3;
+  }
 }
 
-void horovod_get_process_set_ranks(int id, int* ranks_prealloc) {
-  const auto& process_set = horovod_global.process_set_table.Get(id);
-  assert(process_set.initialization_done);
-  std::copy(process_set.registered_global_ranks.begin(),
-            process_set.registered_global_ranks.end(), ranks_prealloc);
+int horovod_get_process_set_ranks(int id, int* ranks_prealloc) {
+  try {
+    const auto& process_set = horovod_global.process_set_table.Get(id);
+    assert(process_set.initialization_done);
+    std::copy(process_set.registered_global_ranks.begin(),
+              process_set.registered_global_ranks.end(), ranks_prealloc);
+  } catch (const std::out_of_range& ex) {
+    return -3;
+  }
+  return 0;
 }
 
 }

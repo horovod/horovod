@@ -56,8 +56,7 @@ struct ProcessSet {
 #if HAVE_MPI
   MPIContext mpi_context;
 
-  // Before calling Initialize the controller must be populated.
-  // TODO: doc
+  // Before calling Initialize, controller and regisered_ranks should be set.
   void Initialize(const MPIContext& global_mpi_context);
 #endif // HAVE_MPI
 
@@ -77,17 +76,18 @@ struct ProcessSet {
   ProcessSet(const ProcessSet&) = delete;
 };
 
-// TODO: Make more explicit that id=0 (the global process set) is special? Prevent removal?
-
 class ProcessSetTable {
 public:
   ProcessSetTable();
   ProcessSetTable(const ProcessSetTable&) = delete;
 
 #if HAVE_MPI
-  // TODO: doc
+  // Initialize table and the global process set with id 0, to be called in
+  // background thread.
   void Initialize(const MPIContext& global_mpi_context);
 
+  // To be called in the background thread: Initialize any process sets
+  // that have been registered by all processes.
   void InitializeRegisteredIfReady(const MPIContext& global_mpi_context);
 #endif // HAVE_MPI
 

@@ -54,8 +54,9 @@ void horovod_init_comm(MPI_Comm comm);
 void horovod_init_multi_comm(MPI_Comm *comm, int ncomms);
 
 // C interface to return process set id corresponding to processes belonging
-// to this MPI communicator. Returns -1 if there is no corresponding process
-// set or if Horovod is not initialized.
+// to this MPI communicator. Error codes: Returns -1 if Horovod is not
+// initialized, -2 if there is no process set corresponding to this
+// communicator.
 int horovod_comm_process_set(MPI_Comm comm);
 #endif
 
@@ -120,21 +121,26 @@ int horovod_reduce_op_sum();
 int horovod_reduce_op_adasum();
 
 // C interface to register a new process set containing the given ranks.
-// Returns positive process set id or -1 if Horovod is not initialized.
+// Returns positive process set id or an error code:
+// -1 if Horovod is not initialized, -2 if dynamic process sets are not
+// enabled, -10 if running with Gloo.
 int horovod_add_process_set(const int *ranks, int nranks);
 
 // C interface to deregister a previously registered process set.
-// Returns -1 if Horovod is not initialized.
+// Returns 0 or an error code:
+// -1 if Horovod is not initialized, -2 if dynamic process sets are not
+// enabled, -3 if that process set is unknown, -10 if running with Gloo.
 int horovod_remove_process_set(int process_set_id);
 
 // C interface to return the rank of this process counted in the specified
-// process set. Returns -1 if not part of that process set, if that process
-// set does not exist, or if Horovod is not initialized.
+// process set or an error code:
+// -1 if Horovod is not initialized, -2 if the process is not part of this
+// set, -3 if the process set is unknown, -10 if running with Gloo.
 int horovod_process_set_rank(int process_set_id);
 
-// C interface to return the size of the specified process set.
-// Returns -1 if not part of that process set, if that process set does not
-// exist, or if Horovod is not initialized.
+// C interface to return the size of the specified process set or an error code:
+// -1 if Horovod is not initialized, -2 if the process is not part of this
+// set, -3 if the process set is unknown, -10 if running with Gloo.
 int horovod_process_set_size(int process_set_id);
 
 // C interface to return the current number of process sets.
@@ -144,11 +150,13 @@ int horovod_get_number_of_process_sets();
 void horovod_get_process_set_ids(int* ids_prealloc);
 
 // C interface to return the size of the process set with the given id.
+// Returns error code -3 if the process set is unknown.
 int horovod_get_process_set_size(int id);
 
 // C interface to assign the ranks belonging to the process sets with the given
-// id to the preallocated array.
-void horovod_get_process_set_ranks(int id, int* ranks_prealloc);
+// id to the preallocated array. Returns error code -3 if the process set is
+// unknown.
+int horovod_get_process_set_ranks(int id, int* ranks_prealloc);
 
 }
 

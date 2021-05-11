@@ -11,7 +11,6 @@ ProcessSet::ProcessSet(std::vector<int> global_ranks)
     : registered_global_ranks(std::move(global_ranks)) {}
 
 bool ProcessSet::IsCurrentProcessIncluded() const {
-  // TODO: could also query registered_global_ranks
   assert(initialization_done);
   return controller->IsInitialized();
 }
@@ -207,6 +206,9 @@ ProcessSet& ProcessSetTable::Get(int32_t id) {
 }
 
 void ProcessSetTable::MarkProcessSetForRemoval(int32_t process_set_id) {
+  if (process_set_id == 0) {
+    throw std::logic_error("Attempted to remove global process set with id 0");
+  }
   std::lock_guard<std::recursive_mutex> guard(mutex);
   assert(id_to_be_removed_ == NO_PENDING_REMOVAL);
   id_to_be_removed_ = process_set_id;

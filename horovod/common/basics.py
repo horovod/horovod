@@ -36,14 +36,18 @@ class HorovodBasics(object):
         """A function that initializes Horovod.
 
         Args:
-          comm: List specifying ranks for the communicator, relative to the MPI_COMM_WORLD
-            communicator OR the MPI communicator to use. Given communicator will be duplicated.
-            If None, Horovod will use MPI_COMM_WORLD Communicator.
-            # TODO: doc multi_comm
-          process_sets: One of these possibilities:
+          comm: One of these possibilities:
+             1) List specifying ranks for the communicator, relative to the MPI_COMM_WORLD
+                communicator
+             2) None: Use all ranks of MPI_COMM_WORLD
+             3) MPI communicator to use. Given communicator will be duplicated.
+             4) List of MPI communicators. The first entry will be duplicated and used as
+                the global Horovod communicator. Horovod process sets will be built
+                corresponding to the remaining entries.
+          process_sets: If no explicit MPI communicators are passed, one of these possibilities:
              1) None -- do not initialize any process sets
              2) List[List[int]] -- initialize process sets containing these Horovod ranks
-             3) "dynamic": do not initialize any process sets now, but set
+             3) "dynamic": do not initialize any process sets now, but set environment
                 HOROVOD_DYNAMIC_PROCESS_SETS=1 .
         """
         if comm is None:
@@ -324,26 +328,74 @@ class HorovodBasics(object):
         return bool(self.MPI_LIB_CTYPES.horovod_rocm_built())
 
     def add_process_set(self, ranks):
+        """ Add a new process set and return its id.
+
+        Requires running with HOROVOD_DYNAMIC_PROCESS_SETS=1.
+        """
         if not isinstance(ranks, list):
             ranks = list(ranks)
         nrank = len(ranks)
-        return int(self.MPI_LIB_CTYPES.horovod_add_process_set(
+        result = int(self.MPI_LIB_CTYPES.horovod_add_process_set(
             (ctypes.c_int * nrank)(*ranks), ctypes.c_int(nrank)))
+        if result == -1:
+            raise ValueError('Horovod has not been initialized; use hvd.init().')
+        elif result == -2:
+            raise ValueError(
+                "Set HOROVOD_DYNAMIC_PROCESS_SETS=1 to allow adding process sets after Horovod initialization.")
+        elif result == -10:
+            raise ValueError("Multiple process sets are only supported with MPI controllers, not Gloo.")
+        return result
 
     def remove_process_set(self, process_set_id):
+        """ Remove process set with given id.
+
+        Requires running with HOROVOD_DYNAMIC_PROCESS_SETS=1.
+        """
         assert isinstance(process_set_id, int)
-        return int(self.MPI_LIB_CTYPES.horovod_remove_process_set(
+        if process_set_id == 0:
+            raise ValueError("Attempted to remove the global process set with id 0.")
+        result = int(self.MPI_LIB_CTYPES.horovod_remove_process_set(
             ctypes.c_int(process_set_id)))
+        if result == -1:
+            raise ValueError('Horovod has not been initialized; use hvd.init().')
+        elif result == -2:
+            raise ValueError(
+                "Set HOROVOD_DYNAMIC_PROCESS_SETS=1 to allow removing process sets after Horovod initialization.")
+        elif result == -3:
+            raise ValueError(f"Tried to remove unknown process set id {process_set_id}")
+        elif result == -10:
+            raise ValueError("Multiple process sets are only supported with MPI controllers, not Gloo.")
+        return result
 
     def process_set_rank(self, process_set_id):
+        """ Return process rank relative to the process set. """
         assert isinstance(process_set_id, int)
-        return int(self.MPI_LIB_CTYPES.horovod_process_set_rank(
+        result = int(self.MPI_LIB_CTYPES.horovod_process_set_rank(
             ctypes.c_int(process_set_id)))
+        if result == -1:
+            raise ValueError('Horovod has not been initialized; use hvd.init().')
+        elif result == -2:
+            raise ValueError(f"Process is not part of process set {process_set_id}")
+        elif result == -3:
+            raise ValueError(f"Unknown process set id {process_set_id}")
+        elif result == -10:
+            raise ValueError("Multiple process sets are only supported with MPI controllers, not Gloo.")
+        return result
 
     def process_set_size(self, process_set_id):
+        """ Return size of the process set. """
         assert isinstance(process_set_id, int)
-        return int(self.MPI_LIB_CTYPES.horovod_process_set_size(
+        result = int(self.MPI_LIB_CTYPES.horovod_process_set_size(
             ctypes.c_int(process_set_id)))
+        if result == -1:
+            raise ValueError('Horovod has not been initialized; use hvd.init().')
+        elif result == -2:
+            raise ValueError(f"Process is not part of process set {process_set_id}")
+        elif result == -3:
+            raise ValueError(f"Unknown process set id {process_set_id}")
+        elif result == -10:
+            raise ValueError("Multiple process sets are only supported with MPI controllers, not Gloo.")
+        return result
 
     def get_process_sets(self) -> Dict[int, List[int]]:
         """ Returns a dictionary { process_set_id: list of process set ranks } """
@@ -353,13 +405,17 @@ class HorovodBasics(object):
         ret = {}
         for ps_id in ids_array:
             ps_size = int(self.MPI_LIB_CTYPES.horovod_get_process_set_size(ctypes.c_int(ps_id)))
+            if ps_size < 0:
+                raise RuntimeError("Process set table was modified outside of get_process_sets()")
             ranks_array = (ctypes.c_int * ps_size)()
-            self.MPI_LIB_CTYPES.horovod_get_process_set_ranks(ctypes.c_int(ps_id), ranks_array)
+            res = int(self.MPI_LIB_CTYPES.horovod_get_process_set_ranks(ctypes.c_int(ps_id), ranks_array))
+            if res < 0:
+                raise RuntimeError("Process set table was modified outside of get_process_sets()")
             ret[ps_id] = list(ranks_array)
         return ret
 
     def comm_process_set(self, comm) -> int:
-        """ TODO """
+        """ Returns the (previously registered) process set id corresponding to the MPI communicator comm. """
         if not self.mpi_built():
             raise ValueError(
                 "Horovod has not been built with MPI support. Ensure MPI is installed and "
@@ -373,4 +429,9 @@ class HorovodBasics(object):
 
         self.MPI_LIB_CTYPES.horovod_comm_process_set.argtypes = [MPI_Comm]
         comm_obj = MPI_Comm.from_address(MPI._addressof(comm))
-        return int(self.MPI_LIB_CTYPES.horovod_comm_process_set(comm_obj))
+        result = int(self.MPI_LIB_CTYPES.horovod_comm_process_set(comm_obj))
+        if result == -1:
+            raise ValueError('Horovod has not been initialized or MPI has not been enabled; use hvd.init().')
+        elif result == -2:
+            raise ValueError('MPI communicator does not correspond to any registered process set.')
+        return result
