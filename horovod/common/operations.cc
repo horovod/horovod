@@ -803,6 +803,116 @@ void horovod_init_comm(MPI_Comm comm) {
   MPI_Comm_dup(comm, &global_mpi_context.global_comm);
   InitializeHorovodOnce(nullptr, 0, nullptr, nullptr, 0);
 }
+
+void horovod_init_multi_comm(MPI_Comm *comm, int ncomms) {
+  assert(ncomms > 0);
+  MPI_Comm_dup(comm[0], &global_mpi_context.global_comm);
+
+  std::vector<int> process_set_sizes;
+  std::vector<int> process_set_ranks;
+  int num_process_sets = 0;
+
+  int global_rank;
+  MPI_Comm_rank(global_mpi_context.global_comm, &global_rank);
+  int global_size;
+  MPI_Comm_size(global_mpi_context.global_comm, &global_size);
+  MPI_Group global_group;
+  MPI_Comm_group(global_mpi_context.global_comm, &global_group);
+  for (int i = 1; i < ncomms; ++i) {
+    auto sub_comm = comm[i];
+
+    MPI_Group sub_group;
+    {
+      MPI_Comm_group(sub_comm, &sub_group);
+      MPI_Group diff_group;
+      MPI_Group_difference(sub_group, global_group, &diff_group);
+      if (diff_group != MPI_GROUP_EMPTY) {
+        throw std::runtime_error(
+            "Group of processes in horovod_init_multi_comm argument number " +
+            std::to_string(i) +
+            " is not a subset of the assumed global communicator.");
+      }
+    }
+
+    int rank;
+    MPI_Comm_rank(sub_comm, &rank);
+    int size;
+    MPI_Comm_size(sub_comm, &size);
+
+    auto global_ranks = std::vector<int>(size);
+    {
+      auto sub_ranks = std::vector<int>(size);
+      std::iota(sub_ranks.begin(), sub_ranks.end(), 0);
+      MPI_Group_translate_ranks(sub_group, size, sub_ranks.data(), global_group,
+                                global_ranks.data());
+    }
+
+    std::set<std::vector<int>> collected_process_sets;  // sorted order
+    {
+      auto sub_sizes = std::vector<int>(global_size);
+      MPI_Allgather(&size, 1, MPI_INT, sub_sizes.data(), 1, MPI_INT,
+                    global_mpi_context.global_comm);
+
+      auto displ = std::vector<int>(global_size);
+      for (int j = 1; j < global_size; ++j) {
+        displ[j] = displ[j - 1] + sub_sizes[j];
+      }
+
+      auto process_sets_buf = std::vector<int>(
+          std::accumulate(sub_sizes.begin(), sub_sizes.end(), 0));
+      MPI_Allgatherv(global_ranks.data(), size, MPI_INT,
+                     process_sets_buf.data(), sub_sizes.data(), displ.data(),
+                     MPI_INT, global_mpi_context.global_comm);
+
+      for (int j = 0; j < global_size; ++j) {
+        collected_process_sets.insert(
+            std::vector<int>(&process_sets_buf[displ[j]],
+                             &process_sets_buf[displ[j] + sub_sizes[j]]));
+      }
+    }
+
+    for (const auto& process_set_vec : collected_process_sets) {
+      ++num_process_sets;
+      process_set_sizes.push_back(static_cast<int>(process_set_vec.size()));
+      process_set_ranks.insert(process_set_ranks.end(), process_set_vec.begin(),
+                               process_set_vec.end());
+    }
+  }
+
+  InitializeHorovodOnce(nullptr, 0, process_set_ranks.data(),
+                        process_set_sizes.data(), num_process_sets);
+}
+
+int horovod_comm_process_set(MPI_Comm comm) {
+  if (!horovod_global.initialization_done or !horovod_mpi_enabled()) {
+    return -1;
+  }
+  int size;
+  MPI_Comm_size(comm, &size);
+  auto global_ranks = std::vector<int>(size);
+  {
+    auto sub_ranks = std::vector<int>(size);
+    std::iota(sub_ranks.begin(), sub_ranks.end(), 0);
+    MPI_Group group;
+    MPI_Comm_group(comm, &group);
+    MPI_Group global_group;
+    MPI_Comm_group(global_mpi_context.global_comm, &global_group);
+    MPI_Group_translate_ranks(group, size, sub_ranks.data(), global_group,
+                              global_ranks.data());
+  }
+  {
+    std::lock_guard<std::recursive_mutex> guard(
+        horovod_global.process_set_table.mutex);
+    for (auto id : horovod_global.process_set_table.Ids()) {
+      if (horovod_global.process_set_table.Get(id).registered_global_ranks ==
+          global_ranks) {
+        return id;
+      }
+    }
+  }
+  return -1;
+}
+
 #endif
 
 void horovod_shutdown() {

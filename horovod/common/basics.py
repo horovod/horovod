@@ -39,7 +39,8 @@ class HorovodBasics(object):
           comm: List specifying ranks for the communicator, relative to the MPI_COMM_WORLD
             communicator OR the MPI communicator to use. Given communicator will be duplicated.
             If None, Horovod will use MPI_COMM_WORLD Communicator.
-          process_sets: Value is one of these possibilities:
+            # TODO: doc multi_comm
+          process_sets: One of these possibilities:
              1) None -- do not initialize any process sets
              2) List[List[int]] -- initialize process sets containing these Horovod ranks
              3) "dynamic": do not initialize any process sets now, but set
@@ -47,6 +48,8 @@ class HorovodBasics(object):
         """
         if comm is None:
             comm = []
+        elif not isinstance(comm, list):
+            comm = [comm]
         if process_sets is None:
             process_sets = []
         elif isinstance(process_sets, str) and process_sets.lower() == "dynamic":
@@ -63,27 +66,37 @@ class HorovodBasics(object):
 
         atexit.register(self.shutdown)
 
-        if not isinstance(comm, list):
-            mpi_built = self.MPI_LIB_CTYPES.horovod_mpi_built()
-            if not bool(mpi_built):
+        if len(comm) == 0 or all(isinstance(rk, int) for rk in comm):
+            comm_size = len(comm)
+            self.MPI_LIB_CTYPES.horovod_init(
+                (ctypes.c_int * comm_size)(*comm), ctypes.c_int(comm_size),
+                *process_set_args)
+        else:
+            if not self.mpi_built():
                 raise ValueError(
                     "Horovod has not been built with MPI support. Ensure MPI is installed and "
                     "reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.")
 
             from mpi4py import MPI
+            if not all(isinstance(c, MPI.Comm) for c in comm):
+                raise ValueError(
+                    "Invalid type of argument comm. Expected list of rank integers, "
+                    "mpi4py.MPI.Comm object or list of mpi4py.MPI.Comm objects.")
             if MPI._sizeof(MPI.Comm) == ctypes.sizeof(ctypes.c_int):
                 MPI_Comm = ctypes.c_int
             else:
                 MPI_Comm = ctypes.c_void_p
-                self.MPI_LIB_CTYPES.horovod_init_comm.argtypes = [MPI_Comm]
 
-            comm_obj = MPI_Comm.from_address(MPI._addressof(comm))
-            self.MPI_LIB_CTYPES.horovod_init_comm(comm_obj)
-        else:
-            comm_size = len(comm)
-            self.MPI_LIB_CTYPES.horovod_init(
-                (ctypes.c_int * comm_size)(*comm), ctypes.c_int(comm_size),
-                *process_set_args)
+            if len(comm) == 1:
+                self.MPI_LIB_CTYPES.horovod_init_comm.argtypes = [MPI_Comm]
+                comm_obj = MPI_Comm.from_address(MPI._addressof(comm))
+                self.MPI_LIB_CTYPES.horovod_init_comm(comm_obj)
+            else:
+                comm_objs = [MPI_Comm.from_address(MPI._addressof(c)) for c in comm]
+                comm_size = len(comm)
+                self.MPI_LIB_CTYPES.horovod_init_multi_comm.argtypes = [MPI_Comm * comm_size, ctypes.c_int]
+                self.MPI_LIB_CTYPES.horovod_init_multi_comm((MPI_Comm * comm_size)(*comm_objs),
+                                                            ctypes.c_int(comm_size))
 
     def shutdown(self):
         """A function that shuts Horovod down."""
@@ -344,3 +357,20 @@ class HorovodBasics(object):
             self.MPI_LIB_CTYPES.horovod_get_process_set_ranks(ctypes.c_int(ps_id), ranks_array)
             ret[ps_id] = list(ranks_array)
         return ret
+
+    def comm_process_set(self, comm) -> int:
+        """ TODO """
+        if not self.mpi_built():
+            raise ValueError(
+                "Horovod has not been built with MPI support. Ensure MPI is installed and "
+                "reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.")
+
+        from mpi4py import MPI
+        if MPI._sizeof(MPI.Comm) == ctypes.sizeof(ctypes.c_int):
+            MPI_Comm = ctypes.c_int
+        else:
+            MPI_Comm = ctypes.c_void_p
+
+        self.MPI_LIB_CTYPES.horovod_comm_process_set.argtypes = [MPI_Comm]
+        comm_obj = MPI_Comm.from_address(MPI._addressof(comm))
+        return int(self.MPI_LIB_CTYPES.horovod_comm_process_set(comm_obj))

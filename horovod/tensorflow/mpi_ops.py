@@ -80,6 +80,7 @@ remove_process_set = _basics.remove_process_set
 process_set_rank = _basics.process_set_rank
 process_set_size = _basics.process_set_size
 get_process_sets = _basics.get_process_sets
+comm_process_set = _basics.comm_process_set
 
 # import reduction op values
 Average = _basics.Average

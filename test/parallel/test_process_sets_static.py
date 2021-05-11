@@ -27,4 +27,11 @@ class ProcessSetsStaticTests(unittest.TestCase):
         self.assertDictEqual(ps, {0: list(range(size)),
                                   1: [0],
                                   2: list(range(1, size))})
+
+        # barrier before shutdown
+        import mpi4py
+        mpi4py.rc.initialize = False
+        from mpi4py import MPI
+        MPI.COMM_WORLD.barrier()
+
         hvd.shutdown()

@@ -48,6 +48,15 @@ void horovod_init(const int* ranks, int nranks, const int* process_set_ranks,
 #if HAVE_MPI
 // C interface to initialize Horovod with the given MPI communicator.
 void horovod_init_comm(MPI_Comm comm);
+
+// C interface to initialize Horovod with an array of existing MPI
+// communicators. We will build matching process sets.
+void horovod_init_multi_comm(MPI_Comm *comm, int ncomms);
+
+// C interface to return process set id corresponding to processes belonging
+// to this MPI communicator. Returns -1 if there is no corresponding process
+// set or if Horovod is not initialized.
+int horovod_comm_process_set(MPI_Comm comm);
 #endif
 
 // C interface to shut down Horovod.
