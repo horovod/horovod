@@ -163,7 +163,6 @@ if __name__ == '__main__':
     with tempfile.TemporaryDirectory() as run_output_dir:
         ckpt_path = os.path.join(run_output_dir, "checkpoint")
         os.makedirs(ckpt_path, exist_ok=True)
-        checkpoint_callback = ModelCheckpoint(dirpath=ckpt_path)
 
         logs_path = os.path.join(run_output_dir, "logger")
         os.makedirs(logs_path, exist_ok=True)
@@ -176,15 +175,27 @@ if __name__ == '__main__':
         setattr(model, 'train_dataloader', lambda: train_loader)
         setattr(model, 'val_dataloader', lambda: test_loader)
 
+        from pytorch_lightning.callbacks import Callback
+        class MyPrintingCallback(Callback):
+
+            def on_init_start(self, trainer):
+                print('Starting to init trainer!')
+
+            def on_init_end(self, trainer):
+                print('trainer is init now')
+
+            def on_train_end(self, trainer, pl_module):
+                print('do something when training ends')
+
+        callbacks = [MyPrintingCallback(), ModelCheckpoint(dirpath=ckpt_path)]
+
         trainer = Trainer(accelerator='horovod',
-                        gpus=0,
-                        callbacks=None,
+                        gpus=(1 if torch.cuda.is_available() else 0),
+                        callbacks=callbacks,
                         max_epochs=epochs,
                         limit_train_batches=train_percent,
                         limit_val_batches=val_percent,
                         logger=logger,
-                        checkpoint_callback=checkpoint_callback,
-                        # resume_from_checkpoint=last_ckpt_file if ckpt_bytes else None,
                         num_sanity_val_steps=0)
 
         trainer.fit(model)

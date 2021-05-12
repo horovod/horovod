@@ -22,7 +22,7 @@ from distutils.version import LooseVersion
 import torch
 import pytorch_lightning as pl
 from pytorch_lightning import Trainer, Callback
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from horovod.spark.common import constants
@@ -76,7 +76,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     # Storage
     store = estimator.getStore()
     remote_store = store.to_remote(run_id, dataset_idx)
-    is_dbfs = isinstance(store, DBFSLocalStore)
+    #is_dbfs = isinstance(store, DBFSLocalStore)
 
     train_steps_per_epoch = estimator.getTrainStepsPerEpoch()
     train_percent = train_rows / train_steps_per_epoch if train_steps_per_epoch else 1.0
@@ -84,32 +84,57 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     val_steps_per_epoch = estimator.getValidationStepsPerEpoch()
     val_percent = val_rows / val_steps_per_epoch if val_steps_per_epoch else 1.0
 
-    def train(serialized_model):
+    def train(serialized_model, num_gpus):
+        import horovod.torch as hvd
+        # Horovod: initialize library.
+        # hvd.init()
+
         with tempfile.TemporaryDirectory() as last_ckpt_dir, remote_store.get_local_output_dir() as run_output_dir:
             last_ckpt_file = os.path.join(last_ckpt_dir, 'last.ckpt')
             if ckpt_bytes:
                 with open(last_ckpt_file, 'wb') as f:
                     f.write(ckpt_bytes)
 
+            # TODO: Pass the logger from estimator constructor
             logs_path = os.path.join(run_output_dir, remote_store.logs_subdir)
             logger = TensorBoardLogger(logs_path)
 
             # TODO: find out a way to use ckpt_path created from remote store, but all other parameters ingest from estimator config
             # ckpt_path = os.path.join(run_output_dir, remote_store.checkpoint_filename)
             # os.makedirs(ckpt_path, exist_ok=True)
-            # checkpoint_callback = ModelCheckpoint(dirpath=ckpt_path)
+            # model_checkpoint_callback = ModelCheckpoint(dirpath=ckpt_path)
+            # callbacks.append(model_checkpoint_callback)
+
+            is_model_checkpoint_callback_exist = False
+            if callbacks is not None:
+                for cb in callbacks:
+                    if isinstance(cb, ModelCheckpoint):
+                        is_model_checkpoint_callback_exist = True
+                        break
 
             model = deserialize(serialized_model)
+
+            cuda_available = torch.cuda.is_available()
+            if cuda_available:
+                # Horovod: pin GPU to local rank or the assigned GPU from spark.
+                torch.cuda.set_device(_get_assigned_gpu_or_default(default=hvd.local_rank()))
+                # Move model to GPU.
+                model.cuda()
+
+            if num_gpus is None:
+                num_gpus = 1 if cuda_available else 0
+
             kwargs = {'accelerator': 'horovod',
-                'gpus': (1 if torch.cuda.is_available() else 0),
-                'callbacks': callbacks,
-                'max_epochs': epochs,
-                'limit_train_batches': train_percent,
-                'limit_val_batches': val_percent,
-                'logger': logger,
-                'resume_from_checkpoint': (last_ckpt_file if ckpt_bytes else None),
-                'num_sanity_val_steps': 0
-            }
+                      'gpus': num_gpus,
+                      'callbacks': callbacks,
+                      'max_epochs': epochs,
+                      'limit_train_batches': train_percent,
+                      'limit_val_batches': val_percent,
+                      'logger': logger,
+                      'resume_from_checkpoint': (last_ckpt_file if ckpt_bytes else None),
+                      'checkpoint_callback': is_model_checkpoint_callback_exist,
+                      'num_sanity_val_steps': 0
+                      }
             print("Creating trainer with: \n ", kwargs)
             trainer = Trainer(**kwargs)
 
@@ -130,7 +155,11 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             serialized_checkpoint = io.BytesIO()
             module = model if not is_legacy else model._model
-            torch.save({'model': module.state_dict()}, serialized_checkpoint)
+
+            # TODO: find a way to pass trainer.logged_metrics out.
+            output = {'model': module.state_dict()}
+
+            torch.save(output, serialized_checkpoint)
             serialized_checkpoint.seek(0)
             return serialized_checkpoint
     return train
@@ -145,6 +174,7 @@ def _reset_loader(loader):
             loader.reader.reset()
     else:
         loader.reader.reset()
+
 
 # TODO: enable this when petastorm loader supports reset before epoch ends.
 def _make_reset_callbacks():

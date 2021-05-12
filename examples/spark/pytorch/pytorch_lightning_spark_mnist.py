@@ -18,6 +18,7 @@ from pyspark.sql import SparkSession
 from pyspark.sql.functions import udf
 
 from pytorch_lightning import LightningModule
+from pytorch_lightning.callbacks import EarlyStopping
 
 import torch
 import torch.nn as nn
@@ -131,6 +132,34 @@ def train_model(args):
     backend = SparkBackend(num_proc=args.num_proc,
                            stdout=sys.stdout, stderr=sys.stderr,
                            prefix_output_with_timestamp=True)
+
+    from pytorch_lightning.callbacks import Callback
+
+    class MyPrintingCallback(Callback):
+
+        def on_init_start(self, trainer):
+            print('Starting to init trainer!')
+
+        def on_init_end(self, trainer):
+            print('trainer is init now')
+
+        def on_train_end(self, trainer, pl_module):
+            print('do something when training ends')
+
+    callbacks = [MyPrintingCallback()]
+
+    # FIXME: add EarlyStopping and ModelCheckpoint
+    # from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
+    # callbacks.append(ModelCheckpoint(dirpath=args.work_dir))
+
+    # from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+    # callbacks.append(EarlyStopping(monitor='val_loss',
+    #                                 min_delta=0.00,
+    #                                 patience=3,
+    #                                 verbose=True,
+    #                                 mode='max'))
+
+
     torch_estimator = hvd.TorchEstimator(backend=backend,
                                          store=store,
                                          model=model,
@@ -140,7 +169,8 @@ def train_model(args):
                                          validation=0.1,
                                          batch_size=args.batch_size,
                                          epochs=args.epochs,
-                                         verbose=1)
+                                         verbose=1,
+                                         callbacks=callbacks)
 
     torch_model = torch_estimator.fit(train_df).setOutputCols(['label_prob'])
 

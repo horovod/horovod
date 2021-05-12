@@ -21,6 +21,7 @@ import unittest
 import warnings
 
 import mock
+from unittest.mock import call, MagicMock, Mock
 import pytest
 import numpy as np
 from distutils.version import LooseVersion
@@ -75,18 +76,18 @@ class XOR(pl.LightningModule):
         x, y = batch['features'], batch['y'].unsqueeze(1)
         y_hat = self(x)
         loss = F.binary_cross_entropy(y_hat, y.float())
-        tensorboard_logs = {'train_loss': loss}
-        return {'loss': loss, 'log': tensorboard_logs}
+        self.log('train_loss', loss)
+        return loss
 
     def validation_step(self, batch, batch_nb):
         x, y = batch['features'], batch['y'].unsqueeze(1)
         y_hat = self(x)
-        return {'val_loss': F.binary_cross_entropy(y_hat, y.float())}
+        loss = F.binary_cross_entropy(y_hat, y.float())
+        self.log('val_loss', loss)
 
     def validation_epoch_end(self, outputs):
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean() if len(outputs) > 0 else float('inf')
-        tensorboard_logs = {'val_loss': avg_loss}
-        return {'avg_val_loss': avg_loss, 'log': tensorboard_logs}
+        self.log('avg_val_loss', avg_loss)
 
 
 class LegacyXOR(nn.Module):
@@ -177,8 +178,8 @@ class SparkLightningTests(unittest.TestCase):
 
     # TODO: Add this test back after checkpoint call back is supported
     def test_restore_from_checkpoint(self):
-        self.skipTest('There is a bug in current lightning version for checkpoint'
-                      'call back. Will add this test back when it is solved.')
+        self.skipTest('There is a deadlock bug for checkpoint call back. ' +
+                      'Will add this test back when it is solved.')
 
         model = create_xor_model()
 
@@ -202,7 +203,7 @@ class SparkLightningTests(unittest.TestCase):
                     verbose=2,
                     run_id=run_id)
 
-                torch_estimator._read_checkpoint = mock.Mock(side_effect=torch_estimator._read_checkpoint)
+                torch_estimator._read_checkpoint = Mock(side_effect=torch_estimator._read_checkpoint)
 
                 ckpt_path = store.get_checkpoint_path(run_id)
                 assert not store.exists(ckpt_path)
@@ -215,8 +216,8 @@ class SparkLightningTests(unittest.TestCase):
 
     #TODO: Add this test back after checkpoint call back is supported
     def test_legacy_restore_from_checkpoint(self):
-        self.skipTest('There is a bug in current lightning version for checkpoint'
-                      'call back. Will add this test back when it is solved.')
+        self.skipTest('There is a deadlock bug for checkpoint call back. ' +
+                      'Will add this test back when it is solved.')
 
         model = create_legacy_xor_model()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
@@ -244,7 +245,7 @@ class SparkLightningTests(unittest.TestCase):
                     verbose=2,
                     run_id=run_id)
 
-                torch_estimator._read_checkpoint = mock.Mock(side_effect=torch_estimator._read_checkpoint)
+                torch_estimator._read_checkpoint = Mock(side_effect=torch_estimator._read_checkpoint)
 
                 ckpt_path = store.get_checkpoint_path(run_id)
                 assert not store.exists(ckpt_path)
@@ -407,7 +408,7 @@ class SparkLightningTests(unittest.TestCase):
             else:
                 return losses.mean()
 
-        kwargs = dict(model=mock.Mock(), optimizer=mock.Mock(), feature_cols=[], sample_weights_col='', validation=0)
+        kwargs = dict(model=Mock(), optimizer=Mock(), feature_cols=[], sample_weights_col='', validation=0)
         model = to_lightning_module(loss_fns=[fn_minus], loss_weights=[1], label_cols=['a'],  **kwargs)
         loss = model._calculate_loss(outputs, labels, sample_weights=torch.tensor([1.0, 6.0, 3.0]))
         assert loss == 5.0
@@ -437,7 +438,7 @@ class SparkLightningTests(unittest.TestCase):
             else:
                 return losses.mean()
 
-        kwargs = dict(model=mock.Mock(), optimizer=mock.Mock(), feature_cols=[], sample_weights_col=None, validation=0)
+        kwargs = dict(model=Mock(), optimizer=Mock(), feature_cols=[], sample_weights_col=None, validation=0)
         model = to_lightning_module(loss_fns=[fn_minus], loss_weights=[1], label_cols=['a'],  **kwargs)
         loss = model._calculate_loss(outputs, labels)
         assert loss == 1.0
@@ -507,6 +508,192 @@ class SparkLightningTests(unittest.TestCase):
                                                 start_timeout=5, verbose=2)
                 self.assertListEqual([([0, 4, 0, 4, 1, 4, 0, 4], 0),
                                       ([0, 4, 0, 4, 1, 4, 0, 4], 1)], res)
+
+    """
+    Test dummy callback function from pytorch lightning trainer.
+    """
+    def test_dummy_callback(self):
+        from pytorch_lightning.callbacks import Callback
+        model = create_xor_model()
+
+        with spark_session('test_fit_model') as spark:
+            df = create_noisy_xor_data(spark)
+
+            for num_proc in [1, 2]:
+                epochs = 2
+
+                class MyDummyCallback(Callback):
+                    def __init__(self):
+                        self.counter = 0
+
+                    def on_init_start(self, trainer):
+                        print('Starting to init trainer!')
+
+                    def on_init_end(self, trainer):
+                        print('Trainer is initialized.')
+
+                    def on_epoch_end(self, trainer, model):
+                        print('A epoch ended.')
+                        self.counter += 1
+
+                    def on_train_end(self, trainer, model):
+                        print('Training ends')
+                        assert self.counter == 4 # FIXME: should be epochs
+
+                dm_callback = MyDummyCallback()
+                callbacks = [dm_callback]
+
+                with local_store() as store:
+                    torch_estimator = hvd_spark.TorchEstimator(
+                        num_proc=num_proc,
+                        store=store,
+                        model=model,
+                        input_shapes=[[-1, 2]],
+                        feature_cols=['features'],
+                        label_cols=['y'],
+                        validation=0.2,
+                        batch_size=4,
+                        epochs=epochs,
+                        verbose=2,
+                        callbacks=callbacks)
+
+                    torch_model = torch_estimator.fit(df)
+
+                    # TODO: Find a way to pass log metrics from remote, and assert base on the logger.
+                    trained_model = torch_model.getModel()
+                    pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
+                    assert len(pred) == 1
+                    assert pred.dtype == torch.float32
+
+
+    """
+    Test callback function for learning rate schedualer and monitor.
+    """
+    def test_lr_schedualler_callback(self):
+        from pytorch_lightning.callbacks import LearningRateMonitor
+
+        class LRTestingModel(XOR):
+            def configure_optimizers(self):
+                optimizer = torch.optim.Adam(model.parameters(), lr=0.02)
+                def lambda_func(epoch):
+                    return epoch // 30
+
+                lr_scheduler = {
+                    'scheduler': torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda_func),
+                    'name': 'my_logging_name'
+                }
+                return [optimizer], [lr_scheduler]
+
+        model = LRTestingModel()
+
+        with spark_session('test_fit_model') as spark:
+            df = create_noisy_xor_data(spark)
+
+            lr_monitor = LearningRateMonitor(logging_interval='step')
+            callbacks = [lr_monitor]
+
+            with local_store() as store:
+                torch_estimator = hvd_spark.TorchEstimator(
+                    num_proc=2,
+                    store=store,
+                    model=model,
+                    input_shapes=[[-1, 2]],
+                    feature_cols=['features'],
+                    label_cols=['y'],
+                    validation=0.2,
+                    batch_size=4,
+                    epochs=2,
+                    verbose=2,
+                    callbacks=callbacks)
+
+                torch_model = torch_estimator.fit(df)
+
+                # TODO: Find a way to pass log metrics from remote, and assert base on the logger.
+                trained_model = torch_model.getModel()
+                pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
+                assert len(pred) == 1
+                assert pred.dtype == torch.float32
+
+    """
+    Test callback function for model checkpoint.
+    """
+    def test_model_checkpoint_callback(self):
+        self.skipTest('There is a deadlock bug for checkpoint call back. ' +
+                      'Will add this test back when it is solved.')
+
+        from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
+
+        with spark_session('test_fit_model') as spark:
+            df = create_noisy_xor_data(spark)
+            model = create_xor_model()
+
+            with tempdir() as dir:
+                checkpoint_callback = ModelCheckpoint(dirpath=dir)
+                callbacks = [checkpoint_callback]
+
+                with local_store() as store:
+                    torch_estimator = hvd_spark.TorchEstimator(
+                        num_proc=2,
+                        store=store,
+                        model=model,
+                        input_shapes=[[-1, 2]],
+                        feature_cols=['features'],
+                        label_cols=['y'],
+                        validation=0.2,
+                        batch_size=4,
+                        epochs=2,
+                        verbose=2,
+                        callbacks=callbacks)
+
+                    torch_model = torch_estimator.fit(df)
+
+                    # TODO: Find a way to pass log metrics from remote, and assert base on the logger.
+                    trained_model = torch_model.getModel()
+                    pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
+                    assert len(pred) == 1
+                    assert pred.dtype == torch.float32
+
+    """
+    Test callback function for early stop.
+    """
+    def test_early_stop_callback(self):
+        self.skipTest('There is a deadlock bug for early stop call back. ' +
+                      'Will add this test back when it is solved.')
+
+        from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+
+        with spark_session('test_fit_model') as spark:
+            df = create_noisy_xor_data(spark)
+            model = create_xor_model()
+
+            early_stop_callback = EarlyStopping(monitor='val_loss',
+                                                min_delta=0.00,
+                                                patience=3,
+                                                verbose=True,
+                                                mode='max')
+            callbacks = [early_stop_callback]
+
+            with local_store() as store:
+                torch_estimator = hvd_spark.TorchEstimator(
+                    num_proc=2,
+                    store=store,
+                    model=model,
+                    input_shapes=[[-1, 2]],
+                    feature_cols=['features'],
+                    label_cols=['y'],
+                    validation=0.2,
+                    batch_size=4,
+                    epochs=2,
+                    verbose=2,
+                    callbacks=callbacks)
+
+                torch_model = torch_estimator.fit(df)
+
+                # TODO: Find a way to pass log metrics from remote, and assert base on the logger.
+                trained_model = torch_model.getModel()
+                pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
+                assert len(pred) == 1
+                assert pred.dtype == torch.float32
 
 
 def check_fail(dir, rank, epoch, batch):
