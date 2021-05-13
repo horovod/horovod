@@ -18,7 +18,6 @@ from pyspark.sql import SparkSession
 from pyspark.sql.functions import udf
 
 from pytorch_lightning import LightningModule
-from pytorch_lightning.callbacks import EarlyStopping
 
 import torch
 import torch.nn as nn
@@ -45,6 +44,7 @@ parser.add_argument('--work-dir', default='/tmp',
 parser.add_argument('--data-dir', default='/tmp',
                     help='location of the training dataset in the local filesystem (will be downloaded if needed)')
 
+
 def train_model(args):
     # do not run this test for pytorch lightning below min supported verson
     import pytorch_lightning as pl
@@ -52,7 +52,7 @@ def train_model(args):
         print("Skip test for pytorch_ligthning=={}, min support version is {}".format(pl.__version__, MIN_PL_VERSION))
         return
 
-     # Initialize SparkSession
+    # Initialize SparkSession
     conf = SparkConf().setAppName('pytorch_spark_mnist').set('spark.sql.shuffle.partitions', '16')
     if args.master:
         conf.setMaster(args.master)
@@ -125,7 +125,6 @@ def train_model(args):
             tensorboard_logs = {'val_loss': avg_loss}
             return {'avg_val_loss': avg_loss, 'log': tensorboard_logs}
 
-
     model = Net()
 
     # Train a Horovod Spark Estimator on the DataFrame
@@ -135,18 +134,33 @@ def train_model(args):
 
     from pytorch_lightning.callbacks import Callback
 
-    class MyPrintingCallback(Callback):
+    epochs = args.epochs
+
+    class MyDummyCallback(Callback):
+        def __init__(self):
+            self.epcoh_end_counter = 0
+            self.train_epcoh_end_counter = 0
 
         def on_init_start(self, trainer):
             print('Starting to init trainer!')
 
         def on_init_end(self, trainer):
-            print('trainer is init now')
+            print('Trainer is initialized.')
 
-        def on_train_end(self, trainer, pl_module):
-            print('do something when training ends')
+        def on_epoch_end(self, trainer, model):
+            print('A epoch ended.')
+            self.epcoh_end_counter += 1
 
-    callbacks = [MyPrintingCallback()]
+        def on_train_epoch_end(self, trainer, model, unused=None):
+            print('A train epoch ended.')
+            self.train_epcoh_end_counter += 1
+
+        def on_train_end(self, trainer, model):
+            print('Training ends')
+            assert self.epcoh_end_counter == 2 * epochs
+            assert self.train_epcoh_end_counter == epochs
+
+    callbacks = [MyDummyCallback()]
 
     # FIXME: add EarlyStopping and ModelCheckpoint
     # from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
@@ -158,7 +172,6 @@ def train_model(args):
     #                                 patience=3,
     #                                 verbose=True,
     #                                 mode='max'))
-
 
     torch_estimator = hvd.TorchEstimator(backend=backend,
                                          store=store,
@@ -183,6 +196,7 @@ def train_model(args):
     print('Test accuracy:', evaluator.evaluate(pred_df))
 
     spark.stop()
+
 
 if __name__ == '__main__':
     args = parser.parse_args()

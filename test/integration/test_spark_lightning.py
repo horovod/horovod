@@ -520,50 +520,57 @@ class SparkLightningTests(unittest.TestCase):
             df = create_noisy_xor_data(spark)
 
             for num_proc in [1, 2]:
-                epochs = 2
+                for epochs in [2, 3]:
 
-                class MyDummyCallback(Callback):
-                    def __init__(self):
-                        self.counter = 0
+                    class MyDummyCallback(Callback):
+                        def __init__(self):
+                            self.epcoh_end_counter = 0
+                            self.train_epcoh_end_counter = 0
 
-                    def on_init_start(self, trainer):
-                        print('Starting to init trainer!')
+                        def on_init_start(self, trainer):
+                            print('Starting to init trainer!')
 
-                    def on_init_end(self, trainer):
-                        print('Trainer is initialized.')
+                        def on_init_end(self, trainer):
+                            print('Trainer is initialized.')
 
-                    def on_epoch_end(self, trainer, model):
-                        print('A epoch ended.')
-                        self.counter += 1
+                        def on_epoch_end(self, trainer, model):
+                            print('A epoch ended.')
+                            self.epcoh_end_counter += 1
 
-                    def on_train_end(self, trainer, model):
-                        print('Training ends')
-                        assert self.counter == 4 # FIXME: should be epochs
+                        def on_train_epoch_end(self, trainer, model, unused=None):
+                            print('A train epoch ended.')
+                            self.train_epcoh_end_counter += 1
 
-                dm_callback = MyDummyCallback()
-                callbacks = [dm_callback]
+                        def on_train_end(self, trainer, model):
+                            print('Training ends')
+                            # on_epoch_end will be called by both train and validation loop
+                            assert self.epcoh_end_counter == 2 * epochs
+                            assert self.train_epcoh_end_counter == epochs
 
-                with local_store() as store:
-                    torch_estimator = hvd_spark.TorchEstimator(
-                        num_proc=num_proc,
-                        store=store,
-                        model=model,
-                        input_shapes=[[-1, 2]],
-                        feature_cols=['features'],
-                        label_cols=['y'],
-                        validation=0.2,
-                        batch_size=4,
-                        epochs=epochs,
-                        verbose=2,
-                        callbacks=callbacks)
+                    dm_callback = MyDummyCallback()
+                    callbacks = [dm_callback]
 
-                    torch_model = torch_estimator.fit(df)
+                    with local_store() as store:
+                        torch_estimator = hvd_spark.TorchEstimator(
+                            num_proc=num_proc,
+                            store=store,
+                            model=model,
+                            input_shapes=[[-1, 2]],
+                            feature_cols=['features'],
+                            label_cols=['y'],
+                            validation=0.2,
+                            batch_size=4,
+                            epochs=epochs,
+                            verbose=2,
+                            callbacks=callbacks)
 
-                    # TODO: Find a way to pass log metrics from remote, and assert base on the logger.
-                    trained_model = torch_model.getModel()
-                    pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
-                    assert len(pred) == 1
-                    assert pred.dtype == torch.float32
+                        torch_model = torch_estimator.fit(df)
+
+                        # TODO: Find a way to pass log metrics from remote, and assert base on the logger.
+                        trained_model = torch_model.getModel()
+                        pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
+                        assert len(pred) == 1
+                        assert pred.dtype == torch.float32
 
 
     """
@@ -575,6 +582,7 @@ class SparkLightningTests(unittest.TestCase):
         class LRTestingModel(XOR):
             def configure_optimizers(self):
                 optimizer = torch.optim.Adam(model.parameters(), lr=0.02)
+
                 def lambda_func(epoch):
                     return epoch // 30
 

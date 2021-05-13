@@ -55,7 +55,6 @@ class Net(LightningModule):
         self.fc2 = nn.Linear(50, 10)
 
     def forward(self, x):
-        #raise RuntimeError("x shape is {}".format(x.shape))
         x = x.float()
         x = F.relu(F.max_pool2d(self.conv1(x), 2))
         x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
@@ -69,7 +68,6 @@ class Net(LightningModule):
         return optim.SGD(self.parameters(), lr=0.01, momentum=0.5)
 
     def training_step(self, batch, batch_nb):
-        #import pdb; pdb.set_trace()
         x, y = batch[0], batch[1]
         y_hat = self(x)
         loss = F.nll_loss(y_hat, y.long())
@@ -86,10 +84,12 @@ class Net(LightningModule):
         tensorboard_logs = {'val_loss': avg_loss}
         return {'avg_val_loss': avg_loss, 'log': tensorboard_logs}
 
+
 def metric_average(val, name):
     tensor = torch.tensor(val)
     avg_tensor = hvd.allreduce(tensor, name=name)
     return avg_tensor.item()
+
 
 def test():
     model.eval()
@@ -118,6 +118,7 @@ def test():
     if hvd.rank() == 0:
         print('\nTest set: Average loss: {:.4f}, Accuracy: {:.2f}%\n'.format(
             test_loss, 100. * test_accuracy))
+
 
 if __name__ == '__main__':
     args = parser.parse_args()
@@ -176,27 +177,41 @@ if __name__ == '__main__':
         setattr(model, 'val_dataloader', lambda: test_loader)
 
         from pytorch_lightning.callbacks import Callback
-        class MyPrintingCallback(Callback):
+
+        class MyDummyCallback(Callback):
+            def __init__(self):
+                self.epcoh_end_counter = 0
+                self.train_epcoh_end_counter = 0
 
             def on_init_start(self, trainer):
                 print('Starting to init trainer!')
 
             def on_init_end(self, trainer):
-                print('trainer is init now')
+                print('Trainer is initialized.')
 
-            def on_train_end(self, trainer, pl_module):
-                print('do something when training ends')
+            def on_epoch_end(self, trainer, model):
+                print('A epoch ended.')
+                self.epcoh_end_counter += 1
 
-        callbacks = [MyPrintingCallback(), ModelCheckpoint(dirpath=ckpt_path)]
+            def on_train_epoch_end(self, trainer, model, unused=None):
+                print('A train epoch ended.')
+                self.train_epcoh_end_counter += 1
+
+            def on_train_end(self, trainer, model):
+                print('Training ends')
+                assert self.epcoh_end_counter == 2 * epochs
+                assert self.train_epcoh_end_counter == epochs
+
+        callbacks = [MyDummyCallback(), ModelCheckpoint(dirpath=ckpt_path)]
 
         trainer = Trainer(accelerator='horovod',
-                        gpus=(1 if torch.cuda.is_available() else 0),
-                        callbacks=callbacks,
-                        max_epochs=epochs,
-                        limit_train_batches=train_percent,
-                        limit_val_batches=val_percent,
-                        logger=logger,
-                        num_sanity_val_steps=0)
+                          gpus=(1 if torch.cuda.is_available() else 0),
+                          callbacks=callbacks,
+                          max_epochs=epochs,
+                          limit_train_batches=train_percent,
+                          limit_val_batches=val_percent,
+                          logger=logger,
+                          num_sanity_val_steps=0)
 
         trainer.fit(model)
 
