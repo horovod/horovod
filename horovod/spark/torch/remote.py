@@ -243,6 +243,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                                     **reader_factory_kwargs) \
                     if should_validate else empty_batch_reader() as val_reader:
 
+                    # requires petastorm<0.11.0
                     train_loader = BatchedDataLoader(train_reader,
                                                      num_epochs=epochs if inmemory_cache_all else None,
                                                      batch_size=batch_size,
@@ -331,6 +332,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                         return aggregate_metrics('train', epoch, train_loss, metric_value_groups)
 
                     if should_validate:
+                        # requires petastorm<0.11.0
                         val_loader = BatchedDataLoader(val_reader,
                                                        num_epochs=epochs if inmemory_cache_all else None,
                                                        batch_size=batch_size,
