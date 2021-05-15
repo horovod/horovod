@@ -168,9 +168,8 @@ class _SyncBatchNorm(Function):
 
             if _SYNC_BN_V4:
                 # from 1.9.0 on we need a count tensor on all devices
-                count_all_handle = allreduce_async(count_all, op=Sum, name='sync_batch_norm.count_all')
-                count_all = synchronize(count_all_handle)
-                count_all = count_all.view(-1).int().to(grad_output.device)
+                # count_all is calculated as total count across all ranks in forward function
+                count_all = count_all.to(dtype=torch.int, device=grad_output.device)
             elif _SYNC_BN_V2 or _SYNC_BN_V3:
                 # before 1.9.0 we need the count as an integer to compute means values
                 count = count_all.sum()
