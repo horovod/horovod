@@ -244,7 +244,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                     if should_validate else empty_batch_reader() as val_reader:
 
                     if inmemory_cache_all:
-                        # Petastorm introduced InMemBatchedDataLoader class in v0.11.0rc6
+                        # Petastorm introduced InMemBatchedDataLoader class in v0.11.0
                         train_loader = InMemBatchedDataLoader(train_reader,
                                                               batch_size=batch_size,
                                                               num_epochs=epochs,
@@ -343,7 +343,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                             validation_steps = validation_steps_per_epoch
 
                         if inmemory_cache_all:
-                            # Petastorm introduced InMemBatchedDataLoader class in v0.11.0rc6
+                            # Petastorm introduced InMemBatchedDataLoader class in v0.11.0
                             val_loader = InMemBatchedDataLoader(val_reader,
                                                                 batch_size=val_batch_sze,
                                                                 num_epochs=epochs,
