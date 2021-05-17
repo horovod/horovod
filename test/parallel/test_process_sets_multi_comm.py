@@ -14,7 +14,10 @@ class ProcessSetsMultiCommTests(unittest.TestCase):
         if gloo_size != -1:
             self.skipTest("This test is specific to MPI and does not apply with Gloo controller.")
 
-        from mpi4py import MPI
+        try:
+            from mpi4py import MPI
+        except ImportError:
+            self.skipTest("This test requires mpi4py")
 
         # This will be our baseline world communicator
         comm = MPI.COMM_WORLD

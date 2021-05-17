@@ -22,6 +22,12 @@ class ProcessSetsStaticTests(unittest.TestCase):
         if size == 1:
             self.skipTest("Only one worker available")
 
+        try:
+            import mpi4py
+            mpi4py.rc.initialize = False
+        except ImportError:
+            self.skipTest("This test requires mpi4py")
+
         hvd.init(process_sets=[[0], list(range(1, size))])
         ps = hvd.get_process_sets()
         self.assertDictEqual(ps, {0: list(range(size)),
@@ -29,8 +35,6 @@ class ProcessSetsStaticTests(unittest.TestCase):
                                   2: list(range(1, size))})
 
         # barrier before shutdown
-        import mpi4py
-        mpi4py.rc.initialize = False
         from mpi4py import MPI
         MPI.COMM_WORLD.barrier()
 

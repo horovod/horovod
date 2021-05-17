@@ -36,19 +36,23 @@ class HorovodBasics(object):
         """A function that initializes Horovod.
 
         Args:
+
           comm: One of these possibilities:
-             1) List specifying ranks for the communicator, relative to the MPI_COMM_WORLD
-                communicator
-             2) None: Use all ranks of MPI_COMM_WORLD
-             3) MPI communicator to use. Given communicator will be duplicated.
-             4) List of MPI communicators. The first entry will be duplicated and used as
-                the global Horovod communicator. Horovod process sets will be built
-                corresponding to the remaining entries.
+
+            1) List specifying ranks for the communicator, relative to the MPI_COMM_WORLD
+               communicator
+            2) None: Use all ranks of MPI_COMM_WORLD
+            3) MPI communicator to use. Given communicator will be duplicated.
+            4) List of MPI communicators. The first entry will be duplicated and used as
+               the global Horovod communicator. Horovod process sets will be built
+               corresponding to the remaining entries.
+
           process_sets: If no explicit MPI communicators are passed, one of these possibilities:
-             1) None -- do not initialize any process sets
-             2) List[List[int]] -- initialize process sets containing these Horovod ranks
-             3) "dynamic": do not initialize any process sets now, but set environment
-                HOROVOD_DYNAMIC_PROCESS_SETS=1 .
+
+            1) None -- do not initialize any process sets
+            2) List[List[int]] -- initialize process sets containing these Horovod ranks
+            3) "dynamic": do not initialize any process sets now, but set environment
+               HOROVOD_DYNAMIC_PROCESS_SETS=1 .
         """
         if comm is None:
             comm = []
