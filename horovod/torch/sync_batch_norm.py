@@ -34,6 +34,7 @@ _SYNC_BN_V2 = (
     LooseVersion(torch.__version__) <= LooseVersion('1.6.0')
 )
 _SYNC_BN_V3 = LooseVersion(torch.__version__) >= LooseVersion('1.6.0')
+_SYNC_BN_V4 = LooseVersion(torch.__version__) >= LooseVersion('1.9.0')
 
 
 class SyncBatchNorm(_BatchNorm):
@@ -165,26 +166,44 @@ class _SyncBatchNorm(Function):
             sum_dy = synchronize(sum_dy_handle)
             sum_dy_xmu = synchronize(sum_dy_xmu_handle)
 
-            if _SYNC_BN_V2 or _SYNC_BN_V3:
-                count_all_sum = count_all.sum()
-                mean_dy = sum_dy / count_all_sum
-                mean_dy_xmu = sum_dy_xmu / count_all_sum
+            if _SYNC_BN_V4:
+                # from 1.9.0 on we need a count tensor on all devices
+                # count_all is calculated as total count across all ranks in forward function
+                count_all = count_all.to(dtype=torch.int, device=grad_output.device)
+            elif _SYNC_BN_V2 or _SYNC_BN_V3:
+                # before 1.9.0 we need the count as an integer to compute means values
+                count = count_all.sum()
             else:
                 # before 1.5.0, sum_dy was sum of means from every worker, so we just 
                 # need to divide it by number of workers
-                mean_dy = sum_dy / size()
-                mean_dy_xmu = sum_dy_xmu / size()
+                count = size()
 
             # backward pass for gradient calculation
-            grad_input = torch.batch_norm_backward_elemt(
-                grad_output,
-                saved_input,
-                mean,
-                invstd,
-                weight,
-                mean_dy,
-                mean_dy_xmu
-            )
+            # we are calling into a non-public undocumented function which broke moving to 1.9.0
+            # https://github.com/pytorch/pytorch/issues/57900
+            if _SYNC_BN_V4:
+                # from 1.9.0 on, sums and count parameters expected
+                grad_input = torch.batch_norm_backward_elemt(
+                    grad_output,
+                    saved_input,
+                    mean,
+                    invstd,
+                    weight,
+                    sum_dy,
+                    sum_dy_xmu,
+                    count_all
+                )
+            else:
+                # before 1.9.0, mean parameters expected, not sums and count
+                grad_input = torch.batch_norm_backward_elemt(
+                    grad_output,
+                    saved_input,
+                    mean,
+                    invstd,
+                    weight,
+                    sum_dy / count,
+                    sum_dy_xmu / count
+                )
         else:
             grad_input = None
 
