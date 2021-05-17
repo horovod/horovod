@@ -25,7 +25,7 @@ import tensorflow as tf
 
 from pyspark import keyword_only
 from pyspark.ml.util import MLWritable, MLReadable
-from pyspark.ml.param.shared import Param, Params
+from pyspark.ml.param.shared import Param, Params, TypeConverters
 from pyspark.sql import SparkSession
 
 from horovod.runner.common.util import codec
@@ -160,12 +160,16 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
         val_reader_num_workers: Similar to the train_reader_num_workers.
         reader_pool_type: Type of worker pool used to parallelize reading data from the dataset.
                           Should be one of ['thread', 'process']. Defaults to 'process'.
+        inmemory_cache_all: boolean value. Cache the data in memory for training and validation. Default: False.
     """
 
     custom_objects = Param(Params._dummy(), 'custom_objects', 'custom objects')
     _keras_pkg_type = Param(Params._dummy(), '_keras_pkg_type', 'keras package type')
     checkpoint_callback = Param(Params._dummy(), 'checkpoint_callback',
                                 'model checkpointing callback')
+    inmemory_cache_all = Param(Params._dummy(), 'inmemory_cache_all',
+                               'Cache the data in memory for training and validation.',
+                               typeConverter=TypeConverters.toBoolean)
 
     @keyword_only
     def __init__(self,
@@ -198,14 +202,16 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                  val_reader_num_workers=None,
                  reader_pool_type=None,
                  label_shapes=None,
-                 checkpoint_callback=None):
+                 checkpoint_callback=None,
+                 inmemory_cache_all=False):
 
         super(KerasEstimator, self).__init__()
 
         self._setDefault(optimizer=None,
                          custom_objects={},
                          _keras_pkg_type=None,
-                         checkpoint_callback=None)
+                         checkpoint_callback=None,
+                         inmemory_cache_all=False)
 
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
@@ -264,6 +270,12 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
 
     def getCheckpointCallback(self):
         return self.getOrDefault(self.checkpoint_callback)
+
+    def setInMemoryCacheAll(self, value):
+        return self._set(inmemory_cache_all=value)
+
+    def getInMemoryCacheAll(self):
+        return self.getOrDefault(self.inmemory_cache_all)
 
     def _check_metadata_compatibility(self, metadata):
         input_shapes, output_shapes = self.get_model_shapes()
