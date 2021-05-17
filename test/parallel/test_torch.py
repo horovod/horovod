@@ -2298,7 +2298,7 @@ class TorchTests(unittest.TestCase):
             assert torch.allclose(hvd.allreduce(sync_bn.bias.grad, name='sync_bn.bias.grad'), bn.bias.grad, 1e-6)
             assert torch.allclose(hvd.allreduce(ts1.grad, name='ts1.grad'), ts2.grad, 1e-6)
 
-    @pytest.mark.skipif(platform.system() == 'Darwin', reason='https://github.com/horovod/horovod/issues/2496')
+    @pytest.mark.skip(reason='https://github.com/horovod/horovod/issues/2496')
     def test_timeline_api(self):
         hvd.init()
 
