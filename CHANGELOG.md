@@ -8,24 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- Estimator: add petastorm reader_pool_type into constructor ([#2903](https://github.com/horovod/horovod/pull/2903))
-- Added NVTX tracing hooks for profiling with Nsight Systems. ([#2723](https://github.com/horovod/horovod/pull/2723))
-- Added a generic `num_workers` API for ``RayExecutor`` ([#2870](https://github.com/horovod/horovod/pull/2870))
-
-- Added pytorch_lightning spark estimator which enables training pytorch_lightning models. ([#2713](https://github.com/horovod/horovod/pull/2713))
-
-- Supports Ray Client without code changes. ([#2882](https://github.com/horovod/horovod/pull/2882))
-
-- Supports inmemory cache option for Keras Estimator. ([#2896](https://github.com/horovod/horovod/pull/2896))
-
-- Added FP16 support for GPU tensor in mxnet. ([#2915](https://github.com/horovod/horovod/pull/2915))
-
 ### Changed
-
-- Changed `alltoall` to return the received splits as a second return value if non-uniform splits are sent. ([#2631](https://github.com/horovod/horovod/pull/2631))
-- Changed ``RayExecutor`` to use [Ray Placement Groups](https://docs.ray.io/en/master/placement-group.html) for worker colocation. ([#2824](https://github.com/horovod/horovod/pull/2824))
-- Changed ``Inmemory dataloader`` usage for Torch Estimator with petastorm v0.11.0 release. ([#2896](https://github.com/horovod/horovod/pull/2896))
-
 
 ### Deprecated
 
@@ -33,9 +16,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+## [v0.22.0] - 2021-05-18
+
+### Added
+
+- Added pytorch_lightning spark estimator which enables training pytorch_lightning models. ([#2713](https://github.com/horovod/horovod/pull/2713))
+
+- Added NVTX tracing hooks for profiling with Nsight Systems. ([#2723](https://github.com/horovod/horovod/pull/2723))
+
+- Added a generic `num_workers` API for ``RayExecutor`` ([#2870](https://github.com/horovod/horovod/pull/2870))
+
+- Supports Ray Client without code changes. ([#2882](https://github.com/horovod/horovod/pull/2882))
+
+- Supports inmemory cache option for Keras Estimator. ([#2896](https://github.com/horovod/horovod/pull/2896))
+
+- Added FP16 support for GPU tensor in mxnet. ([#2915](https://github.com/horovod/horovod/pull/2915))
+
+- Added response caching for allgather operations. ([#2872](https://github.com/horovod/horovod/pull/2872))
+
+- Estimator: add petastorm reader_pool_type into constructor ([#2903](https://github.com/horovod/horovod/pull/2903))
+
+### Changed
+
+- Changed `alltoall` to return the received splits as a second return value if non-uniform splits are sent. ([#2631](https://github.com/horovod/horovod/pull/2631))
+
+- Changed ``RayExecutor`` to use [Ray Placement Groups](https://docs.ray.io/en/master/placement-group.html) for worker colocation. ([#2824](https://github.com/horovod/horovod/pull/2824))
+
+- Changed ``Inmemory dataloader`` usage for Torch Estimator with petastorm v0.11.0 release. ([#2896](https://github.com/horovod/horovod/pull/2896))
+
+### Fixed
+
 - Changed RayExecutor to use Ray node ID to enable multi-container:single-host setups. ([#2883](https://github.com/horovod/horovod/pull/2882))
+
 - Support sparse gradients aggregation in TF1 Keras. ([#2879](https://github.com/horovod/horovod/pull/2879))
+
 - Respect `global_step` parameter for LegacyOptimizers when aggregating gradients.  ([#2879](https://github.com/horovod/horovod/pull/2879))
+
+- Fixed compatibility with PyTorch 1.9.0. ([#2829](https://github.com/horovod/horovod/pull/2829))
 
 ## [v0.21.3] - 2021-02-15
 
