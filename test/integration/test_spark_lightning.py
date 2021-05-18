@@ -626,8 +626,8 @@ class SparkLightningTests(unittest.TestCase):
     Test callback function for model checkpoint.
     """
     def test_model_checkpoint_callback(self):
-        self.skipTest('There is a deadlock bug for checkpoint call back. ' +
-                      'Will add this test back when it is solved.')
+        # self.skipTest('There is a deadlock bug for checkpoint call back. ' +
+        #               'Will add this test back when it is solved.')
 
         from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 

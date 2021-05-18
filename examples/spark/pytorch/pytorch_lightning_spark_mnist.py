@@ -148,7 +148,7 @@ def train_model(args):
             print('Trainer is initialized.')
 
         def on_epoch_end(self, trainer, model):
-            print('A epoch ended.')
+            print('A train or eval epoch ended.')
             self.epcoh_end_counter += 1
 
         def on_train_epoch_end(self, trainer, model, unused=None):
@@ -161,17 +161,6 @@ def train_model(args):
             assert self.train_epcoh_end_counter == epochs
 
     callbacks = [MyDummyCallback()]
-
-    # FIXME: add EarlyStopping and ModelCheckpoint
-    # from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
-    # callbacks.append(ModelCheckpoint(dirpath=args.work_dir))
-
-    # from pytorch_lightning.callbacks.early_stopping import EarlyStopping
-    # callbacks.append(EarlyStopping(monitor='val_loss',
-    #                                 min_delta=0.00,
-    #                                 patience=3,
-    #                                 verbose=True,
-    #                                 mode='max'))
 
     torch_estimator = hvd.TorchEstimator(backend=backend,
                                          store=store,

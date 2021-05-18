@@ -165,7 +165,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                                typeConverter=TypeConverters.toBoolean)
 
     num_gpus = Param(Params._dummy(), 'num_gpus',
-                     'number of gpus per process.')
+                     'Number of gpus per process, default to 1 when CUDA is available in the backend, otherwise 0.')
 
 
     @keyword_only
@@ -328,7 +328,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                                        val_rows=val_rows,
                                        avg_row_size=avg_row_size,
                                        is_legacy=is_legacy)
-        handle = backend.run(trainer, args=(serialized_model, self.getNumGPUs()), env={})
+        handle = backend.run(trainer, args=(serialized_model,), env={})
         return self._create_model(handle, run_id, metadata)
 
     def _read_checkpoint(self, run_id):

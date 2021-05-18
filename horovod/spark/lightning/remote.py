@@ -17,6 +17,7 @@ import contextlib
 import io
 import os
 import tempfile
+import math
 from distutils.version import LooseVersion
 
 import torch
@@ -53,6 +54,9 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     transformation = transformation_fn if transformation_fn else None
     inmemory_cache_all = estimator.getInMemoryCacheAll()
     callbacks = estimator.getCallbacks()
+    train_steps_per_epoch = estimator.getTrainStepsPerEpoch()
+    val_steps_per_epoch = estimator.getValidationStepsPerEpoch()
+    num_gpus = estimator.getNumGPUs()
 
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
@@ -76,18 +80,11 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     # Storage
     store = estimator.getStore()
     remote_store = store.to_remote(run_id, dataset_idx)
-    #is_dbfs = isinstance(store, DBFSLocalStore)
 
-    train_steps_per_epoch = estimator.getTrainStepsPerEpoch()
-    train_percent = train_rows / train_steps_per_epoch if train_steps_per_epoch else 1.0
-
-    val_steps_per_epoch = estimator.getValidationStepsPerEpoch()
-    val_percent = val_rows / val_steps_per_epoch if val_steps_per_epoch else 1.0
-
-    def train(serialized_model, num_gpus):
+    def train(serialized_model):
         import horovod.torch as hvd
         # Horovod: initialize library.
-        # hvd.init()
+        hvd.init()
 
         with tempfile.TemporaryDirectory() as last_ckpt_dir, remote_store.get_local_output_dir() as run_output_dir:
             last_ckpt_file = os.path.join(last_ckpt_dir, 'last.ckpt')
@@ -114,6 +111,9 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             model = deserialize(serialized_model)
 
+            _train_steps_per_epoch = train_steps_per_epoch if train_steps_per_epoch else 1.0
+            _val_steps_per_epoch = val_steps_per_epoch if val_steps_per_epoch else 1.0
+
             cuda_available = torch.cuda.is_available()
             if cuda_available:
                 # Horovod: pin GPU to local rank or the assigned GPU from spark.
@@ -121,19 +121,21 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                 # Move model to GPU.
                 model.cuda()
 
-            if num_gpus is None:
-                num_gpus = 1 if cuda_available else 0
+            _num_gpus = num_gpus
+            if _num_gpus is None:
+                _num_gpus = 1 if cuda_available else 0
 
             kwargs = {'accelerator': 'horovod',
-                      'gpus': num_gpus,
+                      'gpus': _num_gpus,
                       'callbacks': callbacks,
                       'max_epochs': epochs,
-                      'limit_train_batches': train_percent,
-                      'limit_val_batches': val_percent,
+                      'limit_train_batches': _train_steps_per_epoch,
+                      'limit_val_batches': _val_steps_per_epoch,
                       'logger': logger,
                       'resume_from_checkpoint': (last_ckpt_file if ckpt_bytes else None),
                       'checkpoint_callback': is_model_checkpoint_callback_exist,
-                      'num_sanity_val_steps': 0
+                      'num_sanity_val_steps': 0,
+                      'reload_dataloaders_every_epoch': False
                       }
             print("Creating trainer with: \n ", kwargs)
             trainer = Trainer(**kwargs)
@@ -192,6 +194,7 @@ def _make_reset_callbacks():
 
     return [ResetCallback()]
 
+
 def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calculate_shuffle_buffer_size, dataloader_cls):
 
     @contextlib.contextmanager
@@ -228,9 +231,9 @@ def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calcula
         with reader_factory(data_path,
                             num_epochs=1,
                             cur_shard=hvd.rank(),
+                            shard_count=hvd.size(),
                             reader_pool_type=reader_pool_type,
                             workers_count=reader_worker_count,
-                            shard_count=hvd.size(),
                             hdfs_driver=PETASTORM_HDFS_DRIVER,
                             schema_fields=schema_fields,
                             transform_spec=transform_spec,
