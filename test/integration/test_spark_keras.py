@@ -468,25 +468,35 @@ class SparkKerasTests(tf.test.TestCase):
         def _create_numpy_array(n_rows, shape):
             return np.array([[i for i in range(j, j + shape)] for j in range(n_rows)])
 
-        def dummy_reader():
-            Row = collections.namedtuple('row', ['col1', 'col2', 'sample_weight', 'label'])
+        """A dummy reader class only run 1 epoch (2 rows of data) for each iteration"""
+        class DummyReader():
+            def __init__(self):
+                self._in_iter = False
 
-            col11 = _create_numpy_array(rows_in_row_group, 1)
-            col21 = _create_numpy_array(rows_in_row_group, 10)
-            label1 = _create_numpy_array(rows_in_row_group, 8)
-            sw1 = np.array([i / 100. for i in range(rows_in_row_group)])
+            def __iter__(self):
+                if self._in_iter:
+                    raise RuntimeError('Do not support resetting a dummy reader while in the middle of iteration.')
 
-            row1 = Row(col1=col11, col2=col21, label=label1, sample_weight=sw1)
+                self._in_iter = True
+                Row = collections.namedtuple('row', ['col1', 'col2', 'sample_weight', 'label'])
 
-            col12 = _create_numpy_array(rows_in_row_group, 1)
-            col22 = _create_numpy_array(rows_in_row_group, 10)
-            label2 = _create_numpy_array(rows_in_row_group, 8)
-            sw2 = np.array([i / 100. for i in range(rows_in_row_group)])
-            row2 = Row(col1=col12, col2=col22, label=label2, sample_weight=sw2)
+                col11 = _create_numpy_array(rows_in_row_group, 1)
+                col21 = _create_numpy_array(rows_in_row_group, 10)
+                label1 = _create_numpy_array(rows_in_row_group, 8)
+                sw1 = np.array([i / 100. for i in range(rows_in_row_group)])
 
-            while True:
-                yield row1
-                yield row2
+                row1 = Row(col1=col11, col2=col21, label=label1, sample_weight=sw1)
+
+                col12 = _create_numpy_array(rows_in_row_group, 1)
+                col22 = _create_numpy_array(rows_in_row_group, 10)
+                label2 = _create_numpy_array(rows_in_row_group, 8)
+                sw2 = np.array([i / 100. for i in range(rows_in_row_group)])
+                row2 = Row(col1=col12, col2=col22, label=label2, sample_weight=sw2)
+                try:
+                    yield row1
+                    yield row2
+                finally:
+                    self._in_iter = False
 
         metadata = \
             {
@@ -510,7 +520,7 @@ class SparkKerasTests(tf.test.TestCase):
                 },
             }
 
-        reader = dummy_reader()
+        reader = DummyReader()
 
         feature_columns = ['col1', 'col2']
         label_columns = ['label']
@@ -521,10 +531,10 @@ class SparkKerasTests(tf.test.TestCase):
 
         batch_generator = BareKerasUtil._batch_generator_fn(
             feature_columns, label_columns, sample_weight_col,
-            input_shapes, output_shapes, batch_size, metadata)
+            input_shapes, output_shapes, metadata)
 
         for shuffle in [True, False]:
-            batch_gen = batch_generator(reader, shuffle_buffer_size, shuffle=shuffle)
+            batch_gen = batch_generator(reader, batch_size, shuffle_buffer_size, shuffle=shuffle)
 
             for _ in range(10):
                 batch = next(batch_gen)
