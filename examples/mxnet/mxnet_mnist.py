@@ -24,6 +24,8 @@ parser.add_argument('--momentum', type=float, default=0.9,
                     help='SGD momentum (default: 0.9)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disable training on GPU (default: False)')
+parser.add_argument('--fp16-allreduce', action='store_true', default=False,
+                    help='use fp16 compression during allreduce')
 parser.add_argument('--gradient-predivide-factor', type=float, default=1.0,
                     help='apply gradient predivide factor in optimizer (default: 1.0)')
 args = parser.parse_args()
@@ -130,7 +132,8 @@ if params is not None:
     hvd.broadcast_parameters(params, root_rank=0)
 
 # Horovod: create DistributedTrainer, a subclass of gluon.Trainer
-trainer = hvd.DistributedTrainer(params, opt,
+compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
+trainer = hvd.DistributedTrainer(params, opt, compression=compression,
                                  gradient_predivide_factor=args.gradient_predivide_factor)
 
 # Create loss function and train metric
