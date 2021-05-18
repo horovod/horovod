@@ -1186,7 +1186,7 @@ class MXTests(unittest.TestCase):
     
     def test_compression_fp16(self):
         valid_dtypes = ['float16', 'float32', 'float64']
-        invalid_dtypes = ['uint8', 'int8', 'int32', 'int64', 'bool']
+        invalid_dtypes = ['uint8', 'int8', 'int32', 'int64']
 
         tensor_size = (17, 3)
         compression = hvd.Compression.fp16
