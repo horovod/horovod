@@ -44,6 +44,7 @@ parser.add_argument('--work-dir', default='/tmp',
 parser.add_argument('--data-dir', default='/tmp',
                     help='location of the training dataset in the local filesystem (will be downloaded if needed)')
 
+
 def train_model(args):
     # do not run this test for pytorch lightning below min supported verson
     import pytorch_lightning as pl
@@ -51,7 +52,7 @@ def train_model(args):
         print("Skip test for pytorch_ligthning=={}, min support version is {}".format(pl.__version__, MIN_PL_VERSION))
         return
 
-     # Initialize SparkSession
+    # Initialize SparkSession
     conf = SparkConf().setAppName('pytorch_spark_mnist').set('spark.sql.shuffle.partitions', '16')
     if args.master:
         conf.setMaster(args.master)
@@ -124,13 +125,43 @@ def train_model(args):
             tensorboard_logs = {'val_loss': avg_loss}
             return {'avg_val_loss': avg_loss, 'log': tensorboard_logs}
 
-
     model = Net()
 
     # Train a Horovod Spark Estimator on the DataFrame
     backend = SparkBackend(num_proc=args.num_proc,
                            stdout=sys.stdout, stderr=sys.stderr,
                            prefix_output_with_timestamp=True)
+
+    from pytorch_lightning.callbacks import Callback
+
+    epochs = args.epochs
+
+    class MyDummyCallback(Callback):
+        def __init__(self):
+            self.epcoh_end_counter = 0
+            self.train_epcoh_end_counter = 0
+
+        def on_init_start(self, trainer):
+            print('Starting to init trainer!')
+
+        def on_init_end(self, trainer):
+            print('Trainer is initialized.')
+
+        def on_epoch_end(self, trainer, model):
+            print('A train or eval epoch ended.')
+            self.epcoh_end_counter += 1
+
+        def on_train_epoch_end(self, trainer, model, unused=None):
+            print('A train epoch ended.')
+            self.train_epcoh_end_counter += 1
+
+        def on_train_end(self, trainer, model):
+            print('Training ends')
+            assert self.epcoh_end_counter == 2 * epochs
+            assert self.train_epcoh_end_counter == epochs
+
+    callbacks = [MyDummyCallback()]
+
     torch_estimator = hvd.TorchEstimator(backend=backend,
                                          store=store,
                                          model=model,
@@ -140,7 +171,8 @@ def train_model(args):
                                          validation=0.1,
                                          batch_size=args.batch_size,
                                          epochs=args.epochs,
-                                         verbose=1)
+                                         verbose=1,
+                                         callbacks=callbacks)
 
     torch_model = torch_estimator.fit(train_df).setOutputCols(['label_prob'])
 
@@ -153,6 +185,7 @@ def train_model(args):
     print('Test accuracy:', evaluator.evaluate(pred_df))
 
     spark.stop()
+
 
 if __name__ == '__main__':
     args = parser.parse_args()

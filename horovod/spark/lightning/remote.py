@@ -17,12 +17,13 @@ import contextlib
 import io
 import os
 import tempfile
+import math
 from distutils.version import LooseVersion
 
 import torch
 import pytorch_lightning as pl
 from pytorch_lightning import Trainer, Callback
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from horovod.spark.common import constants
@@ -52,6 +53,10 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     transformation_fn = estimator.getTransformationFn()
     transformation = transformation_fn if transformation_fn else None
     inmemory_cache_all = estimator.getInMemoryCacheAll()
+    callbacks = estimator.getCallbacks()
+    train_steps_per_epoch = estimator.getTrainStepsPerEpoch()
+    val_steps_per_epoch = estimator.getValidationStepsPerEpoch()
+    num_gpus = estimator.getNumGPUs()
 
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
@@ -75,46 +80,63 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     # Storage
     store = estimator.getStore()
     remote_store = store.to_remote(run_id, dataset_idx)
-    is_dbfs = isinstance(store, DBFSLocalStore)
-
-    train_steps_per_epoch = estimator.getTrainStepsPerEpoch()
-    train_percent = train_rows / train_steps_per_epoch if train_steps_per_epoch else 1.0
-
-    val_steps_per_epoch = estimator.getValidationStepsPerEpoch()
-    val_percent = val_rows / val_steps_per_epoch if val_steps_per_epoch else 1.0
-
-    # disable call back for now. Because petastorm can not reset index during training.
-    callbacks = None #_make_callbacks()
 
     def train(serialized_model):
+        import horovod.torch as hvd
+        # Horovod: initialize library.
+        hvd.init()
+
         with tempfile.TemporaryDirectory() as last_ckpt_dir, remote_store.get_local_output_dir() as run_output_dir:
             last_ckpt_file = os.path.join(last_ckpt_dir, 'last.ckpt')
             if ckpt_bytes:
                 with open(last_ckpt_file, 'wb') as f:
                     f.write(ckpt_bytes)
 
+            # TODO: Pass the logger from estimator constructor
             logs_path = os.path.join(run_output_dir, remote_store.logs_subdir)
             logger = TensorBoardLogger(logs_path)
 
-            ckpt_path = os.path.join(run_output_dir, remote_store.checkpoint_filename)
-            os.makedirs(ckpt_path, exist_ok=True)
+            # TODO: find out a way to use ckpt_path created from remote store, but all other parameters ingest from estimator config
+            # ckpt_path = os.path.join(run_output_dir, remote_store.checkpoint_filename)
+            # os.makedirs(ckpt_path, exist_ok=True)
+            # model_checkpoint_callback = ModelCheckpoint(dirpath=ckpt_path)
+            # callbacks.append(model_checkpoint_callback)
 
-            # disable checkpoint call back for now, waiting for the fix of
-            # https://github.com/PyTorchLightning/pytorch-lightning/issues/6343
-            checkpoint_callback = None# ModelCheckpoint(dirpath=ckpt_path)
+            is_model_checkpoint_callback_exist = False
+            if callbacks is not None:
+                for cb in callbacks:
+                    if isinstance(cb, ModelCheckpoint):
+                        is_model_checkpoint_callback_exist = True
+                        break
 
             model = deserialize(serialized_model)
+
+            _train_steps_per_epoch = train_steps_per_epoch if train_steps_per_epoch else 1.0
+            _val_steps_per_epoch = val_steps_per_epoch if val_steps_per_epoch else 1.0
+
+            cuda_available = torch.cuda.is_available()
+            if cuda_available:
+                # Horovod: pin GPU to local rank or the assigned GPU from spark.
+                torch.cuda.set_device(_get_assigned_gpu_or_default(default=hvd.local_rank()))
+                # Move model to GPU.
+                model.cuda()
+
+            _num_gpus = num_gpus
+            if _num_gpus is None:
+                _num_gpus = 1 if cuda_available else 0
+
             kwargs = {'accelerator': 'horovod',
-                'gpus': (1 if torch.cuda.is_available() else 0),
-                'callbacks': callbacks,
-                'max_epochs': epochs,
-                'limit_train_batches': train_percent,
-                'limit_val_batches': val_percent,
-                'logger': logger,
-                'checkpoint_callback': checkpoint_callback,
-                'resume_from_checkpoint': (last_ckpt_file if ckpt_bytes else None),
-                'num_sanity_val_steps': 0
-            }
+                      'gpus': _num_gpus,
+                      'callbacks': callbacks,
+                      'max_epochs': epochs,
+                      'limit_train_batches': _train_steps_per_epoch,
+                      'limit_val_batches': _val_steps_per_epoch,
+                      'logger': logger,
+                      'resume_from_checkpoint': (last_ckpt_file if ckpt_bytes else None),
+                      'checkpoint_callback': is_model_checkpoint_callback_exist,
+                      'num_sanity_val_steps': 0,
+                      'reload_dataloaders_every_epoch': False
+                      }
             print("Creating trainer with: \n ", kwargs)
             trainer = Trainer(**kwargs)
 
@@ -135,10 +157,15 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             serialized_checkpoint = io.BytesIO()
             module = model if not is_legacy else model._model
-            torch.save({'model': module.state_dict()}, serialized_checkpoint)
+
+            # TODO: find a way to pass trainer.logged_metrics out.
+            output = {'model': module.state_dict()}
+
+            torch.save(output, serialized_checkpoint)
             serialized_checkpoint.seek(0)
             return serialized_checkpoint
     return train
+
 
 def _reset_loader(loader):
     from petastorm.pytorch import BatchedDataLoader
@@ -150,7 +177,9 @@ def _reset_loader(loader):
     else:
         loader.reader.reset()
 
-def _make_callbacks():
+
+# TODO: enable this when petastorm loader supports reset before epoch ends.
+def _make_reset_callbacks():
     class ResetCallback(Callback):
         def on_train_end(self, trainer, model):
             _reset_loader(trainer.train_dataloader)
@@ -202,9 +231,9 @@ def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calcula
         with reader_factory(data_path,
                             num_epochs=1,
                             cur_shard=hvd.rank(),
+                            shard_count=hvd.size(),
                             reader_pool_type=reader_pool_type,
                             workers_count=reader_worker_count,
-                            shard_count=hvd.size(),
                             hdfs_driver=PETASTORM_HDFS_DRIVER,
                             schema_fields=schema_fields,
                             transform_spec=transform_spec,

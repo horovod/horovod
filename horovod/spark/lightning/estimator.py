@@ -164,6 +164,10 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                                'Cache the data in memory for training and validation.',
                                typeConverter=TypeConverters.toBoolean)
 
+    num_gpus = Param(Params._dummy(), 'num_gpus',
+                     'Number of gpus per process, default to 1 when CUDA is available in the backend, otherwise 0.')
+
+
     @keyword_only
     def __init__(self,
                  num_proc=None,
@@ -197,14 +201,16 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  val_reader_num_workers=None,
                  reader_pool_type=None,
                  label_shapes=None,
-                 inmemory_cache_all=False):
+                 inmemory_cache_all=False,
+                 num_gpus=None):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
                          input_shapes=None,
                          train_minibatch_fn=None,
                          transformation_fn=None,
-                         inmemory_cache_all=False)
+                         inmemory_cache_all=False,
+                         num_gpus=None)
 
         kwargs = self._input_kwargs
 
@@ -240,6 +246,12 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def getInMemoryCacheAll(self):
         return self.getOrDefault(self.inmemory_cache_all)
+
+    def setNumGPUs(self, value):
+        return self._set(num_gpus=value)
+
+    def getNumGPUs(self):
+        return self.getOrDefault(self.num_gpus)
 
     def _get_optimizer(self):
         return self.getOrDefault(self.optimizer)
@@ -338,6 +350,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         # optimizer = copy.deepcopy(self.getOptimizer())
 
         model.load_state_dict(best_checkpoint['model'])
+
         model.eval()
 
         # optimizer.load_state_dict(best_checkpoint['optimizer'])
