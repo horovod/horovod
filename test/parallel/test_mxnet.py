@@ -1183,6 +1183,39 @@ class MXTests(unittest.TestCase):
                 for key, param in params.items():
                     hvd.allreduce_(param.list_data()[0])
                 cnt = 0
+    
+    def test_compression_fp16(self):
+        valid_dtypes = ['float16', 'float32', 'float64']
+        invalid_dtypes = ['uint8', 'int8', 'int32', 'int64']
+
+        tensor_size = (17, 3)
+        compression = hvd.Compression.fp16
+
+        for dtype in valid_dtypes:
+            tensor = mx.nd.ones(shape=tensor_size, dtype=dtype)
+
+            tensor_compressed, ctx = compression.compress(tensor)
+            self.assertEqual(tensor_compressed.dtype, np.float16)
+
+            tensor_decompressed = compression.decompress(tensor_compressed, ctx)
+            self.assertEqual(tensor_decompressed.dtype, tensor.dtype)
+
+            expected = np.ones(tensor_size)
+            err = np.linalg.norm(expected - tensor_decompressed.asnumpy())
+            self.assertLess(err, 0.00000001)
+
+        for dtype in invalid_dtypes:
+            tensor = mx.nd.ones(shape=tensor_size, dtype=dtype)
+
+            tensor_compressed, ctx = compression.compress(tensor)
+            self.assertEqual(tensor_compressed.dtype, tensor.dtype)
+
+            tensor_decompressed = compression.decompress(tensor_compressed, ctx)
+            self.assertEqual(tensor_decompressed.dtype, tensor.dtype)
+
+            expected = np.ones(tensor_size)
+            err = np.linalg.norm(expected - tensor_decompressed.asnumpy())
+            self.assertLess(err, 0.00000001)
 
 
 if __name__ == '__main__':
