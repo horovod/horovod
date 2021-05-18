@@ -345,7 +345,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                         if inmemory_cache_all:
                             # Petastorm introduced InMemBatchedDataLoader class in v0.11.0
                             val_loader = InMemBatchedDataLoader(val_reader,
-                                                                batch_size=val_batch_sze,
+                                                                batch_size=val_batch_size,
                                                                 num_epochs=epochs,
                                                                 rows_capacity=validation_steps_per_epoch*val_batch_size,
                                                                 shuffle=False)
