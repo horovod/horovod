@@ -343,37 +343,42 @@ class SparkTorchTests(unittest.TestCase):
                 store.get_train_data_path = lambda v=None: store._train_path
                 store.get_val_data_path = lambda v=None: store._val_path
 
-                with util.prepare_data(backend.num_processes(),
-                                       store,
-                                       df,
-                                       feature_columns=['features'],
-                                       label_columns=['y']):
-                    model = create_xor_model()
-                    optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
-                    loss = nn.BCELoss()
+                # Make sure we cover validation dataloader as well
+                for validation in [0.0, 0.5]:
+                    # Need validation ratio to split data
+                    with util.prepare_data(backend.num_processes(),
+                                           store,
+                                           df,
+                                           feature_columns=['features'],
+                                           label_columns=['y'],
+                                           validation=validation):
+                        model = create_xor_model()
+                        optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+                        loss = nn.BCELoss()
 
-                    for inmemory_cache_all in [False, True]:
-                        for reader_pool_type in ['process', 'thread']:
-                            est = hvd_spark.TorchEstimator(
-                                backend=backend,
-                                store=store,
-                                model=model,
-                                optimizer=optimizer,
-                                input_shapes=[[2]],
-                                feature_cols=['features'],
-                                label_cols=['y'],
-                                batch_size=1,
-                                epochs=3,
-                                verbose=2,
-                                reader_pool_type=reader_pool_type,
-                                inmemory_cache_all=inmemory_cache_all)
+                        for inmemory_cache_all in [False, True]:
+                            for reader_pool_type in ['process', 'thread']:
+                                est = hvd_spark.TorchEstimator(
+                                    backend=backend,
+                                    store=store,
+                                    model=model,
+                                    optimizer=optimizer,
+                                    input_shapes=[[2]],
+                                    feature_cols=['features'],
+                                    label_cols=['y'],
+                                    batch_size=1,
+                                    epochs=3,
+                                    verbose=2,
+                                    reader_pool_type=reader_pool_type,
+                                    inmemory_cache_all=inmemory_cache_all,
+                                    validation=validation)
 
-                            # To make sure that setLoss works with non-list loss.
-                            est.setLoss(loss)
+                                # To make sure that setLoss works with non-list loss.
+                                est.setLoss(loss)
 
-                            transformer = est.fit_on_parquet()
-                            predictions = transformer.transform(df)
-                            assert predictions.count() == df.count()
+                                transformer = est.fit_on_parquet()
+                                predictions = transformer.transform(df)
+                                assert predictions.count() == df.count()
 
     def test_calculate_loss_with_sample_weight(self):
         calculate_loss = remote._calculate_loss_fn()

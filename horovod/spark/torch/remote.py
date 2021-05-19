@@ -347,7 +347,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                             val_loader = InMemBatchedDataLoader(val_reader,
                                                                 batch_size=val_batch_size,
                                                                 num_epochs=epochs,
-                                                                rows_capacity=validation_steps_per_epoch*val_batch_size,
+                                                                rows_capacity=validation_steps*val_batch_size,
                                                                 shuffle=False)
                         else:
                             val_loader = BatchedDataLoader(val_reader,
