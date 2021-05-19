@@ -204,32 +204,38 @@ class SparkKerasTests(tf.test.TestCase):
                 store.get_train_data_path = lambda v=None: store._train_path
                 store.get_val_data_path = lambda v=None: store._val_path
 
-                with util.prepare_data(backend.num_processes(),
-                                       store,
-                                       df,
-                                       feature_columns=['features'],
-                                       label_columns=['y']):
-                    model = create_xor_model()
-                    optimizer = tf.keras.optimizers.SGD(lr=0.1)
-                    loss = 'binary_crossentropy'
+                # Make sure we cover val dataloader cases
+                for validation in [0.0, 0.5]:
+                    with util.prepare_data(backend.num_processes(),
+                                           store,
+                                           df,
+                                           feature_columns=['features'],
+                                           label_columns=['y'],
+                                           validation=validation):
+                        model = create_xor_model()
+                        optimizer = tf.keras.optimizers.SGD(lr=0.1)
+                        loss = 'binary_crossentropy'
 
-                    for reader_pool_type in ['process', 'thread']:
-                        est = hvd.KerasEstimator(
-                            backend=backend,
-                            store=store,
-                            model=model,
-                            optimizer=optimizer,
-                            loss=loss,
-                            feature_cols=['features'],
-                            label_cols=['y'],
-                            batch_size=1,
-                            epochs=3,
-                            reader_pool_type=reader_pool_type,
-                            verbose=2)
+                        for inmemory_cache_all in [False, True]:
+                            for reader_pool_type in ['process', 'thread']:
+                                est = hvd.KerasEstimator(
+                                    backend=backend,
+                                    store=store,
+                                    model=model,
+                                    optimizer=optimizer,
+                                    loss=loss,
+                                    feature_cols=['features'],
+                                    label_cols=['y'],
+                                    batch_size=1,
+                                    epochs=3,
+                                    reader_pool_type=reader_pool_type,
+                                    validation=validation,
+                                    inmemory_cache_all=inmemory_cache_all,
+                                    verbose=2)
 
-                        transformer = est.fit_on_parquet()
-                        predictions = transformer.transform(df)
-                        assert predictions.count() == df.count()
+                                transformer = est.fit_on_parquet()
+                                predictions = transformer.transform(df)
+                                assert predictions.count() == df.count()
 
     @mock.patch('horovod.spark.keras.remote._pin_gpu_fn')
     @mock.patch('horovod.spark.keras.util.TFKerasUtil.fit_fn')

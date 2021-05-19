@@ -362,33 +362,35 @@ class SparkLightningTests(unittest.TestCase):
                 store.get_train_data_path = lambda v=None: store._train_path
                 store.get_val_data_path = lambda v=None: store._val_path
 
-                with util.prepare_data(backend.num_processes(),
-                                       store,
-                                       df,
-                                       feature_columns=['features'],
-                                       label_columns=['y'],
-                                       validation=0.2):
-                    model = create_xor_model()
+                # Make sure to cover val dataloader cases
+                for validation in [0.0, 0.5]:
+                    with util.prepare_data(backend.num_processes(),
+                                           store,
+                                           df,
+                                           feature_columns=['features'],
+                                           label_columns=['y'],
+                                           validation=validation):
+                        model = create_xor_model()
 
-                    for inmemory_cache_all in [False, True]:
-                        for reader_pool_type in ['process', 'thread']:
-                            est = hvd_spark.TorchEstimator(
-                                backend=backend,
-                                store=store,
-                                model=model,
-                                input_shapes=[[-1, 2]],
-                                feature_cols=['features'],
-                                label_cols=['y'],
-                                validation=0.2,
-                                batch_size=1,
-                                epochs=3,
-                                verbose=2,
-                                inmemory_cache_all=inmemory_cache_all,
-                                reader_pool_type=reader_pool_type)
+                        for inmemory_cache_all in [False, True]:
+                            for reader_pool_type in ['process', 'thread']:
+                                est = hvd_spark.TorchEstimator(
+                                    backend=backend,
+                                    store=store,
+                                    model=model,
+                                    input_shapes=[[-1, 2]],
+                                    feature_cols=['features'],
+                                    label_cols=['y'],
+                                    validation=validation,
+                                    batch_size=1,
+                                    epochs=3,
+                                    verbose=2,
+                                    inmemory_cache_all=inmemory_cache_all,
+                                    reader_pool_type=reader_pool_type)
 
-                            transformer = est.fit_on_parquet()
-                            predictions = transformer.transform(df)
-                            assert predictions.count() == df.count()
+                                transformer = est.fit_on_parquet()
+                                predictions = transformer.transform(df)
+                                assert predictions.count() == df.count()
 
     def test_legacy_calculate_loss_with_sample_weight(self):
         labels = torch.tensor([[1.0, 2.0, 3.0]])
