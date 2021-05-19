@@ -52,7 +52,7 @@ from horovod.spark.common import constants, util
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 from common import tempdir, spawn, is_built
-from spark_common import CallbackBackend, create_noisy_xor_data, create_xor_data, local_store, spark_session
+from spark_common import CallbackBackend, create_noisy_xor_data, create_noisy_xor_data_with_val, create_xor_data, local_store, spark_session
 
 
 class XOR(pl.LightningModule):
@@ -355,7 +355,7 @@ class SparkLightningTests(unittest.TestCase):
 
     def test_direct_parquet_train(self):
         with spark_session('test_direct_parquet_train') as spark:
-            df = create_noisy_xor_data(spark)
+            df = create_noisy_xor_data_with_val(spark)
 
             backend = CallbackBackend()
             with local_store() as store:
@@ -363,7 +363,7 @@ class SparkLightningTests(unittest.TestCase):
                 store.get_val_data_path = lambda v=None: store._val_path
 
                 # Make sure to cover val dataloader cases
-                for validation in [0.0, 0.5]:
+                for validation in [None, 'val']:
                     with util.prepare_data(backend.num_processes(),
                                            store,
                                            df,
