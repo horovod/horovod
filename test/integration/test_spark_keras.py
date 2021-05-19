@@ -39,7 +39,7 @@ from horovod.spark.keras.util import _custom_sparse_to_dense_fn, _serialize_para
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 from common import temppath
-from spark_common import CallbackBackend, create_mnist_data, create_xor_data, local_store, spark_session
+from spark_common import CallbackBackend, create_mnist_data, create_xor_data, create_xor_data_with_val, local_store, spark_session
 
 
 def create_xor_model():
@@ -197,7 +197,7 @@ class SparkKerasTests(tf.test.TestCase):
         mock_pin_gpu_fn.return_value = mock.Mock()
 
         with spark_session('test_keras_direct_parquet_train') as spark:
-            df = create_xor_data(spark)
+            df = create_xor_data_with_val(spark)
 
             backend = CallbackBackend()
             with local_store() as store:
@@ -205,7 +205,7 @@ class SparkKerasTests(tf.test.TestCase):
                 store.get_val_data_path = lambda v=None: store._val_path
 
                 # Make sure we cover val dataloader cases
-                for validation in [0.0, 0.5]:
+                for validation in [None, 'val']:
                     with util.prepare_data(backend.num_processes(),
                                            store,
                                            df,

@@ -162,6 +162,19 @@ def create_xor_data(spark):
     return df
 
 
+def create_xor_data_with_val(spark):
+    data = [[0, 0, 0.0, 0.1, 1], [0, 1, 1.0, 0.2, 0], [1, 0, 1.0, 0.3, 1], [1, 1, 0.0, 0.4, 0],
+            [0, 0, 0.0, 0.1, 1], [0, 1, 1.0, 0.2, 0], [1, 0, 1.0, 0.3, 1], [1, 1, 0.0, 0.4, 0]]
+    schema = StructType([StructField('x1', IntegerType()),
+                         StructField('x2', IntegerType()),
+                         StructField('y', FloatType()),
+                         StructField('weight', FloatType()),
+                         StructField('val', IntegerType())])
+    raw_df = create_test_data_from_schema(spark, data, schema)
+    df = with_features(raw_df, ['x1', 'x2'])
+    return df
+
+
 def create_noisy_xor_data(spark):
     schema = StructType([StructField('x1', FloatType()),
                          StructField('x2', FloatType()),
@@ -177,6 +190,28 @@ def create_noisy_xor_data(spark):
         original = data[i % len(data)]
         sample = original[0:2] + eps
         samples.append(sample.tolist() + [original[2]] + [float(weights[i])])
+
+    raw_df = create_test_data_from_schema(spark, samples, schema)
+    df = with_features(raw_df, ['x1', 'x2'])
+    return df
+
+
+def create_noisy_xor_data_with_val(spark):
+    schema = StructType([StructField('x1', FloatType()),
+                         StructField('x2', FloatType()),
+                         StructField('y', FloatType()),
+                         StructField('weight', FloatType()),
+                         StructField('val', IntegerType())])
+    data = [[0.0, 0.0, 0.0, 0], [0.0, 1.0, 1.0, 1], [1.0, 0.0, 1.0, 0], [1.0, 1.0, 0.0, 1]]
+    n = 1024
+    weights = np.random.uniform(0, 1, n)
+
+    samples = []
+    noise = np.random.normal(0, 0.1, [n, 2])
+    for i, eps in enumerate(noise):
+        original = data[i % len(data)]
+        sample = original[0:2] + eps
+        samples.append(sample.tolist() + [original[2]] + [float(weights[i])] + [original[3]])
 
     raw_df = create_test_data_from_schema(spark, samples, schema)
     df = with_features(raw_df, ['x1', 'x2'])
