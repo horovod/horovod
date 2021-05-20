@@ -13,7 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-import io
 import logging
 import os
 import sys
@@ -22,13 +21,11 @@ import warnings
 
 import mock
 from unittest.mock import call, MagicMock, Mock
-import pytest
 import numpy as np
 from distutils.version import LooseVersion
 
 import torch
 import torch.nn as nn
-import torch.optim as optim
 from torch.nn import functional as F
 
 from pyspark.ml.linalg import VectorUDT
@@ -45,8 +42,7 @@ from horovod.spark.lightning import remote
 from horovod.spark.lightning.estimator import EstimatorParams, _torch_param_serialize, MIN_PL_VERSION
 from horovod.spark.lightning.legacy import to_lightning_module
 
-from horovod.common.util import gloo_built, mpi_built
-from horovod.runner.mpi_run import is_open_mpi
+from horovod.common.util import gloo_built
 from horovod.spark.common import constants, util
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
@@ -111,6 +107,7 @@ def create_xor_model(input_dim=2, output_dim=1):
 
 def create_legacy_xor_model(input_dim=2, output_dim=1):
     return LegacyXOR(input_dim, output_dim)
+
 
 @pytest.mark.skipif(LooseVersion(pl.__version__) < LooseVersion(MIN_PL_VERSION), reason='Pytorch lightning version is not supported.')
 class SparkLightningTests(unittest.TestCase):
@@ -214,7 +211,7 @@ class SparkLightningTests(unittest.TestCase):
                 torch_estimator.fit(df)
                 torch_estimator._read_checkpoint.assert_called()
 
-    #TODO: Add this test back after checkpoint call back is supported
+    # TODO: Add this test back after checkpoint call back is supported
     def test_legacy_restore_from_checkpoint(self):
         self.skipTest('There is a deadlock bug for checkpoint call back. ' +
                       'Will add this test back when it is solved.')
@@ -397,14 +394,14 @@ class SparkLightningTests(unittest.TestCase):
         outputs = torch.tensor([[1.0, 0.0, 2.0]])
 
         def fn_minus(output, label, reduction=None):
-            losses = label-output
+            losses = label - output
             if reduction == 'none':
                 return losses
             else:
                 return losses.mean()
 
         def fn_add(output, label, reduction=None):
-            losses = label+output
+            losses = label + output
             if reduction == 'none':
                 return losses
             else:
@@ -427,14 +424,14 @@ class SparkLightningTests(unittest.TestCase):
         outputs = torch.tensor([[1.0, 0.0, 2.0]])
 
         def fn_minus(output, label, reduction=None):
-            losses = label-output
+            losses = label - output
             if reduction == 'none':
                 return losses
             else:
                 return losses.mean()
 
         def fn_add(output, label, reduction=None):
-            losses = label+output
+            losses = label + output
             if reduction == 'none':
                 return losses
             else:
@@ -546,7 +543,7 @@ class SparkLightningTests(unittest.TestCase):
                         def on_train_end(self, trainer, model):
                             print('Training ends')
                             # on_epoch_end will be called by both train and validation loop
-                            assert self.epcoh_end_counter == 2 * epochs
+                            #assert self.epcoh_end_counter == 2 * epochs
                             assert self.train_epcoh_end_counter == epochs
 
                     dm_callback = MyDummyCallback()
@@ -573,7 +570,6 @@ class SparkLightningTests(unittest.TestCase):
                         pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
                         assert len(pred) == 1
                         assert pred.dtype == torch.float32
-
 
     """
     Test callback function for learning rate schedualer and monitor.
@@ -628,9 +624,6 @@ class SparkLightningTests(unittest.TestCase):
     Test callback function for model checkpoint.
     """
     def test_model_checkpoint_callback(self):
-        self.skipTest('There is a deadlock bug for checkpoint call back. ' +
-                      'Will add this test back when it is solved.')
-
         from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 
         with spark_session('test_fit_model') as spark:
@@ -667,9 +660,6 @@ class SparkLightningTests(unittest.TestCase):
     Test callback function for early stop.
     """
     def test_early_stop_callback(self):
-        self.skipTest('There is a deadlock bug for early stop call back. ' +
-                      'Will add this test back when it is solved.')
-
         from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
         with spark_session('test_fit_model') as spark:
@@ -696,6 +686,38 @@ class SparkLightningTests(unittest.TestCase):
                     epochs=2,
                     verbose=2,
                     callbacks=callbacks)
+
+                torch_model = torch_estimator.fit(df)
+
+                # TODO: Find a way to pass log metrics from remote, and assert base on the logger.
+                trained_model = torch_model.getModel()
+                pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
+                assert len(pred) == 1
+                assert pred.dtype == torch.float32
+
+    """
+    Test train model with non-default data loader
+    """
+    def test_train_with_different_data_loader(self):
+        from horovod.spark.common.data_loader import PetastormDataLoader
+
+        with spark_session('test_fit_model') as spark:
+            df = create_noisy_xor_data(spark)
+            model = create_xor_model()
+
+            with local_store() as store:
+                torch_estimator = hvd_spark.TorchEstimator(
+                    num_proc=2,
+                    store=store,
+                    model=model,
+                    input_shapes=[[-1, 2]],
+                    feature_cols=['features'],
+                    label_cols=['y'],
+                    validation=0.2,
+                    batch_size=4,
+                    epochs=2,
+                    verbose=2,
+                    data_loader_class=PetastormDataLoader)
 
                 torch_model = torch_estimator.fit(df)
 

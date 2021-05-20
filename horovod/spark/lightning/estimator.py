@@ -170,7 +170,10 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     logger = Param(Params._dummy(), 'logger', 'optional logger')
 
     log_every_n_steps = Param(Params._dummy(), 'log_every_n_steps', 'control the frequency of logging',
-                                typeConverter=TypeConverters.toInt)
+                              typeConverter=TypeConverters.toInt)
+
+    data_loader_class = Param(Params._dummy(), 'data_loader_class',
+                              'Name of the dataloader class.')
 
     @keyword_only
     def __init__(self,
@@ -208,7 +211,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  inmemory_cache_all=False,
                  num_gpus=None,
                  logger=None,
-                 log_every_n_steps=50):
+                 log_every_n_steps=50,
+                 data_loader_class=None):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
@@ -218,7 +222,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                          inmemory_cache_all=False,
                          num_gpus=None,
                          logger=None,
-                         log_every_n_steps=50)
+                         log_every_n_steps=50,
+                         data_loader_class=None)
 
         kwargs = self._input_kwargs
 
@@ -260,6 +265,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def getNumGPUs(self):
         return self.getOrDefault(self.num_gpus)
+
     def setLogger(self, value):
         return self._set(logger=value)
 
@@ -271,6 +277,12 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def getLogEveryNSteps(self):
         return self.getOrDefault(self.log_every_n_steps)
+
+    def setDataLoaderClass(self, value):
+        return self._set(data_loader_class=value)
+
+    def getDataLoaderClass(self):
+        return self.getOrDefault(self.data_loader_class)
 
     def _get_optimizer(self):
         return self.getOrDefault(self.optimizer)

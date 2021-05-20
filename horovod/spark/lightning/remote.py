@@ -59,6 +59,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     num_gpus = estimator.getNumGPUs()
     logger = estimator.getLogger()
     log_every_n_steps = estimator.getLogEveryNSteps()
+    data_loader_cls = estimator.getDataLoaderClass()
 
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
@@ -74,7 +75,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     if sample_weight_col:
         schema_fields.append(sample_weight_col)
 
-    dataloader_cls = _create_dataloader(feature_columns, input_shapes, metadata)
+    dataloader_cls = _create_dataloader(feature_columns, input_shapes, metadata, data_loader_cls)
     make_petastorm_reader = _make_petastorm_reader_fn(transformation, schema_fields,
                                                       batch_size, calculate_shuffle_buffer_size,
                                                       dataloader_cls)
@@ -117,8 +118,14 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             model = deserialize(serialized_model)
 
-            _train_steps_per_epoch = train_steps_per_epoch if train_steps_per_epoch else 1.0
-            _val_steps_per_epoch = val_steps_per_epoch if val_steps_per_epoch else 1.0
+            # _train_steps_per_epoch = train_steps_per_epoch if train_steps_per_epoch else 1.0
+            # _val_steps_per_epoch = val_steps_per_epoch if val_steps_per_epoch else 1.0
+            _train_steps_per_epoch = train_steps_per_epoch
+            if _train_steps_per_epoch is None:
+                _train_steps_per_epoch = int(math.floor(float(train_rows) / batch_size / hvd.size()))
+            _val_steps_per_epoch = val_steps_per_epoch
+            if _val_steps_per_epoch is None:
+                _val_steps_per_epoch = int(math.floor(float(val_rows) / batch_size / hvd.size()))
 
             cuda_available = torch.cuda.is_available()
             if cuda_available:
@@ -175,7 +182,6 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
 
 def _reset_loader(loader):
-    from petastorm.pytorch import BatchedDataLoader
     from pytorch_lightning.trainer.supporters import CombinedLoader
 
     if isinstance(loader, CombinedLoader):
@@ -236,7 +242,7 @@ def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calcula
         # and enables ranks to perform training and validation with
         # unequal number of samples
         with reader_factory(data_path,
-                            num_epochs=1,
+                            num_epochs=None,
                             cur_shard=hvd.rank(),
                             shard_count=hvd.size(),
                             reader_pool_type=reader_pool_type,
@@ -301,13 +307,18 @@ def _calculate_shuffle_buffer_size_fn(train_rows, avg_row_size, user_shuffle_buf
     return calculate_shuffle_buffer_size
 
 
-def _create_dataloader(feature_columns, input_shapes, metadata):
-    from petastorm.pytorch import BatchedDataLoader
+def _create_dataloader(feature_columns, input_shapes, metadata, data_loader_cls=None):
+    if data_loader_cls is None:
+        # set PetastormAsyncDataLoader as default
+        from horovod.spark.common.data_loader import PetastormAsyncDataLoader
+        data_loader_cls = PetastormAsyncDataLoader
 
-    shape_dict = {col:shape for col, shape in zip(feature_columns, input_shapes)}
+    print(f"Using dataloader: {data_loader_cls}")
+
+    shape_dict = {col: shape for col, shape in zip(feature_columns, input_shapes)}
     prepare_data = _prepare_data_fn(metadata)
 
-    class _DataLoader(BatchedDataLoader):
+    class _DataLoader(data_loader_cls):
         def _yield_batches(self, keys):
             for batch in super()._yield_batches(keys):
                 batch = {
