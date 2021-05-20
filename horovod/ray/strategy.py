@@ -104,6 +104,7 @@ class ColocatedStrategy(BaseStrategy):
                 remote_cls_with_options = remote_cls.options(
                     num_cpus=self.cpus_per_worker,
                     num_gpus=self.gpus_per_worker * int(self.use_gpu),
+                    placement_group_capture_child_tasks=False,
                     placement_group=self.placement_group,
                     placement_group_bundle_index=bundle_index)
                 worker = remote_cls_with_options.remote(
@@ -169,6 +170,7 @@ class PackStrategy(BaseStrategy):
             remote_cls_with_options = remote_cls.options(
                 num_cpus=self.cpus_per_worker,
                 num_gpus=self.gpus_per_worker * int(self.use_gpu),
+                placement_group_capture_child_tasks=False,
                 placement_group=self.placement_group,
                 placement_group_bundle_index=bundle_index)
             worker = remote_cls_with_options.remote(
