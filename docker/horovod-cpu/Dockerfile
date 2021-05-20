@@ -7,8 +7,8 @@ ENV PYTORCH_LIGHTNING_VERSION=1.2.9
 ENV TORCHVISION_VERSION=0.9.1
 ENV MXNET_VERSION=1.8.0.post0
 
-ENV PYSPARK_PACKAGE: pyspark==3.1.1
-ENV SPARK_PACKAGE: spark-3.1.1/spark-3.1.1-bin-hadoop2.7.tgz
+ENV PYSPARK_PACKAGE=pyspark==3.1.1
+ENV SPARK_PACKAGE=spark-3.1.1/spark-3.1.1-bin-hadoop2.7.tgz
 
 # Python 3.7 is supported by Ubuntu Bionic out of the box
 ARG python=3.7

@@ -9,8 +9,8 @@ ENV CUDNN_VERSION=8.1.1.33-1+cuda11.2
 ENV NCCL_VERSION=2.8.4-1+cuda11.2
 ENV MXNET_VERSION=1.8.0.post0
 
-ENV PYSPARK_PACKAGE: pyspark==3.1.1
-ENV SPARK_PACKAGE: spark-3.1.1/spark-3.1.1-bin-hadoop2.7.tgz
+ENV PYSPARK_PACKAGE=pyspark==3.1.1
+ENV SPARK_PACKAGE=spark-3.1.1/spark-3.1.1-bin-hadoop2.7.tgz
 
 # Python 3.7 is supported by Ubuntu Bionic out of the box
 ARG python=3.7
@@ -28,7 +28,7 @@ RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-
         vim \
         wget \
         ca-certificates \
-        libcudnn7=${CUDNN_VERSION} \
+        libcudnn8=${CUDNN_VERSION} \
         libnccl2=${NCCL_VERSION} \
         libnccl-dev=${NCCL_VERSION} \
         libjpeg-dev \
