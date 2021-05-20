@@ -339,31 +339,4 @@ Verify that the latest version of Horovod is now available:
 
     $ pip install --upgrade horovod
 
-
-Build Docker Images
-~~~~~~~~~~~~~~~~~~~
-
-Create a `Docker Hub <https://cloud.docker.com>`_ account.  Ask someone from the Horovod TSC to add you to the
-Horovod project.
-
-From a clean copy of the ``horovod`` repository on a Linux machine:
-
-.. code-block:: bash
-
-    $ ./build-docker-images.sh
-
-If you have trouble connecting to external URLs, try changing ``docker build ...`` to
-``docker build --network host ...`` in ``build-docker-images.sh``.
-
-Upload artifacts for Python 3.6, CPU and GPU:
-
-.. code-block:: bash
-
-    $ docker login
-    $ docker push horovod/horovod:0.18.1-tf1.14.0-torch1.2.0-mxnet1.5.0-py3.6-gpu
-    $ docker push horovod/horovod:0.18.1-tf1.14.0-torch1.2.0-mxnet1.5.0-py3.6-cpu
-
-Check the Horovod `Docker Hub project <https://cloud.docker.com/u/horovod/repository/docker/horovod/horovod>`_
-to verify that the image artifacts were successfully uploaded.
-
 .. inclusion-marker-end-do-not-remove
