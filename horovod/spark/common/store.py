@@ -26,6 +26,9 @@ from distutils.version import LooseVersion
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+import fsspec
+from fsspec.core import split_protocol
+
 from horovod.spark.common.util import is_databricks
 
 
@@ -154,14 +157,17 @@ class Store(object):
             return HDFSStore(prefix_path, *args, **kwargs)
         elif is_databricks() and DBFSLocalStore.matches_dbfs(prefix_path):
             return DBFSLocalStore(prefix_path, *args, **kwargs)
-        else:
+        elif LocalStore.matches(prefix_path):
             return LocalStore(prefix_path, *args, **kwargs)
+        else:
+            return FilesystemStore(prefix_path, *args, **kwargs)
 
 
 class FilesystemStore(Store):
     """Abstract class for stores that use a filesystem for underlying storage."""
 
     def __init__(self, prefix_path, train_path=None, val_path=None, test_path=None, runs_path=None, save_runs=True):
+        self.fs, self.protocol = FilesystemStore._get_fs_and_protocol(prefix_path)
         self.prefix_path = self.get_full_path(prefix_path)
         self._train_path = self._get_full_path_or_default(train_path, 'intermediate_train_data')
         self._val_path = self._get_full_path_or_default(val_path, 'intermediate_val_data')
@@ -193,7 +199,7 @@ class FilesystemStore(Store):
         return codec.dumps_base64(model_bytes)
 
     def write_text(self, path, text):
-        with self.get_filesystem().open(self.get_localized_path(path), 'w') as f:
+        with self.fs.open(self.get_localized_path(path), 'w') as f:
             f.write(text)
 
     def is_parquet_dataset(self, path):
@@ -204,7 +210,7 @@ class FilesystemStore(Store):
             return False
 
     def get_parquet_dataset(self, path):
-        return pq.ParquetDataset(self.get_localized_path(path), filesystem=self.get_filesystem())
+        return pq.ParquetDataset(self.get_localized_path(path), filesystem=self.fs)
 
     def get_train_data_path(self, idx=None):
         return '{}.{}'.format(self._train_path, idx) if idx is not None else self._train_path
@@ -237,7 +243,7 @@ class FilesystemStore(Store):
 
     def get_checkpoints(self, run_id, suffix='.ckpt'):
         checkpoint_dir = self.get_localized_path(self.get_checkpoint_path(run_id))
-        filenames = self.get_filesystem().ls(checkpoint_dir)
+        filenames = self.fs.ls(checkpoint_dir)
         return sorted([name for name in filenames if name.endswith(suffix)])
 
     def get_logs_path(self, run_id):
@@ -278,16 +284,15 @@ class FilesystemStore(Store):
     def path_prefix(self):
         raise NotImplementedError()
 
-    def get_filesystem(self):
-        raise NotImplementedError()
-
     @classmethod
     def matches(cls, path):
-        return path.startswith(cls.filesystem_prefix())
+        return True
 
-    @classmethod
-    def filesystem_prefix(cls):
-        raise NotImplementedError()
+    @staticmethod
+    def _get_fs_and_protocol(url):
+        protocol, path = split_protocol(url)
+        fs = fsspec.filesystem(protocol)
+        return fs, protocol
 
 
 class LocalStore(FilesystemStore):
@@ -328,6 +333,10 @@ class LocalStore(FilesystemStore):
             # No-op for LocalStore since the `local_run_path` will be the same as the run path
             assert run_path == local_run_path
         return fn
+
+    @classmethod
+    def matches(cls, path):
+        return path.startswith(cls.FS_PREFIX)
 
     @classmethod
     def filesystem_prefix(cls):
