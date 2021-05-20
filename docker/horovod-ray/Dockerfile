@@ -11,6 +11,12 @@
 
 FROM rayproject/ray:nightly-gpu
 
+# TensorFlow version is tightly coupled to CUDA and cuDNN so it should be selected carefully
+ENV TENSORFLOW_VERSION=2.5.0
+ENV PYTORCH_VERSION=1.8.1+cu111
+ENV PYTORCH_LIGHTNING_VERSION=1.2.9
+ENV TORCHVISION_VERSION=0.9.1+cu111
+
 RUN sudo apt-get update && DEBIAN_FRONTEND="noninteractive" sudo apt-get install -y \
     build-essential \
     wget \
@@ -20,12 +26,29 @@ RUN sudo apt-get update && DEBIAN_FRONTEND="noninteractive" sudo apt-get install
     rsync \
     vim
 
-# Install Horovod, temporarily using CUDA stubs
+# Install TensorFlow and Keras
+RUN pip install future typing packaging
+RUN pip install tensorflow==${TENSORFLOW_VERSION} \
+                keras \
+                h5py
+
+# Install PyTorch
+RUN pip install --no-cache-dir \
+    torch==${PYTORCH_VERSION} \
+    torchvision==${TORCHVISION_VERSION} \
+    -f https://download.pytorch.org/whl/${PYTORCH_VERSION/*+/}/torch_stable.html
+RUN pip install pytorch_lightning==${PYTORCH_LIGHTNING_VERSION}
+
+USER ray
+RUN mkdir -p /horovod
 WORKDIR /horovod
-COPY . .
-RUN sudo python setup.py sdist && \
+
+# Install Horovod, temporarily using CUDA stubs
+COPY --chown=ray:users . .
+RUN python setup.py sdist && \
     sudo ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
-    sudo bash -c "HOROVOD_GPU_OPERATIONS=NCCL HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[all-frameworks]" && \
+    HOROVOD_GPU_OPERATIONS=NCCL HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[ray] && \
+    horovodrun --check-build && \
     sudo ldconfig
 
 WORKDIR "/horovod/examples"
