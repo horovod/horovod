@@ -640,6 +640,8 @@ bool RunLoopOnce(HorovodGlobalState& state) {
     state.timeline.MarkCycleStart();
   }
 
+  bool this_process_requested_shutdown = state.shut_down;
+
 #if HAVE_MPI
   if (state.dynamic_process_sets) {
     // Initialize any newly added process set that has been registered by all
@@ -659,17 +661,22 @@ bool RunLoopOnce(HorovodGlobalState& state) {
     if (!process_set.initialization_done) {
       continue;
     }
-    process_set_response_lists.emplace(
-        process_set_id, process_set.IsCurrentProcessIncluded()
-                            ? process_set.controller->ComputeResponseList(
-                                  horovod_global.shut_down, state, process_set)
-                            : ResponseList());
+    auto response_list =
+        process_set.IsCurrentProcessIncluded()
+            ? process_set.controller->ComputeResponseList(
+                  this_process_requested_shutdown, state, process_set)
+            : ResponseList();
+    process_set_response_lists.emplace(process_set_id,
+                                       std::move(response_list));
   }
   state.mark_cycles_in_timeline =
       state.timeline_controller.MarkCyclesInTimelinePending();
 
   bool should_shutdown = false;
   for (auto process_set_id : state.process_set_table.Ids()) {
+    if (should_shutdown) {
+      break;
+    }
     auto& process_set = state.process_set_table.Get(process_set_id);
     if (!process_set.initialization_done) {
       continue;
@@ -715,9 +722,6 @@ bool RunLoopOnce(HorovodGlobalState& state) {
     }
 
     should_shutdown |= response_list.shutdown();
-    if (should_shutdown) {
-      break;
-    }
   }
 
   return !should_shutdown;

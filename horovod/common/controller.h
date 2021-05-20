@@ -105,7 +105,7 @@ public:
   //      response from the coordinator. At that point, the tick ends.
   //      If instead of "DONE" they receive "SHUTDOWN", they mark it in the
   //      response list.
-  ResponseList ComputeResponseList(std::atomic_bool& shut_down,
+  ResponseList ComputeResponseList(bool this_process_requested_shutdown,
                                    HorovodGlobalState& state,
                                    ProcessSet& process_set);
 

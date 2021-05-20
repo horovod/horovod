@@ -70,7 +70,7 @@ void Controller::Initialize() {
   is_initialized_ = true;
 }
 
-ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
+ResponseList Controller::ComputeResponseList(bool this_process_requested_shutdown,
                                              HorovodGlobalState& state,
                                              ProcessSet& process_set) {
   assert(IsInitialized());
@@ -127,7 +127,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
   }
 
   // Flag indicating that the background thread should shut down.
-  bool should_shut_down = shut_down;
+  bool should_shut_down = this_process_requested_shutdown;
 
   // Check for stalled tensors.
   if (stall_inspector_.ShouldPerformCheck()) {
