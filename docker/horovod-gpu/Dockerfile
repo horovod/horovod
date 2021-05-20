@@ -1,10 +1,12 @@
-FROM ubuntu:18.04
+FROM nvidia/cuda:11.2.2-devel-ubuntu18.04
 
 # TensorFlow version is tightly coupled to CUDA and cuDNN so it should be selected carefully
 ENV TENSORFLOW_VERSION=2.5.0
-ENV PYTORCH_VERSION=1.8.1
+ENV PYTORCH_VERSION=1.8.1+cu111
 ENV PYTORCH_LIGHTNING_VERSION=1.2.9
-ENV TORCHVISION_VERSION=0.9.1
+ENV TORCHVISION_VERSION=0.9.1+cu111
+ENV CUDNN_VERSION=8.1.1.33-1+cuda11.2
+ENV NCCL_VERSION=2.8.4-1+cuda11.2
 ENV MXNET_VERSION=1.8.0.post0
 
 ENV PYSPARK_PACKAGE: pyspark==3.1.1
@@ -26,6 +28,9 @@ RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-
         vim \
         wget \
         ca-certificates \
+        libcudnn7=${CUDNN_VERSION} \
+        libnccl2=${NCCL_VERSION} \
+        libnccl-dev=${NCCL_VERSION} \
         libjpeg-dev \
         libpng-dev \
         python${PYTHON_VERSION} \
@@ -50,9 +55,12 @@ RUN pip install tensorflow==${TENSORFLOW_VERSION} \
                 keras \
                 h5py
 
-RUN pip install --no-cache-dir torch==${PYTORCH_VERSION} torchvision==${TORCHVISION_VERSION}
+RUN pip install --no-cache-dir \
+    torch==${PYTORCH_VERSION} \
+    torchvision==${TORCHVISION_VERSION} \
+    -f https://download.pytorch.org/whl/${PYTORCH_VERSION/*+/}/torch_stable.html
 RUN pip install pytorch_lightning==${PYTORCH_LIGHTNING_VERSION}
-RUN pip install mxnet==${MXNET_VERSION}
+RUN pip install mxnet-cu112==${MXNET_VERSION}
 
 # Install Spark stand-alone cluster.
 RUN wget --progress=dot:giga "https://www.apache.org/dyn/closer.lua/spark/${SPARK_PACKAGE}?action=download" -O - | tar -xzC /tmp; \
@@ -79,10 +87,12 @@ RUN cat /etc/ssh/ssh_config | grep -v StrictHostKeyChecking > /etc/ssh/ssh_confi
     echo "    StrictHostKeyChecking no" >> /etc/ssh/ssh_config.new && \
     mv /etc/ssh/ssh_config.new /etc/ssh/ssh_config
 
-# Install Horovod
+# Install Horovod, temporarily using CUDA stubs
 WORKDIR /horovod
 COPY . .
 RUN python setup.py sdist && \
-    bash -c "HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[all-frameworks]"
+    ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
+    bash -c "HOROVOD_GPU_OPERATIONS=NCCL HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[all-frameworks]" && \
+    ldconfig
 
 WORKDIR "/horovod/examples"
