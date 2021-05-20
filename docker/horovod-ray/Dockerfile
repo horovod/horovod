@@ -17,6 +17,9 @@ ENV PYTORCH_VERSION=1.8.1+cu111
 ENV PYTORCH_LIGHTNING_VERSION=1.2.9
 ENV TORCHVISION_VERSION=0.9.1+cu111
 
+# Set default shell to /bin/bash
+SHELL ["/bin/bash", "-cu"]
+
 RUN sudo apt-get update && DEBIAN_FRONTEND="noninteractive" sudo apt-get install -y \
     build-essential \
     wget \
