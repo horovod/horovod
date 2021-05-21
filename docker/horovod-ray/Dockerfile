@@ -1,14 +1,3 @@
-#
-# Ludwig Docker image with Ray nightly support and full dependencies including:
-#   text features
-#   image features
-#   audio features
-#   visualizations
-#   hyperparameter optimization
-#   distributed training
-#   model serving
-#
-
 FROM rayproject/ray:nightly-gpu
 
 # TensorFlow version is tightly coupled to CUDA and cuDNN so it should be selected carefully
