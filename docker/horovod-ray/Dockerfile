@@ -43,7 +43,7 @@ RUN pip install \
 RUN pip install pytorch_lightning==${PYTORCH_LIGHTNING_VERSION}
 
 USER ray
-RUN sudo mkdir -p /horovod && chown ray:users /horovod
+RUN sudo mkdir -p /horovod && sudo chown ray:users /horovod
 WORKDIR /horovod
 
 # Install Horovod, temporarily using CUDA stubs

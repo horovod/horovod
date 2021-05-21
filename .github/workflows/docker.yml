@@ -42,8 +42,8 @@ jobs:
       fail-fast: false
       matrix:
         docker-image:
-          - horovod
-          - horovod-cpu
+#          - horovod
+#          - horovod-cpu
           - horovod-ray
     name: docker ${{ matrix.docker-image }}
     steps:
