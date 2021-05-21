@@ -34,8 +34,8 @@ including:
 * `PYTORCH_LIGHTNING_VERSION` - version of `pytorch_lightning` pip package to install
 * `TORCHVISION_VERSION` - version of `torchvision` pip package to install
 * `MXNET_VERSION` - version of `mxnet` pip package to install
-* `CUDNN_VERSION` - version of `libcudnn` apt package to install
-* `NCCL_VERSION` - version of `libnccl` apt package to install
+* `CUDNN_VERSION` - version of `libcudnn` apt package to install (only for `horovod` image)
+* `NCCL_VERSION` - version of `libnccl` apt package to install (only for `horovod` image)
 * `CUDA_DOCKER_VERSION` - tag of the `nvidia/cuda` image to build from (only for `horovod` image)
 * `RAY_DOCKER_VERSION` - tag of the `rayproject/ray` GPU image to build from (only for `horovod-ray` image)
 
