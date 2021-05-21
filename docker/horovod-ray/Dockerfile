@@ -1,10 +1,14 @@
-FROM rayproject/ray:nightly-gpu
+ARG RAY_DOCKER_VERSION=nightly
+FROM rayproject/ray:${RAY_DOCKER_VERSION}-gpu
 
+# Arguments for the build. RAY_DOCKER_VERSION needs to be repeated because
+# the first usage only applies to the FROM tag.
 # TensorFlow version is tightly coupled to CUDA and cuDNN so it should be selected carefully
-ENV TENSORFLOW_VERSION=2.5.0
-ENV PYTORCH_VERSION=1.8.1+cu111
-ENV PYTORCH_LIGHTNING_VERSION=1.2.9
-ENV TORCHVISION_VERSION=0.9.1+cu111
+ARG RAY_DOCKER_VERSION=nightly
+ARG TENSORFLOW_VERSION=2.5.0
+ARG PYTORCH_VERSION=1.8.1+cu111
+ARG PYTORCH_LIGHTNING_VERSION=1.2.9
+ARG TORCHVISION_VERSION=0.9.1+cu111
 
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-cu"]

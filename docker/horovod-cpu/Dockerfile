@@ -1,18 +1,17 @@
 FROM ubuntu:18.04
 
 # TensorFlow version is tightly coupled to CUDA and cuDNN so it should be selected carefully
-ENV TENSORFLOW_VERSION=2.5.0
-ENV PYTORCH_VERSION=1.8.1
-ENV PYTORCH_LIGHTNING_VERSION=1.2.9
-ENV TORCHVISION_VERSION=0.9.1
-ENV MXNET_VERSION=1.8.0.post0
+ARG TENSORFLOW_VERSION=2.5.0
+ARG PYTORCH_VERSION=1.8.1
+ARG PYTORCH_LIGHTNING_VERSION=1.2.9
+ARG TORCHVISION_VERSION=0.9.1
+ARG MXNET_VERSION=1.8.0.post0
 
-ENV PYSPARK_PACKAGE=pyspark==3.1.1
-ENV SPARK_PACKAGE=spark-3.1.1/spark-3.1.1-bin-hadoop2.7.tgz
+ARG PYSPARK_PACKAGE=pyspark==3.1.1
+ARG SPARK_PACKAGE=spark-3.1.1/spark-3.1.1-bin-hadoop2.7.tgz
 
 # Python 3.7 is supported by Ubuntu Bionic out of the box
-ARG python=3.7
-ENV PYTHON_VERSION=${python}
+ARG PYTHON_VERSION=3.7
 
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-cu"]
