@@ -20,7 +20,8 @@ import unittest
 import warnings
 
 import mock
-from unittest.mock import call, MagicMock, Mock
+from unittest.mock import Mock
+import pytest
 import numpy as np
 from distutils.version import LooseVersion
 
@@ -543,7 +544,7 @@ class SparkLightningTests(unittest.TestCase):
                         def on_train_end(self, trainer, model):
                             print('Training ends')
                             # on_epoch_end will be called by both train and validation loop
-                            #assert self.epcoh_end_counter == 2 * epochs
+                            # assert self.epcoh_end_counter == 2 * epochs
                             assert self.train_epcoh_end_counter == epochs
 
                     dm_callback = MyDummyCallback()

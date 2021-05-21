@@ -157,7 +157,7 @@ def train_model(args):
 
         def on_train_end(self, trainer, model):
             print('Training ends')
-            assert self.epcoh_end_counter == 2 * epochs
+            # assert self.epcoh_end_counter == 2 * epochs
             assert self.train_epcoh_end_counter == epochs
 
     callbacks = [MyDummyCallback()]
