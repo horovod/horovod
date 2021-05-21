@@ -58,7 +58,7 @@ RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
 
 # Install TensorFlow, Keras, PyTorch and MXNet
 RUN pip install future typing packaging
-RUN pip install tensorflow==${TENSORFLOW_VERSION} \
+RUN pip install tensorflow-cpu==${TENSORFLOW_VERSION} \
                 keras \
                 h5py
 
