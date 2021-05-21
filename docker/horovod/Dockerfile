@@ -68,7 +68,7 @@ RUN pip install tensorflow==${TENSORFLOW_VERSION} \
                 keras \
                 h5py
 
-RUN pip install --no-cache-dir \
+RUN pip install \
     torch==${PYTORCH_VERSION} \
     torchvision==${TORCHVISION_VERSION} \
     -f https://download.pytorch.org/whl/${PYTORCH_VERSION/*+/}/torch_stable.html

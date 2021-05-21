@@ -36,7 +36,7 @@ RUN pip install tensorflow==${TENSORFLOW_VERSION} \
                 h5py
 
 # Install PyTorch
-RUN pip install --no-cache-dir \
+RUN pip install \
     torch==${PYTORCH_VERSION} \
     torchvision==${TORCHVISION_VERSION} \
     -f https://download.pytorch.org/whl/${PYTORCH_VERSION/*+/}/torch_stable.html
