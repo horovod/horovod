@@ -24,7 +24,7 @@ import torch
 import pytorch_lightning as pl
 from pytorch_lightning import Trainer, Callback
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
-from pytorch_lightning.loggers import TensorBoardLogger, CometLogger
+from pytorch_lightning.loggers import TensorBoardLogger
 
 from horovod.spark.common import constants
 from horovod.spark.common.util import _get_assigned_gpu_or_default, to_list
