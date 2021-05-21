@@ -97,7 +97,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             # TODO: Pass the logger from estimator constructor
             logs_path = os.path.join(run_output_dir, remote_store.logs_subdir)
 
-            # Use the default logger if no logger is supplied
+            # Use default logger if no logger is supplied
             train_logger = logger
             if train_logger is None:
                 train_logger = TensorBoardLogger(logs_path)
