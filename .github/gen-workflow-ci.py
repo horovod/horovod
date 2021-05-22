@@ -353,6 +353,7 @@ def main():
                 f'          BUILD_ENV_VARS: "{{\\"PIPELINE_MODE\\": \\"GPU FULL\\"}}"\n'
                 f'\n'
                 f'      - name: Download Buildkite Artifacts\n'
+                f'        id: download\n'
                 f'        uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1\n'
                 f'        with:\n'
                 f'          github_token: ${{{{ github.token }}}}\n'
@@ -367,7 +368,14 @@ def main():
                 f'        if: always()\n'
                 f'        with:\n'
                 f'          name: Unit Test Results - GPUs on Builtkite\n'
-                f'          path: artifacts/Unit Test Results - GPUs on Buildkite/**/*.xml\n')
+                f'          path: artifacts/Unit Test Results - GPUs on Buildkite/**/*.xml\n'
+                f'\n'
+                f'      - name: Escalate Buildkite job state\n'
+                f'        if: >\n'
+                f'          always() &&\n'
+                f'          steps.download.conclusion == \'success\' &&\n'
+                f'          steps.download.outputs.build-state != \'passed\'\n'
+                f'        run: exit 1\n')
 
     def publish_unit_test_results(name: str, needs: List[str]) -> str:
         return (f'  {name}:\n'

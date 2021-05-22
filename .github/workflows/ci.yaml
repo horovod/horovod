@@ -1227,6 +1227,7 @@ jobs:
           BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU FULL\"}"
 
       - name: Download Buildkite Artifacts
+        id: download
         uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1
         with:
           github_token: ${{ github.token }}
@@ -1242,6 +1243,13 @@ jobs:
         with:
           name: Unit Test Results - GPUs on Builtkite
           path: artifacts/Unit Test Results - GPUs on Buildkite/**/*.xml
+
+      - name: Escalate Buildkite job state
+        if: >
+          always() &&
+          steps.download.conclusion == 'success' &&
+          steps.download.outputs.build-state != 'passed'
+        run: exit 1
 
   publish-test-results:
     name: "Publish Unit Tests Results"
