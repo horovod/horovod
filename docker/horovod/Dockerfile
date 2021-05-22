@@ -90,7 +90,7 @@ WORKDIR /horovod
 COPY . .
 RUN python setup.py sdist && \
     ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
-    bash -c "HOROVOD_GPU_OPERATIONS=NCCL HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[all-frameworks]" && \
+    bash -c "HOROVOD_GPU_OPERATIONS=NCCL HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]" && \
     horovodrun --check-build && \
     ldconfig
 
