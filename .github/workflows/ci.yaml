@@ -1235,9 +1235,10 @@ jobs:
     runs-on: ubuntu-latest
     # only run this job when the workflow is in success or failure state,
     # not when it is in cancelled or skipped state
+    # only run this job on push events or when the event does not run in a fork repository
     if: >
       ( success() || failure() ) &&
-      ( github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository )
+      ( github.event_name == 'push' || github.event.repository.fork == 'false' )
 
     steps:
       - name: Download GitHub Artifacts
