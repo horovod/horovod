@@ -92,6 +92,9 @@ RUN python setup.py sdist && \
     ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
     bash -c "HOROVOD_GPU_OPERATIONS=NCCL HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[all-frameworks]" && \
     horovodrun --check-build && \
+    python -c "import horovod.tensorflow as hvd; hvd.init()" && \
+    python -c "import horovod.torch as hvd; hvd.init()" && \
+    python -c "import horovod.mxnet as hvd; hvd.init()" && \
     ldconfig
 
 WORKDIR "/horovod/examples"
