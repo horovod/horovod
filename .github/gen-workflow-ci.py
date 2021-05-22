@@ -117,6 +117,10 @@ def main():
                 f'    tags:\n'
                 f'      - \'*\'\n'
                 f'  pull_request:\n'
+                f'\n'
+                f'concurrency:\n'
+                f'  group: ci-${{ github.head_ref }}\n'
+                f'  cancel-in-progress: true\n'
                 f'\n')
 
     def jobs(*jobs: str) -> str:
@@ -364,8 +368,10 @@ def main():
                 f'    name: "Publish Unit Tests Results"\n'
                 f'    needs: [{", ".join(needs)}]\n'
                 f'    runs-on: ubuntu-latest\n'
+                f'    # only run this job when the workflow is in success or failure state,\n'
+                f'    # not when it is in cancelled or skipped state\n'
                 f'    if: >\n'
-                f'      always() &&\n'
+                f'      ( success() || failure() ) &&\n'
                 f'      ( github.event_name == \'push\' || github.event.pull_request.head.repo.full_name == github.repository )\n'
                 f'\n'
                 f'    steps:\n'

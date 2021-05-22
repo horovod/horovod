@@ -10,8 +10,10 @@ jobs:
   buildkite:
     name: "Build and Test (GPUs on Builtkite)"
     runs-on: ubuntu-latest
+    # only run if CI workflow ran on a fork
     if: >
       github.event.workflow_run.conclusion != 'skipped' &&
+      github.event.workflow_run.conclusion != 'cancelled' &&
       github.event.workflow_run.head_repository.full_name != github.repository
 
     steps:
@@ -61,6 +63,7 @@ jobs:
     # only run if CI workflow ran on a fork
     if: >
       github.event.workflow_run.conclusion != 'skipped' &&
+      github.event.workflow_run.conclusion != 'cancelled' &&
       github.event.workflow_run.head_repository.full_name != github.repository
 
     steps:

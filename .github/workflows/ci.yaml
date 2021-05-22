@@ -11,6 +11,10 @@ on:
       - '*'
   pull_request:
 
+concurrency:
+  group: ci-${ github.head_ref }
+  cancel-in-progress: true
+
 jobs:
   validate-workflow:
     name: "Verify GitHub Workflow"
@@ -1229,8 +1233,10 @@ jobs:
     name: "Publish Unit Tests Results"
     needs: [build-and-test, build-and-test-heads, build-and-test-macos, buildkite]
     runs-on: ubuntu-latest
+    # only run this job when the workflow is in success or failure state,
+    # not when it is in cancelled or skipped state
     if: >
-      always() &&
+      ( success() || failure() ) &&
       ( github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository )
 
     steps:
