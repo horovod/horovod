@@ -14,8 +14,12 @@ jobs:
     name: Start self-hosted EC2 runner
     runs-on: ubuntu-latest
     outputs:
-      label: ${{ steps.start-ec2-runner.outputs.label }}
-      ec2-instance-id: ${{ steps.start-ec2-runner.outputs.ec2-instance-id }}
+      label-horovod: ${{ steps.start-ec2-runner-horovod.outputs.label }}
+      label-horovod-cpu: ${{ steps.start-ec2-runner-horovod-cpu.outputs.label }}
+      label-horovod-ray: ${{ steps.start-ec2-runner-horovod-ray.outputs.label }}
+      ec2-instance-id-horovod: ${{ steps.start-ec2-runner-horovod.outputs.ec2-instance-id }}
+      ec2-instance-id-horovod-cpu: ${{ steps.start-ec2-runner-horovod-cpu.outputs.ec2-instance-id }}
+      ec2-instance-id-horovod-ray: ${{ steps.start-ec2-runner-horovod-ray.outputs.ec2-instance-id }}
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -23,8 +27,28 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
-      - name: Start EC2 runner
-        id: start-ec2-runner
+      - name: Start EC2 runner (horovod)
+        id: start-ec2-runner-horovod
+        uses: machulav/ec2-github-runner@v2.2.0
+        with:
+          mode: start
+          github-token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
+          ec2-image-id: ami-0759580dedc953d1f
+          ec2-instance-type: c5.9xlarge
+          subnet-id: subnet-0983be43
+          security-group-id: sg-4cba0d08
+      - name: Start EC2 runner (horovod-cpu)
+        id: start-ec2-runner-horovod-cpu
+        uses: machulav/ec2-github-runner@v2.2.0
+        with:
+          mode: start
+          github-token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
+          ec2-image-id: ami-0759580dedc953d1f
+          ec2-instance-type: c5.9xlarge
+          subnet-id: subnet-0983be43
+          security-group-id: sg-4cba0d08
+      - name: Start EC2 runner (horovod-ray)
+        id: start-ec2-runner-horovod-ray
         uses: machulav/ec2-github-runner@v2.2.0
         with:
           mode: start
@@ -37,14 +61,17 @@ jobs:
   docker:
     if: github.repository_owner == 'horovod'
     needs: start-runner # required to start the main job when the runner is ready
-    runs-on: ${{ needs.start-runner.outputs.label }} # run the job on the newly created runner
+    runs-on: ${{ matrix.label }} # run the job on the newly created runners
     strategy:
       fail-fast: false
       matrix:
-        docker-image:
-          - horovod
-          - horovod-cpu
-          - horovod-ray
+        include:
+          - docker-image: horovod
+            label: ${{ needs.start-runner.outputs.label-horovod }}
+          - docker-image: horovod-cpu
+            label: ${{ needs.start-runner.outputs.label-horovod-cpu }}
+          - docker-image: horovod-ray
+            label: ${{ needs.start-runner.outputs.label-horovod-ray }}
     name: docker ${{ matrix.docker-image }}
     steps:
       -
@@ -106,10 +133,24 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
-      - name: Stop EC2 runner
+      - name: Stop EC2 runner (horovod)
         uses: machulav/ec2-github-runner@v2.2.0
         with:
           mode: stop
           github-token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
-          label: ${{ needs.start-runner.outputs.label }}
-          ec2-instance-id: ${{ needs.start-runner.outputs.ec2-instance-id }}
+          label: ${{ needs.start-runner.outputs.label-horovod }}
+          ec2-instance-id: ${{ needs.start-runner.outputs.ec2-instance-id-horovod }}
+      - name: Stop EC2 runner (horovod-cpu)
+        uses: machulav/ec2-github-runner@v2.2.0
+        with:
+          mode: stop
+          github-token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
+          label: ${{ needs.start-runner.outputs.label-horovod-cpu }}
+          ec2-instance-id: ${{ needs.start-runner.outputs.ec2-instance-id-horovod-cpu }}
+      - name: Stop EC2 runner (horovod-ray)
+        uses: machulav/ec2-github-runner@v2.2.0
+        with:
+          mode: stop
+          github-token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
+          label: ${{ needs.start-runner.outputs.label-horovod-ray }}
+          ec2-instance-id: ${{ needs.start-runner.outputs.ec2-instance-id-horovod-ray }}
