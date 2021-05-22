@@ -138,7 +138,7 @@ public:
   AccessData(std::shared_ptr<common::OpContext> context) const override;
 
 private:
-  std::shared_ptr<PersistentTensor> tensor_;
+  std::shared_ptr<Tensor> tensor_;
 };
 
 class TFTensor : public common::Tensor {
@@ -191,12 +191,10 @@ bool TFReadyEvent::Ready() const {
 #endif
 
 TFPersistentBuffer::TFPersistentBuffer(OpKernelContext* context, int64_t size) {
-  tensor_ = std::make_shared<PersistentTensor>();
+  tensor_ = std::make_shared<Tensor>();
   TensorShape buffer_shape;
   buffer_shape.AddDim(size);
-  Tensor* unused;
-  Status status = context->allocate_persistent(DT_INT8, buffer_shape,
-                                               tensor_.get(), &unused);
+  Status status = context->allocate_temp(DT_INT8, buffer_shape, tensor_.get());
   if (!status.ok()) {
     throw status;
   }
@@ -212,13 +210,7 @@ TFPersistentBuffer::TFPersistentBuffer(OpKernelContext* context, int64_t size) {
 
 const void* TFPersistentBuffer::AccessData(
     std::shared_ptr<common::OpContext> context) const {
-  // It's safe to cast context to TFOpContext, since only TFOpContext creates
-  // TFPersistentBuffer.
-  return (const void *)tensor_
-      ->AccessTensor(
-          std::dynamic_pointer_cast<TFOpContext>(context)->GetKernelContext())
-      ->tensor_data()
-      .data();
+  return (const void *)tensor_->tensor_data().data();
 }
 
 TFTensor::TFTensor(::tensorflow::Tensor& tensor) : tensor_(tensor) {}
@@ -310,8 +302,7 @@ int GetDeviceID(OpKernelContext* context);
 common::Status
 TFOpContext::AllocateZeros(int64_t num_elements, common::DataType dtype,
                            std::shared_ptr<common::Tensor>* tensor) {
-  ::tensorflow::Tensor* unused;
-  std::shared_ptr<PersistentTensor> zero_tensor = std::make_shared<PersistentTensor>();
+  std::shared_ptr<Tensor> zero_tensor = std::make_shared<Tensor>();
   auto tf_data_type = GetTFDataType(dtype);
   ::tensorflow::AllocatorAttributes tf_attribute;
   int device_ = GetDeviceID(context_);
@@ -322,22 +313,21 @@ TFOpContext::AllocateZeros(int64_t num_elements, common::DataType dtype,
     tf_attribute.set_on_host(true);
   }
 
-  Status status = context_->allocate_persistent(tf_data_type, ::tensorflow::TensorShape({num_elements}), zero_tensor.get(), &unused, tf_attribute);
+  Status status = context_->allocate_temp(tf_data_type, ::tensorflow::TensorShape({num_elements}), zero_tensor.get(), tf_attribute);
 
   if (device_ != CPU_DEVICE_ID) {
 #if HAVE_GPU
     auto device_context = context_->op_device_context();
     auto stream = (device_context != nullptr) ? stream_executor::gpu::AsGpuStreamValue(device_context->stream()) : 0;
-    void *ptr = (void*)zero_tensor->AccessTensor(hvd_context->GetKernelContext())->tensor_data().data();
-    auto size = zero_tensor->AccessTensor(hvd_context->GetKernelContext())->tensor_data().size();
+    void *ptr = (void*)zero_tensor->tensor_data().data();
+    auto size = zero_tensor->tensor_data().size();
     gpuMemsetAsync(ptr, 0, size, stream);
 #endif
   } else {
-    memset((void*)zero_tensor->AccessTensor(hvd_context->GetKernelContext())->tensor_data().data(), 0,
-           zero_tensor->AccessTensor(hvd_context->GetKernelContext())->tensor_data().size());
+    memset((void*)zero_tensor->tensor_data().data(), 0, zero_tensor->tensor_data().size());
   }
   if (status.ok()) {
-    *tensor = std::make_shared<TFTensor>(*(zero_tensor->AccessTensor(hvd_context->GetKernelContext())));
+    *tensor = std::make_shared<TFTensor>(*zero_tensor);
   }
 
 #if HAVE_GPU

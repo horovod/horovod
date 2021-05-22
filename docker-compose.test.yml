@@ -100,7 +100,7 @@ services:
     extends: test-cpu-base
     build:
       args:
-        TENSORFLOW_PACKAGE: tf-nightly==2.6.0.dev20210519
+        TENSORFLOW_PACKAGE: tf-nightly
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: torchvision
@@ -214,7 +214,7 @@ services:
         CUDA_DOCKER_VERSION: 11.2.2-devel-ubuntu18.04
         CUDNN_VERSION: 8.1.1.33-1+cuda11.2
         NCCL_VERSION_OVERRIDE: 2.8.4-1+cuda11.2
-        TENSORFLOW_PACKAGE: tf-nightly-gpu==2.6.0.dev20210519
+        TENSORFLOW_PACKAGE: tf-nightly-gpu
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch-nightly-cu111
         PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.2.9
