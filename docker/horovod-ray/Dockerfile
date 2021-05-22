@@ -45,8 +45,9 @@ RUN python setup.py sdist && \
     sudo ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
     HOROVOD_GPU_OPERATIONS=NCCL HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[ray] && \
     horovodrun --check-build && \
-    python -c "import horovod.tensorflow as hvd; hvd.init()" && \
-    python -c "import horovod.torch as hvd; hvd.init()" && \
     sudo ldconfig
 
+# Check all frameworks are working correctly
 WORKDIR "/horovod/examples"
+RUN python -c "import horovod.tensorflow as hvd; hvd.init()" && \
+    python -c "import horovod.torch as hvd; hvd.init()"
