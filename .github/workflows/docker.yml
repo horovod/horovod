@@ -9,6 +9,12 @@ on:
   pull_request:
     branches: [ master ]
 
+# we want an ongoing run of this workflow to be canceled by a later commit
+# so that there is only one concurrent run of this workflow for each branch
+concurrency:
+  group: docker-${{ github.head_ref }}
+  cancel-in-progress: true
+
 jobs:
   start-runner:
     name: Start self-hosted EC2 runner
