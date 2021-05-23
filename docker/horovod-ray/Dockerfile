@@ -47,4 +47,10 @@ RUN python setup.py sdist && \
     horovodrun --check-build && \
     sudo ldconfig
 
+# Check all frameworks are working correctly. Use CUDA stubs to ensure CUDA libs can be found correctly
+# when running on CPU machine
 WORKDIR "/horovod/examples"
+RUN sudo ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
+    python -c "import horovod.tensorflow as hvd; hvd.init()" && \
+    python -c "import horovod.torch as hvd; hvd.init()" && \
+    sudo ldconfig
