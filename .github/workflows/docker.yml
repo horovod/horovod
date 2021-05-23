@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   start-runner:
-    name: Start self-hosted EC2 runner
+    name: Start self-hosted EC2 runner (${{ matrix.docker-image }})
     runs-on: ubuntu-latest
 
     strategy:
@@ -52,13 +52,14 @@ jobs:
           subnet-id: subnet-0983be43
           security-group-id: sg-4cba0d08
 
-      - name: EC2 instance meta
+      - name: Get EC2 instance meta
         id: ec2-meta
         run: |
           echo "::set-output name=label-${{ matrix.docker-image }}::${{ steps.start-ec2-runner.outputs.label}}"
           echo "::set-output name=ec2-instance-id-${{ matrix.docker-image }}::${{ steps.start-ec2-runner.outputs.ec2-instance-id}}"
 
   docker:
+    name: Build docker image ${{ matrix.docker-image }} (push=${{ github.event_name != 'pull_request' }})
     if: github.repository_owner == 'horovod'
     needs: start-runner # required to start the main job when the runner is ready
     runs-on: ${{ matrix.label }} # run the job on the newly created runners
@@ -72,7 +73,6 @@ jobs:
             label: ${{ needs.start-runner.outputs.label-horovod-cpu }}
           - docker-image: horovod-ray
             label: ${{ needs.start-runner.outputs.label-horovod-ray }}
-    name: docker ${{ matrix.docker-image }}
     steps:
       -
         name: Checkout
@@ -120,7 +120,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
   stop-runner:
-    name: Stop self-hosted EC2 runner
+    name: Stop self-hosted EC2 runner (${{ matrix.docker-image }})
     needs:
       - start-runner # required to get output from the start-runner job
       - docker # required to wait when the main job is done
@@ -132,13 +132,13 @@ jobs:
       matrix:
         include:
           - docker-image: horovod
-            lablel: ${{ needs.start-runner.outputs.label-horovod }}
+            label: ${{ needs.start-runner.outputs.label-horovod }}
             ec2-instance-id: ${{ needs.start-runner.outputs.ec2-instance-id-horovod }}
           - docker-image: horovod-cpu
-            lablel: ${{ needs.start-runner.outputs.label-horovod-cpu }}
+            label: ${{ needs.start-runner.outputs.label-horovod-cpu }}
             ec2-instance-id: ${{ needs.start-runner.outputs.ec2-instance-id-horovod-cpu }}
           - docker-image: horovod-ray
-            lablel: ${{ needs.start-runner.outputs.label-horovod-ray }}
+            label: ${{ needs.start-runner.outputs.label-horovod-ray }}
             ec2-instance-id: ${{ needs.start-runner.outputs.ec2-instance-id-horovod-ray }}
 
     steps:
