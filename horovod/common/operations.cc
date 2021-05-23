@@ -414,6 +414,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
 #if HAVE_NCCL
   nccl_context.nccl_comms.resize(state.num_nccl_streams);
+  LOG(TRACE, "BackgroundThreadLoop, nccl_context.nccl_comms.resize(), state.num_nccl_streams=") << state.num_nccl_streams;
 #endif
   gpu_context.streams.resize(state.num_nccl_streams);
 
@@ -765,12 +766,15 @@ void horovod_init(const int* ranks, int nranks) {
 
 #if HAVE_MPI
 void horovod_init_comm(MPI_Comm comm) {
+  LOG(TRACE, "horovod_init_comm");
   MPI_Comm_dup(comm, &mpi_context[0].mpi_comm);
   InitializeHorovodOnce(nullptr, 0);
 }
 
 void horovod_init_multi_comm(MPI_Comm *comm, int ncomms) {
     // Resizing mpi_context to hold one context per communicator
+    LOG(TRACE, "horovod_init_multi_comm, ncomms=") << ncomms;
+    horovod_global.num_nccl_streams = ncomms;
     mpi_context.resize(ncomms);
     for(int i=0; i< ncomms; i++) 
         MPI_Comm_dup(comm[i], &mpi_context[i].mpi_comm);
@@ -1055,7 +1059,8 @@ Status EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts
     message.set_request_rank(horovod_global.controller[communicator_id]->GetRank());
     message.set_tensor_name(names[n]);
     message.set_tensor_type(tensors[n]->dtype());
-    message.set_device(device);
+    //message.set_device(device);
+    message.set_device(horovod_global.controller[communicator_id]->GetRank());
     message.set_prescale_factor(prescale_factor);
     message.set_postscale_factor(postscale_factor);
     message.set_communicator_id(communicator_id);
@@ -1139,7 +1144,8 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
   message.set_request_rank(horovod_global.controller[communicator_id]->GetRank());
   message.set_tensor_name(name);
   message.set_tensor_type(tensor->dtype());
-  message.set_device(device);
+  //message.set_device(device);
+  message.set_device(horovod_global.controller[communicator_id]->GetRank());
   message.set_request_type(Request::ALLGATHER);
   for (int i = 0; i < tensor->shape().dims(); ++i) {
     message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
@@ -1179,7 +1185,8 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   message.set_tensor_name(name);
   message.set_tensor_type(tensor->dtype());
   message.set_root_rank(root_rank);
-  message.set_device(device);
+  //message.set_device(device);
+  message.set_device(horovod_global.controller[communicator_id]->GetRank());
   message.set_request_type(Request::BROADCAST);
   for (int i = 0; i < tensor->shape().dims(); ++i) {
     message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
@@ -1228,7 +1235,8 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
   message.set_request_rank(horovod_global.controller[communicator_id]->GetRank());
   message.set_tensor_name(name);
   message.set_tensor_type(tensor->dtype());
-  message.set_device(device);
+  //message.set_device(device);
+  message.set_device(horovod_global.controller[communicator_id]->GetRank());
   message.set_request_type(Request::ALLTOALL);
   for (int i = 0; i < tensor->shape().dims(); ++i) {
     message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
@@ -1284,7 +1292,8 @@ Status EnqueueJoin(std::shared_ptr<OpContext> context,
                    int32_t communicator_id) {
   Request message;
   message.set_request_rank(horovod_global.controller[communicator_id]->GetRank());
-  message.set_device(device);
+  //message.set_device(device);
+  message.set_device(horovod_global.controller[communicator_id]->GetRank());
   message.set_request_type(Request::JOIN);
   message.set_communicator_id(communicator_id);
 

@@ -16,6 +16,7 @@
 // =============================================================================
 
 #include "nccl_operations.h"
+#include "../logging.h"
 
 namespace horovod {
 namespace common {
@@ -60,9 +61,14 @@ void NCCLContext::ShutDown(){
 
 void NCCLOpContext::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
                                  const std::vector<int32_t>& nccl_device_map, const int32_t communicator_id) {
+  LOG(TRACE, "NCCLOpContext::InitNCCLComm start, communicator_id=") << communicator_id << ", current_nccl_stream=" << global_state_->current_nccl_stream;
+  for(int i=0; i<nccl_device_map.size() ; i++)
+    LOG(TRACE, "NCCLOpContext::InitNCCLComm device=") << nccl_device_map[i];
   // Ensure NCCL communicator is in the map before executing operation.
-  ncclComm_t& nccl_comm = nccl_context_->nccl_comms[global_state_->current_nccl_stream][nccl_device_map];
+  //ncclComm_t& nccl_comm = nccl_context_->nccl_comms[global_state_->current_nccl_stream][nccl_device_map];
+  ncclComm_t& nccl_comm = nccl_context_->nccl_comms[communicator_id][nccl_device_map];
   if (nccl_comm == nullptr) {
+    LOG(TRACE, "NCCLOpContext::InitNCCLComm nccl_comm == nullptr");
     auto& timeline = global_state_->timeline;
     timeline.ActivityStartAll(entries, INIT_NCCL);
 
@@ -72,16 +78,21 @@ void NCCLOpContext::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
 
     ncclUniqueId nccl_id;
     if (nccl_rank == 0) {
+      LOG(TRACE, "NCCLOpContext::InitNCCLComm nccl_rank = 0, calling ncclGetUniqueId()");
       nccl_context_->ErrorCheck("ncclGetUniqueId", ncclGetUniqueId(&nccl_id), nccl_comm);
     }
 
     global_state_->controller[communicator_id]->Bcast((void*)&nccl_id, sizeof(nccl_id), 0,
                                          nccl_id_bcast_comm);
+    LOG(TRACE, "NCCLOpContext::InitNCCLComm new nccl_id broadcasted");
 
     ncclComm_t new_nccl_comm;
     auto nccl_result = ncclCommInitRank(&new_nccl_comm, nccl_size, nccl_id, nccl_rank);
     nccl_context_->ErrorCheck("ncclCommInitRank", nccl_result, nccl_comm);
     nccl_comm = new_nccl_comm;
+
+    // Adding the new nccl_comm to the dictionary
+    nccl_context_->nccl_comms[communicator_id][nccl_device_map] = nccl_comm;
 
     // Barrier helps NCCL to synchronize after initialization and avoid
     // deadlock that we've been seeing without it.
@@ -89,8 +100,11 @@ void NCCLOpContext::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
 
     timeline.ActivityEndAll(entries);
   }
+  else
+    LOG(TRACE, "NCCLOpContext::InitNCCLComm nccl_comm != nullptr");
 
   nccl_comm_ = &nccl_comm;
+  LOG(TRACE, "NCCLOpContext::InitNCCLComm end");
 }
 
 void NCCLOpContext::AsyncErrorCheck() {
@@ -104,29 +118,35 @@ void NCCLOpContext::AsyncErrorCheck() {
     ncclCommAbort(*nccl_comm_);
     throw std::logic_error(std::string("NCCL async error: ") + ncclGetErrorString(nccl_async_err));
   }
+  LOG(TRACE, "NCCLOpContext::AsyncErrorCheck done");
 
 
 }
 
 void NCCLOpContext::PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
                                              Communicator& nccl_id_bcast_comm, const int32_t communicator_id) {
+  LOG(TRACE, "NCCLOpContext::PopulateNCCLCommStrategy start");
   if (communicator_type_ == Communicator::GLOBAL) {
     nccl_rank = global_state_->controller[communicator_id]->GetRank();
     nccl_size = global_state_->controller[communicator_id]->GetSize();
+    LOG(TRACE, "NCCLOpContext::PopulateNCCLCommStrategy with Communicator::GLOBAL, nccl_rank=") << nccl_rank << ", nccl_size=" << nccl_size;
   } else if (communicator_type_ == Communicator::LOCAL) {
     nccl_rank = global_state_->controller[communicator_id]->GetLocalRank();
     nccl_size = global_state_->controller[communicator_id]->GetLocalSize();
+    LOG(TRACE, "NCCLOpContext::PopulateNCCLCommStrategy with Communicator::LOCAL, nccl_rank=") << nccl_rank << ", nccl_size=" << nccl_size;
   } else {
     throw std::logic_error("Communicator type " + std::to_string(communicator_type_) +
                             " is not supported in NCCL mode.");
   }
   nccl_id_bcast_comm = communicator_type_;
+  LOG(TRACE, "NCCLOpContext::PopulateNCCLCommStrategy end");
 }
 
 Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                               const Response& response) {
   auto& first_entry = entries[0];
   int32_t communicator_id = response.communicator_id();
+  LOG(TRACE, "NCCLAllreduce::Execute start");
 
   gpu_op_context_.InitGPU(entries);
   nccl_op_context_.InitNCCLComm(entries, response.devices(), communicator_id);
@@ -181,6 +201,7 @@ Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     }
   }
 
+  LOG(TRACE, "NCCLAllreduce::Execute end");
   return gpu_op_context_.FinalizeGPUQueue(entries, true, nccl_op_context_.error_check_callback_);
 }
 
@@ -190,6 +211,7 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                                    const Response& response) {
   auto& first_entry = entries[0];
   int32_t communicator_id = response.communicator_id();
+  LOG(TRACE, "NCCLHierarchicalAllreduce::Execute start");
 
   // Determine GPU IDs of the devices participating in this communicator.
   std::vector<int32_t> nccl_device_map;
@@ -387,6 +409,7 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     }
   }
 
+  LOG(TRACE, "NCCLHierarchicalAllreduce::Execute end");
   return gpu_op_context_.FinalizeGPUQueue(entries, true, nccl_op_context_.error_check_callback_);
 }
 
@@ -405,6 +428,7 @@ Status NCCLBroadcast::Execute(std::vector<TensorTableEntry>& entries,
   assert(entries.size() == 1);
   auto e = entries[0];
   int32_t communicator_id = response.communicator_id();
+  LOG(TRACE, "NCCLBroadcast::Execute start, communicator_id=") << communicator_id;
   
   gpu_op_context_.InitGPU(entries);
   nccl_op_context_.InitNCCLComm(entries, response.devices(), communicator_id);
@@ -431,6 +455,7 @@ Status NCCLBroadcast::Execute(std::vector<TensorTableEntry>& entries,
     gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_BCAST, *gpu_op_context_.stream);
   }
 
+  LOG(TRACE, "NCCLBroadcast::Execute end");
   return gpu_op_context_.FinalizeGPUQueue(entries, true, nccl_op_context_.error_check_callback_);
 }
 
@@ -438,6 +463,7 @@ Status NCCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
                                 const Response& response) {
   auto& first_entry = entries[0];
   int32_t communicator_id = response.communicator_id();
+  LOG(TRACE, "NCCLAllgather::Execute start");
 
   gpu_op_context_.InitGPU(entries);
   nccl_op_context_.InitNCCLComm(entries, response.devices(), communicator_id);
@@ -559,6 +585,7 @@ Status NCCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
   delete[] entry_component_sizes;
   delete[] entry_component_offsets;
 
+  LOG(TRACE, "NCCLAllgather::Execute end");
   return gpu_op_context_.FinalizeGPUQueue(entries, true, nccl_op_context_.error_check_callback_);
 }
 
@@ -575,6 +602,8 @@ Status NCCLAlltoall::Execute(std::vector<TensorTableEntry>& entries,
   auto e = entries[0];
   int32_t communicator_id = response.communicator_id();
   
+  LOG(TRACE, "NCCLAlltoall::Execute start, communicator_id=") << communicator_id;
+
   gpu_op_context_.InitGPU(entries);
   nccl_op_context_.InitNCCLComm(entries, response.devices(), communicator_id);
   gpu_op_context_.InitGPUQueue(entries, response);
@@ -594,6 +623,7 @@ Status NCCLAlltoall::Execute(std::vector<TensorTableEntry>& entries,
 
   for (int i = 0; i < world_size; ++i) {
     if (recvcounts[i] > 0) {
+      LOG(TRACE, "NCCLAlltoall::Execute ncclRecv from rank=") << i;
       auto nccl_result = ncclRecv((uint8_t*) e.output->data() + rdispls[i] * DataType_Size(e.tensor->dtype()),
                                   recvcounts[i] * DataType_Size(e.tensor->dtype()), ncclChar, i,
                                   *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
@@ -601,6 +631,7 @@ Status NCCLAlltoall::Execute(std::vector<TensorTableEntry>& entries,
     }
 
     if (sendcounts[i] > 0) {
+      LOG(TRACE, "NCCLAlltoall::Execute ncclSend to rank=") << i;
       auto nccl_result = ncclSend((uint8_t*) e.tensor->data() + sdispls[i] * DataType_Size(e.tensor->dtype()),
                              sendcounts[i] * DataType_Size(e.tensor->dtype()), ncclChar, i,
                              *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
@@ -613,6 +644,7 @@ Status NCCLAlltoall::Execute(std::vector<TensorTableEntry>& entries,
     gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_ALLTOALL, *gpu_op_context_.stream);
   }
 
+  LOG(TRACE, "NCCLAlltoall::Execute end");
   return gpu_op_context_.FinalizeGPUQueue(entries);
 #else
   throw std::runtime_error("NCCLAlltoall requires NCCL version >= 2.7.0. If your NCCL installation cannot be updated "
