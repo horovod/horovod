@@ -296,6 +296,8 @@ jobs:
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
+        # disabled as 1) the cache image is not been picked up and 2) image is too large for github workers
+        if: false
         continue-on-error: true
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -304,6 +306,8 @@ jobs:
 
       - name: Login to Amazon ECR
         id: ecr
+        # disabled as 1) the cache image is not been picked up and 2) image is too large for github workers
+        if: false
         continue-on-error: true
         uses: aws-actions/amazon-ecr-login@v1
 
@@ -317,6 +321,7 @@ jobs:
         shell: bash
 
       - name: Pull latest image
+        # disabled as 1) the cache image is not been picked up and 2) image is too large for github workers
         if: false
         continue-on-error: true
         run: |
@@ -745,6 +750,8 @@ jobs:
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
+        # disabled as 1) the cache image is not been picked up and 2) image is too large for github workers
+        if: false
         continue-on-error: true
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -753,6 +760,8 @@ jobs:
 
       - name: Login to Amazon ECR
         id: ecr
+        # disabled as 1) the cache image is not been picked up and 2) image is too large for github workers
+        if: false
         continue-on-error: true
         uses: aws-actions/amazon-ecr-login@v1
 
@@ -766,6 +775,7 @@ jobs:
         shell: bash
 
       - name: Pull latest image
+        # disabled as 1) the cache image is not been picked up and 2) image is too large for github workers
         if: false
         continue-on-error: true
         run: |
