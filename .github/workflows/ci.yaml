@@ -14,9 +14,12 @@ on:
     branches: [ master ]
 
 jobs:
-  validate-workflow:
-    name: "Verify GitHub Workflow"
+  init-workflow:
+    name: "Init Workflow"
     runs-on: ubuntu-latest
+    outputs:
+      run_builds_and_tests: ${{ steps.tests.output.needed }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -24,11 +27,11 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: 3.8
+      - name: Pip install dependencies
+        run: pip install -r .github/requirements.txt
+
       - name: Check ci.yaml is up-to-date
         run: |
-          echo "::group::pip install -r .github/requirements.txt"
-          pip install -r .github/requirements.txt
-          echo "::endgroup::"
           python .github/gen-workflow-ci.py
           if [[ $(git diff .github/workflows/ci.yaml | wc -l) -gt 0 ]]
           then
@@ -37,10 +40,25 @@ jobs:
           fi
         shell: bash
 
+      - name: Check if tests are needed
+        id: tests
+        env:
+          GITHUB_BASE: ${{ github.event.pull_request.base.sha }}
+          GITHUB_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]] && [[ -z "$(python .github/get-changed-code-files.py)" ]]
+          then
+            echo "::set-output name=needed::false"
+            exit 0
+          fi
+          echo "::set-output name=needed::true"
+
   build-and-test:
     name: "Build and Test (${{ matrix.image }})"
-    needs: [validate-workflow]
+    needs: [init-workflow]
+    if: needs.init-workflow.outputs.run_builds_and_tests != 'false'
     runs-on: ubuntu-latest
+
     strategy:
       max-parallel: 17
       fail-fast: false
@@ -675,8 +693,10 @@ jobs:
 
   build-and-test-heads:
     name: "Build and Test (${{ matrix.image }})"
-    needs: [build-and-test]
+    needs: [init-workflow, build-and-test]
+    if: needs.init-workflow.outputs.run_builds_and_tests != 'false'
     runs-on: ubuntu-latest
+
     strategy:
       max-parallel: 2
       fail-fast: false
@@ -1122,8 +1142,10 @@ jobs:
 
   build-and-test-macos:
     name: "Build and Test (${{ matrix.image }}-macos)"
-    needs: [build-and-test]
+    needs: [init-workflow, build-and-test]
+    if: needs.init-workflow.outputs.run_builds_and_tests != 'false'
     runs-on: macos-latest
+
     strategy:
       max-parallel: 3
       fail-fast: false
@@ -1211,9 +1233,11 @@ jobs:
 
   buildkite:
     name: "Build and Test (GPUs on Builtkite)"
-    needs: [build-and-test]
+    needs: [init-workflow, build-and-test]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    if: >
+      needs.init-workflow.outputs.run_builds_and_tests != 'false' &&
+      ( github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository )
 
     steps:
       - name: Trigger Buildkite Pipeline
@@ -1277,7 +1301,7 @@ jobs:
 
   docker-config:
     name: Configure workflow
-    needs: [build-and-test, buildkite]
+    needs: [init-workflow, build-and-test, buildkite]
     runs-on: ubuntu-latest
     outputs:
       # run workflow for all events on Horovod repo and non-schedule events on forks
@@ -1406,7 +1430,7 @@ jobs:
 
   sync-files:
     name: "Sync Files (${{ matrix.name }})"
-    needs: [validate-workflow]
+    needs: [init-workflow]
     runs-on: ubuntu-latest
 
     strategy:

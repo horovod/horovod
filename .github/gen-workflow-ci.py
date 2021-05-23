@@ -125,9 +125,12 @@ def main():
         return 'jobs:\n' + '\n'.join(jobs)
 
     def validate_workflow_job() -> str:
-        return (f'  validate-workflow:\n'
-                f'    name: "Verify GitHub Workflow"\n'
+        return (f'  init-workflow:\n'
+                f'    name: "Init Workflow"\n'
                 f'    runs-on: ubuntu-latest\n'
+                f'    outputs:\n'
+                f'      run_builds_and_tests: ${{{{ steps.tests.output.needed }}}}\n'
+                f'\n'
                 f'    steps:\n'
                 f'      - name: Checkout\n'
                 f'        uses: actions/checkout@v2\n'
@@ -135,28 +138,45 @@ def main():
                 f'        uses: actions/setup-python@v2\n'
                 f'        with:\n'
                 f'          python-version: 3.8\n'
+                f'      - name: Pip install dependencies\n'
+                f'        run: pip install -r .github/requirements.txt\n'
+                f'\n'
                 f'      - name: Check ci.yaml is up-to-date\n'
                 f'        run: |\n'
-                f'          echo "::group::pip install -r .github/requirements.txt"\n'
-                f'          pip install -r .github/requirements.txt\n'
-                f'          echo "::endgroup::"\n'
                 f'          python .github/gen-workflow-ci.py\n'
                 f'          if [[ $(git diff .github/workflows/ci.yaml | wc -l) -gt 0 ]]\n'
                 f'          then\n'
                 f'            echo "::error::Workflow file .github/workflows/ci.yaml is out-dated, please run .github/gen-workflow-ci.py and commit changes"\n'
                 f'            exit 1\n'
                 f'          fi\n'
-                f'        shell: bash\n')
+                f'        shell: bash\n'
+                f'\n'
+                f'      - name: Check if tests are needed\n'
+                f'        id: tests\n'
+                f'        env:\n'
+                f'          GITHUB_BASE: ${{{{ github.event.pull_request.base.sha }}}}\n'
+                f'          GITHUB_HEAD: ${{{{ github.event.pull_request.head.sha }}}}\n'
+                f'        run: |\n'
+                f'          if [[ "${{{{ github.event_name }}}}" == "pull_request" ]] && [[ -z "$(python .github/get-changed-code-files.py)" ]]\n'
+                f'          then\n'
+                f'            echo "::set-output name=needed::false"\n'
+                f'            exit 0\n'
+                f'          fi\n'
+                f'          echo "::set-output name=needed::true"\n')
 
     def build_and_test_images(name: str,
                               needs: List[str],
                               images: List[str],
                               tests_per_image: Dict[str, Set[str]],
                               tests: Dict[str, Dict]) -> str:
+        if 'init-workflow' not in needs:
+            needs.insert(0, 'init-workflow')
         return (f'  {name}:\n'
                 f'    name: "Build and Test (${{{{ matrix.image }}}})"\n'
                 f'    needs: [{", ".join(needs)}]\n'
+                f'    if: needs.init-workflow.outputs.run_builds_and_tests != \'false\'\n'
                 f'    runs-on: ubuntu-latest\n'
+                f'\n'
                 f'    strategy:\n'
                 f'      max-parallel: {len(images)}\n'
                 f'      fail-fast: false\n'
@@ -242,10 +262,14 @@ def main():
                 f'          path: artifacts/${{{{ matrix.image }}}}/**/*.xml\n')
 
     def build_and_test_macos(name: str, needs: List[str]) -> str:
+        if 'init-workflow' not in needs:
+            needs.insert(0, 'init-workflow')
         return (f'  {name}:\n'
                 f'    name: "Build and Test (${{{{ matrix.image }}}}-macos)"\n'
                 f'    needs: [{", ".join(needs)}]\n'
+                f'    if: needs.init-workflow.outputs.run_builds_and_tests != \'false\'\n'
                 f'    runs-on: macos-latest\n'
+                f'\n'
                 f'    strategy:\n'
                 f'      max-parallel: 3\n'
                 f'      fail-fast: false\n'
@@ -333,11 +357,15 @@ def main():
                 f'          path: ${{{{ steps.build-and-test.outputs.artifacts-path }}}}/**/*.xml\n')
 
     def trigger_buildkite_job(name: str, needs: List[str]) -> str:
+        if 'init-workflow' not in needs:
+            needs.insert(0, 'init-workflow')
         return (f'  {name}:\n'
                 f'    name: "Build and Test (GPUs on Builtkite)"\n'
                 f'    needs: [{", ".join(needs)}]\n'
                 f'    runs-on: ubuntu-latest\n'
-                f'    if: github.event_name == \'push\' || github.event.pull_request.head.repo.full_name == github.repository\n'
+                f'    if: >\n'
+                f'      needs.init-workflow.outputs.run_builds_and_tests != \'false\' &&\n'
+                f'      ( github.event_name == \'push\' || github.event.pull_request.head.repo.full_name == github.repository )\n'
                 f'\n'
                 f'    steps:\n'
                 f'      - name: Trigger Buildkite Pipeline\n'
@@ -403,6 +431,8 @@ def main():
                 f'          files: "artifacts/Unit Test Results */**/*.xml"\n')
 
     def publish_docker_images(needs: List[str], images: List[str]) -> str:
+        if 'init-workflow' not in needs:
+            needs.insert(0, 'init-workflow')
         return (f'  docker-config:\n'
                 f'    name: Configure workflow\n'
                 f'    needs: [{", ".join(needs)}]\n'
@@ -583,13 +613,13 @@ def main():
         allhead_images = [image for image in images if all(head in image for head in heads)]
         workflow = workflow_header() + jobs(
             validate_workflow_job(),
-            build_and_test_images(name='build-and-test', needs=['validate-workflow'], images=release_images, tests_per_image=tests_per_image, tests=tests),
+            build_and_test_images(name='build-and-test', needs=['init-workflow'], images=release_images, tests_per_image=tests_per_image, tests=tests),
             build_and_test_images(name='build-and-test-heads', needs=['build-and-test'], images=allhead_images, tests_per_image=tests_per_image, tests=tests),
             build_and_test_macos(name='build-and-test-macos', needs=['build-and-test']),
             trigger_buildkite_job(name='buildkite', needs=['build-and-test']),
             publish_unit_test_results(name='publish-test-results', needs=['build-and-test', 'build-and-test-heads', 'build-and-test-macos', 'buildkite']),
             publish_docker_images(needs=['build-and-test', 'buildkite'], images=['horovod', 'horovod-cpu', 'horovod-ray']),
-            sync_files(needs=['validate-workflow'])
+            sync_files(needs=['init-workflow'])
         )
         print(workflow, file=w, end='')
 
