@@ -531,6 +531,52 @@ def main():
                 f'          docker container list -a\n'
                 f'          echo ::endgroup::\n')
 
+    def sync_files(needs: List[str]) -> str:
+        return (f'  sync-files:\n'
+                f'    name: "Sync Files (${{{{ matrix.name }}}})"\n'
+                f'    needs: [{", ".join(needs)}]\n'
+                f'    runs-on: ubuntu-latest\n'
+                f'\n'
+                f'    strategy:\n'
+                f'      fail-fast: false\n'
+                f'      matrix:\n'
+                f'        include:\n'
+                f'          - name: Docs Summary\n'
+                f'            left_file: README.rst\n'
+                f'            right_file: docs/summary.rst\n'
+                f'            init: sed -i -e s/docs\///g README.rst\n'
+                f'\n'
+                f'          - name: Examples Keras Spark3\n'
+                f'            left_file: examples/spark/keras/keras_spark_rossmann_run.py\n'
+                f'            right_file: examples/spark/keras/keras_spark3_rossmann.py\n'
+                f'\n'
+                f'    steps:\n'
+                f'      - name: Checkout\n'
+                f'        uses: actions/checkout@v1\n'
+                f'\n'
+                f'      - name: Diffing ${{{{ matrix.left_file }}}} with ${{{{ matrix.right_file }}}}\n'
+                f'        env:\n'
+                f'          LEFT: ${{{{ matrix.left_file }}}}\n'
+                f'          RIGHT: ${{{{ matrix.right_file }}}}\n'
+                f'          INIT: ${{{{ matrix.init }}}}\n'
+                f'        run: |\n'
+                f'          $INIT\n'
+                f'\n'
+                f'          patch --quiet -p0 $LEFT ${{RIGHT}}.patch -o ${{LEFT}}.expected\n'
+                f'          if ! diff -q ${{LEFT}}.expected --label $LEFT $RIGHT\n'
+                f'          then\n'
+                f'            echo\n'
+                f'            echo "::error::Files are out-of-sync: $LEFT vs. $RIGHT"\n'
+                f'            echo "Unexpected differences are:"\n'
+                f'            diff ${{LEFT}}.expected --label $LEFT $RIGHT || true\n'
+                f'\n'
+                f'            echo\n'
+                f'            echo "Use the following as ${{RIGHT}}.patch to accept those changes:"\n'
+                f'            diff $LEFT $RIGHT || true\n'
+                f'\n'
+                f'            false\n'
+                f'          fi\n')
+
     with open(path.joinpath('workflows', 'ci.yaml').absolute(), 'wt') as w:
         heads = ['tfhead', 'torchhead', 'mxnethead']
         release_images = [image for image in images if not all(head in image for head in heads)]
@@ -542,7 +588,8 @@ def main():
             build_and_test_macos(name='build-and-test-macos', needs=['build-and-test']),
             trigger_buildkite_job(name='buildkite', needs=['build-and-test']),
             publish_unit_test_results(name='publish-test-results', needs=['build-and-test', 'build-and-test-heads', 'build-and-test-macos', 'buildkite']),
-            publish_docker_images(needs=['build-and-test', 'buildkite'], images=['horovod', 'horovod-cpu', 'horovod-ray'])
+            publish_docker_images(needs=['build-and-test', 'buildkite'], images=['horovod', 'horovod-cpu', 'horovod-ray']),
+            sync_files(needs=['validate-workflow'])
         )
         print(workflow, file=w, end='')
 
