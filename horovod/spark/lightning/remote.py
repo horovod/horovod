@@ -57,6 +57,8 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     train_steps_per_epoch = estimator.getTrainStepsPerEpoch()
     val_steps_per_epoch = estimator.getValidationStepsPerEpoch()
     num_gpus = estimator.getNumGPUs()
+    logger = estimator.getLogger()
+    log_every_n_steps = estimator.getLogEveryNSteps()
 
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
@@ -94,7 +96,11 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             # TODO: Pass the logger from estimator constructor
             logs_path = os.path.join(run_output_dir, remote_store.logs_subdir)
-            logger = TensorBoardLogger(logs_path)
+
+            # Use default logger if no logger is supplied
+            train_logger = logger
+            if train_logger is None:
+                train_logger = TensorBoardLogger(logs_path)
 
             # TODO: find out a way to use ckpt_path created from remote store, but all other parameters ingest from estimator config
             # ckpt_path = os.path.join(run_output_dir, remote_store.checkpoint_filename)
@@ -131,7 +137,8 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                       'max_epochs': epochs,
                       'limit_train_batches': _train_steps_per_epoch,
                       'limit_val_batches': _val_steps_per_epoch,
-                      'logger': logger,
+                      'logger': train_logger,
+                      'log_every_n_steps': log_every_n_steps,
                       'resume_from_checkpoint': (last_ckpt_file if ckpt_bytes else None),
                       'checkpoint_callback': is_model_checkpoint_callback_exist,
                       'num_sanity_val_steps': 0,

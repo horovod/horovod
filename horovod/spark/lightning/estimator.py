@@ -167,6 +167,10 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     num_gpus = Param(Params._dummy(), 'num_gpus',
                      'Number of gpus per process, default to 1 when CUDA is available in the backend, otherwise 0.')
 
+    logger = Param(Params._dummy(), 'logger', 'optional logger')
+
+    log_every_n_steps = Param(Params._dummy(), 'log_every_n_steps', 'control the frequency of logging',
+                                typeConverter=TypeConverters.toInt)
 
     @keyword_only
     def __init__(self,
@@ -202,7 +206,9 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  reader_pool_type=None,
                  label_shapes=None,
                  inmemory_cache_all=False,
-                 num_gpus=None):
+                 num_gpus=None,
+                 logger=None,
+                 log_every_n_steps=50):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
@@ -210,7 +216,9 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                          train_minibatch_fn=None,
                          transformation_fn=None,
                          inmemory_cache_all=False,
-                         num_gpus=None)
+                         num_gpus=None,
+                         logger=None,
+                         log_every_n_steps=50)
 
         kwargs = self._input_kwargs
 
@@ -252,6 +260,17 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def getNumGPUs(self):
         return self.getOrDefault(self.num_gpus)
+    def setLogger(self, value):
+        return self._set(logger=value)
+
+    def getLogger(self):
+        return self.getOrDefault(self.logger)
+
+    def setLogEveryNSteps(self, value):
+        return self._set(log_every_n_steps=value)
+
+    def getLogEveryNSteps(self):
+        return self.getOrDefault(self.log_every_n_steps)
 
     def _get_optimizer(self):
         return self.getOrDefault(self.optimizer)
