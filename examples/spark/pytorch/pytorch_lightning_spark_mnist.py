@@ -95,8 +95,8 @@ def train_model(args):
             self.fc2 = nn.Linear(50, 10)
 
         def forward(self, x):
-            #raise RuntimeError("x shape is {}".format(x.shape))
-            x = x.float()
+            # raise RuntimeError("x shape is {}".format(x.shape))
+            x = x.float().reshape((-1, 1, 28, 28))
             x = F.relu(F.max_pool2d(self.conv1(x), 2))
             x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
             x = x.view(-1, 320)
@@ -112,18 +112,18 @@ def train_model(args):
             x, y = batch['features'], batch['label']
             y_hat = self(x)
             loss = F.nll_loss(y_hat, y.long())
-            tensorboard_logs = {'train_loss': loss}
-            return {'loss': loss, 'log': tensorboard_logs}
+            self.log('train_loss', loss)
+            return loss
 
         def validation_step(self, batch, batch_nb):
             x, y = batch['features'], batch['label']
             y_hat = self(x)
-            return {'val_loss': F.nll_loss(y_hat, y.long())}
+            loss = F.nll_loss(y_hat, y.long())
+            self.log('val_loss', loss)
 
         def validation_epoch_end(self, outputs):
-            avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
-            tensorboard_logs = {'val_loss': avg_loss}
-            return {'avg_val_loss': avg_loss, 'log': tensorboard_logs}
+            avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean() if len(outputs) > 0 else float('inf')
+            self.log('avg_val_loss', avg_loss)
 
     model = Net()
 
@@ -156,11 +156,10 @@ def train_model(args):
             self.train_epcoh_end_counter += 1
 
         def on_train_end(self, trainer, model):
-            print('Training ends')
-            # assert self.epcoh_end_counter == 2 * epochs
-            # assert self.train_epcoh_end_counter == epochs
-            print(f"self.epcoh_end_counter={self.epcoh_end_counter}, "
+            print("Training ends:"
+                  f"self.epcoh_end_counter={self.epcoh_end_counter}, "
                   f"self.train_epcoh_end_counter={self.train_epcoh_end_counter}")
+            assert self.train_epcoh_end_counter == epochs
 
     callbacks = [MyDummyCallback()]
 

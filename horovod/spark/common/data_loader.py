@@ -11,10 +11,9 @@ class BaseDataLoader(object):
         # If we cannot infer the number of iteratios we return 0
         return 0
 
-    @property
-    def shape(self):
-        # TODO: deprecate, change to annotation
-        return self.annotation
+    # can be override with custum code.
+    def _process_batch(self, batch):
+        return batch
 
 
 class BaseAsyncDataLoader(BaseDataLoader):
@@ -75,7 +74,6 @@ class PetastormReaderWrapper(BaseDataLoader):
     def __init__(self, reader):
         self.reader = reader
         self.total_size = None
-        self.annotation = None
 
     @property
     def schema(self):
@@ -91,7 +89,6 @@ class PetastormReaderWrapper(BaseDataLoader):
         total_size = 0
         for b in self.reader:
             b = b._asdict()
-            # b = NamedDataset(b, annotation=self.annotation)
             total_size += len(b)
 
             yield b
@@ -103,7 +100,6 @@ class PetastormDataLoader(BaseDataLoader):
         if not isinstance(dataset, PetastormReaderWrapper):
             dataset = PetastormReaderWrapper(dataset)
         self.reader = dataset.reader
-        self.annotation = dataset.annotation
         self.batch_size = batch_size
         self.shuffling_queue_capacity = shuffling_queue_capacity
         print(f"Initializing petastorm dataloader with batch_size {batch_size}"
@@ -124,8 +120,7 @@ class PetastormDataLoader(BaseDataLoader):
         )
 
         for batch in data_loader:
-            # batch = NamedDataset(batch, annotation=self.annotation)
-            yield batch
+            yield self._process_batch(batch)
 
 
 class PetastormAsyncDataLoader(BaseAsyncDataLoader):
@@ -135,7 +130,6 @@ class PetastormAsyncDataLoader(BaseAsyncDataLoader):
         if not isinstance(dataset, PetastormReaderWrapper):
             dataset = PetastormReaderWrapper(dataset)
         self.reader = dataset.reader
-        self.annotation = dataset.annotation
         self.batch_size = batch_size
         self.shuffling_queue_capacity = shuffling_queue_capacity
 
@@ -154,5 +148,4 @@ class PetastormAsyncDataLoader(BaseAsyncDataLoader):
         )
 
         for batch in data_loader:
-            # batch = NamedDataset(batch, annotation=self.annotation)
-            yield batch
+            yield self._process_batch(batch)

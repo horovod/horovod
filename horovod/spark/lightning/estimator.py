@@ -175,6 +175,9 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     data_loader_class = Param(Params._dummy(), 'data_loader_class',
                               'Name of the dataloader class.')
 
+    loader_num_epochs = Param(Params._dummy(), 'loader_num_epochs',
+                              'Number of epochs whcih data loader reads in each iteration. If set to None, reader will be in infinite loop mode.')
+
     @keyword_only
     def __init__(self,
                  num_proc=None,
@@ -212,7 +215,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  num_gpus=None,
                  logger=None,
                  log_every_n_steps=50,
-                 data_loader_class=None):
+                 data_loader_class=None,
+                 loader_num_epochs=None):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
@@ -223,7 +227,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                          num_gpus=None,
                          logger=None,
                          log_every_n_steps=50,
-                         data_loader_class=None)
+                         data_loader_class=None,
+                         loader_num_epochs=None)
 
         kwargs = self._input_kwargs
 
@@ -283,6 +288,12 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def getDataLoaderClass(self):
         return self.getOrDefault(self.data_loader_class)
+
+    def setLoaderNumEpochs(self, value):
+        return self._set(loader_num_epochs=value)
+
+    def getLoaderNumEpochs(self):
+        return self.getOrDefault(self.loader_num_epochs)
 
     def _get_optimizer(self):
         return self.getOrDefault(self.optimizer)

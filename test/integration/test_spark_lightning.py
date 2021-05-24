@@ -510,6 +510,71 @@ class SparkLightningTests(unittest.TestCase):
                                       ([0, 4, 0, 4, 1, 4, 0, 4], 1)], res)
 
     """
+    Test dummy callback function from pytorch lightning trainer with default petastrom reader.
+    """
+    def test_dummy_callback_origin_petastorm_reader(self):
+        from pytorch_lightning.callbacks import Callback
+        from petastorm.pytorch import BatchedDataLoader
+
+        model = create_xor_model()
+
+        with spark_session('test_fit_model') as spark:
+            df = create_noisy_xor_data(spark)
+
+            for num_proc in [1, 2]:
+                for epochs in [2, 3]:
+
+                    class MyDummyCallback(Callback):
+                        def __init__(self):
+                            self.epcoh_end_counter = 0
+                            self.train_epcoh_end_counter = 0
+
+                        def on_init_start(self, trainer):
+                            print('Starting to init trainer!')
+
+                        def on_init_end(self, trainer):
+                            print('Trainer is initialized.')
+
+                        def on_epoch_end(self, trainer, model):
+                            print('A epoch ended.')
+                            self.epcoh_end_counter += 1
+
+                        def on_train_epoch_end(self, trainer, model, unused=None):
+                            print('A train epoch ended.')
+                            self.train_epcoh_end_counter += 1
+
+                        def on_train_end(self, trainer, model):
+                            print('Training ends')
+                            assert self.train_epcoh_end_counter == epochs
+
+                    dm_callback = MyDummyCallback()
+                    callbacks = [dm_callback]
+
+                    with local_store() as store:
+                        torch_estimator = hvd_spark.TorchEstimator(
+                            num_proc=num_proc,
+                            store=store,
+                            model=model,
+                            input_shapes=[[-1, 2]],
+                            feature_cols=['features'],
+                            label_cols=['y'],
+                            validation=0.2,
+                            batch_size=4,
+                            epochs=epochs,
+                            verbose=2,
+                            callbacks=callbacks,
+                            data_loader_class=BatchedDataLoader,
+                            loader_num_epochs=1)
+
+                        torch_model = torch_estimator.fit(df)
+
+                        # TODO: Find a way to pass log metrics from remote, and assert base on the logger.
+                        trained_model = torch_model.getModel()
+                        pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
+                        assert len(pred) == 1
+                        assert pred.dtype == torch.float32
+
+    """
     Test dummy callback function from pytorch lightning trainer.
     """
     def test_dummy_callback(self):
@@ -543,8 +608,6 @@ class SparkLightningTests(unittest.TestCase):
 
                         def on_train_end(self, trainer, model):
                             print('Training ends')
-                            # on_epoch_end will be called by both train and validation loop
-                            # assert self.epcoh_end_counter == 2 * epochs
                             assert self.train_epcoh_end_counter == epochs
 
                     dm_callback = MyDummyCallback()

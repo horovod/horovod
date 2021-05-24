@@ -60,6 +60,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     logger = estimator.getLogger()
     log_every_n_steps = estimator.getLogEveryNSteps()
     data_loader_cls = estimator.getDataLoaderClass()
+    loader_num_epochs = estimator.getLoaderNumEpochs()
 
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
@@ -75,10 +76,10 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     if sample_weight_col:
         schema_fields.append(sample_weight_col)
 
-    dataloader_cls = _create_dataloader(feature_columns, input_shapes, metadata, data_loader_cls)
+    data_loader_cls = _create_dataloader(feature_columns, input_shapes, metadata, data_loader_cls)
     make_petastorm_reader = _make_petastorm_reader_fn(transformation, schema_fields,
                                                       batch_size, calculate_shuffle_buffer_size,
-                                                      dataloader_cls)
+                                                      data_loader_cls, loader_num_epochs)
 
     # Storage
     store = estimator.getStore()
@@ -208,7 +209,7 @@ def _make_reset_callbacks():
     return [ResetCallback()]
 
 
-def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calculate_shuffle_buffer_size, dataloader_cls):
+def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calculate_shuffle_buffer_size, data_loader_cls, num_epochs):
 
     @contextlib.contextmanager
     def make_petastorm_reader(model, data_path, dataloader_attr, reader_worker_count, reader_pool_type, should_read=True):
@@ -238,11 +239,11 @@ def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calcula
             reader_factory = make_batch_reader
 
         # Petastorm: read data from the store with the correct shard for this rank
-        # setting num_epochs=None will cause an infinite iterator
+        # Setting num_epochs=None will cause an infinite iterator
         # and enables ranks to perform training and validation with
         # unequal number of samples
         with reader_factory(data_path,
-                            num_epochs=None,
+                            num_epochs=num_epochs,
                             cur_shard=hvd.rank(),
                             shard_count=hvd.size(),
                             reader_pool_type=reader_pool_type,
@@ -252,7 +253,7 @@ def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calcula
                             transform_spec=transform_spec,
                             **reader_factory_kwargs) as reader:
             def dataloader_fn():
-                return dataloader_cls(reader, batch_size=batch_size,
+                return data_loader_cls(reader, batch_size=batch_size,
                                       shuffling_queue_capacity=calculate_shuffle_buffer_size())
             try:
                 setattr(model, dataloader_attr, dataloader_fn)
@@ -316,16 +317,17 @@ def _create_dataloader(feature_columns, input_shapes, metadata, data_loader_cls=
     print(f"Using dataloader: {data_loader_cls}")
 
     shape_dict = {col: shape for col, shape in zip(feature_columns, input_shapes)}
+    print(f"shape_dict: {shape_dict}")
     prepare_data = _prepare_data_fn(metadata)
 
     class _DataLoader(data_loader_cls):
         def _yield_batches(self, keys):
             for batch in super()._yield_batches(keys):
-                batch = {
-                    k: prepare_data(k, v).reshape(shape_dict[k]) if k in shape_dict else v
-                    for k, v in batch.items()
-                }
-                yield batch
+                yield self._process_batch(batch)
+
+        def _process_batch(self, batch):
+            return {k: prepare_data(k, v).reshape(shape_dict[k]) if k in shape_dict else v
+                    for k, v in batch.items()}
 
     return _DataLoader
 
