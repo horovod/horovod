@@ -669,7 +669,10 @@ bool RunLoopOnce(HorovodGlobalState& state) {
       state.controller[0]->SynchronizeParameters();
     }
   }
+  //Shoul shtdown if all the communicators are finished with
   should_shutdown |= response_list.shutdown();
+  if(should_shutdown == true)
+    LOG(TRACE, rank) << ", communicator_id=" << i << ", response_list.should_shutdown=" << response_list.shutdown() << ", should_shutdown=" << should_shutdown;
   }
 
   return !should_shutdown;

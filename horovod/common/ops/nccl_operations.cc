@@ -78,9 +78,11 @@ void NCCLOpContext::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
 
     ncclUniqueId nccl_id;
     if (nccl_rank == 0) {
-      LOG(TRACE, "NCCLOpContext::InitNCCLComm nccl_rank = 0, calling ncclGetUniqueId()");
+      LOG(TRACE, "NCCLOpContext::InitNCCLComm nccl_rank = 0, calling ncclGetUniqueId(), communicator_id=") << communicator_id;
       nccl_context_->ErrorCheck("ncclGetUniqueId", ncclGetUniqueId(&nccl_id), nccl_comm);
     }
+    else
+      LOG(TRACE, "NCCLOpContext::InitNCCLComm nccl_rank != 0, communicator_id=") << communicator_id;
 
     global_state_->controller[communicator_id]->Bcast((void*)&nccl_id, sizeof(nccl_id), 0,
                                          nccl_id_bcast_comm);
@@ -118,9 +120,6 @@ void NCCLOpContext::AsyncErrorCheck() {
     ncclCommAbort(*nccl_comm_);
     throw std::logic_error(std::string("NCCL async error: ") + ncclGetErrorString(nccl_async_err));
   }
-  LOG(TRACE, "NCCLOpContext::AsyncErrorCheck done");
-
-
 }
 
 void NCCLOpContext::PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
