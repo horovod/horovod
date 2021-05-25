@@ -18,6 +18,7 @@ concurrency:
 jobs:
   start-runner:
     name: Start self-hosted EC2 runner (${{ matrix.docker-image }})
+    if: ( ! github.event.repository.fork )
     runs-on: ubuntu-latest
 
     strategy:
@@ -60,7 +61,7 @@ jobs:
 
   docker:
     name: Build docker image ${{ matrix.docker-image }} (push=${{ github.event_name != 'pull_request' }})
-    if: github.repository_owner == 'horovod'
+    if: needs.start-runner.result != 'skipped'
     needs: start-runner # required to start the main job when the runner is ready
     runs-on: ${{ matrix.label }} # run the job on the newly created runners
     strategy:
@@ -121,11 +122,12 @@ jobs:
 
   stop-runner:
     name: Stop self-hosted EC2 runner (${{ matrix.docker-image }})
+    # required to stop the runner even if the error happened in the previous job
+    if: always() && needs.start-runner.result != 'skipped'
     needs:
       - start-runner # required to get output from the start-runner job
       - docker # required to wait when the main job is done
     runs-on: ubuntu-latest
-    if: always() # required to stop the runner even if the error happened in the previous jobs
 
     strategy:
       fail-fast: false
