@@ -48,6 +48,7 @@ import torch.utils.data
 
 MIN_PL_VERSION = "1.2.9"
 
+
 def _torch_param_serialize(param_name, param_val):
     if param_val is None:
         return None
@@ -101,57 +102,77 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     """Spark Estimator for fitting PyTorch models to a DataFrame.
 
     Args:
-        num_proc: Number of Horovod processes.  Defaults to `spark.default.parallelism`.
-        model: PyTorch model to train.
-        backend: Optional Backend object for running distributed training function. Defaults to SparkBackend with
-                 `num_proc` worker processes. Cannot be specified if `num_proc` is also provided.
-        store: Store object that abstracts reading and writing of intermediate data and run results.
-        optimizer: PyTorch optimizer to be converted into a `hvd.DistributedOptimizer` for training.
-        loss: PyTorch loss or list of losses.
-        loss_constructors: Optional functions that generate losses.
-        metrics: Optional metrics to record.
-        loss_weights: Optional list of float weight values to assign each loss.
-        sample_weight_col: Optional column indicating the weight of each sample.
-        gradient_compression: Gradient compression used by `hvd.DistributedOptimizer`.
-        feature_cols: Column names used as feature inputs to the model. Must be a list with each feature
-                      mapping to a sequential argument in the model's forward() function.
-        input_shapes: List of shapes for each input tensor to the model.
-        validation: Optional validation column name (string) where every row in the column is either 1/True or 0/False,
-                    or validation split (float) giving percent of data to be randomly selected for validation.
-        label_cols: Column names used as labels.  Must be a list with one label for each output of the model.
+        backend:    Optional Backend object for running distributed training function.
+                    Defaults to SparkBackend with `num_proc` worker processes. Cannot be specified
+                    if `num_proc` is also provided.
         batch_size: Number of rows from the DataFrame per batch.
-        val_batch_size: Number of rows from the DataFrame per batch for validation, if not set, will use batch_size.
-        epochs: Number of epochs to train.
-        verbose: Verbosity level [0, 2] (default: 1).
-        shuffle_buffer_size: Optional size of in-memory shuffle buffer in rows. Allocating a larger buffer size
-                             increases randomness of shuffling at the cost of more host memory. Defaults to estimating
-                             with an assumption of 4GB of memory per host.
-        partitions_per_process: Number of Parquet partitions to assign per worker process from `num_proc` (default: 10).
-        run_id: Optional unique ID for this run for organization in the Store. Will be automatically assigned if not
-                provided.
-        train_minibatch_fn: Optional custom function to execute within the training loop. Defaults to standard
-                            gradient descent process.
-        train_steps_per_epoch: Number of steps to train each epoch. Useful for testing that model trains successfully.
-                               Defaults to training the entire dataset each epoch.
-        validation_steps_per_epoch: Number of validation steps to perform each epoch.
-        transformation_fn: Optional function that takes a row as its parameter
-                           and returns a modified row that is then fed into the
-                           train or validation step. This transformation is
-                           applied after batching. See Petastorm [TransformSpec](https://github.com/uber/petastorm/blob/master/petastorm/transform.py)
-                           for more details. Note that this fucntion constructs
-                           another function which should perform the
-                           transformation.
-        train_reader_num_workers: This parameter specifies the number of parallel processes that
-                               read the training data from data store and apply data
-                               transformations to it. Increasing this number
-                               will generally increase the reading rate but will also
-                               increase the memory footprint. More processes are
-                               particularly useful if the bandwidth to the data store is not
-                               high enough, or users need to apply transformation such as
-                               decompression or data augmentation on raw data.
+        data_loader_class:  (Optional) Class of the custom data loader, if not set, lightning
+                            trainer will use PythonAsyncDataLoader as default.
+        epochs:     Number of epochs to train.
+        feature_cols:   Column names used as feature inputs to the model. Must be a list with
+                        each feature mapping to a sequential argument in the model's forward()
+                        function.
+        gradient_compression:   (Optional) Gradient compression used by `hvd.DistributedOptimizer`.
+        inmemory_cache_all: (Optional) Cache the data in memory for training and validation.
+        input_shapes:   List of shapes for each input tensor to the model.
+        label_cols: Column names used as labels.  Must be a list with one label for each output
+                    of the model.
+        loader_num_epochs:  (Optional) An epoch is a single pass over all rows in the dataset.
+                            Default to None, which means reader will be in infinite loop mode,
+                            and generate unlimite data as needed.
+        logger:     (Optional) Pytorch lightning logger.
+        log_every_n_steps:  (Optional) Control the frequency of logging.
+        loss:       (Optional) PyTorch loss or list of losses. Not needed for lightning model.
+        loss_constructors:  (Optional) functions that generate losses. Not needed for lightning
+                             model.
+        loss_weights:   (Optional) list of float weight values to assign each loss.
+        metrics:    (Optional) metrics to record.
+        model:      PyTorch lightning model to train.
+        num_gpus;   (Optional) Number of gpus per process, default to 1 when CUDA is available
+                    in the backend, otherwise 0.'
+        num_proc:   Number of Horovod processes.  Defaults to `spark.default.parallelism`.
+        optimizer:  (Optional) PyTorch optimizer to be converted into a `hvd.DistributedOptimizer`
+                    for training. Not needed for lightning model.
+        partitions_per_process: (Optional) Number of Parquet partitions to assign per worker
+                                process from `num_proc` (default: 10).
+        reader_pool_type:   (Optional) Type of worker pool used to parallelize reading data from
+                            the dataset. Should be one of ['thread', 'process']. Defaults to
+                            'process'.
+        run_id:     (Optional) unique ID for this run for organization in the Store. Will be
+                    automatically assigned if not provided.
+        sample_weight_col:  (Optional) column indicating the weight of each sample.
+        shuffle_buffer_size: Optional size of in-memory shuffle buffer in rows. Allocating a larger
+                             buffer size increases randomness of shuffling at the cost of more host memory. Defaults to estimating with an assumption of 4GB of memory per
+                             host.
+        store:      Store object that abstracts reading and writing of intermediate data and
+                    run results.
+        train_minibatch_fn: (Optional) custom function to execute within the training loop.
+                            Defaults to standard gradient descent process.
+        train_reader_num_workers:   This parameter specifies the number of parallel processes that
+                                    read the training data from data store and apply data
+                                    transformations to it. Increasing this number
+                                    will generally increase the reading rate but will also
+                                    increase the memory footprint. More processes are
+                                    particularly useful if the bandwidth to the data store is not
+                                    high enough, or users need to apply transformation such as
+                                    decompression or data augmentation on raw data.
+        train_steps_per_epoch: (Optional) Number of steps to train each epoch. Useful for testing
+                                that model trains successfully. Defaults to training the entire
+                                dataset each epoch.
+        transformation_fn:  (Optional) function that takes a row as its parameter and returns a
+                            modified row that is then fed into the train or validation step.
+                            This transformation is applied after batching. See Petastorm
+                            [TransformSpec](https://github.com/uber/petastorm/blob/master/petastorm/transform.py)
+                            for more details. Note that this fucntion constructs another function
+                            which should perform the transformation.
+        val_batch_size: Number of rows from the DataFrame per batch for validation, if not set,
+                         will use batch_size.
         val_reader_num_workers: Similar to the train_reader_num_workers.
-        reader_pool_type: Type of worker pool used to parallelize reading data from the dataset.
-                          Should be one of ['thread', 'process']. Defaults to 'process'.
+        validation: (Optional) validation column name (string) where every row in the column is
+                    either 1/True or 0/False, or validation split (float) giving percent of data
+                    to be randomly selected for validation.
+        validation_steps_per_epoch: (Optional) Number of validation steps to perform each epoch.
+        verbose:    (Optional)Verbosity level [0, 2] (default: 1).
     """
 
     input_shapes = Param(Params._dummy(), 'input_shapes', 'input layer shapes')
@@ -167,16 +188,16 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     num_gpus = Param(Params._dummy(), 'num_gpus',
                      'Number of gpus per process, default to 1 when CUDA is available in the backend, otherwise 0.')
 
-    logger = Param(Params._dummy(), 'logger', 'optional logger')
+    logger = Param(Params._dummy(), 'logger', 'optional, pytorch lightning logger.')
 
     log_every_n_steps = Param(Params._dummy(), 'log_every_n_steps', 'control the frequency of logging',
                               typeConverter=TypeConverters.toInt)
 
     data_loader_class = Param(Params._dummy(), 'data_loader_class',
-                              'Name of the dataloader class.')
+                              'Class of the custom data loader, if not set, lightning trainer will use PythonAsyncDataLoader as default.')
 
     loader_num_epochs = Param(Params._dummy(), 'loader_num_epochs',
-                              'Number of epochs whcih data loader reads in each iteration. If set to None, reader will be in infinite loop mode.')
+                              'An epoch is a single pass over all rows in the dataset. Default to None, which means reader will be in infinite loop mode, and generate unlimite data as needed. ')
 
     @keyword_only
     def __init__(self,

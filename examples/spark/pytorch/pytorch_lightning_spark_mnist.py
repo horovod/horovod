@@ -95,7 +95,6 @@ def train_model(args):
             self.fc2 = nn.Linear(50, 10)
 
         def forward(self, x):
-            # raise RuntimeError("x shape is {}".format(x.shape))
             x = x.float().reshape((-1, 1, 28, 28))
             x = F.relu(F.max_pool2d(self.conv1(x), 2))
             x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
