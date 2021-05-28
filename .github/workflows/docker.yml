@@ -18,7 +18,7 @@ concurrency:
 jobs:
   start-runner:
     name: Start self-hosted EC2 runner (${{ matrix.docker-image }})
-    if: ( ! github.event.repository.fork )
+    if: github.repository == 'horovod/horovod'
     runs-on: ubuntu-latest
 
     strategy:
