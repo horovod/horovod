@@ -20,6 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Fixed `hvd.tensorflow.keras.Compression`, accidentally removed in v0.22. ([#2945](https://github.com/horovod/horovod/pull/2945))
+
 ## [v0.22.0] - 2021-05-18
 
 ### Added
