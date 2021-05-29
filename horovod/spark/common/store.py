@@ -165,17 +165,19 @@ class Store(object):
 class AbstractFilesystemStore(Store):
     """Abstract class for stores that use a filesystem for underlying storage."""
 
-    def __init__(self, prefix_path, train_path=None, val_path=None, test_path=None, runs_path=None, save_runs=True):
+    def __init__(self, prefix_path, train_path=None, val_path=None, test_path=None,
+            runs_path=None, save_runs=True, storage_options=None, **kwargs):
         self.prefix_path = self.get_full_path(prefix_path)
         self._train_path = self._get_full_path_or_default(train_path, 'intermediate_train_data')
         self._val_path = self._get_full_path_or_default(val_path, 'intermediate_val_data')
         self._test_path = self._get_full_path_or_default(test_path, 'intermediate_test_data')
         self._runs_path = self._get_full_path_or_default(runs_path, 'runs')
         self._save_runs = save_runs
+        self.storage_options = storage_options
         super().__init__()
 
     def exists(self, path):
-        return self.fs.exists(self.get_localized_path(path))
+        return self.fs.exists(self.get_localized_path(path)) or self.fs.isdir(path)
 
     def read(self, path):
         with self.fs.open(self.get_localized_path(path), 'rb') as f:
@@ -287,16 +289,23 @@ class FilesystemStore(AbstractFilesystemStore):
     """Concrete filesystems store that delegates to `fsspec`."""
 
     def __init__(self, prefix_path, *args, **kwargs):
-        self._fs, self.protocol = FilesystemStore._get_fs_and_protocol(prefix_path)
-        super().__init__(prefix_path, *args, **kwargs)
+        self.storage_options = kwargs['storage_options'] if 'storage_options' in kwargs else {}
+        self.prefix_path = prefix_path
+        self._fs, self.protocol = self._get_fs_and_protocol()
+        std_params = ['train_path', 'val_path', 'test_path', 'runs_path', 'save_runs', 'storage_options'] 
+        params = dict((k, kwargs[k]) for k in std_params if k in kwargs)
+        super().__init__(prefix_path, *args, **params)
 
     def sync_fn(self, run_id):
         run_path = self.get_run_path(run_id)
 
         def fn(local_run_path):
-            self.fs.put(local_run_path, run_path, recursive=True)
+            self.fs.put(local_run_path, run_path, recursive=True, overwrite=True)
 
         return fn
+
+    def get_filesystem(self):
+        return self.fs
 
     def get_localized_path(self, path):
         _, lpath = split_protocol(path)
@@ -317,10 +326,10 @@ class FilesystemStore(AbstractFilesystemStore):
     def fs(self):
         return self._fs
 
-    @staticmethod
-    def _get_fs_and_protocol(url):
-        protocol, path = split_protocol(url)
-        fs = fsspec.filesystem(protocol)
+    #@staticmethod
+    def _get_fs_and_protocol(self):
+        protocol, path = split_protocol(self.prefix_path)
+        fs = fsspec.filesystem(protocol, **self.storage_options)
         return fs, protocol
 
     @classmethod
