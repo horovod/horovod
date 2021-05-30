@@ -472,6 +472,11 @@ class HDFSStore(AbstractFilesystemStore):
 
         if not path:
             raise ValueError('Failed to parse path from URL: {}'.format(url))
+    
+    def get_localized_path(self, path):
+        if self.matches(path):
+            return path[len(self._url_prefix):]
+        return path
 
     @classmethod
     def matches(cls, path):
