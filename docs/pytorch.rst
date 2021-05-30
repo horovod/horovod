@@ -139,3 +139,5 @@ Start the training job and specify the number of workers on the command line as 
 You can find an example of use pytorch lightning trainer with horovod backend in `pytorch_lightning_mnist.py script <../examples/pytorch/pytorch_lightning_mnist.py>`__
 
 See the PyTorch Lightning `docs <https://pytorch-lightning.readthedocs.io/en/stable/multi_gpu.html#horovod>`_ for more details.
+
+A Pytorch-Lightning based spark estimator is also added, example is in `pytorch_lightning_spark_mnist.py <../examples/spark/pytorch/pytorch_lightning_spark_mnist.py>`__

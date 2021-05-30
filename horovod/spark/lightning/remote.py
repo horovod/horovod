@@ -27,8 +27,7 @@ from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from horovod.spark.common import constants
-from horovod.spark.common.util import _get_assigned_gpu_or_default, to_list
-from horovod.spark.common.store import DBFSLocalStore
+from horovod.spark.common.util import _get_assigned_gpu_or_default
 from horovod.spark.lightning.util import deserialize_fn
 
 PETASTORM_HDFS_DRIVER = constants.PETASTORM_HDFS_DRIVER
@@ -59,6 +58,8 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     num_gpus = estimator.getNumGPUs()
     logger = estimator.getLogger()
     log_every_n_steps = estimator.getLogEveryNSteps()
+    data_loader_cls = estimator.getDataLoaderClass()
+    loader_num_epochs = estimator.getLoaderNumEpochs()
 
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
@@ -74,10 +75,10 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     if sample_weight_col:
         schema_fields.append(sample_weight_col)
 
-    dataloader_cls = _create_dataloader(feature_columns, input_shapes, metadata)
-    make_petastorm_reader = _make_petastorm_reader_fn(transformation, schema_fields,
+    data_loader_cls = _create_dataloader(feature_columns, input_shapes, metadata, data_loader_cls)
+    set_data_loader = _set_data_loader_fn(transformation, schema_fields,
                                                       batch_size, calculate_shuffle_buffer_size,
-                                                      dataloader_cls)
+                                                      data_loader_cls, loader_num_epochs)
 
     # Storage
     store = estimator.getStore()
@@ -117,8 +118,12 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             model = deserialize(serialized_model)
 
-            _train_steps_per_epoch = train_steps_per_epoch if train_steps_per_epoch else 1.0
-            _val_steps_per_epoch = val_steps_per_epoch if val_steps_per_epoch else 1.0
+            _train_steps_per_epoch = train_steps_per_epoch
+            if _train_steps_per_epoch is None:
+                _train_steps_per_epoch = int(math.floor(float(train_rows) / batch_size / hvd.size()))
+            _val_steps_per_epoch = val_steps_per_epoch
+            if _val_steps_per_epoch is None:
+                _val_steps_per_epoch = int(math.floor(float(val_rows) / batch_size / hvd.size()))
 
             cuda_available = torch.cuda.is_available()
             if cuda_available:
@@ -155,9 +160,9 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             #     row_group = pq_file.metadata.row_group(rowgroup)
             #     print(row_group)
 
-            with make_petastorm_reader(model, remote_store.train_data_path, 'train_dataloader',
+            with set_data_loader(model, remote_store.train_data_path, 'train_dataloader',
                                        train_reader_worker_count, reader_pool_type), \
-                    make_petastorm_reader(model, remote_store.val_data_path, 'val_dataloader',
+                    set_data_loader(model, remote_store.val_data_path, 'val_dataloader',
                                           val_reader_worker_count, reader_pool_type, should_validate):
 
                 trainer.fit(model)
@@ -175,7 +180,6 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
 
 def _reset_loader(loader):
-    from petastorm.pytorch import BatchedDataLoader
     from pytorch_lightning.trainer.supporters import CombinedLoader
 
     if isinstance(loader, CombinedLoader):
@@ -202,10 +206,10 @@ def _make_reset_callbacks():
     return [ResetCallback()]
 
 
-def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calculate_shuffle_buffer_size, dataloader_cls):
+def _set_data_loader_fn(transformation, schema_fields, batch_size, calculate_shuffle_buffer_size, data_loader_cls, num_epochs):
 
     @contextlib.contextmanager
-    def make_petastorm_reader(model, data_path, dataloader_attr, reader_worker_count, reader_pool_type, should_read=True):
+    def set_data_loader(model, data_path, dataloader_attr, reader_worker_count, reader_pool_type, should_read=True):
         from petastorm import TransformSpec, make_reader, make_batch_reader
         import horovod.torch as hvd
 
@@ -232,11 +236,11 @@ def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calcula
             reader_factory = make_batch_reader
 
         # Petastorm: read data from the store with the correct shard for this rank
-        # setting num_epochs=None will cause an infinite iterator
+        # Setting num_epochs=None will cause an infinite iterator
         # and enables ranks to perform training and validation with
         # unequal number of samples
         with reader_factory(data_path,
-                            num_epochs=1,
+                            num_epochs=num_epochs,
                             cur_shard=hvd.rank(),
                             shard_count=hvd.size(),
                             reader_pool_type=reader_pool_type,
@@ -246,14 +250,14 @@ def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calcula
                             transform_spec=transform_spec,
                             **reader_factory_kwargs) as reader:
             def dataloader_fn():
-                return dataloader_cls(reader, batch_size=batch_size,
-                                      shuffling_queue_capacity=calculate_shuffle_buffer_size())
+                return data_loader_cls(reader=reader, batch_size=batch_size,
+                                       shuffling_queue_capacity=calculate_shuffle_buffer_size())
             try:
                 setattr(model, dataloader_attr, dataloader_fn)
                 yield
             finally:
                 setattr(model, dataloader_attr, None)
-    return make_petastorm_reader
+    return set_data_loader
 
 
 def _calculate_shuffle_buffer_size_fn(train_rows, avg_row_size, user_shuffle_buffer_size):
@@ -301,20 +305,26 @@ def _calculate_shuffle_buffer_size_fn(train_rows, avg_row_size, user_shuffle_buf
     return calculate_shuffle_buffer_size
 
 
-def _create_dataloader(feature_columns, input_shapes, metadata):
-    from petastorm.pytorch import BatchedDataLoader
+def _create_dataloader(feature_columns, input_shapes, metadata, data_loader_cls=None):
+    if data_loader_cls is None:
+        # set PytorchAsyncDataLoader as default
+        from horovod.spark.data_loaders.pytorch_data_loaders import PytorchAsyncDataLoader
+        data_loader_cls = PytorchAsyncDataLoader
 
-    shape_dict = {col:shape for col, shape in zip(feature_columns, input_shapes)}
+    print(f"Using dataloader: {data_loader_cls}")
+
+    shape_dict = {col: shape for col, shape in zip(feature_columns, input_shapes)}
+    print(f"shape_dict: {shape_dict}")
     prepare_data = _prepare_data_fn(metadata)
 
-    class _DataLoader(BatchedDataLoader):
+    class _DataLoader(data_loader_cls):
         def _yield_batches(self, keys):
             for batch in super()._yield_batches(keys):
-                batch = {
-                    k: prepare_data(k, v).reshape(shape_dict[k]) if k in shape_dict else v
-                    for k, v in batch.items()
-                }
-                yield batch
+                yield self._process_batch(batch)
+
+        def _process_batch(self, batch):
+            return {k: prepare_data(k, v).reshape(shape_dict[k]) if k in shape_dict else v
+                    for k, v in batch.items()}
 
     return _DataLoader
 
