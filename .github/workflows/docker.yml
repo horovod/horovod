@@ -18,7 +18,10 @@ concurrency:
 jobs:
   start-runner:
     name: Start self-hosted EC2 runner (${{ matrix.docker-image }})
-    if: github.repository == 'horovod/horovod'
+    if: >
+      github.event_name == 'schedule' && github.repository == 'horovod/horovod' ||
+      github.event_name == 'push' && github.repository == 'horovod/horovod' ||
+      github.event_name == 'pull_request' && github.event.pull_request.base.repo.full_name == 'horovod/horovod' && !github.event.pull_request.head.repo.fork
     runs-on: ubuntu-latest
 
     strategy:
