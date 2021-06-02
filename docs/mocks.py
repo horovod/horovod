@@ -37,6 +37,9 @@ MOCK_MODULES = [
     'h5py',
     'psutil',
 
+    'fsspec',
+    'fsspec.core',
+
     'pyarrow',
     'pyarrow.parquet',
 

@@ -236,6 +236,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                                 hdfs_driver=PETASTORM_HDFS_DRIVER,
                                 schema_fields=schema_fields,
                                 transform_spec=transform_spec,
+                                storage_options=store.storage_options,
                                 **reader_factory_kwargs) as train_reader:
                 with reader_factory(remote_store.val_data_path,
                                     num_epochs=None,
@@ -246,6 +247,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                                     hdfs_driver=PETASTORM_HDFS_DRIVER,
                                     schema_fields=schema_fields,
                                     transform_spec=transform_spec,
+                                    storage_options=store.storage_options,
                                     **reader_factory_kwargs) \
                     if should_validate else empty_batch_reader() as val_reader:
 
