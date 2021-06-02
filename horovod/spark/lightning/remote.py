@@ -126,6 +126,12 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                 _val_steps_per_epoch = int(math.floor(float(val_rows) / batch_size / hvd.size()))
 
             cuda_available = torch.cuda.is_available()
+            # We need to check all ranks have same device type for traning.
+            # Horovod doesn't support heterogeneous allreduce for gradients.
+            cuda_avail_list = hvd.allgather_object(cuda_available, name='device type')
+            if cuda_avail_list.count(cuda_available) != hvd.size():
+                raise RuntimeError("All ranks don't have same device type!")
+
             if cuda_available:
                 # Horovod: pin GPU to local rank or the assigned GPU from spark.
                 torch.cuda.set_device(_get_assigned_gpu_or_default(default=hvd.local_rank()))
