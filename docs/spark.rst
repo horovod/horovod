@@ -96,6 +96,8 @@ logging (for Tensorboard) using the Estimator ``Store`` abstraction.  Stores are
 artifacts including intermediate representations of the training data.  Horovod natively supports stores for HDFS
 and local filesystems.
 
+`Petastorm <https://github.com/uber/petastorm/blob/master/petastorm/pytorch.py#L258>` based data loader is used by default, but user can define a custom data loader by override the `BaseDataLoader` interface. A async data loader mixin can also added on top of the data loader.
+
 End-to-end example
 ------------------
 `keras_spark_rossmann_estimator.py script <../examples/spark/keras/keras_spark_rossmann_estimator.py>`__ provides

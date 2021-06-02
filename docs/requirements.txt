@@ -1,4 +1,4 @@
-sphinx>=3
+sphinx>=3,<4
 sphinxcontrib-napoleon
 alabaster
 nbsphinx
