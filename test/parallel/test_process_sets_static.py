@@ -28,7 +28,10 @@ class ProcessSetsStaticTests(unittest.TestCase):
         except ImportError:
             self.skipTest("This test requires mpi4py")
 
-        hvd.init(process_sets=[[0], list(range(1, size))])
+        hvd.init(process_sets=[[0], list(range(1, size)),
+                               list(range(size - 1, -1, -1)),  # will be ignored
+                               [0]  # will be ignored
+                               ])
         ps = hvd.get_process_sets()
         self.assertDictEqual(ps, {0: list(range(size)),
                                   1: [0],

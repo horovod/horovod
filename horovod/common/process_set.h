@@ -108,6 +108,9 @@ public:
 
   ProcessSet& Get(int32_t id);
 
+  // Returns -1 if no process set with these ranks has been registered.
+  int32_t FindId(const std::vector<int32_t>& ranks);
+
   void MarkProcessSetForRemoval(int32_t process_set_id);
 
   bool ProcessSetHasJustBeenRemoved();

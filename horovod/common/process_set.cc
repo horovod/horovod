@@ -205,6 +205,16 @@ ProcessSet& ProcessSetTable::Get(int32_t id) {
   return id_to_process_set_.at(id);
 }
 
+int32_t ProcessSetTable::FindId(const std::vector<int32_t>& ranks) {
+  std::lock_guard<std::recursive_mutex> guard(mutex);
+  for (auto id : Ids()) {
+    if (Get(id).registered_global_ranks == ranks) {
+      return id;
+    }
+  }
+  return -1;
+}
+
 void ProcessSetTable::MarkProcessSetForRemoval(int32_t process_set_id) {
   if (process_set_id == 0) {
     throw std::logic_error("Attempted to remove global process set with id 0");

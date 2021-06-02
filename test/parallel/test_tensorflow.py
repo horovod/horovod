@@ -3961,15 +3961,29 @@ class TensorFlowTests(tf.test.TestCase):
                                   set2: list(range(1, size))})
 
         set3 = hvd.add_process_set([0, size-1])
-        self.assertEqual(set1, set3) # id reuse
+        if size > 2:
+            self.assertEqual(set1, set3) # id reuse
+        else:
+            self.assertEqual(0, set3)  # global id reuse
+
+        set4 = hvd.add_process_set(range(size - 1, 0, -1))
+        self.assertEqual(set2, set4) # identical process set
+
+        set5 = hvd.add_process_set(range(0, size))
+        self.assertEqual(0, set5) # identical process set
 
         ps = hvd.get_process_sets()
-        self.assertDictEqual(ps, {0: list(range(size)),
-                                  set2: list(range(1, size)),
-                                  set3: [0, size-1]})
-
+        if size > 2:
+            self.assertDictEqual(ps, {0: list(range(size)),
+                                      set2: list(range(1, size)),
+                                      set3: [0, size-1]})
+        else:
+            self.assertDictEqual(ps, {0: list(range(size)),
+                                      set2: list(range(1, size))})
         hvd.remove_process_set(set2)
         hvd.remove_process_set(set3)
+
+        hvd.remove_process_set(set5) # no op
 
         ps = hvd.get_process_sets()
         self.assertDictEqual(ps, {0: list(range(size))})

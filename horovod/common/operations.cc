@@ -324,10 +324,18 @@ void EnrichProcessSetWithGlooController(ProcessSet& process_set) {
 }
 #endif // HAVE_GLOO
 
-ProcessSet& AddUnitializedProcessSet(const std::vector<int>& ranks, int& id) {
+// If we already have a process set built from the same ranks (after sorting),
+// return that and obtain its id. Otherwise register a new one, which will
+// still need to be initialized, return it and obtain its id.
+ProcessSet& GetProcessSetOrAddUnitialized(std::vector<int> ranks, int& id) {
   std::lock_guard<std::recursive_mutex> table_guard(
       horovod_global.process_set_table.mutex);
-  id = horovod_global.process_set_table.RegisterProcessSet(ranks);
+  std::sort(ranks.begin(), ranks.end());
+  id = horovod_global.process_set_table.FindId(ranks);
+  if (id >= 0) {
+    return horovod_global.process_set_table.Get(id);
+  }
+  id = horovod_global.process_set_table.RegisterProcessSet(std::move(ranks));
   auto& process_set = horovod_global.process_set_table.Get(id);
 #if HAVE_MPI
   EnrichProcessSetWithMPIController(process_set);
@@ -571,7 +579,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   if (global_mpi_context.IsEnabled()) {
     for (const auto& process_set_ranks : state.process_set_ranks_to_register) {
       int id;
-      AddUnitializedProcessSet(process_set_ranks, id);
+      GetProcessSetOrAddUnitialized(process_set_ranks, id);
     }
     state.process_set_ranks_to_register.clear();
     state.process_set_table.InitializeRegisteredIfReady(global_mpi_context);
@@ -903,16 +911,11 @@ int horovod_comm_process_set(MPI_Comm comm) {
     MPI_Comm_group(global_mpi_context.global_comm, &global_group);
     MPI_Group_translate_ranks(group, size, sub_ranks.data(), global_group,
                               global_ranks.data());
+    // global_ranks is sorted ascendingly
   }
-  {
-    std::lock_guard<std::recursive_mutex> guard(
-        horovod_global.process_set_table.mutex);
-    for (auto id : horovod_global.process_set_table.Ids()) {
-      if (horovod_global.process_set_table.Get(id).registered_global_ranks ==
-          global_ranks) {
-        return id;
-      }
-    }
+  int32_t id = horovod_global.process_set_table.FindId(global_ranks);
+  if (id >= 0) {
+    return id;
   }
   return -2;
 }
@@ -1124,7 +1127,7 @@ int horovod_add_process_set(const int* ranks, int nrank) {
   }
 
   int id;
-  ProcessSet& process_set = AddUnitializedProcessSet(
+  ProcessSet& process_set = GetProcessSetOrAddUnitialized(
       ranks && nrank > 0 ? std::vector<int>(ranks, ranks + nrank)
                          : std::vector<int>(),
       id);
@@ -1157,8 +1160,6 @@ int horovod_remove_process_set(int process_set_id) {
 
   if (!horovod_global.process_set_table.Contains(process_set_id)) {
     return -3;
-    throw std::logic_error("Tried to remove unknown process set id " +
-                           std::to_string(process_set_id));
   }
 
   horovod_global.process_set_table.MarkProcessSetForRemoval(process_set_id);

@@ -127,7 +127,7 @@ int horovod_reduce_op_adasum();
 int horovod_add_process_set(const int *ranks, int nranks);
 
 // C interface to deregister a previously registered process set.
-// Returns 0 or an error code:
+// Returns process_set_id or an error code:
 // -1 if Horovod is not initialized, -2 if dynamic process sets are not
 // enabled, -3 if that process set is unknown, -10 if running with Gloo.
 int horovod_remove_process_set(int process_set_id);

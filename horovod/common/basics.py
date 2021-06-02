@@ -16,7 +16,7 @@
 import atexit
 import ctypes
 import os
-from typing import Dict, List
+from typing import *
 
 from horovod.common import util as util
 
@@ -331,8 +331,9 @@ class HorovodBasics(object):
         """
         return bool(self.MPI_LIB_CTYPES.horovod_rocm_built())
 
-    def add_process_set(self, ranks):
-        """ Add a new process set and return its id.
+    def add_process_set(self, ranks: Sequence[int]) -> int:
+        """ If a process set with the given ranks exists already, return its id. Otherwise add a new process set and
+        return its id.
 
         Requires running with HOROVOD_DYNAMIC_PROCESS_SETS=1.
         """
@@ -350,14 +351,16 @@ class HorovodBasics(object):
             raise ValueError("Multiple process sets are only supported with MPI controllers, not Gloo.")
         return result
 
-    def remove_process_set(self, process_set_id):
-        """ Remove process set with given id.
+    def remove_process_set(self, process_set_id: int) -> Optional[int]:
+        """ Remove process set with given id. If removal is succesful, return process_set_id.
+
+        If no such process set exists or process_set_id is zero (the global process set), do nothing and return None.
 
         Requires running with HOROVOD_DYNAMIC_PROCESS_SETS=1.
         """
         assert isinstance(process_set_id, int)
         if process_set_id == 0:
-            raise ValueError("Attempted to remove the global process set with id 0.")
+            return None
         result = int(self.MPI_LIB_CTYPES.horovod_remove_process_set(
             ctypes.c_int(process_set_id)))
         if result == -1:
@@ -366,7 +369,8 @@ class HorovodBasics(object):
             raise ValueError(
                 "Set HOROVOD_DYNAMIC_PROCESS_SETS=1 to allow removing process sets after Horovod initialization.")
         elif result == -3:
-            raise ValueError(f"Tried to remove unknown process set id {process_set_id}")
+            # No process set with that id existed.
+            return None
         elif result == -10:
             raise ValueError("Multiple process sets are only supported with MPI controllers, not Gloo.")
         return result
