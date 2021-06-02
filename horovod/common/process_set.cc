@@ -16,9 +16,9 @@ bool ProcessSet::IsCurrentProcessIncluded() const {
 }
 
 #if HAVE_MPI
-void ProcessSet::Initialize(const MPIContext& global_mpi_context) {
+bool ProcessSet::Initialize(const MPIContext& global_mpi_context) {
   if (initialization_done) {
-    return;
+    return false;
   }
   LOG(TRACE) << "Initializing new process set with MPI.";
   assert(controller != nullptr);
@@ -27,7 +27,7 @@ void ProcessSet::Initialize(const MPIContext& global_mpi_context) {
   if (!registered_global_ranks.empty()) {
     // Verify that each process has registered the same set of processes.
     std::vector<int> buf(size);
-    assert(registered_global_ranks.size() <= size);
+    assert((int)registered_global_ranks.size() <= size);
     auto len = static_cast<int>(registered_global_ranks.size());
     MPI_Allgather(&len, 1, MPI_INT, buf.data(), 1, MPI_INT,
                   global_mpi_context.global_comm);
@@ -58,17 +58,19 @@ void ProcessSet::Initialize(const MPIContext& global_mpi_context) {
     std::iota(registered_global_ranks.begin(), registered_global_ranks.end(), 0);
   }
   initialization_done = true;
+  return true;
 }
 #endif // HAVE_MPI
 
 #if HAVE_GLOO
-void ProcessSet::Initialize(const GlooContext& gloo_context) {
+bool ProcessSet::Initialize(const GlooContext& gloo_context) {
   if (initialization_done) {
-    return;
+    return false;
   }
   assert(controller != nullptr);
   controller->Initialize();  // TODO: only initialize controller if this process belongs to the process set
   initialization_done = true;
+  return true
 }
 #endif // HAVE_GLOO
 
@@ -92,7 +94,8 @@ void ProcessSetTable::Initialize(const MPIContext& global_mpi_context) {
   Get(0).Initialize(global_mpi_context);
 }
 
-void ProcessSetTable::InitializeRegisteredIfReady(const MPIContext& global_mpi_context) {
+int32_t ProcessSetTable::InitializeRegisteredIfReady(
+    const MPIContext& global_mpi_context) {
   std::lock_guard<std::recursive_mutex> guard(mutex);
 
   int locally_registered_count = ids_.size();
@@ -105,12 +108,17 @@ void ProcessSetTable::InitializeRegisteredIfReady(const MPIContext& global_mpi_c
                   })) {
     // Do not initialize newly added process sets until every process has
     // registered them.
-    return;
+    return 0;
   }
 
+  int32_t initialized_count = 0;
   for (auto id: Ids()) {
-    Get(id).Initialize(global_mpi_context);
+    bool newly_registerd = Get(id).Initialize(global_mpi_context);
+    if (newly_registerd) {
+      ++initialized_count;
+    }
   }
+  return initialized_count;
 }
 #endif // HAVE_MPI
 

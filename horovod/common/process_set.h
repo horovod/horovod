@@ -56,12 +56,14 @@ struct ProcessSet {
 #if HAVE_MPI
   MPIContext mpi_context;
 
-  // Before calling Initialize, controller and regisered_ranks should be set.
-  void Initialize(const MPIContext& global_mpi_context);
+  // Before calling Initialize, controller and registered_ranks should be set.
+  // Returns true if it newly initializes the process set, false if it was
+  // already intialized before.
+  bool Initialize(const MPIContext& global_mpi_context);
 #endif // HAVE_MPI
 
 #if HAVE_GLOO
-  void Initialize(const GlooContext& gloo_context);
+  bool Initialize(const GlooContext& gloo_context);
 #endif // HAVE_GLOO
 
   // Finalize tensor queue and communicators.
@@ -87,8 +89,9 @@ public:
   void Initialize(const MPIContext& global_mpi_context);
 
   // To be called in the background thread: Initialize any process sets
-  // that have been registered by all processes.
-  void InitializeRegisteredIfReady(const MPIContext& global_mpi_context);
+  // that have been registered by all processes. Returns the number of
+  // newly initialized process sets (may be zero).
+  int32_t InitializeRegisteredIfReady(const MPIContext& global_mpi_context);
 #endif // HAVE_MPI
 
 #if HAVE_GLOO

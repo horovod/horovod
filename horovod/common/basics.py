@@ -81,9 +81,10 @@ class HorovodBasics(object):
 
         atexit.register(self.shutdown)
 
+        initialization_ok = True
         if len(comm) == 0 or all(isinstance(rk, int) for rk in comm):
             comm_size = len(comm)
-            self.MPI_LIB_CTYPES.horovod_init(
+            initialization_ok = self.MPI_LIB_CTYPES.horovod_init(
                 (ctypes.c_int * comm_size)(*comm), ctypes.c_int(comm_size),
                 *process_set_args)
         else:
@@ -105,13 +106,16 @@ class HorovodBasics(object):
             if len(comm) == 1:
                 self.MPI_LIB_CTYPES.horovod_init_comm.argtypes = [MPI_Comm]
                 comm_obj = MPI_Comm.from_address(MPI._addressof(comm))
-                self.MPI_LIB_CTYPES.horovod_init_comm(comm_obj)
+                initialization_ok = self.MPI_LIB_CTYPES.horovod_init_comm(comm_obj)
             else:
                 comm_objs = [MPI_Comm.from_address(MPI._addressof(c)) for c in comm]
                 comm_size = len(comm)
                 self.MPI_LIB_CTYPES.horovod_init_multi_comm.argtypes = [MPI_Comm * comm_size, ctypes.c_int]
-                self.MPI_LIB_CTYPES.horovod_init_multi_comm((MPI_Comm * comm_size)(*comm_objs),
-                                                            ctypes.c_int(comm_size))
+                initialization_ok = self.MPI_LIB_CTYPES.horovod_init_multi_comm((MPI_Comm * comm_size)(*comm_objs),
+                                                                                ctypes.c_int(comm_size))
+        if not initialization_ok:
+            raise ValueError(
+                "Horovod initialization failed. Please check log messages above for a more descriptive error.")
 
     def shutdown(self):
         """A function that shuts Horovod down."""
@@ -417,15 +421,21 @@ class HorovodBasics(object):
         ret = {}
         for ps_id in ids_array:
             ps_size = int(self.MPI_LIB_CTYPES.horovod_process_set_size(ctypes.c_int(ps_id)))
+
             if ps_size == self.HOROVOD_PROCESS_SET_ERROR_INIT:
-                raise ValueError('Horovod has not been initialized; use hvd.init().')
+                raise ValueError('Horovod has not been initialized properly; use hvd.init().')
             elif ps_size == self.HOROVOD_PROCESS_SET_ERROR_GLOO:
                 raise ValueError("Multiple process sets are only supported with MPI controllers, not Gloo.")
             elif ps_size < 0:
                 raise RuntimeError("Process set table was modified outside of get_process_sets()")
+
             ranks_array = (ctypes.c_int * ps_size)()
             res = int(self.MPI_LIB_CTYPES.horovod_process_set_ranks(ctypes.c_int(ps_id), ranks_array))
-            if res < 0:
+            if res == self.HOROVOD_PROCESS_SET_ERROR_INIT:
+                raise ValueError('Horovod has not been initialized properly; use hvd.init().')
+            elif res == self.HOROVOD_PROCESS_SET_ERROR_GLOO:
+                raise ValueError("Multiple process sets are only supported with MPI controllers, not Gloo.")
+            elif res < 0:
                 raise RuntimeError("Process set table was modified outside of get_process_sets()")
             ret[ps_id] = list(ranks_array)
         return ret

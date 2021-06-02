@@ -79,6 +79,9 @@ struct HorovodGlobalState {
   // Whether collective context has been completed on the background thread.
   std::atomic_bool initialization_done{false};
 
+  // Set to true by the background thread on error during initialization.
+  std::atomic_bool initialization_failed{false};
+
   // Pointer to Controller of zero'th ProcessSet
   std::shared_ptr<Controller> global_controller;
 

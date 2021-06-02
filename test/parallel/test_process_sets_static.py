@@ -11,7 +11,7 @@ from common import mpi_env_rank_and_size
 class ProcessSetsStaticTests(unittest.TestCase):
     """ Since this test case initializes Horovod and shuts it down, it must be run in a separate process. """
     def test_static(self):
-        _, mpi_size = mpi_env_rank_and_size()
+        mpi_rank, mpi_size = mpi_env_rank_and_size()
         gloo_size = int(os.getenv('HOROVOD_SIZE', -1))
         if gloo_size != -1:
             self.skipTest("Multiple process sets currently do not support Gloo controller.")
@@ -28,10 +28,19 @@ class ProcessSetsStaticTests(unittest.TestCase):
         except ImportError:
             self.skipTest("This test requires mpi4py")
 
-        hvd.init(process_sets=[[0], list(range(1, size)),
-                               list(range(size - 1, -1, -1)),  # will be ignored
-                               [0]  # will be ignored
-                               ])
+        if mpi_rank == 0:
+            hvd.init(process_sets=[[0],
+                                   list(range(1, size)),
+                                   list(range(size - 1, -1, -1)),  # will be ignored
+                                   [0]  # will be ignored
+                                   ])
+        else:
+            hvd.init(process_sets=[[0],
+                                   list(reversed(range(1, size))), # permuting a process set does not matter
+                                   list(range(size - 1, -1, -1)),  # will be ignored
+                                   [0]  # will be ignored
+                                   ])
+
         ps = hvd.get_process_sets()
         self.assertDictEqual(ps, {0: list(range(size)),
                                   1: [0],

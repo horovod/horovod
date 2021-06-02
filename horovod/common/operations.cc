@@ -577,27 +577,43 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // Register and initialize any non-global process set requested during Horovod
   // initialization.
   if (global_mpi_context.IsEnabled()) {
-    for (const auto& process_set_ranks : state.process_set_ranks_to_register) {
-      int id;
-      GetProcessSetOrAddUnitialized(process_set_ranks, id);
+    try {
+      for (const auto& process_set_ranks : state.process_set_ranks_to_register) {
+        int id;
+        GetProcessSetOrAddUnitialized(process_set_ranks, id);
+      }
+      auto initialized_count =
+          state.process_set_table.InitializeRegisteredIfReady(global_mpi_context);
+      if (state.process_set_ranks_to_register.size() > 0 &&
+          initialized_count == 0) {
+        throw std::logic_error("Different ranks tried to set up mismatching "
+                               "numbers of process sets");
+      }
+      state.process_set_ranks_to_register.clear();
+    } catch (const std::exception& ex) {
+      LOG(ERROR, horovod_global.global_controller->GetRank())
+          << "Horovod could not be initialized: " << ex.what();
+      state.initialization_failed = true;
+      goto shutdown;
     }
-    state.process_set_ranks_to_register.clear();
-    state.process_set_table.InitializeRegisteredIfReady(global_mpi_context);
   }
 #endif // HAVE_MPI
 
   // Signal that initialization is completed.
   state.initialization_done = true;
-  LOG(INFO, horovod_global.global_controller->GetRank()) << "Horovod Initialized";
+  LOG(INFO, horovod_global.global_controller->GetRank())
+      << "Horovod initialized";
 
   // Iterate until shutdown.
   try {
     while (RunLoopOnce(state));
   } catch (const std::exception& ex) {
-    LOG(ERROR) << "Horovod background loop uncaught exception: " << ex.what();
+    LOG(ERROR, horovod_global.global_controller->GetRank())
+        << "Horovod background loop uncaught exception: " << ex.what();
   }
 
-    // Finalize all contexts
+shutdown:
+  // Finalize all contexts
 #if HAVE_NCCL
   nccl_context.ShutDown();
 #endif
@@ -606,7 +622,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   gloo_context.Finalize();
 #endif
 
-  LOG(DEBUG, horovod_global.global_controller->GetRank()) << "Shutting down background thread";
+  LOG(DEBUG, horovod_global.global_controller->GetRank())
+      << "Shutting down background thread";
 
   // Signal that shutdown has been requested.
   state.shut_down = true;
@@ -737,7 +754,8 @@ bool RunLoopOnce(HorovodGlobalState& state) {
 
 // Start Horovod background thread. Ensure that this is
 // only done once no matter how many times this function is called.
-void InitializeHorovodOnce(const int* ranks, int nranks,
+// Returns false if initialization failed, otherwise true.
+bool InitializeHorovodOnce(const int* ranks, int nranks,
                            const int* process_set_ranks,
                            const int* process_set_sizes, int num_process_sets) {
   // Ensure background thread is only started once.
@@ -787,10 +805,15 @@ void InitializeHorovodOnce(const int* ranks, int nranks,
   }
 
   // Wait to ensure that the background thread has finished initializing MPI.
-  while (!horovod_global.initialization_done) {
+  while (!horovod_global.initialization_done &&
+         !horovod_global.initialization_failed) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
+  if (horovod_global.initialization_failed) {
+    return false;
+  }
   LOG(DEBUG) << "Background thread init done";
+  return true;
 }
 
 } // namespace
@@ -804,19 +827,19 @@ Status CheckInitialized() {
 
 extern "C" {
 
-void horovod_init(const int* ranks, int nranks, const int* process_set_ranks,
+bool horovod_init(const int* ranks, int nranks, const int* process_set_ranks,
                   const int* process_set_sizes, int num_process_sets) {
-  InitializeHorovodOnce(ranks, nranks, process_set_ranks, process_set_sizes,
-                        num_process_sets);
+  return InitializeHorovodOnce(ranks, nranks, process_set_ranks,
+                               process_set_sizes, num_process_sets);
 }
 
 #if HAVE_MPI
-void horovod_init_comm(MPI_Comm comm) {
+bool horovod_init_comm(MPI_Comm comm) {
   MPI_Comm_dup(comm, &global_mpi_context.global_comm);
-  InitializeHorovodOnce(nullptr, 0, nullptr, nullptr, 0);
+  return InitializeHorovodOnce(nullptr, 0, nullptr, nullptr, 0);
 }
 
-void horovod_init_multi_comm(MPI_Comm *comm, int ncomms) {
+bool horovod_init_multi_comm(MPI_Comm *comm, int ncomms) {
   assert(ncomms > 0);
   MPI_Comm_dup(comm[0], &global_mpi_context.global_comm);
 
@@ -839,10 +862,11 @@ void horovod_init_multi_comm(MPI_Comm *comm, int ncomms) {
       MPI_Group diff_group;
       MPI_Group_difference(sub_group, global_group, &diff_group);
       if (diff_group != MPI_GROUP_EMPTY) {
-        throw std::runtime_error(
+        LOG(ERROR) <<
             "Group of processes in horovod_init_multi_comm argument number " +
             std::to_string(i) +
-            " is not a subset of the assumed global communicator.");
+            " is not a subset of the assumed global communicator.";
+        return false;
       }
     }
 
@@ -891,8 +915,8 @@ void horovod_init_multi_comm(MPI_Comm *comm, int ncomms) {
     }
   }
 
-  InitializeHorovodOnce(nullptr, 0, process_set_ranks.data(),
-                        process_set_sizes.data(), num_process_sets);
+  return InitializeHorovodOnce(nullptr, 0, process_set_ranks.data(),
+                               process_set_sizes.data(), num_process_sets);
 }
 
 int horovod_comm_process_set(MPI_Comm comm) {
@@ -1241,7 +1265,9 @@ int horovod_process_set_ranks(int id, int* ranks_prealloc) {
   }
   try {
     const auto& process_set = horovod_global.process_set_table.Get(id);
-    assert(process_set.initialization_done);
+    if (!process_set.initialization_done) {
+      return HOROVOD_PROCESS_SET_ERROR_INIT;
+    }
     std::copy(process_set.registered_global_ranks.begin(),
               process_set.registered_global_ranks.end(), ranks_prealloc);
   } catch (const std::out_of_range& ex) {
