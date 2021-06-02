@@ -37,6 +37,7 @@ class HorovodBasics(object):
         self.HOROVOD_PROCESS_SET_ERROR_DYNAMIC = -2
         self.HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET = -3
         self.HOROVOD_PROCESS_SET_ERROR_FOREIGN_SET = -4
+        self.HOROVOD_PROCESS_SET_ERROR_SHUTDOWN = -5
         self.HOROVOD_PROCESS_SET_ERROR_GLOO = -10
 
     def init(self, comm=None, process_sets=None):
@@ -355,6 +356,8 @@ class HorovodBasics(object):
             (ctypes.c_int * nrank)(*ranks), ctypes.c_int(nrank)))
         if result == self.HOROVOD_PROCESS_SET_ERROR_INIT:
             raise ValueError('Horovod has not been initialized; use hvd.init().')
+        elif result == self.HOROVOD_PROCESS_SET_ERROR_SHUTDOWN:
+            raise ValueError('Horovod is shutting down.')
         elif result == self.HOROVOD_PROCESS_SET_ERROR_DYNAMIC:
             raise ValueError(
                 "Set HOROVOD_DYNAMIC_PROCESS_SETS=1 to allow adding process sets after Horovod initialization.")
@@ -376,6 +379,8 @@ class HorovodBasics(object):
             ctypes.c_int(process_set_id)))
         if result == self.HOROVOD_PROCESS_SET_ERROR_INIT:
             raise ValueError('Horovod has not been initialized; use hvd.init().')
+        elif result == self.HOROVOD_PROCESS_SET_ERROR_SHUTDOWN:
+            raise ValueError('Horovod is shutting down.')
         elif result == self.HOROVOD_PROCESS_SET_ERROR_DYNAMIC:
             raise ValueError(
                 "Set HOROVOD_DYNAMIC_PROCESS_SETS=1 to allow removing process sets after Horovod initialization.")

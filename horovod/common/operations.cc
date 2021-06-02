@@ -680,23 +680,6 @@ bool RunLoopOnce(HorovodGlobalState& state) {
   }
 #endif // HAVE_MPI
 
-  std::unordered_map<int32_t, ResponseList> process_set_response_lists;
-  for (auto process_set_id : state.process_set_table.Ids()) {
-    auto& process_set = state.process_set_table.Get(process_set_id);
-    if (!process_set.initialization_done) {
-      continue;
-    }
-    auto response_list =
-        process_set.IsCurrentProcessIncluded()
-            ? process_set.controller->ComputeResponseList(
-                  this_process_requested_shutdown, state, process_set)
-            : ResponseList();
-    process_set_response_lists.emplace(process_set_id,
-                                       std::move(response_list));
-  }
-  state.mark_cycles_in_timeline =
-      state.timeline_controller.MarkCyclesInTimelinePending();
-
   bool should_shutdown = false;
   for (auto process_set_id : state.process_set_table.Ids()) {
     if (should_shutdown) {
@@ -706,7 +689,16 @@ bool RunLoopOnce(HorovodGlobalState& state) {
     if (!process_set.initialization_done) {
       continue;
     }
-    auto& response_list = process_set_response_lists[process_set_id];
+    auto response_list =
+        process_set.IsCurrentProcessIncluded()
+            ? process_set.controller->ComputeResponseList(
+                  this_process_requested_shutdown, state, process_set)
+            : ResponseList();
+
+    if (process_set_id == 0) {
+      state.mark_cycles_in_timeline =
+          state.timeline_controller.MarkCyclesInTimelinePending();
+    }
 
     // Get tensor name and size data for autotuning. // TODO: extend for all process sets?
     int64_t total_tensor_size = 0;
@@ -1143,6 +1135,7 @@ const int HOROVOD_PROCESS_SET_ERROR_INIT = -1;
 const int HOROVOD_PROCESS_SET_ERROR_DYNAMIC = -2;
 const int HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET = -3;
 const int HOROVOD_PROCESS_SET_ERROR_FOREIGN_SET = -4;
+const int HOROVOD_PROCESS_SET_ERROR_SHUTDOWN = -5;
 const int HOROVOD_PROCESS_SET_ERROR_GLOO = -10;
 
 int horovod_add_process_set(const int* ranks, int nrank) {
@@ -1168,7 +1161,7 @@ int horovod_add_process_set(const int* ranks, int nrank) {
       return id;
     }
     if (horovod_global.shut_down) {
-      return HOROVOD_PROCESS_SET_ERROR_INIT;
+      return HOROVOD_PROCESS_SET_ERROR_SHUTDOWN;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
@@ -1202,7 +1195,7 @@ int horovod_remove_process_set(int process_set_id) {
       return process_set_id;
     }
     if (horovod_global.shut_down) {
-      return HOROVOD_PROCESS_SET_ERROR_INIT;
+      return HOROVOD_PROCESS_SET_ERROR_SHUTDOWN;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
@@ -1351,7 +1344,7 @@ Status EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts
   messages.reserve(tensors.size());
   entries.reserve(tensors.size());
 
-  for (int n = 0; n < tensors.size(); ++n) {
+  for (int n = 0; n < (int)tensors.size(); ++n) {
     Request message;
     message.set_request_rank(process_set.controller->GetRank());
     message.set_tensor_name(names[n]);

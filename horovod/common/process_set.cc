@@ -70,7 +70,7 @@ bool ProcessSet::Initialize(const GlooContext& gloo_context) {
   assert(controller != nullptr);
   controller->Initialize();  // TODO: only initialize controller if this process belongs to the process set
   initialization_done = true;
-  return true
+  return true;
 }
 #endif // HAVE_GLOO
 

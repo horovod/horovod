@@ -120,17 +120,20 @@ extern const int HOROVOD_PROCESS_SET_ERROR_DYNAMIC;
 extern const int HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET;
 extern const int HOROVOD_PROCESS_SET_ERROR_FOREIGN_SET;
 extern const int HOROVOD_PROCESS_SET_ERROR_GLOO;
+extern const int HOROVOD_PROCESS_SET_ERROR_SHUTDOWN;
 
-// C interface to register a new process set containing the given ranks.
-// Returns positive process set id or an error code:
+// C interface to register a new process set containing the given ranks
+// (blocking). Returns positive process set id or an error code:
 // HOROVOD_PROCESS_SET_ERROR_INIT if Horovod is not initialized,
+// HOROVOD_PROCESS_SET_ERROR_SHUTDOWN if Horovod is shutting down,
 // HOROVOD_PROCESS_SET_ERROR_DYNAMIC if dynamic process sets are not enabled,
 // HOROVOD_PROCESS_SET_ERROR_GLOO if running with Gloo.
 int horovod_add_process_set(const int *ranks, int nranks);
 
-// C interface to deregister a previously registered process set.
+// C interface to deregister a previously registered process set (blocking).
 // Returns process_set_id or an error code:
 // HOROVOD_PROCESS_SET_ERROR_INIT if Horovod is not initialized,
+// HOROVOD_PROCESS_SET_ERROR_SHUTDOWN if Horovod is shutting down,
 // HOROVOD_PROCESS_SET_ERROR_DYNAMIC if dynamic process sets are not enabled,
 // HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET if that process set is unknown,
 // HOROVOD_PROCESS_SET_ERROR_GLOO if running with Gloo.
