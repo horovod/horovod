@@ -897,7 +897,7 @@ void horovod_init_multi_comm(MPI_Comm *comm, int ncomms) {
 
 int horovod_comm_process_set(MPI_Comm comm) {
   if (!horovod_global.initialization_done or !horovod_mpi_enabled()) {
-    return -1;
+    return HOROVOD_PROCESS_SET_ERROR_INIT;
   }
   int size;
   MPI_Comm_size(comm, &size);
@@ -917,7 +917,7 @@ int horovod_comm_process_set(MPI_Comm comm) {
   if (id >= 0) {
     return id;
   }
-  return -2;
+  return HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET;
 }
 
 #endif
@@ -1115,15 +1115,21 @@ int horovod_reduce_op_adasum() {
   return ReduceOp::ADASUM;
 }
 
+const int HOROVOD_PROCESS_SET_ERROR_INIT = -1;
+const int HOROVOD_PROCESS_SET_ERROR_DYNAMIC = -2;
+const int HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET = -3;
+const int HOROVOD_PROCESS_SET_ERROR_FOREIGN_SET = -4;
+const int HOROVOD_PROCESS_SET_ERROR_GLOO = -10;
+
 int horovod_add_process_set(const int* ranks, int nrank) {
   if (!horovod_global.initialization_done) {
-    return -1;
+    return HOROVOD_PROCESS_SET_ERROR_INIT;
   }
   if (!horovod_global.dynamic_process_sets) {
-    return -2;
+    return HOROVOD_PROCESS_SET_ERROR_DYNAMIC;
   }
   if (horovod_gloo_enabled()) {
-    return -10;
+    return HOROVOD_PROCESS_SET_ERROR_GLOO;
   }
 
   int id;
@@ -1138,7 +1144,7 @@ int horovod_add_process_set(const int* ranks, int nrank) {
       return id;
     }
     if (horovod_global.shut_down) {
-      return -1;
+      return HOROVOD_PROCESS_SET_ERROR_INIT;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
@@ -1146,25 +1152,25 @@ int horovod_add_process_set(const int* ranks, int nrank) {
 
 int horovod_remove_process_set(int process_set_id) {
   if (!horovod_global.initialization_done) {
-    return -1;
+    return HOROVOD_PROCESS_SET_ERROR_INIT;
   }
   if (!horovod_global.dynamic_process_sets) {
-    return -2;
+    return HOROVOD_PROCESS_SET_ERROR_DYNAMIC;
   }
   if (horovod_gloo_enabled()) {
-    return -10;
+    return HOROVOD_PROCESS_SET_ERROR_GLOO;
   }
 
-  std::unique_lock<std::recursive_mutex> table_lock(
-      horovod_global.process_set_table.mutex);
+  {
+    std::lock_guard<std::recursive_mutex> table_lock(
+        horovod_global.process_set_table.mutex);
 
-  if (!horovod_global.process_set_table.Contains(process_set_id)) {
-    return -3;
+    if (!horovod_global.process_set_table.Contains(process_set_id)) {
+      return HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET;
+    }
+
+    horovod_global.process_set_table.MarkProcessSetForRemoval(process_set_id);
   }
-
-  horovod_global.process_set_table.MarkProcessSetForRemoval(process_set_id);
-
-  table_lock.unlock();
 
   // Block until the background thread has removed the process set.
   while (true) {
@@ -1172,7 +1178,7 @@ int horovod_remove_process_set(int process_set_id) {
       return process_set_id;
     }
     if (horovod_global.shut_down) {
-      return -1;
+      return HOROVOD_PROCESS_SET_ERROR_INIT;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
@@ -1183,16 +1189,19 @@ int horovod_process_set_rank(int process_set_id) {
     return horovod_rank();
   }
   if (!horovod_global.initialization_done) {
-    return -1;
+    return HOROVOD_PROCESS_SET_ERROR_INIT;
+  }
+  if (horovod_gloo_enabled()) {
+    return HOROVOD_PROCESS_SET_ERROR_GLOO;
   }
   if (!horovod_global.process_set_table.Contains(process_set_id)) {
-    return -3;
+    return HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET;
   }
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
   if (process_set.IsCurrentProcessIncluded()) {
     return process_set.controller->GetRank();
   }
-  return -2;
+  return HOROVOD_PROCESS_SET_ERROR_FOREIGN_SET;
 }
 
 int horovod_process_set_size(int process_set_id) {
@@ -1200,45 +1209,43 @@ int horovod_process_set_size(int process_set_id) {
     return horovod_size();
   }
   if (!horovod_global.initialization_done) {
-    return -1;
+    return HOROVOD_PROCESS_SET_ERROR_INIT;
   }
+  if (horovod_gloo_enabled()) {
+    return HOROVOD_PROCESS_SET_ERROR_GLOO;
+  }
+  std::lock_guard<std::recursive_mutex> table_lock(
+      horovod_global.process_set_table.mutex);
   if (!horovod_global.process_set_table.Contains(process_set_id)) {
-    return -3;
+    return HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET;
   }
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
-  if (process_set.IsCurrentProcessIncluded()) {
-    return process_set.controller->GetSize();
-  }
-  return -2;
+  return static_cast<int>(process_set.registered_global_ranks.size());
 }
 
-int horovod_get_number_of_process_sets() {
+int horovod_number_of_process_sets() {
   return static_cast<int>(horovod_global.process_set_table.Ids().size());
 }
 
-void horovod_get_process_set_ids(int* ids_prealloc) {
+void horovod_process_set_ids(int* ids_prealloc) {
   const auto ids_vec = horovod_global.process_set_table.Ids();
   std::copy(ids_vec.begin(), ids_vec.end(), ids_prealloc);
 }
 
-int horovod_get_process_set_size(int id) {
-  try {
-    const auto& process_set = horovod_global.process_set_table.Get(id);
-    assert(process_set.initialization_done);
-    return static_cast<int>(process_set.registered_global_ranks.size());
-  } catch (const std::out_of_range& ex) {
-    return -3;
+int horovod_process_set_ranks(int id, int* ranks_prealloc) {
+  if (!horovod_global.initialization_done) {
+    return HOROVOD_PROCESS_SET_ERROR_INIT;
   }
-}
-
-int horovod_get_process_set_ranks(int id, int* ranks_prealloc) {
+  if (horovod_gloo_enabled()) {
+    return HOROVOD_PROCESS_SET_ERROR_GLOO;
+  }
   try {
     const auto& process_set = horovod_global.process_set_table.Get(id);
     assert(process_set.initialization_done);
     std::copy(process_set.registered_global_ranks.begin(),
               process_set.registered_global_ranks.end(), ranks_prealloc);
   } catch (const std::out_of_range& ex) {
-    return -3;
+    return HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET;
   }
   return 0;
 }

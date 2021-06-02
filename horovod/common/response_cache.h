@@ -124,7 +124,7 @@ public:
 
   const std::set<uint32_t>& timeline_bits() const;
 
-  bool should_shut_down(bool dont_worry_about_synced = false) const;
+  bool should_shut_down() const;
 
   bool uncached_in_queue() const;
 

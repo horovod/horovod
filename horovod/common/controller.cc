@@ -183,8 +183,7 @@ ResponseList Controller::ComputeResponseList(bool this_process_requested_shutdow
   }
 
   ResponseList response_list;
-  response_list.set_shutdown(cache_coordinator.should_shut_down(
-      response_cache_.capacity() == 0));
+  response_list.set_shutdown(cache_coordinator.should_shut_down());
 
   bool need_communication = true;
   if (response_cache_.capacity() > 0 &&
