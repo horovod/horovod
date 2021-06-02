@@ -73,13 +73,14 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
         schema_fields.append(sample_weight_col)
 
     dataloader_cls = _create_dataloader(feature_columns, input_shapes, metadata)
-    make_petastorm_reader = _make_petastorm_reader_fn(transformation, schema_fields,
-                                                      batch_size, calculate_shuffle_buffer_size,
-                                                      dataloader_cls)
-
     # Storage
     store = estimator.getStore()
     remote_store = store.to_remote(run_id, dataset_idx)
+
+    make_petastorm_reader = _make_petastorm_reader_fn(transformation, schema_fields,
+                                                      batch_size, calculate_shuffle_buffer_size,
+                                                      dataloader_cls, store)
+
 
     def train(serialized_model):
         import horovod.torch as hvd
@@ -195,7 +196,7 @@ def _make_reset_callbacks():
     return [ResetCallback()]
 
 
-def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calculate_shuffle_buffer_size, dataloader_cls):
+def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calculate_shuffle_buffer_size, dataloader_cls, store):
 
     @contextlib.contextmanager
     def make_petastorm_reader(model, data_path, dataloader_attr, reader_worker_count, reader_pool_type, should_read=True):
@@ -237,6 +238,7 @@ def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calcula
                             hdfs_driver=PETASTORM_HDFS_DRIVER,
                             schema_fields=schema_fields,
                             transform_spec=transform_spec,
+                            storage_options=store.storage_options,
                             **reader_factory_kwargs) as reader:
             def dataloader_fn():
                 return dataloader_cls(reader, batch_size=batch_size,
