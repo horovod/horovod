@@ -4,7 +4,7 @@ Horovod in Docker
 =================
 
 To streamline the installation process, we have published reference `Dockerfiles <https://github.com/horovod/horovod/blob/master/docker>`__ so
-you can get started with Horovod in minutes. These containers includes Horovod `examples <https://github.com/horovod/horovod/tree/master/examples>`__ in the ``/examples``
+you can get started with Horovod in minutes. These containers include Horovod `examples <https://github.com/horovod/horovod/tree/master/examples>`__ in the ``/examples``
 directory.
 
 Pre-built Docker containers with Horovod are available on `DockerHub <https://hub.docker.com/r/horovod/horovod>`__ for GPU, CPU, and `Ray <https://ray.io>`__.
