@@ -126,6 +126,8 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             _val_steps_per_epoch = val_steps_per_epoch
             if _val_steps_per_epoch is None:
                 _val_steps_per_epoch = int(math.floor(float(val_rows) / batch_size / hvd.size()))
+            print(f"train_steps_per_epoch={_train_steps_per_epoch}")
+            print(f"val_steps_per_epoch={_val_steps_per_epoch}")
 
             cuda_available = torch.cuda.is_available()
             # We need to check all ranks have same device type for traning.

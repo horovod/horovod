@@ -192,6 +192,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
             steps_per_epoch = int(math.floor(float(train_rows) / batch_size / hvd.size()))
         else:
             steps_per_epoch = train_steps_per_epoch
+        print(f"train_steps_per_epoch={steps_per_epoch}")
 
         with remote_store.get_local_output_dir() as run_output_dir:
             logs_dir = os.path.join(run_output_dir, remote_store.logs_subdir)
@@ -349,6 +350,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                             validation_steps = int(math.ceil(float(val_rows) / val_batch_size / hvd.size()))
                         else:
                             validation_steps = validation_steps_per_epoch
+                        print(f"val_steps_per_epoch={validation_steps}")
 
                         if inmemory_cache_all:
                             # Petastorm introduced InMemBatchedDataLoader class in v0.11.0
