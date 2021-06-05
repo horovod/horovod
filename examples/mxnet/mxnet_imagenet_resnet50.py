@@ -89,8 +89,6 @@ parser.add_argument('--log-interval', type=int, default=0,
                     help='number of batches to wait before logging (default: 0)')
 parser.add_argument('--save-frequency', type=int, default=0,
                     help='frequency of model saving (default: 0)')
-parser.add_argument('--fp16-allreduce', action='store_true', default=False,
-                    help='use fp16 compression during allreduce')
 parser.add_argument('--gradient-predivide-factor', type=float, default=1.0,
                     help='apply gradient predivide factor in optimizer (default: 1.0)')
 
@@ -326,8 +324,7 @@ def train_gluon():
     opt = mx.optimizer.create('sgd', **optimizer_params)
 
     # Horovod: create DistributedTrainer, a subclass of gluon.Trainer
-    compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
-    trainer = hvd.DistributedTrainer(params, opt, compression=compression,
+    trainer = hvd.DistributedTrainer(params, opt,
                                      gradient_predivide_factor=args.gradient_predivide_factor)
 
     # Create loss function and train metric
@@ -433,8 +430,7 @@ def train_module():
     opt = mx.optimizer.create('sgd', **optimizer_params)
 
     # Horovod: wrap optimizer with DistributedOptimizer
-    compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
-    dist_opt = hvd.DistributedOptimizer(opt, compression=compression,
+    dist_opt = hvd.DistributedOptimizer(opt,
                                         gradient_predivide_factor=args.gradient_predivide_factor)
 
     # Setup validation data and callback during training
