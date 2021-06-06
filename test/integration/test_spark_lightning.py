@@ -823,6 +823,38 @@ class SparkLightningTests(unittest.TestCase):
                 assert len(pred) == 1
                 assert pred.dtype == torch.float32
 
+    """
+    Test train model with pytorch infinite async data loader
+    """
+    def test_train_with_pytorch_infinite_async_data_loader(self):
+        from horovod.spark.data_loaders.pytorch_data_loaders import PytorchInfiniteAsyncDataLoader
+
+        with spark_session('test_fit_model') as spark:
+            df = create_noisy_xor_data(spark)
+            model = create_xor_model()
+
+            with local_store() as store:
+                torch_estimator = hvd_spark.TorchEstimator(
+                    num_proc=2,
+                    store=store,
+                    model=model,
+                    input_shapes=[[-1, 2]],
+                    feature_cols=['features'],
+                    label_cols=['y'],
+                    validation=0.2,
+                    batch_size=4,
+                    epochs=2,
+                    verbose=2,
+                    data_loader_class=PytorchInfiniteAsyncDataLoader)
+
+                torch_model = torch_estimator.fit(df)
+
+                # TODO: Find a way to pass log metrics from remote, and assert base on the logger.
+                trained_model = torch_model.getModel()
+                pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
+                assert len(pred) == 1
+                assert pred.dtype == torch.float32
+
 
 def check_fail(dir, rank, epoch, batch):
     if dir:

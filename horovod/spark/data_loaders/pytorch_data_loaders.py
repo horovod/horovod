@@ -51,3 +51,33 @@ class PytorchDataLoader(BaseDataLoader):
 class PytorchAsyncDataLoader(AsyncDataLoaderMixin, PytorchDataLoader):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+
+class PytorchInfiniteDataLoader(BaseDataLoader):
+    def __init__(self, reader, batch_size, shuffling_queue_capacity):
+        from petastorm.pytorch import BatchedDataLoader
+        self.reader = reader
+        self.batch_size = batch_size
+        self.shuffling_queue_capacity = shuffling_queue_capacity
+
+        self.data_loader = BatchedDataLoader(
+            self.reader,
+            batch_size=self.batch_size,
+            shuffling_queue_capacity=self.shuffling_queue_capacity)
+        self.iterater = iter(self.data_loader)
+
+        print(f"Initializing petastorm dataloader with batch_size {batch_size}"
+              f" and shuffling_queue_capacity {shuffling_queue_capacity}")
+
+    def __len__(self):
+        return len(self.reader)
+
+    def _iterate(self):
+        while True:
+            yield next(self.iterater)
+
+
+class PytorchInfiniteAsyncDataLoader(AsyncDataLoaderMixin, PytorchInfiniteDataLoader):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+

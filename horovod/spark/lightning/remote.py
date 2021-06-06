@@ -316,9 +316,9 @@ def _calculate_shuffle_buffer_size_fn(train_rows, avg_row_size, user_shuffle_buf
 
 def _create_dataloader(feature_columns, input_shapes, metadata, data_loader_cls=None):
     if data_loader_cls is None:
-        # set PytorchAsyncDataLoader as default
-        from horovod.spark.data_loaders.pytorch_data_loaders import PytorchAsyncDataLoader
-        data_loader_cls = PytorchAsyncDataLoader
+        # set PytorchInfiniteAsyncDataLoader as default
+        from horovod.spark.data_loaders.pytorch_data_loaders import PytorchInfiniteAsyncDataLoader
+        data_loader_cls = PytorchInfiniteAsyncDataLoader
 
     print(f"Using dataloader: {data_loader_cls}")
 
