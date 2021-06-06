@@ -139,6 +139,7 @@ def train_model(args):
         def __init__(self):
             self.epcoh_end_counter = 0
             self.train_epcoh_end_counter = 0
+            self.validation_epoch_end_counter = 0
 
         def on_init_start(self, trainer):
             print('Starting to init trainer!')
@@ -154,11 +155,17 @@ def train_model(args):
             print('A train epoch ended.')
             self.train_epcoh_end_counter += 1
 
+        def on_validation_epoch_end(self, trainer, model, unused=None):
+            print('A train epoch ended.')
+            self.validation_epoch_end_counter += 1
+
         def on_train_end(self, trainer, model):
             print("Training ends:"
-                  f"self.epcoh_end_counter={self.epcoh_end_counter}, "
-                  f"self.train_epcoh_end_counter={self.train_epcoh_end_counter}")
-            assert self.train_epcoh_end_counter == epochs
+                  f"epcoh_end_counter={self.epcoh_end_counter}, "
+                  f"train_epcoh_end_counter={self.train_epcoh_end_counter}, "
+                  f"validation_epoch_end_counter={self.validation_epoch_end_counter} \n")
+            assert self.train_epcoh_end_counter <= epochs
+            assert self.epcoh_end_counter == self.train_epcoh_end_counter + self.validation_epoch_end_counter
 
     callbacks = [MyDummyCallback()]
 
@@ -179,9 +186,9 @@ def train_model(args):
                                          input_shapes=[[-1, 1, 28, 28]],
                                          feature_cols=['features'],
                                          label_cols=['label'],
-                                         validation=0.1,
                                          batch_size=args.batch_size,
                                          epochs=args.epochs,
+                                         validation=0.1,
                                          verbose=1,
                                          callbacks=callbacks)
 

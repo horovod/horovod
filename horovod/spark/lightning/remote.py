@@ -60,6 +60,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     log_every_n_steps = estimator.getLogEveryNSteps()
     data_loader_cls = estimator.getDataLoaderClass()
     loader_num_epochs = estimator.getLoaderNumEpochs()
+    verbose = (estimator.getVerbose() > 0)
 
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
@@ -83,8 +84,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
     set_data_loader = _set_data_loader_fn(transformation, schema_fields,
                                           batch_size, calculate_shuffle_buffer_size,
-                                          data_loader_cls, loader_num_epochs, store)
-
+                                          data_loader_cls, loader_num_epochs, store, verbose)
 
     def train(serialized_model):
         import horovod.torch as hvd
@@ -148,8 +148,8 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                       'gpus': _num_gpus,
                       'callbacks': callbacks,
                       'max_epochs': epochs,
-                      'limit_train_batches': _train_steps_per_epoch,
-                      'limit_val_batches': _val_steps_per_epoch,
+                    #   'limit_train_batches': _train_steps_per_epoch,
+                    #   'limit_val_batches': _val_steps_per_epoch,
                       'logger': train_logger,
                       'log_every_n_steps': log_every_n_steps,
                       'resume_from_checkpoint': (last_ckpt_file if ckpt_bytes else None),
@@ -169,9 +169,13 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             #     print(row_group)
 
             with set_data_loader(model, remote_store.train_data_path, 'train_dataloader',
-                                       train_reader_worker_count, reader_pool_type), \
+                                 train_reader_worker_count, reader_pool_type,
+                                 name="train_dataloader",
+                                 limit_step_per_epoch=_train_steps_per_epoch), \
                     set_data_loader(model, remote_store.val_data_path, 'val_dataloader',
-                                          val_reader_worker_count, reader_pool_type, should_validate):
+                                    val_reader_worker_count, reader_pool_type,
+                                    should_validate, name="val_dataloader",
+                                    limit_step_per_epoch=_val_steps_per_epoch):
 
                 trainer.fit(model)
 
@@ -214,10 +218,10 @@ def _make_reset_callbacks():
     return [ResetCallback()]
 
 
-def _set_data_loader_fn(transformation, schema_fields, batch_size, calculate_shuffle_buffer_size, data_loader_cls, num_epochs, store):
+def _set_data_loader_fn(transformation, schema_fields, batch_size, calculate_shuffle_buffer_size, data_loader_cls, num_epochs, store, verbose=False):
 
     @contextlib.contextmanager
-    def set_data_loader(model, data_path, dataloader_attr, reader_worker_count, reader_pool_type, should_read=True):
+    def set_data_loader(model, data_path, dataloader_attr, reader_worker_count, reader_pool_type, should_read=True, name="", limit_step_per_epoch=-1):
         from petastorm import TransformSpec, make_reader, make_batch_reader
         import horovod.torch as hvd
 
@@ -260,7 +264,10 @@ def _set_data_loader_fn(transformation, schema_fields, batch_size, calculate_shu
                             **reader_factory_kwargs) as reader:
             def dataloader_fn():
                 return data_loader_cls(reader=reader, batch_size=batch_size,
-                                       shuffling_queue_capacity=calculate_shuffle_buffer_size())
+                                       shuffling_queue_capacity=calculate_shuffle_buffer_size(),
+                                       name=name,
+                                       limit_step_per_epoch=limit_step_per_epoch,
+                                       verbose=verbose)
             try:
                 setattr(model, dataloader_attr, dataloader_fn)
                 yield
