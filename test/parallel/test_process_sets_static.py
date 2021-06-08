@@ -26,22 +26,22 @@ class ProcessSetsStaticTests(unittest.TestCase):
             import mpi4py
             mpi4py.rc.initialize = False
         except ImportError:
-            self.skipTest("This test requires mpi4py")
+            self.skipTest("This test requires mpi4py.")
 
         if mpi_rank == 0:
-            hvd.init(process_sets=[[0],
-                                   list(range(1, size)),
-                                   list(range(size - 1, -1, -1)),  # will be ignored
-                                   [0]  # will be ignored
+            hvd.init(process_sets=[hvd.ProcessSet([0]),
+                                   hvd.ProcessSet(range(1, size)),
+                                   hvd.ProcessSet(range(size - 1, -1, -1)),  # will be ignored
+                                   hvd.ProcessSet([0])  # will be ignored
                                    ])
         else:
-            hvd.init(process_sets=[[0],
-                                   list(reversed(range(1, size))), # permuting a process set does not matter
-                                   list(range(size - 1, -1, -1)),  # will be ignored
-                                   [0]  # will be ignored
+            hvd.init(process_sets=[hvd.ProcessSet([0]),
+                                   hvd.ProcessSet(reversed(range(1, size))), # permuting a process set does not matter
+                                   hvd.ProcessSet(range(size - 1, -1, -1)),  # will be ignored
+                                   hvd.ProcessSet([0])  # will be ignored
                                    ])
 
-        ps = hvd.get_process_sets()
+        ps = hvd.get_process_set_ids_and_ranks()
         self.assertDictEqual(ps, {0: list(range(size)),
                                   1: [0],
                                   2: list(range(1, size))})

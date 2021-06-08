@@ -258,3 +258,10 @@ def check_installed_version(name, version, exception=None):
                 warnings.warn(get_version_mismatch_message(name, version, installed_version))
             else:
                 raise HorovodVersionMismatchError(name, version, installed_version) from exception
+
+def is_iterable(x):
+    try:
+        _ = iter(x)
+    except TypeError:
+        return False
+    return True

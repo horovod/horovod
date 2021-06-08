@@ -17,7 +17,7 @@ class ProcessSetsMultiCommTests(unittest.TestCase):
         try:
             from mpi4py import MPI
         except ImportError:
-            self.skipTest("This test requires mpi4py")
+            self.skipTest("This test requires mpi4py.")
 
         # This will be our baseline world communicator
         comm = MPI.COMM_WORLD
@@ -27,22 +27,36 @@ class ProcessSetsMultiCommTests(unittest.TestCase):
         comm_clone = comm.Dup()
         subcomm_clone = subcomm.Dup()
 
-        # And here is our array of communicators. No distinct process sets will be built from the clones.
-        comms = [comm, subcomm, comm_clone, subcomm_clone]
-
-        hvd.init(comm=comms)
+        # No distinct process sets will be built from the clones.
+        hvd.init(comm=comm, process_sets=[hvd.ProcessSet(subcomm),
+                                          hvd.ProcessSet(range(0, comm.size, 2)), # another clone
+                                          hvd.ProcessSet(comm_clone),
+                                          hvd.ProcessSet(subcomm_clone),
+                                          hvd.ProcessSet([0]),
+                                          ])
         size = hvd.size()
+        if size < 2:
+            self.skipTest("This test requires multiple workers.")
 
-        ps = hvd.get_process_sets()
-        self.assertDictEqual(ps, {0: list(range(size)),
-                                  1: list(range(0, size, 2)),
-                                  2: list(range(1, size, 2))})
+        ps = hvd.get_process_set_ids_and_ranks()
+        if size > 2:
+            self.assertDictEqual(ps, {0: list(range(size)),
+                                      1: list(range(0, size, 2)),
+                                      2: list(range(1, size, 2)),
+                                      3: [0],
+                                      })
+        else:
+            self.assertDictEqual(ps, {0: list(range(size)),
+                                      1: list(range(0, size, 2)),
+                                      2: list(range(1, size, 2)),
+                                      })
 
-        global_id = hvd.comm_process_set(comm)
+
+        global_id = hvd.comm_process_set_id(comm)
         self.assertEqual(global_id, 0)
 
-        split_id = hvd.comm_process_set(subcomm)
-        split_dup_id = hvd.comm_process_set(subcomm_clone)
+        split_id = hvd.comm_process_set_id(subcomm)
+        split_dup_id = hvd.comm_process_set_id(subcomm_clone)
         if hvd.rank() % 2 == 0:
             self.assertEqual(split_id, 1)
             self.assertEqual(split_dup_id, 1)
@@ -50,7 +64,7 @@ class ProcessSetsMultiCommTests(unittest.TestCase):
             self.assertEqual(split_id, 2)
             self.assertEqual(split_dup_id, 2)
 
-        global_dup_id = hvd.comm_process_set(comm_clone)
+        global_dup_id = hvd.comm_process_set_id(comm_clone)
         self.assertEqual(global_dup_id, 0)
 
         MPI.COMM_WORLD.barrier()

@@ -789,8 +789,8 @@ class TensorFlowTests(tf.test.TestCase):
                 else:
                     with self.assertRaises(tf.errors.InvalidArgumentError):
                         self.evaluate(hvd.allreduce(tensor, process_set=single_set))
-                with self.assertRaises(tf.errors.InvalidArgumentError):
-                    self.evaluate(hvd.allreduce(tensor, process_set=10))
+                with self.assertRaises(ValueError):
+                    self.evaluate(hvd.allreduce(tensor, process_set=hvd.process_set_by_id(10)))
         finally:
             hvd.remove_process_set(rest_set)
             hvd.remove_process_set(single_set)
@@ -3943,50 +3943,58 @@ class TensorFlowTests(tf.test.TestCase):
         if size == 1:
             self.skipTest("Only one worker available")
 
-        ps = hvd.get_process_sets()
+        ps = hvd.get_process_set_ids_and_ranks()
         self.assertDictEqual(ps, {0: list(range(size))})
 
         set1 = hvd.add_process_set([0])
         set2 = hvd.add_process_set(range(1, size))
 
-        ps = hvd.get_process_sets()
+        ps = hvd.get_process_set_ids_and_ranks()
         self.assertDictEqual(ps, {0: list(range(size)),
-                                  set1: [0],
-                                  set2: list(range(1, size))})
+                                  set1.process_set_id: [0],
+                                  set2.process_set_id: list(range(1, size))})
+        self.assertListEqual([str(p) for p in hvd.process_sets()],
+                             ["ProcessSet(process_set_id=0, ranks=[0, 1], mpi_comm=None)",
+                              "ProcessSet(process_set_id=1, ranks=[0], mpi_comm=None)",
+                              "ProcessSet(process_set_id=2, ranks=[1], mpi_comm=None)", ])
 
         hvd.remove_process_set(set1)
 
-        ps = hvd.get_process_sets()
+        ps = hvd.get_process_set_ids_and_ranks()
         self.assertDictEqual(ps, {0: list(range(size)),
-                                  set2: list(range(1, size))})
+                                  set2.process_set_id: list(range(1, size))})
 
         set3 = hvd.add_process_set([0, size-1])
         if size > 2:
-            self.assertEqual(set1, set3) # id reuse
+            self.assertEqual(set1.process_set_id, set3.process_set_id) # id reuse
         else:
-            self.assertEqual(0, set3)  # global id reuse
+            self.assertEqual(0, set3.process_set_id)  # global id reuse
 
         set4 = hvd.add_process_set(range(size - 1, 0, -1))
-        self.assertEqual(set2, set4) # identical process set
+        self.assertEqual(set2.process_set_id, set4.process_set_id) # identical process set
 
         set5 = hvd.add_process_set(range(0, size))
-        self.assertEqual(0, set5) # identical process set
+        self.assertEqual(0, set5.process_set_id) # identical process set
 
-        ps = hvd.get_process_sets()
+        ps = hvd.get_process_set_ids_and_ranks()
         if size > 2:
             self.assertDictEqual(ps, {0: list(range(size)),
-                                      set2: list(range(1, size)),
-                                      set3: [0, size-1]})
+                                      set2.process_set_id: list(range(1, size)),
+                                      set3.process_set_id: [0, size-1]})
         else:
             self.assertDictEqual(ps, {0: list(range(size)),
-                                      set2: list(range(1, size))})
+                                      set2.process_set_id: list(range(1, size))})
         hvd.remove_process_set(set2)
         hvd.remove_process_set(set3)
 
-        hvd.remove_process_set(set5) # no op
+        self.assertFalse(hvd.remove_process_set(set5),
+                         "Removing the global process set should be impossible.")
 
-        ps = hvd.get_process_sets()
+        ps = hvd.get_process_set_ids_and_ranks()
         self.assertDictEqual(ps, {0: list(range(size))})
+
+        self.assertFalse(hvd.remove_process_set(hvd.global_process_set),
+                         "Removing the global process set should be impossible.")
 
 from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
 run_all_in_graph_and_eager_modes(TensorFlowTests)

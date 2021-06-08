@@ -747,9 +747,9 @@ bool RunLoopOnce(HorovodGlobalState& state) {
 // Start Horovod background thread. Ensure that this is
 // only done once no matter how many times this function is called.
 // Returns false if initialization failed, otherwise true.
-bool InitializeHorovodOnce(const int* ranks, int nranks,
-                           const int* process_set_ranks,
-                           const int* process_set_sizes, int num_process_sets) {
+bool InitializeHorovodOnce(
+    const std::vector<int>& ranks,
+    const std::vector<std::vector<int>>& process_set_ranks) {
   // Ensure background thread is only started once.
   if (!horovod_global.initialize_flag.test_and_set()) {
     horovod_global.control_operation = ParseControllerOpsFromEnv();
@@ -758,18 +758,14 @@ bool InitializeHorovodOnce(const int* ranks, int nranks,
     // Enable mpi if it's used either in cpu data transfer or controller
     if (horovod_global.cpu_operation == LibType::MPI ||
         horovod_global.control_operation == LibType::MPI) {
-      global_mpi_context.Enable(ranks, nranks);
+      global_mpi_context.Enable(ranks);
     }
 
     if (horovod_global.control_operation == LibType::MPI) {
       auto& global_process_set = horovod_global.process_set_table.Get(0);
       EnrichProcessSetWithMPIController(global_process_set);
       horovod_global.global_controller = global_process_set.controller;
-      for (int p = 0; p < num_process_sets; ++p) {
-        horovod_global.process_set_ranks_to_register.emplace_back(
-            process_set_ranks, process_set_ranks + process_set_sizes[p]);
-        process_set_ranks += process_set_sizes[p];
-      }
+      horovod_global.process_set_ranks_to_register = process_set_ranks;
     }
 #endif
 
@@ -778,7 +774,7 @@ bool InitializeHorovodOnce(const int* ranks, int nranks,
     if (horovod_global.cpu_operation == LibType::GLOO ||
         horovod_global.control_operation == LibType::GLOO) {
       gloo_context.Enable();
-      if (num_process_sets > 0) { // TODO: extend this
+      if (!process_set_ranks.empty()) { // TODO: extend this
         throw std::logic_error("Multiple process sets are only supported with "
                                "MPI controllers, not Gloo.");
       }
@@ -808,6 +804,19 @@ bool InitializeHorovodOnce(const int* ranks, int nranks,
   return true;
 }
 
+std::vector<std::vector<int>>
+BuildProcessSetRanksVectors(const int* process_set_ranks,
+                            const int* process_set_sizes,
+                            int num_process_sets) {
+  std::vector<std::vector<int>> result;
+  for (int p = 0; p < num_process_sets; ++p) {
+    result.emplace_back(process_set_ranks,
+                        process_set_ranks + process_set_sizes[p]);
+    process_set_ranks += process_set_sizes[p];
+  }
+  return result;
+};
+
 } // namespace
 
 Status CheckInitialized() {
@@ -821,23 +830,24 @@ extern "C" {
 
 bool horovod_init(const int* ranks, int nranks, const int* process_set_ranks,
                   const int* process_set_sizes, int num_process_sets) {
-  return InitializeHorovodOnce(ranks, nranks, process_set_ranks,
-                               process_set_sizes, num_process_sets);
+  std::vector<int> ranks_vec;
+  if (ranks && nranks > 0) {
+    ranks_vec.assign(ranks, ranks + nranks);
+  }
+  return InitializeHorovodOnce(
+      ranks_vec, BuildProcessSetRanksVectors(
+                     process_set_ranks, process_set_sizes, num_process_sets));
 }
 
 #if HAVE_MPI
-bool horovod_init_comm(MPI_Comm comm) {
-  MPI_Comm_dup(comm, &global_mpi_context.global_comm);
-  return InitializeHorovodOnce(nullptr, 0, nullptr, nullptr, 0);
-}
-
-bool horovod_init_multi_comm(MPI_Comm *comm, int ncomms) {
+bool horovod_init_multi_comm(MPI_Comm* comm, int ncomms,
+                             const int* process_set_ranks_via_ranks,
+                             const int* process_set_sizes_via_ranks,
+                             int num_process_sets_via_ranks) {
   assert(ncomms > 0);
   MPI_Comm_dup(comm[0], &global_mpi_context.global_comm);
 
-  std::vector<int> process_set_sizes;
-  std::vector<int> process_set_ranks;
-  int num_process_sets = 0;
+  std::vector<std::vector<int>> process_set_ranks_vecs;
 
   int global_rank;
   MPI_Comm_rank(global_mpi_context.global_comm, &global_rank);
@@ -875,7 +885,7 @@ bool horovod_init_multi_comm(MPI_Comm *comm, int ncomms) {
                                 global_ranks.data());
     }
 
-    std::set<std::vector<int>> collected_process_sets;  // sorted order
+    std::set<std::vector<int>> collected_process_sets; // sorted
     {
       auto sub_sizes = std::vector<int>(global_size);
       MPI_Allgather(&size, 1, MPI_INT, sub_sizes.data(), 1, MPI_INT,
@@ -883,7 +893,7 @@ bool horovod_init_multi_comm(MPI_Comm *comm, int ncomms) {
 
       auto displ = std::vector<int>(global_size);
       for (int j = 1; j < global_size; ++j) {
-        displ[j] = displ[j - 1] + sub_sizes[j];
+        displ[j] = displ[j - 1] + sub_sizes[j - 1];
       }
 
       auto process_sets_buf = std::vector<int>(
@@ -899,16 +909,21 @@ bool horovod_init_multi_comm(MPI_Comm *comm, int ncomms) {
       }
     }
 
-    for (const auto& process_set_vec : collected_process_sets) {
-      ++num_process_sets;
-      process_set_sizes.push_back(static_cast<int>(process_set_vec.size()));
-      process_set_ranks.insert(process_set_ranks.end(), process_set_vec.begin(),
-                               process_set_vec.end());
-    }
+    process_set_ranks_vecs.insert(process_set_ranks_vecs.end(),
+                                  collected_process_sets.begin(),
+                                  collected_process_sets.end());
   }
 
-  return InitializeHorovodOnce(nullptr, 0, process_set_ranks.data(),
-                               process_set_sizes.data(), num_process_sets);
+  // Add process sets defined via ranks:
+  std::vector<std::vector<int>> process_set_ranks_via_ranks_vecs =
+      BuildProcessSetRanksVectors(process_set_ranks_via_ranks,
+                                  process_set_sizes_via_ranks,
+                                  num_process_sets_via_ranks);
+  process_set_ranks_vecs.insert(process_set_ranks_vecs.end(),
+                                process_set_ranks_via_ranks_vecs.begin(),
+                                process_set_ranks_via_ranks_vecs.end());
+
+  return InitializeHorovodOnce(std::vector<int>(), process_set_ranks_vecs);
 }
 
 int horovod_comm_process_set(MPI_Comm comm) {

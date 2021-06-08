@@ -43,9 +43,9 @@ struct MPIContext {
 
   // Pass ranks that will be used to create global communicator. If no ranks are
   // passed, we will duplicate the entire MPI_COMM_WORLD.
-  void Enable(const int* ranks = nullptr, int nrank = 0) {
-    if (ranks && nrank > 0) {
-      ranks_.assign(ranks, ranks + nrank);
+  void Enable(const std::vector<int>& ranks) {
+    if (!ranks.empty()) {
+      ranks_ = ranks;
     }
     enabled_ = true;
     LOG(DEBUG) << "MPI context enabled.";

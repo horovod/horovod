@@ -26,6 +26,9 @@ from tensorflow.python.platform import resource_loader
 from horovod.common.util import check_installed_version, get_ext_suffix, \
     get_average_backwards_compatibility_fun, gpu_available, num_rank_is_power_2
 from horovod.common.basics import HorovodBasics as _HorovodBasics
+from horovod.common.process_sets import setup as _setup_process_sets
+from horovod.common.process_sets import ProcessSet, global_process_set, add_process_set, remove_process_set, \
+    process_set_by_id, process_sets
 from horovod.tensorflow.util import _executing_eagerly
 
 
@@ -75,12 +78,10 @@ ddl_built = _basics.ddl_built
 ccl_built = _basics.ccl_built
 cuda_built = _basics.cuda_built
 rocm_built = _basics.rocm_built
-add_process_set = _basics.add_process_set
-remove_process_set = _basics.remove_process_set
 process_set_rank = _basics.process_set_rank
 process_set_size = _basics.process_set_size
-get_process_sets = _basics.get_process_sets
-comm_process_set = _basics.comm_process_set
+get_process_set_ids_and_ranks = _basics.get_process_set_ids_and_ranks
+comm_process_set_id = _basics.comm_process_set_id
 
 # import reduction op values
 Average = _basics.Average
@@ -92,6 +93,8 @@ is_homogeneous = _basics.is_homogeneous
 handle_average_backwards_compatibility = get_average_backwards_compatibility_fun(_basics)
 
 check_num_rank_power_of_2 = num_rank_is_power_2
+
+_setup_process_sets(_basics)
 
 
 # This function will create a default device map which includes all visible devices.
@@ -107,7 +110,7 @@ def _normalize_name(name):
 
 
 def _allreduce(tensor, name=None, op=Sum, prescale_factor=1.0, postscale_factor=1.0,
-               ignore_name_scope=False, process_set=0):
+               ignore_name_scope=False, process_set=global_process_set):
     """An op which reduces an input tensor over all the Horovod processes. The
     default reduction is a sum.
 
@@ -125,7 +128,7 @@ def _allreduce(tensor, name=None, op=Sum, prescale_factor=1.0, postscale_factor=
                                      prescale_factor=prescale_factor,
                                      postscale_factor=postscale_factor,
                                      ignore_name_scope=ignore_name_scope,
-                                     process_set=process_set)
+                                     process_set_id=process_set.process_set_id)
 
 
 @ops.RegisterGradient('HorovodAllreduce')
@@ -143,15 +146,15 @@ def _allreduce_grad(op, grad):
     prescale_factor = op.get_attr('prescale_factor')
     postscale_factor = op.get_attr('postscale_factor')
     ignore_name_scope = op.get_attr('ignore_name_scope')
-    process_set = op.get_attr('process_set')
+    process_set_id = op.get_attr('process_set_id')
     return _allreduce(grad, op=reduce_op, prescale_factor=prescale_factor,
                       postscale_factor=postscale_factor,
                       ignore_name_scope=ignore_name_scope,
-                      process_set=process_set)
+                      process_set=process_set_by_id(process_set_id))
 
 
 def _grouped_allreduce(tensors, name=None, op=Sum, prescale_factor=1.0, postscale_factor=1.0,
-                       ignore_name_scope=False, process_set=0):
+                       ignore_name_scope=False, process_set=global_process_set):
     """An op which reduces input tensors over all the Horovod processes. The
     default reduction is a sum.
 
@@ -175,7 +178,7 @@ def _grouped_allreduce(tensors, name=None, op=Sum, prescale_factor=1.0, postscal
                                              prescale_factor=prescale_factor,
                                              postscale_factor=postscale_factor,
                                              ignore_name_scope=ignore_name_scope,
-                                             process_set=process_set)
+                                             process_set_id=process_set.process_set_id)
 
 
 @ops.RegisterGradient('HorovodGroupedAllreduce')
@@ -193,15 +196,15 @@ def _grouped_allreduce_grad(op, *grads):
     prescale_factor = op.get_attr('prescale_factor')
     postscale_factor = op.get_attr('postscale_factor')
     ignore_name_scope = op.get_attr('ignore_name_scope')
-    process_set = op.get_attr('process_set')
+    process_set_id = op.get_attr('process_set_id')
     # TODO(joshr): should this be done as separate allreduce ops?
     return _grouped_allreduce(list(grads), op=reduce_op, prescale_factor=prescale_factor,
                               postscale_factor=postscale_factor,
                               ignore_name_scope=ignore_name_scope,
-                              process_set=process_set)
+                              process_set=process_set_by_id(process_set_id))
 
 
-def allgather(tensor, name=None, ignore_name_scope=False, process_set=0):
+def allgather(tensor, name=None, ignore_name_scope=False, process_set=global_process_set):
     """An op which concatenates the input tensor with the same input tensor on
     all other Horovod processes.
 
@@ -219,7 +222,7 @@ def allgather(tensor, name=None, ignore_name_scope=False, process_set=0):
         name = 'HorovodAllgather_%s' % _normalize_name(tensor.name)
     return MPI_LIB.horovod_allgather(tensor, name=name,
                                      ignore_name_scope=ignore_name_scope,
-                                     process_set=process_set)
+                                     process_set_id=process_set.process_set_id)
 
 
 @ops.RegisterGradient('HorovodAllgather')
@@ -234,8 +237,9 @@ def _allgather_grad(op, grad):
       The gradient with respect to the input of the op.
     """
     ignore_name_scope = op.get_attr('ignore_name_scope')
-    process_set = op.get_attr('process_set')
-    grad = _allreduce(grad, op=Average, ignore_name_scope=ignore_name_scope, process_set=process_set)
+    process_set_id = op.get_attr('process_set_id')
+    grad = _allreduce(grad, op=Average, ignore_name_scope=ignore_name_scope,
+                      process_set=process_set_by_id(process_set_id))
 
     with tf.device('/cpu:0'):
         # Keep the tensor of split sizes on CPU.
@@ -243,14 +247,15 @@ def _allgather_grad(op, grad):
         d = tf.shape(x)
         d = tf.reshape(d[0], [1])
 
-        s = process_set_size(process_set)
-        d = tf.reshape(allgather(d, ignore_name_scope=ignore_name_scope, process_set=process_set), [s])
+        s = process_set_size(process_set_id)
+        d = tf.reshape(allgather(d, ignore_name_scope=ignore_name_scope, process_set=process_set_by_id(process_set_id)),
+                       [s])
 
     splits = tf.split(grad, num_or_size_splits=d, axis=0)
-    return splits[process_set_rank(process_set)]
+    return splits[process_set_rank(process_set_id)]
 
 
-def broadcast(tensor, root_rank, name=None, ignore_name_scope=False, process_set=0):
+def broadcast(tensor, root_rank, name=None, ignore_name_scope=False, process_set=global_process_set):
     """An op which broadcasts the input tensor on root rank to the same input tensor
     on all other Horovod processes.
 
@@ -266,7 +271,7 @@ def broadcast(tensor, root_rank, name=None, ignore_name_scope=False, process_set
         name = 'HorovodBroadcast_%s' % _normalize_name(tensor.name)
     return MPI_LIB.horovod_broadcast(tensor, name=name, root_rank=root_rank,
                                      ignore_name_scope=ignore_name_scope,
-                                     process_set=process_set)
+                                     process_set_id=process_set.process_set_id)
 
 
 @ops.RegisterGradient('HorovodBroadcast')
@@ -282,16 +287,16 @@ def _broadcast_grad(op, grad):
     """
     root_rank = op.get_attr('root_rank')
     ignore_name_scope = op.get_attr('ignore_name_scope')
-    process_set = op.get_attr('process_set')
+    process_set_id = op.get_attr('process_set_id')
     grad_reduced = _allreduce(grad, op=Average,
                               ignore_name_scope=ignore_name_scope,
-                              process_set=process_set)
+                              process_set=process_set_by_id(process_set_id))
     if rank() != root_rank:
         return grad_reduced * 0
     return grad_reduced
 
 
-def alltoall(tensor, splits=None, name=None, ignore_name_scope=False, process_set=0):
+def alltoall(tensor, splits=None, name=None, ignore_name_scope=False, process_set=global_process_set):
     """An op that scatters slices of the input tensor to all other Horovod processes
     and returns a tensor of gathered slices from all other Horovod processes.
 
@@ -326,7 +331,7 @@ def alltoall(tensor, splits=None, name=None, ignore_name_scope=False, process_se
         name = 'HorovodAlltoall_%s' % _normalize_name(tensor.name)
     output, rsplits = MPI_LIB.horovod_alltoall(tensor, splits=splits_, name=name,
                                                ignore_name_scope=ignore_name_scope,
-                                               process_set=process_set)
+                                               process_set_id=process_set.process_set_id)
     return (output, rsplits) if splits is not None else output
 
 @ops.RegisterGradient('HorovodAlltoall')
@@ -342,11 +347,11 @@ def _alltoall_grad(op, grad_wrt_output, grad_wrt_received_splits):
       The gradient with respect to the input of the op.
     """
     ignore_name_scope = op.get_attr('ignore_name_scope')
-    process_set = op.get_attr('process_set')
+    process_set_id = op.get_attr('process_set_id')
     recvsplits = op.outputs[1]
 
     grad_wrt_tensor, _ = alltoall(grad_wrt_output, splits=recvsplits, ignore_name_scope=ignore_name_scope,
-                                  process_set=process_set)
+                                  process_set=process_set_by_id(process_set_id))
     grad_wrt_splits = None # not differentiable (integer variable)
 
     return [grad_wrt_tensor, grad_wrt_splits]

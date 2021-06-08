@@ -414,7 +414,7 @@ public:
     OP_REQUIRES_OK(context, context->GetAttr("prescale_factor", &prescale_factor_));
     OP_REQUIRES_OK(context, context->GetAttr("postscale_factor", &postscale_factor_));
     OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
-    OP_REQUIRES_OK(context, context->GetAttr("process_set", &process_set_id_));
+    OP_REQUIRES_OK(context, context->GetAttr("process_set_id", &process_set_id_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -485,7 +485,7 @@ REGISTER_OP("HorovodAllreduce")
     .Attr("prescale_factor: float")
     .Attr("postscale_factor: float")
     .Attr("ignore_name_scope: bool = False")
-    .Attr("process_set: int = 0")
+    .Attr("process_set_id: int = 0")
     .Input("tensor: T")
     .Output("sum: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
@@ -514,7 +514,7 @@ public:
     OP_REQUIRES_OK(context, context->GetAttr("postscale_factor", &postscale_factor_));
     OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
     OP_REQUIRES_OK(context, context->GetAttr("num_tensors", &num_tensors_));
-    OP_REQUIRES_OK(context, context->GetAttr("process_set", &process_set_id_));
+    OP_REQUIRES_OK(context, context->GetAttr("process_set_id", &process_set_id_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -623,7 +623,7 @@ REGISTER_OP("HorovodGroupedAllreduce")
     .Attr("postscale_factor: float")
     .Attr("ignore_name_scope: bool = False")
     .Attr("num_tensors: int")
-    .Attr("process_set: int = 0")
+    .Attr("process_set_id: int = 0")
     .Input("tensors: num_tensors*T")
     .Output("sum: num_tensors*T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
@@ -650,7 +650,7 @@ public:
   explicit HorovodAllgatherOp(OpKernelConstruction* context)
       : AsyncOpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
-    OP_REQUIRES_OK(context, context->GetAttr("process_set", &process_set_id_));
+    OP_REQUIRES_OK(context, context->GetAttr("process_set_id", &process_set_id_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -711,7 +711,7 @@ REGISTER_OP("HorovodAllgather")
     .Attr(
         "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
     .Attr("ignore_name_scope: bool = False")
-    .Attr("process_set: int = 0")
+    .Attr("process_set_id: int = 0")
     .Input("tensor: T")
     .Output("output: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
@@ -739,7 +739,7 @@ public:
       : AsyncOpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("root_rank", &root_rank_));
     OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
-    OP_REQUIRES_OK(context, context->GetAttr("process_set", &process_set_id_));
+    OP_REQUIRES_OK(context, context->GetAttr("process_set_id", &process_set_id_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -811,7 +811,7 @@ REGISTER_OP("HorovodBroadcast")
         "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
     .Attr("root_rank: int")
     .Attr("ignore_name_scope: bool = False")
-    .Attr("process_set: int = 0")
+    .Attr("process_set_id: int = 0")
     .Input("tensor: T")
     .Output("output: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
@@ -999,7 +999,7 @@ public:
   explicit HorovodAlltoallOp(OpKernelConstruction* context)
       : AsyncOpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
-    OP_REQUIRES_OK(context, context->GetAttr("process_set", &process_set_id_));
+    OP_REQUIRES_OK(context, context->GetAttr("process_set_id", &process_set_id_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -1061,7 +1061,7 @@ REGISTER_OP("HorovodAlltoall")
     .Attr(
         "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
     .Attr("ignore_name_scope: bool = False")
-    .Attr("process_set: int = 0")
+    .Attr("process_set_id: int = 0")
     .Input("tensor: T")
     .Input("splits: int32")
     .Output("output: T")
