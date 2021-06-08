@@ -23,6 +23,6 @@ pretrained model scirpt in 8 V100 with 16GB memory. (with seq length 128)
 | model    | maximum batch size with original trainer | maximum batch size with Pos trainer |
 |---------|---------------------------------|---------------------------|
 | bert-large | 16 | 24 |
-| bert-base | 80 | 64 |
+| bert-base | 64 | 80 |
 
 
