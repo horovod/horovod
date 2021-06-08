@@ -17,11 +17,10 @@ import atexit
 import ctypes
 import os
 from typing import *
-try:
-    # optional import for type annotations
-    from mpi4py import MPI
-except ImportError:
-    pass
+# for type annotations, importing mpi4py has dangerous side effects
+class MPI:
+    class Comm:
+        ...
 
 from horovod.common.process_sets import ProcessSet, global_process_set, update_process_sets
 from horovod.common import util as util
@@ -128,7 +127,8 @@ class HorovodBasics(object):
             raise ValueError(
                 "Horovod initialization failed. Please check log messages above for a more descriptive error.")
 
-        update_process_sets(process_sets)
+        if not self.gloo_enabled():
+            update_process_sets(process_sets)
 
     def shutdown(self):
         """A function that shuts Horovod down."""

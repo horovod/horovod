@@ -1,10 +1,13 @@
 from typing import *
+# for type annotations, importing mpi4py has dangerous side effects
 try:
-    # optional imports for type annotations
-    from mpi4py import MPI
     from horovod.common.basics import HorovodBasics
 except ImportError:
-    pass
+    class HorovodBasics:
+        ...
+class MPI:
+    class Comm:
+        ...
 
 from horovod.common.util import is_iterable
 

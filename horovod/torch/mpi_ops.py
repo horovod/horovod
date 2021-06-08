@@ -22,6 +22,7 @@ import warnings
 
 from horovod.common.basics import HorovodBasics as _HorovodBasics
 from horovod.common.exceptions import HorovodInternalError
+from horovod.common.process_sets import setup as _setup_process_sets
 from horovod.common.util import check_installed_version, get_average_backwards_compatibility_fun, gpu_available, num_rank_is_power_2
 
 from horovod.torch.compression import Compression
@@ -71,6 +72,8 @@ Adasum = _basics.Adasum
 is_homogeneous = _basics.is_homogeneous
 
 handle_average_backwards_compatibility = get_average_backwards_compatibility_fun(_basics)
+
+_setup_process_sets(_basics)
 
 
 # Schema: handle -> input, output
