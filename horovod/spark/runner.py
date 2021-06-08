@@ -17,6 +17,7 @@ import logging
 import os
 import platform
 import queue
+import sys
 import time
 
 import pyspark
@@ -147,10 +148,11 @@ def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
     return spark_thread
 
 
-def _launch_job(use_mpi, use_gloo, settings, driver, env, stdout=None, stderr=None):
+def _launch_job(use_mpi, use_gloo, settings, driver, env, stdout=None, stderr=None, executable=None):
     nics = driver.get_common_interfaces()
-    run_controller(use_gloo, lambda: gloo_run(settings, nics, driver, env, stdout, stderr),
-                   use_mpi, lambda: mpi_run(settings, nics, driver, env, stdout, stderr),
+    executable = executable or sys.executable
+    run_controller(use_gloo, lambda: gloo_run(executable, settings, nics, driver, env, stdout, stderr),
+                   use_mpi, lambda: mpi_run(executable, settings, nics, driver, env, stdout, stderr),
                    False, lambda: None,
                    settings.verbose)
 
@@ -195,7 +197,7 @@ def _get_indices_in_rank_order(driver):
 def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
         use_mpi=None, use_gloo=None, extra_mpi_args=None,
         env=None, stdout=None, stderr=None, verbose=1, nics=None,
-        prefix_output_with_timestamp=False):
+        prefix_output_with_timestamp=False, executable=None):
     """
     Runs Horovod on Spark.  Runs `num_proc` processes executing `fn` using the same amount of Spark tasks.
 
@@ -214,6 +216,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
         verbose: Debug output verbosity (0-2). Defaults to 1.
         nics: List of NICs for tcp network communication.
         prefix_output_with_timestamp: shows timestamp in stdout/stderr forwarding on the driver
+        executable: Optional executable to run when launching the workers. Defaults to `sys.executable`.
 
     Returns:
         List of results returned by running `fn` on each rank.
@@ -281,7 +284,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
                                   for host_hash in host_hashes)
 
         # Run the job
-        _launch_job(use_mpi, use_gloo, settings, driver, env, stdout, stderr)
+        _launch_job(use_mpi, use_gloo, settings, driver, env, stdout, stderr, executable)
     except:
         # Terminate Spark job.
         spark_context.cancelJobGroup(spark_job_group)
