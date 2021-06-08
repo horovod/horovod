@@ -2421,6 +2421,8 @@ class TorchTests(unittest.TestCase):
             loss.backward()
             opt.step()
 
+    @pytest.mark.skipif(LooseVersion(torch.__version__) > LooseVersion('1.10.0'),
+                        reason='https://github.com/horovod/horovod/issues/2961')
     def test_async_sparse_allreduce(self):
         """Test that allgather over indices and values is equivalent to allreduce."""
         hvd.init()
