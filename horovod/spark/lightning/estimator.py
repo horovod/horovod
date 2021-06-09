@@ -172,7 +172,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                     either 1/True or 0/False, or validation split (float) giving percent of data
                     to be randomly selected for validation.
         validation_steps_per_epoch: (Optional) Number of validation steps to perform each epoch.
-        verbose:    (Optional)Verbosity level [0, 2] (default: 1).
+        verbose:    (Optional)Verbosity level, 0 for silent. (default: 1).
     """
 
     input_shapes = Param(Params._dummy(), 'input_shapes', 'input layer shapes')

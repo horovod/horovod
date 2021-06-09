@@ -390,6 +390,71 @@ class SparkLightningTests(unittest.TestCase):
                                 predictions = transformer.transform(df)
                                 assert predictions.count() == df.count()
 
+    def test_direct_parquet_train_with_no_val_column(self):
+        with spark_session('test_direct_parquet_train') as spark:
+            df_train = create_noisy_xor_data(spark)
+            df_val = create_noisy_xor_data(spark)
+
+            def to_petastorm(df):
+                metadata = None
+                if util._has_vector_column(df):
+                    to_petastorm = util.to_petastorm_fn(["features", "y"], metadata)
+                    df = df.rdd.map(to_petastorm).toDF()
+                return df
+
+            df_train = to_petastorm(df_train)
+            df_val = to_petastorm(df_val)
+
+            df_train.show(1)
+            print(df_train.count())
+            df_val.show(1)
+            print(df_val.count())
+
+            backend = CallbackBackend()
+            with local_store() as store:
+                store.get_train_data_path = lambda v=None: store._train_path
+                store.get_val_data_path = lambda v=None: store._val_path
+
+                print(store.get_train_data_path())
+                print(store.get_val_data_path())
+
+                df_train \
+                    .coalesce(4) \
+                    .write \
+                    .mode('overwrite') \
+                    .parquet(store.get_train_data_path())
+
+                df_val \
+                    .coalesce(4) \
+                    .write \
+                    .mode('overwrite') \
+                    .parquet(store.get_val_data_path())
+
+                model = create_xor_model()
+
+                inmemory_cache_all = True
+                reader_pool_type = 'process'
+                est = hvd_spark.TorchEstimator(
+                    backend=backend,
+                    store=store,
+                    model=model,
+                    input_shapes=[[-1, 2]],
+                    feature_cols=['features'],
+                    label_cols=['y'],
+                    batch_size=64,
+                    epochs=2,
+                    verbose=2,
+                    inmemory_cache_all=inmemory_cache_all,
+                    reader_pool_type=reader_pool_type)
+
+                # set validation to any random strings would work.
+                est.setValidation("True")
+
+                transformer = est.fit_on_parquet()
+
+                predictions = transformer.transform(df_train)
+                assert predictions.count() == df_train.count()
+
     def test_legacy_calculate_loss_with_sample_weight(self):
         labels = torch.tensor([[1.0, 2.0, 3.0]])
         outputs = torch.tensor([[1.0, 0.0, 2.0]])
@@ -509,70 +574,6 @@ class SparkLightningTests(unittest.TestCase):
                 self.assertListEqual([([0, 4, 0, 4, 1, 4, 0, 4], 0),
                                       ([0, 4, 0, 4, 1, 4, 0, 4], 1)], res)
 
-    """
-    Test dummy callback function from pytorch lightning trainer with default petastrom reader.
-    """
-    def test_dummy_callback_origin_petastorm_reader(self):
-        from pytorch_lightning.callbacks import Callback
-        from petastorm.pytorch import BatchedDataLoader
-
-        model = create_xor_model()
-
-        with spark_session('test_fit_model') as spark:
-            df = create_noisy_xor_data(spark)
-
-            for num_proc in [1, 2]:
-                for epochs in [2, 3]:
-
-                    class MyDummyCallback(Callback):
-                        def __init__(self):
-                            self.epcoh_end_counter = 0
-                            self.train_epcoh_end_counter = 0
-
-                        def on_init_start(self, trainer):
-                            print('Starting to init trainer!')
-
-                        def on_init_end(self, trainer):
-                            print('Trainer is initialized.')
-
-                        def on_epoch_end(self, trainer, model):
-                            print('A epoch ended.')
-                            self.epcoh_end_counter += 1
-
-                        def on_train_epoch_end(self, trainer, model, unused=None):
-                            print('A train epoch ended.')
-                            self.train_epcoh_end_counter += 1
-
-                        def on_train_end(self, trainer, model):
-                            print('Training ends')
-                            assert self.train_epcoh_end_counter == epochs
-
-                    dm_callback = MyDummyCallback()
-                    callbacks = [dm_callback]
-
-                    with local_store() as store:
-                        torch_estimator = hvd_spark.TorchEstimator(
-                            num_proc=num_proc,
-                            store=store,
-                            model=model,
-                            input_shapes=[[-1, 2]],
-                            feature_cols=['features'],
-                            label_cols=['y'],
-                            validation=0.2,
-                            batch_size=4,
-                            epochs=epochs,
-                            verbose=2,
-                            callbacks=callbacks,
-                            data_loader_class=BatchedDataLoader,
-                            loader_num_epochs=1)
-
-                        torch_model = torch_estimator.fit(df)
-
-                        # TODO: Find a way to pass log metrics from remote, and assert base on the logger.
-                        trained_model = torch_model.getModel()
-                        pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
-                        assert len(pred) == 1
-                        assert pred.dtype == torch.float32
 
     """
     Test dummy callback function from pytorch lightning trainer.
@@ -822,6 +823,104 @@ class SparkLightningTests(unittest.TestCase):
                 pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
                 assert len(pred) == 1
                 assert pred.dtype == torch.float32
+
+    """
+    Test train model with pytorch infinite async data loader
+    """
+    def test_train_with_pytorch_infinite_async_data_loader(self):
+        from horovod.spark.data_loaders.pytorch_data_loaders import PytorchInfiniteAsyncDataLoader
+
+        with spark_session('test_fit_model') as spark:
+            df = create_noisy_xor_data(spark)
+            model = create_xor_model()
+
+            with local_store() as store:
+                torch_estimator = hvd_spark.TorchEstimator(
+                    num_proc=2,
+                    store=store,
+                    model=model,
+                    input_shapes=[[-1, 2]],
+                    feature_cols=['features'],
+                    label_cols=['y'],
+                    validation=0.2,
+                    batch_size=4,
+                    epochs=2,
+                    verbose=2,
+                    data_loader_class=PytorchInfiniteAsyncDataLoader)
+
+                torch_model = torch_estimator.fit(df)
+
+                # TODO: Find a way to pass log metrics from remote, and assert base on the logger.
+                trained_model = torch_model.getModel()
+                pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
+                assert len(pred) == 1
+                assert pred.dtype == torch.float32
+
+
+    """
+    Test pytorch lightning trainer with origin petastrom reader.
+    """
+    def test_origin_petastorm_reader(self):
+        from pytorch_lightning.callbacks import Callback
+        from horovod.spark.data_loaders.pytorch_data_loaders import PetastormBatchedDataLoader
+
+        model = create_xor_model()
+
+        with spark_session('test_fit_model') as spark:
+            df = create_noisy_xor_data(spark)
+
+            for num_proc in [1, 2]:
+                for epochs in [2, 3]:
+
+                    class MyDummyCallback(Callback):
+                        def __init__(self):
+                            self.epcoh_end_counter = 0
+                            self.train_epcoh_end_counter = 0
+
+                        def on_init_start(self, trainer):
+                            print('Starting to init trainer!')
+
+                        def on_init_end(self, trainer):
+                            print('Trainer is initialized.')
+
+                        def on_epoch_end(self, trainer, model):
+                            print('A epoch ended.')
+                            self.epcoh_end_counter += 1
+
+                        def on_train_epoch_end(self, trainer, model, unused=None):
+                            print('A train epoch ended.')
+                            self.train_epcoh_end_counter += 1
+
+                        def on_train_end(self, trainer, model):
+                            print('Training ends')
+                            assert self.train_epcoh_end_counter == epochs
+
+                    dm_callback = MyDummyCallback()
+                    callbacks = [dm_callback]
+
+                    with local_store() as store:
+                        torch_estimator = hvd_spark.TorchEstimator(
+                            num_proc=num_proc,
+                            store=store,
+                            model=model,
+                            input_shapes=[[-1, 2]],
+                            feature_cols=['features'],
+                            label_cols=['y'],
+                            validation=0.2,
+                            batch_size=4,
+                            epochs=epochs,
+                            verbose=2,
+                            callbacks=callbacks,
+                            data_loader_class=PetastormBatchedDataLoader,
+                            loader_num_epochs=1)
+
+                        torch_model = torch_estimator.fit(df)
+
+                        # TODO: Find a way to pass log metrics from remote, and assert base on the logger.
+                        trained_model = torch_model.getModel()
+                        pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
+                        assert len(pred) == 1
+                        assert pred.dtype == torch.float32
 
 
 def check_fail(dir, rank, epoch, batch):

@@ -447,7 +447,7 @@ def get_simple_meta_from_parquet(store, label_columns, feature_columns, sample_w
 
     train_data_meta_path = store.get_data_metadata_path(train_data_path)
     val_data_meta_path = store.get_data_metadata_path(validation_data_path)
-    fs = store.get_filesystem()
+    fs = store.fs
 
     schema_cols = feature_columns + label_columns
     if sample_weight_col:
