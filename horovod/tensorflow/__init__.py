@@ -760,7 +760,7 @@ if hasattr(tf, 'GradientTape'):
     class _DistributedGradientTape(tf.GradientTape):
         def __init__(self, tape, device_dense, device_sparse, compression, sparse_as_dense, op,
                      gradient_predivide_factor, groups, persistent=False,
-                     watch_accessed_variables=True):
+                     watch_accessed_variables=True, process_set=global_process_set):
             if hasattr(tape, '_watch_accessed_variables'):
                 super(self.__class__, self).__init__(persistent, watch_accessed_variables)
             else:
@@ -769,7 +769,7 @@ if hasattr(tf, 'GradientTape'):
             self._tape = tape
             self._allreduce_grads = _make_allreduce_grads_fn(
                 'DistributedGradientTape', device_dense, device_sparse, compression,
-                sparse_as_dense, op, gradient_predivide_factor, groups)
+                sparse_as_dense, op, gradient_predivide_factor, groups, process_set)
 
         def gradient(self, target, sources, output_gradients=None):
             gradients = super(self.__class__, self).gradient(target, sources, output_gradients)
@@ -779,7 +779,7 @@ if hasattr(tf, 'GradientTape'):
     def DistributedGradientTape(gradtape, device_dense='', device_sparse='',
                                 compression=Compression.none, sparse_as_dense=False,
                                 op=Average, gradient_predivide_factor=1.0,
-                                num_groups=0, groups=None):
+                                num_groups=0, groups=None, process_set=global_process_set):
         """A tape that wraps another tf.GradientTape, using an allreduce to
         combine gradient values before applying gradients to model weights.
 
@@ -820,6 +820,8 @@ if hasattr(tf, 'GradientTape'):
             inner list will be assigned to the same group, while parameter that does
             not appear in any list will form a group itself.
             Defaults as None, which is no explicit groups.
+          process_set: Gradients will only be reduced over Horovod processes belonging
+            to this process set. Defaults to the global process set.
         """
         if gradient_predivide_factor != 1.0:
             if rocm_built():
@@ -843,8 +845,9 @@ if hasattr(tf, 'GradientTape'):
         if hasattr(gradtape, '_watch_accessed_variables'):
             return cls(gradtape._tape, device_dense, device_sparse, compression,
                        sparse_as_dense, op, gradient_predivide_factor, groups,
-                       gradtape._persistent, gradtape._watch_accessed_variables)
+                       gradtape._persistent, gradtape._watch_accessed_variables,
+                       process_set=process_set)
         else:
             return cls(gradtape._tape, device_dense, device_sparse, compression,
                        sparse_as_dense, op, gradient_predivide_factor, groups,
-                       gradtape._persistent)
+                       gradtape._persistent, process_set=process_set)
