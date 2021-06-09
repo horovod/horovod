@@ -120,12 +120,14 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             model = deserialize(serialized_model)
 
-            _train_steps_per_epoch = train_steps_per_epoch
-            if _train_steps_per_epoch is None:
-                _train_steps_per_epoch = int(math.floor(float(train_rows) / batch_size / hvd.size()))
-            _val_steps_per_epoch = val_steps_per_epoch
-            if _val_steps_per_epoch is None:
-                _val_steps_per_epoch = int(math.floor(float(val_rows) / batch_size / hvd.size()))
+            _train_steps_per_epoch = train_steps_per_epoch if train_steps_per_epoch else \
+                int(math.floor(float(train_rows) / batch_size / hvd.size()))
+
+            _val_steps_per_epoch = val_steps_per_epoch if val_steps_per_epoch else \
+                int(math.floor(float(val_rows) / val_batch_size / hvd.size()))
+
+            print(f"Training data of rank[{hvd.local_rank()}]: train_rows:{train_rows}, batch_size:{batch_size}, _train_steps_per_epoch:{_train_steps_per_epoch}.")
+            print(f"Validation data of rank[{hvd.local_rank()}]: val_rows:{val_rows}, val_batch_size:{val_batch_size}, _val_steps_per_epoch:{_val_steps_per_epoch}, should_validate:{should_validate}")
 
             cuda_available = torch.cuda.is_available()
             # We need to check all ranks have same device type for traning.
@@ -148,14 +150,13 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                       'gpus': _num_gpus,
                       'callbacks': callbacks,
                       'max_epochs': epochs,
-                    #   'limit_train_batches': _train_steps_per_epoch,
-                    #   'limit_val_batches': _val_steps_per_epoch,
                       'logger': train_logger,
                       'log_every_n_steps': log_every_n_steps,
                       'resume_from_checkpoint': (last_ckpt_file if ckpt_bytes else None),
                       'checkpoint_callback': is_model_checkpoint_callback_exist,
                       'num_sanity_val_steps': 0,
-                      'reload_dataloaders_every_epoch': False
+                      'reload_dataloaders_every_epoch': False,
+                      'progress_bar_refresh_rate': _train_steps_per_epoch // 10
                       }
             print("Creating trainer with: \n ", kwargs)
             trainer = Trainer(**kwargs)
@@ -231,8 +232,11 @@ def _set_data_loader_fn(transformation, schema_fields, batch_size, calculate_shu
             is_loader_overridden = is_overridden(dataloader_attr, model)
 
         if not should_read or is_loader_overridden:
+            print(f"Will not set data loader: {name}.")
             yield
             return
+
+        print(f"Setting data loader {name} with limit_step_per_epoch={limit_step_per_epoch}")
 
         transform_spec = TransformSpec(transformation) if transformation else None
 

@@ -107,14 +107,18 @@ def train_model(args):
         def configure_optimizers(self):
             return optim.SGD(self.parameters(), lr=0.01, momentum=0.5)
 
-        def training_step(self, batch, batch_nb):
+        def training_step(self, batch, batch_idx):
+            if batch_idx == 0:
+                print(f"training data batch size: {batch['label'].shape}")
             x, y = batch['features'], batch['label']
             y_hat = self(x)
             loss = F.nll_loss(y_hat, y.long())
             self.log('train_loss', loss)
             return loss
 
-        def validation_step(self, batch, batch_nb):
+        def validation_step(self, batch, batch_idx):
+            if batch_idx == 0:
+                print(f"validation data batch size: {batch['label'].shape}")
             x, y = batch['features'], batch['label']
             y_hat = self(x)
             loss = F.nll_loss(y_hat, y.long())
@@ -156,7 +160,7 @@ def train_model(args):
             self.train_epcoh_end_counter += 1
 
         def on_validation_epoch_end(self, trainer, model, unused=None):
-            print('A train epoch ended.')
+            print('A val epoch ended.')
             self.validation_epoch_end_counter += 1
 
         def on_train_end(self, trainer, model):

@@ -51,14 +51,15 @@ class PytorchDataLoader(BaseDataLoader):
         )
 
         num_steps = 0
+
+        self._print_verbose(f"[{self.name}]: Start to generate batch data. limit_step_per_epoch={self.limit_step_per_epoch}")
+
         for batch in data_loader:
             if num_steps == self.limit_step_per_epoch:
                 self._print_verbose(f"[{self.name}]: Reach limit_step_per_epoch. Stop at step {num_steps}.")
                 break
 
-            self._print_verbose(f"[{self.name}]: Generate batch data for step {num_steps}.")
             num_steps += 1
-
             yield batch
 
     def _print_verbose(self, *args, **kwargs):
@@ -86,12 +87,12 @@ class PytorchInfiniteDataLoader(PytorchDataLoader):
 
     def _iterate(self):
         num_steps = 0
+        self._print_verbose(f"[{self.name}]: Start to generate batch data. limit_step_per_epoch={self.limit_step_per_epoch}")
+
         while True:
             if num_steps == self.limit_step_per_epoch:
                 self._print_verbose(f"[{self.name}]: Reach limit_step_per_epoch. Stop at step {num_steps}.")
                 break
-
-            self._print_verbose(f"[{self.name}]: Generate batch data for step {num_steps}.")
             num_steps += 1
 
             yield next(self.iterater)

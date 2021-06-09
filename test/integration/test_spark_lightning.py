@@ -390,6 +390,71 @@ class SparkLightningTests(unittest.TestCase):
                                 predictions = transformer.transform(df)
                                 assert predictions.count() == df.count()
 
+    def test_direct_parquet_train_with_no_val_column(self):
+        with spark_session('test_direct_parquet_train') as spark:
+            df_train = create_noisy_xor_data(spark)
+            df_val = create_noisy_xor_data(spark)
+
+            def to_petastorm(df):
+                metadata = None
+                if util._has_vector_column(df):
+                    to_petastorm = util.to_petastorm_fn(["features", "y"], metadata)
+                    df = df.rdd.map(to_petastorm).toDF()
+                return df
+
+            df_train = to_petastorm(df_train)
+            df_val = to_petastorm(df_val)
+
+            df_train.show(1)
+            print(df_train.count())
+            df_val.show(1)
+            print(df_val.count())
+
+            backend = CallbackBackend()
+            with local_store() as store:
+                store.get_train_data_path = lambda v=None: store._train_path
+                store.get_val_data_path = lambda v=None: store._val_path
+
+                print(store.get_train_data_path())
+                print(store.get_val_data_path())
+
+                df_train \
+                    .coalesce(4) \
+                    .write \
+                    .mode('overwrite') \
+                    .parquet(store.get_train_data_path())
+
+                df_val \
+                    .coalesce(4) \
+                    .write \
+                    .mode('overwrite') \
+                    .parquet(store.get_val_data_path())
+
+                model = create_xor_model()
+
+                inmemory_cache_all = True
+                reader_pool_type = 'process'
+                est = hvd_spark.TorchEstimator(
+                    backend=backend,
+                    store=store,
+                    model=model,
+                    input_shapes=[[-1, 2]],
+                    feature_cols=['features'],
+                    label_cols=['y'],
+                    batch_size=64,
+                    epochs=2,
+                    verbose=2,
+                    inmemory_cache_all=inmemory_cache_all,
+                    reader_pool_type=reader_pool_type)
+
+                # set validation to any random strings would work.
+                est.setValidation("True")
+
+                transformer = est.fit_on_parquet()
+
+                predictions = transformer.transform(df_train)
+                assert predictions.count() == df_train.count()
+
     def test_legacy_calculate_loss_with_sample_weight(self):
         labels = torch.tensor([[1.0, 2.0, 3.0]])
         outputs = torch.tensor([[1.0, 0.0, 2.0]])
