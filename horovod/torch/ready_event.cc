@@ -93,11 +93,11 @@ bool TorchReadyEvent::Ready() const {
   #endif
   return true;
 }
-#endif
 
 gpuEvent_t TorchReadyEvent::event() const {
   return cuda_event_;
 }
+#endif
 
 // On GPU this event will signal that GPU computations are done and data is
 // ready.
