@@ -52,7 +52,7 @@ jobs:
     name: Build docker image ${{ matrix.docker-image }} (push=${{ github.event_name != 'pull_request' }})
     if: needs.start-runner.result != 'skipped'
     needs: start-runner # required to start the main job when the runner is ready
-    runs-on: ${{ matrix.label }} # run the job on the newly created runners
+    runs-on: ${{ needs.start-runner.outputs.label }} # run the job on the newly created runners
 
     # we want an ongoing run of this workflow to be canceled by a later commit
     # so that there is only one concurrent run of this workflow for each branch
