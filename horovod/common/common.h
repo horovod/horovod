@@ -179,10 +179,12 @@ inline std::string CommunicatorName(Communicator comm) {
 
 struct Event {
   Event() = default;
+#if HAVE_GPU
   Event(std::shared_ptr<gpuEvent_t> event, gpuStream_t stream) :
     event(event), stream(stream) {};
   std::shared_ptr<gpuEvent_t> event;
   gpuStream_t stream = nullptr;
+#endif
 };
 
 
@@ -275,11 +277,13 @@ public:
     return ready_events_.size();
   }
 
+#if HAVE_GPU
   void PushEventsToSet(std::unordered_set<gpuEvent_t>& event_set) {
     for (auto& e : ready_events_) {
       event_set.insert(e->event());
     }
   }
+#endif
 
   ~ReadyEventList() = default;
 
