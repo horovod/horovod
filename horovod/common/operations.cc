@@ -1255,6 +1255,26 @@ int horovod_process_set_size(int process_set_id) {
   return static_cast<int>(process_set.registered_global_ranks.size());
 }
 
+int horovod_process_set_included(int process_set_id) {
+  if (process_set_id == 0) {
+    return horovod_size();
+  }
+  if (!horovod_global.initialization_done) {
+    return HOROVOD_PROCESS_SET_ERROR_INIT;
+  }
+  if (horovod_gloo_enabled()) {
+    return HOROVOD_PROCESS_SET_ERROR_GLOO;
+  }
+  auto& process_set = horovod_global.process_set_table.Get(process_set_id);
+  std::lock_guard<std::recursive_mutex> table_lock(
+      horovod_global.process_set_table.mutex);
+  if (!horovod_global.process_set_table.Contains(process_set_id)) {
+    return HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET;
+  }
+  return static_cast<int>(process_set.IsCurrentProcessIncluded());
+}
+
+
 int horovod_number_of_process_sets() {
   return static_cast<int>(horovod_global.process_set_table.Ids().size());
 }

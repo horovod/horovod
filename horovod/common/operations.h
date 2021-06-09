@@ -153,6 +153,13 @@ int horovod_process_set_rank(int process_set_id);
 // HOROVOD_PROCESS_SET_ERROR_GLOO if running with Gloo.
 int horovod_process_set_size(int process_set_id);
 
+// C interface to return 0 or 1 depending on whether the current process is
+// included in the specified process set or an error code:
+// HOROVOD_PROCESS_SET_ERROR_INIT if Horovod is not initialized,
+// HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET if the process set is unknown,
+// HOROVOD_PROCESS_SET_ERROR_GLOO if running with Gloo.
+int horovod_process_set_included(int process_set_id);
+
 // C interface to return the current number of process sets.
 int horovod_number_of_process_sets();
 

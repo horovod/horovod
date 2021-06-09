@@ -49,6 +49,18 @@ class ProcessSet:
         self.ranks = None
         self.mpi_comm = None
 
+    def size(self) -> Optional[int]:
+        """ Return size of the process set or None if not initialized. """
+        if self.process_set_id is None:
+            return None
+        return _basics.process_set_size(self.process_set_id)
+
+    def included(self) -> Optional[bool]:
+        """ Return whether the current process is part of this process set or None if not initialized. """
+        if self.ranks is None:
+            return None
+        return _basics.rank() in self.ranks
+
     def __str__(self) -> str:
         return f"ProcessSet(process_set_id={self.process_set_id}, ranks={self.ranks}, mpi_comm={self.mpi_comm})"
 

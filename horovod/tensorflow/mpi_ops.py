@@ -360,7 +360,7 @@ def join():
     return MPI_LIB.horovod_join()
 
 
-def size_op(name=None):
+def size_op(process_set_id=0, name=None):
     """An op that returns the number of Horovod processes.
 
     This operation determines the return value at the graph execution time,
@@ -370,10 +370,30 @@ def size_op(name=None):
     Returns:
       An integer scalar containing the number of Horovod processes.
     """
-    return MPI_LIB.horovod_size(name=name)
+    return MPI_LIB.horovod_size(process_set_id=process_set_id, name=name)
 
 
 ops.NotDifferentiable('HorovodSize')
+
+
+def process_set_included_op(process_set_id=0, name=None):
+    """An op that 0 or 1 depending on whether the current process is
+    included in the specified process set or an error code:
+    HOROVOD_PROCESS_SET_ERROR_INIT if Horovod is not initialized,
+    HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET if the process set is unknown,
+    HOROVOD_PROCESS_SET_ERROR_GLOO if running with Gloo.
+
+    This operation determines the return value at the graph execution time,
+    rather than at the graph construction time, and so allows for a graph to be
+    constructed in a different environment than where it will be executed.
+
+    Returns:
+      An integer scalar with value 0, 1, or an error code.
+    """
+    return MPI_LIB.horovod_process_set_included(process_set_id=process_set_id, name=name)
+
+
+ops.NotDifferentiable('HorovodProcessSetIncluded')
 
 
 def local_size_op(name=None):

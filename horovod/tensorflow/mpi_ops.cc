@@ -879,6 +879,82 @@ REGISTER_OP("HorovodJoin")
 Perform an join on a tensor,
 )doc");
 
+template <typename T, T f(int)>
+class HorovodReturnScalarForProcessSetOp : public OpKernel {
+public:
+  explicit HorovodReturnScalarForProcessSetOp(OpKernelConstruction* context)
+      : OpKernel(context) {
+    OP_REQUIRES_OK(context,
+                   context->GetAttr("process_set_id", &process_set_id_));
+  }
+
+  void Compute(OpKernelContext* context) override {
+    OP_REQUIRES_OK(context, ConvertStatus(common::CheckInitialized()));
+
+    // Write integer to output tensor
+    Tensor* output;
+    OP_REQUIRES_OK(context,
+                   context->allocate_output(0, TensorShape({}), &output));
+
+    auto flat = output->flat<T>();
+    flat(0) = f(process_set_id_);
+  }
+
+private:
+  int process_set_id_;
+};
+
+REGISTER_KERNEL_BUILDER(
+    Name("HorovodSize").Device(DEVICE_CPU).HostMemory("size"),
+    HorovodReturnScalarForProcessSetOp<int, common::horovod_process_set_size>);
+#if HAVE_GPU
+REGISTER_KERNEL_BUILDER(
+    Name("HorovodSize").Device(DEVICE_GPU).HostMemory("size"),
+    HorovodReturnScalarForProcessSetOp<int, common::horovod_process_set_size>);
+#endif
+
+REGISTER_OP("HorovodSize")
+    .Attr("process_set_id: int = 0")
+    .Output("size: int32")
+    .SetIsStateful()
+    .SetShapeFn([](shape_inference::InferenceContext* c) {
+      c->set_output(0, c->Scalar());
+      return Status::OK();
+    })
+    .Doc(R"doc(
+Returns the number of Horovod processes. If process_set_id > 0, limit the
+count to that process set.
+
+Output
+    size:    An integer scalar containing the number of Horovod processes.
+)doc");
+
+REGISTER_KERNEL_BUILDER(
+    Name("HorovodProcessSetIncluded").Device(DEVICE_CPU).HostMemory("included"),
+    HorovodReturnScalarForProcessSetOp<int, common::horovod_process_set_included>);
+#if HAVE_GPU
+REGISTER_KERNEL_BUILDER(
+    Name("HorovodProcessSetIncluded").Device(DEVICE_GPU).HostMemory("included"),
+    HorovodReturnScalarForProcessSetOp<int, common::horovod_process_set_included>);
+#endif
+
+REGISTER_OP("HorovodProcessSetIncluded")
+    .Attr("process_set_id: int = 0")
+    .Output("included: int32")
+    .SetIsStateful()
+    .SetShapeFn([](shape_inference::InferenceContext* c) {
+      c->set_output(0, c->Scalar());
+      return Status::OK();
+    })
+    .Doc(R"doc(
+Returns 0 or 1 depending on whether the current process is
+included in the specified process set or an error code:
+HOROVOD_PROCESS_SET_ERROR_INIT if Horovod is not initialized,
+HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET if the process set is unknown,
+HOROVOD_PROCESS_SET_ERROR_GLOO if running with Gloo.
+)doc");
+
+
 template <typename T, T f()> class HorovodReturnScalarOp : public OpKernel {
 public:
   explicit HorovodReturnScalarOp(OpKernelConstruction* context)
@@ -896,29 +972,6 @@ public:
     flat(0) = f();
   }
 };
-
-REGISTER_KERNEL_BUILDER(
-    Name("HorovodSize").Device(DEVICE_CPU).HostMemory("size"),
-    HorovodReturnScalarOp<int, common::horovod_size>);
-#if HAVE_GPU
-REGISTER_KERNEL_BUILDER(
-    Name("HorovodSize").Device(DEVICE_GPU).HostMemory("size"),
-    HorovodReturnScalarOp<int, common::horovod_size>);
-#endif
-
-REGISTER_OP("HorovodSize")
-    .Output("size: int32")
-    .SetIsStateful()
-    .SetShapeFn([](shape_inference::InferenceContext* c) {
-      c->set_output(0, c->Scalar());
-      return Status::OK();
-    })
-    .Doc(R"doc(
-Returns the number of Horovod processes.
-
-Output
-    size:    An integer scalar containing the number of Horovod processes.
-)doc");
 
 REGISTER_KERNEL_BUILDER(
     Name("HorovodLocalSize").Device(DEVICE_CPU).HostMemory("local_size"),

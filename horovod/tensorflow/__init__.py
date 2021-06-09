@@ -30,12 +30,11 @@ from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce, _groupe
 from horovod.tensorflow.mpi_ops import init, shutdown
 from horovod.tensorflow.mpi_ops import is_initialized, start_timeline, stop_timeline
 from horovod.tensorflow.mpi_ops import size, local_size, cross_size, rank, local_rank, cross_rank, is_homogeneous
-from horovod.tensorflow.mpi_ops import rank_op, local_rank_op, size_op, local_size_op
+from horovod.tensorflow.mpi_ops import rank_op, local_rank_op, size_op, local_size_op, process_set_included_op
 from horovod.tensorflow.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.tensorflow.mpi_ops import gloo_enabled, gloo_built
 from horovod.tensorflow.mpi_ops import nccl_built, ddl_built, ccl_built, cuda_built, rocm_built
-from horovod.tensorflow.mpi_ops import process_set_rank, process_set_size, get_process_set_ids_and_ranks, \
-    comm_process_set_id
+from horovod.tensorflow.mpi_ops import get_process_set_ids_and_ranks, comm_process_set_id
 from horovod.tensorflow.mpi_ops import ProcessSet, global_process_set, add_process_set, remove_process_set, \
     process_set_by_id, process_sets
 from horovod.tensorflow.mpi_ops import Average, Sum, Adasum
@@ -102,10 +101,11 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                                       'workaround please pass sparse_as_dense=True to DistributedOptimizer')
         with tf.device(device_sparse):
             # For IndexedSlices, do two allgathers instead of an allreduce.
-            horovod_size = tf.cast(size_op() if int(os.environ.get("HOROVOD_ELASTIC", 0)) else size(),
+            horovod_size = tf.cast(size_op(process_set_id=process_set.process_set_id)
+                                   if int(os.environ.get("HOROVOD_ELASTIC", 0)) else process_set.size(),
                                    dtype=tensor.values.dtype)
-            values = allgather(tensor.values)
-            indices = allgather(tensor.indices)
+            values = allgather(tensor.values, process_set=process_set)
+            indices = allgather(tensor.indices, process_set=process_set)
 
             # To make this operation into an average, divide allgathered values by
             # the Horovod size.
@@ -120,7 +120,8 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
             op = Sum if op == Average else op
 
         with tf.device(device_dense):
-            horovod_size = tf.cast(size_op() if int(os.environ.get("HOROVOD_ELASTIC", 0)) else size(),
+            horovod_size = tf.cast(size_op(process_set_id=process_set.process_set_id)
+                                   if int(os.environ.get("HOROVOD_ELASTIC", 0)) else process_set.size(),
                                    dtype=tensor.dtype)
             tensor_compressed, ctx = compression.compress(tensor)
             summed_tensor_compressed = _allreduce(tensor_compressed, op=op,
@@ -185,10 +186,11 @@ def grouped_allreduce(tensors, average=None, device_dense='', device_sparse='',
             new_values = []
             for tensor in tensors:
                 # For IndexedSlices, do two allgathers instead of an allreduce.
-                horovod_size = tf.cast(size_op() if int(os.environ.get("HOROVOD_ELASTIC", 0)) else size(),
+                horovod_size = tf.cast(size_op(process_set_id=process_set.process_set_id)
+                                       if int(os.environ.get("HOROVOD_ELASTIC", 0)) else process_set.size(),
                                        dtype=tensor.values.dtype)
-                values = allgather(tensor.values)
-                indices = allgather(tensor.indices)
+                values = allgather(tensor.values, process_set=process_set)
+                indices = allgather(tensor.indices, process_set=process_set)
 
                 # To make this operation into an average, divide allgathered values by
                 # the Horovod size.
@@ -235,31 +237,40 @@ def grouped_allreduce(tensors, average=None, device_dense='', device_sparse='',
                 if rocm_built():
                     new_tensors = []
                     for tensor in summed_tensors:
-                        horovod_size = tf.cast(size_op() if int(os.environ.get("HOROVOD_ELASTIC", 0)) else size(),
+                        horovod_size = tf.cast(size_op(process_set_id=process_set.process_set_id)
+                                               if int(os.environ.get("HOROVOD_ELASTIC", 0)) else process_set.size(),
                                                dtype=tensor.dtype)
                         new_tensors += (tensor / horovod_size) if average_in_framework else tensor
                 else:
                     new_tensors = summed_tensors
         return new_tensors
 
-def _allreduce_cond(tensor, *args, **kwargs):
+def _allreduce_cond(tensor, *args, process_set=global_process_set, **kwargs):
     def allreduce_fn():
-        return allreduce(tensor, *args, **kwargs)
+        return allreduce(tensor, *args, process_set=process_set, **kwargs)
 
     def id_fn():
         return tensor
 
-    return tf.cond((size_op() > 1) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else tf.convert_to_tensor(size() > 1),
+    return tf.cond(tf.logical_and(
+        tf.equal(process_set_included_op(process_set.process_set_id), 1),
+        tf.greater(size_op(process_set.process_set_id), 1))
+                   if int(os.environ.get("HOROVOD_ELASTIC", 0)) else (
+        tf.convert_to_tensor(process_set.included() and process_set.size() > 1)),
                    allreduce_fn, id_fn)
 
-def _grouped_allreduce_cond(tensors, *args, **kwargs):
+def _grouped_allreduce_cond(tensors, *args, process_set=global_process_set, **kwargs):
     def allreduce_fn():
-        return grouped_allreduce(tensors, *args, **kwargs)
+        return grouped_allreduce(tensors, *args, process_set=process_set, **kwargs)
 
     def id_fn():
         return tensors
 
-    return tf.cond((size_op() > 1) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else tf.convert_to_tensor(size() > 1),
+    return tf.cond(tf.logical_and(
+        tf.equal(process_set_included_op(process_set.process_set_id), 1),
+        tf.greater(size_op(process_set.process_set_id), 1))
+                   if int(os.environ.get("HOROVOD_ELASTIC", 0)) else (
+        tf.convert_to_tensor(process_set.included() and process_set.size() > 1)),
                    allreduce_fn, id_fn)
 
 
@@ -345,7 +356,8 @@ if _SessionRunHook is not None and _get_default_graph is not None:
 @_cache
 def _make_cached_allreduce_grads_fn(name, device_dense, device_sparse,
                                     compression, sparse_as_dense, op,
-                                    gradient_predivide_factor, groups):
+                                    gradient_predivide_factor, groups,
+                                    process_set):
     groups = refs_to_vars(groups) if isinstance(groups, tuple) else groups
     if op == Average:
         # Split average operation across pre/postscale factors
@@ -394,7 +406,8 @@ def _make_cached_allreduce_grads_fn(name, device_dense, device_sparse,
                                                                compression=compression,
                                                                op=op,
                                                                prescale_factor=prescale_factor,
-                                                               postscale_factor=postscale_factor)
+                                                               postscale_factor=postscale_factor,
+                                                               process_set=process_set)
                     for i in range(len(index_group)):
                         reduce_ops[index_group[i]] = reduce_ops_group[i]
                 return reduce_ops
@@ -405,7 +418,8 @@ def _make_cached_allreduce_grads_fn(name, device_dense, device_sparse,
                                     compression=compression,
                                     op=op,
                                     prescale_factor=prescale_factor,
-                                    postscale_factor=postscale_factor)
+                                    postscale_factor=postscale_factor,
+                                    process_set=process_set)
                     if grad is not None else grad
                     for grad in grads]
 
@@ -417,11 +431,13 @@ def _make_cached_allreduce_grads_fn(name, device_dense, device_sparse,
 
 def _make_allreduce_grads_fn(name, device_dense, device_sparse,
                              compression, sparse_as_dense, op,
-                             gradient_predivide_factor, groups):
+                             gradient_predivide_factor, groups,
+                             process_set):
     groups = vars_to_refs(groups) if isinstance(groups, list) else groups
     return _make_cached_allreduce_grads_fn(name, device_dense, device_sparse,
                                            compression, sparse_as_dense, op,
-                                           gradient_predivide_factor, groups)
+                                           gradient_predivide_factor, groups,
+                                           process_set)
 
 
 try:
@@ -444,7 +460,7 @@ if _LegacyOptimizer is not None:
                     device_sparse='', compression=Compression.none,
                     sparse_as_dense=False, op=Average, gradient_predivide_factor=1.0,
                     backward_passes_per_step=1, average_aggregated_gradients=False,
-                    groups=None):
+                    groups=None, process_set=global_process_set):
             if name is None:
                 name = "Distributed{}".format(type(optimizer).__name__)
             super(_DistributedOptimizer, self).__init__(name=name, use_locking=use_locking)
@@ -452,7 +468,7 @@ if _LegacyOptimizer is not None:
             self._optimizer = optimizer
             self._allreduce_grads = _make_allreduce_grads_fn(
                 name, device_dense, device_sparse, compression, sparse_as_dense, op,
-                gradient_predivide_factor, groups)
+                gradient_predivide_factor, groups, process_set=process_set)
 
             self._agg_helper = None
             if backward_passes_per_step > 1:
@@ -615,7 +631,7 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
                          sparse_as_dense=False, backward_passes_per_step=1,
                          op=Average, gradient_predivide_factor=1.0,
                          average_aggregated_gradients=False,
-                         num_groups=0, groups=None):
+                         num_groups=0, groups=None, process_set=global_process_set):
     """Construct a new DistributedOptimizer, which uses another optimizer
     under the hood for computing single-process gradient values and
     applying gradient updates after the gradient values have been combined
@@ -673,6 +689,8 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
         inner list will be assigned to the same group, while parameter that does
         not appear in any list will form a group itself.
         Defaults as None, which is no explicit groups.
+      process_set: Gradients will only be reduced over Horovod processes belonging
+        to this process set. Defaults to the global process set.
     """
     if gradient_predivide_factor != 1.0:
         if rocm_built():
@@ -696,6 +714,8 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
 
     if isinstance(optimizer, _LegacyOptimizer):
         if op == Adasum:
+            if process_set.process_set_id != 0:
+                raise NotImplementedError("Adasum does not support process sets yet")
             return _DistributedAdasumOptimizer(optimizer, name, use_locking, device_dense,
                                             device_sparse, compression, backward_passes_per_step)
 
@@ -711,7 +731,8 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
             gradient_predivide_factor=gradient_predivide_factor,
             backward_passes_per_step=backward_passes_per_step,
             average_aggregated_gradients=average_aggregated_gradients,
-            groups=groups
+            groups=groups,
+            process_set=process_set,
         )
     elif isinstance(optimizer, tf.keras.optimizers.Optimizer):
         if op == Adasum:
@@ -728,6 +749,7 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
             gradient_predivide_factor=gradient_predivide_factor,
             backward_passes_per_step=backward_passes_per_step,
             average_aggregated_gradients=average_aggregated_gradients,
+            process_set=process_set,
         )
     else:
         raise ValueError('Provided optimizer doesn\'t inherit from either legacy '

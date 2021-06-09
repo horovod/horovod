@@ -166,6 +166,47 @@ class TensorFlowTests(tf.test.TestCase):
         self.assertTrue(size == hvd.size(),
                         "hvd.size_op produces incorrect results")
 
+    def test_horovod_size_op_process_set(self):
+        """Test that the size returned by hvd.size_op(process_set_id) is correct."""
+        hvd.init()
+
+        if hvd.gloo_enabled():
+            self.skipTest("Multiple process sets currently do not support Gloo controller.")
+
+        # This test does not apply if there is only one worker.
+        if hvd.size() == 1:
+            self.skipTest("Only one worker available")
+
+        single_set = hvd.add_process_set([0])
+
+        size = self.evaluate(hvd.size_op(process_set_id=single_set.process_set_id))
+        self.assertEqual(size, single_set.size(),
+                        "hvd.size_op produces incorrect results for a process set")
+
+        hvd.remove_process_set(single_set)
+
+    def test_horovod_process_set_included_op(self):
+        """Test that the result of hvd.process_set_included_op(process_set_id) is correct."""
+        hvd.init()
+
+        if hvd.gloo_enabled():
+            self.skipTest("Multiple process sets currently do not support Gloo controller.")
+
+        # This test does not apply if there is only one worker.
+        if hvd.size() == 1:
+            self.skipTest("Only one worker available")
+
+        single_set = hvd.add_process_set([0])
+
+        included = self.evaluate(hvd.process_set_included_op(process_set_id=single_set.process_set_id))
+
+        if hvd.rank() == 0:
+            self.assertEqual(included, 1)
+        else:
+            self.assertEqual(included, 0)
+
+        hvd.remove_process_set(single_set)
+
     def test_horovod_local_size_op(self):
         """Test that the local size returned by hvd.local_size_op() is correct."""
         hvd.init()
@@ -3995,6 +4036,55 @@ class TensorFlowTests(tf.test.TestCase):
 
         self.assertFalse(hvd.remove_process_set(hvd.global_process_set),
                          "Removing the global process set should be impossible.")
+
+    def test_legacy_DistributedOptimizer_process_sets(self):
+        """ Note that this test makes the most sense when running with > 2 processes. """
+        if _executing_eagerly():
+            self.skipTest("Legacy Optimizers only support graph mode.")
+
+        tf.compat.v1.disable_resource_variables()
+
+        hvd.init()
+        size = hvd.size()
+
+        if hvd.gloo_enabled():
+            self.skipTest("Multiple process sets currently do not support Gloo controller.")
+        if size == 1:
+            self.skipTest("Only one worker available")
+
+        subset = hvd.add_process_set(range(0, size, 2))
+
+        with self.test_session() as sess:
+            class TestOptimizer(tf.compat.v1.train.Optimizer):
+                def __init__(self, *args, **kwargs):
+                    super().__init__(*args, **kwargs)
+                    self.variable = tf.compat.v1.get_variable("dummy_var", initializer=[0.0],
+                                                              use_resource=False)
+                def compute_gradients(self, *args, **kwargs):
+                    return [(tf.constant([float(hvd.rank())]), self.variable)]
+                def _apply_dense(self, grad, var):
+                    return var.assign_add(grad)
+
+            opt = TestOptimizer(name="test", use_locking=False)
+            opt = hvd.DistributedOptimizer(
+                optimizer=opt,
+                average_aggregated_gradients=True,
+                process_set=subset,
+            )
+
+            grads_and_vars = opt.compute_gradients()
+            update_op = opt.apply_gradients(grads_and_vars)
+            sess.run(tf.compat.v1.global_variables_initializer())
+            sess.run(update_op)
+
+            computed_value = sess.run(opt._optimizer.variable.read_value())[0]
+            if subset.included():
+                self.assertAlmostEqual(computed_value, sum(range(0, size, 2)) / subset.size())
+            else:
+                self.assertAlmostEqual(computed_value, float(hvd.rank()))
+
+        hvd.remove_process_set(subset)
+        tf.compat.v1.enable_resource_variables()
 
 from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
 run_all_in_graph_and_eager_modes(TensorFlowTests)
