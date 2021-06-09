@@ -11,25 +11,16 @@ on:
 
 jobs:
   start-runner:
-    name: Start self-hosted EC2 runner (${{ matrix.docker-image }})
+    name: Start self-hosted EC2 runner
     if: >
       github.event_name == 'schedule' && github.repository == 'horovod/horovod' ||
       github.event_name == 'push' && github.repository == 'horovod/horovod' ||
       github.event_name == 'pull_request' && github.event.pull_request.base.repo.full_name == 'horovod/horovod' && !github.event.pull_request.head.repo.fork
     runs-on: ubuntu-latest
 
-    strategy:
-      fail-fast: false
-      matrix:
-        docker-image: [horovod, horovod-cpu, horovod-ray]
-
     outputs:
-      label-horovod: ${{ steps.ec2-meta.outputs.label-horovod }}
-      label-horovod-cpu: ${{ steps.ec2-meta.outputs.label-horovod-cpu }}
-      label-horovod-ray: ${{ steps.ec2-meta.outputs.label-horovod-ray }}
-      ec2-instance-id-horovod: ${{ steps.ec2-meta.outputs.ec2-instance-id-horovod }}
-      ec2-instance-id-horovod-cpu: ${{ steps.ec2-meta.outputs.ec2-instance-id-horovod-cpu }}
-      ec2-instance-id-horovod-ray: ${{ steps.ec2-meta.outputs.ec2-instance-id-horovod-ray }}
+      label: ${{ steps.start-ec2-runner.outputs.label }}
+      ec2-instance-id: ${{ steps.start-ec2-runner.outputs.ec2-instance-id }}
 
     steps:
       - name: Configure AWS credentials
@@ -39,7 +30,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Start EC2 runner (${{ matrix.docker-image }})
+      - name: Start EC2 runner
         id: start-ec2-runner
         uses: machulav/ec2-github-runner@v2.2.0
         with:
@@ -49,12 +40,13 @@ jobs:
           ec2-instance-type: r5.large
           subnet-id: subnet-0983be43
           security-group-id: sg-4cba0d08
-
-      - name: Get EC2 instance meta
-        id: ec2-meta
-        run: |
-          echo "::set-output name=label-${{ matrix.docker-image }}::${{ steps.start-ec2-runner.outputs.label}}"
-          echo "::set-output name=ec2-instance-id-${{ matrix.docker-image }}::${{ steps.start-ec2-runner.outputs.ec2-instance-id}}"
+          aws-resource-tags: >
+            [
+              {"Key": "Name", "Value": "horovod-github-${{ github.head_ref || github.sha }}"},
+              {"Key": "GitHubRepository", "Value": "${{ github.repository }}"},
+              {"Key": "GitHubHeadRef", "Value": "${{ github.head_ref }}"},
+              {"Key": "GitHubSHA", "Value": "${{ github.sha }}"}
+            ]
 
   docker:
     name: Build docker image ${{ matrix.docker-image }} (push=${{ github.event_name != 'pull_request' }})
@@ -65,19 +57,17 @@ jobs:
     # we want an ongoing run of this workflow to be canceled by a later commit
     # so that there is only one concurrent run of this workflow for each branch
     concurrency:
-      group: docker-${{ github.head_ref }}
+      group: docker-${{ github.head_ref || github.sha }}
       cancel-in-progress: true
 
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - docker-image: horovod
-            label: ${{ needs.start-runner.outputs.label-horovod }}
-          - docker-image: horovod-cpu
-            label: ${{ needs.start-runner.outputs.label-horovod-cpu }}
-          - docker-image: horovod-ray
-            label: ${{ needs.start-runner.outputs.label-horovod-ray }}
+        docker-image:
+          - horovod
+          - horovod-cpu
+          - horovod-ray
+
     steps:
       -
         name: Checkout
@@ -125,27 +115,14 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
   stop-runner:
-    name: Stop self-hosted EC2 runner (${{ matrix.docker-image }})
+    name: Stop self-hosted EC2 runner
+
     # required to stop the runner even if the error happened in the previous job
     if: always() && needs.start-runner.result != 'skipped'
     needs:
       - start-runner # required to get output from the start-runner job
       - docker # required to wait when the main job is done
     runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - docker-image: horovod
-            label: ${{ needs.start-runner.outputs.label-horovod }}
-            ec2-instance-id: ${{ needs.start-runner.outputs.ec2-instance-id-horovod }}
-          - docker-image: horovod-cpu
-            label: ${{ needs.start-runner.outputs.label-horovod-cpu }}
-            ec2-instance-id: ${{ needs.start-runner.outputs.ec2-instance-id-horovod-cpu }}
-          - docker-image: horovod-ray
-            label: ${{ needs.start-runner.outputs.label-horovod-ray }}
-            ec2-instance-id: ${{ needs.start-runner.outputs.ec2-instance-id-horovod-ray }}
 
     steps:
       - name: Configure AWS credentials
@@ -155,10 +132,10 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Stop EC2 runner (${{ matrix.docker-image }})
+      - name: Stop EC2 runner
         uses: machulav/ec2-github-runner@v2.2.0
         with:
           mode: stop
           github-token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
-          label: ${{ matrix.label }}
-          ec2-instance-id: ${{ matrix.ec2-instance-id }}
+          label: ${{ needs.start-runner.outputs.label }}
+          ec2-instance-id: ${{ needs.start-runner.outputs.ec2-instance-id }}
