@@ -14,26 +14,28 @@ ARG TORCHVISION_VERSION=0.9.1+cu111
 SHELL ["/bin/bash", "-cu"]
 
 RUN sudo apt-get update && DEBIAN_FRONTEND="noninteractive" sudo apt-get install -y \
-    build-essential \
-    wget \
-    git \
-    curl \
-    cmake \
-    rsync \
-    vim
+        build-essential \
+        wget \
+        git \
+        curl \
+        cmake \
+        rsync \
+        vim \
+    && sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/*
 
 # Install TensorFlow and Keras
-RUN pip install future typing packaging
-RUN pip install tensorflow==${TENSORFLOW_VERSION} \
-                keras \
-                h5py
+RUN pip install --no-cache-dir future typing packaging
+RUN pip install --no-cache-dir \
+    tensorflow==${TENSORFLOW_VERSION} \
+    keras \
+    h5py
 
 # Install PyTorch
-RUN pip install \
+RUN pip install --no-cache-dir \
     torch==${PYTORCH_VERSION} \
     torchvision==${TORCHVISION_VERSION} \
     -f https://download.pytorch.org/whl/${PYTORCH_VERSION/*+/}/torch_stable.html
-RUN pip install pytorch_lightning==${PYTORCH_LIGHTNING_VERSION}
+RUN pip install --no-cache-dir pytorch_lightning==${PYTORCH_LIGHTNING_VERSION}
 
 USER ray
 RUN sudo mkdir -p /horovod && sudo chown ray:users /horovod
