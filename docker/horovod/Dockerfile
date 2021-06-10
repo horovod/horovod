@@ -66,17 +66,18 @@ RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
     rm get-pip.py
 
 # Install TensorFlow, Keras, PyTorch and MXNet
-RUN pip install future typing packaging
-RUN pip install tensorflow==${TENSORFLOW_VERSION} \
-                keras \
-                h5py
+RUN pip install --no-cache-dir future typing packaging
+RUN pip install --no-cache-dir \
+    tensorflow==${TENSORFLOW_VERSION} \
+    keras \
+    h5py
 
-RUN pip install \
+RUN pip install --no-cache-dir \
     torch==${PYTORCH_VERSION} \
     torchvision==${TORCHVISION_VERSION} \
     -f https://download.pytorch.org/whl/${PYTORCH_VERSION/*+/}/torch_stable.html
-RUN pip install pytorch_lightning==${PYTORCH_LIGHTNING_VERSION}
-RUN pip install mxnet-cu112==${MXNET_VERSION}
+RUN pip install --no-cache-dir pytorch_lightning==${PYTORCH_LIGHTNING_VERSION}
+RUN pip install --no-cache-dir mxnet-cu112==${MXNET_VERSION}
 
 # Install Spark stand-alone cluster.
 RUN wget --progress=dot:giga "https://www.apache.org/dyn/closer.lua/spark/${SPARK_PACKAGE}?action=download" -O - | tar -xzC /tmp; \
