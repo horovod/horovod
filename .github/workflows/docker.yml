@@ -61,7 +61,7 @@ jobs:
       # On master, head_ref is empty, so we use the SHA of the commit, this means
       # commits to master will not be cancelled, which is important to ensure
       # that every commit to master is full tested and deployed.
-      group: docker-${{ matrix.docker-image }}-${{ github.head_ref || github.sha }}
+      group: docker-${{ matrix.docker-image }}-${{ github.ref }}-${{ github.head_ref || github.sha }}
       cancel-in-progress: true
 
     strategy:
