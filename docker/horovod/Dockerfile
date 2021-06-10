@@ -44,7 +44,8 @@ RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-
         ibverbs-providers \
         openjdk-8-jdk-headless \
         openssh-client \
-        openssh-server
+        openssh-server \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Open MPI
 RUN wget --progress=dot:mega -O /tmp/openmpi-3.0.0-bin.tar.gz https://github.com/horovod/horovod/files/1596799/openmpi-3.0.0-bin.tar.gz && \
