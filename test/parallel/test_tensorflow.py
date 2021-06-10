@@ -1001,7 +1001,6 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.remove_process_set(odd_set)
         hvd.remove_process_set(even_set)
 
-
     def test_horovod_allreduce_grad_gpu(self):
         """Test the correctness of the allreduce gradient on GPU."""
         # Only do this test if there are GPUs available.
@@ -4097,6 +4096,35 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.remove_process_set(subset)
         if resource_variables_by_default:
             tf.compat.v1.enable_resource_variables()
+
+    def test_distributed_gradient_tape_process_sets(self):
+        """ Note: test makes most sense with more than 2 nodes. """
+        hvd.init()
+        size = hvd.size()
+
+        if hvd.gloo_enabled():
+            self.skipTest("Multiple process sets currently do not support Gloo controller.")
+        if size == 1:
+            self.skipTest("Only one worker available")
+
+        subset = hvd.add_process_set(range(0, size, 2))
+
+        with tf.device("/cpu:0"):
+            x = tf.constant(float(hvd.rank()))
+            with tf.GradientTape() as g:
+                g.watch(x)
+                y = x * x
+            dg = hvd.DistributedGradientTape(g, process_set=subset)
+            dy_dx = dg.gradient(y, [x])
+        value, = self.evaluate(dy_dx)
+
+        if subset.included():
+            self.assertAlmostEqual(value, 2. * sum(subset.ranks) / subset.size())
+        else:
+            self.assertAlmostEqual(value, 2. * hvd.rank())
+
+        hvd.remove_process_set(subset)
+
 
 from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
 run_all_in_graph_and_eager_modes(TensorFlowTests)
