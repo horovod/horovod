@@ -3994,11 +3994,19 @@ class TensorFlowTests(tf.test.TestCase):
         self.assertDictEqual(ps, {0: list(range(size)),
                                   set1.process_set_id: [0],
                                   set2.process_set_id: list(range(1, size))})
-        self.assertListEqual([str(p) for p in hvd.process_sets()],
-                             ["ProcessSet(process_set_id=0, ranks=[0, 1], mpi_comm=None)",
-                              "ProcessSet(process_set_id=1, ranks=[0], mpi_comm=None)",
-                              "ProcessSet(process_set_id=2, ranks=[1], mpi_comm=None)", ])
 
+        for a_set in [set1, set2]:
+            ids_on_ranks = list(self.evaluate(hvd.allgather(tf.convert_to_tensor([a_set.process_set_id]))))
+            self.assertTrue(all(an_id == a_set.process_set_id for an_id in ids_on_ranks))
+
+        self.assertListEqual([str(p) for p in hvd.process_sets()],
+                             [value for key, value in
+                              sorted({0: f"ProcessSet(process_set_id=0, ranks={list(range(size))}, mpi_comm=None)",
+                                      set1.process_set_id: f"ProcessSet(process_set_id={set1.process_set_id}, ranks=[0], mpi_comm=None)",
+                                      set2.process_set_id: f"ProcessSet(process_set_id={set2.process_set_id}, ranks={list(range(1, size))}, mpi_comm=None)", }
+                                     .items())])
+
+        old_id_of_set1 = set1.process_set_id
         hvd.remove_process_set(set1)
 
         ps = hvd.get_process_set_ids_and_ranks()
@@ -4007,7 +4015,7 @@ class TensorFlowTests(tf.test.TestCase):
 
         set3 = hvd.add_process_set([0, size-1])
         if size > 2:
-            self.assertEqual(set1.process_set_id, set3.process_set_id) # id reuse
+            self.assertEqual(old_id_of_set1, set3.process_set_id) # id reuse
         else:
             self.assertEqual(0, set3.process_set_id)  # global id reuse
 
@@ -4036,12 +4044,14 @@ class TensorFlowTests(tf.test.TestCase):
 
         self.assertFalse(hvd.remove_process_set(hvd.global_process_set),
                          "Removing the global process set should be impossible.")
+        hvd.remove_process_set(set4)
 
     def test_legacy_DistributedOptimizer_process_sets(self):
         """ Note that this test makes the most sense when running with > 2 processes. """
         if _executing_eagerly():
             self.skipTest("Legacy Optimizers only support graph mode.")
 
+        resource_variables_by_default = tf.compat.v1.resource_variables_enabled()
         tf.compat.v1.disable_resource_variables()
 
         hvd.init()
@@ -4084,7 +4094,8 @@ class TensorFlowTests(tf.test.TestCase):
                 self.assertAlmostEqual(computed_value, float(hvd.rank()))
 
         hvd.remove_process_set(subset)
-        tf.compat.v1.enable_resource_variables()
+        if resource_variables_by_default:
+            tf.compat.v1.enable_resource_variables()
 
 from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
 run_all_in_graph_and_eager_modes(TensorFlowTests)

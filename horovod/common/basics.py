@@ -127,8 +127,7 @@ class HorovodBasics(object):
             raise ValueError(
                 "Horovod initialization failed. Please check log messages above for a more descriptive error.")
 
-        if not self.gloo_enabled():
-            update_process_sets(process_sets)
+        update_process_sets(process_sets)
 
     def shutdown(self):
         """A function that shuts Horovod down."""

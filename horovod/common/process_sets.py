@@ -80,6 +80,10 @@ def setup(basics):
 
 def update_process_sets(process_sets: List[ProcessSet]):
     """ Horovod internal, to be called from hvd.init() """
+    if _basics.gloo_enabled():
+        # TODO: Remove once we have a Gloo backend
+        _id_to_process_sets[0][0].ranks = list(range(0, _basics.size()))
+        return
 
     # Update process set objects in passed list:
     id_to_ranks_dict = _basics.get_process_set_ids_and_ranks()
@@ -134,11 +138,12 @@ def add_process_set(process_set: Union[ProcessSet, Sequence[int]]) -> ProcessSet
 def remove_process_set(process_set: ProcessSet) -> bool:
     """ Attempt to remove process set and return whether this attempt is successful.
 
-    Requires running with HOROVOD_DYNAMIC_PROCESS_SETS=1. If removal is succesfull, we will invalidate the process_set
+    Requires running with HOROVOD_DYNAMIC_PROCESS_SETS=1. If removal is successful, we will invalidate the process_set
     object and all known equivalent ProcessSet objects.
     """
     assert _basics is not None
-    assert process_set.process_set_id is not None
+    if process_set.process_set_id is None:
+        return False
     process_set_id = process_set.process_set_id
 
     if process_set_id == 0:

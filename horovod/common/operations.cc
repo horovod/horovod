@@ -1257,7 +1257,7 @@ int horovod_process_set_size(int process_set_id) {
 
 int horovod_process_set_included(int process_set_id) {
   if (process_set_id == 0) {
-    return horovod_size();
+    return 1;
   }
   if (!horovod_global.initialization_done) {
     return HOROVOD_PROCESS_SET_ERROR_INIT;
