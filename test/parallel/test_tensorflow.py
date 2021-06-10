@@ -3995,9 +3995,10 @@ class TensorFlowTests(tf.test.TestCase):
                                   set1.process_set_id: [0],
                                   set2.process_set_id: list(range(1, size))})
 
-        for a_set in [set1, set2]:
-            ids_on_ranks = list(self.evaluate(hvd.allgather(tf.convert_to_tensor([a_set.process_set_id]))))
-            self.assertTrue(all(an_id == a_set.process_set_id for an_id in ids_on_ranks))
+        with tf.device("/cpu:0"):
+            for a_set in [set1, set2]:
+                ids_on_ranks = list(self.evaluate(hvd.allgather(tf.convert_to_tensor([a_set.process_set_id]))))
+                self.assertTrue(all(an_id == a_set.process_set_id for an_id in ids_on_ranks))
 
         self.assertListEqual([str(p) for p in hvd.process_sets()],
                              [value for key, value in
