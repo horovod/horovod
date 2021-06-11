@@ -78,3 +78,22 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Free Space
+        if: always()
+        run: |
+          echo ::group::Disk Space
+          df -h
+          echo ::endgroup::
+
+          echo ::group::Docker Space
+          docker system df
+          echo ::endgroup::
+
+          echo ::group::Docker Images
+          docker images -a
+          echo ::endgroup::
+
+          echo ::group::Docker Container
+          docker container list -a
+          echo ::endgroup::
