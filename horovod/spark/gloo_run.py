@@ -33,10 +33,11 @@ def _exec_command_fn(driver, key, settings, env, stdout, stderr, prefix_output_w
     return _exec_command
 
 
-def gloo_run(settings, nics, driver, env, stdout=None, stderr=None):
+def gloo_run(executable, settings, nics, driver, env, stdout=None, stderr=None):
     """
     Run distributed gloo jobs.
 
+    :param executable: Executable to run when launching the workers.
     :param settings: Settings for running the distributed jobs.
                      Note: settings.num_proc and settings.hosts must not be None.
     :param nics: Interfaces to use by gloo.
@@ -57,7 +58,7 @@ def gloo_run(settings, nics, driver, env, stdout=None, stderr=None):
     # threads will keep running and ssh session.
     iface = list(nics)[0]
     server_ip = driver.addresses()[iface][0][0]
-    command = (sys.executable,
+    command = (executable,
                '-m', 'horovod.spark.task.gloo_exec_fn',
                codec.dumps_base64(driver.addresses()),
                codec.dumps_base64(settings))
