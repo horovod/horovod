@@ -34,7 +34,9 @@ jobs:
     # we want an ongoing run of this workflow to be canceled by a later commit
     # so that there is only one concurrent run of this workflow for each branch
     concurrency:
-      # head_ref will mean only one workflow can run for the given pull request.
+      # github.ref means something like refs/heads/master or refs/tags/v0.22.1 or the branch.
+      # This helps to not cancel concurrent runs on master and a tag that share the same commit
+      # head_ref refers to the pull request branch so we run only one workflow for the given pull request.
       # On master, head_ref is empty, so we use the SHA of the commit, this means
       # commits to master will not be cancelled, which is important to ensure
       # that every commit to master is full tested and deployed.
