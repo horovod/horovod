@@ -21,24 +21,76 @@ class ProcessSetsMultiCommTests(unittest.TestCase):
 
         # This will be our baseline world communicator
         comm = MPI.COMM_WORLD
+
+        size = comm.size
+        if size < 2:
+            self.skipTest("This test requires multiple workers.")
+
         # Split COMM_WORLD into subcommunicators
         subcomm = MPI.COMM_WORLD.Split(color=MPI.COMM_WORLD.rank % 2,
                                        key=MPI.COMM_WORLD.rank)
         comm_clone = comm.Dup()
         subcomm_clone = subcomm.Dup()
+        subcomm_effective_clone = hvd.ProcessSet(range(0, comm.size, 2))  # identified as a clone on even ranks
 
-        # No distinct process sets will be built from the clones.
-        hvd.init(comm=comm, process_sets=[hvd.ProcessSet(subcomm),
-                                          hvd.ProcessSet(range(0, comm.size, 2)), # another clone
-                                          hvd.ProcessSet(comm_clone),
-                                          hvd.ProcessSet(subcomm_clone),
-                                          hvd.ProcessSet([0]),
-                                          ])
-        size = hvd.size()
-        if size < 2:
-            self.skipTest("This test requires multiple workers.")
+        # 3+ duplicates
+        my_process_sets = [hvd.ProcessSet(subcomm),
+                           hvd.ProcessSet(comm_clone),
+                           hvd.ProcessSet(subcomm_clone),
+                           subcomm_effective_clone,
+                           hvd.ProcessSet([0]),
+                           ]
+        with self.assertRaises(ValueError):
+            hvd.init(comm=comm, process_sets=my_process_sets)
 
-        ps = hvd.get_process_set_ids_and_ranks()
+        ## Internally Horovod has been initialized successfully, but we need to call hvd.init() with a valid list of
+        ## process sets to proceed.
+
+        # 2+ duplicates
+        my_process_sets = [hvd.ProcessSet(subcomm),
+                           hvd.ProcessSet(comm_clone),
+                           subcomm_effective_clone,
+                           hvd.ProcessSet([0]),
+                           ]
+        with self.assertRaises(ValueError):
+            hvd.init(comm=comm, process_sets=my_process_sets)
+
+        # 1+ duplicates
+        my_process_sets = [hvd.ProcessSet(subcomm),
+                           hvd.ProcessSet(comm_clone),
+                           hvd.ProcessSet([0]),
+                           ]
+        with self.assertRaises(ValueError):
+            hvd.init(comm=comm, process_sets=my_process_sets)
+
+        # 1+ duplicates
+        my_process_sets = [hvd.ProcessSet(subcomm),
+                           subcomm_effective_clone,
+                           hvd.ProcessSet([0]),
+                           ]
+        if hvd.size() == 2 or hvd.rank() % 2 == 0:
+            with self.assertRaises(ValueError):
+                hvd.init(comm=comm, process_sets=my_process_sets)
+        else:
+            hvd.init(comm=comm, process_sets=my_process_sets)
+
+        # no duplicates
+        if size > 2:
+            my_process_sets = [hvd.ProcessSet(subcomm),
+                               hvd.ProcessSet([0]),
+                               ]
+            hvd.init(comm=comm, process_sets=my_process_sets)
+        else:
+            my_process_sets = [hvd.ProcessSet(subcomm), ]
+            hvd.init(comm=comm, process_sets=my_process_sets)
+
+
+        self.assertEqual(hvd.global_process_set.process_set_id, 0)
+        self.assertListEqual(hvd.global_process_set.ranks, list(range(size)))
+        self.assertEqual(hvd.global_process_set.mpi_comm, comm)
+
+        # Here we test some implementation details (numeric process set id values) using an internal function.
+        ps = hvd.mpi_ops._get_process_set_ids_and_ranks()
         if size > 2:
             self.assertDictEqual(ps, {0: list(range(size)),
                                       1: list(range(0, size, 2)),
@@ -51,21 +103,10 @@ class ProcessSetsMultiCommTests(unittest.TestCase):
                                       2: list(range(1, size, 2)),
                                       })
 
-
-        global_id = hvd.comm_process_set_id(comm)
-        self.assertEqual(global_id, 0)
-
-        split_id = hvd.comm_process_set_id(subcomm)
-        split_dup_id = hvd.comm_process_set_id(subcomm_clone)
         if hvd.rank() % 2 == 0:
-            self.assertEqual(split_id, 1)
-            self.assertEqual(split_dup_id, 1)
+            self.assertEqual(my_process_sets[0].process_set_id, 1)
         else:
-            self.assertEqual(split_id, 2)
-            self.assertEqual(split_dup_id, 2)
-
-        global_dup_id = hvd.comm_process_set_id(comm_clone)
-        self.assertEqual(global_dup_id, 0)
+            self.assertEqual(my_process_sets[0].process_set_id, 2)
 
         MPI.COMM_WORLD.barrier()
 

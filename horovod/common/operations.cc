@@ -1151,6 +1151,7 @@ const int HOROVOD_PROCESS_SET_ERROR_DYNAMIC = -2;
 const int HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET = -3;
 const int HOROVOD_PROCESS_SET_ERROR_FOREIGN_SET = -4;
 const int HOROVOD_PROCESS_SET_ERROR_SHUTDOWN = -5;
+const int HOROVOD_PROCESS_SET_ERROR_EXISTING_SET = -6;
 const int HOROVOD_PROCESS_SET_ERROR_GLOO = -10;
 
 int horovod_add_process_set(const int* ranks, int nrank) {
@@ -1165,14 +1166,25 @@ int horovod_add_process_set(const int* ranks, int nrank) {
   }
 
   int id;
-  ProcessSet& process_set = GetProcessSetOrAddUnitialized(
-      ranks && nrank > 0 ? std::vector<int>(ranks, ranks + nrank)
-                         : std::vector<int>(),
-      id);
+  ProcessSet* process_set = nullptr;
+  {
+    // Lock the table so the background thread will not initialize a newly added
+    // proces set before we leave this critical section.
+    std::lock_guard<std::recursive_mutex> table_lock(
+        horovod_global.process_set_table.mutex);
+    process_set = &GetProcessSetOrAddUnitialized(
+        ranks && nrank > 0 ? std::vector<int>(ranks, ranks + nrank)
+                           : std::vector<int>(),
+        id);
+    if (process_set->initialization_done) {
+      // A process set with these ranks existed before.
+      return HOROVOD_PROCESS_SET_ERROR_EXISTING_SET;
+    }
+  }
 
   // Block until the background thread has initialized the process set.
   while (true) {
-    if (process_set.initialization_done) {
+    if (process_set->initialization_done) {
       return id;
     }
     if (horovod_global.shut_down) {

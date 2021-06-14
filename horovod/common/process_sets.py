@@ -19,7 +19,8 @@ class ProcessSet:
     """ Representation of a set of Horovod processes that will run collective operations together
 
     Initialize a ProcessSet with a list of process ranks or an MPI communicator. Then pass this instance to hvd.init()
-    or hvd.add_process_set().
+    or hvd.add_process_set(). If a valid process set has been initialized, process_set_id will be set to a numeric
+    value.
     """
     process_set_id = None
     ranks = None
@@ -33,10 +34,11 @@ class ProcessSet:
                     "ProcessSet should be initialized with a list of process ranks or an mpi4py Comm object")
             self.ranks = ranks_or_comm
         else:
-            assert _basics is not None, "process_sets.setup() must be called first"
+            assert _basics is not None, "process_sets._setup() must be called first"
             if not _basics.mpi_built():
                 raise ValueError(
-                    "Horovod has not been built with MPI support. Ensure MPI is installed and "
+                    "Apparently you tried to build a ProcessSet from an MPI communicator, "
+                    "but Horovod has not been built with MPI support. Ensure MPI is installed and "
                     "reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.")
             from mpi4py import MPI
             if not isinstance(ranks_or_comm, MPI.Comm):
@@ -44,16 +46,14 @@ class ProcessSet:
                     "ProcessSet should be initialized with a list of process ranks or an mpi4py Comm object")
             self.mpi_comm = ranks_or_comm
 
-    def invalidate(self):
+    def _invalidate(self):
         self.process_set_id = None
-        self.ranks = None
-        self.mpi_comm = None
 
     def size(self) -> Optional[int]:
         """ Return size of the process set or None if not initialized. """
         if self.process_set_id is None:
             return None
-        return _basics.process_set_size(self.process_set_id)
+        return _basics._process_set_size(self.process_set_id)
 
     def included(self) -> Optional[bool]:
         """ Return whether the current process is part of this process set or None if not initialized. """
@@ -65,60 +65,59 @@ class ProcessSet:
         return f"ProcessSet(process_set_id={self.process_set_id}, ranks={self.ranks}, mpi_comm={self.mpi_comm})"
 
 
+def _temp_process_set_object(process_set_id: int):
+    """ For Horovod-internal usage where we don't have a ProcessSet instance at hand but know a valid process_set_id.
+    """
+    ps = ProcessSet.__new__(ProcessSet)
+    ps.process_set_id = process_set_id
+    return ps
+
 global_process_set = ProcessSet([])
 global_process_set.process_set_id = 0
 
-_id_to_process_sets: Dict[int, List[ProcessSet]] = {0: [global_process_set]}
 
-
-def setup(basics):
+def _setup(basics):
     # type: (Optional[HorovodBasics]) -> None
     """" Horovod internal, to be called after the Horovod C++ module has been loaded. """
     global _basics
     _basics = basics
 
 
-def update_process_sets(process_sets: List[ProcessSet]):
-    """ Horovod internal, to be called from hvd.init() """
+def _init_process_sets(process_set_list: List[ProcessSet]):
+    """ Update process_set_id and ranks entries of all passed process set objects and invalidate any clones.
+
+    Horovod internal, to be called from hvd.init(). """
     if _basics.gloo_enabled():
         # TODO: Remove once we have a Gloo backend
-        _id_to_process_sets[0][0].ranks = list(range(0, _basics.size()))
+        assert len(process_set_list) == 0
+        global_process_set.ranks = list(range(0, _basics.size()))
         return
 
     # Update process set objects in passed list:
-    id_to_ranks_dict = _basics.get_process_set_ids_and_ranks()
+    ids_seen_in_process_set_list = {0}  # global_process_set is not in list
+    id_to_ranks_dict = _basics._get_process_set_ids_and_ranks()
     ranks_to_id_dict = {tuple(ranks): process_set_id for process_set_id, ranks in id_to_ranks_dict.items()}
-    for ps in process_sets:
+    for ps in process_set_list:
         if ps.ranks is not None:
             ps.process_set_id = ranks_to_id_dict[tuple(ps.ranks)]
         elif ps.mpi_comm is not None:
-            ps.process_set_id = _basics.comm_process_set_id(ps.mpi_comm)
+            ps.process_set_id = _basics._comm_process_set_id(ps.mpi_comm)
             ps.ranks = list(id_to_ranks_dict[ps.process_set_id])
+        if ps.process_set_id in ids_seen_in_process_set_list:
+            ps._invalidate()
+        else:
+            ids_seen_in_process_set_list.add(ps.process_set_id)
 
-    # Update process set storage _id_to_process_sets according to passed list:
-    for ps in process_sets:
-        list_in_storage = _id_to_process_sets.setdefault(ps.process_set_id, [])
-        if ps not in list_in_storage:
-            list_in_storage.append(ps)
-
-    # Update process set storage _id_to_process_sets according to remaining entries from id_to_ranks_dict:
-    for process_set_id, ranks in id_to_ranks_dict.items():
-        if process_set_id not in _id_to_process_sets:
-            process_set = ProcessSet(ranks)
-            process_set.process_set_id = process_set_id
-            _id_to_process_sets[process_set_id] = [process_set]
-
-    # Update ranks in global process set objects
-    for global_ps in _id_to_process_sets[0]:
-        if global_ps.ranks != id_to_ranks_dict[0]:
-            global_ps.ranks = id_to_ranks_dict[0]
+    # Update ranks in global process set object
+    if global_process_set.ranks != id_to_ranks_dict[0]:
+        global_process_set.ranks = id_to_ranks_dict[0]
 
 
 def add_process_set(process_set: Union[ProcessSet, Sequence[int]]) -> ProcessSet:
-    """ Add the process_set after Horovod initialization.
+    """ Add a new process_set after Horovod initialization and return it.
 
-    Requires running with HOROVOD_DYNAMIC_PROCESS_SETS=1. If process_set is a list of ranks, a new ProcessSet object
-    will be initialized. In any case the added ProcessSet instance will be returned.
+    Requires running with HOROVOD_DYNAMIC_PROCESS_SETS=1. No process set containing the same ranks may exist already.
+    The returned process set will be fully initialized.
     """
     assert _basics is not None
     if not isinstance(process_set, ProcessSet):
@@ -129,9 +128,10 @@ def add_process_set(process_set: Union[ProcessSet, Sequence[int]]) -> ProcessSet
             "Please build the process set via a list of ranks.")
     assert process_set.ranks is not None
 
-    process_set_id = _basics.add_process_set_impl(process_set.ranks)
+    process_set_id = _basics._add_process_set_impl(process_set.ranks)
+    if process_set_id is None:
+        raise ValueError(f"Attempted to add a duplicate process set: {process_set}")
     process_set.process_set_id = process_set_id
-    _id_to_process_sets.setdefault(process_set_id, []).append(process_set)
     return process_set
 
 
@@ -139,33 +139,18 @@ def remove_process_set(process_set: ProcessSet) -> bool:
     """ Attempt to remove process set and return whether this attempt is successful.
 
     Requires running with HOROVOD_DYNAMIC_PROCESS_SETS=1. If removal is successful, we will invalidate the process_set
-    object and all known equivalent ProcessSet objects.
+    object.
     """
     assert _basics is not None
-    if process_set.process_set_id is None:
-        return False
     process_set_id = process_set.process_set_id
 
+    if process_set_id is None:
+        # process set has not been initialized
+        return False
     if process_set_id == 0:
         # will not remove the global process set
         return False
 
-    if process_set.process_set_id in _id_to_process_sets:
-        for some_process_set in _id_to_process_sets.pop(process_set_id):
-            some_process_set.invalidate()
-
-    returned_id = _basics.remove_process_set_impl(process_set_id)
+    process_set._invalidate()
+    returned_id = _basics._remove_process_set_impl(process_set_id)
     return returned_id is not None
-
-
-def process_set_by_id(process_set_id: int) -> ProcessSet:
-    """ Return a registered process set object with the given id. """
-    if not process_set_id in _id_to_process_sets:
-        raise ValueError(f"No known process set with id {process_set_id}")
-    return _id_to_process_sets[process_set_id][0]
-
-
-def process_sets() -> List[ProcessSet]:
-    """ Return a list containing registered process set objects for each registered id. """
-    return [_id_to_process_sets[process_set_id][0]
-            for process_set_id in sorted(_id_to_process_sets.keys())]

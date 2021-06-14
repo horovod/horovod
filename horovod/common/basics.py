@@ -22,7 +22,7 @@ class MPI:
     class Comm:
         ...
 
-from horovod.common.process_sets import ProcessSet, global_process_set, update_process_sets
+from horovod.common.process_sets import ProcessSet, global_process_set, _init_process_sets
 from horovod.common import util as util
 
 
@@ -43,6 +43,7 @@ class HorovodBasics(object):
         self.HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET = -3
         self.HOROVOD_PROCESS_SET_ERROR_FOREIGN_SET = -4
         self.HOROVOD_PROCESS_SET_ERROR_SHUTDOWN = -5
+        self.HOROVOD_PROCESS_SET_ERROR_EXISTING_SET = -6
         self.HOROVOD_PROCESS_SET_ERROR_GLOO = -10
 
     def init(self, comm: Optional[Union[Sequence[int], MPI.Comm]] = None,
@@ -62,8 +63,10 @@ class HorovodBasics(object):
           process_sets: One of these possibilities:
 
             1) None -- Do not initialize any process sets.
-            2) List[hvd.ProcessSet] -- Initialize process set objects given in list.
-            3) "dynamic": do not initialize any process sets now, but set environment variable
+            2) List[hvd.ProcessSet] -- Initialize process set objects given in list (in addition to
+               hvd.global_process_set that will always be initialized). Users should hold on to these objects to pass
+               them to any Horovod collective communication ops. Duplicate process sets are not allowed.
+            3) "dynamic": do not initialize any process sets now, but set the environment variable
                HOROVOD_DYNAMIC_PROCESS_SETS=1 so we can call `hvd.add_process_set(...)` later.
         """
 
@@ -127,7 +130,12 @@ class HorovodBasics(object):
             raise ValueError(
                 "Horovod initialization failed. Please check log messages above for a more descriptive error.")
 
-        update_process_sets(process_sets)
+        _init_process_sets(process_sets)
+
+        for ps_idx, ps in enumerate(process_sets):
+            if ps.process_set_id is None:
+                raise ValueError(
+                    f"Horovod could not be initialized because process_sets entry number {ps_idx} is a duplicate: {ps}")
 
     def shutdown(self):
         """A function that shuts Horovod down."""
@@ -354,9 +362,9 @@ class HorovodBasics(object):
         """
         return bool(self.MPI_LIB_CTYPES.horovod_rocm_built())
 
-    def add_process_set_impl(self, ranks: Sequence[int]) -> int:
-        """ If a process set with the given ranks exists already, return its id. Otherwise add a new process set and
-        return its id.
+    def _add_process_set_impl(self, ranks: Sequence[int]) -> Optional[int]:
+        """ Add a new process set and return its id. If a process set containing the same ranks exists already, return
+         None.
 
         Requires running with HOROVOD_DYNAMIC_PROCESS_SETS=1.
         """
@@ -374,9 +382,11 @@ class HorovodBasics(object):
                 "Set HOROVOD_DYNAMIC_PROCESS_SETS=1 to allow adding process sets after Horovod initialization.")
         elif result == self.HOROVOD_PROCESS_SET_ERROR_GLOO:
             raise ValueError("Multiple process sets are only supported with MPI controllers, not Gloo.")
+        elif result == self.HOROVOD_PROCESS_SET_ERROR_EXISTING_SET:
+            return None
         return result
 
-    def remove_process_set_impl(self, process_set_id: int) -> Optional[int]:
+    def _remove_process_set_impl(self, process_set_id: int) -> Optional[int]:
         """ Remove process set with given id. If removal is succesful, return process_set_id.
 
         If no such process set exists or process_set_id is zero (the global process set), do nothing and return None.
@@ -401,7 +411,7 @@ class HorovodBasics(object):
             raise ValueError("Multiple process sets are only supported with MPI controllers, not Gloo.")
         return result
 
-    def process_set_rank(self, process_set_id):
+    def _process_set_rank(self, process_set_id: int) -> int:
         """ Return process rank relative to the process set with the given id. """
         assert isinstance(process_set_id, int)
         result = int(self.MPI_LIB_CTYPES.horovod_process_set_rank(
@@ -416,7 +426,7 @@ class HorovodBasics(object):
             raise ValueError("Multiple process sets are only supported with MPI controllers, not Gloo.")
         return result
 
-    def process_set_size(self, process_set_id):
+    def _process_set_size(self, process_set_id: int) -> int:
         """ Return size of the process set with the given id. """
         assert isinstance(process_set_id, int)
         result = int(self.MPI_LIB_CTYPES.horovod_process_set_size(
@@ -429,7 +439,7 @@ class HorovodBasics(object):
             raise ValueError("Multiple process sets are only supported with MPI controllers, not Gloo.")
         return result
 
-    def get_process_set_ids_and_ranks(self) -> Dict[int, List[int]]:
+    def _get_process_set_ids_and_ranks(self) -> Dict[int, List[int]]:
         """ Returns a dictionary { process_set_id: list of process set ranks } """
         num = int(self.MPI_LIB_CTYPES.horovod_number_of_process_sets())
         ids_array = (ctypes.c_int * num)()
@@ -443,7 +453,7 @@ class HorovodBasics(object):
             elif ps_size == self.HOROVOD_PROCESS_SET_ERROR_GLOO:
                 raise ValueError("Multiple process sets are only supported with MPI controllers, not Gloo.")
             elif ps_size < 0:
-                raise RuntimeError("Process set table was modified outside of get_process_set_ids_and_ranks()")
+                raise RuntimeError("Process set table was modified outside of _get_process_set_ids_and_ranks()")
 
             ranks_array = (ctypes.c_int * ps_size)()
             res = int(self.MPI_LIB_CTYPES.horovod_process_set_ranks(ctypes.c_int(ps_id), ranks_array))
@@ -452,11 +462,11 @@ class HorovodBasics(object):
             elif res == self.HOROVOD_PROCESS_SET_ERROR_GLOO:
                 raise ValueError("Multiple process sets are only supported with MPI controllers, not Gloo.")
             elif res < 0:
-                raise RuntimeError("Process set table was modified outside of get_process_set_ids_and_ranks()")
+                raise RuntimeError("Process set table was modified outside of _get_process_set_ids_and_ranks()")
             ret[ps_id] = list(ranks_array)
         return ret
 
-    def comm_process_set_id(self, comm) -> int:
+    def _comm_process_set_id(self, comm: MPI.Comm) -> int:
         """ Returns the (previously registered) process set id corresponding to the MPI communicator comm. """
         if not self.mpi_built():
             raise ValueError(

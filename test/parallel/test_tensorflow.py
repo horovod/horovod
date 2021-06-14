@@ -831,7 +831,9 @@ class TensorFlowTests(tf.test.TestCase):
                     with self.assertRaises(tf.errors.InvalidArgumentError):
                         self.evaluate(hvd.allreduce(tensor, process_set=single_set))
                 with self.assertRaises(ValueError):
-                    self.evaluate(hvd.allreduce(tensor, process_set=hvd.process_set_by_id(10)))
+                    fake_set = hvd.ProcessSet([0])
+                    fake_set.process_set_id = 10  # you should not do this
+                    self.evaluate(hvd.allreduce(tensor, process_set=fake_set))
         finally:
             hvd.remove_process_set(rest_set)
             hvd.remove_process_set(single_set)
@@ -3983,49 +3985,56 @@ class TensorFlowTests(tf.test.TestCase):
         if size == 1:
             self.skipTest("Only one worker available")
 
-        ps = hvd.get_process_set_ids_and_ranks()
+        # Here we test some implementation details (numeric process set id values) using an internal function. We only
+        # test the concrete value 0 because IDs will be reassigned between eager and graph-mode test runs and may
+        # change.
+        ps = hvd.mpi_ops._get_process_set_ids_and_ranks()
         self.assertDictEqual(ps, {0: list(range(size))})
 
         set1 = hvd.add_process_set([0])
         set2 = hvd.add_process_set(range(1, size))
 
-        ps = hvd.get_process_set_ids_and_ranks()
+        ps = hvd.mpi_ops._get_process_set_ids_and_ranks()
         self.assertDictEqual(ps, {0: list(range(size)),
                                   set1.process_set_id: [0],
                                   set2.process_set_id: list(range(1, size))})
 
+        # Ensure process set ids are equal across processes.
         with tf.device("/cpu:0"):
             for a_set in [set1, set2]:
                 ids_on_ranks = list(self.evaluate(hvd.allgather(tf.convert_to_tensor([a_set.process_set_id]))))
                 self.assertTrue(all(an_id == a_set.process_set_id for an_id in ids_on_ranks))
 
-        self.assertListEqual([str(p) for p in hvd.process_sets()],
-                             [value for key, value in
-                              sorted({0: f"ProcessSet(process_set_id=0, ranks={list(range(size))}, mpi_comm=None)",
-                                      set1.process_set_id: f"ProcessSet(process_set_id={set1.process_set_id}, ranks=[0], mpi_comm=None)",
-                                      set2.process_set_id: f"ProcessSet(process_set_id={set2.process_set_id}, ranks={list(range(1, size))}, mpi_comm=None)", }
-                                     .items())])
+        # Test stringification
+        self.assertListEqual([str(p) for p in [hvd.global_process_set, set1, set2]],
+                             [f"ProcessSet(process_set_id=0, ranks={list(range(size))}, mpi_comm=None)",
+                              f"ProcessSet(process_set_id={set1.process_set_id}, ranks=[0], mpi_comm=None)",
+                              f"ProcessSet(process_set_id={set2.process_set_id}, ranks={list(range(1, size))}, mpi_comm=None)",
+                              ])
 
         old_id_of_set1 = set1.process_set_id
         hvd.remove_process_set(set1)
+        self.assertIsNone(set1.process_set_id)  # invalidated
 
-        ps = hvd.get_process_set_ids_and_ranks()
+        ps = hvd.mpi_ops._get_process_set_ids_and_ranks()
         self.assertDictEqual(ps, {0: list(range(size)),
                                   set2.process_set_id: list(range(1, size))})
 
-        set3 = hvd.add_process_set([0, size-1])
         if size > 2:
+            set3 = hvd.add_process_set([0, size - 1])
             self.assertEqual(old_id_of_set1, set3.process_set_id) # id reuse
         else:
-            self.assertEqual(0, set3.process_set_id)  # global id reuse
+            with self.assertRaises(ValueError):  # duplicate of the global process set
+                set3 = hvd.add_process_set([0, size - 1])
+            set3 = hvd.global_process_set
 
-        set4 = hvd.add_process_set(range(size - 1, 0, -1))
-        self.assertEqual(set2.process_set_id, set4.process_set_id) # identical process set
+        with self.assertRaises(ValueError):  # duplicate of set2
+            set4 = hvd.add_process_set(range(size - 1, 0, -1))
 
-        set5 = hvd.add_process_set(range(0, size))
-        self.assertEqual(0, set5.process_set_id) # identical process set
+        with self.assertRaises(ValueError):  # duplicate of the global process set
+            set5 = hvd.add_process_set(range(0, size))
 
-        ps = hvd.get_process_set_ids_and_ranks()
+        ps = hvd.mpi_ops._get_process_set_ids_and_ranks()
         if size > 2:
             self.assertDictEqual(ps, {0: list(range(size)),
                                       set2.process_set_id: list(range(1, size)),
@@ -4036,15 +4045,11 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.remove_process_set(set2)
         hvd.remove_process_set(set3)
 
-        self.assertFalse(hvd.remove_process_set(set5),
-                         "Removing the global process set should be impossible.")
-
-        ps = hvd.get_process_set_ids_and_ranks()
+        ps = hvd.mpi_ops._get_process_set_ids_and_ranks()
         self.assertDictEqual(ps, {0: list(range(size))})
 
         self.assertFalse(hvd.remove_process_set(hvd.global_process_set),
                          "Removing the global process set should be impossible.")
-        hvd.remove_process_set(set4)
 
     def test_legacy_DistributedOptimizer_process_sets(self):
         """ Note that this test makes the most sense when running with > 2 processes. """
