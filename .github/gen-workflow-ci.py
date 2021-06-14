@@ -167,6 +167,7 @@ def main():
     def build_and_test_images(name: str,
                               needs: List[str],
                               images: List[str],
+                              parallel_images: str,
                               tests_per_image: Dict[str, Set[str]],
                               tests: Dict[str, Dict]) -> str:
         if 'init-workflow' not in needs:
@@ -178,7 +179,7 @@ def main():
                 f'    runs-on: ubuntu-latest\n'
                 f'\n'
                 f'    strategy:\n'
-                f'      max-parallel: {len(images)}\n'
+                f'      max-parallel: {len([image for image in images if parallel_images in image])}\n'
                 f'      fail-fast: false\n'
                 f'      matrix:\n'
                 f'        include:\n' +
@@ -662,8 +663,8 @@ def main():
         allhead_images = [image for image in images if all(head in image for head in heads)]
         workflow = workflow_header() + jobs(
             validate_workflow_job(),
-            build_and_test_images(name='build-and-test', needs=['init-workflow'], images=release_images, tests_per_image=tests_per_image, tests=tests),
-            build_and_test_images(name='build-and-test-heads', needs=['build-and-test'], images=allhead_images, tests_per_image=tests_per_image, tests=tests),
+            build_and_test_images(name='build-and-test', needs=['init-workflow'], images=release_images, parallel_images='-cpu-', tests_per_image=tests_per_image, tests=tests),
+            build_and_test_images(name='build-and-test-heads', needs=['build-and-test'], images=allhead_images, parallel_images='', tests_per_image=tests_per_image, tests=tests),
             build_and_test_macos(name='build-and-test-macos', needs=['build-and-test']),
             trigger_buildkite_job(name='buildkite', needs=['build-and-test']),
             publish_unit_test_results(name='publish-test-results', needs=['build-and-test', 'build-and-test-heads', 'build-and-test-macos', 'buildkite']),
