@@ -347,7 +347,7 @@ jobs:
             ${{ matrix.image }}:
               build:
                 cache_from:
-                  - ${{ steps.ecr.outputs.registry }}:horovod-${{ matrix.image }}-latest
+                  - ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
           EOF
           cat docker-compose.test.override.yml
         shell: bash
@@ -357,12 +357,17 @@ jobs:
         continue-on-error: true
         run: |
           docker pull ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
+        env:
+          DOCKER_BUILDKIT: 1
 
       - name: Build
         id: build
         run: |
           if [ ! -e docker-compose.test.override.yml ]; then touch docker-compose.test.override.yml; fi
           .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml -f docker-compose.test.override.yml build --pull ${{ matrix.image }}
+        env:
+          COMPOSE_DOCKER_CLI_BUILD: 1
+          DOCKER_BUILDKIT: 1
 
       - name: "Elastic Spark TensorFlow Tests 1"
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_TensorFlow_Tests_1
@@ -845,7 +850,7 @@ jobs:
             ${{ matrix.image }}:
               build:
                 cache_from:
-                  - ${{ steps.ecr.outputs.registry }}:horovod-${{ matrix.image }}-latest
+                  - ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
           EOF
           cat docker-compose.test.override.yml
         shell: bash
@@ -855,12 +860,17 @@ jobs:
         continue-on-error: true
         run: |
           docker pull ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
+        env:
+          DOCKER_BUILDKIT: 1
 
       - name: Build
         id: build
         run: |
           if [ ! -e docker-compose.test.override.yml ]; then touch docker-compose.test.override.yml; fi
           .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml -f docker-compose.test.override.yml build --pull ${{ matrix.image }}
+        env:
+          COMPOSE_DOCKER_CLI_BUILD: 1
+          DOCKER_BUILDKIT: 1
 
       - name: "Elastic Spark TensorFlow Tests 1"
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_TensorFlow_Tests_1
