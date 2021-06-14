@@ -119,6 +119,14 @@ def main():
                 f'    tags: [ \'v*.*.*\' ]\n'
                 f'  pull_request:\n'
                 f'    branches: [ master ]\n'
+                f'\n'
+                f'concurrency:\n'
+                f'  # github.ref means something like refs/heads/master or refs/tags/v0.22.1 or the branch.\n'
+                f'  # This helps to not cancel concurrent runs on master and a tag that share the same commit\n'
+                f'  # On master, head_ref is empty, so we use the SHA of the commit, this means\n'
+                f'  # individual commits to master will not be cancelled, but tagged\n'
+                f'  group: ci-${{{{ github.ref }}}}-${{{{ github.head_ref || github.sha }}}}\n'
+                f'  cancel-in-progress: true\n'
                 f'\n')
 
     def jobs(*jobs: str) -> str:
@@ -191,14 +199,6 @@ def main():
                            # oneccl does not compile on GitHub Workflows:
                            # https://github.com/horovod/horovod/issues/2846
                            if '-oneccl-' not in image]) +
-                f'\n'
-                f'    concurrency:\n'
-                f'      # github.ref means something like refs/heads/master or refs/tags/v0.22.1 or the branch.\n'
-                f'      # This helps to not cancel concurrent runs on master and a tag that share the same commit\n'
-                f'      # On master, head_ref is empty, so we use the SHA of the commit, this means\n'
-                f'      # individual commits to master will not be cancelled, but tagged\n'
-                f'      group: ci-${{{{ matrix.image }}}}-${{{{ github.ref }}}}-${{{{ github.head_ref || github.sha }}}}\n'
-                f'      cancel-in-progress: true\n'
                 f'\n'
                 f'    steps:\n'
                 f'      - name: Clean up disk space\n'

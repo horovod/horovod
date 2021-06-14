@@ -13,6 +13,14 @@ on:
   pull_request:
     branches: [ master ]
 
+concurrency:
+  # github.ref means something like refs/heads/master or refs/tags/v0.22.1 or the branch.
+  # This helps to not cancel concurrent runs on master and a tag that share the same commit
+  # On master, head_ref is empty, so we use the SHA of the commit, this means
+  # individual commits to master will not be cancelled, but tagged
+  group: ci-${{ github.ref }}-${{ github.head_ref || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   init-workflow:
     name: "Init Workflow"
@@ -271,14 +279,6 @@ jobs:
 
           - image: test-mixed-openmpi-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark_3_1_1
             build_timeout: 40
-
-    concurrency:
-      # github.ref means something like refs/heads/master or refs/tags/v0.22.1 or the branch.
-      # This helps to not cancel concurrent runs on master and a tag that share the same commit
-      # On master, head_ref is empty, so we use the SHA of the commit, this means
-      # individual commits to master will not be cancelled, but tagged
-      group: ci-${{ matrix.image }}-${{ github.ref }}-${{ github.head_ref || github.sha }}
-      cancel-in-progress: true
 
     steps:
       - name: Clean up disk space
@@ -774,14 +774,6 @@ jobs:
 
           - image: test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark_3_1_1
             build_timeout: 40
-
-    concurrency:
-      # github.ref means something like refs/heads/master or refs/tags/v0.22.1 or the branch.
-      # This helps to not cancel concurrent runs on master and a tag that share the same commit
-      # On master, head_ref is empty, so we use the SHA of the commit, this means
-      # individual commits to master will not be cancelled, but tagged
-      group: ci-${{ matrix.image }}-${{ github.ref }}-${{ github.head_ref || github.sha }}
-      cancel-in-progress: true
 
     steps:
       - name: Clean up disk space
