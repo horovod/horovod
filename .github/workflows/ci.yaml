@@ -281,6 +281,32 @@ jobs:
       cancel-in-progress: true
 
     steps:
+      - name: Clean up disk space
+        # deleting these paths frees 38 GB disk space:
+        #   sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+        # but this sometimes takes 3-4 minutes
+        # so we delete only some sub-paths which are known to be quick (10s) and 20 GB
+        run: |
+          echo ::group::Disk space before clean up
+          df -h
+          echo ::endgroup::
+
+          for dir in /usr/share/dotnet/sdk/\*/nuGetPackagesArchive.lzma \
+                     /usr/share/dotnet/shared \
+                     /usr/local/lib/android/sdk/ndk \
+                     /usr/local/lib/android/sdk/build-tools \
+                     /opt/ghc
+          do
+            echo ::group::Deleting "$dir"
+            sudo du -hsc $dir | tail -n1 || true
+            sudo rm -rf $dir
+            echo ::endgroup::
+          done
+
+          echo ::group::Disk space after clean up
+          df -h
+          echo ::endgroup::
+
       - name: Checkout
         uses: actions/checkout@v2
         with:
@@ -296,7 +322,7 @@ jobs:
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
-        # disabled as 1) the cache image is not been picked up and 2) image is too large for github workers
+        # disabled as the cache image is not been picked up
         if: false
         continue-on-error: true
         with:
@@ -306,13 +332,13 @@ jobs:
 
       - name: Login to Amazon ECR
         id: ecr
-        # disabled as 1) the cache image is not been picked up and 2) image is too large for github workers
+        # disabled as the cache image is not been picked up
         if: false
         continue-on-error: true
         uses: aws-actions/amazon-ecr-login@v1
 
       - name: Add cache_from to docker-compose YAML
-        # disabled as 1) the cache image is not been picked up and 2) image is too large for github workers
+        # disabled as the cache image is not been picked up
         if: false
         run: |
           mv docker-compose.test.yml docker-compose.test.yml.bak
@@ -321,7 +347,7 @@ jobs:
         shell: bash
 
       - name: Pull latest image
-        # disabled as 1) the cache image is not been picked up and 2) image is too large for github workers
+        # disabled as the cache image is not been picked up
         if: false
         continue-on-error: true
         run: |
@@ -735,6 +761,32 @@ jobs:
       cancel-in-progress: true
 
     steps:
+      - name: Clean up disk space
+        # deleting these paths frees 38 GB disk space:
+        #   sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+        # but this sometimes takes 3-4 minutes
+        # so we delete only some sub-paths which are known to be quick (10s) and 20 GB
+        run: |
+          echo ::group::Disk space before clean up
+          df -h
+          echo ::endgroup::
+
+          for dir in /usr/share/dotnet/sdk/\*/nuGetPackagesArchive.lzma \
+                     /usr/share/dotnet/shared \
+                     /usr/local/lib/android/sdk/ndk \
+                     /usr/local/lib/android/sdk/build-tools \
+                     /opt/ghc
+          do
+            echo ::group::Deleting "$dir"
+            sudo du -hsc $dir | tail -n1 || true
+            sudo rm -rf $dir
+            echo ::endgroup::
+          done
+
+          echo ::group::Disk space after clean up
+          df -h
+          echo ::endgroup::
+
       - name: Checkout
         uses: actions/checkout@v2
         with:
@@ -750,7 +802,7 @@ jobs:
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
-        # disabled as 1) the cache image is not been picked up and 2) image is too large for github workers
+        # disabled as the cache image is not been picked up
         if: false
         continue-on-error: true
         with:
@@ -760,13 +812,13 @@ jobs:
 
       - name: Login to Amazon ECR
         id: ecr
-        # disabled as 1) the cache image is not been picked up and 2) image is too large for github workers
+        # disabled as the cache image is not been picked up
         if: false
         continue-on-error: true
         uses: aws-actions/amazon-ecr-login@v1
 
       - name: Add cache_from to docker-compose YAML
-        # disabled as 1) the cache image is not been picked up and 2) image is too large for github workers
+        # disabled as the cache image is not been picked up
         if: false
         run: |
           mv docker-compose.test.yml docker-compose.test.yml.bak
@@ -775,7 +827,7 @@ jobs:
         shell: bash
 
       - name: Pull latest image
-        # disabled as 1) the cache image is not been picked up and 2) image is too large for github workers
+        # disabled as the cache image is not been picked up
         if: false
         continue-on-error: true
         run: |
