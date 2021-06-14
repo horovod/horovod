@@ -347,7 +347,8 @@ run_spark_integration() {
     if [[ ${queue} != *gpu* ]]; then
       run_test "${test}" "${queue}" \
         ":spark: Spark PyTests (${test})" \
-        "bash -c \"cd /horovod/test/integration && (ls -1 test_spark*.py | xargs -n 1 /bin/bash /pytest_standalone.sh spark)\""
+        "bash -c \"cd /horovod/test/integration && (ls -1 test_spark*.py | xargs -n 1 /bin/bash /pytest_standalone.sh spark)\"" \
+        20
     fi
 
     if [[ ${test} != *"tf2"* && ${test} != *"tfhead"* ]]; then

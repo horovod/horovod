@@ -705,7 +705,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Spark_PyTests
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Spark_PyTests
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_PyTests:/artifacts" ${{ matrix.image }} /bin/bash /horovod/.github/timeout-and-retry.sh 10m 3 10 bash -c "cd /horovod/test/integration && (ls -1 test_spark*.py | xargs -n 1 /bin/bash /pytest_standalone.sh spark)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_PyTests:/artifacts" ${{ matrix.image }} /bin/bash /horovod/.github/timeout-and-retry.sh 20m 3 10 bash -c "cd /horovod/test/integration && (ls -1 test_spark*.py | xargs -n 1 /bin/bash /pytest_standalone.sh spark)"
         shell: bash
 
       - name: "Spark Torch MNIST"
@@ -1185,7 +1185,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Spark_PyTests
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Spark_PyTests
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_PyTests:/artifacts" ${{ matrix.image }} /bin/bash /horovod/.github/timeout-and-retry.sh 10m 3 10 bash -c "cd /horovod/test/integration && (ls -1 test_spark*.py | xargs -n 1 /bin/bash /pytest_standalone.sh spark)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_PyTests:/artifacts" ${{ matrix.image }} /bin/bash /horovod/.github/timeout-and-retry.sh 20m 3 10 bash -c "cd /horovod/test/integration && (ls -1 test_spark*.py | xargs -n 1 /bin/bash /pytest_standalone.sh spark)"
         shell: bash
 
       - name: "Spark Torch MNIST"
