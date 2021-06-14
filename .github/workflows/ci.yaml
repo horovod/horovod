@@ -321,9 +321,11 @@ jobs:
         run: pip install docker-compose
 
       - name: Configure AWS credentials
+        id: aws
         uses: aws-actions/configure-aws-credentials@v1
-        # disabled as the cache image is not been picked up
-        if: false
+        # AWS credentials are used to authenticate against AWS ECR to pull and push test images
+        # We can only authenticate when running on Horovod repo (not a fork)
+        if: github.repository == 'horovod/horovod'
         continue-on-error: true
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -332,23 +334,20 @@ jobs:
 
       - name: Login to Amazon ECR
         id: ecr
-        # disabled as the cache image is not been picked up
-        if: false
+        if: steps.aws.outcome == 'success'
         continue-on-error: true
         uses: aws-actions/amazon-ecr-login@v1
 
       - name: Add cache_from to docker-compose YAML
-        # disabled as the cache image is not been picked up
-        if: false
+        if: steps.ecr.outcome == 'success'
         run: |
           mv docker-compose.test.yml docker-compose.test.yml.bak
           .github/add-cache-to-docker-compose.sh "${{ steps.ecr.outputs.registry }}" < docker-compose.test.yml.bak > docker-compose.test.yml
           git diff
         shell: bash
 
-      - name: Pull latest image
-        # disabled as the cache image is not been picked up
-        if: false
+      - name: Pull latest test image
+        if: steps.ecr.outcome == 'success'
         continue-on-error: true
         run: |
           docker pull ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
@@ -356,7 +355,7 @@ jobs:
       - name: Build
         id: build
         run: |
-          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml build ${{ matrix.image }}
+          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml build --pull ${{ matrix.image }}
 
       - name: "Elastic Spark TensorFlow Tests 1"
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_TensorFlow_Tests_1
@@ -721,6 +720,18 @@ jobs:
         with:
           name: Unit Test Results - ${{ matrix.image }}
           path: artifacts/${{ matrix.image }}/**/*.xml
+
+      - name: Push test image
+        # We push test image to AWS ECR on push to Horovod master (not a fork)
+        if: >
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/master' &&
+          github.repository == 'horovod/horovod' &&
+          steps.ecr.outcome == 'success'
+        continue-on-error: true
+        run: |
+          docker tag ${{ matrix.image }} ${{ steps.ecr.outputs.registry }}:horovod-${{ matrix.image }}-latest
+          docker push ${{ steps.ecr.outputs.registry }}:horovod-${{ matrix.image }}-latest
 
   build-and-test-heads:
     name: "Build and Test (${{ matrix.image }})"
@@ -801,9 +812,11 @@ jobs:
         run: pip install docker-compose
 
       - name: Configure AWS credentials
+        id: aws
         uses: aws-actions/configure-aws-credentials@v1
-        # disabled as the cache image is not been picked up
-        if: false
+        # AWS credentials are used to authenticate against AWS ECR to pull and push test images
+        # We can only authenticate when running on Horovod repo (not a fork)
+        if: github.repository == 'horovod/horovod'
         continue-on-error: true
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -812,23 +825,20 @@ jobs:
 
       - name: Login to Amazon ECR
         id: ecr
-        # disabled as the cache image is not been picked up
-        if: false
+        if: steps.aws.outcome == 'success'
         continue-on-error: true
         uses: aws-actions/amazon-ecr-login@v1
 
       - name: Add cache_from to docker-compose YAML
-        # disabled as the cache image is not been picked up
-        if: false
+        if: steps.ecr.outcome == 'success'
         run: |
           mv docker-compose.test.yml docker-compose.test.yml.bak
           .github/add-cache-to-docker-compose.sh "${{ steps.ecr.outputs.registry }}" < docker-compose.test.yml.bak > docker-compose.test.yml
           git diff
         shell: bash
 
-      - name: Pull latest image
-        # disabled as the cache image is not been picked up
-        if: false
+      - name: Pull latest test image
+        if: steps.ecr.outcome == 'success'
         continue-on-error: true
         run: |
           docker pull ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
@@ -836,7 +846,7 @@ jobs:
       - name: Build
         id: build
         run: |
-          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml build ${{ matrix.image }}
+          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml build --pull ${{ matrix.image }}
 
       - name: "Elastic Spark TensorFlow Tests 1"
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_TensorFlow_Tests_1
@@ -1201,6 +1211,18 @@ jobs:
         with:
           name: Unit Test Results - ${{ matrix.image }}
           path: artifacts/${{ matrix.image }}/**/*.xml
+
+      - name: Push test image
+        # We push test image to AWS ECR on push to Horovod master (not a fork)
+        if: >
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/master' &&
+          github.repository == 'horovod/horovod' &&
+          steps.ecr.outcome == 'success'
+        continue-on-error: true
+        run: |
+          docker tag ${{ matrix.image }} ${{ steps.ecr.outputs.registry }}:horovod-${{ matrix.image }}-latest
+          docker push ${{ steps.ecr.outputs.registry }}:horovod-${{ matrix.image }}-latest
 
   build-and-test-macos:
     name: "Build and Test (${{ matrix.image }}-macos)"
