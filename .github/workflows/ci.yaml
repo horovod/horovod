@@ -341,9 +341,15 @@ jobs:
       - name: Add cache_from to docker-compose YAML
         if: steps.ecr.outcome == 'success'
         run: |
-          mv docker-compose.test.yml docker-compose.test.yml.bak
-          .github/add-cache-to-docker-compose.sh "${{ steps.ecr.outputs.registry }}" < docker-compose.test.yml.bak > docker-compose.test.yml
-          git diff
+          cat > docker-compose.test.override.yml <<EOF
+          version: '2.3'
+          services:
+            ${{ matrix.image }}:
+              build:
+                cache_from:
+                  - ${{ steps.ecr.outputs.registry }}:horovod-${{ matrix.image }}-latest
+          EOF
+          cat docker-compose.test.override.yml
         shell: bash
 
       - name: Pull latest test image
@@ -355,7 +361,8 @@ jobs:
       - name: Build
         id: build
         run: |
-          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml build --pull ${{ matrix.image }}
+          if [ ! -e docker-compose.test.override.yml ]; then touch docker-compose.test.override.yml; fi
+          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml -f docker-compose.test.override.yml build --pull ${{ matrix.image }}
 
       - name: "Elastic Spark TensorFlow Tests 1"
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_TensorFlow_Tests_1
@@ -832,9 +839,15 @@ jobs:
       - name: Add cache_from to docker-compose YAML
         if: steps.ecr.outcome == 'success'
         run: |
-          mv docker-compose.test.yml docker-compose.test.yml.bak
-          .github/add-cache-to-docker-compose.sh "${{ steps.ecr.outputs.registry }}" < docker-compose.test.yml.bak > docker-compose.test.yml
-          git diff
+          cat > docker-compose.test.override.yml <<EOF
+          version: '2.3'
+          services:
+            ${{ matrix.image }}:
+              build:
+                cache_from:
+                  - ${{ steps.ecr.outputs.registry }}:horovod-${{ matrix.image }}-latest
+          EOF
+          cat docker-compose.test.override.yml
         shell: bash
 
       - name: Pull latest test image
@@ -846,7 +859,8 @@ jobs:
       - name: Build
         id: build
         run: |
-          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml build --pull ${{ matrix.image }}
+          if [ ! -e docker-compose.test.override.yml ]; then touch docker-compose.test.override.yml; fi
+          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml -f docker-compose.test.override.yml build --pull ${{ matrix.image }}
 
       - name: "Elastic Spark TensorFlow Tests 1"
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_TensorFlow_Tests_1
