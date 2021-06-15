@@ -60,7 +60,8 @@ public:
 
   virtual void Barrier(Communicator communicator) = 0;
 
-  virtual void AllgatherInt(int value, std::vector<int>& recv_values) = 0;
+  virtual void Allgather2Ints(std::array<int, 2> values,
+                              std::vector<int>& recv_values) = 0;
 
   //
   // Concrete controller functions

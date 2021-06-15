@@ -88,10 +88,14 @@ public:
   // background thread.
   void Initialize(const MPIContext& global_mpi_context);
 
-  // To be called in the background thread: Initialize any process sets
-  // that have been registered by all processes. Returns the number of
-  // newly initialized process sets (may be zero).
-  int32_t InitializeRegisteredIfReady(const MPIContext& global_mpi_context);
+  // To be called in the background thread: 1) Initialize any process sets
+  // that have been registered by all processes.
+  // 2) Deregister a process set (just one) that has been marked for removal by
+  // all processes.
+  // Returns the number of newly initialized process sets (may be zero) from 1).
+  int32_t InitializeRegisteredAndRemoveMarkedIfReady(
+      const MPIContext& global_mpi_context);
+
 #endif // HAVE_MPI
 
 #if HAVE_GLOO
@@ -117,8 +121,6 @@ public:
   void MarkProcessSetForRemoval(int32_t process_set_id);
 
   bool ProcessSetHasJustBeenRemoved();
-
-  void RemoveMarkedProcessSetIfReady();
 
   // Guard access to the table by this mutex
   mutable std::recursive_mutex mutex;

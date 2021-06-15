@@ -94,30 +94,60 @@ void ProcessSetTable::Initialize(const MPIContext& global_mpi_context) {
   Get(0).Initialize(global_mpi_context);
 }
 
-int32_t ProcessSetTable::InitializeRegisteredIfReady(
+int32_t ProcessSetTable::InitializeRegisteredAndRemoveMarkedIfReady(
     const MPIContext& global_mpi_context) {
   std::lock_guard<std::recursive_mutex> guard(mutex);
 
   int locally_registered_count = ids_.size();
-  auto& global_controller = *Get(0).controller;
-  auto registered_counts = std::vector<int>(global_controller.GetSize());
-  global_controller.AllgatherInt(locally_registered_count, registered_counts);
-  if (std::any_of(registered_counts.begin(), registered_counts.end(),
-                  [locally_registered_count](int reg_count) {
-                    return reg_count != locally_registered_count;
-                  })) {
-    // Do not initialize newly added process sets until every process has
-    // registered them.
-    return 0;
-  }
+  std::array<int, 2> pair_to_transmit {locally_registered_count,
+                                       id_to_be_removed_};
 
-  int32_t initialized_count = 0;
-  for (auto id: Ids()) {
-    bool newly_registerd = Get(id).Initialize(global_mpi_context);
-    if (newly_registerd) {
-      ++initialized_count;
+  auto& global_controller = *Get(0).controller;
+  auto recv_buffer = std::vector<int>(2 * global_controller.GetSize());
+  global_controller.Allgather2Ints(pair_to_transmit, recv_buffer);
+
+  bool registered_count_agreement = true;
+  bool id_to_be_removed_agreement = true;
+  for (int i_locally_registered_count = 0;
+       i_locally_registered_count < 2 * global_controller.GetSize() &&
+       (registered_count_agreement || id_to_be_removed_agreement);
+       i_locally_registered_count += 2) {
+    auto other_reg_count = recv_buffer[i_locally_registered_count];
+    auto other_marked_id = recv_buffer[i_locally_registered_count + 1];
+    if (other_reg_count != locally_registered_count) {
+      registered_count_agreement = false;
+    }
+    if (other_marked_id != id_to_be_removed_) {
+      id_to_be_removed_agreement = false;
     }
   }
+
+  // 1) Initialize registered process sets if all processes are ready to do so:
+  int32_t initialized_count = 0;
+  if (registered_count_agreement) {
+    for (auto id: Ids()) {
+      bool newly_registered = Get(id).Initialize(global_mpi_context);
+      if (newly_registered) {
+        ++initialized_count;
+      }
+    }
+  }
+
+  // 2) Deregeister a process set marked for removal by all processess:
+  if (id_to_be_removed_agreement) {
+    if (id_to_be_removed_ == NO_PENDING_REMOVAL ||
+        id_to_be_removed_ == SUCCESSFUL_REMOVAL) {
+      // do nothing
+    } else {
+      id_to_process_set_[id_to_be_removed_].Finalize(
+          Status::Aborted("Process set has been removed"));
+      DeregisterProcessSet(id_to_be_removed_);
+
+      id_to_be_removed_ = SUCCESSFUL_REMOVAL;
+    }
+  }
+
+  // Return count from 1)
   return initialized_count;
 }
 #endif // HAVE_MPI
@@ -239,30 +269,6 @@ bool ProcessSetTable::ProcessSetHasJustBeenRemoved() {
     return true;
   }
   return false;
-}
-
-void ProcessSetTable::RemoveMarkedProcessSetIfReady() {
-  std::lock_guard<std::recursive_mutex> guard(mutex);
-
-  auto& global_controller = *Get(0).controller;
-  auto ids_marked_on_all_ranks = std::vector<int>(global_controller.GetSize());
-  global_controller.AllgatherInt(id_to_be_removed_, ids_marked_on_all_ranks);
-  if (std::any_of(
-          ids_marked_on_all_ranks.begin(), ids_marked_on_all_ranks.end(),
-          [this](int other_id) { return other_id != id_to_be_removed_; })) {
-    // Do not remove marked process set until every process has marked the same.
-    return;
-  }
-  if (id_to_be_removed_ == NO_PENDING_REMOVAL ||
-      id_to_be_removed_ == SUCCESSFUL_REMOVAL) {
-    return;
-  }
-
-  id_to_process_set_[id_to_be_removed_].Finalize(
-      Status::Aborted("Process set has been removed"));
-  DeregisterProcessSet(id_to_be_removed_);
-
-  id_to_be_removed_ = SUCCESSFUL_REMOVAL;
 }
 
 } // common

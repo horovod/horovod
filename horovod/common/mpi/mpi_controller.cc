@@ -249,11 +249,12 @@ void MPIController::Barrier(Communicator communicator) {
   }
 }
 
-void MPIController::AllgatherInt(int value, std::vector<int>& recv_values) {
-  recv_values.resize(size_);
+void MPIController::Allgather2Ints(std::array<int, 2> values,
+                                   std::vector<int>& recv_values) {
+  recv_values.resize(size_ * 2);
   MPI_Comm comm = mpi_ctx_.GetMPICommunicator(Communicator::GLOBAL);
-  int ret_code = MPI_Allgather(&value, 1, MPI_INT,
-                               recv_values.data(), 1, MPI_INT,
+  int ret_code = MPI_Allgather(values.data(), 2, MPI_INT,
+                               recv_values.data(), 2, MPI_INT,
                                comm);
   if (ret_code != MPI_SUCCESS) {
     throw std::runtime_error(

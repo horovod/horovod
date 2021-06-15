@@ -583,7 +583,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
         GetProcessSetOrAddUnitialized(process_set_ranks, id);
       }
       auto initialized_count =
-          state.process_set_table.InitializeRegisteredIfReady(global_mpi_context);
+          state.process_set_table.InitializeRegisteredAndRemoveMarkedIfReady(
+              global_mpi_context);  // will only initialize, not remove
       if (state.process_set_ranks_to_register.size() > 0 &&
           initialized_count == 0) {
         throw std::logic_error("Different ranks tried to set up mismatching "
@@ -668,15 +669,12 @@ bool RunLoopOnce(HorovodGlobalState& state) {
   bool this_process_requested_shutdown = state.shut_down;
 
 #if HAVE_MPI
-  if (state.dynamic_process_sets) {
+  if (state.dynamic_process_sets && global_mpi_context.IsEnabled()) {
     // Initialize any newly added process set that has been registered by all
-    // Horovod processes.
-    if (global_mpi_context.IsEnabled()) {
-      state.process_set_table.InitializeRegisteredIfReady(global_mpi_context);
-      // Remove a process set that has been marked for removal by all Horovod
-      // processes.
-      state.process_set_table.RemoveMarkedProcessSetIfReady();
-    }
+    // Horovod processes and remove a process set that has been marked for
+    // removal by all Horovod processes.
+    state.process_set_table.InitializeRegisteredAndRemoveMarkedIfReady(
+        global_mpi_context);
   }
 #endif // HAVE_MPI
 
@@ -1169,7 +1167,7 @@ int horovod_add_process_set(const int* ranks, int nrank) {
   ProcessSet* process_set = nullptr;
   {
     // Lock the table so the background thread will not initialize a newly added
-    // proces set before we leave this critical section.
+    // process set before we leave this critical section.
     std::lock_guard<std::recursive_mutex> table_lock(
         horovod_global.process_set_table.mutex);
     process_set = &GetProcessSetOrAddUnitialized(

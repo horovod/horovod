@@ -289,12 +289,13 @@ void GlooController::Barrier(Communicator communicator) {
   gloo::barrier(opts);
 }
 
-void GlooController::AllgatherInt(int value, std::vector<int>& recv_values) {
-  recv_values.resize(size_);
+void GlooController::Allgather2Ints(std::array<int, 2> values,
+                                    std::vector<int>& recv_values) {
+  recv_values.resize(size_ * 2);
   gloo::AllgatherOptions opts(
       gloo_context_.GetGlooContext(Communicator::GLOBAL));
-  opts.setInput(&value, 1);
-  opts.setOutput(recv_values.data(), size_);
+  opts.setInput(values.data(), 2);
+  opts.setOutput(recv_values.data(), size_ * 2);
   gloo::allgather(opts);
 }
 

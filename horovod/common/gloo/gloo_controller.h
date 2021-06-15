@@ -59,7 +59,8 @@ public:
 
   void Barrier(Communicator communicator) override;
 
-  void AllgatherInt(int value, std::vector<int>& recv_values) override;
+  void Allgather2Ints(std::array<int, 2> values,
+                      std::vector<int>& recv_values) override;
 
 protected:
   void DoInitialization() override;
