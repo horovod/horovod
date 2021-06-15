@@ -88,6 +88,10 @@ class TFKerasUtil(object):
                 dataset = dataset.batch(1).map(reshape)
 
             dataset = dataset.batch(batch_size).map(prep_data_tf_keras)
+            if hasattr(tf.data, 'AUTOTUNE'):
+                dataset = dataset.prefetch(tf.data.AUTOTUNE)
+            else:
+                dataset = dataset.prefetch(1)
             return dataset
         return tf.autograph.experimental.do_not_convert(fn)
 
