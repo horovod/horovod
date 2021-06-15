@@ -74,7 +74,7 @@ void NCCLOpContext::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
   ncclComm_t& nccl_comm =
       nccl_context_
           ->nccl_comms[global_state_->current_nccl_stream]
-                      [std::make_pair(process_set_id, nccl_device_map)];
+                      [std::make_tuple(process_set_id, nccl_device_map)];
   if (nccl_comm == nullptr) {
     auto& timeline = global_state_->timeline;
     timeline.ActivityStartAll(entries, INIT_NCCL);

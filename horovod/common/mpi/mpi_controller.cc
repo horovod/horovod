@@ -47,12 +47,18 @@ void MPIController::DoInitialization() {
 
   // Build mappings (process-set specific rank) <-> (global rank)
   {
-    int global_rank;
-    MPI_Comm_rank(mpi_ctx_.global_comm, &global_rank);
+    MPI_Group global_group;
+    MPI_Comm_group(mpi_ctx_.global_comm, &global_group);
+    MPI_Group process_set_group;
+    MPI_Comm_group(mpi_ctx_.mpi_comm, &process_set_group);
+
     global_ranks_ = std::vector<int>(size_);
-    global_ranks_[rank_] = global_rank;
-    MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, global_ranks_.data(), 1,
-                  MPI_INT, mpi_ctx_.mpi_comm);
+    auto process_set_ranks = std::vector<int>(size_);
+    std::iota(process_set_ranks.begin(), process_set_ranks.end(), 0);
+    MPI_Group_translate_ranks(process_set_group, size_,
+                              process_set_ranks.data(), global_group,
+                              global_ranks_.data());
+
     global_rank_to_controller_rank_ = std::unordered_map<int, int>(size_);
     for (int rank = 0; rank < size_; ++rank) {
       global_rank_to_controller_rank_[global_ranks_[rank]] = rank;

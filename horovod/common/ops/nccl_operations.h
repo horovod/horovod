@@ -28,9 +28,9 @@
 #endif
 
 #include "gpu_operations.h"
+#include "../hashes.h"
 
 #include <functional>
-#include <boost/container_hash/hash.hpp>
 
 namespace horovod {
 namespace common {
@@ -40,8 +40,7 @@ ncclDataType_t GetNCCLDataType(const std::shared_ptr<Tensor> tensor);
 struct NCCLContext {
   // indexed by [nccl stream][{process set id, device id vector}]
   std::vector<
-      std::unordered_map<std::pair<int32_t, std::vector<int32_t>>, ncclComm_t,
-                         boost::hash<std::pair<int32_t, std::vector<int32_t>>>>>
+      std::unordered_map<std::tuple<int32_t, std::vector<int32_t>>, ncclComm_t>>
       nccl_comms;
 
   void ErrorCheck(std::string op_name, ncclResult_t nccl_result, ncclComm_t& nccl_comm);
