@@ -179,9 +179,11 @@ class DistributedTrainer(mx.gluon.Trainer):
                     grads, names = zip(*entries)
                     grouped_allreduce_(tensors=grads, average=False, name="{}:{}".format(names[0], names[-1]), priority=-i,
                                        prescale_factor=1.0 / self._gradient_predivide_factor)
-            for i, param in enumerate(self._params):
-                if param.grad_req != 'null':
-                    param.list_grad()[0][:] = self._compression.decompress(grads[i], ctxs[i])
+
+            if self._compression != Compression.none:
+                for i, param in enumerate(self._params):
+                    if param.grad_req != 'null':
+                        param.list_grad()[0][:] = self._compression.decompress(grads[i], ctxs[i])
         else:
             # In MXNet 2.0, param.name is no longer unique.
             # Meanwhile, since horovod requires Python 3.6, there is no need to sort
