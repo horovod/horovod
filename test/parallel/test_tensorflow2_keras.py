@@ -251,9 +251,11 @@ class Tf2KerasTests(tf.test.TestCase):
         class TestOptimizer(keras.optimizers.Optimizer):
             def __init__(self, name, **kwargs):
                 super(TestOptimizer, self).__init__(name, **kwargs)
-                self.variable = tf.Variable([0.0])
-            def _compute_gradients(self, *args, **kwargs):
-                return [(tf.constant([float(hvd.rank())]), self.variable)]
+            def get_gradients(self, loss, params):
+                assert len(params) == 1
+                return [tf.constant([float(hvd.rank())])]
+            def _create_slots(self, var_list):
+                pass
             def _resource_apply_dense(self, grad, var, apply_state):
                 return var.assign_add(grad)
             def get_config(self):
@@ -263,9 +265,10 @@ class Tf2KerasTests(tf.test.TestCase):
         opt = TestOptimizer(name="TestOpti")
         opt = hvd.DistributedOptimizer(opt, process_set=subset)
 
-        grads_and_vars = opt._compute_gradients(None, [])
-        opt.apply_gradients(grads_and_vars)
-        computed_value = opt.variable.numpy()
+        variable = tf.Variable([0.0])
+        gradient, = opt.get_gradients(None, [variable])
+        opt.apply_gradients([(gradient, variable)])
+        computed_value = variable.numpy()
 
         if subset.included():
             self.assertAlmostEqual(computed_value, sum(range(0, size, 2)) / subset.size())
