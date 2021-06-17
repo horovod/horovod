@@ -16,6 +16,8 @@
 
 #include "mpi_controller.h"
 
+#include <numeric>
+
 #include "../common.h"
 #include "../logging.h"
 

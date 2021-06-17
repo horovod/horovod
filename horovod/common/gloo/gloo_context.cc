@@ -18,6 +18,7 @@
 #include <chrono>
 #include <iterator>
 #include <memory>
+#include <numeric>
 #include <sstream>
 #include <stdexcept>
 
