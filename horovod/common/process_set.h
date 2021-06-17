@@ -34,9 +34,9 @@ struct ProcessSet {
   // Information on registered groups.
   GroupTable group_table;
 
-  // If this is empty before initialization, but after registration, all Horovod
-  // processes belong to this set. After initialization this always enumerates
-  // all ranks belonging to the proces set.
+  // If this is empty before initialization, all Horovod
+  // processes will belong to this set. After initialization this always
+  // enumerates all ranks belonging to the proces set.
   std::vector<int> registered_global_ranks;
 
   std::atomic_bool initialization_done{false};

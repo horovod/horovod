@@ -152,6 +152,12 @@ void ProcessSet::Finalize(const Status& status) {
 #if HAVE_MPI
   mpi_context.FinalizeWithoutEnv();
 #endif // HAVE_MPI
+#if HAVE_GLOO
+  gloo_context.Finalize();
+#endif // HAVE_GLOO
+  // Clear the registered_global_ranks vector so the global process set can be
+  // properly re-initialized with elastic Horovod.
+  registered_global_ranks.clear();
   initialization_done = false;
 }
 

@@ -371,6 +371,7 @@ void GlooContext::Finalize() {
     return;
   }
 
+  global_ctx.reset();
   ctx.reset();
   cross_ctx.reset();
   local_ctx.reset();
