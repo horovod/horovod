@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import unittest
 
 import horovod.tensorflow as hvd
@@ -12,23 +13,25 @@ class ProcessSetsStaticTests(unittest.TestCase):
     """ Since this test case initializes Horovod and shuts it down, it must be run in a separate process. """
     def test_static(self):
         mpi_rank, mpi_size = mpi_env_rank_and_size()
+        gloo_rank = int(os.getenv('HOROVOD_RANK', -1))
         gloo_size = int(os.getenv('HOROVOD_SIZE', -1))
-        if gloo_size != -1:
-            self.skipTest("Multiple process sets currently do not support Gloo controller.")
+        is_mpi = gloo_rank == -1
 
+        rank = max(mpi_rank, gloo_rank)
         size = max(mpi_size, gloo_size)
 
         # This test does not apply if there is only one worker.
         if size == 1:
             self.skipTest("Only one worker available")
 
-        try:
-            import mpi4py
-            mpi4py.rc.initialize = False
-        except ImportError:
-            self.skipTest("This test requires mpi4py.")
+        if is_mpi:
+            try:
+                import mpi4py
+                mpi4py.rc.initialize = False
+            except ImportError:
+                pass
 
-        if mpi_rank == 0:
+        if rank == 0:
             my_process_sets = [hvd.ProcessSet([0]),
                                hvd.ProcessSet(range(1, size)),
                                hvd.ProcessSet(range(size - 1, -1, -1)),  # duplicate
@@ -43,7 +46,7 @@ class ProcessSetsStaticTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             hvd.init(process_sets=my_process_sets)
 
-        if mpi_rank == 0:
+        if rank == 0:
             my_process_sets = [hvd.ProcessSet([0]),
                                hvd.ProcessSet(range(1, size)),
                                ]
@@ -62,8 +65,14 @@ class ProcessSetsStaticTests(unittest.TestCase):
                                   1: [0],
                                   2: list(range(1, size))})
 
-        # barrier before shutdown
-        from mpi4py import MPI
-        MPI.COMM_WORLD.barrier()
+        try:
+            if is_mpi:
+                # barrier before shutdown
+                from mpi4py import MPI
+                MPI.COMM_WORLD.barrier()
+            else:
+                time.sleep(0.1)
+        except ImportError:
+            time.sleep(0.1)
 
         hvd.shutdown()

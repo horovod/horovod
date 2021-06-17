@@ -950,8 +950,7 @@ REGISTER_OP("HorovodProcessSetIncluded")
 Returns 0 or 1 depending on whether the current process is
 included in the specified process set or an error code:
 HOROVOD_PROCESS_SET_ERROR_INIT if Horovod is not initialized,
-HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET if the process set is unknown,
-HOROVOD_PROCESS_SET_ERROR_GLOO if running with Gloo.
+HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET if the process set is unknown.
 )doc");
 
 

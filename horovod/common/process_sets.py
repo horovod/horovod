@@ -87,12 +87,6 @@ def _init_process_sets(process_set_list: List[ProcessSet]):
     """ Update process_set_id and ranks entries of all passed process set objects and invalidate any clones.
 
     Horovod internal, to be called from hvd.init(). """
-    if _basics.gloo_enabled():
-        # TODO: Remove once we have a Gloo backend
-        assert len(process_set_list) == 0
-        global_process_set.ranks = list(range(0, _basics.size()))
-        return
-
     # Update process set objects in passed list:
     ids_seen_in_process_set_list = {0}  # global_process_set is not in list
     id_to_ranks_dict = _basics._get_process_set_ids_and_ranks()

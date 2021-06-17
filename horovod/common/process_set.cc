@@ -1,6 +1,12 @@
 #include <algorithm>
 #include <utility>
 
+#if HAVE_GLOO
+#include "gloo/allgather.h"
+#include "gloo/allreduce.h"
+#include "gloo/math.h"
+#endif // HAVE_GLOO
+
 #include "controller.h"
 #include "process_set.h"
 
@@ -15,12 +21,26 @@ bool ProcessSet::IsCurrentProcessIncluded() const {
   return controller->IsInitialized();
 }
 
+namespace {
+
+std::string RanksString(const std::vector<int>& ranks) {
+  std::ostringstream oss_ranks;
+  oss_ranks << "[";
+  std::copy(ranks.begin(), ranks.end(),
+            std::ostream_iterator<int>(oss_ranks, ","));
+  oss_ranks << "]";
+  return oss_ranks.str();
+}
+
+} // namespace
+
 #if HAVE_MPI
 bool ProcessSet::Initialize(const MPIContext& global_mpi_context) {
   if (initialization_done) {
     return false;
   }
-  LOG(TRACE) << "Initializing new process set with MPI.";
+  LOG(TRACE) << "Initializing new process set with MPI: "
+             << RanksString(registered_global_ranks);
   assert(controller != nullptr);
   int size;
   MPI_Comm_size(global_mpi_context.global_comm, &size);
@@ -63,12 +83,65 @@ bool ProcessSet::Initialize(const MPIContext& global_mpi_context) {
 #endif // HAVE_MPI
 
 #if HAVE_GLOO
-bool ProcessSet::Initialize(const GlooContext& gloo_context) {
+bool ProcessSet::Initialize(const GlooContext& global_gloo_context) {
   if (initialization_done) {
     return false;
   }
+  LOG(TRACE) << "Initializing new process set with Gloo: "
+             << RanksString(registered_global_ranks);
   assert(controller != nullptr);
-  controller->Initialize();  // TODO: only initialize controller if this process belongs to the process set
+  assert(global_gloo_context.ctx != nullptr);
+  int size = global_gloo_context.ctx->size;
+  if (!registered_global_ranks.empty()) {
+    // Verify that each process has registered the same set of processes.
+    std::vector<int> buf(size);
+    assert((int)registered_global_ranks.size() <= size);
+    auto len = static_cast<int>(registered_global_ranks.size());
+    {
+      gloo::AllgatherOptions opts(global_gloo_context.ctx);
+      opts.setInput(&len, 1);
+      opts.setOutput(buf.data(), size);
+      gloo::allgather(opts);
+    }
+    if (std::any_of(buf.begin(), buf.end(),
+                    [len](int other_len) { return len != other_len; })) {
+      throw std::logic_error("Attempted to register process set with "
+                             "mismatching size on different ranks");
+    }
+
+    for (auto marker : {'>', '<'}) {
+      buf.resize(len);
+      {
+        gloo::AllreduceOptions opts(global_gloo_context.ctx);
+        opts.setInput(registered_global_ranks.data(), len);
+        opts.setOutput(buf.data(), len);
+        if (marker == '>') {
+          opts.setReduceFunction(
+              static_cast<void (*)(void*, const void*, const void*, size_t)>(
+                  &gloo::max<int>));
+        } else if (marker == '<') {
+          opts.setReduceFunction(
+              static_cast<void (*)(void*, const void*, const void*, size_t)>(
+                  &gloo::min<int>));
+        }
+        gloo::allreduce(opts);
+      }
+      if (registered_global_ranks != buf) {
+        LOG(TRACE) << "buf: " << RanksString(buf);
+        throw std::logic_error("Attempted to register process set with "
+                               "mismatching values on different ranks");
+      }
+    }
+  }
+  gloo_context.InitializeForProcessSet(global_gloo_context,
+                                       registered_global_ranks);
+  if (gloo_context.ctx != nullptr) {
+    controller->Initialize();
+  }
+  if (registered_global_ranks.empty()) {
+    registered_global_ranks.resize(size);
+    std::iota(registered_global_ranks.begin(), registered_global_ranks.end(), 0);
+  }
   initialization_done = true;
   return true;
 }
@@ -87,20 +160,21 @@ ProcessSetTable::ProcessSetTable() {
   assert(process_set_id == 0);
 }
 
-#if HAVE_MPI
-void ProcessSetTable::Initialize(const MPIContext& global_mpi_context) {
+template<class Context>
+void ProcessSetTable::Initialize_(const Context& global_context) {
   std::lock_guard<std::recursive_mutex> guard(mutex);
   assert(next_id_ == 1);  // exactly one process set is registered
-  Get(0).Initialize(global_mpi_context);
+  Get(0).Initialize(global_context);
 }
 
-int32_t ProcessSetTable::InitializeRegisteredAndRemoveMarkedIfReady(
-    const MPIContext& global_mpi_context) {
+template <class Context>
+int32_t ProcessSetTable::InitializeRegisteredAndRemoveMarkedIfReady_(
+    const Context& global_context) {
   std::lock_guard<std::recursive_mutex> guard(mutex);
 
   int locally_registered_count = ids_.size();
-  std::array<int, 2> pair_to_transmit {locally_registered_count,
-                                       id_to_be_removed_};
+  std::array<int, 2> pair_to_transmit{locally_registered_count,
+                                      id_to_be_removed_};
 
   auto& global_controller = *Get(0).controller;
   auto recv_buffer = std::vector<int>(2 * global_controller.GetSize());
@@ -125,8 +199,8 @@ int32_t ProcessSetTable::InitializeRegisteredAndRemoveMarkedIfReady(
   // 1) Initialize registered process sets if all processes are ready to do so:
   int32_t initialized_count = 0;
   if (registered_count_agreement) {
-    for (auto id: Ids()) {
-      bool newly_registered = Get(id).Initialize(global_mpi_context);
+    for (auto id : Ids()) {
+      bool newly_registered = Get(id).Initialize(global_context);
       if (newly_registered) {
         ++initialized_count;
       }
@@ -150,13 +224,26 @@ int32_t ProcessSetTable::InitializeRegisteredAndRemoveMarkedIfReady(
   // Return count from 1)
   return initialized_count;
 }
+
+#if HAVE_MPI
+void ProcessSetTable::Initialize(const MPIContext& global_mpi_context) {
+  Initialize_(global_mpi_context);
+}
+
+int32_t ProcessSetTable::InitializeRegisteredAndRemoveMarkedIfReady(
+    const MPIContext& global_mpi_context) {
+  return InitializeRegisteredAndRemoveMarkedIfReady_(global_mpi_context);
+}
 #endif // HAVE_MPI
 
 #if HAVE_GLOO
-void ProcessSetTable::Initialize(const GlooContext& gloo_context) {
-  std::lock_guard<std::recursive_mutex> guard(mutex);
-  assert(next_id_ == 1);  // exactly one process set is registered
-  Get(0).Initialize(gloo_context);
+void ProcessSetTable::Initialize(const GlooContext& global_gloo_context) {
+  Initialize_(global_gloo_context);
+}
+
+int32_t ProcessSetTable::InitializeRegisteredAndRemoveMarkedIfReady(
+    const GlooContext& global_gloo_context) {
+  return InitializeRegisteredAndRemoveMarkedIfReady_(global_gloo_context);
 }
 #endif // HAVE_GLOO
 

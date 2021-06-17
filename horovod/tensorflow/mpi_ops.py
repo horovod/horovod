@@ -381,8 +381,7 @@ def process_set_included_op(process_set_id=0, name=None):
     """An op that 0 or 1 depending on whether the current process is
     included in the specified process set or an error code:
     HOROVOD_PROCESS_SET_ERROR_INIT if Horovod is not initialized,
-    HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET if the process set is unknown,
-    HOROVOD_PROCESS_SET_ERROR_GLOO if running with Gloo.
+    HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET if the process set is unknown.
 
     This operation determines the return value at the graph execution time,
     rather than at the graph construction time, and so allows for a graph to be

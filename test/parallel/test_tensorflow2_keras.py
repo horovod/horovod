@@ -243,8 +243,6 @@ class Tf2KerasTests(tf.test.TestCase):
         """ Note that this test makes the most sense when running with > 2 processes. """
         size = hvd.size()
 
-        if hvd.gloo_enabled():
-            self.skipTest("Multiple process sets currently do not support Gloo controller.")
         if size == 1:
             self.skipTest("Only one worker available")
 

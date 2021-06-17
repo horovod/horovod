@@ -124,9 +124,11 @@ class RendezvousHandler(KVStoreHandler):
 
         with self.server.finished_list_lock:
             self.server.finished_list[scope].append(key)
-            if self.server.scope_size[scope] == len(self.server.finished_list[scope]):
-                with self.server.cache_lock:
-                    self.server.cache.get(scope, {}).clear()
+            if scope in self.server.scope_size:
+                # scope is not an "ad-hoc" scope added by a client
+                if self.server.scope_size[scope] == len(self.server.finished_list[scope]):
+                    with self.server.cache_lock:
+                        self.server.cache.get(scope, {}).clear()
 
         self.send_status_code(OK)
 

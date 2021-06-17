@@ -44,7 +44,6 @@ class HorovodBasics(object):
         self.HOROVOD_PROCESS_SET_ERROR_FOREIGN_SET = -4
         self.HOROVOD_PROCESS_SET_ERROR_SHUTDOWN = -5
         self.HOROVOD_PROCESS_SET_ERROR_EXISTING_SET = -6
-        self.HOROVOD_PROCESS_SET_ERROR_GLOO = -10
 
     def init(self, comm: Optional[Union[Sequence[int], MPI.Comm]] = None,
              process_sets: Optional[Sequence[ProcessSet]] = None):
@@ -380,8 +379,6 @@ class HorovodBasics(object):
         elif result == self.HOROVOD_PROCESS_SET_ERROR_DYNAMIC:
             raise ValueError(
                 "Set HOROVOD_DYNAMIC_PROCESS_SETS=1 to allow adding process sets after Horovod initialization.")
-        elif result == self.HOROVOD_PROCESS_SET_ERROR_GLOO:
-            raise ValueError("Multiple process sets are only supported with MPI controllers, not Gloo.")
         elif result == self.HOROVOD_PROCESS_SET_ERROR_EXISTING_SET:
             return None
         return result
@@ -407,8 +404,6 @@ class HorovodBasics(object):
                 "Set HOROVOD_DYNAMIC_PROCESS_SETS=1 to allow removing process sets after Horovod initialization.")
         elif result == self.HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET:
             return None
-        elif result == self.HOROVOD_PROCESS_SET_ERROR_GLOO:
-            raise ValueError("Multiple process sets are only supported with MPI controllers, not Gloo.")
         return result
 
     def _process_set_rank(self, process_set_id: int) -> int:
@@ -422,8 +417,6 @@ class HorovodBasics(object):
             raise ValueError(f"Process is not part of process set {process_set_id}")
         elif result == self.HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET:
             raise ValueError(f"Unknown process set id {process_set_id}")
-        elif result == self.HOROVOD_PROCESS_SET_ERROR_GLOO:
-            raise ValueError("Multiple process sets are only supported with MPI controllers, not Gloo.")
         return result
 
     def _process_set_size(self, process_set_id: int) -> int:
@@ -435,8 +428,6 @@ class HorovodBasics(object):
             raise ValueError('Horovod has not been initialized; use hvd.init().')
         elif result == self.HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET:
             raise ValueError(f"Unknown process set id {process_set_id}")
-        elif result == self.HOROVOD_PROCESS_SET_ERROR_GLOO:
-            raise ValueError("Multiple process sets are only supported with MPI controllers, not Gloo.")
         return result
 
     def _get_process_set_ids_and_ranks(self) -> Dict[int, List[int]]:
@@ -450,8 +441,6 @@ class HorovodBasics(object):
 
             if ps_size == self.HOROVOD_PROCESS_SET_ERROR_INIT:
                 raise ValueError('Horovod has not been initialized properly; use hvd.init().')
-            elif ps_size == self.HOROVOD_PROCESS_SET_ERROR_GLOO:
-                raise ValueError("Multiple process sets are only supported with MPI controllers, not Gloo.")
             elif ps_size < 0:
                 raise RuntimeError("Process set table was modified outside of _get_process_set_ids_and_ranks()")
 
@@ -459,8 +448,6 @@ class HorovodBasics(object):
             res = int(self.MPI_LIB_CTYPES.horovod_process_set_ranks(ctypes.c_int(ps_id), ranks_array))
             if res == self.HOROVOD_PROCESS_SET_ERROR_INIT:
                 raise ValueError('Horovod has not been initialized properly; use hvd.init().')
-            elif res == self.HOROVOD_PROCESS_SET_ERROR_GLOO:
-                raise ValueError("Multiple process sets are only supported with MPI controllers, not Gloo.")
             elif res < 0:
                 raise RuntimeError("Process set table was modified outside of _get_process_set_ids_and_ranks()")
             ret[ps_id] = list(ranks_array)

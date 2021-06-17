@@ -89,11 +89,16 @@ void GlooController::DoInitialization() {
     cross_size_ = gloo_context_.cross_ctx->size;
   }
 
-  // TODO: Update for process set support
   global_ranks_.reserve(size_);
+  {
+    auto this_global_rank = gloo_context_.global_ctx->rank;
+    gloo::AllgatherOptions opts(gloo_context_.ctx);
+    opts.setInput(&this_global_rank, 1);
+    opts.setOutput(global_ranks_.data(), size_);
+    gloo::allgather(opts);
+  }
   for (int r = 0; r < size_; ++r) {
-    global_ranks_.push_back(r);
-    global_rank_to_controller_rank_.emplace(r, r);
+    global_rank_to_controller_rank_[global_ranks_[r]] = r;
   }
 
   LOG(DEBUG) << "Gloo controller initialized.";

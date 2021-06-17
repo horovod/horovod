@@ -119,7 +119,7 @@ MPIContext global_mpi_context;
 #endif
 
 #if HAVE_GLOO
-GlooContext gloo_context;
+GlooContext global_gloo_context;
 #endif
 
 #if HAVE_GPU
@@ -203,15 +203,15 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #endif
 
 #if HAVE_GLOO
-  if (gloo_context.IsEnabled()) {
+  if (global_gloo_context.IsEnabled()) {
     allreduce_ops.push_back(
-        std::shared_ptr<AllreduceOp>(new GlooAllreduce(&gloo_context, &state)));
+        std::shared_ptr<AllreduceOp>(new GlooAllreduce(&state)));
     allgather_ops.push_back(
-        std::shared_ptr<AllgatherOp>(new GlooAllgather(&gloo_context, &state)));
+        std::shared_ptr<AllgatherOp>(new GlooAllgather(&state)));
     broadcast_ops.push_back(
-        std::shared_ptr<BroadcastOp>(new GlooBroadcast(&gloo_context, &state)));
+        std::shared_ptr<BroadcastOp>(new GlooBroadcast(&state)));
     alltoall_ops.push_back(
-        std::shared_ptr<AlltoallOp>(new GlooAlltoall(&gloo_context, &state)));
+        std::shared_ptr<AlltoallOp>(new GlooAlltoall(&state)));
   }
 #endif
 
@@ -320,7 +320,7 @@ void EnrichProcessSetWithGlooController(ProcessSet& process_set) {
       process_set.response_cache, process_set.tensor_queue,
       horovod_global.timeline, horovod_global.parameter_manager,
       process_set.group_table, horovod_global.timeline_controller,
-      gloo_context));
+      process_set.gloo_context));
 }
 #endif // HAVE_GLOO
 
@@ -338,8 +338,16 @@ ProcessSet& GetProcessSetOrAddUnitialized(std::vector<int> ranks, int& id) {
   id = horovod_global.process_set_table.RegisterProcessSet(std::move(ranks));
   auto& process_set = horovod_global.process_set_table.Get(id);
 #if HAVE_MPI
-  EnrichProcessSetWithMPIController(process_set);
+  if (horovod_global.control_operation == LibType::MPI) {
+    EnrichProcessSetWithMPIController(process_set);
+  }
 #endif // HAVE_MPI
+#if HAVE_GLOO
+  if (horovod_global.control_operation == LibType::GLOO) {
+    EnrichProcessSetWithGlooController(process_set);
+  }
+#endif // HAVE_GLOO
+  assert(process_set.controller != nullptr);
   ParseStallInspectorFromEnv(process_set.controller->GetStallInspector());
   process_set.response_cache.set_capacity(
       (int)horovod_global.parameter_manager.CacheEnabled() *
@@ -388,24 +396,29 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 #endif
   if (global_mpi_context.IsEnabled()) {
     global_mpi_context.Initialize(mpi_ctx_manager);
-    state.process_set_table.Initialize(global_mpi_context); // Initializes global controller as well
+    if (state.control_operation == LibType::MPI) {
+      // Initializes global controller
+      state.process_set_table.Initialize(global_mpi_context);
+    }
   }
 #endif
 
 #if HAVE_GLOO
 #if HAVE_MPI
-    if (global_mpi_context.IsEnabled()) {
-      // Initialize gloo context if mpi context is available
-      gloo_context.InitializeFromMPI(state.process_set_table.Get(0).mpi_context,
-                                     ParseGlooIface());
-    }
-    else
-#endif
-    {
-      gloo_context.Initialize(ParseGlooIface());
-      state.process_set_table.Initialize(gloo_context); // Initializes global controller
-    }
-#endif
+  if (global_mpi_context.IsEnabled()) {
+    // Initialize gloo context if mpi context is available
+    global_gloo_context.InitializeFromMPI(
+        state.process_set_table.Get(0).mpi_context, ParseGlooIface());
+  } else
+#endif // HAVE_MPI
+  {
+    global_gloo_context.Initialize(ParseGlooIface());
+  }
+  if (state.control_operation == LibType::GLOO) {
+    // Initializes global controller
+    state.process_set_table.Initialize(global_gloo_context);
+  }
+#endif // HAVE_GLOO
 
   assert(state.global_controller->IsInitialized());
   bool is_coordinator = state.global_controller->IsCoordinator();
@@ -573,32 +586,35 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.dynamic_process_sets =
       GetBoolEnvOrDefault(HOROVOD_DYNAMIC_PROCESS_SETS, false);
 
-#if HAVE_MPI
   // Register and initialize any non-global process set requested during Horovod
   // initialization.
-  if (global_mpi_context.IsEnabled()) {
-    try {
-      for (const auto& process_set_ranks : state.process_set_ranks_to_register) {
-        int id;
-        GetProcessSetOrAddUnitialized(process_set_ranks, id);
-      }
-      auto initialized_count =
-          state.process_set_table.InitializeRegisteredAndRemoveMarkedIfReady(
-              global_mpi_context);  // will only initialize, not remove
-      if (state.process_set_ranks_to_register.size() > 0 &&
-          initialized_count == 0) {
-        throw std::logic_error("Different ranks tried to set up mismatching "
-                               "numbers of process sets");
-      }
-      state.process_set_ranks_to_register.clear();
-    } catch (const std::exception& ex) {
-      LOG(ERROR, horovod_global.global_controller->GetRank())
-          << "Horovod could not be initialized: " << ex.what();
-      state.initialization_failed = true;
-      goto shutdown;
+  try {
+    for (const auto& process_set_ranks : state.process_set_ranks_to_register) {
+      int id;
+      GetProcessSetOrAddUnitialized(process_set_ranks, id);
     }
+    int32_t initialized_count;
+    if (state.control_operation == LibType::MPI) {
+      initialized_count =
+          state.process_set_table.InitializeRegisteredAndRemoveMarkedIfReady(
+              global_mpi_context); // will only initialize, not remove
+    } else if (state.control_operation == LibType::GLOO) {
+      initialized_count =
+          state.process_set_table.InitializeRegisteredAndRemoveMarkedIfReady(
+              global_gloo_context); // will only initialize, not remove
+    }
+    if (state.process_set_ranks_to_register.size() > 0 &&
+        initialized_count == 0) {
+      throw std::logic_error("Different ranks tried to set up mismatching "
+                             "numbers of process sets");
+    }
+    state.process_set_ranks_to_register.clear();
+  } catch (const std::exception& ex) {
+    LOG(ERROR, horovod_global.global_controller->GetRank())
+        << "Horovod could not be initialized: " << ex.what();
+    state.initialization_failed = true;
+    goto shutdown;
   }
-#endif // HAVE_MPI
 
   // Signal that initialization is completed.
   state.initialization_done = true;
@@ -620,7 +636,7 @@ shutdown:
 #endif
 
 #if HAVE_GLOO
-  gloo_context.Finalize();
+  global_gloo_context.Finalize();
 #endif
 
   LOG(DEBUG, horovod_global.global_controller->GetRank())
@@ -668,15 +684,23 @@ bool RunLoopOnce(HorovodGlobalState& state) {
 
   bool this_process_requested_shutdown = state.shut_down;
 
-#if HAVE_MPI
-  if (state.dynamic_process_sets && global_mpi_context.IsEnabled()) {
+  if (state.dynamic_process_sets) {
     // Initialize any newly added process set that has been registered by all
     // Horovod processes and remove a process set that has been marked for
     // removal by all Horovod processes.
-    state.process_set_table.InitializeRegisteredAndRemoveMarkedIfReady(
-        global_mpi_context);
-  }
+#if HAVE_MPI
+    if (state.control_operation == LibType::MPI) {
+      state.process_set_table.InitializeRegisteredAndRemoveMarkedIfReady(
+          global_mpi_context);
+    }
 #endif // HAVE_MPI
+#if HAVE_GLOO
+    if (state.control_operation == LibType::GLOO) {
+      state.process_set_table.InitializeRegisteredAndRemoveMarkedIfReady(
+          global_gloo_context);
+    }
+#endif // HAVE_GLOO
+  }
 
   bool should_shutdown = false;
   for (auto process_set_id : state.process_set_table.Ids()) {
@@ -771,17 +795,14 @@ bool InitializeHorovodOnce(
     // Enable gloo if it's used either in cpu data transfer or controller
     if (horovod_global.cpu_operation == LibType::GLOO ||
         horovod_global.control_operation == LibType::GLOO) {
-      gloo_context.Enable();
-      if (!process_set_ranks.empty()) { // TODO: extend this
-        throw std::logic_error("Multiple process sets are only supported with "
-                               "MPI controllers, not Gloo.");
-      }
+      global_gloo_context.Enable();
     }
 
     if (horovod_global.control_operation == LibType::GLOO) {
-      auto& process_set = horovod_global.process_set_table.Get(0);
-      EnrichProcessSetWithGlooController(process_set);
-      horovod_global.global_controller = process_set.controller;
+      auto& global_process_set = horovod_global.process_set_table.Get(0);
+      EnrichProcessSetWithGlooController(global_process_set);
+      horovod_global.global_controller = global_process_set.controller;
+      horovod_global.process_set_ranks_to_register = process_set_ranks;
     }
 #endif
     // Reset initialization flag
@@ -1078,7 +1099,7 @@ bool horovod_mpi_built() {
 
 bool horovod_gloo_enabled() {
 #if HAVE_GLOO
-  return gloo_context.IsEnabled();
+  return global_gloo_context.IsEnabled();
 #else
   return false;
 #endif
@@ -1150,7 +1171,6 @@ const int HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET = -3;
 const int HOROVOD_PROCESS_SET_ERROR_FOREIGN_SET = -4;
 const int HOROVOD_PROCESS_SET_ERROR_SHUTDOWN = -5;
 const int HOROVOD_PROCESS_SET_ERROR_EXISTING_SET = -6;
-const int HOROVOD_PROCESS_SET_ERROR_GLOO = -10;
 
 int horovod_add_process_set(const int* ranks, int nrank) {
   if (!horovod_global.initialization_done) {
@@ -1158,9 +1178,6 @@ int horovod_add_process_set(const int* ranks, int nrank) {
   }
   if (!horovod_global.dynamic_process_sets) {
     return HOROVOD_PROCESS_SET_ERROR_DYNAMIC;
-  }
-  if (horovod_gloo_enabled()) {
-    return HOROVOD_PROCESS_SET_ERROR_GLOO;
   }
 
   int id;
@@ -1199,9 +1216,6 @@ int horovod_remove_process_set(int process_set_id) {
   if (!horovod_global.dynamic_process_sets) {
     return HOROVOD_PROCESS_SET_ERROR_DYNAMIC;
   }
-  if (horovod_gloo_enabled()) {
-    return HOROVOD_PROCESS_SET_ERROR_GLOO;
-  }
 
   {
     std::lock_guard<std::recursive_mutex> table_lock(
@@ -1233,9 +1247,6 @@ int horovod_process_set_rank(int process_set_id) {
   if (!horovod_global.initialization_done) {
     return HOROVOD_PROCESS_SET_ERROR_INIT;
   }
-  if (horovod_gloo_enabled()) {
-    return HOROVOD_PROCESS_SET_ERROR_GLOO;
-  }
   if (!horovod_global.process_set_table.Contains(process_set_id)) {
     return HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET;
   }
@@ -1253,9 +1264,6 @@ int horovod_process_set_size(int process_set_id) {
   if (!horovod_global.initialization_done) {
     return HOROVOD_PROCESS_SET_ERROR_INIT;
   }
-  if (horovod_gloo_enabled()) {
-    return HOROVOD_PROCESS_SET_ERROR_GLOO;
-  }
   std::lock_guard<std::recursive_mutex> table_lock(
       horovod_global.process_set_table.mutex);
   if (!horovod_global.process_set_table.Contains(process_set_id)) {
@@ -1271,9 +1279,6 @@ int horovod_process_set_included(int process_set_id) {
   }
   if (!horovod_global.initialization_done) {
     return HOROVOD_PROCESS_SET_ERROR_INIT;
-  }
-  if (horovod_gloo_enabled()) {
-    return HOROVOD_PROCESS_SET_ERROR_GLOO;
   }
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
   std::lock_guard<std::recursive_mutex> table_lock(
@@ -1297,9 +1302,6 @@ void horovod_process_set_ids(int* ids_prealloc) {
 int horovod_process_set_ranks(int id, int* ranks_prealloc) {
   if (!horovod_global.initialization_done) {
     return HOROVOD_PROCESS_SET_ERROR_INIT;
-  }
-  if (horovod_gloo_enabled()) {
-    return HOROVOD_PROCESS_SET_ERROR_GLOO;
   }
   try {
     const auto& process_set = horovod_global.process_set_table.Get(id);

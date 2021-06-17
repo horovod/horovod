@@ -170,9 +170,6 @@ class TensorFlowTests(tf.test.TestCase):
         """Test that the size returned by hvd.size_op(process_set_id) is correct."""
         hvd.init()
 
-        if hvd.gloo_enabled():
-            self.skipTest("Multiple process sets currently do not support Gloo controller.")
-
         # This test does not apply if there is only one worker.
         if hvd.size() == 1:
             self.skipTest("Only one worker available")
@@ -188,9 +185,6 @@ class TensorFlowTests(tf.test.TestCase):
     def test_horovod_process_set_included_op(self):
         """Test that the result of hvd.process_set_included_op(process_set_id) is correct."""
         hvd.init()
-
-        if hvd.gloo_enabled():
-            self.skipTest("Multiple process sets currently do not support Gloo controller.")
 
         # This test does not apply if there is only one worker.
         if hvd.size() == 1:
@@ -390,9 +384,6 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
-
-        if hvd.gloo_enabled():
-            self.skipTest("Multiple process sets currently do not support Gloo controller.")
 
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
@@ -714,9 +705,6 @@ class TensorFlowTests(tf.test.TestCase):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
-        if hvd.gloo_enabled():
-            self.skipTest("Multiple process sets currently do not support Gloo controller.")
-
         hvd.init()
         local_rank = hvd.local_rank()
         rank = hvd.rank()
@@ -810,9 +798,6 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
-
-        if hvd.gloo_enabled():
-            self.skipTest("Multiple process sets currently do not support Gloo controller.")
 
         # This test does not apply if there is only one worker.
         if size == 1:
@@ -939,9 +924,6 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
-
-        if hvd.gloo_enabled():
-            self.skipTest("Multiple process sets currently do not support Gloo controller.")
 
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
@@ -1237,9 +1219,6 @@ class TensorFlowTests(tf.test.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
-        if hvd.gloo_enabled():
-            self.skipTest("Multiple process sets currently do not support Gloo controller.")
-
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
 
@@ -1296,9 +1275,6 @@ class TensorFlowTests(tf.test.TestCase):
         local_rank = hvd.local_rank()
         size = hvd.size()
 
-        if hvd.gloo_enabled():
-            self.skipTest("Multiple process sets currently do not support Gloo controller.")
-
         even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
         odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
 
@@ -1345,9 +1321,6 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
-
-        if hvd.gloo_enabled():
-            self.skipTest("Multiple process sets currently do not support Gloo controller.")
 
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
@@ -1985,9 +1958,6 @@ class TensorFlowTests(tf.test.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
-        if hvd.gloo_enabled():
-            self.skipTest("Multiple process sets currently do not support Gloo controller.")
-
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
 
@@ -2057,9 +2027,6 @@ class TensorFlowTests(tf.test.TestCase):
         local_rank = hvd.local_rank()
         size = hvd.size()
 
-        if hvd.gloo_enabled():
-            self.skipTest("Multiple process sets currently do not support Gloo controller.")
-
         even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
         odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
 
@@ -2116,9 +2083,6 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
-
-        if hvd.gloo_enabled():
-            self.skipTest("Multiple process sets currently do not support Gloo controller.")
 
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
@@ -2265,9 +2229,6 @@ class TensorFlowTests(tf.test.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
-        if hvd.gloo_enabled():
-            self.skipTest("Multiple process sets currently do not support Gloo controller.")
-
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
 
@@ -2328,9 +2289,6 @@ class TensorFlowTests(tf.test.TestCase):
         rank = hvd.rank()
         local_rank = hvd.local_rank()
         size = hvd.size()
-
-        if hvd.gloo_enabled():
-            self.skipTest("Multiple process sets currently do not support Gloo controller.")
 
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
@@ -2525,9 +2483,6 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
-
-        if hvd.gloo_enabled():
-            self.skipTest("Multiple process sets currently do not support Gloo controller.")
 
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
@@ -3104,9 +3059,6 @@ class TensorFlowTests(tf.test.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
-        if hvd.gloo_enabled():
-            self.skipTest("Multiple process sets currently do not support Gloo controller.")
-
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
 
@@ -3174,9 +3126,6 @@ class TensorFlowTests(tf.test.TestCase):
         rank = hvd.rank()
         local_rank = hvd.local_rank()
         size = hvd.size()
-
-        if hvd.gloo_enabled():
-            self.skipTest("Multiple process sets currently do not support Gloo controller.")
 
         even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
         odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
@@ -3495,9 +3444,6 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
-
-        if hvd.gloo_enabled():
-            self.skipTest("Multiple process sets currently do not support Gloo controller.")
 
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
@@ -3978,9 +3924,6 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.init()
         size = hvd.size()
 
-        if hvd.gloo_enabled():
-            self.skipTest("Multiple process sets currently do not support Gloo controller.")
-
         # This test does not apply if there is only one worker.
         if size == 1:
             self.skipTest("Only one worker available")
@@ -4019,6 +3962,15 @@ class TensorFlowTests(tf.test.TestCase):
         ps = hvd.mpi_ops._get_process_set_ids_and_ranks()
         self.assertDictEqual(ps, {0: list(range(size)),
                                   set2.process_set_id: list(range(1, size))})
+
+        # test re-adding set1
+        hvd.add_process_set(set1)
+        ps = hvd.mpi_ops._get_process_set_ids_and_ranks()
+        self.assertDictEqual(ps, {0: list(range(size)),
+                                  set1.process_set_id: [0],
+                                  set2.process_set_id: list(range(1, size))})
+        hvd.remove_process_set(set1)
+
 
         if size > 2:
             set3 = hvd.add_process_set([0, size - 1])
@@ -4062,8 +4014,6 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.init()
         size = hvd.size()
 
-        if hvd.gloo_enabled():
-            self.skipTest("Multiple process sets currently do not support Gloo controller.")
         if size == 1:
             self.skipTest("Only one worker available")
 
@@ -4107,8 +4057,6 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.init()
         size = hvd.size()
 
-        if hvd.gloo_enabled():
-            self.skipTest("Multiple process sets currently do not support Gloo controller.")
         if size == 1:
             self.skipTest("Only one worker available")
 

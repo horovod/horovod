@@ -63,7 +63,9 @@ struct ProcessSet {
 #endif // HAVE_MPI
 
 #if HAVE_GLOO
-  bool Initialize(const GlooContext& gloo_context);
+  GlooContext gloo_context;
+
+  bool Initialize(const GlooContext& global_gloo_context);
 #endif // HAVE_GLOO
 
   // Finalize tensor queue and communicators.
@@ -83,26 +85,28 @@ public:
   ProcessSetTable();
   ProcessSetTable(const ProcessSetTable&) = delete;
 
-#if HAVE_MPI
   // Initialize table and the global process set with id 0, to be called in
   // background thread.
+#if HAVE_MPI
   void Initialize(const MPIContext& global_mpi_context);
+#endif
+#if HAVE_GLOO
+  void Initialize(const GlooContext& global_gloo_context);
+#endif
 
   // To be called in the background thread: 1) Initialize any process sets
   // that have been registered by all processes.
   // 2) Deregister a process set (just one) that has been marked for removal by
   // all processes.
   // Returns the number of newly initialized process sets (may be zero) from 1).
+#if HAVE_MPI
   int32_t InitializeRegisteredAndRemoveMarkedIfReady(
       const MPIContext& global_mpi_context);
-
-#endif // HAVE_MPI
-
+#endif
 #if HAVE_GLOO
-  void Initialize(const GlooContext& gloo_context);
-
-  // void InitializeRegisteredIfReady(const GlooContext& gloo_context);
-#endif // HAVE_GLOO
+  int32_t InitializeRegisteredAndRemoveMarkedIfReady(
+      const GlooContext& global_gloo_context);
+#endif
 
   // Finalize tensor queues and communicators and remove all process sets.
   void Finalize(const Status& status);
@@ -127,6 +131,11 @@ public:
 
 private:
   void DeregisterProcessSet(int32_t process_set_id);
+
+  // Context can be either MPIContext or GlooContext for the following:
+  template <class Context> void Initialize_(const Context& context);
+  template <class Context>
+  int32_t InitializeRegisteredAndRemoveMarkedIfReady_(const Context& context);
 
   std::unordered_map<int32_t, ProcessSet> id_to_process_set_;
 
