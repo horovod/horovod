@@ -594,15 +594,20 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
       GetProcessSetOrAddUnitialized(process_set_ranks, id);
     }
     int32_t initialized_count;
+#if HAVE_MPI
     if (state.control_operation == LibType::MPI) {
       initialized_count =
           state.process_set_table.InitializeRegisteredAndRemoveMarkedIfReady(
               global_mpi_context); // will only initialize, not remove
-    } else if (state.control_operation == LibType::GLOO) {
+    }
+#endif // HAVE_MPI
+#if HAVE_GLOO
+    if (state.control_operation == LibType::GLOO) {
       initialized_count =
           state.process_set_table.InitializeRegisteredAndRemoveMarkedIfReady(
               global_gloo_context); // will only initialize, not remove
     }
+#endif // HAVE_GLOO
     if (state.process_set_ranks_to_register.size() > 0 &&
         initialized_count == 0) {
       throw std::logic_error("Different ranks tried to set up mismatching "
