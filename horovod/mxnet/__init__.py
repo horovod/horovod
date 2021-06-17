@@ -194,7 +194,8 @@ class DistributedTrainer(mx.gluon.Trainer):
                     allreduce_(tensor_compressed, average=False,
                                name=self._prefix + str(i), priority=-i,
                                prescale_factor=1.0 / self._gradient_predivide_factor)
-                    param.list_grad()[0][:] = self._compression.decompress(tensor_compressed, ctx)
+                    if self._compression != Compression.none:
+                        param.list_grad()[0][:] = self._compression.decompress(tensor_compressed, ctx)
 
 # Wrapper to inject Horovod broadcast after parameter initialization
 def _append_broadcast_init(param, root_rank, name):
