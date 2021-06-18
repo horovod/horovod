@@ -194,6 +194,7 @@ class DistributedTrainer(mx.gluon.Trainer):
                     allreduce_(tensor_compressed, average=False,
                                name=self._prefix + str(i), priority=-i,
                                prescale_factor=1.0 / self._gradient_predivide_factor)
+
                     if self._compression != Compression.none:
                         param.list_grad()[0][:] = self._compression.decompress(tensor_compressed, ctx)
 
