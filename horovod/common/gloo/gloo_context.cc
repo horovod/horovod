@@ -95,16 +95,17 @@ void GlooContext::InitializeFromMPI(MPIContext& mpi_ctx,
 
   // TODO(sihan): Add support for multiple interfaces:
   //  https://github.com/facebookincubator/gloo/issues/190
+  gloo_iface_ = gloo_iface;
   attr device_attr;
-  device_attr.iface = gloo_iface;
+  device_attr.iface = gloo_iface_;
   device_attr.ai_family = AF_UNSPEC;
-  dev_ = CreateDevice(device_attr);
+  auto dev = CreateDevice(device_attr);
   timeout_ = GetTimeoutFromEnv();
 
   auto context =
       std::make_shared<gloo::mpi::Context>(mpi_ctx.GetMPICommunicator(GLOBAL));
   context->setTimeout(timeout_);
-  context->connectFullMesh(dev_);
+  context->connectFullMesh(dev);
   ctx = context;
 
   global_ctx = ctx;
@@ -112,13 +113,13 @@ void GlooContext::InitializeFromMPI(MPIContext& mpi_ctx,
   auto cross_context =
       std::make_shared<gloo::mpi::Context>(mpi_ctx.GetMPICommunicator(CROSS));
   cross_context->setTimeout(timeout_);
-  cross_context->connectFullMesh(dev_);
+  cross_context->connectFullMesh(dev);
   cross_ctx = cross_context;
 
   auto local_context =
       std::make_shared<gloo::mpi::Context>(mpi_ctx.GetMPICommunicator(LOCAL));
   local_context->setTimeout(timeout_);
-  local_context->connectFullMesh(dev_);
+  local_context->connectFullMesh(dev);
   local_ctx = local_context;
 }
 #endif
@@ -131,11 +132,12 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
   // Create a device for communication
   // TODO(sihan): Add support for multiple interfaces:
   //  https://github.com/facebookincubator/gloo/issues/190
+  gloo_iface_ = gloo_iface;
   attr device_attr;
-  device_attr.iface = gloo_iface;
+  device_attr.iface = gloo_iface_;
 
   device_attr.ai_family = AF_UNSPEC;
-  dev_ = CreateDevice(device_attr);
+  auto dev = CreateDevice(device_attr);
   timeout_ = GetTimeoutFromEnv();
 
   auto host_env = std::getenv(HOROVOD_HOSTNAME);
@@ -206,19 +208,19 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
 
   ctx = Rendezvous(HOROVOD_GLOO_GLOBAL_PREFIX,
                    rendezvous_addr_env, rendezvous_port,
-                   rank, size, dev_, timeout_);
+                   rank, size, dev, timeout_);
   LOG(DEBUG) << "Global Gloo context initialized.";
 
   global_ctx = ctx;
 
   local_ctx = Rendezvous(HOROVOD_GLOO_LOCAL_PREFIX + hostname_,
                          rendezvous_addr_env, rendezvous_port,
-                         local_rank, local_size, dev_, timeout_);
+                         local_rank, local_size, dev, timeout_);
   LOG(DEBUG) << "Local Gloo context initialized.";
 
   cross_ctx = Rendezvous(HOROVOD_GLOO_CROSS_PREFIX + std::to_string(local_rank),
                          rendezvous_addr_env, rendezvous_port,
-                         cross_rank, cross_size, dev_, timeout_);
+                         cross_rank, cross_size, dev, timeout_);
   LOG(DEBUG) << "Cross-node Gloo context initialized.";
 }
 
@@ -269,8 +271,12 @@ void GlooContext::InitializeForProcessSet(const GlooContext& global_context,
     LOG(DEBUG) << "no rendezvous server provided, assuming single process execution";
   }
 
+  attr device_attr;
+  device_attr.iface = gloo_iface_;
+  device_attr.ai_family = AF_UNSPEC;
+  auto dev = CreateDevice(device_attr);
+
   global_ctx = global_context.ctx;
-  dev_ = global_context.dev_;
   timeout_ = global_context.timeout_;
   hostname_ = global_context.hostname_;
 
@@ -318,7 +324,7 @@ void GlooContext::InitializeForProcessSet(const GlooContext& global_context,
 
   // 1) process-set-limited global context 
   ctx = Rendezvous(HOROVOD_GLOO_GLOBAL_PREFIX + process_set_suffix,
-                   rendezvous_addr_env, rendezvous_port, rank, size, dev_,
+                   rendezvous_addr_env, rendezvous_port, rank, size, dev,
                    timeout_);
   LOG(DEBUG) << "Global Gloo context initialized for process set with hash "
              << process_set_hash << ".";
@@ -340,7 +346,7 @@ void GlooContext::InitializeForProcessSet(const GlooContext& global_context,
     local_ctx =
         Rendezvous(HOROVOD_GLOO_LOCAL_PREFIX + hostname_ + process_set_suffix,
                    rendezvous_addr_env, rendezvous_port, local_rank, local_size,
-                   dev_, timeout_);
+                   dev, timeout_);
     LOG(DEBUG) << "Local Gloo context initialized for process set with hash "
                << process_set_hash << ".";
   }
@@ -359,7 +365,7 @@ void GlooContext::InitializeForProcessSet(const GlooContext& global_context,
     cross_ctx = Rendezvous(HOROVOD_GLOO_CROSS_PREFIX +
                                std::to_string(local_rank) + process_set_suffix,
                            rendezvous_addr_env, rendezvous_port, cross_rank,
-                           cross_size, dev_, timeout_);
+                           cross_size, dev, timeout_);
     LOG(DEBUG) << "Cross-node Gloo context for process set with hash "
                << process_set_hash << ".";
   }

@@ -78,9 +78,9 @@ private:
   bool enabled_ = false;
   bool reset_ = false;
 
-  std::shared_ptr<gloo::transport::Device> dev_;
   std::chrono::milliseconds timeout_;
   std::string hostname_;
+  std::string gloo_iface_;
 };
 
 } // namespace common
