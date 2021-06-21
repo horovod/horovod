@@ -76,14 +76,15 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     if sample_weight_col:
         schema_fields.append(sample_weight_col)
 
-    data_loader_cls = _create_dataloader(feature_columns, input_shapes, metadata, data_loader_cls)
+    data_loader_cls = _create_dataloader(feature_columns, input_shapes, metadata, inmemory_cache_all, data_loader_cls)
 
     # Storage
     store = estimator.getStore()
     remote_store = store.to_remote(run_id, dataset_idx)
 
     set_data_loader = _set_data_loader_fn(transformation, schema_fields, batch_size,
-                                          data_loader_cls, loader_num_epochs, store, verbose)
+                                          data_loader_cls, loader_num_epochs, store,
+                                          epochs, inmemory_cache_all, verbose)
 
     def train(serialized_model):
         import horovod.torch as hvd
@@ -218,7 +219,8 @@ def _make_reset_callbacks():
     return [ResetCallback()]
 
 
-def _set_data_loader_fn(transformation, schema_fields, batch_size, data_loader_cls, num_epochs, store, verbose=False):
+def _set_data_loader_fn(transformation, schema_fields, batch_size, data_loader_cls,
+                        loader_num_epochs, store, epochs, inmemory_cache_all=False, verbose=False):
     storage_options = store.storage_options
 
     @contextlib.contextmanager
@@ -256,8 +258,10 @@ def _set_data_loader_fn(transformation, schema_fields, batch_size, data_loader_c
         # Setting num_epochs=None will cause an infinite iterator
         # and enables ranks to perform training and validation with
         # unequal number of samples
+        # `loader_num_epochs` is None by default.
+        # This doesn't apply to inmem dataloader, which loads whole reader into memory.
         with reader_factory(data_path,
-                            num_epochs=num_epochs,
+                            num_epochs=1 if inmemory_cache_all else loader_num_epochs,
                             cur_shard=hvd.rank(),
                             shard_count=hvd.size(),
                             reader_pool_type=reader_pool_type,
@@ -268,11 +272,17 @@ def _set_data_loader_fn(transformation, schema_fields, batch_size, data_loader_c
                             storage_options=storage_options,
                             **reader_factory_kwargs) as reader:
             def dataloader_fn():
-                return data_loader_cls(reader=reader, batch_size=batch_size,
-                                       shuffling_queue_capacity=shuffling_queue_capacity,
-                                       name=name,
-                                       limit_step_per_epoch=limit_step_per_epoch,
-                                       verbose=verbose)
+                kwargs = dict(reader=reader, batch_size=batch_size,
+                              name=name,
+                              limit_step_per_epoch=limit_step_per_epoch,
+                              verbose=verbose)
+                if inmemory_cache_all:
+                    # Use inmem dataloader
+                    kwargs['shuffle'] = shuffling_queue_capacity > 0
+                    kwargs['num_epochs'] = epochs
+                else:
+                    kwargs['shuffling_queue_capacity'] = shuffling_queue_capacity
+                return data_loader_cls(**kwargs)
             try:
                 setattr(model, dataloader_attr, dataloader_fn)
                 yield
@@ -326,11 +336,16 @@ def _calculate_shuffle_buffer_size_fn(train_rows, avg_row_size, user_shuffle_buf
     return calculate_shuffle_buffer_size
 
 
-def _create_dataloader(feature_columns, input_shapes, metadata, data_loader_cls=None):
+def _create_dataloader(feature_columns, input_shapes, metadata, inmemory_cache_all, data_loader_cls=None):
     if data_loader_cls is None:
-        # set PytorchInfiniteAsyncDataLoader as default
-        from horovod.spark.data_loaders.pytorch_data_loaders import PytorchInfiniteAsyncDataLoader
-        data_loader_cls = PytorchInfiniteAsyncDataLoader
+        if inmemory_cache_all:
+            # set PytorchInmemDataLoader as default
+            from horovod.spark.data_loaders.pytorch_data_loaders import PytorchInmemDataLoader
+            data_loader_cls = PytorchInmemDataLoader
+        else:
+            # set PytorchInfiniteAsyncDataLoader as default
+            from horovod.spark.data_loaders.pytorch_data_loaders import PytorchInfiniteAsyncDataLoader
+            data_loader_cls = PytorchInfiniteAsyncDataLoader
 
     print(f"Using dataloader: {data_loader_cls}")
 
