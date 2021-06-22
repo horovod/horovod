@@ -87,9 +87,10 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
   std::vector<std::shared_ptr<Tensor>> hvd_tensors;
   std::vector<std::shared_ptr<OpContext>> hvd_contexts;
   std::vector<StatusCallback> callbacks;
-  std::vector<std::shared_ptr<ReadyEvent>> ready_events(num_tensors); // default initialization to nullptr
+  std::vector<ReadyEventList> ready_event_lists;
   hvd_tensors.reserve(num_tensors);
   hvd_contexts.reserve(num_tensors);
+  ready_event_lists.resize(num_tensors);
   callbacks.reserve(num_tensors);
 
   auto callback_mutex = std::make_shared<std::mutex>();
@@ -106,8 +107,15 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
       ctx->AddOutput(ops_param->received_splits_tensor.get());
     }
     hvd_contexts.push_back(ctx);
-    callbacks.emplace_back([on_complete, ops_param, callback_mutex](const Status& status) {
-      // Must only invoke callback on last tensor to prevent premature deletion of
+    callbacks.emplace_back([on_complete, ops_param, callback_mutex, i](const Status& status) {
+#if HAVE_CUDA
+      auto hvd_event = status.event;
+      if (hvd_event.event) {
+        HVD_GPU_CHECK(gpuEventSynchronize(*(hvd_event.event)));
+      }
+#endif
+
+      // Must only invoke MXNet callback on last tensor to prevent premature deletion of
       // shared ops_param structure. Guard logic is here instead of within DeleteMpiOpsParam
       // function as on_complete can only be invoked once due to MXNet internally
       // pairing up the engine op completion callback with DeleteMpiOpsParam.
@@ -130,12 +138,12 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
       }
 
       enqueue_result = EnqueueTensorAllreduces(
-          hvd_contexts, hvd_tensors, hvd_outputs, ready_events, ops_param->op_names, device,
+          hvd_contexts, hvd_tensors, hvd_outputs, ready_event_lists, ops_param->op_names, device,
           callbacks, (average) ? ReduceOp::AVERAGE : ReduceOp::SUM, prescale_factor, postscale_factor);
       break;
     case OperationType::ALLGATHER:
       enqueue_result = EnqueueTensorAllgather(
-          hvd_contexts[0], hvd_tensors[0], ready_events[0], ops_param->op_names[0], device,
+          hvd_contexts[0], hvd_tensors[0], ready_event_lists[0], ops_param->op_names[0], device,
           callbacks[0]);
       break;
     case OperationType::BROADCAST:
@@ -147,14 +155,14 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
 
       enqueue_result = EnqueueTensorBroadcast(
           hvd_contexts[0], hvd_tensors[0], hvd_outputs[0], ops_param->root_rank,
-          ready_events[0], ops_param->op_names[0], device,
+          ready_event_lists[0], ops_param->op_names[0], device,
           callbacks[0]);
       break;
     case OperationType::ALLTOALL:
     {
       auto hvd_splits = std::make_shared<MXTensor>(ops_param->splits_tensor.get());
       enqueue_result = EnqueueTensorAlltoall(
-          hvd_contexts[0], hvd_tensors[0], hvd_splits, ready_events[0], ops_param->op_names[0],
+          hvd_contexts[0], hvd_tensors[0], hvd_splits, ready_event_lists[0], ops_param->op_names[0],
           device, callbacks[0]);
       break;
     }
@@ -280,9 +288,10 @@ void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
   std::vector<std::shared_ptr<Tensor>> hvd_cpu_buffers;
   std::vector<std::shared_ptr<OpContext>> hvd_contexts;
   std::vector<StatusCallback> callbacks;
-  std::vector<std::shared_ptr<ReadyEvent>> ready_events(num_tensors); // default initialization to nullptr
+  std::vector<ReadyEventList> ready_event_lists;
   hvd_cpu_buffers.reserve(num_tensors);
   hvd_contexts.reserve(num_tensors);
+  ready_event_lists.resize(num_tensors);
   callbacks.reserve(num_tensors);
 
   auto callback_mutex = std::make_shared<std::mutex>();
@@ -317,25 +326,25 @@ void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
   switch (ops_param->op_type) {
     case OperationType::ALLREDUCE:
       enqueue_result = EnqueueTensorAllreduces(
-          hvd_contexts, hvd_cpu_buffers, hvd_cpu_buffers, ready_events, ops_param->op_names, device,
+          hvd_contexts, hvd_cpu_buffers, hvd_cpu_buffers, ready_event_lists, ops_param->op_names, device,
           callbacks, (average) ? ReduceOp::AVERAGE : ReduceOp::SUM, prescale_factor, postscale_factor);
       break;
     case OperationType::ALLGATHER:
       enqueue_result = EnqueueTensorAllgather(
-          hvd_contexts[0], hvd_cpu_buffers[0], ready_events[0], ops_param->op_names[0], device,
+          hvd_contexts[0], hvd_cpu_buffers[0], ready_event_lists[0], ops_param->op_names[0], device,
           callbacks[0]);
       break;
     case OperationType::BROADCAST:
       enqueue_result = EnqueueTensorBroadcast(
           hvd_contexts[0], hvd_cpu_buffers[0], hvd_cpu_buffers[0], ops_param->root_rank,
-          ready_events[0], ops_param->op_names[0], device,
+          ready_event_lists[0], ops_param->op_names[0], device,
           callbacks[0]);
       break;
     case OperationType::ALLTOALL:
     {
       auto hvd_splits = std::make_shared<MXTensor>(ops_param->splits_tensor.get());
       enqueue_result = EnqueueTensorAlltoall(
-          hvd_contexts[0], hvd_cpu_buffers[0], hvd_splits, ready_events[0], ops_param->op_names[0],
+          hvd_contexts[0], hvd_cpu_buffers[0], hvd_splits, ready_event_lists[0], ops_param->op_names[0],
           device, callbacks[0]);
       break;
     }
