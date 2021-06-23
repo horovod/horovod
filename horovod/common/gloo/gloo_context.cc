@@ -23,6 +23,7 @@
 #include <stdexcept>
 
 #include "gloo/allgather.h"
+#include "gloo/barrier.h"
 #include "gloo/rendezvous/context.h"
 #include "gloo/rendezvous/file_store.h"
 #include "gloo/rendezvous/prefix_store.h"
@@ -82,6 +83,12 @@ std::shared_ptr<gloo::Context> Rendezvous(const std::string& prefix,
   auto context = std::make_shared<gloo::rendezvous::Context>(rank, size);
   context->setTimeout(timeout);
   context->connectFullMesh(*store, dev);
+  {
+    // Don't finalize the store until all clients have had a chance to connect.
+    gloo::BarrierOptions opts(context);
+    opts.setTimeout(timeout);
+    gloo::barrier(opts);
+  }
   store->Finalize();
   return context;
 }
@@ -317,7 +324,7 @@ void GlooContext::InitializeForProcessSet(const GlooContext& global_context,
     // leaving null: ctx, local_ctx, and cross_ctx 
     return;
   }
-  LOG(DEBUG) << "GlooContext for process set with rank: " << rank
+  LOG(DEBUG) << "Global Gloo context for process set with rank: " << rank
              << ", size: " << size;
   
   std::string process_set_suffix = "_process_set_hash_" + process_set_hash;
@@ -340,7 +347,7 @@ void GlooContext::InitializeForProcessSet(const GlooContext& global_context,
     local_rank = static_cast<int>(
         std::distance(global_context_local_ranks.begin(), it_local_rank));
     auto local_size = static_cast<int>(global_context_local_ranks.size());
-    LOG(DEBUG) << "GlooContext for process set with rank: " << local_rank
+    LOG(DEBUG) << "Local Gloo context for process set with rank: " << local_rank
                << ", size: " << local_size;
 
     local_ctx =
@@ -362,6 +369,9 @@ void GlooContext::InitializeForProcessSet(const GlooContext& global_context,
         global_context_cross_ranks.begin(), it_cross_rank));
     auto cross_size = static_cast<int>(global_context_cross_ranks.size());
     assert(local_rank >= 0);
+    LOG(DEBUG) << "Cross Gloo context for process set with rank: " << cross_rank
+               << ", size: " << cross_size;
+
     cross_ctx = Rendezvous(HOROVOD_GLOO_CROSS_PREFIX +
                                std::to_string(local_rank) + process_set_suffix,
                            rendezvous_addr_env, rendezvous_port, cross_rank,
