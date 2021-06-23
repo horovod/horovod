@@ -294,7 +294,7 @@ AlltoallOp::AlltoallOp(HorovodGlobalState* global_state)
     : HorovodOp(global_state) {}
 
 // Join
-JoinOp::JoinOp(HorovodGlobalState* global_state) : global_state_(global_state) {}
+JoinOp::JoinOp(HorovodGlobalState* global_state) : HorovodOp(global_state) {}
 
 Status JoinOp::Execute(std::vector<TensorTableEntry>& entries,
                        const Response& response, ProcessSet& process_set) {

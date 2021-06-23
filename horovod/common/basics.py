@@ -129,7 +129,15 @@ class HorovodBasics(object):
             raise ValueError(
                 "Horovod initialization failed. Please check log messages above for a more descriptive error.")
 
-        _init_process_sets(process_sets)
+        try:
+            _init_process_sets(process_sets)
+        except ValueError as e:
+            if (len(e.args) > 0 and isinstance(e.args[0], str) and
+                "Horovod has not been initialized properly" in e.args[0]):
+                # Horovod is already shutting down
+                return
+            else:
+                raise e
 
         for ps_idx, ps in enumerate(process_sets):
             if ps.process_set_id is None:

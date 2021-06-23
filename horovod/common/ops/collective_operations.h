@@ -272,19 +272,21 @@ protected:
   }
 };
 
-class JoinOp {
-  // JoinOp does not derive from HorovodOp as its function Execute has a
-  // different signature and because it does comparatively little.
+class JoinOp : public HorovodOp {
 public:
   explicit JoinOp(HorovodGlobalState* global_state);
 
   virtual ~JoinOp() = default;
 
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                         const Response& response) override {
+    throw std::logic_error(
+        "Call JoinOp::Execute() overload with extra process_set argument.");
+  }
+
+  // Note the different signature because we need a process_set argument.
   virtual Status Execute(std::vector<TensorTableEntry>& entries,
                          const Response& response, ProcessSet& process_set);
-
-protected:
-  HorovodGlobalState* global_state_;
 };
 
 class ErrorOp : public HorovodOp {
