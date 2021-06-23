@@ -18,6 +18,7 @@ from horovod.common.util import check_extension, split_list
 check_extension('horovod.mxnet', 'HOROVOD_WITH_MXNET',
                 __file__, 'mpi_lib')
 
+from horovod.mxnet.compression import Compression
 from horovod.mxnet.functions import allgather_object, broadcast_object
 from horovod.mxnet.mpi_ops import allgather
 from horovod.mxnet.mpi_ops import allreduce, allreduce_, grouped_allreduce, grouped_allreduce_
@@ -106,6 +107,9 @@ class DistributedTrainer(mx.gluon.Trainer):
         params: dict of parameters to train
         optimizer: mx.optim.Optimizer. the choice of optimizer
         optimizer_params: hyper-parameter of the chosen optimizer
+        compression: Compression algorithm used during allreduce to reduce the amount
+                     of data sent during the each parameter update step.  Defaults to
+                     not using compression.
         gradient_predivide_factor: gradient_predivide_factor splits the averaging
               before and after the sum. Gradients are scaled by
               1.0 / gradient_predivide_factor before the sum and
@@ -115,8 +119,11 @@ class DistributedTrainer(mx.gluon.Trainer):
               they must be specified by different prefixes to avoid tensor name collision.
     """
     def __init__(self, params, optimizer, optimizer_params=None,
+                 compression=Compression.none,
                  gradient_predivide_factor=1.0, prefix=None,
                  num_groups=0):
+        self._compression = compression
+
         if gradient_predivide_factor != 1.0 and rocm_built():
             raise ValueError('gradient_predivide_factor not supported yet with ROCm')
         if isinstance(optimizer, DistributedOptimizer):
@@ -150,10 +157,15 @@ class DistributedTrainer(mx.gluon.Trainer):
         if (self._num_groups > 0):
             grads = []
             names = []
+            tensors_compressed = []
+            ctxs = []
 
             for i, param in enumerate(self._params):
                 if param.grad_req != 'null':
-                    grads.append(param.list_grad()[0])
+                    tensor_compressed, ctx = self._compression.compress(param.list_grad()[0])
+                    grads.append(tensor_compressed)
+                    tensors_compressed.append(tensor_compressed)
+                    ctxs.append(ctx)
                     names.append(self._prefix + str(i))
 
             grads_split = split_list(grads, self._num_groups)
@@ -169,15 +181,24 @@ class DistributedTrainer(mx.gluon.Trainer):
                     grads, names = zip(*entries)
                     grouped_allreduce_(tensors=grads, average=False, name="{}:{}".format(names[0], names[-1]), priority=-i,
                                        prescale_factor=1.0 / self._gradient_predivide_factor)
+
+            if self._compression != Compression.none:
+                for i, param in enumerate(self._params):
+                    if param.grad_req != 'null':
+                        param.list_grad()[0][:] = self._compression.decompress(tensors_compressed.pop(0), ctxs.pop(0))
         else:
             # In MXNet 2.0, param.name is no longer unique.
             # Meanwhile, since horovod requires Python 3.6, there is no need to sort
             # self._params as enumerating a python dict is always deterministic.
             for i, param in enumerate(self._params):
                 if param.grad_req != 'null':
-                    allreduce_(param.list_grad()[0], average=False,
+                    tensor_compressed, ctx = self._compression.compress(param.list_grad()[0])
+                    allreduce_(tensor_compressed, average=False,
                                name=self._prefix + str(i), priority=-i,
                                prescale_factor=1.0 / self._gradient_predivide_factor)
+
+                    if self._compression != Compression.none:
+                        param.list_grad()[0][:] = self._compression.decompress(tensor_compressed, ctx)
 
 # Wrapper to inject Horovod broadcast after parameter initialization
 def _append_broadcast_init(param, root_rank, name):
