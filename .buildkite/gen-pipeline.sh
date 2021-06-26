@@ -48,8 +48,12 @@ tests=$(if [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}
   printf "test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark3_1_2 "
   # this is required as we cannot test mxnet-1.6.0.post0 with cpu
   printf "test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_7_1-mxnet1_6_0_p0-pyspark3_1_2 "
-  # we deviate from mxnet1_7_0_p2 here as for mxnet-cu101 the latest version is mxnet1_7_0_p1
-  printf "test-gpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_7_0_p1-pyspark3_1_2 "
+  # we additionally test the previous framework combination (CUDA 10.x) with mxnet 1.7.x
+  # as mxnet 1.7.x only supports CUDA 10.x, but next framework combination targets CUAA 11.x
+  printf "test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_7_1-mxnet1_7_0_p1-pyspark3_1_2 "
+  # we deviate from mxnet1_7_0_p2 here as other frameworks target CUDA 11.x and
+  # mxnet 1.7.x only supports CUDA 10.x, with mxnet 1.8.x we have CUDA 11.x packages
+  printf "test-gpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark3_1_2 "
   printf "test-gpu-openmpi-gloo-py3_8-tf2_5_0-keras2_4_3-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2 "
   printf "test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_1_2 "
 

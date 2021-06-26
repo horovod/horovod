@@ -136,6 +136,7 @@ services:
         PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.1.0
         TORCHVISION_PACKAGE: torchvision==0.4.2+cu100
         MXNET_PACKAGE: mxnet-cu100==1.5.1.post0
+  # this is required as we cannot test mxnet-1.6.0.post0 with cpu
   test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_7_1-mxnet1_6_0_p0-pyspark3_1_2:
     extends: test-gpu-base
     build:
@@ -149,9 +150,24 @@ services:
         PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.2.9
         TORCHVISION_PACKAGE: torchvision==0.8.2+cu101
         MXNET_PACKAGE: mxnet-cu101==1.6.0.post0
-  # mxnet-cu101==1.7.0.post1 is the first version in 1.7.x that works with horovod
-  # https://github.com/apache/incubator-mxnet/issues/19575
-  test-gpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_7_0_p1-pyspark3_1_2:
+  # we additionally test the previous framework combination (CUDA 10.x) with mxnet 1.7.x
+  # as mxnet 1.7.x only supports CUDA 10.x, but next framework combination targets CUAA 11.x
+  test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_7_1-mxnet1_7_0_p1-pyspark3_1_2:
+    extends: test-gpu-base
+    build:
+      args:
+        CUDA_DOCKER_VERSION: 10.1-devel-ubuntu18.04
+        CUDNN_VERSION: 7.6.5.32-1+cuda10.1
+        NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda10.1
+        TENSORFLOW_PACKAGE: tensorflow-gpu==2.3.2
+        KERAS_PACKAGE: keras==2.3.1
+        PYTORCH_PACKAGE: torch==1.7.1+cu101
+        PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.2.9
+        TORCHVISION_PACKAGE: torchvision==0.8.2+cu101
+        MXNET_PACKAGE: mxnet-cu101==1.7.0.post1
+  # we deviate from mxnet1_7_0_p2 here as other frameworks target CUDA 11.x and
+  # mxnet 1.7.x only supports CUDA 10.x, with mxnet 1.8.x we have CUDA 11.x packages
+  test-gpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark3_1_2:
     extends: test-gpu-base
     build:
       args:
@@ -163,7 +179,7 @@ services:
         PYTORCH_PACKAGE: torch==1.8.1+cu111
         PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.2.9
         TORCHVISION_PACKAGE: torchvision==0.9.1+cu111
-        MXNET_PACKAGE: mxnet-cu101==1.7.0.post1
+        MXNET_PACKAGE: mxnet-cu112==1.8.0.post0
   test-gpu-openmpi-gloo-py3_8-tf2_5_0-keras2_4_3-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2:
     extends: test-gpu-base
     build:
