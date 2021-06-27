@@ -39,6 +39,9 @@ void BatchedD2DMemcpyCudaImpl(BatchedD2DParams& params, int num_copies, cudaStre
 void ScaleBufferCudaImpl(const void* fused_input_data, void* buffer_data, const int64_t num_elements,
                          double scale_factor, DataType dtype, cudaStream_t stream);
 
+void BatchedScaledD2DMemcpyCudaImpl(BatchedD2DParams& params, int num_copies, double scale_factor,
+                                    DataType dtype, cudaStream_t stream);
+
 } // namespace common
 } // namespace horovod
 
