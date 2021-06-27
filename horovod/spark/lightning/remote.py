@@ -219,6 +219,7 @@ def _make_reset_callbacks():
 
 
 def _set_data_loader_fn(transformation, schema_fields, batch_size, data_loader_cls, num_epochs, store, verbose=False):
+    storage_options = store.storage_options
 
     @contextlib.contextmanager
     def set_data_loader(model, data_path, dataloader_attr, reader_worker_count, reader_pool_type, shuffling_queue_capacity,
@@ -264,7 +265,7 @@ def _set_data_loader_fn(transformation, schema_fields, batch_size, data_loader_c
                             hdfs_driver=PETASTORM_HDFS_DRIVER,
                             schema_fields=schema_fields,
                             transform_spec=transform_spec,
-                            storage_options=store.storage_options,
+                            storage_options=storage_options,
                             **reader_factory_kwargs) as reader:
             def dataloader_fn():
                 return data_loader_cls(reader=reader, batch_size=batch_size,
