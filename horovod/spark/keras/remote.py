@@ -88,6 +88,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     store = estimator.getStore()
     is_dbfs = isinstance(store, DBFSLocalStore)
     remote_store = store.to_remote(run_id, dataset_idx)
+    storage_options = store.storage_options
 
     def SyncCallback(root_path, sync_to_store_fn, keras):
         class _SyncCallback(keras.callbacks.Callback):
@@ -218,7 +219,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                                 hdfs_driver=PETASTORM_HDFS_DRIVER,
                                 schema_fields=schema_fields,
                                 transform_spec=transform_spec,
-                                storage_options=store.storage_options,
+                                storage_options=storage_options,
                                 **reader_factory_kwargs) as train_reader:
                 with reader_factory(remote_store.val_data_path,
                                     num_epochs=1,
@@ -229,7 +230,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                                     hdfs_driver=PETASTORM_HDFS_DRIVER,
                                     schema_fields=schema_fields,
                                     transform_spec=transform_spec,
-                                    storage_options=store.storage_options,
+                                    storage_options=storage_options,
                                     **reader_factory_kwargs) \
                     if should_validate else empty_batch_reader() as val_reader:
 
