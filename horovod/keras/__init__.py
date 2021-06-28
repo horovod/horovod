@@ -20,11 +20,8 @@ import keras.backend as K
 
 from horovod.tensorflow import init
 from horovod.tensorflow import shutdown
-from horovod.tensorflow import size
+from horovod.tensorflow import size, local_size, cross_size, rank, local_rank, cross_rank
 from horovod.tensorflow import is_initialized, start_timeline, stop_timeline
-from horovod.tensorflow import local_size
-from horovod.tensorflow import rank
-from horovod.tensorflow import local_rank
 from horovod.tensorflow import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.tensorflow import gloo_enabled, gloo_built
 from horovod.tensorflow import nccl_built, ddl_built, ccl_built, cuda_built, rocm_built
