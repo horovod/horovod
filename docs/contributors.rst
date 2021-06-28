@@ -70,16 +70,34 @@ For a debug build with checked assertions etc. replace the invocation of setup.p
 Testing
 -------
 
-Horovod has unit tests for all frameworks you can run from the tests directory:
+Horovod has unit tests for all frameworks under ``test/parallel``. These should be invoked via ``horovodrun`` or
+``mpirun`` and each test script may require to be run independently from the other test scripts:
 
 .. code-block:: bash
 
-    $ cd test
-    $ mpirun -np 2 pytest -v
+    $ cd test/parallel
+    $ horovodrun -np 2 pytest -v test_tensorflow.py
+    $ horovodrun -np 2 pytest -v test_torch.py
+    # ...
+
+    # Or to run all framework tests:
+    $ cd test/parallel
+    $ ls -1 test_*.py | xargs -n 1 horovodrun -np 2 pytest -v
+
+Moreover, there are integration tests and non-parallelized tests to be run directly via ``pytest``:
+
+.. code-block:: bash
+
+    $ cd test/integration
+    $ pytest -v
+
+    $ cd test/single
+    $ pytest -v
 
 **Note:** You will need PySpark and Java to run the Spark tests.
 
-**IMPORTANT:** Some tests contain GPU-only codepaths that will be skipped if running without GPU support.
+**IMPORTANT:** Some tests contain GPU-only codepaths that will be skipped if running without GPU support or, in some
+cases, if there are fewer than four GPUs installed.
 
 
 Continuous Integration
