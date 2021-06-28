@@ -749,8 +749,8 @@ class TorchTests(unittest.TestCase):
                                 "gradient %s differs from expected %s, "
                                 "error: %s" % (grad_out, expected, str(err)))
 
-    def test_horovod_allreduce_grad_average(self):
-        """Test the correctness of the allreduce averaged gradient."""
+    def test_horovod_grouped_allreduce_grad_average(self):
+        """Test the correctness of the grouped allreduce averaged gradient."""
         hvd.init()
         # Only Tensors of floating point dtype can require gradients
         dtypes = [torch.FloatTensor, torch.DoubleTensor]
