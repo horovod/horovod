@@ -90,7 +90,7 @@ class ProcessSetsMultiCommTests(unittest.TestCase):
         self.assertEqual(hvd.global_process_set.mpi_comm, comm)
 
         # Here we test some implementation details (numeric process set id values) using an internal function.
-        ps = hvd.mpi_ops._get_process_set_ids_and_ranks()
+        ps = hvd.mpi_ops._basics._get_process_set_ids_and_ranks()
         if size > 2:
             self.assertDictEqual(ps, {0: list(range(size)),
                                       1: list(range(0, size, 2)),

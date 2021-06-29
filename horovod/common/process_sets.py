@@ -55,6 +55,19 @@ class ProcessSet:
             return None
         return _basics._process_set_size(self.process_set_id)
 
+    def rank(self) -> Optional[int]:
+        """ Return rank relative to this process set or None if not initialized.
+
+        This is useful, e.g., to process the result of hvd.allgather().
+
+        Please note that, even with process sets, Horovod operations like hvd.broadcast() are not parameterized by this
+        relative rank, but by the global rank as obtained from hvd.rank().
+        """
+        if self.process_set_id is None:
+            return None
+        return _basics._process_set_rank(self.process_set_id)
+
+
     def included(self) -> Optional[bool]:
         """ Return whether the current process is part of this process set or None if not initialized. """
         if self.ranks is None:
@@ -65,7 +78,7 @@ class ProcessSet:
         return f"ProcessSet(process_set_id={self.process_set_id}, ranks={self.ranks}, mpi_comm={self.mpi_comm})"
 
 
-def _temp_process_set_object(process_set_id: int):
+def _temp_process_set_object(process_set_id: int) -> ProcessSet:
     """ For Horovod-internal usage where we don't have a ProcessSet instance at hand but know a valid process_set_id.
     """
     ps = ProcessSet.__new__(ProcessSet)

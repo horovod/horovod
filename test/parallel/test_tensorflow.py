@@ -3931,13 +3931,13 @@ class TensorFlowTests(tf.test.TestCase):
         # Here we test some implementation details (numeric process set id values) using an internal function. We only
         # test the concrete value 0 because IDs will be reassigned between eager and graph-mode test runs and may
         # change.
-        ps = hvd.mpi_ops._get_process_set_ids_and_ranks()
+        ps = hvd.mpi_ops._basics._get_process_set_ids_and_ranks()
         self.assertDictEqual(ps, {0: list(range(size))})
 
         set1 = hvd.add_process_set([0])
         set2 = hvd.add_process_set(range(1, size))
 
-        ps = hvd.mpi_ops._get_process_set_ids_and_ranks()
+        ps = hvd.mpi_ops._basics._get_process_set_ids_and_ranks()
         self.assertDictEqual(ps, {0: list(range(size)),
                                   set1.process_set_id: [0],
                                   set2.process_set_id: list(range(1, size))})
@@ -3959,13 +3959,13 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.remove_process_set(set1)
         self.assertIsNone(set1.process_set_id)  # invalidated
 
-        ps = hvd.mpi_ops._get_process_set_ids_and_ranks()
+        ps = hvd.mpi_ops._basics._get_process_set_ids_and_ranks()
         self.assertDictEqual(ps, {0: list(range(size)),
                                   set2.process_set_id: list(range(1, size))})
 
         # test re-adding set1
         hvd.add_process_set(set1)
-        ps = hvd.mpi_ops._get_process_set_ids_and_ranks()
+        ps = hvd.mpi_ops._basics._get_process_set_ids_and_ranks()
         self.assertDictEqual(ps, {0: list(range(size)),
                                   set1.process_set_id: [0],
                                   set2.process_set_id: list(range(1, size))})
@@ -3986,7 +3986,7 @@ class TensorFlowTests(tf.test.TestCase):
         with self.assertRaises(ValueError):  # duplicate of the global process set
             set5 = hvd.add_process_set(range(0, size))
 
-        ps = hvd.mpi_ops._get_process_set_ids_and_ranks()
+        ps = hvd.mpi_ops._basics._get_process_set_ids_and_ranks()
         if size > 2:
             self.assertDictEqual(ps, {0: list(range(size)),
                                       set2.process_set_id: list(range(1, size)),
@@ -3997,7 +3997,7 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.remove_process_set(set2)
         hvd.remove_process_set(set3)
 
-        ps = hvd.mpi_ops._get_process_set_ids_and_ranks()
+        ps = hvd.mpi_ops._basics._get_process_set_ids_and_ranks()
         self.assertDictEqual(ps, {0: list(range(size))})
 
         self.assertFalse(hvd.remove_process_set(hvd.global_process_set),

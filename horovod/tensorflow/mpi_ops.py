@@ -78,10 +78,6 @@ ddl_built = _basics.ddl_built
 ccl_built = _basics.ccl_built
 cuda_built = _basics.cuda_built
 rocm_built = _basics.rocm_built
-_process_set_rank = _basics._process_set_rank
-_process_set_size = _basics._process_set_size
-_get_process_set_ids_and_ranks = _basics._get_process_set_ids_and_ranks
-_comm_process_set_id = _basics._comm_process_set_id
 
 # import reduction op values
 Average = _basics.Average
@@ -238,8 +234,9 @@ def _allgather_grad(op, grad):
     """
     ignore_name_scope = op.get_attr('ignore_name_scope')
     process_set_id = op.get_attr('process_set_id')
+    temp_process_set_object = _temp_process_set_object(process_set_id)
     grad = _allreduce(grad, op=Average, ignore_name_scope=ignore_name_scope,
-                      process_set=_temp_process_set_object(process_set_id))
+                      process_set=temp_process_set_object)
 
     with tf.device('/cpu:0'):
         # Keep the tensor of split sizes on CPU.
@@ -247,13 +244,13 @@ def _allgather_grad(op, grad):
         d = tf.shape(x)
         d = tf.reshape(d[0], [1])
 
-        s = _process_set_size(process_set_id)
+        s = temp_process_set_object.size()
         d = tf.reshape(
-            allgather(d, ignore_name_scope=ignore_name_scope, process_set=_temp_process_set_object(process_set_id)),
+            allgather(d, ignore_name_scope=ignore_name_scope, process_set=temp_process_set_object),
             [s])
 
     splits = tf.split(grad, num_or_size_splits=d, axis=0)
-    return splits[_process_set_rank(process_set_id)]
+    return splits[temp_process_set_object.rank()]
 
 
 def broadcast(tensor, root_rank, name=None, ignore_name_scope=False, process_set=global_process_set):

@@ -51,7 +51,7 @@ class ProcessSetsStaticTests(unittest.TestCase):
         self.assertListEqual(hvd.global_process_set.ranks, list(range(size)))
 
         # Here we test some implementation details (numeric process set id values) using an internal function.
-        ps = hvd.mpi_ops._get_process_set_ids_and_ranks()
+        ps = hvd.mpi_ops._basics._get_process_set_ids_and_ranks()
         self.assertDictEqual(ps, {0: list(range(size)),
                                   1: [0],
                                   2: list(range(1, size))})
