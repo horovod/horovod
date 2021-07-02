@@ -39,8 +39,7 @@ import warnings
 
 # This is where Horovod's DistributedOptimizer wrapper for MXNet goes
 class DistributedOptimizer(mx.optimizer.Optimizer):
-    def __init__(self, optimizer, compression=Compression.none, gradient_predivide_factor=1.0, num_groups=0):
-        self._compression = compression
+    def __init__(self, optimizer, gradient_predivide_factor=1.0, num_groups=0):
         if gradient_predivide_factor != 1.0 and rocm_built():
             raise ValueError('gradient_predivide_factor not supported yet with ROCm')
 
@@ -66,23 +65,16 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
                 index_split = split_list(index, self._num_groups)
 
                 for i, (grads, indices) in enumerate(zip(grad_split, index_split)):
-                    tensors_compressed, ctxs = zip(*[self._compression.compress(grad) for grad in grads])
-                    grouped_allreduce_(tensors=tensors_compressed, average=False,
-                                       name="{}:{}".format(names[0], names[-1]), priority=-i,
+                    grouped_allreduce_(tensors=grads, average=False, name="{}:{}".format(indices[0], indices[-1]), priority=-i,
                                        prescale_factor=1.0 / self._gradient_predivide_factor)
-                    grads = [self._compression.decompress(t, ctx) for t, ctx in zip(tensors_compressed, ctxs)]
             else:
               for i in range(len(index)):
-                  tensor_compressed, ctx = self._compression.compress(grad[i])
-                  allreduce_(tensor_compressed, average=False,
+                  allreduce_(grad[i], average=False,
                              name=str(index[i]), priority=-i,
                              prescale_factor=1.0 / self._gradient_predivide_factor)
-                  grad[i] = self._compression.decompress(tensor_compressed, ctx)
         else:
-            tensor_compressed, ctx = self._compression.compress(grad)
-            allreduce_(tensor_compressed, average=False, name=str(index),
+            allreduce_(grad, average=False, name=str(index),
                        prescale_factor=1.0 / self._gradient_predivide_factor)
-            grad = self._compression.decompress(tensor_compressed, ctx)
 
     def update(self, index, weight, grad, state):
         self._do_allreduce(index, grad)
@@ -165,10 +157,15 @@ class DistributedTrainer(mx.gluon.Trainer):
         if (self._num_groups > 0):
             grads = []
             names = []
+            tensors_compressed = []
+            ctxs = []
 
             for i, param in enumerate(self._params):
                 if param.grad_req != 'null':
-                    grads.append(param.list_grad()[0])
+                    tensor_compressed, ctx = self._compression.compress(param.list_grad()[0])
+                    grads.append(tensor_compressed)
+                    tensors_compressed.append(tensor_compressed)
+                    ctxs.append(ctx)
                     names.append(self._prefix + str(i))
 
             grads_split = split_list(grads, self._num_groups)
@@ -182,10 +179,13 @@ class DistributedTrainer(mx.gluon.Trainer):
 
                 for entries in entries_by_dtype.values():
                     grads, names = zip(*entries)
-                    tensors_compressed, ctxs = zip(*[self._compression.compress(grad) for grad in grads])
-                    grouped_allreduce_(tensors=tensors_compressed, average=False, name="{}:{}".format(names[0], names[-1]), priority=-i,
+                    grouped_allreduce_(tensors=grads, average=False, name="{}:{}".format(names[0], names[-1]), priority=-i,
                                        prescale_factor=1.0 / self._gradient_predivide_factor)
-                    grads = [self._compression.decompress(t, ctx) for t, ctx in zip(tensors_compressed, ctxs)]
+
+            if self._compression != Compression.none:
+                for i, param in enumerate(self._params):
+                    if param.grad_req != 'null':
+                        param.list_grad()[0][:] = self._compression.decompress(tensors_compressed.pop(0), ctxs.pop(0))
         else:
             # In MXNet 2.0, param.name is no longer unique.
             # Meanwhile, since horovod requires Python 3.6, there is no need to sort
@@ -196,8 +196,9 @@ class DistributedTrainer(mx.gluon.Trainer):
                     allreduce_(tensor_compressed, average=False,
                                name=self._prefix + str(i), priority=-i,
                                prescale_factor=1.0 / self._gradient_predivide_factor)
-                    param._grad[0][:] = self._compression.decompress(tensor_compressed, ctx)
 
+                    if self._compression != Compression.none:
+                        param.list_grad()[0][:] = self._compression.decompress(tensor_compressed, ctx)
 
 # Wrapper to inject Horovod broadcast after parameter initialization
 def _append_broadcast_init(param, root_rank, name):

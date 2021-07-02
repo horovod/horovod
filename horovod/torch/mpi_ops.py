@@ -518,8 +518,11 @@ def sparse_allreduce_async(tensor, name, op):
     values_handle = allgather_async(t._values(), name=f'{name}.values')
 
     def handle():
-        indices = synchronize(indices_handle)
+        # We need to sync values handle firstly for torch nightly >= 10.0
+        # Issue: https://github.com/horovod/horovod/issues/2961
         values = synchronize(values_handle)
+        indices = synchronize(indices_handle)
+
         values = (values / size()) if op == Average else values
 
         if indices.dim() == 0 or values.dim() == 0:

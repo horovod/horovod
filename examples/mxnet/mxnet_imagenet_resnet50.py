@@ -433,8 +433,7 @@ def train_module():
     opt = mx.optimizer.create('sgd', **optimizer_params)
 
     # Horovod: wrap optimizer with DistributedOptimizer
-    compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
-    dist_opt = hvd.DistributedOptimizer(opt, compression=compression,
+    dist_opt = hvd.DistributedOptimizer(opt,
                                         gradient_predivide_factor=args.gradient_predivide_factor)
 
     # Setup validation data and callback during training

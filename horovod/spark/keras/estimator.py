@@ -161,6 +161,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
         reader_pool_type: Type of worker pool used to parallelize reading data from the dataset.
                           Should be one of ['thread', 'process']. Defaults to 'process'.
         inmemory_cache_all: boolean value. Cache the data in memory for training and validation. Default: False.
+        backend_env: dict to add to the environment of the backend.  Defaults to setting the java heap size to
+                     2G min and max for libhdfs through petastorm
     """
 
     custom_objects = Param(Params._dummy(), 'custom_objects', 'custom objects')
@@ -170,6 +172,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
     inmemory_cache_all = Param(Params._dummy(), 'inmemory_cache_all',
                                'Cache the data in memory for training and validation.',
                                typeConverter=TypeConverters.toBoolean)
+    backend_env = Param(Params._dummy(), "backend_env",
+                        "dict to add to the environment of the command run on the environment")
 
     @keyword_only
     def __init__(self,
@@ -203,7 +207,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                  reader_pool_type=None,
                  label_shapes=None,
                  checkpoint_callback=None,
-                 inmemory_cache_all=False):
+                 inmemory_cache_all=False,
+                 backend_env=None):
 
         super(KerasEstimator, self).__init__()
 
@@ -211,7 +216,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                          custom_objects={},
                          _keras_pkg_type=None,
                          checkpoint_callback=None,
-                         inmemory_cache_all=False)
+                         inmemory_cache_all=False,
+                         backend_env={'LIBHDFS_OPTS': '-Xms2048m -Xmx2048m'})
 
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
@@ -277,6 +283,12 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
     def getInMemoryCacheAll(self):
         return self.getOrDefault(self.inmemory_cache_all)
 
+    def setBackendEnv(self, value):
+        self._set(backend_env=value)
+
+    def getBackendEnv(self):
+        return self.getOrDefault(self.backend_env)
+
     def _check_metadata_compatibility(self, metadata):
         input_shapes, output_shapes = self.get_model_shapes()
         util.check_shape_compatibility(metadata,
@@ -307,14 +319,10 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
         else:
             serialized_model = self._compile_model(keras_utils)
 
-        # Workaround:
-        # https://stackoverflow.com/questions/50583056/is-there-any-way-to-set-java-opts-for-tensorflow-process/50615570
-        env = {'LIBHDFS_OPTS': '-Xms2048m -Xmx2048m'}
-
         trainer = remote.RemoteTrainer(self, metadata, keras_utils, run_id, dataset_idx)
         handle = backend.run(trainer,
                              args=(serialized_model, train_rows, val_rows, avg_row_size),
-                             env=env)
+                             env=self.getBackendEnv())
         return self._create_model(handle, run_id, metadata)
 
     def _load_model_from_checkpoint(self, run_id):

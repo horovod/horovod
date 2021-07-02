@@ -33,8 +33,8 @@ def to_lightning_module(model, optimizer, loss_fns, loss_weights, feature_cols, 
             super().__init__()
             self._model = model
 
-        def forward(self, **kwargs):
-            return self._model(**kwargs)
+        def forward(self, *args, **kwargs):
+            return self._model(*args, **kwargs)
 
         def configure_optimizers(self):
             # Optimizer object needs to be re-instantiated. Internally, it uses memory addresses of

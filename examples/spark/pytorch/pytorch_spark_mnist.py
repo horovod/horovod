@@ -75,7 +75,6 @@ if __name__ == '__main__':
     # Train/test split
     train_df, test_df = train_df.randomSplit([0.9, 0.1])
 
-
     # Define the PyTorch model without any Horovod-specific parameters
     class Net(nn.Module):
         def __init__(self):
@@ -86,8 +85,8 @@ if __name__ == '__main__':
             self.fc1 = nn.Linear(320, 50)
             self.fc2 = nn.Linear(50, 10)
 
-        def forward(self, x):
-            x = x.float()
+        def forward(self, features):
+            x = features.float()
             x = F.relu(F.max_pool2d(self.conv1(x), 2))
             x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
             x = x.view(-1, 320)
@@ -95,7 +94,6 @@ if __name__ == '__main__':
             x = F.dropout(x, training=self.training)
             x = self.fc2(x)
             return F.log_softmax(x)
-
 
     model = Net()
     optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
@@ -115,6 +113,7 @@ if __name__ == '__main__':
                                          label_cols=['label'],
                                          batch_size=args.batch_size,
                                          epochs=args.epochs,
+                                         validation=0.1,
                                          verbose=1)
 
     torch_model = torch_estimator.fit(train_df).setOutputCols(['label_prob'])

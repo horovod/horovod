@@ -20,10 +20,11 @@ from horovod.runner.mpi_run import mpi_run as hr_mpi_run
 from horovod.runner.common.util import codec, secret
 
 
-def mpi_run(settings, nics, driver, env, stdout=None, stderr=None):
+def mpi_run(executable, settings, nics, driver, env, stdout=None, stderr=None):
     """
     Runs mpirun.
 
+    :param executable: Executable to run when launching the workers.
     :param settings: Settings for running MPI.
                      Note: settings.num_proc and settings.hosts must not be None.
     :param nics: Interfaces to include by MPI.
@@ -41,14 +42,14 @@ def mpi_run(settings, nics, driver, env, stdout=None, stderr=None):
     # we don't want the key to be serialized along with settings from here on
     settings.key = None
 
-    rsh_agent = (sys.executable,
+    rsh_agent = (executable,
                  '-m', 'horovod.spark.driver.mpirun_rsh',
                  codec.dumps_base64(driver.addresses()),
                  codec.dumps_base64(settings))
     settings.extra_mpi_args = ('{extra_mpi_args} -x NCCL_DEBUG=INFO -mca plm_rsh_agent "{rsh_agent}"'
                                .format(extra_mpi_args=settings.extra_mpi_args if settings.extra_mpi_args else '',
                                        rsh_agent=' '.join(rsh_agent)))
-    command = (sys.executable,
+    command = (executable,
                '-m', 'horovod.spark.task.mpirun_exec_fn',
                codec.dumps_base64(driver.addresses()),
                codec.dumps_base64(settings))

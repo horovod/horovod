@@ -70,16 +70,34 @@ For a debug build with checked assertions etc. replace the invocation of setup.p
 Testing
 -------
 
-Horovod has unit tests for all frameworks you can run from the tests directory:
+Horovod has unit tests for all frameworks under ``test/parallel``. These should be invoked via ``horovodrun`` or
+``mpirun`` and each test script may require to be run independently from the other test scripts:
 
 .. code-block:: bash
 
-    $ cd test
-    $ mpirun -np 2 pytest -v
+    $ cd test/parallel
+    $ horovodrun -np 2 pytest -v test_tensorflow.py
+    $ horovodrun -np 2 pytest -v test_torch.py
+    # ...
+
+    # Or to run all framework tests:
+    $ cd test/parallel
+    $ ls -1 test_*.py | xargs -n 1 horovodrun -np 2 pytest -v
+
+Moreover, there are integration tests and non-parallelized tests to be run directly via ``pytest``:
+
+.. code-block:: bash
+
+    $ cd test/integration
+    $ pytest -v
+
+    $ cd test/single
+    $ pytest -v
 
 **Note:** You will need PySpark and Java to run the Spark tests.
 
-**IMPORTANT:** Some tests contain GPU-only codepaths that will be skipped if running without GPU support.
+**IMPORTANT:** Some tests contain GPU-only codepaths that will be skipped if running without GPU support or, in some
+cases, if there are fewer than four GPUs installed.
 
 
 Continuous Integration
@@ -304,36 +322,14 @@ Tag
     $ git tag -a v0.18.0 -m "Horovodrun config file, bugfixes"
     $ git push origin v0.18.0
 
-
-Upload to PyPI
+Create Release
 ~~~~~~~~~~~~~~
 
-Make a clean recursive clone of the horovod repo:
+Follow the GitHub instructions for `Creating a Release <https://docs.github.com/en/github/administering-a-repository/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release>`_.
 
-.. code-block:: bash
+Once the release has been created, this will trigger a workflow that uploads the Horovod source distribution to `PyPI <https://pypi.org>`_ automatically using `Twine <https://pypi.org/project/twine>`_.
 
-    $ cd /tmp
-    $ rm -rf horovod
-    $ git clone --recursive https://github.com/horovod/horovod.git
-    $ cd horovod
-
-Build the source dist:
-
-.. code-block:: bash
-
-    $ python setup.py sdist
-
-Upload to PyPI using `Twine <https://pypi.org/project/twine>`_:
-
-.. code-block:: bash
-
-    $ pip install twine
-    $ twine upload -r pypi dist/horovod-0.18.0.tar.gz
-
-Create a `PyPI <https://pypi.org>`_ account if you don’t have one. Then ask someone from the Horovod TSC
-to add you to the Horovod project.
-
-Verify that the latest version of Horovod is now available:
+After the workflow completes, verify that the latest version of Horovod is now available:
 
 .. code-block:: bash
 

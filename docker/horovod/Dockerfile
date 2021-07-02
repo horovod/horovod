@@ -44,7 +44,8 @@ RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-
         ibverbs-providers \
         openjdk-8-jdk-headless \
         openssh-client \
-        openssh-server
+        openssh-server \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Open MPI
 RUN wget --progress=dot:mega -O /tmp/openmpi-3.0.0-bin.tar.gz https://github.com/horovod/horovod/files/1596799/openmpi-3.0.0-bin.tar.gz && \
@@ -65,18 +66,20 @@ RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
     python get-pip.py && \
     rm get-pip.py
 
-# Install TensorFlow, Keras, PyTorch and MXNet
-RUN pip install future typing packaging
-RUN pip install tensorflow==${TENSORFLOW_VERSION} \
-                keras \
-                h5py
-
-RUN pip install \
+# Install PyTorch, TensorFlow, Keras and MXNet
+RUN pip install --no-cache-dir \
     torch==${PYTORCH_VERSION} \
     torchvision==${TORCHVISION_VERSION} \
     -f https://download.pytorch.org/whl/${PYTORCH_VERSION/*+/}/torch_stable.html
-RUN pip install pytorch_lightning==${PYTORCH_LIGHTNING_VERSION}
-RUN pip install mxnet-cu112==${MXNET_VERSION}
+RUN pip install --no-cache-dir pytorch_lightning==${PYTORCH_LIGHTNING_VERSION}
+
+RUN pip install --no-cache-dir future typing packaging
+RUN pip install --no-cache-dir \
+    tensorflow==${TENSORFLOW_VERSION} \
+    keras \
+    h5py
+
+RUN pip install --no-cache-dir mxnet-cu112==${MXNET_VERSION}
 
 # Install Spark stand-alone cluster.
 RUN wget --progress=dot:giga "https://www.apache.org/dyn/closer.lua/spark/${SPARK_PACKAGE}?action=download" -O - | tar -xzC /tmp; \
