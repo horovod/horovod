@@ -39,7 +39,7 @@ class POS_Trainer(mx.gluon.Trainer):
                 continue
             self._all_param2idx[param._uuid] = i
             self._all_params.append(param)
-        self._partition_params, self._param2rank = self.partition_parameters(self._all_params)
+        self._partition_params, self._param2rank = self._partition_parameters(self._all_params)
         self._own_part = self._partition_params[self._world_rank]
         super(POS_Trainer, self).__init__(
             self._own_part, optimizer, optimizer_params=optimizer_params, kvstore=None)
@@ -48,7 +48,10 @@ class POS_Trainer(mx.gluon.Trainer):
         self._gradient_predivide_factor = gradient_predivide_factor
 
 
-    def partition_parameters(self, params):
+    def _partition_parameters(self, params):
+        """
+        partition all the parameters by their size and try to average them.
+        """
         world_size = self._world_size
         ## list for rank each would be
         partition_params = [[] for _ in range(world_size)]
@@ -66,6 +69,11 @@ class POS_Trainer(mx.gluon.Trainer):
         return partition_params, param2rank
 
     def _allreduce_grads(self):
+        """
+        rewrite allreduce here because we need to communicate using horovod.
+        Actually we should use scatter here, but since it is not available yet,
+        I use allreduce instead.
+        """
         for i, param in enumerate(self._all_params):
             if param.grad_req != 'null':
                 allreduce_(param.list_grad()[0], average=False,
@@ -89,20 +97,13 @@ class POS_Trainer(mx.gluon.Trainer):
         ignore_stale_grad : bool, optional, default=False
             If true, ignores Parameters with stale gradient (gradient that has not
             been updated by `backward` after last step) and skip update.
+        Since each process main their own part, we need to brodcast after calculation
         """
-        rescale_grad = self._scale / batch_size
-        self._check_and_rescale_grad(rescale_grad)
-
-        if not self._kv_initialized:
-            self._init_kvstore()
-        if self._params_to_init:
-            self._init_params()
-
-        self._allreduce_grads()
-        self._update(ignore_stale_grad)
-        self.broadcast_params()
+        super(POS_Trainer, self).step(batch_size, ignore_stale_grad)
+        self._broadcast_partition_params()
 
     def update(self, batch_size, ignore_stale_grad=False):
+        '''
         if not self._kv_initialized:
             self._init_kvstore()
         if self._params_to_init:
@@ -111,64 +112,16 @@ class POS_Trainer(mx.gluon.Trainer):
             'update() when parameters are updated on kvstore ' \
             'is not supported. Try setting `update_on_kvstore` ' \
             'to False when creating trainer.'
+        Since each process main their own part, we need to brodcast after calculation
+        '''
+        super(POS_Trainer, self).update(batch_size, ignore_stale_grad)
+        self._broadcast_partition_params()
 
-        self._check_and_rescale_grad(self._scale / batch_size)
-        self._update(ignore_stale_grad)
-        self.broadcast_params()
 
 
-
-    def broadcast_params(self):
+    def _broadcast_partition_params(self):
+        """
+        This function is to broadcast parameter since each process will maintain their own part
+        """
         for param in self._all_params:
             broadcast_(param.data(), self._param2rank[param._uuid], name=str(self._all_param2idx[param._uuid]))
-
-    def _broadcast_parameters(self, params, root_rank=0, prefix=None):
-        """
-        Broadcasts the parameters from root rank to all other processes.
-        Typical usage is to broadcast the `Module.get_params()` or the
-        `Block.collect_params()`.
-        Arguments:
-            params: One of the following:
-                - dict of parameters to broadcast
-                - ParameterDict to broadcast
-            root_rank: The rank of the process from which parameters will be
-                       broadcasted to all other processes.
-            prefix: The prefix of the parameters to broadcast.
-                  If multiple `broadcast_parameters` are called in the same program,
-                  they must be specified by different prefixes to avoid tensor name collision.
-        """
-
-        if size() == 1:
-            return
-
-        tensors = []
-        names = []
-        assert prefix is None or isinstance(prefix, str)
-        prefix = prefix if prefix else ""
-        try:
-            from mxnet.gluon.parameter import ParameterDict
-            valid_types = (dict, ParameterDict)
-        except ImportError:
-            valid_types = (dict,)
-        if isinstance(params, valid_types):
-            for name, p in sorted(params.items()):
-                try:
-                    if isinstance(p, mx.gluon.parameter.Parameter):
-                        tensors.append(p.data())
-                    else:
-                        tensors.append(p)
-                    names.append(prefix + str(name))
-                except mx.gluon.parameter.DeferredInitializationError:
-                    # Inject wrapper method with post-initialization broadcast to
-                    # handle parameters with deferred initialization
-                    # we use the key of params instead of param.name, since
-                    # param.name is no longer unique in MXNet 2.0
-                    new_init = _append_broadcast_init(p, root_rank, prefix + str(name))
-                    p._init_impl = types.MethodType(new_init, p)
-        else:
-            raise ValueError('invalid params of type: %s' % type(params))
-
-        # Run broadcasts.
-        for tensor, name in zip(tensors, names):
-            broadcast_(tensor, root_rank, name=name)
-
