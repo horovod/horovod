@@ -222,6 +222,9 @@ RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
     python setup.py sdist && \
     bash -c "${HOROVOD_BUILD_FLAGS} HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]"
 
+# Show the effective python package version to easily spot version differences
+RUN pip freeze | sort
+
 # Hack for compatibility of MNIST example with TensorFlow 1.1.0.
 RUN if [[ ${TENSORFLOW_PACKAGE} == "tensorflow==1.1.0" ]]; then \
         sed -i "s/from tensorflow import keras/from tensorflow.contrib import keras/" /horovod/examples/tensorflow/tensorflow_mnist.py; \
