@@ -193,12 +193,10 @@ RUN if [[ ${TENSORFLOW_PACKAGE} == "tf-nightly" ]]; then \
     fi
 
 # Install PyTorch (nightly).
-# Pin Pillow<7.0 for torchvision < 0.5.0: https://github.com/pytorch/vision/issues/1718
+# Pin Pillow!=8.3.0 for torchvision: https://github.com/pytorch/vision/issues/4146
 RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
         pip install --no-cache-dir --pre torch ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html; \
-        if [[ "${TORCHVISION_PACKAGE/%+*/}" == torchvision==0.[1234].* ]]; then \
-            pip install --no-cache-dir "Pillow<7.0" --no-deps; \
-        fi; \
+        pip install --no-cache-dir "Pillow!=8.3.0" --no-deps; \
     fi
 
 # Install MXNet (nightly).
