@@ -80,6 +80,9 @@ struct ProcessSet {
   ProcessSet(const ProcessSet&) = delete;
 };
 
+const Status PROCESS_SET_HAS_BEEN_REMOVED =
+    Status::Aborted("Process set has been removed");
+
 class ProcessSetTable {
 public:
   ProcessSetTable();
@@ -101,15 +104,22 @@ public:
   // Returns the number of newly initialized process sets (may be zero) from 1).
 #if HAVE_MPI
   int32_t InitializeRegisteredAndRemoveMarkedIfReady(
-      const MPIContext& global_mpi_context);
+      const MPIContext& global_mpi_context,
+      const Status& removal_status = PROCESS_SET_HAS_BEEN_REMOVED);
 #endif
 #if HAVE_GLOO
   int32_t InitializeRegisteredAndRemoveMarkedIfReady(
-      const GlooContext& global_gloo_context);
+      const GlooContext& global_gloo_context,
+      const Status& removal_status = PROCESS_SET_HAS_BEEN_REMOVED);
 #endif
 
   // Finalize tensor queues and communicators and remove all process sets.
-  void Finalize(const Status& status);
+#if HAVE_MPI
+  void Finalize(const MPIContext& global_mpi_context, const Status& status);
+#endif
+#if HAVE_GLOO
+  void Finalize(const GlooContext& global_gloo_context, const Status& status);
+#endif
 
   int32_t RegisterProcessSet(std::vector<int> global_ranks = {});
 
@@ -135,7 +145,11 @@ private:
   // Context can be either MPIContext or GlooContext for the following:
   template <class Context> void Initialize_(const Context& context);
   template <class Context>
-  int32_t InitializeRegisteredAndRemoveMarkedIfReady_(const Context& context);
+  int32_t
+  InitializeRegisteredAndRemoveMarkedIfReady_(const Context& context,
+                                              const Status& removal_status);
+  template <class Context>
+  void Finalize_(const Context& context, const Status& removal_status);
 
   std::unordered_map<int32_t, ProcessSet> id_to_process_set_;
 

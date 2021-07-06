@@ -108,6 +108,3 @@ class ProcessSetsMultiCommTests(unittest.TestCase):
         else:
             self.assertEqual(my_process_sets[0].process_set_id, 2)
 
-        MPI.COMM_WORLD.barrier()
-
-        hvd.shutdown()

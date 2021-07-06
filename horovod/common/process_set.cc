@@ -175,10 +175,10 @@ void ProcessSetTable::Initialize_(const Context& global_context) {
 
 template <class Context>
 int32_t ProcessSetTable::InitializeRegisteredAndRemoveMarkedIfReady_(
-    const Context& global_context) {
+    const Context& global_context, const Status& removal_status) {
   std::lock_guard<std::recursive_mutex> guard(mutex);
 
-  int locally_registered_count = ids_.size();
+  auto locally_registered_count = (int)ids_.size();
   std::array<int, 2> pair_to_transmit{locally_registered_count,
                                       id_to_be_removed_};
 
@@ -209,19 +209,22 @@ int32_t ProcessSetTable::InitializeRegisteredAndRemoveMarkedIfReady_(
       bool newly_registered = Get(id).Initialize(global_context);
       if (newly_registered) {
         ++initialized_count;
+        LOG(TRACE, global_controller.GetRank())
+            << "Initialized process set with id " << id;
       }
     }
   }
 
-  // 2) Deregeister a process set marked for removal by all processess:
+  // 2) Finalize and deregister a process set marked for removal by all processess:
   if (id_to_be_removed_agreement) {
     if (id_to_be_removed_ == NO_PENDING_REMOVAL ||
         id_to_be_removed_ == SUCCESSFUL_REMOVAL) {
       // do nothing
     } else {
-      id_to_process_set_[id_to_be_removed_].Finalize(
-          Status::Aborted("Process set has been removed"));
+      id_to_process_set_[id_to_be_removed_].Finalize(removal_status);
       DeregisterProcessSet(id_to_be_removed_);
+      LOG(TRACE, global_controller.GetRank())
+          << "Removed process set with id " << id_to_be_removed_;
 
       id_to_be_removed_ = SUCCESSFUL_REMOVAL;
     }
@@ -231,14 +234,53 @@ int32_t ProcessSetTable::InitializeRegisteredAndRemoveMarkedIfReady_(
   return initialized_count;
 }
 
+template <class Context>
+void ProcessSetTable::Finalize_(const Context& context, const Status& status) {
+  std::lock_guard<std::recursive_mutex> guard(mutex);
+  std::vector<int32_t> ids_copy(ids_.begin(), ids_.end());
+  for (auto id : ids_copy) {
+    if (id == 0) {
+      // We will still need the global process set to negotiate removing any
+      // other process set.
+      continue;
+    }
+    LOG(TRACE, Get(0).controller->GetRank())
+        << "Finalizing ProcessSetTable, process set id: " << id;
+    MarkProcessSetForRemoval(id);
+    // Block until all processes have been able to finalize and deregister
+    // this process set.
+    while (true) {
+      InitializeRegisteredAndRemoveMarkedIfReady_(context, status);
+      if (ProcessSetHasJustBeenRemoved()) {
+        break;
+      } else {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      }
+    }
+  }
+  // The process set hosting the global controller needs to remain in the
+  // table to allow a future re-initialization of Horovod (it must still
+  // be finalized now and re-initialized then).
+  // We don't need to negotiate the removal of this global process set.
+  LOG(TRACE, Get(0).controller->GetRank())
+      << "Finalizing ProcessSetTable, global process set id 0";
+  id_to_process_set_[0].Finalize(status);
+}
+
 #if HAVE_MPI
 void ProcessSetTable::Initialize(const MPIContext& global_mpi_context) {
   Initialize_(global_mpi_context);
 }
 
 int32_t ProcessSetTable::InitializeRegisteredAndRemoveMarkedIfReady(
-    const MPIContext& global_mpi_context) {
-  return InitializeRegisteredAndRemoveMarkedIfReady_(global_mpi_context);
+    const MPIContext& global_mpi_context, const Status& removal_status) {
+  return InitializeRegisteredAndRemoveMarkedIfReady_(global_mpi_context,
+                                                     removal_status);
+}
+
+void ProcessSetTable::Finalize(const MPIContext& global_mpi_context,
+                               const Status& status) {
+  Finalize_(global_mpi_context, status);
 }
 #endif // HAVE_MPI
 
@@ -248,24 +290,16 @@ void ProcessSetTable::Initialize(const GlooContext& global_gloo_context) {
 }
 
 int32_t ProcessSetTable::InitializeRegisteredAndRemoveMarkedIfReady(
-    const GlooContext& global_gloo_context) {
-  return InitializeRegisteredAndRemoveMarkedIfReady_(global_gloo_context);
+    const GlooContext& global_gloo_context, const Status& status) {
+  return InitializeRegisteredAndRemoveMarkedIfReady_(global_gloo_context,
+                                                     status);
+}
+
+void ProcessSetTable::Finalize(const GlooContext& global_gloo_context,
+                               const Status& status) {
+  Finalize_(global_gloo_context, status);
 }
 #endif // HAVE_GLOO
-
-void ProcessSetTable::Finalize(const Status& status) {
-  std::lock_guard<std::recursive_mutex> guard(mutex);
-  std::vector<int32_t> ids_copy(ids_.begin(), ids_.end());
-  for (auto id: ids_copy) {
-    id_to_process_set_[id].Finalize(status);
-    if (id != 0) {
-      // The process set hosting the global controller needs to remain in the
-      // table to allow a future re-initialization of Horovod (it must still
-      // be finalized now and re-initialized then).
-      DeregisterProcessSet(id);
-    }
-  }
-}
 
 int32_t ProcessSetTable::RegisterProcessSet(std::vector<int> global_ranks) {
   std::lock_guard<std::recursive_mutex> guard(mutex);

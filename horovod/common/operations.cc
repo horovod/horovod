@@ -641,10 +641,6 @@ shutdown:
   nccl_context.ShutDown();
 #endif
 
-#if HAVE_GLOO
-  global_gloo_context.Finalize();
-#endif
-
   LOG(DEBUG, horovod_global.global_controller->GetRank())
       << "Shutting down background thread";
 
@@ -652,11 +648,28 @@ shutdown:
   state.shut_down = true;
 
   // For each process set: Notify all outstanding operations that Horovod has
-  // been shut down, finalize tensor queue and communicators
-  horovod_global.process_set_table.Finalize(SHUT_DOWN_ERROR);
+  // been shut down, finalize tensor queue and communicators.
+  // If there are multiple process sets, this blocks until all processes are
+  // ready for shutdown and finalizes all process sets.
+#if HAVE_MPI
+  if (state.control_operation == LibType::MPI) {
+    horovod_global.process_set_table.Finalize(global_mpi_context,
+                                              SHUT_DOWN_ERROR);
+  }
+#endif // HAVE_MPI
+#if HAVE_GLOO
+  if (state.control_operation == LibType::GLOO) {
+    horovod_global.process_set_table.Finalize(global_gloo_context,
+                                              SHUT_DOWN_ERROR);
+  }
+#endif // HAVE_GLOO
 
 #if HAVE_GPU
   gpu_context.Finalize();
+#endif
+
+#if HAVE_GLOO
+  global_gloo_context.Finalize();
 #endif
 
 #if HAVE_MPI

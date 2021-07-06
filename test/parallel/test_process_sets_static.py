@@ -15,21 +15,12 @@ class ProcessSetsStaticTests(unittest.TestCase):
         mpi_rank, mpi_size = mpi_env_rank_and_size()
         gloo_rank = int(os.getenv('HOROVOD_RANK', -1))
         gloo_size = int(os.getenv('HOROVOD_SIZE', -1))
-        is_mpi = gloo_rank == -1
-
         rank = max(mpi_rank, gloo_rank)
         size = max(mpi_size, gloo_size)
 
         # This test does not apply if there is only one worker.
         if size == 1:
             self.skipTest("Only one worker available")
-
-        if is_mpi:
-            try:
-                import mpi4py
-                mpi4py.rc.initialize = False
-            except ImportError:
-                pass
 
         if rank == 0:
             my_process_sets = [hvd.ProcessSet([0]),
@@ -64,15 +55,3 @@ class ProcessSetsStaticTests(unittest.TestCase):
         self.assertDictEqual(ps, {0: list(range(size)),
                                   1: [0],
                                   2: list(range(1, size))})
-
-        try:
-            if is_mpi:
-                # barrier before shutdown
-                from mpi4py import MPI
-                MPI.COMM_WORLD.barrier()
-            else:
-                time.sleep(0.1)
-        except ImportError:
-            time.sleep(0.1)
-
-        hvd.shutdown()
