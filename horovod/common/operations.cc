@@ -1381,6 +1381,11 @@ Status EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts
                                double prescale_factor,
                                double postscale_factor,
                                int32_t process_set_id) {
+  if (horovod_global.cpu_operation == LibType::CCL && process_set_id > 0 &&
+        device != CPU_DEVICE_ID) {
+      return Status::InvalidArgument(
+          "Process sets are not supported yet with oneCCL operations.");
+  }
   if (!horovod_global.process_set_table.Contains(process_set_id)) {
     return Status::InvalidArgument("Allreduce: Invalid process set id: " +
                                    std::to_string(process_set_id));
@@ -1501,6 +1506,11 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
                               const std::string& name, const int device,
                               StatusCallback callback,
                               int32_t process_set_id) {
+  if (horovod_global.cpu_operation == LibType::CCL && process_set_id > 0 &&
+      device != CPU_DEVICE_ID) {
+    return Status::InvalidArgument(
+        "Process sets are not supported yet with oneCCL operations.");
+  }
   if (!horovod_global.process_set_table.Contains(process_set_id)) {
     return Status::InvalidArgument("Allgather: Invalid process set id: " +
                                    std::to_string(process_set_id));
@@ -1552,6 +1562,11 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
                               const std::string& name, const int device,
                               StatusCallback callback,
                               int32_t process_set_id) {
+  if (horovod_global.cpu_operation == LibType::CCL && process_set_id > 0 &&
+      device != CPU_DEVICE_ID) {
+    return Status::InvalidArgument(
+        "Process sets are not supported yet with oneCCL operations.");
+  }
   if (!horovod_global.process_set_table.Contains(process_set_id)) {
     return Status::InvalidArgument("Broadcast: Invalid process set id: " +
                                    std::to_string(process_set_id));
@@ -1616,6 +1631,11 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
                              const std::string& name, const int device,
                              StatusCallback callback,
                              int32_t process_set_id) {
+  if (horovod_global.cpu_operation == LibType::CCL && process_set_id > 0 &&
+      device != CPU_DEVICE_ID) {
+    return Status::InvalidArgument(
+        "Process sets are not supported yet with oneCCL operations.");
+  }
   if (!horovod_global.process_set_table.Contains(process_set_id)) {
     return Status::InvalidArgument("Alltoall: Invalid process set id: " +
                                    std::to_string(process_set_id));
