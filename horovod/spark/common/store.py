@@ -30,7 +30,7 @@ import pyarrow.parquet as pq
 import fsspec
 from fsspec.core import split_protocol
 
-from horovod.spark.common.util import is_databricks
+from horovod.spark.common.util import is_databricks, host_hash
 
 
 class Store(object):
@@ -225,7 +225,8 @@ class AbstractFilesystemStore(Store):
         localized_path = self.get_localized_path(path)
         if localized_path.endswith('/'):
             localized_path = localized_path[:-1] # Remove the slash at the end if there is one
-        metadata_cache = localized_path+"_cached_metadata.pkl"
+        file_hash = host_hash()
+        metadata_cache = localized_path+"_"+file_hash+"_cached_metadata.pkl"
         return metadata_cache
 
     def saving_runs(self):
