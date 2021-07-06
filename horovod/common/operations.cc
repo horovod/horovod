@@ -1382,13 +1382,13 @@ Status EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts
                                double postscale_factor,
                                int32_t process_set_id) {
   if (horovod_global.cpu_operation == LibType::CCL && process_set_id > 0 &&
-        device != CPU_DEVICE_ID) {
+        device == CPU_DEVICE_ID) {
       return Status::InvalidArgument(
           "Process sets are not supported yet with oneCCL operations.");
   }
   if (!horovod_global.process_set_table.Contains(process_set_id)) {
-    return Status::InvalidArgument("Allreduce: Invalid process set id: " +
-                                   std::to_string(process_set_id));
+    return Status::InvalidArgument("Allreduce: Process set provided does not "
+                                   "exist, or has not been registered.");
   }
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
   Status status;
@@ -1471,8 +1471,9 @@ Status EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts
 
   if (!process_set.IsCurrentProcessIncluded()) {
     return Status::InvalidArgument(
-        "Allreduce: Invalid process set for this rank: " +
-        std::to_string(process_set_id));
+        "Allreduce: Rank " +
+        std::to_string(horovod_global.global_controller->GetRank()) +
+        " is not a member of the provided process set.");
   }
 
   std::string tensors_enqueued;
@@ -1507,20 +1508,21 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
                               StatusCallback callback,
                               int32_t process_set_id) {
   if (horovod_global.cpu_operation == LibType::CCL && process_set_id > 0 &&
-      device != CPU_DEVICE_ID) {
+      device == CPU_DEVICE_ID) {
     return Status::InvalidArgument(
         "Process sets are not supported yet with oneCCL operations.");
   }
   if (!horovod_global.process_set_table.Contains(process_set_id)) {
-    return Status::InvalidArgument("Allgather: Invalid process set id: " +
-                                   std::to_string(process_set_id));
+    return Status::InvalidArgument("Allgather: Process set provided does not "
+                                   "exist, or has not been registered.");
   }
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
 
   if (!process_set.IsCurrentProcessIncluded()) {
     return Status::InvalidArgument(
-        "Allgather: Invalid process set for this rank: " +
-        std::to_string(process_set_id));
+        "Allgather: Rank " +
+        std::to_string(horovod_global.global_controller->GetRank()) +
+        " is not a member of the provided process set.");
   }
 
   Request message;
@@ -1563,13 +1565,13 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
                               StatusCallback callback,
                               int32_t process_set_id) {
   if (horovod_global.cpu_operation == LibType::CCL && process_set_id > 0 &&
-      device != CPU_DEVICE_ID) {
+      device == CPU_DEVICE_ID) {
     return Status::InvalidArgument(
         "Process sets are not supported yet with oneCCL operations.");
   }
   if (!horovod_global.process_set_table.Contains(process_set_id)) {
-    return Status::InvalidArgument("Broadcast: Invalid process set id: " +
-                                   std::to_string(process_set_id));
+    return Status::InvalidArgument("Broadcast: Process set provided does not "
+                                   "exist, or has not been registered.");
   }
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
 
@@ -1580,7 +1582,7 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   } catch (const std::out_of_range& e) {
     return Status::InvalidArgument(
         "broadcast received invalid root rank " + std::to_string(root_rank) +
-        " for process set " + std::to_string(process_set_id));
+        " for provided process set");
   }
 
   Request message;
@@ -1608,8 +1610,9 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
 
   if (!process_set.IsCurrentProcessIncluded()) {
     return Status::InvalidArgument(
-        "Broadcast: Invalid process set for this rank: " +
-        std::to_string(process_set_id));
+        "Broadcast: Rank " +
+        std::to_string(horovod_global.global_controller->GetRank()) +
+        " is not a member of the provided process set.");
   }
 
   if (horovod_global.shut_down) {
@@ -1632,13 +1635,13 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
                              StatusCallback callback,
                              int32_t process_set_id) {
   if (horovod_global.cpu_operation == LibType::CCL && process_set_id > 0 &&
-      device != CPU_DEVICE_ID) {
+      device == CPU_DEVICE_ID) {
     return Status::InvalidArgument(
         "Process sets are not supported yet with oneCCL operations.");
   }
   if (!horovod_global.process_set_table.Contains(process_set_id)) {
-    return Status::InvalidArgument("Alltoall: Invalid process set id: " +
-                                   std::to_string(process_set_id));
+    return Status::InvalidArgument("Alltoall: Process set provided does not "
+                                   "exist, or has not been registered.");
   }
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
 
@@ -1675,8 +1678,9 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
   int world_size = process_set.controller->GetSize();
   if (!process_set.IsCurrentProcessIncluded()) {
     return Status::InvalidArgument(
-        "Alltoall: Invalid process set for this rank: " +
-        std::to_string(process_set_id));
+        "Alltoall: Rank " +
+        std::to_string(horovod_global.global_controller->GetRank()) +
+        " is not a member of the provided process set.");
   } else if (splits_first_dim == world_size) {
     auto splits_data = static_cast<const int32_t*>(splits->data());
     auto sum = std::accumulate(splits_data, splits_data + splits_first_dim, 0);

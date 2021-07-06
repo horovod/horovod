@@ -422,9 +422,9 @@ class HorovodBasics(object):
         if result == self.HOROVOD_PROCESS_SET_ERROR_INIT:
             raise ValueError('Horovod has not been initialized; use hvd.init().')
         elif result == self.HOROVOD_PROCESS_SET_ERROR_FOREIGN_SET:
-            raise ValueError(f"Process is not part of process set {process_set_id}")
+            raise ValueError("Process is not part of provided process set.")
         elif result == self.HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET:
-            raise ValueError(f"Unknown process set id {process_set_id}")
+            raise ValueError("Process set does not exist or has not been registered.")
         return result
 
     def _process_set_size(self, process_set_id: int) -> int:
@@ -435,7 +435,7 @@ class HorovodBasics(object):
         if result == self.HOROVOD_PROCESS_SET_ERROR_INIT:
             raise ValueError('Horovod has not been initialized; use hvd.init().')
         elif result == self.HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET:
-            raise ValueError(f"Unknown process set id {process_set_id}")
+            raise ValueError("Process set does not exist or has not been registered.")
         return result
 
     def _get_process_set_ids_and_ranks(self) -> Dict[int, List[int]]:
