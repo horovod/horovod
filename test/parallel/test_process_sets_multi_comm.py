@@ -108,3 +108,8 @@ class ProcessSetsMultiCommTests(unittest.TestCase):
         else:
             self.assertEqual(my_process_sets[0].process_set_id, 2)
 
+        # If another process initiates shutdown while this process is still processing _get_process_set_ids_and_ranks(),
+        # a race condition may be triggered. Avoid with a barrier.
+        MPI.COMM_WORLD.barrier()
+
+        hvd.shutdown()

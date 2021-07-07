@@ -439,7 +439,10 @@ class HorovodBasics(object):
         return result
 
     def _get_process_set_ids_and_ranks(self) -> Dict[int, List[int]]:
-        """ Returns a dictionary { process_set_id: list of process set ranks } """
+        """ Returns a dictionary { process_set_id: list of process set ranks }, for internal use.
+
+        Note that this function does not lock the Horovod-internal ProcessSetTable. If the Horovod background thread
+        shuts down while the Python thread is still executing this function, there can be spurious failures. """
         num = int(self.MPI_LIB_CTYPES.horovod_number_of_process_sets())
         ids_array = (ctypes.c_int * num)()
         self.MPI_LIB_CTYPES.horovod_process_set_ids(ids_array)
