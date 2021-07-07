@@ -476,7 +476,7 @@ def main():
                 f'    # only run this job on push events or when the event does not run in a fork repository\n'
                 f'    if: >\n'
                 f'      ( success() || failure() ) &&\n'
-                f'      ( github.event_name == \'push\' || ! github.event.repository.fork )\n'
+                f'      ( github.event_name == \'push\' || ! github.event.head.repo.fork )\n'
                 f'\n'
                 f'    steps:\n'
                 f'      - name: Download GitHub Artifacts\n'

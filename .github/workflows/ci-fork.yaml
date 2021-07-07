@@ -20,13 +20,13 @@ jobs:
     if: >
       github.event.workflow_run.conclusion != 'skipped' &&
       github.event.workflow_run.conclusion != 'cancelled' &&
-      github.event.workflow_run.repository.fork == 'true'
+      github.event.workflow_run.head_repository.fork
 
     steps:
       - name: Fetch workflow conclusion
         id: workflow-conclusion
         run: |
-          url -s "${{ github.event.workflow_run.jobs_url }}" > workflow_run_jobs.json
+          curl -s "${{ github.event.workflow_run.jobs_url }}" > workflow_run_jobs.json
           conclusion=$(jq -r '.jobs[] | select(.name=="Build and Test") | .conclusion' workflow_run_jobs.json)
           echo "::set-output name=build-and-test::${conclusion}"
         shell: bash
@@ -70,7 +70,7 @@ jobs:
     if: >
       github.event.workflow_run.conclusion != 'skipped' &&
       github.event.workflow_run.conclusion != 'cancelled' &&
-      github.event.workflow_run.repository.fork == 'true'
+      github.event.workflow_run.head_repository.fork
 
     steps:
       - name: Debug Action

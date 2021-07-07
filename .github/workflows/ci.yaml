@@ -1344,7 +1344,7 @@ jobs:
     # only run this job on push events or when the event does not run in a fork repository
     if: >
       ( success() || failure() ) &&
-      ( github.event_name == 'push' || ! github.event.repository.fork )
+      ( github.event_name == 'push' || ! github.event.head.repo.fork )
 
     steps:
       - name: Download GitHub Artifacts
