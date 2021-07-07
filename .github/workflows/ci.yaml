@@ -22,6 +22,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Debug Action
+      uses: hmarr/debug-action@v1.0.0
   init-workflow:
     name: "Init Workflow"
     runs-on: ubuntu-latest

@@ -130,7 +130,12 @@ def main():
                 f'\n')
 
     def jobs(*jobs: str) -> str:
-        return 'jobs:\n' + '\n'.join(jobs)
+        return 'jobs:\n' \
+               '  debug:\n' \
+               '    runs-on: ubuntu-latest\n' \
+               '    steps:\n' \
+               '    - name: Debug Action\n' \
+               '      uses: hmarr/debug-action@v1.0.0\n' + '\n'.join(jobs)
 
     def validate_workflow_job() -> str:
         return (f'  init-workflow:\n'
