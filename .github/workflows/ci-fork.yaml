@@ -7,6 +7,12 @@ on:
       - completed
 
 jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug Action
+        uses: hmarr/debug-action@v1.0.0
+
   buildkite:
     name: "Build and Test (GPUs on Builtkite)"
     runs-on: ubuntu-latest
