@@ -316,8 +316,9 @@ jobs:
       - name: Build
         id: build
         run: |
-          if [ ! -e docker-compose.test.override.yml ]; then touch docker-compose.test.override.yml; fi
-          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml -f docker-compose.test.override.yml build --pull ${{ matrix.image }}
+          override_yaml=""
+          if [ -e docker-compose.test.override.yml ]; then override_yaml="-f docker-compose.test.override.yml"; fi
+          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml $override_yaml build --pull ${{ matrix.image }}
         env:
           COMPOSE_DOCKER_CLI_BUILD: 1
           DOCKER_BUILDKIT: 1
@@ -811,8 +812,9 @@ jobs:
       - name: Build
         id: build
         run: |
-          if [ ! -e docker-compose.test.override.yml ]; then touch docker-compose.test.override.yml; fi
-          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml -f docker-compose.test.override.yml build --pull ${{ matrix.image }}
+          override_yaml=""
+          if [ -e docker-compose.test.override.yml ]; then override_yaml="-f docker-compose.test.override.yml"; fi
+          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml $override_yaml build --pull ${{ matrix.image }}
         env:
           COMPOSE_DOCKER_CLI_BUILD: 1
           DOCKER_BUILDKIT: 1
