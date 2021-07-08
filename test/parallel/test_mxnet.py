@@ -1493,6 +1493,61 @@ class MXTests(unittest.TestCase):
             expected = np.ones(tensor_size)
             err = np.linalg.norm(expected - tensor_decompressed.asnumpy())
             self.assertLess(err, 0.00000001)
+            
+    def test_optimizer_process_sets(self):
+        """Test DistributedOptimizer restricted to a process set for an entire model.
+
+        Note that this test makes the most sense when running with > 2 processes."""
+        hvd.init()
+        
+        if hvd.ccl_built():
+            self.skipTest("Multiple process sets currently do not support CCL.")
+
+        # This test does not apply if there is only one worker.
+        if hvd.size() == 1:
+            self.skipTest("Only one worker available")
+
+        even_ranks = [rk for rk in range(0, hvd.size()) if rk % 2 == 0]
+        odd_ranks = [rk for rk in range(0, hvd.size()) if rk % 2 == 1]
+        even_set = hvd.add_process_set(even_ranks)
+        odd_set = hvd.add_process_set(odd_ranks)
+        if hvd.rank() in even_ranks:
+            this_set = even_set
+        elif hvd.rank() in odd_ranks:
+            this_set = odd_set
+            
+        ctx = self._current_context()
+        mx.random.seed(hvd.rank(), ctx=ctx)
+        
+        opt = hvd.DistributedOptimizer(mx.optimizer.Test(learning_rate=10.), process_set=even_set)
+        
+        # Identical weights tensor on each rank 
+        shape = (3, 10, 100)
+        w = mx.random.uniform(shape=shape, ctx=ctx, dtype=np.float32)
+        hvd.broadcast_(w, root_rank=0)
+
+        # Gradient tensor that differs by rank
+        g = mx.random.uniform(shape=shape, ctx=ctx, dtype=np.float32)
+        
+        # Update that is only averaged over even_set
+        opt.update([0], [w], [g], [opt.create_state(0, w)])
+        
+        all_w = hvd.allgather(w, process_set=this_set)
+        if this_set == even_set:
+            for start in range(0, all_w.size, w.size):
+                mx.test_utils.assert_almost_equal(w.reshape(-1),
+                                                  all_w.reshape(-1)[start:start + w.size])
+        else:
+            for start in range(0, all_w.size, w.size):
+                if start // w.size == this_set.rank():
+                    continue
+                # They might randomly agree by chance, but that's extremely unlikely:
+                with pytest.raises(AssertionError):
+                    mx.test_utils.assert_almost_equal(w.reshape(-1),
+                                                      all_w.reshape(-1)[start:start + w.size])
+
+        hvd.remove_process_set(odd_set)
+        hvd.remove_process_set(even_set)
 
 
 if __name__ == '__main__':
