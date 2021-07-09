@@ -537,7 +537,7 @@ def main():
                 f'  docker-build:\n'
                 f'    name: Build docker image ${{{{ matrix.docker-image }}}} (push=${{{{ needs.docker-config.outputs.push }}}})\n'
                 f'    needs: docker-config\n'
-                f'    if: needs.docker-config.outputs.run == \'true\'\n'
+                f'    if: always() && needs.docker-config.outputs.run == \'true\'\n'
                 f'    runs-on: ubuntu-latest\n'
                 f'\n'
                 f'    # we want an ongoing run of this workflow to be canceled by a later commit\n'

@@ -1518,7 +1518,7 @@ jobs:
   docker-build:
     name: Build docker image ${{ matrix.docker-image }} (push=${{ needs.docker-config.outputs.push }})
     needs: docker-config
-    if: needs.docker-config.outputs.run == 'true'
+    if: always() && needs.docker-config.outputs.run == 'true'
     runs-on: ubuntu-latest
 
     # we want an ongoing run of this workflow to be canceled by a later commit
