@@ -497,6 +497,8 @@ def main():
     def publish_docker_images(needs: List[str], images: List[str]) -> str:
         if 'init-workflow' not in needs:
             needs.insert(0, 'init-workflow')
+        if needs != ['init-workflow', 'build-and-test-cpu', 'build-gpu', 'buildkite']:
+            raise RuntimeError('This job has hard-coded needs, which you may want to adjust')
         return (f'  docker-config:\n'
                 f'    name: Configure docker build\n'
                 f'    needs: [{", ".join(needs)}]\n'
