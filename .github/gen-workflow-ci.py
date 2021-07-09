@@ -185,9 +185,11 @@ def main():
                               images: List[str],
                               parallel_images: str,
                               tests_per_image: Dict[str, Set[str]],
-                              tests: Dict[str, Dict]) -> str:
+                              tests: Dict[str, Dict],
+                              attempts: int = 3) -> str:
         if 'init-workflow' not in needs:
             needs.insert(0, 'init-workflow')
+        failure = "'failure'"
         return (f'  {id}:\n'
                 f'    name: "{name} (${{{{ matrix.image }}}})"\n'
                 f'    needs: [{", ".join(needs)}]\n'
@@ -298,13 +300,16 @@ def main():
                 f'          COMPOSE_DOCKER_CLI_BUILD: 1\n'
                 f'          DOCKER_BUILDKIT: 1\n'
                 f'\n' +
-                '\n'.join([f'      - name: "{test["label"]}"\n'
-                           f'        if: always() && steps.build.outcome == \'success\' && matrix.{test_id}\n'
+                '\n'.join([f'      - name: "{test["label"]} [{attempt} of {attempts}]"\n'
+                           f'        id: {test_id}_{attempt}\n'
+                           f'        continue-on-error: {"true" if attempt < attempts else "false"}\n'
+                           f'        if: always() && steps.build.outcome == \'success\' && matrix.{test_id} && {"true" if attempt == 1 else f"steps.{test_id}_{attempt-1}.outcome == {failure}"}\n'
                            f'        run: |\n'
-                           f'          mkdir -p artifacts/${{{{ matrix.image }}}}/{test_id}\n'
-                           f'          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{{{ matrix.image }}}}/{test_id}:/artifacts" ${{{{ matrix.image }}}} /bin/bash /horovod/.github/timeout-and-retry.sh {test["timeout"]}m 3 10 {test["command"]}\n'
+                           f'          mkdir -p artifacts/${{{{ matrix.image }}}}/{test_id}_{attempt}\n'
+                           f'          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{{{ matrix.image }}}}/{test_id}_{attempt}:/artifacts" ${{{{ matrix.image }}}} /bin/bash /horovod/.github/timeout-and-retry.sh {test["timeout"]}m 1 10 {test["command"]}\n'
                            f'        shell: bash\n'
-                           for test_id, test in sorted(tests.items(), key=lambda test: test[0])]) +
+                           for test_id, test in sorted(tests.items(), key=lambda test: test[0])
+                           for attempt in range(1, attempts+1)]) +
                 f'\n'
                 f'      - name: Upload Test Results\n'
                 f'        uses: actions/upload-artifact@v2\n'
