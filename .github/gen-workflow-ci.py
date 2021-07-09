@@ -502,7 +502,7 @@ def main():
     def publish_docker_images(needs: List[str], images: List[str]) -> str:
         if 'init-workflow' not in needs:
             needs.insert(0, 'init-workflow')
-        if needs != ['init-workflow', 'build-and-test-cpu', 'build-gpu', 'buildkite']:
+        if needs != ['init-workflow', 'build-and-test', 'buildkite']:
             raise RuntimeError('This job has hard-coded needs, which you may want to adjust')
         return (f'  docker-config:\n'
                 f'    name: Configure docker build\n'
@@ -514,8 +514,7 @@ def main():
                 f'      always() &&\n'
                 f"      needs.init-workflow.result == 'success' && (\n"
                 f"        needs.init-workflow.outputs.run_builds_and_tests == 'false' ||\n"
-                f"        needs.build-and-test-cpu.result == 'success' &&\n"
-                f"        needs.build-gpu.result == 'success' &&\n"
+                f"        needs.build-and-test.result == 'success' &&\n"
                 f"        ( needs.buildkite.result == 'success' || needs.buildkite.result == 'skipped' )\n"
                 f'      )\n'
                 f'    runs-on: ubuntu-latest\n'
@@ -708,13 +707,12 @@ def main():
         workflow = workflow_header() + jobs(
             validate_workflow_job(),
             # changing these names require changes in the workflow-conclusion step in ci-fork.yaml
-            build_and_test_images(id='build-and-test-cpu', name='Build and Test CPU', needs=['init-workflow'], images=cpu_release_images, parallel_images='', tests_per_image=tests_per_image, tests=tests),
-            build_and_test_images(id='build-gpu', name='Build GPU', needs=['init-workflow'], images=gpu_release_images, parallel_images='', tests_per_image=no_tests_per_image, tests={}),
-            build_and_test_images(id='build-and-test-heads', name='Build and Test heads', needs=['build-and-test-cpu', 'build-gpu'], images=allhead_images, parallel_images='', tests_per_image=tests_per_image, tests=tests),
-            build_and_test_macos(id='build-and-test-macos', name='Build and Test macOS', needs=['build-and-test-cpu', 'build-gpu']),
-            trigger_buildkite_job(id='buildkite', needs=['build-and-test-cpu', 'build-gpu']),
-            publish_unit_test_results(id='publish-test-results', needs=['build-and-test-cpu', 'build-gpu', 'build-and-test-heads', 'build-and-test-macos', 'buildkite']),
-            publish_docker_images(needs=['build-and-test-cpu', 'build-gpu', 'buildkite'], images=['horovod', 'horovod-cpu', 'horovod-ray']),
+            build_and_test_images(id='build-and-test', name='Build and Test', needs=['init-workflow'], images=release_images, parallel_images='-cpu-', tests_per_image=tests_per_image, tests=tests),
+            build_and_test_images(id='build-and-test-heads', name='Build and Test heads', needs=['build-and-test'], images=allhead_images, parallel_images='', tests_per_image=tests_per_image, tests=tests),
+            build_and_test_macos(id='build-and-test-macos', name='Build and Test macOS', needs=['build-and-test']),
+            trigger_buildkite_job(id='buildkite', needs=['build-and-test']),
+            publish_unit_test_results(id='publish-test-results', needs=['build-and-test', 'build-and-test-heads', 'build-and-test-macos', 'buildkite']),
+            publish_docker_images(needs=['build-and-test', 'buildkite'], images=['horovod', 'horovod-cpu', 'horovod-ray']),
             sync_files(needs=['init-workflow'])
         )
         print(workflow, file=w, end='')
