@@ -145,7 +145,7 @@ test_require_list = ['mock', 'pytest', 'pytest-forked', 'parameterized', 'h5py<3
 
 # Skip cffi if pytorch extension explicitly disabled
 if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
-    require_list.append('cffi>=1.4.0')
+    require_list.append('cffi>=1.4.0,!=1.14.6')
 
 
 def get_package_version():
