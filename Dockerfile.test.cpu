@@ -149,6 +149,7 @@ RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly" ]]; then \
     fi
 
 # Install PyTorch (releases).
+# Pin Pillow<7.0 for torchvision < 0.5.0: https://github.com/pytorch/vision/issues/1718
 # Pin Pillow!=8.3.0 for torchvision: https://github.com/pytorch/vision/issues/4146
 RUN if [[ ${PYTORCH_PACKAGE} != "torch-nightly" ]]; then \
         pip install --no-cache-dir ${PYTORCH_PACKAGE} ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/torch_stable.html; \
@@ -203,7 +204,7 @@ RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
 
 # Install MXNet (nightly).
 RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly" ]]; then \
-        pip install --no-cache-dir --pre mxnet -f https://dist.mxnet.io/python/all; \
+        pip install --no-cache-dir --pre mxnet==2.0.0b20210620 -f https://dist.mxnet.io/python/all; \
     fi
 
 # Install Horovod.
