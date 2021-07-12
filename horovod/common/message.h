@@ -58,7 +58,7 @@ public:
 
   // The request rank is necessary to create a consistent ordering of results,
   // for example in the allgather where the order of outputs should be sorted
-  // by rank.
+  // by rank. This rank is counted relative to the process set.
   int32_t request_rank() const;
 
   void set_request_rank(int32_t value);
@@ -75,6 +75,7 @@ public:
 
   void set_tensor_name(const std::string& value);
 
+  // The root rank is counted relative to the process set.
   int32_t root_rank() const;
 
   void set_root_rank(int32_t value);
@@ -95,9 +96,9 @@ public:
 
   double postscale_factor() const;
 
-  void set_prescale_factor(const double prescale_factor);
+  void set_prescale_factor(double prescale_factor);
 
-  void set_postscale_factor(const double postscale_factor);
+  void set_postscale_factor(double postscale_factor);
 
   static void ParseFromBytes(Request& request, const uint8_t* input);
 
@@ -203,9 +204,9 @@ public:
 
   double postscale_factor() const;
 
-  void set_prescale_factor(const double prescale_factor);
+  void set_prescale_factor(double prescale_factor);
 
-  void set_postscale_factor(const double postscale_factor);
+  void set_postscale_factor(double postscale_factor);
 
   static void ParseFromBytes(Response& response, const uint8_t* input);
 

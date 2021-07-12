@@ -38,7 +38,7 @@ class Controller : public std::enable_shared_from_this<Controller> {
 public:
   Controller(ResponseCache& response_cache, TensorQueue& tensor_queue,
              Timeline& timeline, ParameterManager& parameter_manager,
-             GroupTable& group_table);
+             GroupTable& group_table, TimelineController& timeline_controller);
 
   Controller(const Controller&) = delete;
 
@@ -52,15 +52,21 @@ public:
   virtual void CrossRankBitwiseOr(std::vector<long long>& bitvector,
                                   int count) = 0;
 
-  virtual void Bcast(void* buffer, size_t size, int root_rank, Communicator
-  communicator) = 0;
+  virtual void Bcast(void* buffer, size_t size, int root_rank,
+                     Communicator communicator) = 0;
 
   virtual void AlltoallGetRecvSplits(const std::vector<int32_t>& splits,
                                      std::vector<int32_t>& recvsplits) = 0;
 
   virtual void Barrier(Communicator communicator) = 0;
 
+  virtual void Allgather2Ints(std::array<int, 2> values,
+                              std::vector<int>& recv_values) = 0;
+
+  //
   // Concrete controller functions
+  //
+
   void SynchronizeParameters();
 
   // This function performs all the preparation work for workers to agree
@@ -100,43 +106,38 @@ public:
   //      response from the coordinator. At that point, the tick ends.
   //      If instead of "DONE" they receive "SHUTDOWN", they mark it in the
   //      response list.
-  ResponseList ComputeResponseList(std::atomic_bool& shut_down,
-                                   HorovodGlobalState& state);
+  ResponseList ComputeResponseList(bool this_process_requested_shutdown,
+                                   HorovodGlobalState& state,
+                                   ProcessSet& process_set);
 
   // Get current tensors fusion threshold.
   int64_t TensorFusionThresholdBytes();
 
   int GetLocalSizeAtCrossRank(int i);
 
-  // Set ranks that will be used to create global communicator.
-  void SetRanks(const int* ranks, int nrank) {
-    ranks_.clear();
-    for (auto i = 0; i < nrank; ++i) {
-      ranks_.push_back(ranks[i]);
-    }
+  int GetRank() const { return rank_; };
+  int GetLocalRank() const { return local_rank_; };
+  int GetCrossRank() const { return cross_rank_; };
+  int GetSize() const { return size_; };
+  int GetLocalSize() const { return local_size_; };
+  int GetCrossSize() const { return cross_size_; };
+  const std::vector<int>& GetGlobalRanks() const { return global_ranks_; }
+  const std::unordered_map<int, int>& GetGlobalRankToControllerRank() const {
+    return global_rank_to_controller_rank_;
+  }
+  const std::vector<int>& GetLocalCommRanks() const {
+    return local_comm_ranks_;
   };
-
-  std::vector<int>& GetRanks() { return ranks_; };
-  int GetRank() { return rank_; };
-  int GetLocalRank() { return local_rank_; };
-  int GetCrossRank() { return cross_rank_; };
-  int GetSize() { return size_; };
-  int GetLocalSize() { return local_size_; };
-  int GetCrossSize() { return cross_size_; };
-  const std::vector<int>& GetLocalCommRanks() { return local_comm_ranks_; };
   bool IsCoordinator() const { return is_coordinator_; };
   bool IsHomogeneous() const { return is_homogeneous_; };
-  void SetTimelineEnabled(bool value);
-  bool TimelineEnabled();
-  void SetTimelineEnabledPending(bool value);
-  bool TimelineEnabledPending();
-  void SetMarkCyclesInTimelinePending(bool value);
-  bool MarkCyclesInTimelinePending();
-  void SynchronizeTimelineEnabled();
+  bool IsInitialized() const { return is_initialized_; }
   StallInspector& GetStallInspector() { return stall_inspector_; };
 
 protected:
+  //
   // Functions must be overridden by concrete controller
+  //
+
   virtual void DoInitialization() = 0;
 
   // For rank 0 to receive other ranks' ready tensors.
@@ -146,10 +147,10 @@ protected:
   // For other ranks to send their ready tensors to rank 0
   virtual void SendReadyTensors(RequestList& message_list) = 0;
 
-  // For rank 0 to send final ready tensors to be allreaduce/allgather to other ranks.
+  // For rank 0 to send final tensors ready to be allreduced/allgathered to other ranks.
   virtual void SendFinalTensors(ResponseList& response_list) = 0;
 
-  // For other ranks to receive to final ready tensors.
+  // For other ranks to receive final ready tensors.
   virtual void RecvFinalTensors(ResponseList& response_list) = 0;
 
   // Once a tensor is ready to be reduced, the coordinator sends a Response
@@ -178,6 +179,8 @@ protected:
   // ready to reduce the tensor).
   bool IncrementTensorCount(const Request& msg, int joined_size = 0);
 
+  bool is_initialized_ = false;
+
   int rank_ = 0;
   int local_rank_ = 0;
   int cross_rank_ = 0;
@@ -187,10 +190,14 @@ protected:
   bool is_coordinator_ = false;
   bool is_homogeneous_ = false;
 
-  // ranks of the horovod world
-  std::vector<int> ranks_;
+  // Global rank of each process in the set associated to this controller.
+  std::vector<int> global_ranks_;
 
-  // COMM_WORLD ranks of processes running on this node.
+  // Map (global rank) -> (process set controller rank) for each process in this
+  // set.
+  std::unordered_map<int,int> global_rank_to_controller_rank_;
+
+  // Controller process set ranks of processes running on this node.
   std::vector<int> local_comm_ranks_;
 
   // Numbers of ranks running per node
@@ -204,16 +211,12 @@ protected:
   // requests to allreduce every tensor (keyed by tensor name).
   MessageTable message_table_;
 
-  bool timeline_enabled_ = false;
-  bool timeline_enabled_pending_ = false;
-  bool mark_cycles_in_timeline_pending_ = false;
-  std::recursive_mutex timeline_mutex_;
-
-
   // Outside dependencies
   TensorQueue& tensor_queue_;
 
   Timeline& timeline_;
+
+  TimelineController& timeline_controller_;
 
   ResponseCache& response_cache_;
 

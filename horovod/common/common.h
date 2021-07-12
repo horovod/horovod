@@ -136,6 +136,7 @@ namespace common {
 #define HOROVOD_DISABLE_GROUP_FUSION "HOROVOD_DISABLE_GROUP_FUSION"
 #define HOROVOD_DISABLE_NVTX_RANGES "HOROVOD_DISABLE_NVTX_RANGES"
 #define HOROVOD_ENABLE_ASYNC_COMPLETION "HOROVOD_ENABLE_ASYNC_COMPLETION"
+#define HOROVOD_DYNAMIC_PROCESS_SETS "HOROVOD_DYNAMIC_PROCESS_SETS"
 
 // String constant for gloo interface.
 #define GLOO_DEFAULT_IFACE ""
@@ -346,7 +347,9 @@ struct TensorTableEntry {
   std::shared_ptr<Tensor> tensor;
   // Pre-allocated output tensor.
   std::shared_ptr<Tensor> output;
-  // Root rank for broadcast operation.
+  // Identifier for the subset of Horovod processes partaking in this operation.
+  int32_t process_set_id = 0;
+  // Root rank for broadcast operation (relative to process set).
   int root_rank = 0;
   // List of events indicating that data is ready.
   ReadyEventList ready_event_list;

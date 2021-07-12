@@ -18,6 +18,7 @@
 import math
 import tensorflow as tf
 import numpy as np
+import os
 import warnings
 
 from distutils.version import LooseVersion
@@ -33,6 +34,8 @@ import horovod.tensorflow.keras as hvd
 _PRE_TF_2_4_0 = LooseVersion(tf.__version__) < LooseVersion("2.4.0")
 _PRE_TF_2_2_0 = LooseVersion(tf.__version__) < LooseVersion("2.2.0")
 
+# Set environment variable to enable adding/removing process sets after initializing Horovod.
+os.environ["HOROVOD_DYNAMIC_PROCESS_SETS"] = "1"
 
 @pytest.mark.skipif(LooseVersion(tf.__version__) < LooseVersion('2.0.0'), reason='TensorFlow v2 tests')
 class Tf2KerasTests(tf.test.TestCase):
@@ -235,3 +238,41 @@ class Tf2KerasTests(tf.test.TestCase):
             updated_variable_value = variables[0][0].numpy()
             assert updated_variable_value == compute_expected_value(idx)
             assert idx + 1 == hvd_optimizer.iterations.numpy()
+
+    def test_process_set_optimizer(self):
+        """ Note that this test makes the most sense when running with > 2 processes. """
+        size = hvd.size()
+
+        if size == 1:
+            self.skipTest("Only one worker available")
+
+        subset = hvd.add_process_set(range(0, size, 2))
+
+        class TestOptimizer(keras.optimizers.Optimizer):
+            def __init__(self, name, **kwargs):
+                super(TestOptimizer, self).__init__(name, **kwargs)
+            def get_gradients(self, loss, params):
+                assert len(params) == 1
+                return [tf.constant([float(hvd.rank())])]
+            def _create_slots(self, var_list):
+                pass
+            def _resource_apply_dense(self, grad, var, apply_state):
+                return var.assign_add(grad)
+            def get_config(self):
+                config = super(TestOptimizer, self).get_config()
+                return config
+
+        opt = TestOptimizer(name="TestOpti")
+        opt = hvd.DistributedOptimizer(opt, process_set=subset)
+
+        variable = tf.Variable([0.0])
+        gradient, = opt.get_gradients(None, [variable])
+        opt.apply_gradients([(gradient, variable)])
+        computed_value = variable.numpy()
+
+        if subset.included():
+            self.assertAlmostEqual(computed_value, sum(range(0, size, 2)) / subset.size())
+        else:
+            self.assertAlmostEqual(computed_value, float(hvd.rank()))
+
+        hvd.remove_process_set(subset)

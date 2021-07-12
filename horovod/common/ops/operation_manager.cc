@@ -78,8 +78,9 @@ Status OperationManager::ExecuteAlltoall(std::vector<TensorTableEntry>& entries,
 }
 
 Status OperationManager::ExecuteJoin(std::vector<TensorTableEntry>& entries,
-                                          const Response& response) const {
-  return join_op_->Execute(entries, response);
+                                     const Response& response,
+                                     ProcessSet& process_set) const {
+  return join_op_->Execute(entries, response, process_set);
 }
 
 Status OperationManager::ExecuteAdasum(std::vector<TensorTableEntry>& entries,
@@ -98,7 +99,8 @@ Status OperationManager::ExecuteError(std::vector<TensorTableEntry>& entries,
 }
 
 Status OperationManager::ExecuteOperation(std::vector<TensorTableEntry>& entries,
-                                          const Response& response) const {
+                                          const Response& response,
+                                          ProcessSet& process_set) const {
   if (response.response_type() == Response::ALLREDUCE) {
     return ExecuteAllreduce(entries, response);
   } else if (response.response_type() == Response::ALLGATHER) {
@@ -108,7 +110,7 @@ Status OperationManager::ExecuteOperation(std::vector<TensorTableEntry>& entries
   } else if (response.response_type() == Response::ALLTOALL) {
     return ExecuteAlltoall(entries, response);
   } else if (response.response_type() == Response::JOIN) {
-    return ExecuteJoin(entries, response);
+    return ExecuteJoin(entries, response, process_set);
   } else if (response.response_type() == Response::ADASUM) {
     return ExecuteAdasum(entries, response);
   } else if (response.response_type() == Response::ERROR) {

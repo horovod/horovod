@@ -25,6 +25,7 @@ from mxnet.base import c_handle_array, c_str, c_str_array, check_call, string_ty
 
 from horovod.common.util import check_installed_version, get_ext_suffix
 from horovod.common.basics import HorovodBasics as _HorovodBasics
+from horovod.common.process_sets import _setup as _setup_process_sets
 
 # Check possible symbol not found error from mxnet version mismatch
 try:
@@ -61,6 +62,8 @@ rocm_built = _basics.rocm_built
 dll_path = os.path.join(os.path.dirname(__file__),
                         'mpi_lib' + get_ext_suffix())
 MPI_MXNET_LIB_CTYPES = ctypes.CDLL(dll_path, ctypes.RTLD_GLOBAL)
+
+_setup_process_sets(_basics)
 
 
 def allreduce(tensor, average=True, name=None, priority=0, prescale_factor=1.0,

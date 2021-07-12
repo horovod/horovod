@@ -32,7 +32,7 @@ namespace common {
 
 class MPIAllreduce : public AllreduceOp {
 public:
-  MPIAllreduce(MPIContext* mpi_context, HorovodGlobalState* global_state);
+  MPIAllreduce(HorovodGlobalState* global_state);
 
   virtual ~MPIAllreduce() = default;
 
@@ -41,28 +41,22 @@ public:
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
                const Response& response) const override;
-
-protected:
-  MPIContext* mpi_context_;
 };
 
 class MPIAllgather : public AllgatherOp {
 public:
-  MPIAllgather(MPIContext* mpi_context, HorovodGlobalState* global_state);
+  MPIAllgather(HorovodGlobalState* global_state);
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
                const Response& response) const override;
-
-protected:
-  MPIContext* mpi_context_;
 };
 
 class MPIHierarchicalAllgather : public MPIAllgather {
 public:
-  MPIHierarchicalAllgather(MPIContext* mpi_context, HorovodGlobalState* global_state);
+  MPIHierarchicalAllgather(HorovodGlobalState* global_state);
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 
@@ -71,35 +65,29 @@ public:
                const Response& response) const override;
 
 private:
-  void Barrier();
+  static void Barrier(const ProcessSet& process_set);
 };
 
 class MPIBroadcast : public BroadcastOp {
 public:
-  MPIBroadcast(MPIContext* mpi_context, HorovodGlobalState* global_state);
+  MPIBroadcast(HorovodGlobalState* global_state);
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
                const Response& response) const override;
-
-protected:
-  MPIContext* mpi_context_;
 };
 
 class MPIAlltoall : public AlltoallOp {
 public:
-  MPIAlltoall(MPIContext* mpi_context, HorovodGlobalState* global_state);
+  MPIAlltoall(HorovodGlobalState* global_state);
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
                const Response& response) const override;
-
-protected:
-  MPIContext* mpi_context_;
 };
 
 } // namespace common

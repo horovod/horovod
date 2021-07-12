@@ -122,11 +122,29 @@ class RendezvousHandler(KVStoreHandler):
 
         _, scope, key = paths
 
-        with self.server.finished_list_lock:
-            self.server.finished_list[scope].append(key)
-            if self.server.scope_size[scope] == len(self.server.finished_list[scope]):
-                with self.server.cache_lock:
-                    self.server.cache.get(scope, {}).clear()
+        if scope in self.server.scope_size:
+            # scope defined by host_alloc_plan at server initialization
+            with self.server.finished_list_lock:
+                self.server.finished_list[scope].append(key)
+                if self.server.scope_size[scope] == len(self.server.finished_list[scope]):
+                    with self.server.cache_lock:
+                        self.server.cache.get(scope, {}).clear()
+                        self.server.finished_list.clear()
+                        if self.server.verbose:
+                            logging.info(f'Cleared scope {scope}')
+        else:
+            # scope is an "ad-hoc" scope added by clients
+            with self.server.cache_lock:
+                if scope in self.server.cache:
+                    scope_dict: dict = self.server.cache[scope]
+                    if key in scope_dict:
+                        del scope_dict[key]
+                        if self.server.verbose:
+                            logging.info(f'Scope {scope}: Deleted key {key}')
+                    if not scope_dict:
+                        del self.server.cache[scope]
+                        if self.server.verbose:
+                            logging.info(f'Deleted empty scope {scope}')
 
         self.send_status_code(OK)
 

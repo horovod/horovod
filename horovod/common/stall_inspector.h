@@ -29,14 +29,16 @@ class ResponseCache;
 
 class StallInspector {
 public:
-  StallInspector() = default;
-  StallInspector(ResponseCache& response_cache)
+  StallInspector() = delete;
+  explicit StallInspector(ResponseCache& response_cache)
       : response_cache_(response_cache) {}
   StallInspector(const StallInspector&) = delete;
 
-  // Report Tensors that were submitted to be reduced, gathered or broadcasted by
-  // some ranks but not others and are waiting for long time to get processed.
-  bool CheckForStalledTensors(int global_size);
+  // Report Tensors that were submitted to be reduced, gathered or broadcasted
+  // by some ranks but not others in the same process set and are waiting for
+  // long time to get processed.
+  // global_ranks contains the global process rank of each expected process.
+  bool CheckForStalledTensors(const std::vector<int>& global_ranks);
 
   // Invalidate cached tensors that have been pending for a long time.
   void InvalidateStalledCachedTensors(CacheCoordinator& cache_coordinator);
@@ -45,8 +47,9 @@ public:
   void RecordCachedTensorStart(const std::string& tensor_name);
 
   // Record initial time for an uncached tensor is encountered in queue.
+  // rank is relative to a process set.
   void RecordUncachedTensorStart(const std::string& tensor_name, int rank,
-                                 int global_size);
+                                 int process_set_size);
 
   // Remove timing entry if cached or marked invalid.
   void RemoveCachedTensor(const std::string& tensor_name);
