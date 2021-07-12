@@ -153,7 +153,7 @@ namespace common {
 #define JOIN_TENSOR_NAME "join.noname"
 
 // List of supported frameworks.
-enum Framework { TENSORFLOW, PYTORCH, MXNET };
+enum Framework { TENSORFLOW, PYTORCH, MXNET, XLA };
 
 enum StatusType { OK, UNKNOWN_ERROR, PRECONDITION_ERROR, ABORTED, INVALID_ARGUMENT, IN_PROGRESS };
 
@@ -228,6 +228,8 @@ const Status DUPLICATE_NAME_ERROR = Status::InvalidArgument(
 
 class TensorShape {
 public:
+  TensorShape() : shape_() {}
+  TensorShape(std::vector<int64_t> vec) : shape_(vec) {}
   void AddDim(int64_t dim);
   void AppendShape(TensorShape& other);
 
