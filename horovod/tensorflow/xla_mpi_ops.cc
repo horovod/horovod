@@ -380,7 +380,7 @@ REGISTER_XLA_OP(Name("HorovodAllreduce"), HVDAllreduceOp);
 
   return ::xla::CustomCall(
       b, call_target_name, operands, output_shape, config.SerializeToString(),
-      /*has_side_effect=*/false, output_operand_aliasing,
+      /*has_side_effect=*/false, output_operand_aliasing, /*literal=*/nullptr,
       is_start ? ::xla::CustomCallSchedule::EARLIEST
                : ::xla::CustomCallSchedule::LATEST);
 }
