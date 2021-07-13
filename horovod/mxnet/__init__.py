@@ -55,6 +55,9 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
     def __getattr__(self, item):
         return getattr(self._optimizer, item)
 
+    def create_state(self, index, weight):
+        return self._optimizer.create_state(index, weight)
+
     def create_state_multi_precision(self, index, weight):
         return self._optimizer.create_state_multi_precision(index, weight)
 

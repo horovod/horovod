@@ -1530,8 +1530,11 @@ class MXTests(unittest.TestCase):
         g = mx.random.uniform(shape=shape, ctx=ctx, dtype=np.float32)
         
         # Update that is only averaged over even_set
-        opt.update([0], [w], [g], [opt.create_state(0, w)])
-        
+        if LooseVersion(mx.__version__) >= LooseVersion('2.0.0'):
+            opt.update([0], [w], [g], [opt.create_state(0, w)])
+        else:
+            opt.update(0, w, g, opt.create_state(0, w))
+
         all_w = hvd.allgather(w, process_set=this_set)
         if this_set == even_set:
             for start in range(0, all_w.size, w.size):

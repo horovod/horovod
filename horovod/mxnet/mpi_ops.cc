@@ -495,8 +495,7 @@ extern "C" int horovod_mxnet_allreduce_async(NDArray* const * inputs,
   if (IsTensorOnCPU(inputs[0]) && IsTensorOnCPU(outputs[0])) {
     PushHorovodOperation(OperationType::ALLREDUCE, inputs, outputs, name,
                          priority, num_tensors, process_set_id, -1, average,
-                         nullptr, nullptr, prescale_factor, postscale_factor,
-                         process_set_id);
+                         nullptr, nullptr, prescale_factor, postscale_factor);
   } else {
     PushHorovodOperationCudaOnCPU(OperationType::ALLREDUCE, inputs, outputs,
                                   name, priority, num_tensors, process_set_id,
