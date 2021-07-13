@@ -1537,17 +1537,18 @@ class MXTests(unittest.TestCase):
 
         all_w = hvd.allgather(w, process_set=this_set)
         if this_set == even_set:
+            my_data = w.reshape(1,-1).asnumpy()
             for start in range(0, all_w.size, w.size):
-                mx.test_utils.assert_almost_equal(w.reshape(-1),
-                                                  all_w.reshape(-1)[start:start + w.size])
+                gathered_data = all_w.reshape(1,-1)[:,start:start + w.size].asnumpy()
+                self.assertTrue(np.allclose(my_data, gathered_data))
         else:
+            my_data = w.reshape(1,-1).asnumpy()
             for start in range(0, all_w.size, w.size):
                 if start // w.size == this_set.rank():
                     continue
+                gathered_data = all_w.reshape(1,-1)[:,start:start + w.size].asnumpy()
                 # They might randomly agree by chance, but that's extremely unlikely:
-                with pytest.raises(AssertionError):
-                    mx.test_utils.assert_almost_equal(w.reshape(-1),
-                                                      all_w.reshape(-1)[start:start + w.size])
+                self.assertFalse(np.allclose(my_data, gathered_data))
 
         hvd.remove_process_set(odd_set)
         hvd.remove_process_set(even_set)
