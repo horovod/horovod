@@ -46,7 +46,7 @@
 
 #define OMPI_SKIP_MPICXX
 #include "../common/operations.h"
-
+#include "../common/utils/env_parser.h"
 #include "./custom_call_config_generated.h"
 
 using namespace tensorflow;
@@ -210,12 +210,11 @@ common::Framework XLAOpContext::framework() const {
 
 // On GPU this event will signal that data is ready, and tensors are
 // allocated.
-common::ReadyEvent* RecordReadyEvent(cudaStream_t stream) {
 #if HAVE_GPU
+common::ReadyEvent* RecordReadyEvent(cudaStream_t stream) {
   return new XLAReadyEvent(stream);
-#endif
-  return nullptr;
 }
+#endif
 
 class CustomCallConfig {
 public:
@@ -352,7 +351,38 @@ private:
   bool ignore_name_scope_;
 };
 
-REGISTER_XLA_OP(Name("HorovodAllreduce"), HVDAllreduceOp);
+// Implement this customized registrar so that we can make XLA Ops an opt-in,
+// controlled by HOROVOD_ENABLE_XLA_OPS.
+#define HVD_REGISTER_XLA_OP(NAME, OP) \
+  HVD_REGISTER_XLA_OP_UNIQ_HELPER(__COUNTER__, NAME, OP)
+
+#define HVD_REGISTER_XLA_OP_UNIQ_HELPER(COUNTER, OP_NAME, OP)       \
+  HVD_REGISTER_XLA_OP_UNIQ(COUNTER, OP_NAME, OP)
+
+#define HVD_REGISTER_XLA_OP_UNIQ(CTR, OP_NAME, OP)                  \
+  static HVDXlaOpRegistrar xla_op_registrar__body__##CTR##__object( \
+      OP_NAME,                                                      \
+      [](::tensorflow::OpKernelConstruction* context)               \
+          -> ::tensorflow::OpKernel* { return new OP(context); });
+
+class HVDXlaOpRegistrar {
+ public:
+  HVDXlaOpRegistrar(string op_name,
+                    ::tensorflow::XlaOpRegistry::Factory factory) {
+    bool enable_xla_ops = false;
+    common::SetBoolFromEnv(HOROVOD_ENABLE_XLA_OPS, enable_xla_ops, true);
+    if (enable_xla_ops) {
+      xla_op_registrar_ = new XlaOpRegistrar(
+          ::tensorflow::XlaOpRegistrationBuilder::Name(op_name).Build(factory));
+    }
+  }
+
+ private:
+  XlaOpRegistrar* xla_op_registrar_;
+};
+
+HVD_REGISTER_XLA_OP("HorovodAllreduce", HVDAllreduceOp);
+
 
 // Builds a custom call to a method named 'allreduce'.
 ::xla::StatusOr<::xla::XlaOp> HVDAllreduceOp::BuildAllreduceCustomCall(
@@ -394,7 +424,7 @@ uint64 GetRendezvousKeyHash(const string& key) {
 class HVDCustomCallRendezvous {
 public:
   struct Payload {
-    gpuEvent_t event;
+    std::shared_ptr<gpuEvent_t> event;
   };
 
   // This `Signal` method either a) flips the `Ready` value in the front of the
@@ -451,15 +481,17 @@ public:
     Queue* queue = table_[key_hash];
     Payload* payload = queue->front();
     auto event = payload->event;
-    delete payload;
     queue->pop_front();
     if (queue->empty()) {
       table_.erase(key_hash);
       delete queue;
     }
     if (event) {
-      CUDA_CALL(cudaStreamWaitEvent(stream, event, /*flags=*/0));
+#if HAVE_GPU
+      CUDA_CALL(cudaStreamWaitEvent(stream, *event, /*flags=*/0));
+#endif
     }
+    delete payload;
   }
 
 private:
@@ -503,10 +535,11 @@ void CallbackHVDAllreduce(CUstream stream, void** buffers,
   config.ParseFromString(std::string(opaque, opaque_len));
 
   // Enqueue requests.
-  auto ready_event =
-      std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(stream));
   common::ReadyEventList ready_event_list;
-  ready_event_list.AddReadyEvent(ready_event);
+#if HAVE_GPU
+  ready_event_list.AddReadyEvent(
+      std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(stream)));
+#endif
   int dev_ordinal = GetDeviceOrdinal(buffers[0]);
   auto hvd_context = std::make_shared<XLAOpContext>(dev_ordinal);
   auto hvd_input = std::make_shared<XLATensor>(
