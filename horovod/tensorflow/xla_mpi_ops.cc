@@ -95,9 +95,7 @@ public:
     cudaError_t result = cudaEventQuery(event_);
     return cudaErrorNotReady != result;
   }
-  gpuEvent_t event() const override {
-    return event_;
-  }
+  gpuEvent_t event() const override { return event_; }
 
 private:
   cudaStream_t stream_; // Not Owned.
@@ -132,8 +130,8 @@ public:
   virtual common::Status
   AllocateOutput(common::TensorShape shape,
                  std::shared_ptr<common::Tensor>* tensor) override;
-  //virtual common::Status
-  //AllocateOutput(int output_index, common::TensorShape shape,
+  // virtual common::Status
+  // AllocateOutput(int output_index, common::TensorShape shape,
   //               std::shared_ptr<common::Tensor>* tensor) override;
   virtual common::Status
   AllocateZeros(int64_t num_elements, common::DataType dtype,
@@ -188,8 +186,8 @@ XLAOpContext::AllocateOutput(common::TensorShape shape,
       "AllocateOutput is not supported for XLA.");
 }
 
-//common::Status
-//XLAOpContext::AllocateOutput(int output_index, common::TensorShape shape,
+// common::Status
+// XLAOpContext::AllocateOutput(int output_index, common::TensorShape shape,
 //                             std::shared_ptr<common::Tensor>* tensor) {
 //  // Let XLA allocate I/O buffers.
 //  return common::Status::PreconditionError(
@@ -353,20 +351,19 @@ private:
 
 // Implement this customized registrar so that we can make XLA Ops an opt-in,
 // controlled by HOROVOD_ENABLE_XLA_OPS.
-#define HVD_REGISTER_XLA_OP(NAME, OP) \
+#define HVD_REGISTER_XLA_OP(NAME, OP)                                          \
   HVD_REGISTER_XLA_OP_UNIQ_HELPER(__COUNTER__, NAME, OP)
 
-#define HVD_REGISTER_XLA_OP_UNIQ_HELPER(COUNTER, OP_NAME, OP)       \
+#define HVD_REGISTER_XLA_OP_UNIQ_HELPER(COUNTER, OP_NAME, OP)                  \
   HVD_REGISTER_XLA_OP_UNIQ(COUNTER, OP_NAME, OP)
 
-#define HVD_REGISTER_XLA_OP_UNIQ(CTR, OP_NAME, OP)                  \
-  static HVDXlaOpRegistrar xla_op_registrar__body__##CTR##__object( \
-      OP_NAME,                                                      \
-      [](::tensorflow::OpKernelConstruction* context)               \
-          -> ::tensorflow::OpKernel* { return new OP(context); });
+#define HVD_REGISTER_XLA_OP_UNIQ(CTR, OP_NAME, OP)                             \
+  static HVDXlaOpRegistrar xla_op_registrar__body__##CTR##__object(            \
+      OP_NAME, [](::tensorflow::OpKernelConstruction* context)                 \
+                   -> ::tensorflow::OpKernel* { return new OP(context); });
 
 class HVDXlaOpRegistrar {
- public:
+public:
   HVDXlaOpRegistrar(string op_name,
                     ::tensorflow::XlaOpRegistry::Factory factory) {
     bool enable_xla_ops = false;
@@ -377,12 +374,11 @@ class HVDXlaOpRegistrar {
     }
   }
 
- private:
+private:
   XlaOpRegistrar* xla_op_registrar_;
 };
 
 HVD_REGISTER_XLA_OP("HorovodAllreduce", HVDAllreduceOp);
-
 
 // Builds a custom call to a method named 'allreduce'.
 ::xla::StatusOr<::xla::XlaOp> HVDAllreduceOp::BuildAllreduceCustomCall(
@@ -437,7 +433,7 @@ public:
     InitQueue(key_hash);
 
     Queue& queue = *table_[key_hash];
-    if (queue.empty() || queue.front()!=nullptr) {
+    if (queue.empty() || queue.front() != nullptr) {
       // No earlier waiters exist, so just leave a signal.
       queue.push_back(new Payload{hvd_event.event});
       return;
@@ -468,7 +464,7 @@ public:
     auto test_signal_value = [&]() {
       mutex_lock l(mu_);
       Queue& queue = *table_[key_hash];
-      return nullptr!=queue.front();
+      return nullptr != queue.front();
     };
     while (!test_signal_value()) {
       // Busy waiting. As we don't anticipate the blocking occurs frequently,
@@ -529,8 +525,8 @@ int GetDeviceOrdinal(void* ptr) {
 }
 
 // Custom calls
-void CallbackHVDAllreduce(CUstream stream, void** buffers,
-                          const char* opaque, size_t opaque_len) {
+void CallbackHVDAllreduce(CUstream stream, void** buffers, const char* opaque,
+                          size_t opaque_len) {
   CustomCallConfig config;
   config.ParseFromString(std::string(opaque, opaque_len));
 
@@ -553,8 +549,7 @@ void CallbackHVDAllreduce(CUstream stream, void** buffers,
       dev_ordinal,
       [=](const common::Status& status) {
         // When request is done processing, signal `HVDAllreduceDone`.
-        GetHVDCustomCallRendezvous()->Signal(
-            config.tensor_name_, status.event);
+        GetHVDCustomCallRendezvous()->Signal(config.tensor_name_, status.event);
       },
       (horovod::common::ReduceOp)config.reduce_op_,
       (double)config.prescale_factor_, (double)config.postscale_factor_);
