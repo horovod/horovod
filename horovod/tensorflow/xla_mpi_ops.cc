@@ -31,6 +31,7 @@
 #include "tensorflow/core/platform/human_readable_json.h"
 
 #if HAVE_GPU
+#if HAVE_CUDA
 
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -183,10 +184,6 @@ public:
       }
     }
 
-    // for DEBUG ONLY, use this to confirm the XLA lowering occurs in CI.
-    // TODO: remove it later.
-    std::cerr << "XLA: Compile " << node_name_;
-
     // Generate below HLOs:
     //     start = custom-call(in), custom_call_target="CallbackHVDAllreduce"
     //     end = custom-call(start),
@@ -330,7 +327,7 @@ public:
   // The `Wait` method consumes Payloads. We assume there is at most one
   // outstanding `Wait` call due to its blocking nature to simplify the
   // implementation. Consequently, this method always operates on the very
-  // first item of the queue.
+  // first item in the queue.
   void Wait(string tensor_name, CUstream stream) {
     uint64 key_hash = GetRendezvousKeyHash(tensor_name);
 
@@ -345,12 +342,12 @@ public:
       }
     }
 
-    auto test_signal_value = [&]() {
+    auto has_available_signal = [&]() {
       mutex_lock l(mu_);
       Queue& queue = *table_[key_hash];
       return nullptr != queue.front();
     };
-    while (!test_signal_value()) {
+    while (!has_available_signal()) {
       // Busy waiting. As we don't anticipate the blocking occurs frequently,
       // this busy waiting should be fine. If this creates any performance
       // overhead, we may implement conditional var wait.
@@ -384,7 +381,8 @@ private:
 private:
   // `nullptr` denotes non-readiness of the payload.
   typedef std::deque<Payload*> Queue;
-  // maps a hash value to queue.
+  // maps a hash value to queue. We will use tensor_names to generate the hash
+  // values.
   typedef absl::flat_hash_map<uint64, Queue*> Table;
 
   mutex mu_;
@@ -469,17 +467,12 @@ private:
 
 XLAPersistentBuffer::XLAPersistentBuffer(int device, int64_t size)
     : device_(device) {
-#if HAVE_CUDA
   int restore_device;
   CUDA_CALL(cudaGetDevice(&restore_device));
   CUDA_CALL(cudaSetDevice(device));
   // Simply call cudaMalloc for persistent buffer.
   CUDA_CALL(cudaMalloc((void**)&buffer_, size));
   CUDA_CALL(cudaSetDevice(restore_device));
-#else
-  throw std::logic_error("Internal error. Requested XLAPersistentBuffer "
-                         "with GPU device but not compiled with CUDA.");
-#endif
 }
 
 const void* XLAPersistentBuffer::AccessData(
@@ -509,8 +502,6 @@ XLAOpContext::AllocateZeros(int64_t num_elements, common::DataType dtype,
       "AllocateZeros is not supported for XLA.");
 }
 
-// On GPU this event will signal that data is ready, and tensors are
-// allocated.
 common::ReadyEvent* RecordReadyEvent(cudaStream_t stream) {
   return new XLAReadyEvent(stream);
 }
@@ -521,13 +512,13 @@ int GetDeviceOrdinal(void* ptr) {
   return attrs.device;
 }
 
-// Implements the `HVDAllreduce` HLO CustomCall.
+// Implements for the `HVDAllreduce` HLO CustomCall.
 void CallbackHVDAllreduce(CUstream stream, void** buffers, const char* opaque,
                           size_t opaque_len) {
   CustomCallConfig config;
   config.ParseFromString(std::string(opaque, opaque_len));
 
-  // Enqueue requests.
+  // Enqueue requests to the Horovod runtime.
   common::ReadyEventList ready_event_list;
   ready_event_list.AddReadyEvent(
       std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(stream)));
@@ -551,10 +542,10 @@ void CallbackHVDAllreduce(CUstream stream, void** buffers, const char* opaque,
   CHECK(enqueue_result.ok()) << enqueue_result.reason();
 }
 
-// Implements the `HVDAllreduceDone` HLO CustomCall.
+// Implements for the `HVDAllreduceDone` HLO CustomCall.
 void CallbackHVDAllreduceDone(CUstream stream, void** /*buffers*/,
                               const char* opaque, size_t opaque_len) {
-  // Blocking until the request is done processing.
+  // Blocking until the request is done processing by the Horovod runtime.
   VLOG(2) << "hvd-allreduce-done - Start";
   CustomCallConfig config;
   config.ParseFromString(std::string(opaque, opaque_len));
@@ -569,4 +560,5 @@ XLA_REGISTER_CUSTOM_CALL_TARGET(CallbackHVDAllreduceDone, "CUDA");
 } // namespace tensorflow
 } // namespace horovod
 
+#endif // HAVE_CUDA
 #endif // HAVE_GPU
