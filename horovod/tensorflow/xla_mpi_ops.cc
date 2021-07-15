@@ -157,11 +157,14 @@ void CustomCallConfig::ParseFromString(std::string input) {
 }
 
 // HVDAllreduceOp is an XLAOpKernel that lowers the Tensorflow HorovodAllreduce
-// op into XLA HLOs. The overall idea is to lower an Tensorflow op into HLO
-// `custom-calls`. See Compile() for detailed lowering. Custom callbacks can be
-// registered to XLA to implement different behaviors for custom-calls with
-// different names. See `CallbackHVDAllreduce` and `CallbackHVDAllreduceDone`
-// for exmaples.
+// op into XLA HLOs. The overall idea is to lower an Tensorflow op into two
+// corresponding HLO custom-calls, `start` and `end` calls, so that the XLA can
+// asynchronously interact with the Horovod runtime. The `start` call is always
+// non-blocking for latency hiding and the `end` call could be blocking. For
+// example, as shown in HVDAllreduceOp::Compile() below, the "HorovodAllreduce"
+// op is lowered into the "CallbackHVDAllreduce" and "CallbackHVDAllreduceDone"
+// HLO custom-calls, whose implementations are also provided through dynamic
+// registration in this file.
 class HVDAllreduceOp : public XlaOpKernel {
 public:
   explicit HVDAllreduceOp(OpKernelConstruction* ctx) : XlaOpKernel(ctx) {
@@ -296,9 +299,6 @@ uint64 GetRendezvousKeyHash(const string& key) {
 }
 
 // Implements a rendezvous to coordinate the `start` and `end` HLO callbacks.
-// An TF operation is broken into two HLOs to asynchronously interact with the
-// Horovod runtime. The `start` call is non-blocking and only the end call could
-// be blocking.
 class HVDCustomCallRendezvous {
 public:
   struct Payload {
