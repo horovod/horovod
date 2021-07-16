@@ -283,7 +283,9 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v1
         # AWS credentials are used to authenticate against AWS ECR to pull and push test images
         # We can only authenticate when running on Horovod repo (not a fork)
-        if: github.repository == 'horovod/horovod'
+        if: >
+          github.repository == 'horovod/horovod' &&
+          ( github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository )
         continue-on-error: true
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -1799,7 +1801,9 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v1
         # AWS credentials are used to authenticate against AWS ECR to pull and push test images
         # We can only authenticate when running on Horovod repo (not a fork)
-        if: github.repository == 'horovod/horovod'
+        if: >
+          github.repository == 'horovod/horovod' &&
+          ( github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository )
         continue-on-error: true
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -3336,8 +3340,9 @@ jobs:
     needs: [init-workflow, build-and-test]
     runs-on: ubuntu-latest
     if: >
+      github.repository == 'horovod/horovod' &&
       needs.init-workflow.outputs.run_builds_and_tests != 'false' &&
-      ( github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository )
+      ( github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository )
 
     steps:
       - name: Trigger Buildkite Pipeline
@@ -3368,12 +3373,14 @@ jobs:
           name: Unit Test Results - GPUs on Builtkite
           path: artifacts/Unit Test Results - GPUs on Buildkite/**/*.xml
 
-      - name: Escalate Buildkite job state
+      - name: Check Buildkite job state
         if: >
           always() &&
           steps.download.conclusion == 'success' &&
           steps.download.outputs.build-state != 'passed'
-        run: exit 1
+        run: |
+          echo "::warning::Buildkite pipeline did not pass: ${{ steps.build.outputs.url }}"
+          exit 1
 
   publish-test-results:
     name: "Publish Unit Tests Results"

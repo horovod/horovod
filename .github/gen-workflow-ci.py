@@ -255,7 +255,9 @@ def main():
                 f'        uses: aws-actions/configure-aws-credentials@v1\n'
                 f'        # AWS credentials are used to authenticate against AWS ECR to pull and push test images\n'
                 f'        # We can only authenticate when running on Horovod repo (not a fork)\n'
-                f'        if: github.repository == \'horovod/horovod\'\n'
+                f'        if: >\n'
+                f'          github.repository == \'horovod/horovod\' &&\n'
+                f'          ( github.event_name != \'pull_request\' || github.event.pull_request.head.repo.full_name == github.repository )\n'
                 f'        continue-on-error: true\n'
                 f'        with:\n'
                 f'          aws-access-key-id: ${{{{ secrets.AWS_ACCESS_KEY_ID }}}}\n'
@@ -433,8 +435,9 @@ def main():
                 f'    needs: [{", ".join(needs)}]\n'
                 f'    runs-on: ubuntu-latest\n'
                 f'    if: >\n'
+                f'      github.repository == \'horovod/horovod\' &&\n'
                 f'      needs.init-workflow.outputs.run_builds_and_tests != \'false\' &&\n'
-                f'      ( github.event_name == \'push\' || github.event.pull_request.head.repo.full_name == github.repository )\n'
+                f'      ( github.event_name != \'pull_request\' || github.event.pull_request.head.repo.full_name == github.repository )\n'
                 f'\n'
                 f'    steps:\n'
                 f'      - name: Trigger Buildkite Pipeline\n'
@@ -467,12 +470,14 @@ def main():
                 f'          name: Unit Test Results - GPUs on Builtkite\n'
                 f'          path: artifacts/Unit Test Results - GPUs on Buildkite/**/*.xml\n'
                 f'\n'
-                f'      - name: Escalate Buildkite job state\n'
+                f'      - name: Check Buildkite job state\n'
                 f'        if: >\n'
                 f'          always() &&\n'
                 f'          steps.download.conclusion == \'success\' &&\n'
                 f'          steps.download.outputs.build-state != \'passed\'\n'
-                f'        run: exit 1\n')
+                f'        run: |\n'
+                f'          echo "::warning::Buildkite pipeline did not pass: ${{{{ steps.build.outputs.url }}}}"\n'
+                f'          exit 1\n')
 
     def publish_unit_test_results(id: str, needs: List[str]) -> str:
         return (f'  {id}:\n'
