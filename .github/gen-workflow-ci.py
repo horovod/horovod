@@ -144,7 +144,9 @@ def main():
                 f'    name: "Init Workflow"\n'
                 f'    runs-on: ubuntu-latest\n'
                 f'    outputs:\n'
-                f'      run_builds_and_tests: ${{{{ steps.tests.output.needed }}}}\n'
+                f"      run_at_all: github.event_name != 'schedule' || github.repository == 'horovod/horovod'\n"
+                f"      # if we don't get a clear 'false', we fall back to building and testing\n"
+                f"      run_builds_and_tests: ${{{{ steps.tests.output.needed }}}} != 'false'\n"
                 f'\n'
                 f'    steps:\n'
                 f'      - name: Checkout\n'
@@ -193,7 +195,9 @@ def main():
         return (f'  {id}:\n'
                 f'    name: "{name} (${{{{ matrix.image }}}})"\n'
                 f'    needs: [{", ".join(needs)}]\n'
-                f'    if: needs.init-workflow.outputs.run_builds_and_tests != \'false\'\n'
+                f'    if: >\n'
+                f'      needs.init-workflow.outputs.run_at_all &&\n'
+                f'      needs.init-workflow.outputs.run_builds_and_tests\n'
                 f'    runs-on: ubuntu-latest\n'
                 f'\n'
                 f'    strategy:\n'
@@ -338,7 +342,9 @@ def main():
         return (f'  {id}:\n'
                 f'    name: "{name} (${{{{ matrix.image }}}}-macos)"\n'
                 f'    needs: [{", ".join(needs)}]\n'
-                f'    if: needs.init-workflow.outputs.run_builds_and_tests != \'false\'\n'
+                f'    if: >\n'
+                f'      needs.init-workflow.outputs.run_at_all &&\n'
+                f'      needs.init-workflow.outputs.run_builds_and_tests\n'
                 f'    runs-on: macos-latest\n'
                 f'\n'
                 f'    strategy:\n'
@@ -436,7 +442,8 @@ def main():
                 f'    runs-on: ubuntu-latest\n'
                 f'    if: >\n'
                 f'      github.repository == \'horovod/horovod\' &&\n'
-                f'      needs.init-workflow.outputs.run_builds_and_tests != \'false\' &&\n'
+                f'      needs.init-workflow.outputs.run_at_all &&\n'
+                f'      needs.init-workflow.outputs.run_builds_and_tests &&\n'
                 f'      ( github.event_name != \'pull_request\' || github.event.pull_request.head.repo.full_name == github.repository )\n'
                 f'\n'
                 f'    steps:\n'
@@ -489,6 +496,7 @@ def main():
                 f'    # only run this job on push events or when the event does not run in a fork repository\n'
                 f'    if: >\n'
                 f'      ( success() || failure() ) &&\n'
+                f'      needs.init-workflow.outputs.run_at_all &&\n'
                 f'      ( github.event_name == \'push\' || ! github.event.head.repo.fork )\n'
                 f'\n'
                 f'    steps:\n'
@@ -512,13 +520,14 @@ def main():
         return (f'  docker-config:\n'
                 f'    name: Configure docker build\n'
                 f'    needs: [{", ".join(needs)}]\n'
-                f"    # build-and-test-cpu, build-gpu and buildkite might have been skipped (needs.init-workflow.outputs.run_builds_and_tests == 'false')\n"
+                f"    # build-and-test-cpu, build-gpu and buildkite might have been skipped (! needs.init-workflow.outputs.run_builds_and_tests)\n"
                 f'    # buildkite might have been skipped (workflow runs for a fork PR)\n'
                 f'    # we still want to build docker images in these cases\n'
                 f'    if: >\n'
                 f'      always() &&\n'
-                f"      needs.init-workflow.result == 'success' && (\n"
-                f"        needs.init-workflow.outputs.run_builds_and_tests == 'false' ||\n"
+                f"      needs.init-workflow.result == 'success' &&\n"
+                f"      needs.init-workflow.outputs.run_at_all && (\n"
+                f"        ! needs.init-workflow.outputs.run_builds_and_tests ||\n"
                 f"        needs.build-and-test.result == 'success' &&\n"
                 f"        ( needs.buildkite.result == 'success' || needs.buildkite.result == 'skipped' )\n"
                 f'      )\n'
