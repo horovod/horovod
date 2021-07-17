@@ -465,6 +465,50 @@ class TensorFlowTests(tf.test.TestCase):
             diff = self.evaluate(max_difference)
             self.assertTrue(diff <= threshold, "hvd.allreduce on GPU produces incorrect results")
 
+    def test_horovod_allreduce_xla_gpu(self):
+        """Test that the allreduce works on GPUs."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        hvd.init()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
+        @tf.function(jit_compile=True)
+        def test_hvd_allreduce(self, dtype, dim):
+            tensor = self.random_uniform(
+                [17] * dim, -100, 100, dtype=dtype)
+            summed = hvd.allreduce(tensor, average=False)
+            multiplied = tensor * size
+            max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+            return max_difference
+
+        dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%d" % local_rank):
+                max_difference = test_hvd_allreduce(self, dtype, dim)
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                self.skipTest("Horovod cluster too large for precise multiplication comparison")
+
+            diff = self.evaluate(max_difference)
+            print('diff = ', diff)
+            self.assertTrue(diff <= threshold, "hvd.allreduce on GPU produces incorrect results")
+
     def test_horovod_allreduce_average_gpu(self):
         """Test that the allreduce with average works on GPUs."""
         # Only do this test if there are GPUs available.
