@@ -199,7 +199,7 @@ public:
     ::xla::XlaOp input = ctx->Input(0);
     ::xla::XlaOp allreduce_start =
         b->ReportErrorOrReturn(BuildAllreduceCustomCall(
-            b, {input}, /*is_start=*/true, output_operand_aliasing));
+            b, {input}, /*is_start=*/true));
     // Then, generate HVDAllreduceDone.
     ::xla::XlaOp allreduce_end = b->ReportErrorOrReturn(
         BuildAllreduceCustomCall(b, {allreduce_start},
@@ -515,6 +515,7 @@ int GetDeviceOrdinal(void* ptr) {
 // Implements for the `HVDAllreduce` HLO CustomCall.
 void CallbackHVDAllreduce(CUstream stream, void** buffers, const char* opaque,
                           size_t opaque_len) {
+  CHECK(common::CheckInitialized().ok());
   CustomCallConfig config;
   config.ParseFromString(std::string(opaque, opaque_len));
 
@@ -535,6 +536,7 @@ void CallbackHVDAllreduce(CUstream stream, void** buffers, const char* opaque,
       dev_ordinal,
       [=](const common::Status& status) {
         // When request is done processing, signal `HVDAllreduceDone`.
+        CHECK(status.ok()) << status.reason();
         GetHVDCustomCallRendezvous()->Signal(config.tensor_name_, status.event);
       },
       (horovod::common::ReduceOp)config.reduce_op_,
