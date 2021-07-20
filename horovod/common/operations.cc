@@ -564,6 +564,14 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // Check if async completion should be enabled
   SetBoolFromEnv(HOROVOD_ENABLE_ASYNC_COMPLETION, state.enable_async_completion, true);
 
+  // Enable async completion when XLA ops are enabled. Sine the XLA runtime is
+  // single-threaded, async completion is essential to reduce host overhead.
+  bool enable_xla_ops = false;
+  common::SetBoolFromEnv(HOROVOD_ENABLE_XLA_OPS, enable_xla_ops, true);
+  if (enable_xla_ops) {
+    state.enable_async_completion = true;
+  }
+
   // Enable auto-tuning.
   auto horovod_autotune = std::getenv(HOROVOD_AUTOTUNE);
   if (horovod_autotune != nullptr &&

@@ -6,8 +6,6 @@ Basic usage
 
 XLA Horovod ops can be enabled by setting ``HOROVOD_ENABLE_XLA_OPS = 1`` by controlling the registration of the ops to Tensorflow/XLA.
 
-``HOROVOD_ENABLE_ASYNC_COMPLETION = 1`` should also be set when XLA Horovod ops are enabled because the XLA runtime is single-threaded and blocking calls can incur great performance overhead.
-
 There are two main ways to enable XLA and they could work with Horovod in different ways:
 
 For **Explicit compilation with tf.function(jit_compile=True)**:
@@ -15,7 +13,6 @@ For **Explicit compilation with tf.function(jit_compile=True)**:
 .. code-block:: python
 
     os.environ["HOROVOD_ENABLE_XLA_OPS"] = "1"
-    os.environ["HOROVOD_ENABLE_ASYNC_COMPLETION"] = "1"
 
      @tf.function(jit_compile=True)
      def compiled_hvd_allreduce(self, dtype, dim):

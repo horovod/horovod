@@ -34,9 +34,6 @@ from common import mpi_env_rank_and_size, skip_or_fail_gpu_test
 # initialization.
 os.environ["HOROVOD_ENABLE_XLA_OPS"] = "1"
 
-# Async Completion is enabled for performance, as XLA is single-threaded.
-os.environ["HOROVOD_ENABLE_ASYNC_COMPLETION"] = "1"
-
 import tensorflow as tf
 from horovod.tensorflow.util import _executing_eagerly
 from tensorflow.python.framework import ops
