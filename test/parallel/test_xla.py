@@ -26,6 +26,15 @@ import os
 import math
 import pytest
 import sys
+
+# Enable HVD XLA ops so that tf.function(jit_compile=True) works. This
+# environment variable needs to be set up before loading Tensorflow, because
+# it is needed to tell XLA to register the ops through C++ static initialization.
+os.environ["HOROVOD_ENABLE_XLA_OPS"] = "1"
+
+# Async Completion is enabled for performance, as XLA is single-threaded.
+os.environ["HOROVOD_ENABLE_ASYNC_COMPLETION"] = "1"
+
 import tensorflow as tf
 from horovod.tensorflow.util import _executing_eagerly
 from tensorflow.python.framework import ops
@@ -58,7 +67,6 @@ _IS_TF2 = LooseVersion(tf.__version__) >= LooseVersion('2.0.0')
 
 # Set environment variable to enable adding/removing process sets after initializing Horovod.
 os.environ["HOROVOD_DYNAMIC_PROCESS_SETS"] = "1"
-
 
 class XLATests(tf.test.TestCase):
     """
