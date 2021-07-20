@@ -99,6 +99,7 @@ public:
   float postscale_factor_;
   int root_rank_;
   int reduce_op_;
+  int process_set_id_;
 };
 
 std::string CustomCallConfig::SerializeToString() {
@@ -115,7 +116,7 @@ std::string CustomCallConfig::SerializeToString() {
   auto wire = wire::CreateCustomCallConfigDirect(
       fbb, tensor_name_.c_str(), (common::wire::DataType)tensor_type_,
       &input_shapes_obj, &output_shapes_obj, prescale_factor_,
-      postscale_factor_, root_rank_, reduce_op_);
+      postscale_factor_, root_rank_, reduce_op_, process_set_id_);
   fbb.Finish(wire);
 
   uint8_t* buf = fbb.GetBufferPointer();
@@ -146,6 +147,7 @@ void CustomCallConfig::ParseFromString(std::string input) {
   postscale_factor_ = obj->postscale_factor();
   root_rank_ = obj->root_rank();
   reduce_op_ = obj->reduce_op();
+  process_set_id_ = obj->process_set_id();
 
   if (VLOG_IS_ON(2)) {
     VLOG(2) << "tensor_name " << tensor_name_;
@@ -154,6 +156,7 @@ void CustomCallConfig::ParseFromString(std::string input) {
     VLOG(2) << "postscale_factor = " << postscale_factor_;
     VLOG(2) << "root_rank = " << root_rank_;
     VLOG(2) << "reduce_op = " << reduce_op_;
+    VLOG(2) << "process_set_id = " << process_set_id_;
   }
 }
 
@@ -173,6 +176,7 @@ public:
     OP_REQUIRES_OK(ctx, ctx->GetAttr("prescale_factor", &prescale_factor_));
     OP_REQUIRES_OK(ctx, ctx->GetAttr("postscale_factor", &postscale_factor_));
     OP_REQUIRES_OK(ctx, ctx->GetAttr("ignore_name_scope", &ignore_name_scope_));
+    OP_REQUIRES_OK(ctx, ctx->GetAttr("process_set_id", &process_set_id_));
   }
 
   void Compile(XlaOpKernelContext* ctx) override {
@@ -223,6 +227,7 @@ private:
   float prescale_factor_;
   float postscale_factor_;
   bool ignore_name_scope_;
+  int process_set_id_;
 };
 
 // Implements a customized registrar so that the registration is an opt-in,
@@ -279,6 +284,7 @@ HVD_REGISTER_XLA_OP("HorovodAllreduce", HVDAllreduceOp);
   config.prescale_factor_ = prescale_factor_;
   config.postscale_factor_ = postscale_factor_;
   config.reduce_op_ = reduce_op_;
+  config.process_set_id_ = process_set_id_;
 
   return ::xla::CustomCall(
       b, call_target_name, operands, output_shape, config.SerializeToString(),
@@ -540,7 +546,8 @@ void CallbackHVDAllreduce(CUstream stream, void** buffers, const char* opaque,
         GetHVDCustomCallRendezvous()->Signal(config.tensor_name_, status.event);
       },
       (horovod::common::ReduceOp)config.reduce_op_,
-      (double)config.prescale_factor_, (double)config.postscale_factor_);
+      (double)config.prescale_factor_, (double)config.postscale_factor_,
+      config.process_set_id_);
   CHECK(enqueue_result.ok()) << enqueue_result.reason();
 }
 

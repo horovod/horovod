@@ -38,4 +38,6 @@ table CustomCallConfig {
 
     // Reduce op.
     reduce_op:int;
+
+    process_set_id:int;
 }

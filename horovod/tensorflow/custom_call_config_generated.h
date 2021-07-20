@@ -75,7 +75,8 @@ struct CustomCallConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_PRESCALE_FACTOR = 12,
     VT_POSTSCALE_FACTOR = 14,
     VT_ROOT_RANK = 16,
-    VT_REDUCE_OP = 18
+    VT_REDUCE_OP = 18,
+    VT_PROCESS_SET_ID = 20
   };
   const flatbuffers::String *tensor_name() const {
     return GetPointer<const flatbuffers::String *>(VT_TENSOR_NAME);
@@ -101,6 +102,9 @@ struct CustomCallConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   int32_t reduce_op() const {
     return GetField<int32_t>(VT_REDUCE_OP, 0);
   }
+  int32_t process_set_id() const {
+    return GetField<int32_t>(VT_PROCESS_SET_ID, 0);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_TENSOR_NAME) &&
@@ -116,6 +120,7 @@ struct CustomCallConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<float>(verifier, VT_POSTSCALE_FACTOR) &&
            VerifyField<int32_t>(verifier, VT_ROOT_RANK) &&
            VerifyField<int32_t>(verifier, VT_REDUCE_OP) &&
+           VerifyField<int32_t>(verifier, VT_PROCESS_SET_ID) &&
            verifier.EndTable();
   }
 };
@@ -147,6 +152,9 @@ struct CustomCallConfigBuilder {
   void add_reduce_op(int32_t reduce_op) {
     fbb_.AddElement<int32_t>(CustomCallConfig::VT_REDUCE_OP, reduce_op, 0);
   }
+  void add_process_set_id(int32_t process_set_id) {
+    fbb_.AddElement<int32_t>(CustomCallConfig::VT_PROCESS_SET_ID, process_set_id, 0);
+  }
   explicit CustomCallConfigBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -168,8 +176,10 @@ inline flatbuffers::Offset<CustomCallConfig> CreateCustomCallConfig(
     float prescale_factor = 0.0f,
     float postscale_factor = 0.0f,
     int32_t root_rank = 0,
-    int32_t reduce_op = 0) {
+    int32_t reduce_op = 0,
+    int32_t process_set_id = 0) {
   CustomCallConfigBuilder builder_(_fbb);
+  builder_.add_process_set_id(process_set_id);
   builder_.add_reduce_op(reduce_op);
   builder_.add_root_rank(root_rank);
   builder_.add_postscale_factor(postscale_factor);
@@ -190,7 +200,8 @@ inline flatbuffers::Offset<CustomCallConfig> CreateCustomCallConfigDirect(
     float prescale_factor = 0.0f,
     float postscale_factor = 0.0f,
     int32_t root_rank = 0,
-    int32_t reduce_op = 0) {
+    int32_t reduce_op = 0,
+    int32_t process_set_id = 0) {
   auto tensor_name__ = tensor_name ? _fbb.CreateString(tensor_name) : 0;
   auto input_shapes__ = input_shapes ? _fbb.CreateVector<flatbuffers::Offset<TensorShape>>(*input_shapes) : 0;
   auto output_shapes__ = output_shapes ? _fbb.CreateVector<flatbuffers::Offset<TensorShape>>(*output_shapes) : 0;
@@ -203,7 +214,8 @@ inline flatbuffers::Offset<CustomCallConfig> CreateCustomCallConfigDirect(
       prescale_factor,
       postscale_factor,
       root_rank,
-      reduce_op);
+      reduce_op,
+      process_set_id);
 }
 
 }  // namespace wire
