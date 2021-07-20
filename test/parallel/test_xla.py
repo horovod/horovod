@@ -18,18 +18,20 @@
 
 """Tests for horovod.tensorflow.xla_mpi_ops."""
 
-from distutils.version import LooseVersion
-
-import itertools
-import numpy as np
 import os
-import math
-import pytest
 import sys
+import pytest
+import math
+import numpy as np
+import itertools
+from distutils.version import LooseVersion
+import warnings
+from common import mpi_env_rank_and_size, skip_or_fail_gpu_test
 
 # Enable HVD XLA ops so that tf.function(jit_compile=True) works. This
 # environment variable needs to be set up before loading Tensorflow, because
-# it is needed to tell XLA to register the ops through C++ static initialization.
+# it is needed to tell XLA to register the ops through C++ static
+# initialization.
 os.environ["HOROVOD_ENABLE_XLA_OPS"] = "1"
 
 # Async Completion is enabled for performance, as XLA is single-threaded.
@@ -38,13 +40,11 @@ os.environ["HOROVOD_ENABLE_ASYNC_COMPLETION"] = "1"
 import tensorflow as tf
 from horovod.tensorflow.util import _executing_eagerly
 from tensorflow.python.framework import ops
-import warnings
-
 import horovod.tensorflow as hvd
+from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
-from common import mpi_env_rank_and_size, skip_or_fail_gpu_test
 
 if hasattr(tf, 'ConfigProto'):
     config = tf.ConfigProto()
@@ -65,8 +65,10 @@ ccl_supported_types = set([tf.uint8, tf.int8, tf.uint16, tf.int16,
 
 _IS_TF2 = LooseVersion(tf.__version__) >= LooseVersion('2.0.0')
 
-# Set environment variable to enable adding/removing process sets after initializing Horovod.
+# Set environment variable to enable adding/removing process sets after
+# initializing Horovod.
 os.environ["HOROVOD_DYNAMIC_PROCESS_SETS"] = "1"
+
 
 class XLATests(tf.test.TestCase):
     """
@@ -97,7 +99,7 @@ class XLATests(tf.test.TestCase):
 
     def filter_supported_types(self, types):
         if 'CCL_ROOT' in os.environ:
-           types = [t for t in types if t in ccl_supported_types]
+            types = [t for t in types if t in ccl_supported_types]
         return types
 
     def test_horovod_allreduce_gpu(self):
@@ -138,10 +140,13 @@ class XLATests(tf.test.TestCase):
             elif size < 15:
                 threshold = 5e-4
             else:
-                self.skipTest("Horovod cluster too large for precise multiplication comparison")
+                self.skipTest(
+                    "Horovod cluster too large for precise multiplication comparison")
 
             diff = self.evaluate(max_difference)
-            self.assertTrue(diff <= threshold, "hvd.allreduce on XLA/GPU produces incorrect results")
+            self.assertTrue(
+                diff <= threshold,
+                "hvd.allreduce on XLA/GPU produces incorrect results")
 
     def test_horovod_allreduce_gpu_prescale(self):
         """Test on XLA/GPU that the allreduce correctly sums 1D, 2D, 3D tensors
@@ -169,13 +174,16 @@ class XLATests(tf.test.TestCase):
                                    prescale_factor=factor)
 
             # Scaling done in FP64 math for integer types.
-            tensor = tf.cast(tensor, tf.float64 if dtype in int_types else dtype)
-            factor = tf.convert_to_tensor(factor, tf.float64 if dtype in int_types else dtype)
+            tensor = tf.cast(
+                tensor, tf.float64 if dtype in int_types else dtype)
+            factor = tf.convert_to_tensor(
+                factor, tf.float64 if dtype in int_types else dtype)
             multiplied = tf.cast(factor * tensor, dtype) * size
             max_difference = tf.reduce_max(tf.abs(summed - multiplied))
             return max_difference
 
-        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32])
+        dtypes = self.filter_supported_types(
+            [tf.int32, tf.int64, tf.float16, tf.float32])
         int_types = [tf.int32, tf.int64]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
@@ -223,14 +231,17 @@ class XLATests(tf.test.TestCase):
 
             multiplied = tensor * size
             # Scaling done in FP64 math for integer types.
-            multiplied = tf.cast(multiplied, tf.float64 if dtype in int_types else dtype)
-            factor = tf.convert_to_tensor(factor, tf.float64 if dtype in int_types else dtype)
+            multiplied = tf.cast(multiplied,
+                                 tf.float64 if dtype in int_types else dtype)
+            factor = tf.convert_to_tensor(
+                factor, tf.float64 if dtype in int_types else dtype)
             multiplied = tf.cast(factor * multiplied, dtype)
             max_difference = tf.reduce_max(tf.abs(summed - multiplied))
             return max_difference
 
         local_rank = hvd.local_rank()
-        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32])
+        dtypes = self.filter_supported_types(
+            [tf.int32, tf.int64, tf.float16, tf.float32])
         int_types = [tf.int32, tf.int64]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
@@ -275,13 +286,19 @@ class XLATests(tf.test.TestCase):
 
         @tf.function(jit_compile=True)
         def compiled_allreduce_gpu_process_set(self, dtype, dim):
-            even_rank_tensor = self.random_uniform([17] * dim, -100, 100, dtype=dtype)
-            odd_rank_tensor = self.random_uniform([17] * dim, -100, 100, dtype=dtype)
+            even_rank_tensor = self.random_uniform(
+                [17] * dim, -100, 100, dtype=dtype)
+            odd_rank_tensor = self.random_uniform(
+                [17] * dim, -100, 100, dtype=dtype)
             if rank in even_ranks:
-                summed = hvd.allreduce(even_rank_tensor, average=False, process_set=even_set)
+                summed = hvd.allreduce(
+                    even_rank_tensor,
+                    average=False,
+                    process_set=even_set)
                 multiplied = even_rank_tensor * len(even_ranks)
             if rank in odd_ranks:
-                summed = hvd.allreduce(odd_rank_tensor, average=False, process_set=odd_set)
+                summed = hvd.allreduce(
+                    odd_rank_tensor, average=False, process_set=odd_set)
                 multiplied = odd_rank_tensor * len(odd_ranks)
             max_difference = tf.reduce_max(tf.abs(summed - multiplied))
             return max_difference
@@ -290,7 +307,8 @@ class XLATests(tf.test.TestCase):
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%d" % local_rank):
-                max_difference = compiled_allreduce_gpu_process_set(self, dtype, dim)
+                max_difference = compiled_allreduce_gpu_process_set(
+                    self, dtype, dim)
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
@@ -302,10 +320,12 @@ class XLATests(tf.test.TestCase):
             elif max_process_set_size < 15:
                 threshold = 5e-4
             else:
-                self.skipTest("Horovod cluster too large for precise multiplication comparison")
+                self.skipTest(
+                    "Horovod cluster too large for precise multiplication comparison")
 
             diff = self.evaluate(max_difference)
-            self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results")
+            self.assertTrue(diff <= threshold,
+                            "hvd.allreduce produces incorrect results")
 
         hvd.remove_process_set(odd_set)
         hvd.remove_process_set(even_set)
@@ -385,7 +405,6 @@ class XLATests(tf.test.TestCase):
                             "error: %s" % (grad_out, expected, str(err)))
 
 
-from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
 run_all_in_graph_and_eager_modes(XLATests)
 
 if __name__ == '__main__':
