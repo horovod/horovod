@@ -201,9 +201,8 @@ public:
         output_operand_aliasing = {
             {::xla::ShapeIndex{}, {0, ::xla::ShapeIndex{}}}};
     ::xla::XlaOp input = ctx->Input(0);
-    ::xla::XlaOp allreduce_start =
-        b->ReportErrorOrReturn(BuildAllreduceCustomCall(
-            b, {input}, /*is_start=*/true));
+    ::xla::XlaOp allreduce_start = b->ReportErrorOrReturn(
+        BuildAllreduceCustomCall(b, {input}, /*is_start=*/true));
     // Then, generate HVDAllreduceDone.
     ::xla::XlaOp allreduce_end = b->ReportErrorOrReturn(
         BuildAllreduceCustomCall(b, {allreduce_start},
