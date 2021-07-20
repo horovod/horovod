@@ -54,7 +54,7 @@ class MetricAverageCallbackImpl(object):
         self.allreduce_ops = {}
         self.device = device
 
-        if LooseVersion(tf.__version__) >= LooseVersion("2.3"):
+        if LooseVersion("2.3") <= LooseVersion(tf.__version__) < LooseVersion("2.5"):
             warnings.warn(
                 "Some callbacks may not have access to the averaged metrics, "
                 "see https://github.com/horovod/horovod/issues/2440")
