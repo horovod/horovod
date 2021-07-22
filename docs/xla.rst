@@ -1,5 +1,5 @@
 Horovod with XLA in Tensorflow
-=======================
+===============================
 
 Basic usage
 -----------
