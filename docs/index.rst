@@ -101,6 +101,8 @@ Guides
 
    tensorflow
 
+   xla
+
    keras
 
    pytorch
