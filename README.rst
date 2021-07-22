@@ -171,6 +171,7 @@ Supported frameworks
 See these pages for Horovod examples and best practices:
 
 - `Horovod with TensorFlow <docs/tensorflow.rst>`_
+- `Horovod with XLA in Tensorflow <xla.rst>`_
 - `Horovod with Keras <docs/keras.rst>`_
 - `Horovod with PyTorch <docs/pytorch.rst>`_
 - `Horovod with MXNet <docs/mxnet.rst>`_
