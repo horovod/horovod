@@ -2335,6 +2335,44 @@ class TensorFlowTests(tf.test.TestCase):
         hvd.remove_process_set(odd_set)
         hvd.remove_process_set(even_set)
 
+    def test_broadcast_variables_process_sets(self):
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        if hvd.ccl_built():
+            self.skipTest("Multiple process sets currently do not support CCL.")
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            self.skipTest("Only one worker available")
+
+        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
+        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
+
+        even_set = hvd.add_process_set(even_ranks)
+        odd_set = hvd.add_process_set(odd_ranks)
+
+        if rank in even_ranks:
+            set_ranks = even_ranks
+            this_set = even_set
+        elif rank in odd_ranks:
+            set_ranks = odd_ranks
+            this_set = odd_set
+        root_rank = set_ranks[0]
+
+        with tf.device("/cpu:0"):
+            var = tf.Variable(initial_value=[rank], dtype=tf.int32)
+            if not hvd._executing_eagerly():
+                init = tf.compat.v1.global_variables_initializer()
+                self.evaluate(init)
+            self.evaluate(
+                hvd.broadcast_variables([var], root_rank=root_rank, process_set=this_set))
+            value = self.evaluate(var)
+        self.assertListEqual(list(value), [root_rank])
+
+        hvd.remove_process_set(odd_set)
+        hvd.remove_process_set(even_set)
 
     def test_horovod_broadcast_error(self):
         """Test that the broadcast returns an error if any dimension besides
@@ -3569,6 +3607,49 @@ class TensorFlowTests(tf.test.TestCase):
             obj = hvd.broadcast_object(obj, root_rank=0)
             self.assertDictEqual(obj, expected_obj)
 
+    def test_broadcast_object_process_sets(self):
+        """ This should best be tested with more than two Horovod processes """
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        if hvd.ccl_built():
+            self.skipTest("Multiple process sets currently do not support CCL.")
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            self.skipTest("Only one worker available")
+
+        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
+        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
+        even_set = hvd.add_process_set(even_ranks)
+        odd_set = hvd.add_process_set(odd_ranks)
+        if rank in even_ranks:
+            set_ranks = even_ranks
+            this_set = even_set
+        elif rank in odd_ranks:
+            set_ranks = odd_ranks
+            this_set = odd_set
+        root_rank = set_ranks[0]
+
+        with tf.device("/cpu:0"):
+            expected_even_obj = {
+                'even': 123,
+                0: [1, 2]
+            }
+            expected_odd_obj = {
+                'odd': 456,
+                1: [1, 2, 3, 4]
+            }
+            expected_obj = expected_even_obj if this_set == even_set else expected_odd_obj
+            obj = expected_obj if hvd.rank() == root_rank else {}
+
+            obj = hvd.broadcast_object(obj, root_rank=root_rank, process_set=this_set)
+            self.assertDictEqual(obj, expected_obj)
+
+        hvd.remove_process_set(odd_set)
+        hvd.remove_process_set(even_set)
+
     def test_broadcast_object_fn(self):
         if hvd._executing_eagerly() or _IS_TF2:
             # Only for TF 1.0 in graph mode
@@ -3587,6 +3668,55 @@ class TensorFlowTests(tf.test.TestCase):
             obj = bcast(obj)
             self.assertDictEqual(obj, expected_obj)
 
+    def test_broadcast_object_fn_process_sets(self):
+        """ This should best be tested with more than two Horovod processes """
+        if hvd._executing_eagerly() or _IS_TF2:
+            # Only for TF 1.0 in graph mode
+            return
+
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        if hvd.ccl_built():
+            self.skipTest("Multiple process sets currently do not support CCL.")
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            self.skipTest("Only one worker available")
+
+        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
+        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
+        even_set = hvd.add_process_set(even_ranks)
+        odd_set = hvd.add_process_set(odd_ranks)
+        if rank in even_ranks:
+            set_ranks = even_ranks
+            this_set = even_set
+        elif rank in odd_ranks:
+            set_ranks = odd_ranks
+            this_set = odd_set
+        root_rank = set_ranks[0]
+
+        with tf.device("/cpu:0"):
+            expected_even_obj = {
+                'even': 123,
+                0: [1, 2]
+            }
+            expected_odd_obj = {
+                'odd': 456,
+                1: [1, 2, 3, 4]
+            }
+            expected_obj = expected_even_obj if this_set == even_set else expected_odd_obj
+            obj = expected_obj if hvd.rank() == root_rank else {}
+
+            bcast = hvd.broadcast_object_fn(root_rank=root_rank, process_set=this_set)
+            obj = bcast(obj)
+            self.assertDictEqual(obj, expected_obj)
+
+        hvd.remove_process_set(odd_set)
+        hvd.remove_process_set(even_set)
+
+
     def test_allgather_object(self):
         hvd.init()
 
@@ -3603,6 +3733,50 @@ class TensorFlowTests(tf.test.TestCase):
 
             self.assertEqual(len(results), hvd.size())
             self.assertListEqual(results, expected)
+
+
+    def test_allgather_object_process_sets(self):
+        """ This should best be tested with more than two Horovod processes """
+        hvd.init()
+
+        rank = hvd.rank()
+        size = hvd.size()
+
+        if hvd.ccl_built():
+            self.skipTest("Multiple process sets currently do not support CCL.")
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            self.skipTest("Only one worker available")
+
+        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
+        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
+        even_set = hvd.add_process_set(even_ranks)
+        odd_set = hvd.add_process_set(odd_ranks)
+        if rank in even_ranks:
+            set_ranks = even_ranks
+            this_set = even_set
+        elif rank in odd_ranks:
+            set_ranks = odd_ranks
+            this_set = odd_set
+
+        with tf.device("/cpu:0"):
+            d = {'metric_val_1': hvd.rank()}
+            if this_set.rank() == 1:
+                d['metric_val_2'] = 42 if this_set == even_set else 23
+
+            results = hvd.allgather_object(d, process_set=this_set)
+
+            expected = [{'metric_val_1': i} for i in set_ranks]
+            if this_set.size() > 1:
+                expected[1] = {'metric_val_1': set_ranks[1],
+                               'metric_val_2': 42 if this_set == even_set else 23}
+
+            self.assertEqual(len(results), this_set.size())
+            self.assertListEqual(results, expected)
+
+        hvd.remove_process_set(odd_set)
+        hvd.remove_process_set(even_set)
 
     def test_elastic_state(self):
         if not hvd._executing_eagerly() and _IS_TF2:
