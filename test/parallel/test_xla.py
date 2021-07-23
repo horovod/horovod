@@ -114,8 +114,7 @@ class XLATests(tf.test.TestCase):
         local_rank = hvd.local_rank()
         size = hvd.size()
 
-        @tf.function(jit_compile=True)
-        def compiled_hvd_allreduce_test(self, dtype, dim):
+        def hvd_allreduce_test(self, dtype, dim):
             tensor = self.random_uniform(
                 [17] * dim, -100, 100, dtype=dtype)
             summed = hvd.allreduce(tensor, average=False)
@@ -127,7 +126,8 @@ class XLATests(tf.test.TestCase):
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%d" % local_rank):
-                max_difference = compiled_hvd_allreduce_test(self, dtype, dim)
+                max_difference = tf.function(
+                    hvd_allreduce_test, jit_compile=True)(self, dtype, dim)
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
@@ -162,8 +162,7 @@ class XLATests(tf.test.TestCase):
         size = hvd.size()
         local_rank = hvd.local_rank()
 
-        @tf.function(jit_compile=True)
-        def compiled_hvd_allreduce_test(self, dtype, dim):
+        def hvd_allreduce_test(self, dtype, dim):
             np.random.seed(1234)
             factor = np.random.uniform()
             tensor = self.random_uniform(
@@ -186,7 +185,8 @@ class XLATests(tf.test.TestCase):
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%s" % local_rank):
-                max_difference = compiled_hvd_allreduce_test(self, dtype, dim)
+                max_difference = tf.function(
+                    hvd_allreduce_test, jit_compile=True)(self, dtype, dim)
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
@@ -218,8 +218,7 @@ class XLATests(tf.test.TestCase):
         hvd.init()
         size = hvd.size()
 
-        @tf.function(jit_compile=True)
-        def compiled_hvd_allreduce_test(self, dtype, dim):
+        def hvd_allreduce_test(self, dtype, dim):
             np.random.seed(1234)
             factor = np.random.uniform()
             tensor = self.random_uniform(
@@ -244,7 +243,8 @@ class XLATests(tf.test.TestCase):
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%s" % local_rank):
-                max_difference = compiled_hvd_allreduce_test(self, dtype, dim)
+                max_difference = tf.function(
+                    hvd_allreduce_test, jit_compile=True)(self, dtype, dim)
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
@@ -282,8 +282,7 @@ class XLATests(tf.test.TestCase):
         even_set = hvd.add_process_set(even_ranks)
         odd_set = hvd.add_process_set(odd_ranks)
 
-        @tf.function(jit_compile=True)
-        def compiled_allreduce_gpu_process_set(self, dtype, dim):
+        def allreduce_gpu_process_set(self, dtype, dim):
             even_rank_tensor = self.random_uniform(
                 [17] * dim, -100, 100, dtype=dtype)
             odd_rank_tensor = self.random_uniform(
@@ -305,8 +304,8 @@ class XLATests(tf.test.TestCase):
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%d" % local_rank):
-                max_difference = compiled_allreduce_gpu_process_set(
-                    self, dtype, dim)
+                max_difference = tf.function(
+                    allreduce_gpu_process_set, jit_compile=True)(self, dtype, dim)
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
@@ -342,8 +341,7 @@ class XLATests(tf.test.TestCase):
         local_rank = hvd.local_rank()
         size = hvd.size()
 
-        @tf.function(jit_compile=True)
-        def compiled_allreduce_grad_test(self, dtype, dim):
+        def allreduce_grad_test(self, dtype, dim):
             tensor = self.random_uniform([5] * dim, -100, 100, dtype=dtype)
             summed = hvd.allreduce(tensor, average=False)
 
@@ -357,7 +355,8 @@ class XLATests(tf.test.TestCase):
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%d" % local_rank):
-                grad = compiled_allreduce_grad_test(self, dtype, dim)
+                grad = tf.function(allreduce_grad_test,
+                                   jit_compile=True)(self, dtype, dim)
                 grad_out = self.evaluate(grad)
             expected = np.ones([5] * dim) * size
             err = np.linalg.norm(expected - grad_out)
@@ -379,8 +378,7 @@ class XLATests(tf.test.TestCase):
         local_rank = hvd.local_rank()
         size = hvd.size()
 
-        @tf.function(jit_compile=True)
-        def compiled_allreduce_grad_test(self, dtype, dim):
+        def allreduce_grad_test(self, dtype, dim):
             tensor = self.random_uniform([5] * dim, -100, 100, dtype=dtype)
             averaged = hvd.allreduce(tensor, average=True)
 
@@ -394,7 +392,8 @@ class XLATests(tf.test.TestCase):
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%d" % local_rank):
-                grad = compiled_allreduce_grad_test(self, dtype, dim)
+                grad = tf.function(allreduce_grad_test,
+                                   jit_compile=True)(self, dtype, dim)
                 grad_out = self.evaluate(grad)
             expected = np.ones([5] * dim)
             err = np.linalg.norm(expected - grad_out)
