@@ -494,6 +494,14 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
   // Override the cycle time.
   state.parameter_manager.SetCycleTimeMs(1);
+  bool enable_xla_ops = false;
+  common::SetBoolFromEnv(HOROVOD_ENABLE_XLA_OPS, enable_xla_ops, true);
+  if (enable_xla_ops) {
+    // Setting the default Cycle Time to 0 because the XLA runtime is sensitive
+    // to latencies.
+    state.parameter_manager.SetCycleTimeMs(0);
+  }
+
   auto horovod_cycle_time = std::getenv(HOROVOD_CYCLE_TIME);
   if (horovod_cycle_time != nullptr) {
     state.parameter_manager.SetCycleTimeMs(
@@ -563,12 +571,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
   // Check if async completion should be enabled
   SetBoolFromEnv(HOROVOD_ENABLE_ASYNC_COMPLETION, state.enable_async_completion, true);
-
-  // Enable async completion when XLA ops are enabled. Sine the XLA runtime is
-  // single-threaded, async completion is essential to reduce host overhead.
-  bool enable_xla_ops = false;
-  common::SetBoolFromEnv(HOROVOD_ENABLE_XLA_OPS, enable_xla_ops, true);
   if (enable_xla_ops) {
+    // Enable async completion when XLA ops are enabled. Sine the XLA runtime is
+    // single-threaded, async completion is essential to reduce host overhead.
     state.enable_async_completion = true;
   }
 
