@@ -19,6 +19,8 @@
 #include <thread>
 #include <unordered_map>
 
+#if TENSORFLOW_VERSION >= 2005000000
+
 #include "tensorflow/compiler/tf2xla/xla_op_kernel.h"
 #include "tensorflow/compiler/tf2xla/xla_op_registry.h"
 #include "tensorflow/compiler/xla/client/xla_builder.h"
@@ -568,5 +570,6 @@ XLA_REGISTER_CUSTOM_CALL_TARGET(CallbackHVDAllreduceDone, "CUDA");
 } // namespace tensorflow
 } // namespace horovod
 
+#endif // TENSORFLOW_VERSION >= 2005000000
 #endif // HAVE_CUDA
 #endif // HAVE_GPU
