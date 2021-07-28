@@ -86,12 +86,21 @@ class custom_build_ext(build_ext):
             cmake_build_args += ['--'] + make_args
 
         cmake_build_dir = os.path.join(self.build_temp, config)
+        cmake_src_dir = self.extensions[0].cmake_lists_dir
+        repo_dir = os.getenv('HOROVOD_BUILD_IN_REPO')
+        if repo_dir:
+            new_build_dir = os.path.join(repo_dir, os.path.basename(cmake_build_dir))
+            print("replacing", cmake_build_dir, "with", new_build_dir)
+            cmake_build_dir = new_build_dir
+            print("replacing", cmake_src_dir, "with", repo_dir)
+            cmake_src_dir = repo_dir
+
         if not os.path.exists(cmake_build_dir):
             os.makedirs(cmake_build_dir)
 
         # Config and build the extension
         try:
-            subprocess.check_call([cmake_bin, self.extensions[0].cmake_lists_dir] + cmake_args,
+            subprocess.check_call([cmake_bin, cmake_src_dir] + cmake_args,
                                   cwd=cmake_build_dir)
             subprocess.check_call([cmake_bin, '--build', '.'] + cmake_build_args,
                                   cwd=cmake_build_dir)
