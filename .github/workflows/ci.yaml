@@ -3305,8 +3305,10 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Build and Test
-        id: build-and-test
+      - name: Build and Test [attempt 1 of 3]
+        id: build-and-test-1
+        continue-on-error: true
+        if: always() && true
         env:
           HOROVOD_WITH_MPI: ${{ matrix.HOROVOD_WITH_MPI }}
           HOROVOD_WITHOUT_MPI: ${{ matrix.HOROVOD_WITHOUT_MPI }}
@@ -3320,8 +3322,9 @@ jobs:
           MXNET: ${{ matrix.MXNET }}
 
         run: |
-          brew install openmpi cmake libuv pyenv
+          brew install -f openmpi cmake libuv pyenv
           export PATH=$(pyenv root)/shims:$PATH
+          pyenv uninstall -f 3.7.7
           pyenv install 3.7.7
           pyenv global 3.7.7
           python --version
@@ -3333,7 +3336,87 @@ jobs:
           HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir .[test]
           horovodrun --check-build
 
-          artifacts_path="$(pwd)/artifacts/${{ matrix.image }}-macos"
+          artifacts_path="$(pwd)/artifacts/${{ matrix.image }}-macos-1"
+          mkdir -p "$artifacts_path"
+          echo "::set-output name=artifacts-path::$artifacts_path"
+          echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=$artifacts_path/junit.\$1.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.\$2.xml \${@:2} > pytest.sh
+          chmod u+x pytest.sh
+
+          cd test/parallel
+          ls test_*.py | xargs -n 1 horovodrun -np 2 /bin/bash ../../pytest.sh macos
+
+      - name: Build and Test [attempt 2 of 3]
+        id: build-and-test-2
+        continue-on-error: true
+        if: always() && steps.build-and-test-1.outcome == 'failure'
+        env:
+          HOROVOD_WITH_MPI: ${{ matrix.HOROVOD_WITH_MPI }}
+          HOROVOD_WITHOUT_MPI: ${{ matrix.HOROVOD_WITHOUT_MPI }}
+          HOROVOD_WITH_GLOO: ${{ matrix.HOROVOD_WITH_GLOO }}
+          HOROVOD_WITHOUT_GLOO: ${{ matrix.HOROVOD_WITHOUT_GLOO }}
+          TENSORFLOW: ${{ matrix.TENSORFLOW }}
+          KERAS: ${{ matrix.KERAS }}
+          PYTORCH: ${{ matrix.PYTORCH }}
+          PYTORCH_LIGHTNING: ${{ matrix.PYTORCH_LIGHTNING }}
+          TORCHVISION: ${{ matrix.TORCHVISION }}
+          MXNET: ${{ matrix.MXNET }}
+
+        run: |
+          brew install -f openmpi cmake libuv pyenv
+          export PATH=$(pyenv root)/shims:$PATH
+          pyenv uninstall -f 3.7.7
+          pyenv install 3.7.7
+          pyenv global 3.7.7
+          python --version
+
+          python -m pip install -U pip
+          pip install tensorflow==${TENSORFLOW} keras==${KERAS}
+          pip install torch==${PYTORCH} pytorch_lightning==${PYTORCH_LIGHTNING} torchvision==${TORCHVISION}
+          pip install mxnet==${MXNET}
+          HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir .[test]
+          horovodrun --check-build
+
+          artifacts_path="$(pwd)/artifacts/${{ matrix.image }}-macos-2"
+          mkdir -p "$artifacts_path"
+          echo "::set-output name=artifacts-path::$artifacts_path"
+          echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=$artifacts_path/junit.\$1.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.\$2.xml \${@:2} > pytest.sh
+          chmod u+x pytest.sh
+
+          cd test/parallel
+          ls test_*.py | xargs -n 1 horovodrun -np 2 /bin/bash ../../pytest.sh macos
+
+      - name: Build and Test [attempt 3 of 3]
+        id: build-and-test-3
+        continue-on-error: false
+        if: always() && steps.build-and-test-2.outcome == 'failure'
+        env:
+          HOROVOD_WITH_MPI: ${{ matrix.HOROVOD_WITH_MPI }}
+          HOROVOD_WITHOUT_MPI: ${{ matrix.HOROVOD_WITHOUT_MPI }}
+          HOROVOD_WITH_GLOO: ${{ matrix.HOROVOD_WITH_GLOO }}
+          HOROVOD_WITHOUT_GLOO: ${{ matrix.HOROVOD_WITHOUT_GLOO }}
+          TENSORFLOW: ${{ matrix.TENSORFLOW }}
+          KERAS: ${{ matrix.KERAS }}
+          PYTORCH: ${{ matrix.PYTORCH }}
+          PYTORCH_LIGHTNING: ${{ matrix.PYTORCH_LIGHTNING }}
+          TORCHVISION: ${{ matrix.TORCHVISION }}
+          MXNET: ${{ matrix.MXNET }}
+
+        run: |
+          brew install -f openmpi cmake libuv pyenv
+          export PATH=$(pyenv root)/shims:$PATH
+          pyenv uninstall -f 3.7.7
+          pyenv install 3.7.7
+          pyenv global 3.7.7
+          python --version
+
+          python -m pip install -U pip
+          pip install tensorflow==${TENSORFLOW} keras==${KERAS}
+          pip install torch==${PYTORCH} pytorch_lightning==${PYTORCH_LIGHTNING} torchvision==${TORCHVISION}
+          pip install mxnet==${MXNET}
+          HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir .[test]
+          horovodrun --check-build
+
+          artifacts_path="$(pwd)/artifacts/${{ matrix.image }}-macos-3"
           mkdir -p "$artifacts_path"
           echo "::set-output name=artifacts-path::$artifacts_path"
           echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=$artifacts_path/junit.\$1.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.\$2.xml \${@:2} > pytest.sh
@@ -3347,8 +3430,10 @@ jobs:
         if: always()
         with:
           name: Unit Test Results - ${{ matrix.image }}-macos
-          path: ${{ steps.build-and-test.outputs.artifacts-path }}/**/*.xml
-
+          path: |
+            ${{ steps.build-and-test-1.outputs.artifacts-path }}
+            ${{ steps.build-and-test-2.outputs.artifacts-path }}
+            ${{ steps.build-and-test-3.outputs.artifacts-path }}
   buildkite:
     name: "Build and Test GPU (on Builtkite)"
     needs: [init-workflow, build-and-test]
