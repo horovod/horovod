@@ -41,6 +41,10 @@ try:
     # those tests for versions earlier than 1.5.0.
     _skip_enqueue_errors = LooseVersion(mx.__version__) < LooseVersion('1.5.0')
 
+    # MXNet 2.0.0 has breaking changes so that some tests need to be adjusted
+    # https://github.com/horovod/horovod/issues/3061
+    _skip_mxnet2_breaking_changes = LooseVersion(mx.__version__) >= LooseVersion('2.0.0')
+
     HAS_MXNET = True
 except ImportError:
     has_gpu = False
@@ -898,6 +902,8 @@ class MXTests(unittest.TestCase):
         except (MXNetError, RuntimeError):
             pass
 
+    @pytest.mark.skipif(_skip_mxnet2_breaking_changes,
+                        reason="https://github.com/horovod/horovod/issues/3061")
     def test_horovod_broadcast_deferred_init_parameters(self):
         """Test that the deferred initialized parameters are broadcasted."""
         hvd.init()
@@ -1325,6 +1331,8 @@ class MXTests(unittest.TestCase):
         except (MXNetError, ValueError):
             pass
 
+    @pytest.mark.skipif(_skip_mxnet2_breaking_changes,
+                        reason="https://github.com/horovod/horovod/issues/3061")
     def test_two_trainer(self):
         """Test using horovod allreduce in MXNet Gluon trainer."""
         from mxnet import gluon
@@ -1384,8 +1392,8 @@ class MXTests(unittest.TestCase):
         except (MXNetError, RuntimeError):
             pass
 
-
     @unittest.skipUnless(has_gpu, "no gpu detected")
+    @unittest.skipIf(_skip_mxnet2_breaking_changes, "https://github.com/horovod/horovod/issues/3061")
     def test_gluon_trainer(self):
         """Test using horovod allreduce in MXNet Gluon trainer."""
         from mxnet import gluon
