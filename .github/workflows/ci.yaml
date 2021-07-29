@@ -3501,29 +3501,39 @@ jobs:
           path: artifacts
 
       - name: Identify last run of each test
-        id: last-runs
+        continue-on-error: true
         run: |
           declare -A last_runs
-          ls -d artifacts/Unit\ Test\ Results\ */* | sort | while read run
+          ls -d artifacts/Unit\ Test\ Results\ */* | sort > runs.txt
+          while read run
           do
             test=${run/%[_-]run[_-][0123456789]/}
             last_runs[$test]=$run
-          done
+          done < runs.txt
 
-          echo -n "::set-output name=files::
+          echo "LAST_RUNS<<EOF" >> $GITHUB_ENV
           for test in "${!last_runs[@]}"
           do
-            echo -n "${last_runs[$test]}/**/*.xml"
-            echo -n "%0A"
+            echo "${last_runs[$test]}" >&2
+            echo "${last_runs[$test]}/**/*.xml" >> $GITHUB_ENV
           done
-          echo
+          echo "EOF" >> $GITHUB_ENV
         shell: bash
 
       - name: Publish Unit Test Results
         uses: EnricoMi/publish-unit-test-result-action@v1
         if: always()
         with:
-          files: ${{ steps.last-runs.output.files }}
+          check_name: Unit Test Results
+          files: "${{ env.LAST_RUNS }}"
+
+      - name: Publish Unit Test Results (with flaky tests)
+        uses: EnricoMi/publish-unit-test-result-action@v1
+        if: always()
+        with:
+          check_name: Unit Test Results (with flaky tests)
+          fail_on: errors
+          files: "artifacts/Unit Test Results */**/*.xml"
 
   docker-config:
     name: Configure docker build
