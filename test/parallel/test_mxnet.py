@@ -908,12 +908,12 @@ class MXTests(unittest.TestCase):
         if hvd.size() == 1:
             self.skipTest("Only one worker available")
 
-        mx.random.seed(rank)
+        mx.np.random.seed(rank)
         layer = mx.gluon.nn.Conv2D(10, 2)
         layer.initialize()
         hvd.broadcast_parameters(layer.collect_params(), root_rank=root_rank)
 
-        x = mx.nd.ones((5, 4, 10, 10))
+        x = mx.np.ones((5, 4, 10, 10))
         layer(x)
         tensors = [p.data() for _, p in sorted(layer.collect_params().items())]
         root_tensors = []
@@ -1347,14 +1347,14 @@ class MXTests(unittest.TestCase):
         trainer2 = hvd.DistributedTrainer(params2, 'sgd', {'learning_rate': 0.1}, prefix="net2")
 
         for i in range(10):
-            data = mx.nd.ones((5, 10), ctx=ctx)
+            data = mx.np.ones((5, 10), ctx=ctx)
             with mx.autograd.record():
                 pred1 = net1(data).sum()
                 pred2 = net2(data).sum()
             mx.autograd.backward([pred1, pred2])
             trainer1.step(1.0)
             trainer2.step(1.0)
-            l = pred1.asscalar() + pred2.asscalar()
+            l = pred1.item() + pred2.item()
 
     def test_horovod_alltoall_rank_error(self):
         """Test that the alltoall returns an error if any dimension besides
@@ -1394,15 +1394,15 @@ class MXTests(unittest.TestCase):
         hvd.init()
         rank = hvd.rank()
         np.random.seed(1000 + 10 * rank)
-        mx.random.seed(1000 + 10 * rank)
+        mx.np.random.seed(1000 + 10 * rank)
         ctx = mx.gpu(rank)
 
         def gen_random_dataset(batch_size=64, dim=32, min_len=20, max_len=100,
                                size=1000):
             for _ in range(size):
                 length = np.random.randint(min_len, max_len + 1)
-                rand_src = mx.nd.random.normal(0, 1, (length, dim))
-                rand_dst = mx.nd.random.normal(0, 1, (length, dim))
+                rand_src = mx.np.random.normal(0, 1, (length, dim))
+                rand_dst = mx.np.random.normal(0, 1, (length, dim))
                 yield rand_src, rand_dst
 
         class SimpleNet(HybridBlock):
@@ -1416,7 +1416,7 @@ class MXTests(unittest.TestCase):
                         flatten=False))
                     self.ln_l.add(nn.LayerNorm())
 
-            def hybrid_forward(self, F, data):
+            def forward(self, data):
                 """
 
                 Parameters
@@ -1446,16 +1446,16 @@ class MXTests(unittest.TestCase):
 
         data_gen = gen_random_dataset()
         for (src_data, dst_data) in data_gen:
-            src_data = src_data.as_in_context(ctx).astype(np.float32)
-            dst_data = dst_data.as_in_context(ctx).astype(np.float32)
+            src_data = src_data.as_in_ctx(ctx).astype(np.float32)
+            dst_data = dst_data.as_in_ctx(ctx).astype(np.float32)
             with mx.autograd.record():
                 pred = net(src_data)
-                loss = mx.nd.abs(pred - dst_data).mean()
+                loss = mx.np.abs(pred - dst_data).mean()
                 loss.backward()
             # Begin to update the parameter
             trainer.step(1.0)
             cnt += 1
-            l = loss.asscalar()
+            l = loss.item()
             if cnt >= 10:
                 for key, param in params.items():
                     hvd.allreduce_(param.list_data()[0])
