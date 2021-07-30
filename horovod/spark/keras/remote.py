@@ -201,7 +201,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 print(f"Training parameters: Epochs: {epochs}, Scaled lr: {scaled_lr}\n"
                       f"Train rows: {train_rows}, Train batch size: {batch_size}, Train_steps_per_epoch: {steps_per_epoch}\n"
                       f"Val rows: {val_rows}, Val batch size: {val_batch_size}, Val_steps_per_epoch: {validation_steps}\n"
-                      f"Checkpoint file: {ckpt_file}, Logs dir: {logs_dir}\n")
+                      f"Checkpoint file: {remote_store.checkpoint_path}, Logs dir: {remote_store.logs_path}\n")
             # In general, make_batch_reader is faster than make_reader for reading the dataset.
             # However, we found out that make_reader performs data transformations much faster than
             # make_batch_reader with parallel worker processes. Therefore, the default reader
