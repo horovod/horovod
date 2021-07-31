@@ -139,7 +139,7 @@ def main():
                '    - name: Debug Action\n' \
                '      uses: hmarr/debug-action@v1.0.0\n' + '\n'.join(jobs)
 
-    def validate_workflow_job() -> str:
+    def init_workflow_job() -> str:
         return (f'  init-workflow:\n'
                 f'    name: "Init Workflow"\n'
                 f'    runs-on: ubuntu-latest\n'
@@ -757,7 +757,7 @@ def main():
         gpu_release_images = [image for image in release_images if '-gpu-' in image or '-mixed-' in image]
         allhead_images = [image for image in images if all(head in image for head in heads)]
         workflow = workflow_header() + jobs(
-            validate_workflow_job(),
+            init_workflow_job(),
             # changing these names require changes in the workflow-conclusion step in ci-fork.yaml
             build_and_test_images(id='build-and-test', name='Build and Test', needs=['init-workflow'], images=release_images, parallel_images='-cpu-', tests_per_image=tests_per_image, tests=tests),
             build_and_test_images(id='build-and-test-heads', name='Build and Test heads', needs=['build-and-test'], images=allhead_images, parallel_images='', tests_per_image=tests_per_image, tests=tests),
