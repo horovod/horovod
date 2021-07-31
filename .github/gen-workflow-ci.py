@@ -137,16 +137,17 @@ def main():
                '    runs-on: ubuntu-latest\n' \
                '    steps:\n' \
                '    - name: Debug Action\n' \
-               '      uses: hmarr/debug-action@v1.0.0\n' + '\n'.join(jobs)
+               '      uses: hmarr/debug-action@v1.0.0\n' + \
+               '\n'.join(jobs)
 
     def init_workflow_job() -> str:
         return (f'  init-workflow:\n'
                 f'    name: "Init Workflow"\n'
                 f'    runs-on: ubuntu-latest\n'
                 f'    outputs:\n'
-                f"      run_at_all: github.event_name != 'schedule' || github.repository == 'horovod/horovod'\n"
+                f"      run_at_all: ${{{{ github.event_name != 'schedule' || github.repository == 'horovod/horovod' }}}}\n"
                 f"      # if we don't get a clear 'false', we fall back to building and testing\n"
-                f"      run_builds_and_tests: ${{{{ steps.tests.output.needed }}}} != 'false'\n"
+                f"      run_builds_and_tests: ${{{{ steps.tests.outputs.needed != 'false' }}}}\n"
                 f'\n'
                 f'    steps:\n'
                 f'      - name: Checkout\n'
@@ -174,12 +175,16 @@ def main():
                 f'          GITHUB_BASE: ${{{{ github.event.pull_request.base.sha }}}}\n'
                 f'          GITHUB_HEAD: ${{{{ github.event.pull_request.head.sha }}}}\n'
                 f'        run: |\n'
-                f'          if [[ "${{{{ github.event_name }}}}" == "pull_request" ]] && [[ -z "$(python .github/get-changed-code-files.py)" ]]\n'
+                f'          changes="$(python .github/get-changed-code-files.py)"\n'
+                f'          if [[ "${{{{ github.event_name }}}}" == "pull_request" ]] && [[ -z "$changes" ]]\n'
                 f'          then\n'
+                f'            echo "No code changes, no need to build and test"\n'
                 f'            echo "::set-output name=needed::false"\n'
-                f'            exit 0\n'
-                f'          fi\n'
-                f'          echo "::set-output name=needed::true"\n')
+                f'          else\n'
+                f'            echo "Code changes, we need to build and test:"\n'
+                f'            echo "$changes"\n'
+                f'            echo "::set-output name=needed::true"\n'
+                f'          fi\n')
 
     def build_and_test_images(id: str,
                               name: str,
@@ -196,8 +201,8 @@ def main():
                 f'    name: "{name} (${{{{ matrix.image }}}})"\n'
                 f'    needs: [{", ".join(needs)}]\n'
                 f'    if: >\n'
-                f'      needs.init-workflow.outputs.run_at_all &&\n'
-                f'      needs.init-workflow.outputs.run_builds_and_tests\n'
+                f"      needs.init-workflow.outputs.run_at_all == 'true' &&\n"
+                f"      needs.init-workflow.outputs.run_builds_and_tests == 'true'\n"
                 f'    runs-on: ubuntu-latest\n'
                 f'\n'
                 f'    strategy:\n'
@@ -347,8 +352,8 @@ def main():
                 f'    name: "{name} (${{{{ matrix.image }}}}-macos)"\n'
                 f'    needs: [{", ".join(needs)}]\n'
                 f'    if: >\n'
-                f'      needs.init-workflow.outputs.run_at_all &&\n'
-                f'      needs.init-workflow.outputs.run_builds_and_tests\n'
+                f"      needs.init-workflow.outputs.run_at_all == 'true' &&\n"
+                f"      needs.init-workflow.outputs.run_builds_and_tests == 'true'\n"
                 f'    runs-on: macos-latest\n'
                 f'\n'
                 f'    strategy:\n'
@@ -452,8 +457,8 @@ def main():
                 f'    runs-on: ubuntu-latest\n'
                 f'    if: >\n'
                 f'      github.repository == \'horovod/horovod\' &&\n'
-                f'      needs.init-workflow.outputs.run_at_all &&\n'
-                f'      needs.init-workflow.outputs.run_builds_and_tests &&\n'
+                f"      needs.init-workflow.outputs.run_at_all == 'true' &&\n"
+                f"      needs.init-workflow.outputs.run_builds_and_tests == 'true' &&\n"
                 f'      ( github.event_name != \'pull_request\' || github.event.pull_request.head.repo.full_name == github.repository )\n'
                 f'\n'
                 f'    steps:\n'
@@ -506,7 +511,7 @@ def main():
                 f'    # only run this job on push events or when the event does not run in a fork repository\n'
                 f'    if: >\n'
                 f'      ( success() || failure() ) &&\n'
-                f'      needs.init-workflow.outputs.run_at_all &&\n'
+                f"      needs.init-workflow.outputs.run_at_all == 'true' &&\n"
                 f'      ( github.event_name == \'push\' || ! github.event.head.repo.fork )\n'
                 f'\n'
                 f'    steps:\n'
@@ -564,8 +569,8 @@ def main():
                 f'    if: >\n'
                 f'      always() &&\n'
                 f"      needs.init-workflow.result == 'success' &&\n"
-                f"      needs.init-workflow.outputs.run_at_all && (\n"
-                f"        ! needs.init-workflow.outputs.run_builds_and_tests ||\n"
+                f"      needs.init-workflow.outputs.run_at_all == 'true' && (\n"
+                f"        needs.init-workflow.outputs.run_builds_and_tests == 'false' ||\n"
                 f"        needs.build-and-test.result == 'success' &&\n"
                 f"        ( needs.buildkite.result == 'success' || needs.buildkite.result == 'skipped' )\n"
                 f'      )\n'

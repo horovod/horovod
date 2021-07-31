@@ -31,9 +31,9 @@ jobs:
     name: "Init Workflow"
     runs-on: ubuntu-latest
     outputs:
-      run_at_all: github.event_name != 'schedule' || github.repository == 'horovod/horovod'
+      run_at_all: ${{ github.event_name != 'schedule' || github.repository == 'horovod/horovod' }}
       # if we don't get a clear 'false', we fall back to building and testing
-      run_builds_and_tests: ${{ steps.tests.output.needed }} != 'false'
+      run_builds_and_tests: ${{ steps.tests.outputs.needed != 'false' }}
 
     steps:
       - name: Checkout
@@ -61,19 +61,23 @@ jobs:
           GITHUB_BASE: ${{ github.event.pull_request.base.sha }}
           GITHUB_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]] && [[ -z "$(python .github/get-changed-code-files.py)" ]]
+          changes="$(python .github/get-changed-code-files.py)"
+          if [[ "${{ github.event_name }}" == "pull_request" ]] && [[ -z "$changes" ]]
           then
+            echo "No code changes, no need to build and test"
             echo "::set-output name=needed::false"
-            exit 0
+          else
+            echo "Code changes, we need to build and test:"
+            echo "$changes"
+            echo "::set-output name=needed::true"
           fi
-          echo "::set-output name=needed::true"
 
   build-and-test:
     name: "Build and Test (${{ matrix.image }})"
     needs: [init-workflow]
     if: >
-      needs.init-workflow.outputs.run_at_all &&
-      needs.init-workflow.outputs.run_builds_and_tests
+      needs.init-workflow.outputs.run_at_all == 'true' &&
+      needs.init-workflow.outputs.run_builds_and_tests == 'true'
     runs-on: ubuntu-latest
 
     strategy:
@@ -1737,8 +1741,8 @@ jobs:
     name: "Build and Test heads (${{ matrix.image }})"
     needs: [init-workflow, build-and-test]
     if: >
-      needs.init-workflow.outputs.run_at_all &&
-      needs.init-workflow.outputs.run_builds_and_tests
+      needs.init-workflow.outputs.run_at_all == 'true' &&
+      needs.init-workflow.outputs.run_builds_and_tests == 'true'
     runs-on: ubuntu-latest
 
     strategy:
@@ -3260,8 +3264,8 @@ jobs:
     name: "Build and Test macOS (${{ matrix.image }}-macos)"
     needs: [init-workflow, build-and-test]
     if: >
-      needs.init-workflow.outputs.run_at_all &&
-      needs.init-workflow.outputs.run_builds_and_tests
+      needs.init-workflow.outputs.run_at_all == 'true' &&
+      needs.init-workflow.outputs.run_builds_and_tests == 'true'
     runs-on: macos-latest
 
     strategy:
@@ -3440,8 +3444,8 @@ jobs:
     runs-on: ubuntu-latest
     if: >
       github.repository == 'horovod/horovod' &&
-      needs.init-workflow.outputs.run_at_all &&
-      needs.init-workflow.outputs.run_builds_and_tests &&
+      needs.init-workflow.outputs.run_at_all == 'true' &&
+      needs.init-workflow.outputs.run_builds_and_tests == 'true' &&
       ( github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository )
 
     steps:
@@ -3491,7 +3495,7 @@ jobs:
     # only run this job on push events or when the event does not run in a fork repository
     if: >
       ( success() || failure() ) &&
-      needs.init-workflow.outputs.run_at_all &&
+      needs.init-workflow.outputs.run_at_all == 'true' &&
       ( github.event_name == 'push' || ! github.event.head.repo.fork )
 
     steps:
@@ -3544,8 +3548,8 @@ jobs:
     if: >
       always() &&
       needs.init-workflow.result == 'success' &&
-      needs.init-workflow.outputs.run_at_all && (
-        ! needs.init-workflow.outputs.run_builds_and_tests ||
+      needs.init-workflow.outputs.run_at_all == 'true' && (
+        needs.init-workflow.outputs.run_builds_and_tests == 'false' ||
         needs.build-and-test.result == 'success' &&
         ( needs.buildkite.result == 'success' || needs.buildkite.result == 'skipped' )
       )
