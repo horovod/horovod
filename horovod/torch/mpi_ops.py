@@ -51,7 +51,6 @@ cross_size = _basics.cross_size
 rank = _basics.rank
 local_rank = _basics.local_rank
 cross_rank = _basics.cross_rank
-_process_set_rank = _basics._process_set_rank
 mpi_threads_supported = _basics.mpi_threads_supported
 mpi_enabled = _basics.mpi_enabled
 mpi_built = _basics.mpi_built
@@ -626,7 +625,7 @@ class HorovodAllgather(torch.autograd.Function):
         dim_t = torch.IntTensor([ctx.dim])
         dim = allgather(dim_t, process_set=ctx.process_set).view(ctx.process_set.size())
 
-        r = _process_set_rank(ctx.process_set.process_set_id)
+        r = ctx.process_set.rank()
         offset = torch.sum(dim.narrow(0, 0, r)).item() if r != 0 else 0
         return grad_reduced.narrow(0, offset, ctx.dim), None, None
 
