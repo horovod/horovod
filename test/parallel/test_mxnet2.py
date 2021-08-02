@@ -26,6 +26,7 @@ import numpy as np
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 from common import skip_or_fail_gpu_test
+from test_mxnet import MXTests
 
 try:
     import mxnet as mx
@@ -48,7 +49,7 @@ os.environ["HOROVOD_DYNAMIC_PROCESS_SETS"] = "1"
 
 @pytest.mark.skipif(not HAS_MXNET, reason='MXNet unavailable')
 @pytest.mark.skipif(LooseVersion(mx.__version__) < LooseVersion('2.0.0'), reason='MXNet v2 tests')
-class MXTests(unittest.TestCase):
+class MX2Tests(MXTests):
     """
     Tests for ops in horovod.mxnet.
     """
