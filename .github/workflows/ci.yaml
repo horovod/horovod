@@ -3543,16 +3543,14 @@ jobs:
     name: Configure docker build
     needs: [init-workflow, build-and-test, buildkite]
     # build-and-test-cpu, build-gpu and buildkite might have been skipped (! needs.init-workflow.outputs.run_builds_and_tests)
-    # buildkite might have been skipped (workflow runs for a fork PR)
-    # we still want to build docker images in these cases
+    # buildkite might have been skipped (workflow runs for a fork PR),
+    # we still want to build docker images (though we might not want to push them)
     if: >
       always() &&
-      needs.init-workflow.result == 'success' &&
-      needs.init-workflow.outputs.run_at_all == 'true' && (
-        needs.init-workflow.outputs.run_builds_and_tests == 'false' ||
-        needs.build-and-test.result == 'success' &&
-        ( needs.buildkite.result == 'success' || needs.buildkite.result == 'skipped' )
-      )
+      needs.init-workflow.outputs.run_at_all == 'true' &&
+      needs.init-workflow.outputs.run_builds_and_tests == 'true' &&
+      needs.build-and-test.result == 'success' &&
+      ( needs.buildkite.result == 'success' || needs.buildkite.result == 'skipped' )
     runs-on: ubuntu-latest
     outputs:
       run: ${{ steps.config.outputs.run }}

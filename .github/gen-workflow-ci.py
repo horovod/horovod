@@ -564,16 +564,14 @@ def main():
                 f'    name: Configure docker build\n'
                 f'    needs: [{", ".join(needs)}]\n'
                 f"    # build-and-test-cpu, build-gpu and buildkite might have been skipped (! needs.init-workflow.outputs.run_builds_and_tests)\n"
-                f'    # buildkite might have been skipped (workflow runs for a fork PR)\n'
-                f'    # we still want to build docker images in these cases\n'
+                f'    # buildkite might have been skipped (workflow runs for a fork PR),\n'
+                f'    # we still want to build docker images (though we might not want to push them)\n'
                 f'    if: >\n'
                 f'      always() &&\n'
-                f"      needs.init-workflow.result == 'success' &&\n"
-                f"      needs.init-workflow.outputs.run_at_all == 'true' && (\n"
-                f"        needs.init-workflow.outputs.run_builds_and_tests == 'false' ||\n"
-                f"        needs.build-and-test.result == 'success' &&\n"
-                f"        ( needs.buildkite.result == 'success' || needs.buildkite.result == 'skipped' )\n"
-                f'      )\n'
+                f"      needs.init-workflow.outputs.run_at_all == 'true' &&\n"
+                f"      needs.init-workflow.outputs.run_builds_and_tests == 'true' &&\n"
+                f"      needs.build-and-test.result == 'success' &&\n"
+                f"      ( needs.buildkite.result == 'success' || needs.buildkite.result == 'skipped' )\n"
                 f'    runs-on: ubuntu-latest\n'
                 f'    outputs:\n'
                 f'      run: ${{{{ steps.config.outputs.run }}}}\n'
