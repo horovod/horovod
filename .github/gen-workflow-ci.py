@@ -137,16 +137,17 @@ def main():
                '    runs-on: ubuntu-latest\n' \
                '    steps:\n' \
                '    - name: Debug Action\n' \
-               '      uses: hmarr/debug-action@v1.0.0\n' + '\n'.join(jobs)
+               '      uses: hmarr/debug-action@v1.0.0\n' + \
+               '\n'.join(jobs)
 
-    def validate_workflow_job() -> str:
+    def init_workflow_job() -> str:
         return (f'  init-workflow:\n'
                 f'    name: "Init Workflow"\n'
                 f'    runs-on: ubuntu-latest\n'
                 f'    outputs:\n'
-                f"      run_at_all: github.event_name != 'schedule' || github.repository == 'horovod/horovod'\n"
+                f"      run_at_all: ${{{{ github.event_name != 'schedule' || github.repository == 'horovod/horovod' }}}}\n"
                 f"      # if we don't get a clear 'false', we fall back to building and testing\n"
-                f"      run_builds_and_tests: ${{{{ steps.tests.output.needed }}}} != 'false'\n"
+                f"      run_builds_and_tests: ${{{{ steps.tests.outputs.needed != 'false' }}}}\n"
                 f'\n'
                 f'    steps:\n'
                 f'      - name: Checkout\n'
@@ -174,12 +175,16 @@ def main():
                 f'          GITHUB_BASE: ${{{{ github.event.pull_request.base.sha }}}}\n'
                 f'          GITHUB_HEAD: ${{{{ github.event.pull_request.head.sha }}}}\n'
                 f'        run: |\n'
-                f'          if [[ "${{{{ github.event_name }}}}" == "pull_request" ]] && [[ -z "$(python .github/get-changed-code-files.py)" ]]\n'
+                f'          changes="$(python .github/get-changed-code-files.py)"\n'
+                f'          if [[ "${{{{ github.event_name }}}}" == "pull_request" ]] && [[ -z "$changes" ]]\n'
                 f'          then\n'
+                f'            echo "No code changes, no need to build and test"\n'
                 f'            echo "::set-output name=needed::false"\n'
-                f'            exit 0\n'
-                f'          fi\n'
-                f'          echo "::set-output name=needed::true"\n')
+                f'          else\n'
+                f'            echo "Code changes, we need to build and test:"\n'
+                f'            echo "$changes"\n'
+                f'            echo "::set-output name=needed::true"\n'
+                f'          fi\n')
 
     def build_and_test_images(id: str,
                               name: str,
@@ -196,8 +201,8 @@ def main():
                 f'    name: "{name} (${{{{ matrix.image }}}})"\n'
                 f'    needs: [{", ".join(needs)}]\n'
                 f'    if: >\n'
-                f'      needs.init-workflow.outputs.run_at_all &&\n'
-                f'      needs.init-workflow.outputs.run_builds_and_tests\n'
+                f"      needs.init-workflow.outputs.run_at_all == 'true' &&\n"
+                f"      needs.init-workflow.outputs.run_builds_and_tests == 'true'\n"
                 f'    runs-on: ubuntu-latest\n'
                 f'\n'
                 f'    strategy:\n'
@@ -307,12 +312,12 @@ def main():
                 f'          DOCKER_BUILDKIT: 1\n'
                 f'\n' +
                 '\n'.join([f'      - name: "{test["label"]} [attempt {attempt} of {attempts}]"\n'
-                           f'        id: {test_id}_{attempt}\n'
+                           f'        id: {test_id}_run_{attempt}\n'
                            f'        continue-on-error: {"true" if attempt < attempts else "false"}\n'
-                           f'        if: always() && steps.build.outcome == \'success\' && matrix.{test_id} && {"true" if attempt == 1 else f"steps.{test_id}_{attempt-1}.outcome == {failure}"}\n'
+                           f'        if: always() && steps.build.outcome == \'success\' && matrix.{test_id} && {"true" if attempt == 1 else f"steps.{test_id}_run_{attempt-1}.outcome == {failure}"}\n'
                            f'        run: |\n'
-                           f'          mkdir -p artifacts/${{{{ matrix.image }}}}/{test_id}_{attempt}\n'
-                           f'          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{{{ matrix.image }}}}/{test_id}_{attempt}:/artifacts" ${{{{ matrix.image }}}} /usr/bin/timeout {test["timeout"]}m {test["command"]}\n'
+                           f'          mkdir -p artifacts/${{{{ matrix.image }}}}/{test_id}_run_{attempt}\n'
+                           f'          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{{{ matrix.image }}}}/{test_id}_run_{attempt}:/artifacts" ${{{{ matrix.image }}}} /usr/bin/timeout {test["timeout"]}m {test["command"]}\n'
                            f'        shell: bash\n'
                            for test_id, test in sorted(tests.items(), key=lambda test: test[0])
                            for attempt in range(1, attempts+1)]) +
@@ -347,8 +352,8 @@ def main():
                 f'    name: "{name} (${{{{ matrix.image }}}}-macos)"\n'
                 f'    needs: [{", ".join(needs)}]\n'
                 f'    if: >\n'
-                f'      needs.init-workflow.outputs.run_at_all &&\n'
-                f'      needs.init-workflow.outputs.run_builds_and_tests\n'
+                f"      needs.init-workflow.outputs.run_at_all == 'true' &&\n"
+                f"      needs.init-workflow.outputs.run_builds_and_tests == 'true'\n"
                 f'    runs-on: macos-latest\n'
                 f'\n'
                 f'    strategy:\n'
@@ -424,7 +429,7 @@ def main():
                            f'          HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir .[test]\n'
                            f'          horovodrun --check-build\n'
                            f'\n'
-                           f'          artifacts_path="$(pwd)/artifacts/${{{{ matrix.image }}}}-macos-{attempt}"\n'
+                           f'          artifacts_path="$(pwd)/artifacts/${{{{ matrix.image }}}}-macos-run-{attempt}"\n'
                            f'          mkdir -p "$artifacts_path"\n'
                            f'          echo "::set-output name=artifacts-path::$artifacts_path"\n'
                            f'          echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=$artifacts_path/junit.\$1.\${{HOROVOD_RANK:-\${{OMPI_COMM_WORLD_RANK:-\${{PMI_RANK}}}}}}.\$2.xml \${{@:2}} > pytest.sh\n'
@@ -452,8 +457,8 @@ def main():
                 f'    runs-on: ubuntu-latest\n'
                 f'    if: >\n'
                 f'      github.repository == \'horovod/horovod\' &&\n'
-                f'      needs.init-workflow.outputs.run_at_all &&\n'
-                f'      needs.init-workflow.outputs.run_builds_and_tests &&\n'
+                f"      needs.init-workflow.outputs.run_at_all == 'true' &&\n"
+                f"      needs.init-workflow.outputs.run_builds_and_tests == 'true' &&\n"
                 f'      ( github.event_name != \'pull_request\' || github.event.pull_request.head.repo.full_name == github.repository )\n'
                 f'\n'
                 f'    steps:\n'
@@ -506,7 +511,7 @@ def main():
                 f'    # only run this job on push events or when the event does not run in a fork repository\n'
                 f'    if: >\n'
                 f'      ( success() || failure() ) &&\n'
-                f'      needs.init-workflow.outputs.run_at_all &&\n'
+                f"      needs.init-workflow.outputs.run_at_all == 'true' &&\n"
                 f'      ( github.event_name == \'push\' || ! github.event.head.repo.fork )\n'
                 f'\n'
                 f'    steps:\n'
@@ -515,11 +520,39 @@ def main():
                 f'        with:\n'
                 f'          path: artifacts\n'
                 f'\n'
+                f'      - name: Identify last run of each test\n'
+                f'        continue-on-error: true\n'
+                f'        run: |\n'
+                f'          declare -A last_runs\n'
+                f'          ls -d artifacts/Unit\\ Test\\ Results\\ */* | sort > runs.txt\n'
+                f'          while read run\n'
+                f'          do\n'
+                f'            test=${{run/%[_-]run[_-][0123456789]/}}\n'
+                f'            last_runs[$test]=$run\n'
+                f'          done < runs.txt\n'
+                f'\n'
+                f'          echo "LAST_RUNS<<EOF" >> $GITHUB_ENV\n'
+                f'          for test in "${{!last_runs[@]}}"\n'
+                f'          do\n'
+                f'            echo "${{last_runs[$test]}}" >&2\n'
+                f'            echo "${{last_runs[$test]}}/**/*.xml" >> $GITHUB_ENV\n'
+                f'          done\n'
+                f'          echo "EOF" >> $GITHUB_ENV\n'
+                f'        shell: bash\n'
+                f'\n'
                 f'      - name: Publish Unit Test Results\n'
-                f'        uses: docker://ghcr.io/enricomi/publish-unit-test-result-action:v1\n'
+                f'        uses: EnricoMi/publish-unit-test-result-action@v1\n'
                 f'        if: always()\n'
                 f'        with:\n'
-                f'          github_token: ${{{{ github.token }}}}\n'
+                f'          check_name: Unit Test Results\n'
+                f'          files: "${{{{ env.LAST_RUNS }}}}"\n'
+                f'\n'
+                f'      - name: Publish Unit Test Results (with flaky tests)\n'
+                f'        uses: EnricoMi/publish-unit-test-result-action@v1\n'
+                f'        if: always()\n'
+                f'        with:\n'
+                f'          check_name: Unit Test Results (with flaky tests)\n'
+                f'          fail_on: errors\n'
                 f'          files: "artifacts/Unit Test Results */**/*.xml"\n')
 
     def publish_docker_images(needs: List[str], images: List[str]) -> str:
@@ -531,16 +564,14 @@ def main():
                 f'    name: Configure docker build\n'
                 f'    needs: [{", ".join(needs)}]\n'
                 f"    # build-and-test-cpu, build-gpu and buildkite might have been skipped (! needs.init-workflow.outputs.run_builds_and_tests)\n"
-                f'    # buildkite might have been skipped (workflow runs for a fork PR)\n'
-                f'    # we still want to build docker images in these cases\n'
+                f'    # buildkite might have been skipped (workflow runs for a fork PR),\n'
+                f'    # we still want to build docker images (though we might not want to push them)\n'
                 f'    if: >\n'
                 f'      always() &&\n'
-                f"      needs.init-workflow.result == 'success' &&\n"
-                f"      needs.init-workflow.outputs.run_at_all && (\n"
-                f"        ! needs.init-workflow.outputs.run_builds_and_tests ||\n"
-                f"        needs.build-and-test.result == 'success' &&\n"
-                f"        ( needs.buildkite.result == 'success' || needs.buildkite.result == 'skipped' )\n"
-                f'      )\n'
+                f"      needs.init-workflow.outputs.run_at_all == 'true' &&\n"
+                f"      needs.init-workflow.outputs.run_builds_and_tests == 'true' &&\n"
+                f"      needs.build-and-test.result == 'success' &&\n"
+                f"      ( needs.buildkite.result == 'success' || needs.buildkite.result == 'skipped' )\n"
                 f'    runs-on: ubuntu-latest\n'
                 f'    outputs:\n'
                 f'      run: ${{{{ steps.config.outputs.run }}}}\n'
@@ -729,7 +760,7 @@ def main():
         gpu_release_images = [image for image in release_images if '-gpu-' in image or '-mixed-' in image]
         allhead_images = [image for image in images if all(head in image for head in heads)]
         workflow = workflow_header() + jobs(
-            validate_workflow_job(),
+            init_workflow_job(),
             # changing these names require changes in the workflow-conclusion step in ci-fork.yaml
             build_and_test_images(id='build-and-test', name='Build and Test', needs=['init-workflow'], images=release_images, parallel_images='-cpu-', tests_per_image=tests_per_image, tests=tests),
             build_and_test_images(id='build-and-test-heads', name='Build and Test heads', needs=['build-and-test'], images=allhead_images, parallel_images='', tests_per_image=tests_per_image, tests=tests),
