@@ -69,6 +69,11 @@ For a debug build with debug symbols, checked assertions etc., use the extra fla
 
     $ HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 pip install --global-option build_ext --global-option --debug -v -e .
 
+To uninstall Horovod installed in dev mode, run the below command from the Horovod root directory:
+
+.. code-block:: bash
+
+    $ python setup.py develop -u
 
 Testing
 -------
