@@ -32,7 +32,7 @@ The versions with CPU support can be installed through the provided :code:`setup
 
 .. code-block:: bash
 
-    pip install -e .[dev,test]
+    pip install .[dev,test]
 
 You can find all other non-Python packages that need to be installed on your system for Horovod to build
 in the `Dockerfile.test.cpu <https://github.com/horovod/horovod/blob/master/Dockerfile.test.cpu>`__ and
@@ -46,25 +46,28 @@ First, uninstall any existing version of Horovod.  Be sure to do this *outside* 
 
 .. code-block:: bash
 
-    $ cd $HOME
     $ pip uninstall -y horovod
-    $ cd -
 
-From *inside* the Horovod root directory, remove any previous build artifacts and then install Horovod:
+From *inside* the Horovod root directory, remove any previous build artifacts and then install Horovod in dev mode:
 
 .. code-block:: bash
 
     $ rm -rf build/ dist/
-    $ HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 python setup.py install
+    $ HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 pip install -v -e .
 
 Set ``HOROVOD_WITHOUT_[FRAMEWORK]=1`` to disable building Horovod plugins for that framework.
 This is useful when you’re testing a feature of one framework in particular and wish to save time.
+Set ``HOROVOD_WITH_[FRAMEWORK]=1`` to generate an error if the Horovod plugin for that framework failed to build.
+Set ``HOROVOD_GPU_OPERATIONS=NCCL`` to run on GPUs with NCCL.
 
-For a debug build with checked assertions etc. replace the invocation of setup.py by:
+In dev mode, you can edit the Horovod source directly in the repo folder. For Python code, the changes will take effect
+immediately. For **C++/CUDA code**, the ``... pip install -v -e .`` command needs to be invoked again to perform an incremental build.
+
+For a debug build with debug symbols, checked assertions etc., use the extra flags below:
 
 .. code-block:: bash
 
-    $ HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 python setup.py build_ext --debug install
+    $ HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 pip install --global-option build_ext --global-option --debug -v -e .
 
 
 Testing

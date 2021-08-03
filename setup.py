@@ -16,6 +16,7 @@
 # ==============================================================================
 
 import os
+import shutil
 import subprocess
 import sys
 import textwrap
@@ -25,6 +26,7 @@ from setuptools.command.build_ext import build_ext
 
 from horovod import __version__
 
+_FRAMEWORK_METADATA_FILE = 'horovod/metadata.json'
 
 class CMakeExtension(Extension):
     def __init__(self, name, cmake_lists_dir='.', sources=[], **kwa):
@@ -52,6 +54,8 @@ def is_build_action():
     if sys.argv[1].startswith('install'):
         return True
 
+    if sys.argv[1].startswith('develop'):
+        return True
 
 def get_cmake_bin():
     return os.environ.get('HOROVOD_CMAKE', 'cmake')
@@ -97,6 +101,13 @@ class custom_build_ext(build_ext):
                                   cwd=cmake_build_dir)
         except OSError as e:
             raise RuntimeError('CMake failed: {}'.format(str(e)))
+
+        if sys.argv[1].startswith('develop'):
+            # Copy over metadata.json file from build directory
+            shutil.copyfile(os.path.join(build_dir, _FRAMEWORK_METADATA_FILE),
+                            os.path.join(self.extensions[0].cmake_lists_dir, _FRAMEWORK_METADATA_FILE))
+            # Remove unfound frameworks, otherwise develop mode will fail the install
+            self.extensions = [x for x in self.extensions if os.path.exists(self.get_ext_fullpath(x.name))]
 
 
 # python packages required to use horovod in general
