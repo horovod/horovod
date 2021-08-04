@@ -61,14 +61,20 @@ jobs:
           GITHUB_BASE: ${{ github.event.pull_request.base.sha }}
           GITHUB_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
-          changes="$(python .github/get-changed-code-files.py)"
-          if [[ "${{ github.event_name }}" == "pull_request" ]] && [[ -z "$changes" ]]
+          if [[ "${{ github.event_name }}" == "pull_request" ]]
           then
-            echo "No code changes, no need to build and test"
-            echo "::set-output name=needed::false"
+            changes="$(python .github/get-changed-code-files.py)"
+            if [[ -z "$changes" ]]
+            then
+              echo "No code changes, no need to build and test"
+              echo "::set-output name=needed::false"
+            else
+              echo "Code changes, we need to build and test:"
+              echo "$changes"
+              echo "::set-output name=needed::true"
+            fi
           else
-            echo "Code changes, we need to build and test:"
-            echo "$changes"
+            echo "This is not part of a pull request, we need to build and test"
             echo "::set-output name=needed::true"
           fi
 
