@@ -42,7 +42,7 @@ Horovod Spark Estimators additionally require at least one of these combinations
 
 *  ``tensorflow-gpu >= 1.12.0`` or ``tensorflow >= 1.12.0`` (for ``KerasEstimator``)
 *  ``torch >= 1.0.0`` and ``tensorboard >= 1.14.0`` (for ``TorchEstimator``)
-*  ``torch >= 1.4.0`` and ``pytorch_lightning >= 1.2.9`` (for ``LightningEstimator``)
+*  ``torch >= 1.4.0`` and ``pytorch_lightning >= 1.4.1`` (for ``LightningEstimator``)
 
 
 Horovod Spark Estimators
