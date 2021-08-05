@@ -13,30 +13,37 @@ jobs:
       - name: Debug Action
         uses: hmarr/debug-action@v1.0.0
 
-  buildkite:
-    name: "Build and Test (GPUs on Builtkite)"
+  ci-workflow:
+    name: "Check CI workflow outcome"
     runs-on: ubuntu-latest
     # only run if CI workflow ran on a fork
     if: >
       github.event.workflow_run.conclusion != 'skipped' &&
       github.event.workflow_run.conclusion != 'cancelled' &&
       github.event.workflow_run.head_repository.fork
+    outputs:
+      build-and-test: ${{ steps.workflow-conclusion.outputs.build-and-test }}
 
     steps:
-      - name: Fetch workflow conclusion
-        id: workflow-conclusion
-        run: |
-          curl -s "${{ github.event.workflow_run.jobs_url }}" > workflow_run_jobs.json
-          conclusion=$(jq -r '.jobs[] | select(.name | startswith("Build and Test (")) | .conclusion' workflow_run_jobs.json | sort | uniq | paste -sd "," -)
-          echo "::set-output name=build-and-test::${conclusion}"
-        shell: bash
+    - name: Fetch workflow conclusion
+      id: workflow-conclusion
+      run: |
+        curl -s "${{ github.event.workflow_run.jobs_url }}" > workflow_run_jobs.json
+        conclusion=$(jq -r '.jobs[] | select(.name | startswith("Build and Test (")) | .conclusion' workflow_run_jobs.json | sort | uniq | paste -sd "," -)
+        echo "::set-output name=build-and-test::${conclusion}"
+      shell: bash
 
+  buildkite:
+    name: "Build and Test GPU (on Builtkite)"
+    needs: [ci-workflow]
+    runs-on: ubuntu-latest
+    # only run if CI workflow's build-and-test job succeeded and CI workflow ran on a fork
+    if: needs.ci-workflow.outputs.build-and-test == 'success'
+
+    steps:
       - name: Trigger Buildkite Pipeline
         id: buildkite
         uses: EnricoMi/trigger-pipeline-action@master
-        # only run if CI workflow's build-and-test job succeeded and CI workflow ran on a fork
-        if: steps.workflow-conclusion.outputs.build-and-test == 'success'
-
         env:
           PIPELINE: "horovod/horovod"
           BRANCH: "${{ github.event.pull_request.head.ref }}"
@@ -46,8 +53,6 @@ jobs:
 
       - name: Download Buildkite Artifacts
         id: download
-        # only run if we actually triggered the Buildkite pipeline
-        if: steps.buildkite.outcome != 'skipped'
         uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1
         with:
           github_token: ${{ github.token }}
