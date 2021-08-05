@@ -70,7 +70,7 @@ class custom_build_ext(build_ext):
 
         cmake_bin = get_cmake_bin()
 
-        config = 'Debug' if self.debug else 'RelWithDebInfo'
+        config = 'Debug' if self.debug or os.environ.get('HOROVOD_DEBUG') == "1" else 'RelWithDebInfo'
 
         ext_name = self.extensions[0].name
         build_dir = self.get_ext_fullpath(ext_name).replace(self.get_ext_filename(ext_name), '')
