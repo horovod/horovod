@@ -47,7 +47,7 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
         self._optimizer = optimizer
         # Normalizing rescale_grad by Horovod size, which is equivalent to
         # performing average in allreduce, has better performance.
-        self._optimizer.rescale_grad *= (gradient_predivide_factor / size())
+        self._optimizer.rescale_grad *= (gradient_predivide_factor / process_set.size())
         self._gradient_predivide_factor = gradient_predivide_factor
         self._num_groups = num_groups
         self._process_set = process_set
@@ -131,8 +131,9 @@ class DistributedTrainer(mx.gluon.Trainer):
     def __init__(self, params, optimizer, optimizer_params=None,
                  compression=Compression.none,
                  gradient_predivide_factor=1.0, prefix=None,
-                 num_groups=0):
+                 num_groups=0, process_set=global_process_set):
         self._compression = compression
+        self._process_set = process_set
 
         if gradient_predivide_factor != 1.0 and rocm_built():
             raise ValueError('gradient_predivide_factor not supported yet with ROCm')
@@ -155,7 +156,7 @@ class DistributedTrainer(mx.gluon.Trainer):
         # _scale is used to check and set rescale_grad for optimizer in Trainer.step()
         # function. Normalizing it by Horovod size, which is equivalent to performing
         # average in allreduce, has better performance. 
-        self._scale *= (gradient_predivide_factor / size())
+        self._scale *= (gradient_predivide_factor / process_set.size())
         self._gradient_predivide_factor = gradient_predivide_factor
         assert prefix is None or isinstance(prefix, str)
         self._prefix = prefix if prefix else ""
@@ -163,6 +164,7 @@ class DistributedTrainer(mx.gluon.Trainer):
 
     def _allreduce_grads(self):
         if size() == 1: return
+        if not self._process_set.included(): return
 
         if (self._num_groups > 0):
             grads = []
@@ -190,7 +192,8 @@ class DistributedTrainer(mx.gluon.Trainer):
                 for entries in entries_by_dtype.values():
                     grads, names = zip(*entries)
                     grouped_allreduce_(tensors=grads, average=False, name="{}:{}".format(names[0], names[-1]), priority=-i,
-                                       prescale_factor=1.0 / self._gradient_predivide_factor)
+                                       prescale_factor=1.0 / self._gradient_predivide_factor,
+                                       process_set=self._process_set)
 
             if self._compression != Compression.none:
                 for i, param in enumerate(self._params):
@@ -205,7 +208,8 @@ class DistributedTrainer(mx.gluon.Trainer):
                     tensor_compressed, ctx = self._compression.compress(param.list_grad()[0])
                     allreduce_(tensor_compressed, average=False,
                                name=self._prefix + str(i), priority=-i,
-                               prescale_factor=1.0 / self._gradient_predivide_factor)
+                               prescale_factor=1.0 / self._gradient_predivide_factor,
+                               process_set=self._process_set)
 
                     if self._compression != Compression.none:
                         param.list_grad()[0][:] = self._compression.decompress(tensor_compressed, ctx)
