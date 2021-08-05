@@ -32,11 +32,10 @@ jobs:
         shell: bash
 
       - name: Trigger Buildkite Pipeline
-        id: build
+        id: buildkite
         uses: EnricoMi/trigger-pipeline-action@master
         # only run if CI workflow's build-and-test job succeeded and CI workflow ran on a fork
-        if: >
-          steps.workflow-conclusion.outputs.build-and-test == 'success'
+        if: steps.workflow-conclusion.outputs.build-and-test == 'success'
 
         env:
           PIPELINE: "horovod/horovod"
@@ -47,11 +46,13 @@ jobs:
 
       - name: Download Buildkite Artifacts
         id: download
+        # only run if we actually triggered the Buildkite pipeline
+        if: steps.buildkite.outcome != 'skipped'
         uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1
         with:
           github_token: ${{ github.token }}
           buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
-          buildkite_build_url: ${{ steps.build.outputs.url }}
+          buildkite_build_url: ${{ steps.buildkite.outputs.url }}
           ignore_build_states: blocked,canceled,skipped,not_run
           ignore_job_states: timed_out
           output_path: artifacts/Unit Test Results - GPUs on Buildkite
@@ -69,7 +70,7 @@ jobs:
           steps.download.conclusion == 'success' &&
           steps.download.outputs.build-state != 'passed'
         run: |
-          echo "::warning::Buildkite pipeline did not pass: ${{ steps.build.outputs.url }}"
+          echo "::warning::Buildkite pipeline did not pass: ${{ steps.buildkite.outputs.url }}"
           exit 1
 
   publish-test-results:
