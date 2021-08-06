@@ -146,6 +146,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                              host.
         store:      Store object that abstracts reading and writing of intermediate data and
                     run results.
+        terminate_on_nan : (Optinoal) terminate the training process on seeing NaN output.
         train_minibatch_fn: (Optional) custom function to execute within the training loop.
                             Defaults to standard gradient descent process.
         train_reader_num_workers:   This parameter specifies the number of parallel processes that
@@ -199,6 +200,9 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     loader_num_epochs = Param(Params._dummy(), 'loader_num_epochs',
                               'An epoch is a single pass over all rows in the dataset. Default to None, which means reader will be in infinite loop mode, and generate unlimite data as needed. ')
 
+    terminate_on_nan = Param(Params._dummy(), 'terminate_on_nan', 'terminate on encountering NaN',
+                              typeConverter=TypeConverters.toBoolean)
+
     @keyword_only
     def __init__(self,
                  num_proc=None,
@@ -237,7 +241,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  logger=None,
                  log_every_n_steps=50,
                  data_loader_class=None,
-                 loader_num_epochs=None):
+                 loader_num_epochs=None,
+                 terminated_on_nan=False):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
@@ -249,7 +254,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                          logger=None,
                          log_every_n_steps=50,
                          data_loader_class=None,
-                         loader_num_epochs=None)
+                         loader_num_epochs=None,
+                         terminate_on_nan=False)
 
         kwargs = self._input_kwargs
 
@@ -315,6 +321,12 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def getLoaderNumEpochs(self):
         return self.getOrDefault(self.loader_num_epochs)
+
+    def setTerminateOnNan(self, value):
+        return self._set(terminate_on_nan=value)
+
+    def getTerminateOnNan(self):
+        return self.getOrDefault(self.terminate_on_nan)
 
     def _get_optimizer(self):
         return self.getOrDefault(self.optimizer)

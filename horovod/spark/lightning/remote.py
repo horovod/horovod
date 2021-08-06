@@ -49,6 +49,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     val_batch_size = estimator.getValBatchSize() if estimator.getValBatchSize() else batch_size
     epochs = estimator.getEpochs()
     user_shuffle_buffer_size = estimator.getShufflingBufferSize()
+    terminate_on_nan = estimator.getTerminateOnNan()
     transformation_fn = estimator.getTransformationFn()
     transformation = transformation_fn if transformation_fn else None
     inmemory_cache_all = estimator.getInMemoryCacheAll()
@@ -156,7 +157,8 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                       'checkpoint_callback': is_model_checkpoint_callback_exist,
                       'num_sanity_val_steps': 0,
                       'reload_dataloaders_every_epoch': False,
-                      'progress_bar_refresh_rate': _train_steps_per_epoch // 10
+                      'progress_bar_refresh_rate': _train_steps_per_epoch // 10,
+                      'terminate_on_nan': terminate_on_nan
                       }
             print("Creating trainer with: \n ", kwargs)
             trainer = Trainer(**kwargs)
