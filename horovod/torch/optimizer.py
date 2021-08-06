@@ -99,6 +99,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         self._p_to_group = {}
         self._group_counts = {}
 
+        self.bw_hook_handles = []
         if size() > 1 or os.environ.get('HOROVOD_ELASTIC') == '1':
             self._register_hooks()
 
@@ -167,7 +168,8 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                     self._requires_update.add(p)
                     p_tmp = p.expand_as(p)
                     grad_acc = p_tmp.grad_fn.next_functions[0][0]
-                    grad_acc.register_hook(self._make_hook(p))
+                    handle = grad_acc.register_hook(self._make_hook(p))
+                    self.bw_hook_handles.append(handle)
                     self._grad_accs.append(grad_acc)
 
     def _allreduce_grad_async(self, p):
@@ -382,6 +384,7 @@ class _DistributedAdasumOptimizer(torch.optim.Optimizer):
             for _, p in named_parameters
         }
 
+        self.bw_hook_handles = []
         self._register_hooks()
 
     def set_backward_passes_per_step(self, passes):
@@ -397,7 +400,8 @@ class _DistributedAdasumOptimizer(torch.optim.Optimizer):
                     self._requires_update.add(p)
                     p_tmp = p.expand_as(p)
                     grad_acc = p_tmp.grad_fn.next_functions[0][0]
-                    grad_acc.register_hook(self._make_hook(p))
+                    handle = grad_acc.register_hook(self._make_hook(p))
+                    self.bw_hook_handles.append(handle)
                     self._grad_accs.append(grad_acc)
 
     def _allreduce_grad_async(self, p):
