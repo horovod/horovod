@@ -242,7 +242,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  log_every_n_steps=50,
                  data_loader_class=None,
                  loader_num_epochs=None,
-                 terminated_on_nan=False):
+                 terminate_on_nan=False):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,

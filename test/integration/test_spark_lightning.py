@@ -144,6 +144,27 @@ class SparkLightningTests(unittest.TestCase):
                 assert len(pred) == 1
                 assert pred.dtype == torch.float32
 
+    def test_terminate_on_nan_flag(self):
+        model = create_xor_model()
+
+        with spark_session('test_terminate_on_nan_flag') as spark:
+            df = create_noisy_xor_data(spark)
+
+            with local_store() as store:
+                torch_estimator = hvd_spark.TorchEstimator(
+                    num_proc=2,
+                    store=store,
+                    model=model,
+                    input_shapes=[[-1, 2]],
+                    feature_cols=['features'],
+                    label_cols=['y'],
+                    validation=0.2,
+                    batch_size=4,
+                    epochs=2,
+                    verbose=2,
+                    terminate_on_nan=True)
+                assert torch_estimator.getTerminateOnNan() == True
+
     def test_legacy_fit_model(self):
         model = create_legacy_xor_model()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
