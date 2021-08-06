@@ -34,6 +34,7 @@ jobs:
       run_at_all: ${{ github.event_name != 'schedule' || github.repository == 'horovod/horovod' }}
       # if we don't get a clear 'false', we fall back to building and testing
       run_builds_and_tests: ${{ steps.tests.outputs.needed != 'false' }}
+      commit_message: ${{ steps.message.outputs.message }}
 
     steps:
       - name: Checkout
@@ -76,6 +77,19 @@ jobs:
           else
             echo "This is not part of a pull request, we need to build and test"
             echo "::set-output name=needed::true"
+          fi
+
+      - name: Extract commit message
+        id: message
+        run: |
+          if [[ "${{ env.GITHUB_EVENT_NAME }}" == "schedule" ]]
+            echo "::set-output name=message::Scheduled daily run"
+          elif [[ "${{ env.GITHUB_EVENT_NAME }}" == "push" ]]
+            echo "::set-output name=message::${{ github.event.head_commit.message }}"
+          elif [[ "${{ env.GITHUB_EVENT_NAME }}" == "pull_request" ]]
+            url="https://api.github.com/repos/horovod/horovod/commits/${{ env.GITHUB_SHA }}"
+            message=$(gh api $url -q '.commit.message' | head -n1"
+            echo "::set-output name=message::$message"
           fi
 
   build-and-test:
@@ -3461,7 +3475,7 @@ jobs:
         env:
           PIPELINE: "horovod/horovod"
           BRANCH: "${{ github.event.pull_request.head.ref }}"
-          MESSAGE: "GPU Tests triggered by GitHub"
+          MESSAGE: "${{ needs.init-workflow.outputs.commit_message }}"
           BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
           BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU FULL\"}"
 

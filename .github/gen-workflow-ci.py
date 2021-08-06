@@ -148,6 +148,7 @@ def main():
                 f"      run_at_all: ${{{{ github.event_name != 'schedule' || github.repository == 'horovod/horovod' }}}}\n"
                 f"      # if we don't get a clear 'false', we fall back to building and testing\n"
                 f"      run_builds_and_tests: ${{{{ steps.tests.outputs.needed != 'false' }}}}\n"
+                f"      commit_message: ${{{{ steps.message.outputs.message }}}}\n"
                 f'\n'
                 f'    steps:\n'
                 f'      - name: Checkout\n'
@@ -190,6 +191,19 @@ def main():
                 f'          else\n'
                 f'            echo "This is not part of a pull request, we need to build and test"\n'
                 f'            echo "::set-output name=needed::true"\n'
+                f'          fi\n'
+                f'\n'
+                f'      - name: Extract commit message\n'
+                f'        id: message\n'
+                f'        run: |\n'
+                f'          if [[ "${{{{ env.GITHUB_EVENT_NAME }}}}" == "schedule" ]]\n'
+                f'            echo "::set-output name=message::Scheduled daily run"\n'
+                f'          elif [[ "${{{{ env.GITHUB_EVENT_NAME }}}}" == "push" ]]\n'
+                f'            echo "::set-output name=message::${{{{ github.event.head_commit.message }}}}"\n'
+                f'          elif [[ "${{{{ env.GITHUB_EVENT_NAME }}}}" == "pull_request" ]]\n'
+                f'            url="https://api.github.com/repos/horovod/horovod/commits/${{{{ env.GITHUB_SHA }}}}"\n'
+                f'            message=$(gh api $url -q \'.commit.message\' | head -n1"\n'
+                f'            echo "::set-output name=message::$message"\n'
                 f'          fi\n')
 
     def build_and_test_images(id: str,
@@ -476,7 +490,7 @@ def main():
                 # on "push" event, github.event.pull_request.head.ref will be empty
                 # and trigger-pipeline-action falls back to github.ref
                 f'          BRANCH: "${{{{ github.event.pull_request.head.ref }}}}"\n'
-                f'          MESSAGE: "GPU Tests triggered by GitHub"\n'
+                f'          MESSAGE: "${{{{ needs.init-workflow.outputs.commit_message }}}}"\n'
                 f'          BUILDKITE_API_ACCESS_TOKEN: ${{{{ secrets.BUILDKITE_TOKEN }}}}\n'
                 f'          BUILD_ENV_VARS: "{{\\"PIPELINE_MODE\\": \\"GPU FULL\\"}}"\n'
                 f'\n'

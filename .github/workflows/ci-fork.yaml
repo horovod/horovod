@@ -48,7 +48,7 @@ jobs:
           PIPELINE: "horovod/horovod"
           COMMIT: "${{ github.event.workflow_run.head_sha }}"
           BRANCH: "${{ github.event.workflow_run.head_repository.owner.login }}:${{ github.event.workflow_run.head_branch }}"
-          MESSAGE: "${{ github.event.workflow_run.message }}"
+          MESSAGE: "${{ github.event.workflow_run.head_commit.message }}"
           BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
           BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU FULL\"}"
 
