@@ -402,6 +402,8 @@ class MXTests:
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
+        self.assertEqual(True, False)
+
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
