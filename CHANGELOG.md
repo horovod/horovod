@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Added process sets for TensorFlow: Concurrently running collective operations on subsets of Horovod processes. ([#2839](https://github.com/horovod/horovod/pull/2839))
 
+- Added terminate_on_nan flag to Spark Lightning estimator. [#3088](https://github.com/horovod/horovod/issues/3088)
+
 ### Changed
 
 ### Deprecated
