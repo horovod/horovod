@@ -46,8 +46,9 @@ jobs:
         uses: EnricoMi/trigger-pipeline-action@master
         env:
           PIPELINE: "horovod/horovod"
-          BRANCH: "${{ github.event.pull_request.head.ref }}"
-          MESSAGE: "GPU Tests triggered by GitHub"
+          COMMIT: "${{ github.event.workflow_run.head_sha }}"
+          BRANCH: "${{ github.event.workflow_run.head_repository.owner.login }}:${{ github.event.workflow_run.head_branch }}"
+          MESSAGE: "${{ github.event.workflow_run.message }}"
           BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
           BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU FULL\"}"
 
