@@ -48,12 +48,13 @@ This is useful when you’re testing a feature of one framework in particular an
 
 Set ``HOROVOD_WITH_[FRAMEWORK]=1`` to generate an error if the Horovod plugin for that framework failed to build.
 
-Set ``HOROVOD_GPU_OPERATIONS=NCCL`` to run on GPUs with NCCL.
-
 Set ``HOROVOD_DEBUG=1`` for a debug build with checked assertions, disabled compiler optimizations etc.
+
+Other environmental variables can be found in the `install documentation <https://github.com/horovod/horovod/blob/master/docs/install.rst#environment-variables>`__.
 
 You can install optional dependencies defined in `setup.py <https://github.com/horovod/horovod/blob/master/setup.py>`__ by adding brackets
 at the end of the command line e.g. ``[test]`` for test dependencies.
+If you have not installed specific DL frameworks yet, add ``[dev]`` to install the CPU version of all supported DL frameworks.
 
 In develop mode, you can edit the Horovod source directly in the repo folder. For Python code, the changes will take effect
 immediately. For **C++/CUDA code**, the ``... pip install -v -e .`` command needs to be invoked again to perform an incremental build.

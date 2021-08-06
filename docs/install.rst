@@ -226,6 +226,7 @@ Optional environment variables that can be set to configure the installation pro
 
 Possible values are given in curly brackets: {}.
 
+* ``HOROVOD_DEBUG`` - {1}. Install a debug build of Horovod with checked assertions, disabled compiler optimizations etc.
 * ``HOROVOD_BUILD_ARCH_FLAGS`` - additional C++ compilation flags to pass in for your build architecture.
 * ``HOROVOD_CUDA_HOME`` - path where CUDA include and lib directories can be found.
 * ``HOROVOD_BUILD_CUDA_CC_LIST`` - List of compute capabilities to build Horovod CUDA kernels for (example: ``HOROVOD_BUILD_CUDA_CC_LIST=60,70,75``)
