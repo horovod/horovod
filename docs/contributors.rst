@@ -20,7 +20,7 @@ Develop within a virtual environment to avoid dependency issues:
 
 .. code-block:: bash
 
-    $ virtualenv env
+    $ python3 -m venv env
     $ . env/bin/activate
 
 We recommend installing package versions that match with those under test in
@@ -28,11 +28,6 @@ We recommend installing package versions that match with those under test in
 The following versions are recommended (see default versions defined through :code:`ARG` in
 `Dockerfile.test.cpu <https://github.com/horovod/horovod/blob/master/Dockerfile.test.cpu>`__ and
 `Dockerfile.test.gpu <https://github.com/horovod/horovod/blob/master/Dockerfile.test.gpu>`__ file.
-The versions with CPU support can be installed through the provided :code:`setup.py` file:
-
-.. code-block:: bash
-
-    pip install -e .[dev,test]
 
 You can find all other non-Python packages that need to be installed on your system for Horovod to build
 in the `Dockerfile.test.cpu <https://github.com/horovod/horovod/blob/master/Dockerfile.test.cpu>`__ and
@@ -42,30 +37,27 @@ Specifically, see all :code:`RUN apt-get install` lines.
 Build and Install
 -----------------
 
-First, uninstall any existing version of Horovod.  Be sure to do this *outside* the Horovod root directory:
+From *inside* the Horovod root directory, install Horovod in develop/editable mode:
 
 .. code-block:: bash
 
-    $ cd $HOME
-    $ pip uninstall -y horovod
-    $ cd -
-
-From *inside* the Horovod root directory, remove any previous build artifacts and then install Horovod:
-
-.. code-block:: bash
-
-    $ rm -rf build/ dist/
-    $ HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 python setup.py install
+    $ HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 pip install -v -e .
 
 Set ``HOROVOD_WITHOUT_[FRAMEWORK]=1`` to disable building Horovod plugins for that framework.
 This is useful when you’re testing a feature of one framework in particular and wish to save time.
 
-For a debug build with checked assertions etc. replace the invocation of setup.py by:
+Set ``HOROVOD_WITH_[FRAMEWORK]=1`` to generate an error if the Horovod plugin for that framework failed to build.
 
-.. code-block:: bash
+Set ``HOROVOD_DEBUG=1`` for a debug build with checked assertions, disabled compiler optimizations etc.
 
-    $ HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 python setup.py build_ext --debug install
+Other environmental variables can be found in the `install documentation <https://github.com/horovod/horovod/blob/master/docs/install.rst#environment-variables>`__.
 
+You can install optional dependencies defined in `setup.py <https://github.com/horovod/horovod/blob/master/setup.py>`__ by adding brackets
+at the end of the command line e.g. ``[test]`` for test dependencies.
+If you have not installed specific DL frameworks yet, add ``[dev]`` to install the CPU version of all supported DL frameworks.
+
+In develop mode, you can edit the Horovod source directly in the repo folder. For Python code, the changes will take effect
+immediately. For **C++/CUDA code**, the ``... pip install -v -e .`` command needs to be invoked again to perform an incremental build.
 
 Testing
 -------

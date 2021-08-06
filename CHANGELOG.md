@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Fix Horovod develop/editable install mode and incremental builds. ([#3074](https://github.com/horovod/horovod/pull/3074))
+
 ## [v0.22.1] - 2021-06-10
 
 ### Added
