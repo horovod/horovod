@@ -130,6 +130,10 @@ def _exec_command_fn(settings):
     :return:
     :rtype:
     """
+
+    # Non-elastic gloo runs should terminate all workers when any fail.
+    terminate_all_event = None if settings.elastic else threading.Event()
+
     def _exec_command(command, slot_info, events):
         index = slot_info.rank
         host_name = slot_info.hostname
@@ -162,12 +166,18 @@ def _exec_command_fn(settings):
             stdout = MultiFile([sys.stdout, stdout_file])
             stderr = MultiFile([sys.stderr, stderr_file])
 
+        all_events = []
+        if events:
+            all_events += events
+        if terminate_all_event:
+            all_events += [terminate_all_event]
+
         try:
             exit_code = safe_shell_exec.execute(command,
                                                 index=index,
                                                 stdout=stdout,
                                                 stderr=stderr,
-                                                events=events,
+                                                events=all_events,
                                                 prefix_output_with_timestamp=settings.prefix_output_with_timestamp)
             if exit_code != 0:
                 print('Process {idx} exit with status code {ec}.'.format(idx=index, ec=exit_code))
@@ -180,6 +190,10 @@ def _exec_command_fn(settings):
                 stdout_file.close()
             if stderr_file:
                 stderr_file.close()
+        if exit_code != 0 and terminate_all_event:
+            if not any(ev.is_set() for ev in all_events):
+                print('Terminating remaining workers after failure of Process {idx}.'.format(idx=index))
+            terminate_all_event.set()
         return exit_code, time.time()
 
     return _exec_command
