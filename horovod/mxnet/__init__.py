@@ -62,7 +62,7 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
         return self._optimizer.create_state_multi_precision(index, weight)
 
     def _do_allreduce(self, index, grad):
-        if size() == 1: return
+        if self._process_set.size() == 1: return
 
         if isinstance(index, (tuple, list)):
             if (self._num_groups > 0):
@@ -163,7 +163,7 @@ class DistributedTrainer(mx.gluon.Trainer):
         self._num_groups = num_groups
 
     def _allreduce_grads(self):
-        if size() == 1: return
+        if self._process_set.size() == 1: return
         if not self._process_set.included(): return
 
         if (self._num_groups > 0):
