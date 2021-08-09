@@ -29,6 +29,7 @@ import pyarrow.parquet as pq
 
 import fsspec
 from fsspec.core import split_protocol
+from fsspec.utils import update_storage_options
 
 from horovod.spark.common.util import is_databricks, host_hash
 
@@ -329,8 +330,12 @@ class FilesystemStore(AbstractFilesystemStore):
 
     #@staticmethod
     def _get_fs_and_protocol(self):
+        storage_options = self.storage_options or {}
         protocol, path = split_protocol(self.prefix_path)
-        fs = fsspec.filesystem(protocol, **self.storage_options)
+        cls = fsspec.get_filesystem_class(protocol)
+        options = cls._get_kwargs_from_urls(self.prefix_path)
+        update_storage_options(options, storage_options)
+        fs = cls(**options)
         return fs, protocol
 
     @classmethod
