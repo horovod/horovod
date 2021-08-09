@@ -382,6 +382,14 @@ a good amount of trial and error. We provide a system to automate this performan
 See `here <autotune.rst>`__ for full details and usage instructions.
 
 
+Horovod Process Sets
+--------------------
+Horovod allows you to concurrently run distinct collective operations in different groups of processes taking part in
+one distributed training. Set up ``hvd.process_set`` objects to make use of this capability.
+
+See `Process Sets <process_set.rst>`_ for detailed instructions.
+
+
 Guides
 ------
 1. Run distributed training in Microsoft Azure using `Batch AI and Horovod <https://github.com/Azure/BatchAI/tree/master/recipes/Horovod>`_.

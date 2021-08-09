@@ -141,6 +141,8 @@ Guides
 
    autotune_include
 
+   process_set_include
+
    troubleshooting_include
 
    contributors_include
