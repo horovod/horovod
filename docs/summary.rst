@@ -155,7 +155,8 @@ To compile Horovod from source, follow the instructions in the `Contributor Guid
 Concepts
 --------
 Horovod core principles are based on `MPI <http://mpi-forum.org/>`_ concepts such as *size*, *rank*,
-*local rank*, **allreduce**, **allgather** and, *broadcast*. See `this page <concepts.rst>`_ for more details.
+*local rank*, **allreduce**, **allgather**, **broadcast**, and **alltoall**. See `this page <concepts.rst>`_
+for more details.
 
 Supported frameworks
 --------------------
