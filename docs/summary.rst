@@ -387,7 +387,7 @@ Horovod Process Sets
 Horovod allows you to concurrently run distinct collective operations in different groups of processes taking part in
 one distributed training. Set up ``hvd.process_set`` objects to make use of this capability.
 
-See `Process Sets <process_set.rst>`_ for detailed instructions.
+See `Process Sets <process_set.rst>`__ for detailed instructions.
 
 
 Guides
