@@ -37,24 +37,20 @@ try:
 
     ccl_supported_types = set(['int32', 'int64', 'float32', 'float64'])
 
-    # MXNet 1.4.x will kill test MPI process if error occurs during operation enqueue. Skip
-    # those tests for versions earlier than 1.5.0.
-    _skip_enqueue_errors = LooseVersion(mx.__version__) < LooseVersion('1.5.0')
-
     HAS_MXNET = True
 except ImportError:
     has_gpu = False
-    _skip_enqueue_errors = False
     HAS_MXNET = False
 
 # Set environment variable to enable adding/removing process sets after initializing Horovod.
 os.environ["HOROVOD_DYNAMIC_PROCESS_SETS"] = "1"
 
 
-@pytest.mark.skipif(not HAS_MXNET, reason='MXNet unavailable')
-class MXTests(unittest.TestCase):
+@unittest.skipUnless(HAS_MXNET, reason='MXNet unavailable')
+class MXTests:
     """
-    Tests for ops in horovod.mxnet.
+    Tests for ops in horovod.mxnet. These are inherited by the actual unittest.TestCases
+    in test_mxnet1.py and test_mxnet2.py.
     """
 
     def _current_context(self):
@@ -620,8 +616,6 @@ class MXTests(unittest.TestCase):
         hvd.remove_process_set(even_set)
 
     @unittest.skipUnless(has_gpu, "no gpu detected")
-    @pytest.mark.skipif(_skip_enqueue_errors,
-                        reason="Skip enqueue errors for MXNet version < 1.5.0")
     def test_horovod_grouped_allreduce_cpu_gpu_error(self):
         """Test that the grouped allreduce raises an error if the input tensor
            list contains a mix of tensors on CPU and GPU."""
@@ -1252,8 +1246,6 @@ class MXTests(unittest.TestCase):
         except (MXNetError, RuntimeError):
             pass
 
-    @pytest.mark.skipif(_skip_enqueue_errors,
-                        reason="Skip enqueue errors for MXNet version < 1.5.0")
     def test_horovod_alltoall_equal_split_length_error(self):
         """Test that the alltoall with default splitting returns an error if the first dimension
         of tensor is not a multiple of the number of workers."""
@@ -1277,8 +1269,6 @@ class MXTests(unittest.TestCase):
         except (MXNetError, RuntimeError):
             pass
 
-    @pytest.mark.skipif(_skip_enqueue_errors,
-                        reason="Skip enqueue errors for MXNet version < 1.5.0")
     def test_horovod_alltoall_splits_error(self):
         """Test that the alltoall returns an error if the sum of the splits entries exceeds
         the first dimension of the input tensor."""
@@ -1303,8 +1293,6 @@ class MXTests(unittest.TestCase):
         except (MXNetError, RuntimeError):
             pass
 
-    @pytest.mark.skipif(_skip_enqueue_errors,
-                        reason="Skip enqueue errors for MXNet version < 1.5.0")
     def test_horovod_alltoall_splits_type_error(self):
         """Test that the alltoall returns an error if the splits tensor does not
            contain 32-bit integers."""
@@ -1552,7 +1540,3 @@ class MXTests(unittest.TestCase):
 
         hvd.remove_process_set(odd_set)
         hvd.remove_process_set(even_set)
-
-
-if __name__ == '__main__':
-    unittest.main()

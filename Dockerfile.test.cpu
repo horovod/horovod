@@ -204,7 +204,7 @@ RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
 
 # Install MXNet (nightly).
 RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly" ]]; then \
-        pip install --no-cache-dir --pre mxnet==2.0.0b20210620 -f https://dist.mxnet.io/python/all; \
+        pip install --no-cache-dir --pre mxnet -f https://dist.mxnet.io/python/all; \
     fi
 
 # Install Horovod.
