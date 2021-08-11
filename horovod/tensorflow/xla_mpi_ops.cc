@@ -19,7 +19,7 @@
 #include <thread>
 #include <unordered_map>
 
-#if TENSORFLOW_VERSION >= 2005000000
+#if TENSORFLOW_VERSION >= 2006000000
 
 #include "tensorflow/compiler/tf2xla/xla_op_kernel.h"
 #include "tensorflow/compiler/tf2xla/xla_op_registry.h"
@@ -292,8 +292,8 @@ HVD_REGISTER_XLA_OP("HorovodAllreduce", HVDAllreduceOp);
       /*has_side_effect=*/false, output_operand_aliasing, /*literal=*/nullptr,
       // Special schedule hints are given so that XLA knows how to schedule
       // the opague custom-calls for performance.
-      is_start ? ::xla::CustomCallSchedule::EARLIEST
-               : ::xla::CustomCallSchedule::LATEST);
+      is_start ? ::xla::CustomCallSchedule::SCHEDULE_EARLIEST
+               : ::xla::CustomCallSchedule::SCHEDULE_LATEST);
 }
 
 // Returns a hash for rendezvous.
@@ -570,6 +570,6 @@ XLA_REGISTER_CUSTOM_CALL_TARGET(CallbackHVDAllreduceDone, "CUDA");
 } // namespace tensorflow
 } // namespace horovod
 
-#endif // TENSORFLOW_VERSION >= 2005000000
+#endif // TENSORFLOW_VERSION >= 2006000000
 #endif // HAVE_CUDA
 #endif // HAVE_GPU

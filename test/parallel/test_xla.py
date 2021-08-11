@@ -60,14 +60,14 @@ else:
 ccl_supported_types = set([tf.uint8, tf.int8, tf.uint16, tf.int16,
                            tf.int32, tf.int64, tf.float32])
 
-_IS_TF25 = LooseVersion(tf.__version__) >= LooseVersion('2.5.0')
+_IS_TF26 = LooseVersion(tf.__version__) >= LooseVersion('2.6.0')
 
 # Set environment variable to enable adding/removing process sets after
 # initializing Horovod.
 os.environ["HOROVOD_DYNAMIC_PROCESS_SETS"] = "1"
 
 
-@pytest.mark.skipif(not _IS_TF25, reason='TF2.5+ is required')
+@pytest.mark.skipif(not _IS_TF26, reason='TF2.6+ is required')
 class XLATests(tf.test.TestCase):
     """
     Tests for ops in horovod.tensorflow.
