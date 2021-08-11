@@ -2785,6 +2785,12 @@ class TorchTests(unittest.TestCase):
                 assert torch.allclose(averaged_b, div(tensor_b * (size - 1), size), threshold), \
                     'hvd.join with hvd.allreduce produces incorrect results'
 
+            self.assertNotEqual(ret, first_join_rank,
+                                msg="The return value of hvd.join() may not be equal to first_join_rank")
+            ret_values = hvd.allgather_object(ret)
+            self.assertSequenceEqual(ret_values, [ret] * size,
+                                     msg="hvd.join() did not return the same value on each rank")
+
     def test_horovod_join_allgather(self):
         """Test Join op with allgather."""
         hvd.init()
@@ -2812,6 +2818,12 @@ class TorchTests(unittest.TestCase):
 
             ret = hvd.join(hvd.local_rank())
 
+        self.assertNotEqual(ret, 0,
+                            msg="The return value of hvd.join() may not be equal to 0 because that would be the first rank to join")
+        ret_values = hvd.allgather_object(ret)
+        self.assertSequenceEqual(ret_values, [ret] * size,
+                                 msg="hvd.join() did not return the same value on each rank")
+
     def test_horovod_join_broadcast(self):
         """Test Join op with broadcast."""
         hvd.init()
@@ -2838,7 +2850,13 @@ class TorchTests(unittest.TestCase):
                 ret = hvd.join(hvd.local_rank())
             else:
                 ret = hvd.join()
-    
+
+        self.assertNotEqual(ret, 0,
+                            msg="The return value of hvd.join() may not be equal to 0 because that would be the first rank to join")
+        ret_values = hvd.allgather_object(ret)
+        self.assertSequenceEqual(ret_values, [ret] * size,
+                                 msg="hvd.join() did not return the same value on each rank")
+
     def test_horovod_sync_batch_norm(self):
         """Tests Horovod version of SyncBatchNorm."""
         if not torch.cuda.is_available():

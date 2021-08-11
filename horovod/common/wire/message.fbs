@@ -62,7 +62,6 @@ table Request {
     // Prescale and postscale factors
     prescale_factor:double;
     postscale_factor:double;
-
 }
 table RequestList {
     requests:[Request];
@@ -110,6 +109,8 @@ table Response {
     // Prescale and postscale factors
     prescale_factor:double;
     postscale_factor:double;
+
+    last_joined_rank:int;
 }
 table ResponseList {
     responses:[Response];

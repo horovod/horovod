@@ -3864,9 +3864,9 @@ class TensorFlowTests(tf.test.TestCase):
         for dtype, dim, first_join_rank in itertools.product(dtypes, dims, first_join_ranks):
             with tf.device("/gpu:%d" % local_rank):
                 tensor = self.random_uniform(
-                        [17] * dim, -100, 100, dtype=dtype)
+                    [17] * dim, -100, 100, dtype=dtype)
                 if local_rank == first_join_rank:
-                    self.evaluate(hvd.join())
+                    ret = self.evaluate(hvd.join())
                 else:
                     summed = hvd.allreduce(tensor, average=False)
                     multiplied = tensor * (size-1)
@@ -3881,9 +3881,15 @@ class TensorFlowTests(tf.test.TestCase):
                     else:
                         return
                     diff = self.evaluate(max_difference)
-                    self.evaluate(hvd.join())
+                    ret = self.evaluate(hvd.join())
                     self.assertTrue(diff <= threshold,
-                             "hvd.join with hvd.allreduce on GPU produces incorrect results")
+                                    "hvd.join with hvd.allreduce on GPU produces incorrect results")
+
+                self.assertNotEqual(ret, first_join_rank,
+                                    msg="The return value of hvd.join() may not be equal to first_join_rank")
+                ret_values = hvd.allgather_object(ret)
+                self.assertSequenceEqual(ret_values, [ret] * size,
+                                         msg="hvd.join() did not return the same value on each rank")
 
     def test_horovod_syncbn_gpu(self):
         """Test that the SyncBatchNormalization implementation is correct on GPU."""

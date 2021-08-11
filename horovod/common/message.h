@@ -146,10 +146,10 @@ private:
 };
 
 // A Response is a message sent from the coordinator (rank zero) to a rank
-// greater than zero, informing the rank of an operation should be performed
-// now. If the operation requested would result in an error (for example, due
-// to a type or shape mismatch), then the Response can contain an error and
-// an error message instead.
+// greater than zero, informing the rank of an operation that should be
+// performed now. If the requested operation would result in an error (for
+// example, due to a type or shape mismatch), then the Response can contain an
+// error and an error message instead.
 class Response {
 public:
   enum ResponseType {
@@ -208,6 +208,10 @@ public:
 
   void set_postscale_factor(double postscale_factor);
 
+  int last_joined_rank() const;
+
+  void set_last_joined_rank(int value);
+
   static void ParseFromBytes(Response& response, const uint8_t* input);
 
   static void SerializeToString(const Response& response,
@@ -222,6 +226,7 @@ private:
   std::vector<int64_t> tensor_sizes_;
   double prescale_factor_ = 1.0;
   double postscale_factor_ = 1.0;
+  int last_joined_rank_ = -1;
 };
 
 class ResponseList {

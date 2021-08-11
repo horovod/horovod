@@ -300,10 +300,14 @@ Status JoinOp::Execute(std::vector<TensorTableEntry>& entries,
                        const Response& response, ProcessSet& process_set) {
   WaitForData(entries);
 
-  assert(entries.empty());
+  assert(entries.size() == 1);
+  auto e = entries[0];
+  auto output_ptr = (int*) e.output->data();
+  *output_ptr = response.last_joined_rank();
   if (process_set.joined) {
     process_set.tensor_queue.RemoveJoinTensor();
     process_set.joined = false;
+    process_set.last_joined_rank = -1;
   }
   return Status::OK();
 }

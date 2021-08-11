@@ -257,10 +257,9 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 void PerformOperation(Response response, ProcessSet& process_set) {
   std::vector<TensorTableEntry> entries;
   auto& timeline = horovod_global.timeline;
+  process_set.tensor_queue.GetTensorEntriesFromResponse(response, entries,
+                                                        process_set.joined);
   if (response.response_type() != Response::JOIN) {
-    process_set.tensor_queue.GetTensorEntriesFromResponse(response, entries,
-                                                          process_set.joined);
-
     for (auto& e : entries) {
       timeline.Start(e.tensor_name, response.response_type(), e.tensor->size());
     }
@@ -1725,6 +1724,7 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
 // Contexts and controller must be initialized and the background thread
 // must be running before this function is called.
 Status EnqueueJoin(std::shared_ptr<OpContext> context,
+                   std::shared_ptr<Tensor> output_last_joined_rank,
                    ReadyEventList ready_event_list,
                    const std::string& name, const int device,
                    StatusCallback callback,
@@ -1739,6 +1739,7 @@ Status EnqueueJoin(std::shared_ptr<OpContext> context,
   TensorTableEntry e;
   e.tensor_name = name;
   e.context = context;
+  e.output = output_last_joined_rank;
   e.process_set_id = process_set_id;
   e.ready_event_list = ready_event_list;
   e.device = device;

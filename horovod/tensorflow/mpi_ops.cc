@@ -840,13 +840,18 @@ public:
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(common::CheckInitialized()),
                          done);
     auto device = GetDeviceID(context);
+    Tensor* output = nullptr;
+    OP_REQUIRES_OK_ASYNC(
+        context, context->allocate_output(0, TensorShape(), &output), done);
+
     common::ReadyEventList ready_event_list;
 #if HAVE_GPU
     ready_event_list.AddReadyEvent(std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context)));
 #endif
     auto hvd_context = std::make_shared<TFOpContext>(context);
+    std::shared_ptr<TFTensor> hvd_output = std::make_shared<TFTensor>(*output);
     auto enqueue_result = EnqueueJoin(
-      hvd_context, ready_event_list,
+      hvd_context, hvd_output, ready_event_list,
       JOIN_TENSOR_NAME, device,
         [context, done](const common::Status& status) {
 #if HAVE_GPU
@@ -867,16 +872,28 @@ public:
   }
 };
 
-REGISTER_KERNEL_BUILDER(Name("HorovodJoin").Device(DEVICE_CPU),
+REGISTER_KERNEL_BUILDER(Name("HorovodJoin")
+                            .Device(DEVICE_CPU)
+                            .HostMemory("output"),
                         HorovodJoinOp);
 #if HOROVOD_GPU_ALLREDUCE
-REGISTER_KERNEL_BUILDER(Name("HorovodJoin").Device(DEVICE_GPU),
+REGISTER_KERNEL_BUILDER(Name("HorovodJoin")
+                            .Device(DEVICE_GPU)
+                            .HostMemory("output"),
                         HorovodJoinOp);
 #endif
 
 REGISTER_OP("HorovodJoin")
+    .Output("output: int32")
+    .SetShapeFn([](shape_inference::InferenceContext* c) {
+      c->set_output(0, c->Scalar());
+      return Status::OK();
+    })
     .Doc(R"doc(
-Perform an join on a tensor,
+Perform a join on a tensor.
+
+Output
+    output:    A scalar integer tensor containing the last rank that joined.
 )doc");
 
 template <typename T, T f(int)>

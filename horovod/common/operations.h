@@ -227,6 +227,7 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
                              int32_t process_set_id = 0);
 
 Status EnqueueJoin(std::shared_ptr<OpContext> context,
+                   std::shared_ptr<Tensor> output_last_joined_rank,
                    ReadyEventList ready_event_list,
                    const std::string& name, int device,
                    StatusCallback callback,
