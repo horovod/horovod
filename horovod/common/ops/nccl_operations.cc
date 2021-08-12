@@ -123,6 +123,65 @@ void NCCLOpContext::PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
   nccl_id_bcast_comm = communicator_type_;
 }
 
+Status NCCLReduce::Execute(std::vector<TensorTableEntry>& entries,
+                              const Response& response, const int root_rank){
+
+  gpu_op_context_.InitGPU(entries);
+  nccl_op_context_.InitNCCLComm(entries, nccl_device_map);
+  gpu_op_context_.InitGPUQueue(entries, response);
+
+  auto e = entries[0];
+  int root_rank = e.root_rank;
+
+
+  const void* fused_input_data;
+  void* buffer_data;
+  size_t buffer_len;
+
+  // Copy memory into the fusion buffer.
+  if (entries.size() > 1) {
+    MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
+
+    if (global_state_->timeline.Initialized()) {
+      gpu_context_->RecordEvent(gpu_op_context_.event_queue, MEMCPY_IN_FUSION_BUFFER, *gpu_op_context_.stream);
+    }
+  } else {
+    fused_input_data = first_entry.tensor->data();
+    buffer_data = (void*) first_entry.output->data();
+    buffer_len = (size_t) first_entry.output->size();
+  }
+
+  //ncclAvg ncclSum
+  auto nccl_result = ncclReduce(fused_input_data,
+                                  buffer_data,
+                                  (size_t) num_elements,
+                                   GetNCCLDataType(first_entry.tensor), ncclAvg,
+                                  root_rank, *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
+
+
+  nccl_context_->ErrorCheck("ncclReduce", nccl_result, *nccl_op_context_.nccl_comm_);
+  if (global_state_->timeline.Initialized()) {
+    gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_REDUCE, *gpu_op_context_.stream);
+  }
+
+  if (response.postscale_factor() != 1.0) {
+    // Execute postscaling op
+    ScaleBuffer(response.postscale_factor(), entries, buffer_data, buffer_data, num_elements);
+  }
+
+  // Copy memory out of the fusion buffer.
+  if (entries.size() > 1) {
+    MemcpyOutFusionBuffer(buffer_data, entries);
+
+    if (global_state_->timeline.Initialized()) {
+      gpu_context_->RecordEvent(gpu_op_context_.event_queue, MEMCPY_OUT_FUSION_BUFFER, *gpu_op_context_.stream);
+    }
+  }
+
+
+}
+
+
 Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                               const Response& response) {
   auto& first_entry = entries[0];

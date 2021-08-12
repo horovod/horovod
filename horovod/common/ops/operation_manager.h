@@ -28,6 +28,7 @@ class OperationManager {
 public:
   OperationManager(ParameterManager* param_manager,
                    std::vector<std::shared_ptr<AllreduceOp>> allreduce_ops,
+                   std::vector<std::shared_ptr<AllreduceOp>> reduce_ops,
                    std::vector<std::shared_ptr<AllgatherOp>> allgather_ops,
                    std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops,
                    std::vector<std::shared_ptr<AlltoallOp>> alltoall_ops,
@@ -45,6 +46,8 @@ public:
 
   Status ExecuteAlltoall(std::vector<TensorTableEntry>& entries, const Response& response) const;
 
+  Status ExecuteReduce(std::vector<TensorTableEntry>& entries, const Response& response) const;
+
   Status ExecuteError(std::vector<TensorTableEntry>& entries, const Response& response) const;
 
   Status ExecuteJoin(std::vector<TensorTableEntry>& entries, const Response& response) const;
@@ -57,6 +60,7 @@ private:
   ParameterManager* param_manager_;
 
   std::vector<std::shared_ptr<AllreduceOp>> allreduce_ops_;
+  std::vector<std::shared_ptr<AllreduceOp>> reduce_ops_;
   std::vector<std::shared_ptr<AllgatherOp>> allgather_ops_;
   std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops_;
   std::vector<std::shared_ptr<AlltoallOp>> alltoall_ops_;

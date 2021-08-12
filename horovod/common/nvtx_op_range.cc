@@ -14,6 +14,7 @@ NvtxOpsHandle::NvtxOpsHandle() noexcept
   REGISTER_STRING(HorovodAllgather);
   REGISTER_STRING(HorovodBroadcast);
   REGISTER_STRING(HorovodAlltoall);
+  REGISTER_STRING(HorovodReduce);
 #undef REGISTER_STRING
 }
 

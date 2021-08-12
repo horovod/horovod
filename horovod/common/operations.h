@@ -152,6 +152,15 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
                              const std::string& name, int device,
                              StatusCallback callback);
 
+
+Status EnqueueTensorReduce(std::shared_ptr<OpContext> context,
+                           std::shared_ptr<Tensor> tensor,
+                           std::shared_ptr<Tensor> output, int root_rank,
+                           std::shared_ptr<ReadyEvent> ready_event,
+                           const std::string& name, const int device,
+                           StatusCallback callback);
+
+
 Status EnqueueJoin(std::shared_ptr<OpContext> context,
                    std::shared_ptr<ReadyEvent> ready_event,
                    const std::string& name, int device,

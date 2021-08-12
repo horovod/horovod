@@ -144,6 +144,7 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   // Order of these operations is very important. Operations will be checked
   // sequentially from the first to the last. The first 'Enabled' operation will
   // be executed.
+  std::vector<std::shared_ptr<AllreduceOp>> reduce_ops;
   std::vector<std::shared_ptr<AllreduceOp>> allreduce_ops;
   std::vector<std::shared_ptr<AllgatherOp>> allgather_ops;
   std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops;
@@ -162,6 +163,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new NCCLHierarchicalAllreduce(
             &nccl_context, &mpi_context, &gpu_context, &state)));
+
+
 
 #elif HAVE_DDL && HOROVOD_GPU_ALLREDUCE == 'D'
     allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
@@ -185,6 +188,10 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #if HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
   allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
       new NCCLAllreduce(&nccl_context, &gpu_context, &state)));
+
+  reduce_ops.push_back(std::shared_ptr<AllreduceOp>(
+      new NCCLReduce(&nccl_context, &gpu_context, &state)));
+
 #endif
 
 #if HAVE_NCCL && HOROVOD_GPU_BROADCAST == 'N'
@@ -246,7 +253,7 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   std::shared_ptr<JoinOp> join_op(new JoinOp(&state));
   std::shared_ptr<ErrorOp> error_op(new ErrorOp(&state));
 
-  return new OperationManager(&state.parameter_manager, allreduce_ops,
+  return new OperationManager(&state.parameter_manager, allreduce_ops, reduce_ops,
                               allgather_ops, broadcast_ops, alltoall_ops,
                               join_op, adasum_ops, error_op);
 }
@@ -1130,6 +1137,39 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   }
   return status;
 }
+
+Status EnqueueTensorReduce(std::shared_ptr<OpContext> context,
+                           std::shared_ptr<Tensor> tensor,
+                           std::shared_ptr<Tensor> output, int root_rank,
+                           std::shared_ptr<ReadyEvent> ready_event,
+                           const std::string& name, const int device,
+                           StatusCallback callback){
+  Request message;
+  message.set_request_rank(horovod_global.controller->GetRank());
+  message.set_tensor_name(name);
+  message.set_tensor_type(tensor->dtype());
+  message.set_root_rank(root_rank);
+  message.set_device(device);
+  message.set_request_type(Request::BROADCAST);
+  for (int i = 0; i < tensor->shape().dims(); ++i) {
+    message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
+  }
+
+
+  TensorTableEntry e;
+  e.tensor_name = name;
+  e.context = context;
+  e.tensor = tensor;
+  e.output = output;
+  e.root_rank = root_rank;
+  e.ready_event = ready_event;
+  e.device = device;
+  e.callback = callback;
+  e.nvtx_op_range.Start(RegisteredNvtxOp::HorovodReduce, e.tensor->size());
+
+
+                           }
+
 
 // Contexts and controller must be initialized and the background thread
 // must be running before this function is called.

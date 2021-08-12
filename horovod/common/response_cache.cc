@@ -35,6 +35,8 @@ static Response::ResponseType RequestTypeToResponseType(Request::RequestType val
       return Response::ResponseType::BROADCAST;
     case Request::RequestType::JOIN:
       return Response::ResponseType::JOIN;
+    case Request::RequestType::REDUCE:
+      return Response::ResponseType::REDUCE;
     case Request::RequestType::ADASUM:
       return Response::ResponseType::ADASUM;
     case Request::RequestType::ALLTOALL:

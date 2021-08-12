@@ -75,6 +75,28 @@ private:
   horovod::common::Communicator communicator_type_;
 };
 
+class NCCLReduce :public GPUAllreduce{
+public:
+  NCCLReduce(NCCLContext* nccl_context, GPUContext* gpu_context,
+             HorovodGlobalState* global_state,
+             horovod::common::Communicator communicator_type = Communicator::GLOBAL)
+         : GPUAllreduce(gpu_context, global_state),
+           nccl_context_(nccl_context),
+           nccl_op_context_(nccl_context, global_state, communicator_type),
+           global_state_(global_state){};
+
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
+  )
+
+protected:
+  NCCLContext* nccl_context_;
+  NCCLOpContext nccl_op_context_;
+  HorovodGlobalState* global_state_;
+
+};
+
+
 class NCCLAllreduce : public GPUAllreduce {
 public:
   NCCLAllreduce(NCCLContext* nccl_context, GPUContext* gpu_context,

@@ -12,6 +12,7 @@ namespace common {
 enum class RegisteredNvtxOp {
   HorovodAllreduce = 0,
   HorovodGroupedAllreduce,
+  HorovodReduce,
   HorovodAllgather,
   HorovodBroadcast,
   HorovodAlltoall,

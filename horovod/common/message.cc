@@ -111,6 +111,9 @@ const std::string& Request::RequestType_Name(RequestType value) {
     case RequestType::ALLTOALL:
       static const std::string alltoall("ALLTOALL");
       return alltoall;
+    case RequestType::REDUCE:
+      static const std::string reduce("REDUCE");
+      return reduce;
     default:
       static const std::string unknown("<unknown>");
       return unknown;
@@ -300,6 +303,9 @@ const std::string& Response::ResponseType_Name(ResponseType value) {
     case ResponseType::ALLTOALL:
       static const std::string alltoall("ALLTOALL");
       return alltoall;
+    case ResponseType::REDUCE:
+      static const std::string reduce("REDUCE");
+      return reduce;
     case ResponseType::ERROR:
       static const std::string error("ERROR");
       return error;
