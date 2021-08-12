@@ -21,8 +21,10 @@ if (LEN EQUAL "4")
     list(GET Tensorflow_OUTPUT 2 Tensorflow_LIBRARIES)
     string(REPLACE " " ";" Tensorflow_LIBRARIES_LIST "${Tensorflow_LIBRARIES}")
     list(GET Tensorflow_LIBRARIES_LIST 0 Tensorflow_LIB_PATH)
-    # XLA implementations are in _pywrap_tensorflow_internal.so
-    set(Tensorflow_LIBRARIES "${Tensorflow_LIBRARIES} ${Tensorflow_LIB_PATH}/python/ -l:_pywrap_tensorflow_internal.so")
+    if (Tensorflow_VERSION VERSION_GREATER_EQUAL "2.6")
+        # XLA implementations are in _pywrap_tensorflow_internal.so
+        set(Tensorflow_LIBRARIES "${Tensorflow_LIBRARIES} ${Tensorflow_LIB_PATH}/python/ -l:_pywrap_tensorflow_internal.so")
+    endif()
     message("Tensorflow_LIBRARIES := ${Tensorflow_LIBRARIES}")
     list(GET Tensorflow_OUTPUT 3 Tensorflow_COMPILE_FLAGS)
     if("${Tensorflow_COMPILE_FLAGS}" MATCHES "-D_GLIBCXX_USE_CXX11_ABI=1")
