@@ -151,7 +151,8 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                       'num_sanity_val_steps': 0,
                       'reload_dataloaders_every_epoch': False,
                       'progress_bar_refresh_rate': _train_steps_per_epoch // 10,
-                      'terminate_on_nan': terminate_on_nan
+                      'terminate_on_nan': terminate_on_nan,
+                      'profiler': estimator.getProfiler()
                       }
             print("Creating trainer with: \n ", kwargs)
             trainer = Trainer(**kwargs)
