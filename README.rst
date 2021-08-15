@@ -163,7 +163,8 @@ To compile Horovod from source, follow the instructions in the `Contributor Guid
 Concepts
 --------
 Horovod core principles are based on `MPI <http://mpi-forum.org/>`_ concepts such as *size*, *rank*,
-*local rank*, **allreduce**, **allgather** and, *broadcast*. See `this page <docs/concepts.rst>`_ for more details.
+*local rank*, **allreduce**, **allgather**, **broadcast**, and **alltoall**. See `this page <docs/concepts.rst>`_
+for more details.
 
 Supported frameworks
 --------------------
@@ -387,6 +388,14 @@ a good amount of trial and error. We provide a system to automate this performan
 **autotuning**, which you can enable with a single command line argument to ``horovodrun``.
 
 See `here <docs/autotune.rst>`__ for full details and usage instructions.
+
+
+Horovod Process Sets
+--------------------
+Horovod allows you to concurrently run distinct collective operations in different groups of processes taking part in
+one distributed training. Set up ``hvd.process_set`` objects to make use of this capability.
+
+See `Process Sets <docs/process_set.rst>`__ for detailed instructions.
 
 
 Guides
