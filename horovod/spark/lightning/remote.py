@@ -192,7 +192,6 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             torch.save(output, serialized_checkpoint)
             serialized_checkpoint.seek(0)
-
             return serialized_checkpoint
     return train
 
