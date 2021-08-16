@@ -41,7 +41,7 @@ _NULL = ""
 
 _basics = _HorovodBasics(__file__, 'mpi_lib_v2')
 # import basic methods
-init = _basics.init
+#init = _basics.init
 is_initialized = _basics.is_initialized
 start_timeline = _basics.start_timeline
 stop_timeline = _basics.stop_timeline
@@ -64,6 +64,11 @@ rocm_built = _basics.rocm_built
 def shutdown(*args, **kwargs):
     mpi_lib.horovod_torch_reset()
     return _basics.shutdown(*args, **kwargs)
+
+def init(*args, **kwargs):
+    global _handle_map
+    _handle_map = {}
+    return _basics.init(*args, **kwargs)
 
 # import reduction op values
 Average = _basics.Average
@@ -939,6 +944,7 @@ def synchronize(handle):
         output = _handle_map.pop(handle)[-1]
         return output
     except RuntimeError as e:
+        _handle_map.pop(handle, None)
         raise HorovodInternalError(e)
 
 
