@@ -97,9 +97,11 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             # Use default logger if no logger is supplied
             train_logger = logger
+
             if train_logger is None:
                 train_logger = TensorBoardLogger(logs_path)
 
+            print(f"log dir is {train_logger.log_dir}")
             # TODO: find out a way to use ckpt_path created from remote store, but all other parameters ingest from estimator config
             # ckpt_path = os.path.join(run_output_dir, remote_store.checkpoint_filename)
             # os.makedirs(ckpt_path, exist_ok=True)
@@ -183,6 +185,9 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             torch.save(output, serialized_checkpoint)
             serialized_checkpoint.seek(0)
+
+            print("Syncing to remote_store.")
+            remote_store.sync(logs_path)
             return serialized_checkpoint
     return train
 
