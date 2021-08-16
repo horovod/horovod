@@ -52,7 +52,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     transformation_fn = estimator.getTransformationFn()
     transformation = transformation_fn if transformation_fn else None
     inmemory_cache_all = estimator.getInMemoryCacheAll()
-    callbacks = estimator.getCallbacks()
+    callbacks = estimator.getCallbacks() or []
     train_steps_per_epoch = estimator.getTrainStepsPerEpoch()
     val_steps_per_epoch = estimator.getValidationStepsPerEpoch()
     num_gpus = estimator.getNumGPUs()
@@ -109,11 +109,18 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             # callbacks.append(model_checkpoint_callback)
 
             is_model_checkpoint_callback_exist = False
-            if callbacks is not None:
-                for cb in callbacks:
-                    if isinstance(cb, ModelCheckpoint):
-                        is_model_checkpoint_callback_exist = True
-                        break
+            for cb in callbacks:
+                if isinstance(cb, ModelCheckpoint):
+                    is_model_checkpoint_callback_exist = True
+                    break
+
+            if remote_store.saving_runs and hvd.rank() == 0:
+                class _SyncCallback(Callback):
+                    def on_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
+                        print("Syncing to remote_store.")
+                        remote_store.sync(logs_path)
+
+                callbacks.append(_SyncCallback())
 
             model = deserialize(serialized_model)
 
@@ -186,8 +193,6 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             torch.save(output, serialized_checkpoint)
             serialized_checkpoint.seek(0)
 
-            print("Syncing to remote_store.")
-            remote_store.sync(logs_path)
             return serialized_checkpoint
     return train
 
