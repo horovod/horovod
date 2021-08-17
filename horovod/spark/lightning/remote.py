@@ -24,7 +24,7 @@ import torch
 import pytorch_lightning as pl
 from pytorch_lightning import Trainer, Callback
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
-from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.loggers import TensorBoardLogger, CometLogger
 
 from horovod.spark.common import constants
 from horovod.spark.common.util import _get_assigned_gpu_or_default
@@ -100,6 +100,9 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             if train_logger is None:
                 train_logger = TensorBoardLogger(logs_path)
+            elif isinstance(train_logger, CometLogger) and train_logger._save_dir is None:
+                # Setting the CometLogger's save_dir allows us to sync checkpoints and profiler output
+                train_logger._save_dir = logs_path
 
             # TODO: find out a way to use ckpt_path created from remote store, but all other parameters ingest from estimator config
             # ckpt_path = os.path.join(run_output_dir, remote_store.checkpoint_filename)
