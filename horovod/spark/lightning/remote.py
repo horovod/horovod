@@ -101,7 +101,6 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             if train_logger is None:
                 train_logger = TensorBoardLogger(logs_path)
 
-            print(f"log dir is {train_logger.log_dir}")
             # TODO: find out a way to use ckpt_path created from remote store, but all other parameters ingest from estimator config
             # ckpt_path = os.path.join(run_output_dir, remote_store.checkpoint_filename)
             # os.makedirs(ckpt_path, exist_ok=True)
