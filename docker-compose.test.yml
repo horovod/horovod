@@ -12,7 +12,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-cpu==2.6.0
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch==1.9.0+cpu
-        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.3.7.post0
+        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.3.8
         TORCHVISION_PACKAGE: torchvision==0.10.0+cpu
         MXNET_PACKAGE: mxnet==1.8.0.post0
         PYSPARK_PACKAGE: pyspark==3.1.2
@@ -57,7 +57,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow==1.15.5
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: torch==1.6.0+cpu
-        PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.1.0
+        PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.3.8
         TORCHVISION_PACKAGE: torchvision==0.7.0+cpu
         MXNET_PACKAGE: mxnet==1.5.1.post0
   # there is no mxnet-1.6.0.post0 and mxnet-1.6.0 does not work with horovod
@@ -146,7 +146,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.4.3
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.7.1+cu101
-        PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.2.9
+        PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.3.8
         TORCHVISION_PACKAGE: torchvision==0.8.2+cu101
         MXNET_PACKAGE: mxnet-cu101==1.6.0.post0
   # we additionally test the previous framework combination (CUDA 10.x) with mxnet 1.7.x
@@ -161,7 +161,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.4.3
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.7.1+cu101
-        PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.2.9
+        PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.3.8
         TORCHVISION_PACKAGE: torchvision==0.8.2+cu101
         MXNET_PACKAGE: mxnet-cu101==1.7.0.post1
   # we deviate from mxnet1_7_0_p2 here as other frameworks target CUDA 11.x and
@@ -176,7 +176,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.5.1
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch==1.8.1+cu111
-        PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.2.9
+        PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.3.8
         TORCHVISION_PACKAGE: torchvision==0.9.1+cu111
         MXNET_PACKAGE: mxnet-cu112==1.8.0.post0
   test-gpu-openmpi-gloo-py3_8-tf2_6_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2:
@@ -190,7 +190,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.6.0
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch==1.9.0+cu111
-        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.3.7.post0
+        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.3.8
         TORCHVISION_PACKAGE: torchvision==0.10.0+cu111
         MXNET_PACKAGE: mxnet-cu112==1.8.0.post0
   test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_1_2:
@@ -203,7 +203,7 @@ services:
         TENSORFLOW_PACKAGE: tf-nightly-gpu
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch-nightly-cu111
-        PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.2.9
+        PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.3.8
         TORCHVISION_PACKAGE: torchvision
         MXNET_PACKAGE: mxnet-nightly-cu112
 
@@ -218,7 +218,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.6.0
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch==1.9.0+cu111
-        PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.3.7.post0
+        PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.3.8
         TORCHVISION_PACKAGE: torchvision==0.10.0+cu111
         MXNET_PACKAGE: mxnet-cu112==1.8.0.post0
         HOROVOD_BUILD_FLAGS: ""

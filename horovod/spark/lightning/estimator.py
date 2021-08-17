@@ -46,7 +46,7 @@ import numpy as np
 import torch
 import torch.utils.data
 
-MIN_PL_VERSION = "1.4.1"
+MIN_PL_VERSION = "1.3.8"
 
 
 def _torch_param_serialize(param_name, param_val):
