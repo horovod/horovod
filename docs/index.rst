@@ -14,7 +14,7 @@ Choose your deep learning framework to learn how to get started with Horovod.
          <ol>
             <li><a href="https://www.open-mpi.org/faq/?category=building#easy-build">Install Open MPI 3.1.2 or 4.0.0</a>, or another MPI implementation. </li>
             <li>
-               If you've installed TensorFlow from <a href="https://pypi.org/project/tensorflow">PyPI</a>, make sure that the <code>g++-4.8.5</code> or <code>g++-4.9</code> or above is installed.<br/>
+               If you've installed TensorFlow from <a href="https://pypi.org/project/tensorflow">PyPI</a>, make sure that <code>g++-5</code> or above is installed.<br/>
                If you've installed TensorFlow from <a href="https://conda.io">Conda</a>, make sure that the <code>gxx_linux-64</code> Conda package is installed.
             </li>
             <li>Install the Horovod pip package: <code>pip install horovod</code></li>
@@ -30,7 +30,7 @@ Choose your deep learning framework to learn how to get started with Horovod.
          <ol>
             <li><a href="https://www.open-mpi.org/faq/?category=building#easy-build">Install Open MPI 3.1.2 or 4.0.0</a>, or another MPI implementation. </li>
             <li>
-               If you've installed TensorFlow from <a href="https://pypi.org/project/tensorflow">PyPI</a>, make sure that the <code>g++-4.8.5</code> or <code>g++-4.9</code> or above is installed.<br/>
+               If you've installed TensorFlow from <a href="https://pypi.org/project/tensorflow">PyPI</a>, make sure that <code>g++-5</code> or above is installed.<br/>
                If you've installed TensorFlow from <a href="https://conda.io">Conda</a>, make sure that the <code>gxx_linux-64</code> Conda package is installed.
             </li>
             <li>Install the Horovod pip package: <code>pip install horovod</code></li>
@@ -46,7 +46,7 @@ Choose your deep learning framework to learn how to get started with Horovod.
          <ol>
             <li><a href="https://www.open-mpi.org/faq/?category=building#easy-build">Install Open MPI 3.1.2 or 4.0.0</a>, or another MPI implementation. </li>
             <li>
-               If you've installed PyTorch from <a href="https://pypi.org/project/torch">PyPI</a>, make sure that the <code>g++-4.9</code> or above is installed.<br/>
+               If you've installed PyTorch from <a href="https://pypi.org/project/torch">PyPI</a>, make sure that <code>g++-5</code> or above is installed.<br/>
                If you've installed PyTorch from <a href="https://conda.io">Conda</a>, make sure that the <code>gxx_linux-64</code> Conda package is installed.
             </li>
             <li>Install the Horovod pip package: <code>pip install horovod</code></li>
