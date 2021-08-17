@@ -18,8 +18,6 @@ from pyspark.sql import SparkSession
 from pyspark.sql.functions import udf
 
 from pytorch_lightning import LightningModule
-from pytorch_lightning.profiler import PyTorchProfiler
-from pytorch_lightning.utilities.imports import _KINETO_AVAILABLE
 
 import torch
 import torch.nn as nn
@@ -186,11 +184,6 @@ def train_model(args):
                                    verbose=True,
                                    mode='max'))
 
-    if _KINETO_AVAILABLE:
-        profiler = PyTorchProfiler(export_to_chrome=True)
-    else:
-        profiler = PyTorchProfiler()
-
     torch_estimator = hvd.TorchEstimator(backend=backend,
                                          store=store,
                                          model=model,
@@ -202,7 +195,7 @@ def train_model(args):
                                          validation=0.1,
                                          verbose=1,
                                          callbacks=callbacks,
-                                         profiler=profiler)
+                                         profiler="simple")
 
     torch_model = torch_estimator.fit(train_df).setOutputCols(['label_prob'])
 
