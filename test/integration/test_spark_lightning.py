@@ -162,7 +162,8 @@ class SparkLightningTests(unittest.TestCase):
                     batch_size=4,
                     epochs=2,
                     verbose=2,
-                    terminate_on_nan=True)
+                    terminate_on_nan=True,
+                    profiler="pytorch")
                 assert torch_estimator.getTerminateOnNan() == True
 
     def test_legacy_fit_model(self):

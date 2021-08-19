@@ -24,7 +24,7 @@ import torch
 import pytorch_lightning as pl
 from pytorch_lightning import Trainer, Callback
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
-from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.loggers import TensorBoardLogger, CometLogger
 
 from horovod.spark.common import constants
 from horovod.spark.common.util import _get_assigned_gpu_or_default
@@ -52,7 +52,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     transformation_fn = estimator.getTransformationFn()
     transformation = transformation_fn if transformation_fn else None
     inmemory_cache_all = estimator.getInMemoryCacheAll()
-    callbacks = estimator.getCallbacks()
+    callbacks = estimator.getCallbacks() or []
     train_steps_per_epoch = estimator.getTrainStepsPerEpoch()
     val_steps_per_epoch = estimator.getValidationStepsPerEpoch()
     num_gpus = estimator.getNumGPUs()
@@ -97,8 +97,12 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             # Use default logger if no logger is supplied
             train_logger = logger
+
             if train_logger is None:
                 train_logger = TensorBoardLogger(logs_path)
+            elif isinstance(train_logger, CometLogger) and train_logger._save_dir is None:
+                # Setting the CometLogger's save_dir allows us to sync checkpoints and profiler output
+                train_logger._save_dir = logs_path
 
             # TODO: find out a way to use ckpt_path created from remote store, but all other parameters ingest from estimator config
             # ckpt_path = os.path.join(run_output_dir, remote_store.checkpoint_filename)
@@ -107,11 +111,18 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             # callbacks.append(model_checkpoint_callback)
 
             is_model_checkpoint_callback_exist = False
-            if callbacks is not None:
-                for cb in callbacks:
-                    if isinstance(cb, ModelCheckpoint):
-                        is_model_checkpoint_callback_exist = True
-                        break
+            for cb in callbacks:
+                if isinstance(cb, ModelCheckpoint):
+                    is_model_checkpoint_callback_exist = True
+                    break
+
+            if remote_store.saving_runs and hvd.rank() == 0:
+                class _SyncCallback(Callback):
+                    def on_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
+                        print("Syncing to remote_store.")
+                        remote_store.sync(logs_path)
+
+                callbacks.append(_SyncCallback())
 
             model = deserialize(serialized_model)
 
@@ -151,7 +162,8 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                       'num_sanity_val_steps': 0,
                       'reload_dataloaders_every_epoch': False,
                       'progress_bar_refresh_rate': _train_steps_per_epoch // 10,
-                      'terminate_on_nan': terminate_on_nan
+                      'terminate_on_nan': terminate_on_nan,
+                      'profiler': estimator.getProfiler()
                       }
             print("Creating trainer with: \n ", kwargs)
             trainer = Trainer(**kwargs)

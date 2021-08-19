@@ -174,6 +174,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                     to be randomly selected for validation.
         validation_steps_per_epoch: (Optional) Number of validation steps to perform each epoch.
         verbose:    (Optional)Verbosity level, 0 for silent. (default: 1).
+        profiler:    (Optional)Lightning profiler to enable. (disabled by default).
     """
 
     input_shapes = Param(Params._dummy(), 'input_shapes', 'input layer shapes')
@@ -202,6 +203,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     terminate_on_nan = Param(Params._dummy(), 'terminate_on_nan', 'terminate on encountering NaN',
                               typeConverter=TypeConverters.toBoolean)
+
+    profiler = Param(Params._dummy(), 'profiler', 'lightning profiler to use')
 
     @keyword_only
     def __init__(self,
@@ -242,7 +245,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  log_every_n_steps=50,
                  data_module=None,
                  loader_num_epochs=None,
-                 terminate_on_nan=False):
+                 terminate_on_nan=False,
+                 profiler=None):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
@@ -255,7 +259,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                          log_every_n_steps=50,
                          data_module=None,
                          loader_num_epochs=None,
-                         terminate_on_nan=False)
+                         terminate_on_nan=False,
+                         profiler=None)
 
         kwargs = self._input_kwargs
 
@@ -327,6 +332,9 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def getTerminateOnNan(self):
         return self.getOrDefault(self.terminate_on_nan)
+
+    def getProfiler(self):
+        return self.getOrDefault(self.profiler)
 
     def _get_optimizer(self):
         return self.getOrDefault(self.optimizer)

@@ -194,7 +194,8 @@ def train_model(args):
                                          epochs=args.epochs,
                                          validation=0.1,
                                          verbose=1,
-                                         callbacks=callbacks)
+                                         callbacks=callbacks,
+                                         profiler="simple")
 
     torch_model = torch_estimator.fit(train_df).setOutputCols(['label_prob'])
 
