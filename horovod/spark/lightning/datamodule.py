@@ -65,9 +65,14 @@ class PetastormDataModule(pl.LightningDataModule):
     def teardown(self, stage=None):
         if stage == "fit" or stage is None:
             if self.verbose:
-                print("Tear down petastorm readers")
+                print("Tear down: closing async dataloaders")
+            self.train_dl.close_async_loader()
+            if self.has_val:
+                self.val_dl.close_async_loader()
             if not self.inmemory_cache_all:
                 # Reader was loaded once and stopped for inmemory datalaoder.
+                if self.verbose:
+                    print("Tear down: closing petastorm readers")
                 self.train_reader.stop()
                 self.train_reader.join()
                 if self.has_val:
@@ -90,7 +95,8 @@ class PetastormDataModule(pl.LightningDataModule):
             dataloader_class = PytorchInfiniteAsyncDataLoader
             kwargs['shuffling_queue_capacity'] = self.shuffle_size
 
-        return dataloader_class(**kwargs)
+        self.train_dl = dataloader_class(**kwargs)
+        return self.train_dl
 
     def val_dataloader(self):
         if not self.has_val:
@@ -110,4 +116,5 @@ class PetastormDataModule(pl.LightningDataModule):
             dataloader_class = PytorchInfiniteAsyncDataLoader
             kwargs['shuffling_queue_capacity'] = 0
 
-        return dataloader_class(**kwargs)
+        self.val_dl = dataloader_class(**kwargs)
+        return self.val_dl
