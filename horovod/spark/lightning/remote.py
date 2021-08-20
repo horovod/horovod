@@ -81,6 +81,8 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     remote_store = store.to_remote(run_id, dataset_idx)
     storage_options = store.storage_options
 
+    profiler = estimator.getProfiler()
+
     def train(serialized_model):
         import horovod.torch as hvd
         # Horovod: initialize library.
@@ -94,6 +96,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             # TODO: Pass the logger from estimator constructor
             logs_path = os.path.join(run_output_dir, remote_store.logs_subdir)
+            os.makedirs(logs_path, exist_ok=True)
 
             # Use default logger if no logger is supplied
             train_logger = logger
@@ -163,7 +166,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                       'reload_dataloaders_every_epoch': False,
                       'progress_bar_refresh_rate': _train_steps_per_epoch // 10,
                       'terminate_on_nan': terminate_on_nan,
-                      'profiler': estimator.getProfiler()
+                      'profiler': profiler
                       }
             print("Creating trainer with: \n ", kwargs)
             trainer = Trainer(**kwargs)
