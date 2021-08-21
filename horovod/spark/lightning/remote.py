@@ -97,15 +97,20 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             # TODO: Pass the logger from estimator constructor
             logs_path = os.path.join(run_output_dir, remote_store.logs_subdir)
             os.makedirs(logs_path, exist_ok=True)
+            print(f"Made directory {logs_path} for horovod rank {hvd.rank()}")
 
             # Use default logger if no logger is supplied
             train_logger = logger
+            print(f"Train_logger is {train_logger}")
 
             if train_logger is None:
                 train_logger = TensorBoardLogger(logs_path)
             elif isinstance(train_logger, CometLogger) and train_logger._save_dir is None:
                 # Setting the CometLogger's save_dir allows us to sync checkpoints and profiler output
+                print("set save dir")
                 train_logger._save_dir = logs_path
+            else:
+                print("Did not set save dir")
 
             # TODO: find out a way to use ckpt_path created from remote store, but all other parameters ingest from estimator config
             # ckpt_path = os.path.join(run_output_dir, remote_store.checkpoint_filename)
@@ -196,6 +201,10 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             output = {'model': module.state_dict()}
 
             torch.save(output, serialized_checkpoint)
+
+            print("Syncing to remote_store.")
+            remote_store.sync(logs_path)
+
             serialized_checkpoint.seek(0)
             return serialized_checkpoint
     return train
