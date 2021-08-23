@@ -263,8 +263,13 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                             model = k.models.load_model(ckpt_file)
                     serialized_model = keras_utils.serialize_model(model)
                 else:
-                    with open(ckpt_file, 'rb') as f:
-                        serialized_model = codec.dumps_base64(f.read())
+                    if LooseVersion(tf.__version__) >= LooseVersion("2.0.0"):
+                        with k.utils.custom_object_scope(custom_objects):
+                            model = k.models.load_model(ckpt_file)
+                        serialized_model = keras_utils.serialize_model(model)
+                    else:    
+                        with open(ckpt_file, 'rb') as f:
+                            serialized_model = codec.dumps_base64(f.read())
 
                 return history.history, serialized_model, hvd.size()
     return train
