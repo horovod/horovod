@@ -542,6 +542,14 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
         else:
             return self._get_optimizer()
 
+    def _get_perdiction(self, model, row, feature_cols, input_shapes):
+        # Note: if the col is SparseVector, torch.tensor(col) correctly converts it to a
+        # dense torch tensor.
+        data = [torch.tensor([row[col]]).reshape(shape) for
+                col, shape in zip(feature_cols, input_shapes)]
+
+        return model(*data)
+
     # To run locally on OS X, need export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
     def _transform(self, df):
         import copy
@@ -570,13 +578,13 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
             for row in rows:
                 fields = row.asDict().copy()
 
-                # Note: if the col is SparseVector, torch.tensor(col) correctly converts it to a
-                # dense torch tensor.
-                data = [torch.tensor([row[col]]).reshape(shape) for
-                        col, shape in zip(feature_cols, input_shapes)]
+                # # Note: if the col is SparseVector, torch.tensor(col) correctly converts it to a
+                # # dense torch tensor.
+                # data = [torch.tensor([row[col]]).reshape(shape) for
+                #         col, shape in zip(feature_cols, input_shapes)]
 
                 with torch.no_grad():
-                    preds = model(*data)
+                    preds = self._get_perdiction(model, row, feature_cols, input_shapes)
 
                 if not isinstance(preds, list) and not isinstance(preds, tuple):
                     preds = [preds]
