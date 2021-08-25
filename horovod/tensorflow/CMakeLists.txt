@@ -59,6 +59,7 @@ set(Tensorflow_CXX11 ${Tensorflow_CXX11} PARENT_SCOPE)
 
 # TF SOURCES
 list(APPEND TF_SOURCES "${PROJECT_SOURCE_DIR}/horovod/tensorflow/mpi_ops.cc")
+list(APPEND TF_SOURCES "${PROJECT_SOURCE_DIR}/horovod/tensorflow/xla_mpi_ops.cc")
 
 # Create library
 set_output_dir()
