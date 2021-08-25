@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Added process sets for TensorFlow: Concurrently running collective operations on subsets of Horovod processes. ([#2839](https://github.com/horovod/horovod/pull/2839))
 
+- Added terminate_on_nan flag to Spark Lightning estimator. [#3088](https://github.com/horovod/horovod/issues/3088)
+
 ### Changed
 
 ### Deprecated
@@ -19,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - Fix Horovod develop/editable install mode and incremental builds. ([#3074](https://github.com/horovod/horovod/pull/3074))
+- Estimator/Lightning: use lightning datamodule ([#3084](https://github.com/horovod/horovod/pull/3084))
 
 ## [v0.22.1] - 2021-06-10
 

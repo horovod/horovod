@@ -6,7 +6,7 @@ Concepts
 ========
 
 Horovod core principles are based on the `MPI <http://mpi-forum.org/>`_ concepts *size*, *rank*,
-*local rank*, *allreduce*, *allgather*, and *broadcast*. These are best explained by example. Say we launched
+*local rank*, *allreduce*, *allgather*, *broadcast*, and *alltoall*. These are best explained by example. Say we launched
 a training script on 4 servers, each having 4 GPUs. If we launched one copy of the script per GPU:
 
 * *Size* would be the number of processes, in this case, 16.
@@ -30,6 +30,9 @@ a training script on 4 servers, each having 4 GPUs. If we launched one copy of t
 
     .. image:: http://mpitutorial.com/tutorials/mpi-broadcast-and-collective-communication/broadcast_pattern.png
        :alt: Broadcast Illustration
+
+
+* *Alltoall* is an operation to exchange data between all processes.  *Alltoall* may be useful to implement neural networks with advanced architectures that span multiple devices.
 
 
 .. inclusion-marker-end-do-not-remove

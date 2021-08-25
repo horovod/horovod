@@ -101,6 +101,8 @@ Guides
 
    tensorflow
 
+   xla
+
    keras
 
    pytorch
@@ -140,6 +142,8 @@ Guides
    hyperparameter_search_include
 
    autotune_include
+
+   process_set_include
 
    troubleshooting_include
 

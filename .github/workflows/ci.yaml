@@ -112,7 +112,7 @@ jobs:
             Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-gloo-py3_7-tf2_5_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark2_4_8
+          - image: test-cpu-gloo-py3_7-tf2_6_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark2_4_8
             Elastic_Spark_TensorFlow_Tests_1: true
             Elastic_Spark_Torch_Tests: true
             Elastic_Tests_1: true
@@ -130,7 +130,7 @@ jobs:
             Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_7_0_p2-pyspark3_1_2
+          - image: test-cpu-gloo-py3_8-tf2_5_1-keras_none-torch1_8_1-mxnet1_7_0_p2-pyspark3_1_2
             Elastic_Tests_1: true
             Gloo_Cluster_PyTests: true
             Gloo_MXNet_MNIST: true
@@ -146,7 +146,7 @@ jobs:
             Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-gloo-py3_8-tf2_5_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_0_3
+          - image: test-cpu-gloo-py3_8-tf2_6_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_0_3
             Elastic_Spark_TensorFlow_Tests_1: true
             Elastic_Spark_Torch_Tests: true
             Elastic_Tests_1: true
@@ -164,7 +164,7 @@ jobs:
             Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-gloo-py3_8-tf2_5_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
+          - image: test-cpu-gloo-py3_8-tf2_6_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
             Elastic_Spark_TensorFlow_Tests_1: true
             Elastic_Spark_Torch_Tests: true
             Elastic_Tests_1: true
@@ -182,7 +182,7 @@ jobs:
             Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-mpich-py3_8-tf2_5_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
+          - image: test-cpu-mpich-py3_8-tf2_6_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
             MPI_Cluster_PyTests: true
             MPI_MXNet_MNIST: true
             MPI_Parallel_PyTests: true
@@ -194,7 +194,7 @@ jobs:
             Single_PyTorch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-openmpi-gloo-py3_8-tf2_5_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
+          - image: test-cpu-openmpi-gloo-py3_8-tf2_6_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
             Elastic_Tests_1: true
             Gloo_Cluster_PyTests: true
             Gloo_MXNet_MNIST: true
@@ -218,7 +218,7 @@ jobs:
             Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-openmpi-py3_8-tf2_5_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
+          - image: test-cpu-openmpi-py3_8-tf2_6_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
             MPI_Cluster_PyTests: true
             MPI_MXNet_MNIST: true
             MPI_Parallel_PyTests: true
@@ -237,19 +237,19 @@ jobs:
           - image: test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark3_1_2
             build_timeout: 40
 
-          - image: test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_7_1-mxnet1_6_0_p0-pyspark3_1_2
+          - image: test-gpu-gloo-py3_8-tf2_4_3-keras2_3_1-torch1_7_1-mxnet1_6_0_p0-pyspark3_1_2
             build_timeout: 40
 
-          - image: test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_7_1-mxnet1_7_0_p1-pyspark3_1_2
+          - image: test-gpu-gloo-py3_8-tf2_4_3-keras2_3_1-torch1_7_1-mxnet1_7_0_p1-pyspark3_1_2
             build_timeout: 40
 
-          - image: test-gpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark3_1_2
+          - image: test-gpu-gloo-py3_8-tf2_5_1-keras_none-torch1_8_1-mxnet1_8_0_p0-pyspark3_1_2
             build_timeout: 40
 
-          - image: test-gpu-openmpi-gloo-py3_8-tf2_5_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
+          - image: test-gpu-openmpi-gloo-py3_8-tf2_6_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
             build_timeout: 40
 
-          - image: test-mixed-openmpi-gloo-py3_8-tf2_5_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
+          - image: test-mixed-openmpi-gloo-py3_8-tf2_6_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
             build_timeout: 40
 
     steps:
@@ -3315,10 +3315,8 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Build and Test [attempt 1 of 3]
-        id: build-and-test-1
-        continue-on-error: true
-        if: always() && true
+      - name: Build
+        id: build
         env:
           HOROVOD_WITH_MPI: ${{ matrix.HOROVOD_WITH_MPI }}
           HOROVOD_WITHOUT_MPI: ${{ matrix.HOROVOD_WITHOUT_MPI }}
@@ -3332,7 +3330,7 @@ jobs:
           MXNET: ${{ matrix.MXNET }}
 
         run: |
-          brew install -f openmpi cmake libuv pyenv
+          brew install -f openmpi cmake libuv pyenv coreutils
           export PATH=$(pyenv root)/shims:$PATH
           pyenv uninstall -f 3.7.7
           pyenv install 3.7.7
@@ -3345,6 +3343,16 @@ jobs:
           pip install mxnet==${MXNET}
           HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir .[test]
           horovodrun --check-build
+
+      - name: Test [attempt 1 of 3]
+        id: test-1
+        continue-on-error: true
+        if: always() && true
+
+        run: |
+          export PATH=$(pyenv root)/shims:$PATH
+          pyenv global 3.7.7
+          python --version
 
           artifacts_path="$(pwd)/artifacts/${{ matrix.image }}-macos-run-1"
           mkdir -p "$artifacts_path"
@@ -3353,38 +3361,17 @@ jobs:
           chmod u+x pytest.sh
 
           cd test/parallel
-          ls test_*.py | xargs -n 1 horovodrun -np 2 /bin/bash ../../pytest.sh macos
+          ls test_*.py | gtimeout 10m xargs -n 1 horovodrun -np 2 /bin/bash ../../pytest.sh macos
 
-      - name: Build and Test [attempt 2 of 3]
-        id: build-and-test-2
+      - name: Test [attempt 2 of 3]
+        id: test-2
         continue-on-error: true
-        if: always() && steps.build-and-test-1.outcome == 'failure'
-        env:
-          HOROVOD_WITH_MPI: ${{ matrix.HOROVOD_WITH_MPI }}
-          HOROVOD_WITHOUT_MPI: ${{ matrix.HOROVOD_WITHOUT_MPI }}
-          HOROVOD_WITH_GLOO: ${{ matrix.HOROVOD_WITH_GLOO }}
-          HOROVOD_WITHOUT_GLOO: ${{ matrix.HOROVOD_WITHOUT_GLOO }}
-          TENSORFLOW: ${{ matrix.TENSORFLOW }}
-          KERAS: ${{ matrix.KERAS }}
-          PYTORCH: ${{ matrix.PYTORCH }}
-          PYTORCH_LIGHTNING: ${{ matrix.PYTORCH_LIGHTNING }}
-          TORCHVISION: ${{ matrix.TORCHVISION }}
-          MXNET: ${{ matrix.MXNET }}
+        if: always() && steps.test-1.outcome == 'failure'
 
         run: |
-          brew install -f openmpi cmake libuv pyenv
           export PATH=$(pyenv root)/shims:$PATH
-          pyenv uninstall -f 3.7.7
-          pyenv install 3.7.7
           pyenv global 3.7.7
           python --version
-
-          python -m pip install -U pip
-          pip install tensorflow==${TENSORFLOW} keras==${KERAS}
-          pip install torch==${PYTORCH} pytorch_lightning==${PYTORCH_LIGHTNING} torchvision==${TORCHVISION}
-          pip install mxnet==${MXNET}
-          HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir .[test]
-          horovodrun --check-build
 
           artifacts_path="$(pwd)/artifacts/${{ matrix.image }}-macos-run-2"
           mkdir -p "$artifacts_path"
@@ -3393,38 +3380,17 @@ jobs:
           chmod u+x pytest.sh
 
           cd test/parallel
-          ls test_*.py | xargs -n 1 horovodrun -np 2 /bin/bash ../../pytest.sh macos
+          ls test_*.py | gtimeout 10m xargs -n 1 horovodrun -np 2 /bin/bash ../../pytest.sh macos
 
-      - name: Build and Test [attempt 3 of 3]
-        id: build-and-test-3
+      - name: Test [attempt 3 of 3]
+        id: test-3
         continue-on-error: false
-        if: always() && steps.build-and-test-2.outcome == 'failure'
-        env:
-          HOROVOD_WITH_MPI: ${{ matrix.HOROVOD_WITH_MPI }}
-          HOROVOD_WITHOUT_MPI: ${{ matrix.HOROVOD_WITHOUT_MPI }}
-          HOROVOD_WITH_GLOO: ${{ matrix.HOROVOD_WITH_GLOO }}
-          HOROVOD_WITHOUT_GLOO: ${{ matrix.HOROVOD_WITHOUT_GLOO }}
-          TENSORFLOW: ${{ matrix.TENSORFLOW }}
-          KERAS: ${{ matrix.KERAS }}
-          PYTORCH: ${{ matrix.PYTORCH }}
-          PYTORCH_LIGHTNING: ${{ matrix.PYTORCH_LIGHTNING }}
-          TORCHVISION: ${{ matrix.TORCHVISION }}
-          MXNET: ${{ matrix.MXNET }}
+        if: always() && steps.test-2.outcome == 'failure'
 
         run: |
-          brew install -f openmpi cmake libuv pyenv
           export PATH=$(pyenv root)/shims:$PATH
-          pyenv uninstall -f 3.7.7
-          pyenv install 3.7.7
           pyenv global 3.7.7
           python --version
-
-          python -m pip install -U pip
-          pip install tensorflow==${TENSORFLOW} keras==${KERAS}
-          pip install torch==${PYTORCH} pytorch_lightning==${PYTORCH_LIGHTNING} torchvision==${TORCHVISION}
-          pip install mxnet==${MXNET}
-          HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir .[test]
-          horovodrun --check-build
 
           artifacts_path="$(pwd)/artifacts/${{ matrix.image }}-macos-run-3"
           mkdir -p "$artifacts_path"
@@ -3433,7 +3399,7 @@ jobs:
           chmod u+x pytest.sh
 
           cd test/parallel
-          ls test_*.py | xargs -n 1 horovodrun -np 2 /bin/bash ../../pytest.sh macos
+          ls test_*.py | gtimeout 10m xargs -n 1 horovodrun -np 2 /bin/bash ../../pytest.sh macos
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v2
@@ -3441,9 +3407,9 @@ jobs:
         with:
           name: Unit Test Results - ${{ matrix.image }}-macos
           path: |
-            ${{ steps.build-and-test-1.outputs.artifacts-path }}
-            ${{ steps.build-and-test-2.outputs.artifacts-path }}
-            ${{ steps.build-and-test-3.outputs.artifacts-path }}
+            ${{ steps.test-1.outputs.artifacts-path }}
+            ${{ steps.test-2.outputs.artifacts-path }}
+            ${{ steps.test-3.outputs.artifacts-path }}
   buildkite:
     name: "Build and Test GPU (on Builtkite)"
     needs: [init-workflow, build-and-test]

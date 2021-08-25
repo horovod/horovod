@@ -195,9 +195,17 @@ class AbstractFilesystemStore(Store):
         :return: the base 64 encoded model bytes of the checkpoint model.
         """
         from horovod.runner.common.util import codec
+        import tensorflow
+        from tensorflow import keras
+        from horovod.spark.keras.util import TFKerasUtil
 
-        model_bytes = self.read(ckpt_path)
-        return codec.dumps_base64(model_bytes)
+        if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
+            model_bytes = self.read(ckpt_path)
+            return codec.dumps_base64(model_bytes)
+        else:
+            with keras.utils.custom_object_scope(custom_objects):
+                model = keras.models.load_model(ckpt_path)
+            return TFKerasUtil.serialize_model(model)
 
     def write_text(self, path, text):
         with self.fs.open(self.get_localized_path(path), 'w') as f:
