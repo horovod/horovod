@@ -46,7 +46,7 @@ import numpy as np
 import torch
 import torch.utils.data
 
-MIN_PL_VERSION = "1.2.9"
+MIN_PL_VERSION = "1.3.8"
 
 
 def _torch_param_serialize(param_name, param_val):
@@ -106,8 +106,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                     Defaults to SparkBackend with `num_proc` worker processes. Cannot be specified
                     if `num_proc` is also provided.
         batch_size: Number of rows from the DataFrame per batch.
-        data_loader_class:  (Optional) Class of the custom data loader, if not set, lightning
-                            trainer will use PythonAsyncDataLoader as default.
+        data_module: (Optional) Lightning datamodule used for training and validadation, if not set,
+                    lightning trainer will use PetastormDataModule as default.
         epochs:     Number of epochs to train.
         feature_cols:   Column names used as feature inputs to the model. Must be a list with
                         each feature mapping to a sequential argument in the model's forward()
@@ -146,6 +146,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                              host.
         store:      Store object that abstracts reading and writing of intermediate data and
                     run results.
+        terminate_on_nan : (Optinoal) terminate the training process on seeing NaN output.
         train_minibatch_fn: (Optional) custom function to execute within the training loop.
                             Defaults to standard gradient descent process.
         train_reader_num_workers:   This parameter specifies the number of parallel processes that
@@ -173,6 +174,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                     to be randomly selected for validation.
         validation_steps_per_epoch: (Optional) Number of validation steps to perform each epoch.
         verbose:    (Optional)Verbosity level, 0 for silent. (default: 1).
+        profiler:    (Optional)Lightning profiler to enable. (disabled by default).
     """
 
     input_shapes = Param(Params._dummy(), 'input_shapes', 'input layer shapes')
@@ -193,11 +195,16 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     log_every_n_steps = Param(Params._dummy(), 'log_every_n_steps', 'control the frequency of logging',
                               typeConverter=TypeConverters.toInt)
 
-    data_loader_class = Param(Params._dummy(), 'data_loader_class',
-                              'Class of the custom data loader, if not set, lightning trainer will use PythonAsyncDataLoader as default.')
+    data_module = Param(Params._dummy(), 'data_module',
+                        '(Optional) Lightning datamodule used for training and validadation, if not set, lightning trainer will use PetastormDataModule as default..')
 
     loader_num_epochs = Param(Params._dummy(), 'loader_num_epochs',
                               'An epoch is a single pass over all rows in the dataset. Default to None, which means reader will be in infinite loop mode, and generate unlimite data as needed. ')
+
+    terminate_on_nan = Param(Params._dummy(), 'terminate_on_nan', 'terminate on encountering NaN',
+                              typeConverter=TypeConverters.toBoolean)
+
+    profiler = Param(Params._dummy(), 'profiler', 'lightning profiler to use')
 
     @keyword_only
     def __init__(self,
@@ -236,8 +243,10 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  num_gpus=None,
                  logger=None,
                  log_every_n_steps=50,
-                 data_loader_class=None,
-                 loader_num_epochs=None):
+                 data_module=None,
+                 loader_num_epochs=None,
+                 terminate_on_nan=False,
+                 profiler=None):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
@@ -248,8 +257,10 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                          num_gpus=None,
                          logger=None,
                          log_every_n_steps=50,
-                         data_loader_class=None,
-                         loader_num_epochs=None)
+                         data_module=None,
+                         loader_num_epochs=None,
+                         terminate_on_nan=False,
+                         profiler=None)
 
         kwargs = self._input_kwargs
 
@@ -304,17 +315,26 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     def getLogEveryNSteps(self):
         return self.getOrDefault(self.log_every_n_steps)
 
-    def setDataLoaderClass(self, value):
-        return self._set(data_loader_class=value)
+    def setDataModule(self, value):
+        return self._set(data_module=value)
 
-    def getDataLoaderClass(self):
-        return self.getOrDefault(self.data_loader_class)
+    def getDataModule(self):
+        return self.getOrDefault(self.data_module)
 
     def setLoaderNumEpochs(self, value):
         return self._set(loader_num_epochs=value)
 
     def getLoaderNumEpochs(self):
         return self.getOrDefault(self.loader_num_epochs)
+
+    def setTerminateOnNan(self, value):
+        return self._set(terminate_on_nan=value)
+
+    def getTerminateOnNan(self):
+        return self.getOrDefault(self.terminate_on_nan)
+
+    def getProfiler(self):
+        return self.getOrDefault(self.profiler)
 
     def _get_optimizer(self):
         return self.getOrDefault(self.optimizer)

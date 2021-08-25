@@ -145,7 +145,7 @@ class PytorchInmemDataLoader(BaseDataLoader):
             print(*args, **kwargs)
 
 
-class PytorchAsyncInmemDataLoader(AsyncDataLoaderMixin, PytorchInmemDataLoader):
+class PytorchInmemAsyncDataLoader(AsyncDataLoaderMixin, PytorchInmemDataLoader):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

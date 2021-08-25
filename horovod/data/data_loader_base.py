@@ -71,24 +71,19 @@ class AsyncDataLoaderMixin(object):
             self.thread.daemon = True
             self.started = False
 
-    def __del__(self):
-        self._close_async_loader()
-        s = super()
-        if hasattr(s, "__del__"):
-            s.__del__(self)
-
-    def _close_async_loader(self):
+    def close_async_loader(self):
         """
         Close the async data loader.
         """
         print("Closing the AsyncDataLoaderMixin.")
         if self.async_loader_queue_size > 0 and self.started:
             self.finished_event.set()
-            try:
-                # Free buffer to allow worker to retry
-                self.queue.get_nowait()
-            except Empty:
-                pass
+            while True:
+                try:
+                    # Drain buffer
+                    self.queue.get_nowait()
+                except Empty:
+                    break
             self.thread.join()
 
     def _async_worker(self):
