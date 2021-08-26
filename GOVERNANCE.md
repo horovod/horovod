@@ -32,7 +32,7 @@ Current non-voting members of the Horovod TSC:
 * [Armand McQueen](https://github.com/armandmcqueen) - Determined AI
 * [Neil Conway](https://github.com/neilconway) - Determined AI
 * [Min Cai](https://github.com/mincai) - Uber
-* [Congxiao Cao](https://github.com/chongxiaoc) - Uber
+* [Chongxiao Cao](https://github.com/chongxiaoc) - Uber
 * [Max Gerlach](https://github.com/maxhgerlach) - DeepL
 
 Emeritus members of the Horovod TSC:
