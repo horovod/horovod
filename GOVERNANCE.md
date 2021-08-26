@@ -12,25 +12,28 @@ Horovod development is governed by the Horovod Technical Steering Committee (TSC
 non-voting members, in addition to a chairman responsible for running TSC meetings, setting the meeting agenda, and
 calling votes on proposals.
 
+Current chairman of the Horovod TSC:
+* [Travis Addair](https://github.com/tgaddair) - Predibase
+
 Current voting members of the Horovod TSC:
-* [Alex Sergeev](https://github.com/alsrgv)
-* [Travis Addair](https://github.com/tgaddair), Chairman
+* [Alex Sergeev](https://github.com/alsrgv) - Carbon Robotics
+* [Travis Addair](https://github.com/tgaddair) - Predibase
 * [Can Karakus](https://github.com/karakusc) - Amazon
 * [Josh Romero](https://github.com/romerojosh) - NVIDIA
-* [Jaliya Ekanayake](https://github.com/jaliyae) - Microsoft
-* [Nicolas Castet](https://github.com/nvcastet) - Intel
+* [Nicolas Castet](https://github.com/nvcastet) - NVIDIA
 * [Enrico Minack](https://github.com/EnricoMi) - G-Research
 * [Xu Ning](https://github.com/thuningxu) - Uber
+* [Todd Mytkowicz](https://github.com/klipto) - Microsoft
 
 Current non-voting members of the Horovod TSC:
-* [Todd Mytkowicz](https://github.com/klipto) - Microsoft
-* [Kaarthik Sivashanmugam](https://github.com/skaarthik) - Microsoft
 * [Leonard Lausen](https://github.com/leezu) - Amazon
 * [Jonathan Dekhtiar](https://github.com/DEKHTIARJonathan) - NVIDIA
 * [Richard Liaw](https://github.com/richardliaw) - Anyscale
 * [Armand McQueen](https://github.com/armandmcqueen) - Determined AI
 * [Neil Conway](https://github.com/neilconway) - Determined AI
 * [Min Cai](https://github.com/mincai) - Uber
+* [Congxiao Cao](https://github.com/chongxiaoc) - Uber
+* [Max Gerlach](https://github.com/maxhgerlach) - DeepL
 
 Emeritus members of the Horovod TSC:
 * [Lin Yuan](https://github.com/apeforest)
@@ -38,6 +41,8 @@ Emeritus members of the Horovod TSC:
 * [Yuxi Hu](https://github.com/yuxihu)
 * [Emad Barsoum](https://github.com/ebarsoum)
 * [Aaron Harlap](https://github.com/aaron276h)
+* [Jaliya Ekanayake](https://github.com/jaliyae)
+* [Kaarthik Sivashanmugam](https://github.com/skaarthik)
 
 Non-voting members of the TSC ("maintainers") have commit access to the Horovod GitHub repository, and take part in the
 standing TSC meetings and mailing lists. Emeritus members are no longer active maintainers of the project, but are
