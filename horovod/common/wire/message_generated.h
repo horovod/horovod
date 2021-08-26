@@ -27,14 +27,18 @@ namespace common {
 namespace wire {
 
 struct Request;
+struct RequestBuilder;
 
 struct RequestList;
+struct RequestListBuilder;
 
 struct Response;
+struct ResponseBuilder;
 
 struct ResponseList;
+struct ResponseListBuilder;
 
-enum DataType {
+enum DataType : int8_t {
   DataType_HOROVOD_UINT8 = 0,
   DataType_HOROVOD_INT8 = 1,
   DataType_HOROVOD_UINT16 = 2,
@@ -83,12 +87,12 @@ inline const char * const *EnumNamesDataType() {
 }
 
 inline const char *EnumNameDataType(DataType e) {
-  if (e < DataType_HOROVOD_UINT8 || e > DataType_HOROVOD_BOOL) return "";
+  if (flatbuffers::IsOutRange(e, DataType_HOROVOD_UINT8, DataType_HOROVOD_BOOL)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesDataType()[index];
 }
 
-enum RequestType {
+enum RequestType : int8_t {
   RequestType_ALLREDUCE = 0,
   RequestType_ALLGATHER = 1,
   RequestType_BROADCAST = 2,
@@ -119,12 +123,12 @@ inline const char * const *EnumNamesRequestType() {
 }
 
 inline const char *EnumNameRequestType(RequestType e) {
-  if (e < RequestType_ALLREDUCE || e > RequestType_JOIN) return "";
+  if (flatbuffers::IsOutRange(e, RequestType_ALLREDUCE, RequestType_JOIN)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesRequestType()[index];
 }
 
-enum ResponseType {
+enum ResponseType : int8_t {
   ResponseType_ALLREDUCE = 0,
   ResponseType_ALLGATHER = 1,
   ResponseType_BROADCAST = 2,
@@ -161,12 +165,13 @@ inline const char * const *EnumNamesResponseType() {
 }
 
 inline const char *EnumNameResponseType(ResponseType e) {
-  if (e < ResponseType_ALLREDUCE || e > ResponseType_ERROR) return "";
+  if (flatbuffers::IsOutRange(e, ResponseType_ALLREDUCE, ResponseType_ERROR)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesResponseType()[index];
 }
 
 struct Request FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef RequestBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_REQUEST_RANK = 4,
     VT_REQUEST_TYPE = 6,
@@ -223,6 +228,7 @@ struct Request FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct RequestBuilder {
+  typedef Request Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_request_rank(int32_t request_rank) {
@@ -256,7 +262,6 @@ struct RequestBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  RequestBuilder &operator=(const RequestBuilder &);
   flatbuffers::Offset<Request> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Request>(end);
@@ -315,6 +320,7 @@ inline flatbuffers::Offset<Request> CreateRequestDirect(
 }
 
 struct RequestList FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef RequestListBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_REQUESTS = 4,
     VT_SHUTDOWN = 6
@@ -336,6 +342,7 @@ struct RequestList FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct RequestListBuilder {
+  typedef RequestList Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_requests(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<horovod::common::wire::Request>>> requests) {
@@ -348,7 +355,6 @@ struct RequestListBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  RequestListBuilder &operator=(const RequestListBuilder &);
   flatbuffers::Offset<RequestList> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<RequestList>(end);
@@ -378,6 +384,7 @@ inline flatbuffers::Offset<RequestList> CreateRequestListDirect(
 }
 
 struct Response FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef ResponseBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_RESPONSE_TYPE = 4,
     VT_TENSOR_NAMES = 6,
@@ -386,7 +393,8 @@ struct Response FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_TENSOR_SIZES = 12,
     VT_TENSOR_TYPE = 14,
     VT_PRESCALE_FACTOR = 16,
-    VT_POSTSCALE_FACTOR = 18
+    VT_POSTSCALE_FACTOR = 18,
+    VT_LAST_JOINED_RANK = 20
   };
   horovod::common::wire::ResponseType response_type() const {
     return static_cast<horovod::common::wire::ResponseType>(GetField<int8_t>(VT_RESPONSE_TYPE, 0));
@@ -412,6 +420,9 @@ struct Response FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   double postscale_factor() const {
     return GetField<double>(VT_POSTSCALE_FACTOR, 0.0);
   }
+  int32_t last_joined_rank() const {
+    return GetField<int32_t>(VT_LAST_JOINED_RANK, 0);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<int8_t>(verifier, VT_RESPONSE_TYPE) &&
@@ -427,11 +438,13 @@ struct Response FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<int8_t>(verifier, VT_TENSOR_TYPE) &&
            VerifyField<double>(verifier, VT_PRESCALE_FACTOR) &&
            VerifyField<double>(verifier, VT_POSTSCALE_FACTOR) &&
+           VerifyField<int32_t>(verifier, VT_LAST_JOINED_RANK) &&
            verifier.EndTable();
   }
 };
 
 struct ResponseBuilder {
+  typedef Response Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_response_type(horovod::common::wire::ResponseType response_type) {
@@ -458,11 +471,13 @@ struct ResponseBuilder {
   void add_postscale_factor(double postscale_factor) {
     fbb_.AddElement<double>(Response::VT_POSTSCALE_FACTOR, postscale_factor, 0.0);
   }
+  void add_last_joined_rank(int32_t last_joined_rank) {
+    fbb_.AddElement<int32_t>(Response::VT_LAST_JOINED_RANK, last_joined_rank, 0);
+  }
   explicit ResponseBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  ResponseBuilder &operator=(const ResponseBuilder &);
   flatbuffers::Offset<Response> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Response>(end);
@@ -479,10 +494,12 @@ inline flatbuffers::Offset<Response> CreateResponse(
     flatbuffers::Offset<flatbuffers::Vector<int64_t>> tensor_sizes = 0,
     horovod::common::wire::DataType tensor_type = horovod::common::wire::DataType_HOROVOD_UINT8,
     double prescale_factor = 0.0,
-    double postscale_factor = 0.0) {
+    double postscale_factor = 0.0,
+    int32_t last_joined_rank = 0) {
   ResponseBuilder builder_(_fbb);
   builder_.add_postscale_factor(postscale_factor);
   builder_.add_prescale_factor(prescale_factor);
+  builder_.add_last_joined_rank(last_joined_rank);
   builder_.add_tensor_sizes(tensor_sizes);
   builder_.add_devices(devices);
   builder_.add_error_message(error_message);
@@ -501,7 +518,8 @@ inline flatbuffers::Offset<Response> CreateResponseDirect(
     const std::vector<int64_t> *tensor_sizes = nullptr,
     horovod::common::wire::DataType tensor_type = horovod::common::wire::DataType_HOROVOD_UINT8,
     double prescale_factor = 0.0,
-    double postscale_factor = 0.0) {
+    double postscale_factor = 0.0,
+    int32_t last_joined_rank = 0) {
   auto tensor_names__ = tensor_names ? _fbb.CreateVector<flatbuffers::Offset<flatbuffers::String>>(*tensor_names) : 0;
   auto error_message__ = error_message ? _fbb.CreateString(error_message) : 0;
   auto devices__ = devices ? _fbb.CreateVector<int32_t>(*devices) : 0;
@@ -515,10 +533,12 @@ inline flatbuffers::Offset<Response> CreateResponseDirect(
       tensor_sizes__,
       tensor_type,
       prescale_factor,
-      postscale_factor);
+      postscale_factor,
+      last_joined_rank);
 }
 
 struct ResponseList FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef ResponseListBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_RESPONSES = 4,
     VT_SHUTDOWN = 6
@@ -540,6 +560,7 @@ struct ResponseList FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct ResponseListBuilder {
+  typedef ResponseList Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_responses(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<horovod::common::wire::Response>>> responses) {
@@ -552,7 +573,6 @@ struct ResponseListBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  ResponseListBuilder &operator=(const ResponseListBuilder &);
   flatbuffers::Offset<ResponseList> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<ResponseList>(end);

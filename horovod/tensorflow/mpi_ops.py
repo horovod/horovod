@@ -355,6 +355,14 @@ def _alltoall_grad(op, grad_wrt_output, grad_wrt_received_splits):
     return [grad_wrt_tensor, grad_wrt_splits]
 
 def join():
+    """An op to indicate that the rank finished processing data.
+
+    All ranks that did not call join() continue to process allreduce
+    operations. This op is not done before all ranks have joined.
+
+    Returns:
+      An integer scalar containing the the last rank that joined.
+    """
     return MPI_LIB.horovod_join()
 
 

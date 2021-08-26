@@ -569,18 +569,7 @@ int DoAlltoallCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor splits,
   return handle;
 }
 
-int PollHandle(int handle) { return handle_manager.PollHandle(handle) ? 1 : 0; }
-
-void WaitAndClear(int handle) {
-  while (true) {
-    if (handle_manager.PollHandle(handle)) break;
-    std::this_thread::yield();
-  }
-  auto status = handle_manager.ReleaseHandle(handle);
-  ThrowIfError(*status);
-}
-
-int DoJoin(int device) {
+int DoJoin(::torch::Tensor output_last_joined_rank, int device) {
   ThrowIfError(common::CheckInitialized());
 
 #if !HOROVOD_GPU_ALLREDUCE
@@ -592,12 +581,13 @@ int DoJoin(int device) {
 #if HAVE_GPU
   ready_event_list.AddReadyEvent(RecordReadyEvent(device));
 #endif
-  auto output = ::torch::empty(1);
-  auto hvd_context = std::make_shared<TorchOpContext>(device, output);
+  auto hvd_context =
+      std::make_shared<TorchOpContext>(device, output_last_joined_rank);
+  std::shared_ptr<Tensor> hvd_output = std::make_shared<TorchTensor>(
+      output_last_joined_rank);
 
   auto enqueue_result = EnqueueJoin(
-      hvd_context, ready_event_list,
-      JOIN_TENSOR_NAME, device,
+      hvd_context, hvd_output, ready_event_list, JOIN_TENSOR_NAME, device,
       [handle, device](const Status& status) mutable {
 #if HAVE_GPU
         auto hvd_event = status.event;
@@ -610,8 +600,18 @@ int DoJoin(int device) {
       });
   ThrowIfError(enqueue_result);
 
-  WaitAndClear(handle);
   return handle;
+}
+
+int PollHandle(int handle) { return handle_manager.PollHandle(handle) ? 1 : 0; }
+
+void WaitAndClear(int handle) {
+  while (true) {
+    if (handle_manager.PollHandle(handle)) break;
+    std::this_thread::yield();
+  }
+  auto status = handle_manager.ReleaseHandle(handle);
+  ThrowIfError(*status);
 }
 
 void Reset() {

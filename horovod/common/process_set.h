@@ -44,6 +44,9 @@ struct ProcessSet {
   // Number of ranks that did Join()
   int joined_size = 0;
 
+  // Last global rank that did Join()
+  int32_t last_joined_rank = -1;
+
   // If a rank is Joined, AllReduce uses temporary 0 tensors for it.
   bool joined = false;
 

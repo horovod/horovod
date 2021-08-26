@@ -942,7 +942,7 @@ def synchronize(handle):
         raise HorovodInternalError(e)
 
 
-def join(device=-1):
+def join(device=-1) -> int:
     """A function that indicates that the rank finished processing data.
 
     All ranks that did not call join() continue to process allreduce operations.
@@ -954,7 +954,12 @@ def join(device=-1):
     Returns:
         Id of the rank that joined last.
     """
+    output = torch.tensor(-1, dtype=torch.int, device=torch.device("cpu"))
     try:
-        return mpi_lib.horovod_torch_join(device)
+        handle = mpi_lib.horovod_torch_join(output, device)
     except RuntimeError as e:
         raise HorovodInternalError(e)
+
+    _handle_map[handle] = (None, output)
+
+    return synchronize(handle).item()

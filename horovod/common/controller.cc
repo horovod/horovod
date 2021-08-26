@@ -261,6 +261,7 @@ ResponseList Controller::ComputeResponseList(bool this_process_requested_shutdow
 
         if (message.request_type() == Request::JOIN) {
           process_set.joined_size++;
+          process_set.last_joined_rank = global_ranks_[rank_];
           continue;
         }
 
@@ -285,6 +286,7 @@ ResponseList Controller::ComputeResponseList(bool this_process_requested_shutdow
 
           if (received_message.request_type() == Request::JOIN) {
             process_set.joined_size++;
+            process_set.last_joined_rank = global_ranks_[i];
             continue;
           }
 
@@ -401,12 +403,15 @@ ResponseList Controller::ComputeResponseList(bool this_process_requested_shutdow
         responses.push_back(std::move(response));
       }
       if (process_set.joined_size == size_) {
-        // All ranks did Join(). Send the response, reset joined size.
+        // All ranks did Join(). Send the response, reset joined_size and
+        // last_joined_rank.
         Response join_response;
         join_response.set_response_type(Response::JOIN);
         join_response.add_tensor_name(JOIN_TENSOR_NAME);
+        join_response.set_last_joined_rank(process_set.last_joined_rank);
         responses.push_back(std::move(join_response));
         process_set.joined_size = 0;
+        process_set.last_joined_rank = -1;
       }
       FuseResponses(responses, state, response_list);
       response_list.set_shutdown(should_shut_down);
