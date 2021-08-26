@@ -61,6 +61,25 @@ set(Tensorflow_CXX11 ${Tensorflow_CXX11} PARENT_SCOPE)
 list(APPEND TF_SOURCES "${PROJECT_SOURCE_DIR}/horovod/tensorflow/mpi_ops.cc")
 list(APPEND TF_SOURCES "${PROJECT_SOURCE_DIR}/horovod/tensorflow/xla_mpi_ops.cc")
 
+list(APPEND TF_SOURCES "${PROJECT_SOURCE_DIR}/horovod/tensorflow/dense_update_functor.cc"
+                       "${PROJECT_SOURCE_DIR}/horovod/tensorflow/training_op_helpers.cc")
+
+if(HAVE_CUDA OR HAVE_SUB_PROJECT_CUDA)
+    list(APPEND TF_CUDA_SOURCES "${PROJECT_SOURCE_DIR}/horovod/tensorflow/dense_update_functor_gpu.cc.cu")
+    # dense_update_functor_gpu.cu.cc from TensorFlow source had to be renamed because it was not compiled via nvcc otherwise
+
+    set(CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
+
+    set(ENV{PYTHONPATH} "${PROJECT_SOURCE_DIR}/cmake:$ENV{PYTHONPATH}")
+    execute_process(COMMAND ${PY_EXE} -c "import build_utils; print(' '.join(build_utils.get_nvcc_flags()))"
+                    OUTPUT_VARIABLE HVD_NVCC_COMPILE_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+    list(APPEND CUDA_NVCC_FLAGS "${HVD_NVCC_COMPILE_FLAGS}")
+
+    cuda_add_library(tensorflow_cuda_kernels ${TF_CUDA_SOURCES} STATIC OPTIONS -DGOOGLE_CUDA=1)
+    list(APPEND TF_LINKER_LIBS tensorflow_cuda_kernels)
+endif()
+
 # Create library
 set_output_dir()
 add_library(${TF_TARGET_LIB} SHARED ${SOURCES} ${TF_SOURCES})
