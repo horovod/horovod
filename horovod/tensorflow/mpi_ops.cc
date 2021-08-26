@@ -18,16 +18,24 @@
 
 #include <memory>
 #include <queue>
+#include <regex>
 #include <thread>
 #include <unordered_map>
+
+#define EIGEN_USE_THREADS
+#if HAVE_CUDA || HAVE_ROCM
+#define EIGEN_USE_GPU
+#endif  // HAVE_CUDA || HAVE_ROCM
 
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/shape_inference.h"
+#include "tensorflow/core/framework/common_shape_fns.h"
+#include "tensorflow/core/framework/resource_mgr.h"
+#include "tensorflow/core/framework/resource_var.h"
+#include "tensorflow/core/kernels/training_op_helpers.h"
 
 #include "../common/common.h"
-
-#define EIGEN_USE_THREADS
 
 #if HAVE_GPU
 
@@ -829,6 +837,255 @@ Arguments
 Output
     output:    A tensor with the same shape as `tensor` and same value as
                `tensor` on root rank.
+)doc");
+
+namespace {
+std::string NormalizeNameForTensorFlow(const std::string& name) {
+  static const std::regex normalize_re(R"regex([^a-zA-Z0-9_])regex");
+  return std::regex_replace(name, normalize_re, "_");
+}
+
+Status GetInputDataTypeFromVariable(OpKernelContext* ctx, int input,
+                                    DataType& out) {
+  if (ctx->input_dtype(input) == DT_RESOURCE) {
+    core::RefCountPtr<Var> var;
+    TF_RETURN_IF_ERROR(LookupResource(ctx, HandleFromInput(ctx, input), &var));
+    out = var->tensor()->dtype();
+  } else {
+    out = BaseType(ctx->input_dtype(input));
+  }
+  return Status::OK();
+}
+
+}
+
+template <typename Device>
+class HorovodBroadcastInplaceOp : public OpKernel {
+public:
+  explicit HorovodBroadcastInplaceOp(OpKernelConstruction* context)
+      : OpKernel(context) {
+    OP_REQUIRES_OK(context, context->GetAttr("root_rank", &root_rank_));
+    OP_REQUIRES_OK(context,
+                   context->GetAttr("process_set_id", &process_set_id_));
+    OP_REQUIRES_OK(context, context->GetAttr("num_variables", &num_variables_));
+    OP_REQUIRES_OK(context, context->GetAttr("variable_names", &variable_names_));
+    OP_REQUIRES(context, (int) variable_names_.size() == num_variables_,
+                errors::InvalidArgument(
+                    "len(variable_names) needs to be equal to num_variables"));
+  }
+
+  void Compute(OpKernelContext* context) override {
+    OP_REQUIRES_OK(context, ConvertStatus(common::CheckInitialized()));
+
+    auto any_failures_and_tensors_done =
+        std::make_shared<std::pair<std::atomic<bool>, std::atomic<int>>>();
+    any_failures_and_tensors_done->first.store(false);
+    any_failures_and_tensors_done->second.store(0);
+
+    std::vector<VariableInputLockHolder> variable_locks;
+    variable_locks.reserve(num_variables_);
+
+    for (int tensor_index = 0; tensor_index < num_variables_; ++tensor_index) {
+      // Custom ops with resource variables are broken for at least TF 2.3, 2.4,
+      // and 2.5. A fix has been introduced to TF 2.6 via this PR:
+      // https://github.com/tensorflow/tensorflow/pull/47072
+
+      DataType dtype;
+      OP_REQUIRES_OK(
+          context, GetInputDataTypeFromVariable(context, tensor_index, dtype));
+
+      // Functions in tensorflow/core/kernels/training_op_helpers.h that deal
+      // with resource variables need a template type parameter. This requires
+      // us to branch out to different specializations of a templated helper
+      // function.
+      switch (dtype) {
+#define PROCESS_CASE(DT, T)                                                    \
+  case DT:                                                                     \
+    OP_REQUIRES_OK(context, Process<T>(context, tensor_index, variable_locks,  \
+                                       any_failures_and_tensors_done));        \
+    break;
+        PROCESS_CASE(DT_UINT8, uint8)
+        PROCESS_CASE(DT_INT8, int8)
+        PROCESS_CASE(DT_INT32, int32)
+        PROCESS_CASE(DT_INT64, int64)
+        PROCESS_CASE(DT_HALF, Eigen::half)
+        PROCESS_CASE(DT_FLOAT, float)
+        PROCESS_CASE(DT_DOUBLE, double)
+        PROCESS_CASE(DT_BOOL, bool)
+        // no support for int16 and uint16 because there are no DenseUpdate
+        // kernels for them
+      default:
+        context->CtxFailure(__FILE__, __LINE__,errors::InvalidArgument(
+            "Horovod inplace broadcast does not support data type ",
+            DataTypeString(dtype)));
+        return;
+      }
+#undef PROCESS_CASE
+    }
+
+    while (!any_failures_and_tensors_done->first.load() &&
+           any_failures_and_tensors_done->second.load() < num_variables_) {
+      std::this_thread::yield();
+    }
+  }
+
+private:
+  int root_rank_ = 0;
+  int process_set_id_ = 0;
+  int num_variables_ = 0;
+  std::vector<std::string> variable_names_;
+
+  template <typename T>
+  Status
+  Process(OpKernelContext* context, int tensor_index,
+          std::vector<VariableInputLockHolder>& variable_locks,
+          const std::shared_ptr<std::pair<std::atomic<bool>, std::atomic<int>>>&
+              any_failures_and_tensors_done) {
+    const bool do_lock = true;
+    const bool sparse = false;
+    // MaybeLockVariableInputMutexesInOrder() seems to be broken at the moment
+    // https://github.com/tensorflow/tensorflow/issues/51686
+    {
+      Var* var;
+      mutex* mu = GetTrainingVariableMutex<Device, T>(context, tensor_index,
+                                                      sparse, &var);
+      std::vector<Var*> vars;
+      if (var) {
+        vars.reserve(1);
+        vars.push_back(var);
+      }
+      std::vector<mutex*> mutexes{mu};
+      auto locks = absl::make_unique<std::vector<mutex_lock>>();
+      locks->reserve(1);
+      locks->emplace_back(*mu);
+      auto shared_locks = absl::make_unique<std::vector<tf_shared_lock>>();
+      variable_locks.emplace_back(std::move(vars), std::move(locks),
+                                  std::move(shared_locks));
+    }
+
+    Tensor tensor;
+    TF_RETURN_IF_ERROR(GetInputTensorFromVariable<Device, T>(
+        context, tensor_index, do_lock, sparse, &tensor));
+    Tensor* output = &tensor;
+    MaybeForwardRefInputToRefOutput(context, tensor_index, tensor_index);
+
+    std::string var_name = variable_names_[tensor_index];
+    if (context->input_dtype(tensor_index) == DT_RESOURCE && var_name.empty()) {
+      const ResourceHandle& handle = HandleFromInput(context, tensor_index);
+      // handle.name() seems to be something like _AnonymousVar18. The Python
+      // name attribute of the variable is apparently not passed through
+      // automatically. So we use this only if we do not have a proper name.
+      var_name = handle.name();
+    }
+
+    auto device = GetDeviceID(context);
+    // ReadyEvent makes sure input tensor is ready, and output is allocated.
+    common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+    ready_event_list.AddReadyEvent(
+        std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context)));
+#endif
+    auto hvd_context = std::make_shared<TFOpContext>(context);
+    auto hvd_tensor = std::make_shared<TFTensor>(tensor);
+    auto hvd_output = std::make_shared<TFTensor>(*output);
+    const std::string node_name =
+        name() + "_" + NormalizeNameForTensorFlow(var_name);
+    auto enqueue_result = EnqueueTensorBroadcast(
+        hvd_context, hvd_tensor, hvd_output, root_rank_, ready_event_list,
+        node_name, device,
+        [context, any_failures_and_tensors_done](const common::Status& status) {
+#if HAVE_GPU
+          auto hvd_event = status.event;
+          if (hvd_event.event) {
+            auto device_context = context->op_device_context();
+            if (device_context != nullptr) {
+              auto stream = stream_executor::gpu::AsGpuStreamValue(
+                  device_context->stream());
+              HVD_GPU_CHECK(gpuStreamWaitEvent(stream, *(hvd_event.event), 0));
+            }
+          }
+#endif
+          if (!status.ok()) {
+            auto prev_failures = any_failures_and_tensors_done->first.load();
+            if (!prev_failures) {
+              // Only keeping failure status of the first broadcast that fails
+              context->SetStatus(ConvertStatus(status));
+              any_failures_and_tensors_done->first.store(false);
+            }
+          }
+          any_failures_and_tensors_done->second.fetch_add(1);
+        },
+        process_set_id_);
+    return ConvertStatus(enqueue_result);
+  }
+};
+
+REGISTER_KERNEL_BUILDER(Name("HorovodBroadcastInplace").Device(DEVICE_CPU),
+                        HorovodBroadcastInplaceOp<CPUDevice>);
+#if HOROVOD_GPU_BROADCAST
+REGISTER_KERNEL_BUILDER(Name("HorovodBroadcastInplace").Device(DEVICE_GPU),
+                        HorovodBroadcastInplaceOp<GPUDevice>);
+#endif
+
+REGISTER_OP("HorovodBroadcastInplace")
+    .Attr(
+        "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
+    .Attr("root_rank: int")
+    .Attr("process_set_id: int = 0")
+    .Attr("num_variables: int")
+    .Attr("variable_names: list(string)")
+    .Input("tensor_refs: Ref(num_variables * T)")
+    .Output("output_refs: Ref(num_variables * T)")
+    .SetShapeFn(shape_inference::UnchangedShape)
+    .Doc(R"doc(
+Perform an in-place Broadcast on (TF1-style) reference variables. All other
+processes that do a broadcast on variables with the same names must have the
+same dimensions for those variables. All variables must be located on the same
+device and they must be of the same data type.
+
+Arguments
+    root_rank:      Rank that will send data, other ranks will receive data.
+    variable_names: Names associated to the variables (obtained via Python
+                    framework)
+
+Input
+    tensor_refs:    Variables to broadcast. They will be updated in-place
+                    to the values from the root rank.
+Output
+    output_refs:    The updated variables.
+)doc");
+
+REGISTER_KERNEL_BUILDER(
+    Name("HorovodBroadcastInplaceResource").Device(DEVICE_CPU),
+    HorovodBroadcastInplaceOp<CPUDevice>);
+#if HOROVOD_GPU_BROADCAST
+REGISTER_KERNEL_BUILDER(Name("HorovodBroadcastInplaceResource")
+                            .Device(DEVICE_GPU)
+                            .HostMemory("resources"),
+                        HorovodBroadcastInplaceOp<GPUDevice>);
+#endif
+
+REGISTER_OP("HorovodBroadcastInplaceResource")
+    .Attr("root_rank: int")
+    .Attr("process_set_id: int = 0")
+    .Attr("num_variables: int")
+    .Attr("variable_names: list(string)")
+    .Input("resources: num_variables * resource")
+    .SetShapeFn(shape_inference::NoOutputs)
+    .Doc(R"doc(
+Perform an in-place Broadcast on (TF2-style) resource variables. All other
+processes that do a broadcast on variables with the same names must have the
+same dimensions for those variables. All variables must be located on the same
+device.
+
+Arguments
+    root_rank:      Rank that will send data, other ranks will receive data.
+    variable_names: Names associated to the variables (obtained via Python
+                    framework)
+
+Input
+    resources:    Variables to broadcast. They will be updated in-place
+                  to the values from the root rank.
 )doc");
 
 class HorovodJoinOp : public AsyncOpKernel {

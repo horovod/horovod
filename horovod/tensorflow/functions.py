@@ -21,7 +21,7 @@ import tensorflow as tf
 
 from tensorflow.python.framework import ops
 
-from horovod.tensorflow.mpi_ops import allgather, broadcast
+from horovod.tensorflow.mpi_ops import allgather, broadcast, broadcast_
 from horovod.tensorflow.mpi_ops import rank, size
 from horovod.tensorflow.util import _cache, _executing_eagerly, _make_subgraph
 from horovod.common.process_sets import ProcessSet, global_process_set
@@ -45,10 +45,33 @@ def _make_broadcast_group_fn():
         return broadcast_group
 
 
-def broadcast_variables(variables, root_rank, process_set=global_process_set):
+@_cache
+def _make_inplace_broadcast_group_fn():
+    if _executing_eagerly():
+        # These are just a few calls of broadcast_, no need to aggregate them in a tf.function
+        def broadcast_group(variable_lists, root_rank, process_set: ProcessSet):
+            for variables in variable_lists:
+                broadcast_(variables, root_rank, process_set=process_set)
+
+        return broadcast_group
+    else:
+        # Graph mode requires an Op
+        def broadcast_group(variable_lists, root_rank, process_set: ProcessSet):
+            return tf.group(*[broadcast_(variables, root_rank, process_set=process_set)
+                              for variables in variable_lists])
+
+        return broadcast_group
+
+
+def broadcast_variables(variables, root_rank, process_set=global_process_set, inplace=False):
     """
     Broadcasts variables from root rank to all other processes
     in a process set (defaults to all Horovod processes).
+
+    Optionally, the broadcast may be performed in-place. Some restrictions apply then:
+    Reference variables (default in TensorFlow 1, legacy in TensorFlow 2) must all be
+    of the same data type. Resource variables (default in TensorFlow 2) are not supported
+    with TensorFlow
 
     Arguments:
         variables: variables for broadcast
@@ -56,9 +79,18 @@ def broadcast_variables(variables, root_rank, process_set=global_process_set):
                    to all other processes.
         process_set: Process set object to limit this operation to a subset of
                      Horovod processes. Default is the global process set.
+        inplace: whether to perform in-place broadcasts
     """
-    broadcast_group = _make_broadcast_group_fn()
-    return broadcast_group(variables, root_rank, process_set)
+    if inplace:
+        vars_by_device = {}
+        for var in variables:
+            vars_by_device.setdefault(var.device, []).append(var)
+
+        inplace_broadcast_group = _make_inplace_broadcast_group_fn()
+        return inplace_broadcast_group(vars_by_device.values(), root_rank, process_set)
+    else:
+        broadcast_group = _make_broadcast_group_fn()
+        return broadcast_group(variables, root_rank, process_set)
 
 
 def broadcast_object(obj, root_rank=0, session=None, name=None, process_set=global_process_set):
