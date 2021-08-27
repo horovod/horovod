@@ -136,6 +136,31 @@ class ColocatedStrategy(BaseStrategy):
         return self.workers, self.get_node_workers(self.workers)
 
 
+def _get_worker_gpus(workers):
+    node_ids = ray.get(
+        [worker.node_id.remote() for worker in workers])
+    gpus = ray.get(
+        [worker.get_gpu_ids.remote() for worker in workers])
+    node_workers = defaultdict(list)
+    node_id_to_gpus = defaultdict(list)
+    for worker, node_id, worker_gpu_ids in zip(workers, node_ids,
+                                               gpus):
+        node_workers[node_id].append(worker)
+        node_id_to_gpus[node_id].extend(worker_gpu_ids)
+
+    futures = []
+    for node_id, gpu_ids in node_id_to_gpus.items():
+        all_ids = ",".join([str(gpu_id) for gpu_id in gpu_ids])
+
+        for worker in node_workers[node_id]:
+            futures.append(
+                worker.update_env_vars.remote({
+                    "CUDA_VISIBLE_DEVICES":
+                    all_ids
+                }))
+    ray.get(futures)
+
+
 class PackStrategy(BaseStrategy):
     """Packs workers together but does not guarantee balanced hosts."""
 
@@ -180,28 +205,7 @@ class PackStrategy(BaseStrategy):
             self.workers.append(worker)
 
         if self.use_gpu:
-            node_ids = ray.get(
-                [worker.node_id.remote() for worker in self.workers])
-            gpus = ray.get(
-                [worker.get_gpu_ids.remote() for worker in self.workers])
-            node_workers = defaultdict(list)
-            node_id_to_gpus = defaultdict(list)
-            for worker, node_id, worker_gpu_ids in zip(self.workers, node_ids,
-                                                       gpus):
-                node_workers[node_id].append(worker)
-                node_id_to_gpus[node_id].extend(worker_gpu_ids)
-
-            futures = []
-            for node_id, gpu_ids in node_id_to_gpus.items():
-                all_ids = ",".join([str(gpu_id) for gpu_id in gpu_ids])
-
-                for worker in node_workers[node_id]:
-                    futures.append(
-                        worker.update_env_vars.remote({
-                            "CUDA_VISIBLE_DEVICES":
-                            all_ids
-                        }))
-            ray.get(futures)
+            _get_worker_gpus(self.workers)
         return self.workers, self.get_node_workers(self.workers)
 
 
@@ -247,28 +251,7 @@ class PGStrategy(BaseStrategy):
             self.workers.append(worker)
 
         if self.use_gpu:
-            node_ids = ray.get(
-                [worker.node_id.remote() for worker in self.workers])
-            gpus = ray.get(
-                [worker.get_gpu_ids.remote() for worker in self.workers])
-            node_workers = defaultdict(list)
-            node_id_to_gpus = defaultdict(list)
-            for worker, node_id, worker_gpu_ids in zip(self.workers, node_ids,
-                                                       gpus):
-                node_workers[node_id].append(worker)
-                node_id_to_gpus[node_id].extend(worker_gpu_ids)
-
-            futures = []
-            for node_id, gpu_ids in node_id_to_gpus.items():
-                all_ids = ",".join([str(gpu_id) for gpu_id in gpu_ids])
-
-                for worker in node_workers[node_id]:
-                    futures.append(
-                        worker.update_env_vars.remote({
-                            "CUDA_VISIBLE_DEVICES":
-                            all_ids
-                        }))
-            ray.get(futures)
+            _get_worker_gpus(self.workers)
         return self.workers, self.get_node_workers(self.workers)
 
     def shutdown(self):
