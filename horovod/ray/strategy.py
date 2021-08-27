@@ -3,6 +3,7 @@ import logging
 from typing import Dict
 
 import ray
+from ray.util.placement_group import get_current_placement_group
 from horovod.ray.utils import map_blocking
 from horovod.ray.worker import BaseHorovodWorker
 
@@ -202,3 +203,77 @@ class PackStrategy(BaseStrategy):
                         }))
             ray.get(futures)
         return self.workers, self.get_node_workers(self.workers)
+
+
+class PGStrategy(BaseStrategy):
+    """Uses an existing placement group.
+
+    If placement_group=None, will try to get the current placement group.
+    """
+
+    def __init__(self, *, settings, num_workers, use_gpu, cpus_per_worker,
+                 gpus_per_worker, placement_group=None):
+        self.settings = settings
+        self._num_workers = num_workers
+        self.cpus_per_worker = cpus_per_worker
+        self.gpus_per_worker = gpus_per_worker or 1
+        self.use_gpu = use_gpu
+        self.placement_group = placement_group or get_current_placement_group()
+        if self.placement_group is None:
+            raise RuntimeError(
+                "PGStrategy must be instantiated in a task or "
+                "actor already using a placement group."
+            )
+        self._placement_group_bundles = self.placement_group.bundle_specs
+
+    @property
+    def num_workers(self):
+        return len(self._placement_group_bundles)
+
+    def create_workers(self):
+        # Placement group has started. Now create the workers.
+        self.workers = []
+        remote_cls = ray.remote(BaseHorovodWorker)
+
+        for bundle_index in range(len(self._placement_group_bundles)):
+            remote_cls_with_options = remote_cls.options(
+                num_cpus=self.cpus_per_worker,
+                num_gpus=self.gpus_per_worker * int(self.use_gpu),
+                placement_group_capture_child_tasks=False,
+                placement_group=self.placement_group,
+                placement_group_bundle_index=-1)
+            worker = remote_cls_with_options.remote(
+                world_rank=bundle_index, world_size=self.num_workers)
+
+            self.workers.append(worker)
+
+        print(self.workers)
+        print(self._placement_group_bundles)
+
+        if self.use_gpu:
+            node_ids = ray.get(
+                [worker.node_id.remote() for worker in self.workers])
+            gpus = ray.get(
+                [worker.get_gpu_ids.remote() for worker in self.workers])
+            node_workers = defaultdict(list)
+            node_id_to_gpus = defaultdict(list)
+            for worker, node_id, worker_gpu_ids in zip(self.workers, node_ids,
+                                                       gpus):
+                node_workers[node_id].append(worker)
+                node_id_to_gpus[node_id].extend(worker_gpu_ids)
+
+            futures = []
+            for node_id, gpu_ids in node_id_to_gpus.items():
+                all_ids = ",".join([str(gpu_id) for gpu_id in gpu_ids])
+
+                for worker in node_workers[node_id]:
+                    futures.append(
+                        worker.update_env_vars.remote({
+                            "CUDA_VISIBLE_DEVICES":
+                            all_ids
+                        }))
+            ray.get(futures)
+        return self.workers, self.get_node_workers(self.workers)
+
+    def shutdown(self):
+        self.workers = []

@@ -10,7 +10,7 @@ import logging
 from horovod.runner.common.util import secret, timeout, hosts
 from horovod.runner.http.http_server import RendezvousServer
 from horovod.ray.utils import detect_nics, nics_to_env_var, map_blocking
-from horovod.ray.strategy import ColocatedStrategy, PackStrategy
+from horovod.ray.strategy import ColocatedStrategy, PackStrategy, PGStrategy
 logger = logging.getLogger(__name__)
 
 
@@ -388,6 +388,18 @@ class _ExecutorDriver:
 
     def _create_strategy(self):
         assert self.num_workers is None or self.num_hosts is None
+        try:
+            # Will try to get the current PG, otherwise
+            # will raise RuntimeError
+            return PGStrategy(
+                settings=self.settings,
+                num_workers=self.num_workers,
+                use_gpu=self.use_gpu,
+                cpus_per_worker=self.cpus_per_worker,
+                gpus_per_worker=self.gpus_per_worker
+            )
+        except RuntimeError:
+            pass
         if self.num_workers:
             return PackStrategy(
                 settings=self.settings,
