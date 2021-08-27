@@ -31,9 +31,12 @@
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/shape_inference.h"
 #include "tensorflow/core/framework/common_shape_fns.h"
+
+#if TENSORFLOW_VERSION >= 2006000000
 #include "tensorflow/core/framework/resource_mgr.h"
 #include "tensorflow/core/framework/resource_var.h"
 #include "tensorflow/core/kernels/training_op_helpers.h"
+#endif // TENSORFLOW_VERSION >= 2006000000
 
 #include "../common/common.h"
 
@@ -839,6 +842,7 @@ Output
                `tensor` on root rank.
 )doc");
 
+#if TENSORFLOW_VERSION >= 2006000000
 namespace {
 std::string NormalizeNameForTensorFlow(const std::string& name) {
   static const std::regex normalize_re(R"regex([^a-zA-Z0-9_])regex");
@@ -1087,6 +1091,7 @@ Input
     resources:    Variables to broadcast. They will be updated in-place
                   to the values from the root rank.
 )doc");
+#endif // TENSORFLOW_VERSION >= 2006000000
 
 class HorovodJoinOp : public AsyncOpKernel {
 public:

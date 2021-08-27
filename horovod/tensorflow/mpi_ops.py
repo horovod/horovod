@@ -305,12 +305,15 @@ def broadcast_(variables, root_rank, name=None, process_set=global_process_set):
     are ready to send and receive all variables. In each process all variables need
     to be located on the same device (CPU or GPU).
 
-    Note: Due to a bug in TensorFlow this will not work with resource variables in
-    TF 2.3, 2.4, or 2.5. Versions 1.15 and 2.6 should be fine, however.
+    Note: This is only supported with TensorFlow 2.6 or later.
 
     Returns:
       The tensor values of the updated `variables` as broadcasted from root rank.
     """
+    from distutils.version import LooseVersion
+    if LooseVersion(tf.__version__) < LooseVersion('2.6.0'):
+        raise NotImplementedError("In-place broadcasts are only supported with TensorFlow 2.6 or later")
+
     from tensorflow.python.ops import resource_variable_ops
     if all(resource_variable_ops.is_resource_variable(var) for var in variables):
         with tf.control_dependencies(

@@ -2227,8 +2227,8 @@ class TensorFlowTests(tf.test.TestCase):
 
     def test_horovod_broadcast_inplace_cpu(self):
         """Test that the inplace broadcast correctly broadcasts 1D, 2D, 3D variables on CPU."""
-        if LooseVersion('2.3.0') <= LooseVersion(tf.__version__) < LooseVersion('2.6.0'):
-            self.skipTest("Custom Ops using resource variables are known to be broken with TensorFlow 2.3, 2.4, and 2.5")
+        if LooseVersion(tf.__version__) < LooseVersion('2.6.0'):
+            self.skipTest("Custom Ops using resource variables only work with TF 2.6+")
 
         hvd.init()
         rank = hvd.rank()
@@ -2271,8 +2271,8 @@ class TensorFlowTests(tf.test.TestCase):
 
     def test_horovod_broadcast_inplace_gpu(self):
         """Test that the inplace broadcast correctly broadcasts 1D, 2D, 3D variables on GPU."""
-        if LooseVersion('2.3.0') <= LooseVersion(tf.__version__) < LooseVersion('2.6.0'):
-            self.skipTest("Custom Ops using resource variables are known to be broken with TensorFlow 2.3, 2.4, and 2.5")
+        if LooseVersion(tf.__version__) < LooseVersion('2.6.0'):
+            self.skipTest("Custom Ops using resource variables only work with TF 2.6+")
 
         if not tf.test.is_gpu_available(cuda_only=True):
             self.skipTest("No GPUs available")
@@ -2321,8 +2321,8 @@ class TensorFlowTests(tf.test.TestCase):
 
     def test_horovod_broadcast_inplace_multiple(self):
         """Test that the inplace broadcast correctly broadcasts multiple variables on CPU."""
-        if LooseVersion('2.3.0') <= LooseVersion(tf.__version__) < LooseVersion('2.6.0'):
-            self.skipTest("Custom Ops using resource variables are known to be broken with TensorFlow 2.3, 2.4, and 2.5")
+        if LooseVersion(tf.__version__) < LooseVersion('2.6.0'):
+            self.skipTest("Custom Ops using resource variables only work with TF 2.6+")
 
         hvd.init()
         rank = hvd.rank()
