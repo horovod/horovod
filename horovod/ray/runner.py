@@ -146,6 +146,8 @@ class RayExecutor:
             ``num_workers``. Number of workers to be placed on each machine.
             Used to enforce equal number of workers on each machine. Only
             used in conjunction with `num_hosts`.
+        use_current_placement_group (bool): Whether to use the current
+            placement group instead of creating a new one. Defaults to True.
 
     """
 
@@ -187,6 +189,7 @@ class RayExecutor:
             cpus_per_worker: int = 1,
             use_gpu: bool = False,
             gpus_per_worker: Optional[int] = None,
+            use_current_placement_group: bool = True,
             # Deprecated Args.
             num_slots: Optional[int] = None,
             cpus_per_slot: Optional[int] = None,
@@ -238,6 +241,7 @@ class RayExecutor:
             cpus_per_worker=cpus_per_worker,
             use_gpu=use_gpu,
             gpus_per_worker=gpus_per_worker,
+            use_current_placement_group=use_current_placement_group
         )
         self._is_remote = False
         if ray.util.client.ray.is_connected():
@@ -365,7 +369,8 @@ class _ExecutorDriver:
                  num_workers_per_host: int = 1,
                  cpus_per_worker: int = 1,
                  use_gpu: bool = False,
-                 gpus_per_worker: Optional[int] = None):
+                 gpus_per_worker: Optional[int] = None,
+                 use_current_placement_group: bool = True):
 
         self.settings = settings
         self.num_workers = num_workers
@@ -374,6 +379,7 @@ class _ExecutorDriver:
         self.cpus_per_worker = cpus_per_worker
         self.use_gpu = use_gpu
         self.gpus_per_worker = gpus_per_worker or 1
+        self.use_current_placement_group = use_current_placement_group
 
         self.workers = []
         self.strategy = None
@@ -388,18 +394,19 @@ class _ExecutorDriver:
 
     def _create_strategy(self):
         assert self.num_workers is None or self.num_hosts is None
-        try:
-            # Will try to get the current PG, otherwise
-            # will raise RuntimeError
-            return PGStrategy(
-                settings=self.settings,
-                num_workers=self.num_workers,
-                use_gpu=self.use_gpu,
-                cpus_per_worker=self.cpus_per_worker,
-                gpus_per_worker=self.gpus_per_worker
-            )
-        except RuntimeError:
-            pass
+        if self.use_current_placement_group:
+            try:
+                # Will try to get the current PG, otherwise
+                # will raise RuntimeError
+                return PGStrategy(
+                    settings=self.settings,
+                    num_workers=self.num_workers,
+                    use_gpu=self.use_gpu,
+                    cpus_per_worker=self.cpus_per_worker,
+                    gpus_per_worker=self.gpus_per_worker
+                )
+            except RuntimeError:
+                pass
         if self.num_workers:
             return PackStrategy(
                 settings=self.settings,
