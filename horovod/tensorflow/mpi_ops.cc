@@ -1033,7 +1033,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodBroadcastInplace").Device(DEVICE_GPU),
 
 REGISTER_OP("HorovodBroadcastInplace")
     .Attr(
-        "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
+        "T: {uint8, int8, int32, int64, float16, float32, float64, bool}")
     .Attr("root_rank: int")
     .Attr("process_set_id: int = 0")
     .Attr("num_variables: int")
