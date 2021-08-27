@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- By default, RayExecutor will now use the current placement group instead of always creating a new one.
+
 ### Deprecated
 
 ### Removed
