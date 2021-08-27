@@ -247,9 +247,6 @@ class PGStrategy(BaseStrategy):
 
             self.workers.append(worker)
 
-        print(self.workers)
-        print(self._placement_group_bundles)
-
         if self.use_gpu:
             node_ids = ray.get(
                 [worker.node_id.remote() for worker in self.workers])
