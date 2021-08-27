@@ -398,13 +398,20 @@ class _ExecutorDriver:
             try:
                 # Will try to get the current PG, otherwise
                 # will raise RuntimeError
-                return PGStrategy(
+                strategy = PGStrategy(
                     settings=self.settings,
-                    num_workers=self.num_workers,
+                    num_workers=self.num_workers if self.num_workers else self.num_hosts *
+                    self.num_workers_per_host,
                     use_gpu=self.use_gpu,
                     cpus_per_worker=self.cpus_per_worker,
                     gpus_per_worker=self.gpus_per_worker
                 )
+                logger.info(
+                    "Found an existing placement group, inheriting. "
+                    "You can disable this behavior by setting "
+                    "`use_current_placement_group=False`."
+                )
+                return strategy
             except RuntimeError:
                 pass
         if self.num_workers:
