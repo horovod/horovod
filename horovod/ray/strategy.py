@@ -228,14 +228,14 @@ class PGStrategy(BaseStrategy):
 
     @property
     def num_workers(self):
-        return len(self._placement_group_bundles)
+        return self._num_workers
 
     def create_workers(self):
         # Placement group has started. Now create the workers.
         self.workers = []
         remote_cls = ray.remote(BaseHorovodWorker)
 
-        for bundle_index in range(len(self._placement_group_bundles)):
+        for bundle_index in range(self.num_workers):
             remote_cls_with_options = remote_cls.options(
                 num_cpus=self.cpus_per_worker,
                 num_gpus=self.gpus_per_worker * int(self.use_gpu),
