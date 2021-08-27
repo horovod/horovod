@@ -425,7 +425,8 @@ def test_horovod_train(ray_start_4_cpus, num_workers, num_hosts,
 @pytest.mark.skipif(
     not gloo_built(), reason='Gloo is required for Ray integration')
 def test_horovod_train_in_pg(ray_start_4_cpus):
-    pg, _ = create_placement_group({"CPU": 1, "GPU": 1}, 4, 30, "PACK")
+    pg, _ = create_placement_group(
+        {"CPU": 1, "GPU": int(torch.cuda.is_available())}, 4, 30, "PACK")
 
     @ray.remote(num_cpus=0, num_gpus=0, placement_group_capture_child_tasks=True, placement_group=pg)
     def remote_func():
