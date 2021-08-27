@@ -235,7 +235,7 @@ class PGStrategy(BaseStrategy):
         self.workers = []
         remote_cls = ray.remote(BaseHorovodWorker)
 
-        for bundle_index in range(self.num_workers):
+        for worker_index in range(self.num_workers):
             remote_cls_with_options = remote_cls.options(
                 num_cpus=self.cpus_per_worker,
                 num_gpus=self.gpus_per_worker * int(self.use_gpu),
@@ -243,7 +243,7 @@ class PGStrategy(BaseStrategy):
                 placement_group=self.placement_group,
                 placement_group_bundle_index=-1)
             worker = remote_cls_with_options.remote(
-                world_rank=bundle_index, world_size=self.num_workers)
+                world_rank=worker_index, world_size=self.num_workers)
 
             self.workers.append(worker)
 
