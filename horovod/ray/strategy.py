@@ -231,7 +231,6 @@ class PGStrategy(BaseStrategy):
         return self._num_workers
 
     def create_workers(self):
-        # Placement group has started. Now create the workers.
         self.workers = []
         remote_cls = ray.remote(BaseHorovodWorker)
 
