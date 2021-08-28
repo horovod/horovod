@@ -7,6 +7,7 @@ Requirements
 ------------
 
 - Python >= 3.6
+- `g++-5` or above, or another compiler supporting C++14
 - CMake
 - TensorFlow, PyTorch, or MXNet
 - (Optional) MPI
@@ -51,9 +52,6 @@ To ensure that Horovod is built with TensorFlow support enabled:
 
 To skip TensorFlow, set ``HOROVOD_WITHOUT_TENSORFLOW=1`` in your environment.
 
-If you've installed TensorFlow from `PyPI <https://pypi.org/project/tensorflow>`__, make sure that
-the ``g++-4.8.5`` or ``g++-4.9`` or above is installed.
-
 PyTorch
 ~~~~~~~
 
@@ -64,9 +62,6 @@ To ensure that Horovod is built with PyTorch support enabled:
     $ HOROVOD_WITH_PYTORCH=1 pip install horovod[pytorch]
 
 To skip PyTorch, set ``HOROVOD_WITHOUT_PYTORCH=1`` in your environment.
-
-If you've installed PyTorch from `PyPI <https://pypi.org/project/torch>`__, make sure that the ``g++-4.9`` or
-above is installed.
 
 MXNet
 ~~~~~
@@ -165,11 +160,13 @@ will be used for CPU operations. You can override this by setting ``HOROVOD_CPU_
 NCCL
 ~~~~
 
-NCCL is supported for Allreduce, Allgather, and Broadcast operations.  You can enable these by setting
+NCCL is supported for Allreduce, Allgather, Broadcast, and Alltoall operations.  You can enable these by setting
 ``HOROVOD_GPU_OPERATIONS=NCCL`` during installation.
 
 NCCL operations are supported on both Nvidia (CUDA) and AMD (ROCm) GPUs. You can set ``HOROVOD_GPU`` in your
 environment to specify building with CUDA or ROCm. CUDA will be assumed if not specified.
+
+Note that Alltoall requires NCCL version >= 2.7.0.
 
 MPI
 ~~~
