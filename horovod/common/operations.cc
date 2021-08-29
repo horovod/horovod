@@ -1016,8 +1016,8 @@ void horovod_shutdown() {
   }
 }
 
-bool horovod_is_initialized() {
-  return horovod_global.initialization_done;
+int horovod_is_initialized() {
+  return int(horovod_global.initialization_done.load());
 }
 
 int horovod_start_timeline(const char* file_name, bool mark_cycles) {
@@ -1753,6 +1753,22 @@ Status EnqueueJoin(std::shared_ptr<OpContext> context,
     LOG(TRACE, horovod_global.global_controller->GetRank()) << "Enqueued " << name;
   }
   return status;
+}
+
+// Contexts and controller must be initialized and the background thread
+// must be running before this function is called.
+Status CallBarrier(int32_t process_set_id) {
+  auto& process_set = horovod_global.process_set_table.Get(process_set_id);
+  if (!process_set.IsCurrentProcessIncluded()) {
+    return Status::InvalidArgument(
+        "Barrier: Rank " +
+        std::to_string(horovod_global.global_controller->GetRank()) +
+        " is not a member of the provided process set.");
+  }
+
+  process_set.controller->Barrier(Communicator::GLOBAL);
+  LOG(TRACE, horovod_global.global_controller->GetRank()) << "Released from barrier.";
+  return Status::OK();
 }
 
 } // namespace common

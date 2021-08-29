@@ -970,3 +970,19 @@ def join(device=-1) -> int:
     _handle_map[handle] = (None, output)
 
     return synchronize(handle).item()
+
+def barrier(process_set=global_process_set):
+    """
+    A function that acts as a simple sychronization point for ranks specified
+    in the given process group(default to global group). Ranks that reach
+    this function call will stall until all other ranks have reached.
+
+    Arguments:
+        process_set: Process set object to limit this operation to a subset of
+                     Horovod processes. Default is the global process set.
+    """
+
+    try:
+        mpi_lib.horovod_torch_barrier(process_set.process_set_id)
+    except RuntimeError as e:
+        raise HorovodInternalError(e)
