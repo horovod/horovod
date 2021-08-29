@@ -120,7 +120,6 @@ class TorchTests(unittest.TestCase):
 
     def test_horovod_is_initialized(self):
         """Test that is_initialized returned by hvd.is_initialized() is correct."""
-        assert not hvd.is_initialized()
         hvd.init()
         assert hvd.is_initialized()
 
