@@ -3250,6 +3250,5 @@ class TorchTests(unittest.TestCase):
 
         self.assertTrue(barrier_time >= 5)
 
-
 if __name__ == "__main__":
    unittest.main()
