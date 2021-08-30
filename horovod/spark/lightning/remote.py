@@ -105,12 +105,6 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             if train_logger is None:
                 train_logger = TensorBoardLogger(logs_path)
-            elif isinstance(train_logger, CometLogger) and train_logger._save_dir is None:
-                # Setting the CometLogger's save_dir allows us to sync checkpoints and profiler output
-                print("set save dir")
-                train_logger._save_dir = logs_path
-            else:
-                print("Did not set save dir")
 
             # TODO: find out a way to use ckpt_path created from remote store, but all other parameters ingest from estimator config
             # ckpt_path = os.path.join(run_output_dir, remote_store.checkpoint_filename)
@@ -124,10 +118,10 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                     is_model_checkpoint_callback_exist = True
                     break
 
-            if remote_store.saving_runs and hvd.rank() == 0:
+            if remote_store.saving_runs:
                 class _SyncCallback(Callback):
                     def on_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
-                        print("Syncing to remote_store.")
+                        print(f"Syncing to remote_store for logs path {logs_path}.")
                         remote_store.sync(logs_path)
 
                 callbacks.append(_SyncCallback())
@@ -176,6 +170,10 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             print("Creating trainer with: \n ", kwargs)
             trainer = Trainer(**kwargs)
 
+            if trainer.profiler:
+                print(f"Set profiler's logs_path to {logs_path}")
+                trainer.profiler.dirpath = logs_path
+
             print(f"pytorch_lightning version={pl.__version__}")
 
             dataset = data_module(train_dir=remote_store.train_data_path,
@@ -202,8 +200,9 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             torch.save(output, serialized_checkpoint)
 
-            print("Syncing to remote_store.")
-            remote_store.sync(logs_path)
+            if remote_store.saving_runs:
+                print(f"Syncing to remote_store for {logs_path}.")
+                remote_store.sync(logs_path)
 
             serialized_checkpoint.seek(0)
             return serialized_checkpoint
