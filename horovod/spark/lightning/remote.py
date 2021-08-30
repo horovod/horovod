@@ -81,6 +81,8 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     remote_store = store.to_remote(run_id, dataset_idx)
     storage_options = store.storage_options
 
+    profiler = estimator.getProfiler()
+
     def train(serialized_model):
         import horovod.torch as hvd
         # Horovod: initialize library.
@@ -94,15 +96,15 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             # TODO: Pass the logger from estimator constructor
             logs_path = os.path.join(run_output_dir, remote_store.logs_subdir)
+            os.makedirs(logs_path, exist_ok=True)
+            print(f"Made directory {logs_path} for horovod rank {hvd.rank()}")
 
             # Use default logger if no logger is supplied
             train_logger = logger
+            print(f"Train_logger is {train_logger}")
 
             if train_logger is None:
                 train_logger = TensorBoardLogger(logs_path)
-            elif isinstance(train_logger, CometLogger) and train_logger._save_dir is None:
-                # Setting the CometLogger's save_dir allows us to sync checkpoints and profiler output
-                train_logger._save_dir = logs_path
 
             # TODO: find out a way to use ckpt_path created from remote store, but all other parameters ingest from estimator config
             # ckpt_path = os.path.join(run_output_dir, remote_store.checkpoint_filename)
@@ -119,7 +121,6 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             if remote_store.saving_runs and hvd.rank() == 0:
                 class _SyncCallback(Callback):
                     def on_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
-                        print("Syncing to remote_store.")
                         remote_store.sync(logs_path)
 
                 callbacks.append(_SyncCallback())
@@ -163,10 +164,14 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                       'reload_dataloaders_every_epoch': False,
                       'progress_bar_refresh_rate': _train_steps_per_epoch // 10,
                       'terminate_on_nan': terminate_on_nan,
-                      'profiler': estimator.getProfiler()
+                      'profiler': profiler
                       }
             print("Creating trainer with: \n ", kwargs)
             trainer = Trainer(**kwargs)
+
+            if trainer.profiler:
+                print(f"Set profiler's logs_path to {logs_path}")
+                trainer.profiler.dirpath = logs_path
 
             print(f"pytorch_lightning version={pl.__version__}")
 
@@ -193,6 +198,10 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             output = {'model': module.state_dict()}
 
             torch.save(output, serialized_checkpoint)
+
+            if remote_store.saving_runs and hvd.rank() == 0:
+                remote_store.sync(logs_path)
+
             serialized_checkpoint.seek(0)
             return serialized_checkpoint
     return train
