@@ -162,15 +162,24 @@ def _setup_worker_gpus(workers):
 
 
 class PackStrategy(BaseStrategy):
-    """Packs workers together but does not guarantee balanced hosts."""
+    """Packs workers together but does not guarantee balanced hosts.
+
+    Will use the current placement group if one is available.
+    """
 
     def __init__(self, *, settings, num_workers, use_gpu, cpus_per_worker,
-                 gpus_per_worker):
+                 gpus_per_worker, placement_group=None, force_create_placement_group=False):
         self.settings = settings
         self._num_workers = num_workers
         self.cpus_per_worker = cpus_per_worker
         self.gpus_per_worker = gpus_per_worker or 1
         self.use_gpu = use_gpu
+        if force_create_placement_group:
+            self.placement_group = None
+        else:
+            self.placement_group = placement_group or get_current_placement_group()
+        self._placement_group_bundles = self.placement_group.bundle_specs if self.placement_group else None
+        self._created_placement_group = False
 
     @property
     def num_workers(self):
@@ -182,11 +191,15 @@ class PackStrategy(BaseStrategy):
         return dict(CPU=num_cpus, GPU=num_gpus)
 
     def create_workers(self):
-        self.placement_group, bundles = create_placement_group(
-            resources_per_bundle=self.resources_per_worker(),
-            num_bundles=self.num_workers,
-            pg_strategy="PACK",
-            pg_timeout=self.settings.placement_group_timeout_s)
+        if not self.placement_group:
+            self.placement_group, bundles = create_placement_group(
+                resources_per_bundle=self.resources_per_worker(),
+                num_bundles=self.num_workers,
+                pg_strategy="PACK",
+                pg_timeout=self.settings.placement_group_timeout_s)
+            self._created_placement_group = True
+        else:
+            bundles = self._placement_group_bundles
 
         # Placement group has started. Now create the workers.
         self.workers = []
@@ -205,54 +218,33 @@ class PackStrategy(BaseStrategy):
             self.workers.append(worker)
 
         if self.use_gpu:
-            _setup_worker_gpus(self.workers)
-        return self.workers, self.get_node_workers(self.workers)
+            node_ids = ray.get(
+                [worker.node_id.remote() for worker in self.workers])
+            gpus = ray.get(
+                [worker.get_gpu_ids.remote() for worker in self.workers])
+            node_workers = defaultdict(list)
+            node_id_to_gpus = defaultdict(list)
+            for worker, node_id, worker_gpu_ids in zip(self.workers, node_ids,
+                                                       gpus):
+                node_workers[node_id].append(worker)
+                node_id_to_gpus[node_id].extend(worker_gpu_ids)
 
+            futures = []
+            for node_id, gpu_ids in node_id_to_gpus.items():
+                all_ids = ",".join([str(gpu_id) for gpu_id in gpu_ids])
 
-class PGStrategy(BaseStrategy):
-    """Uses an existing placement group.
-
-    If placement_group=None, will try to get the current placement group.
-    """
-
-    def __init__(self, *, settings, num_workers, use_gpu, cpus_per_worker,
-                 gpus_per_worker, placement_group=None):
-        self.settings = settings
-        self._num_workers = num_workers
-        self.cpus_per_worker = cpus_per_worker
-        self.gpus_per_worker = gpus_per_worker or 1
-        self.use_gpu = use_gpu
-        self.placement_group = placement_group or get_current_placement_group()
-        if self.placement_group is None:
-            raise RuntimeError(
-                "PGStrategy must be instantiated in a task or "
-                "actor already using a placement group."
-            )
-        self._placement_group_bundles = self.placement_group.bundle_specs
-
-    @property
-    def num_workers(self):
-        return self._num_workers
-
-    def create_workers(self):
-        self.workers = []
-        remote_cls = ray.remote(BaseHorovodWorker)
-
-        for worker_index in range(self.num_workers):
-            remote_cls_with_options = remote_cls.options(
-                num_cpus=self.cpus_per_worker,
-                num_gpus=self.gpus_per_worker * int(self.use_gpu),
-                placement_group_capture_child_tasks=False,
-                placement_group=self.placement_group,
-                placement_group_bundle_index=-1)
-            worker = remote_cls_with_options.remote(
-                world_rank=worker_index, world_size=self.num_workers)
-
-            self.workers.append(worker)
-
-        if self.use_gpu:
-            _setup_worker_gpus(self.workers)
+                for worker in node_workers[node_id]:
+                    futures.append(
+                        worker.update_env_vars.remote({
+                            "CUDA_VISIBLE_DEVICES":
+                            all_ids
+                        }))
+            ray.get(futures)
         return self.workers, self.get_node_workers(self.workers)
 
     def shutdown(self):
+        if self._created_placement_group and self.placement_group:
+            ray.util.remove_placement_group(self.placement_group)
+            self.placement_group = None
+
         self.workers = []

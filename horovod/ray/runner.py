@@ -1,4 +1,5 @@
 import ray
+from ray.util.placement_group import get_current_placement_group
 
 import warnings
 from collections import defaultdict
@@ -394,33 +395,22 @@ class _ExecutorDriver:
 
     def _create_strategy(self):
         assert self.num_workers is None or self.num_hosts is None
-        if self.use_current_placement_group:
-            try:
-                # Will try to get the current PG, otherwise
-                # will raise RuntimeError
-                strategy = PGStrategy(
-                    settings=self.settings,
-                    num_workers=self.num_workers if self.num_workers else self.num_hosts *
-                    self.num_workers_per_host,
-                    use_gpu=self.use_gpu,
-                    cpus_per_worker=self.cpus_per_worker,
-                    gpus_per_worker=self.gpus_per_worker
-                )
+        use_pg = self.use_current_placement_group and get_current_placement_group()
+        if self.num_workers or use_pg:
+            if use_pg:
                 logger.info(
                     "Found an existing placement group, inheriting. "
                     "You can disable this behavior by setting "
                     "`use_current_placement_group=False`."
                 )
-                return strategy
-            except RuntimeError:
-                pass
-        if self.num_workers:
+            num_workers = self.num_workers or self.num_workers_per_host * self.num_hosts
             return PackStrategy(
                 settings=self.settings,
-                num_workers=self.num_workers,
+                num_workers=num_workers,
                 use_gpu=self.use_gpu,
                 cpus_per_worker=self.cpus_per_worker,
-                gpus_per_worker=self.gpus_per_worker)
+                gpus_per_worker=self.gpus_per_worker,
+                force_create_placement_group=not self.use_current_placement_group)
         else:
             return ColocatedStrategy(
                 settings=self.settings,
