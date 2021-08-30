@@ -59,7 +59,11 @@ set(Tensorflow_CXX11 ${Tensorflow_CXX11} PARENT_SCOPE)
 
 # TF SOURCES
 list(APPEND TF_SOURCES "${PROJECT_SOURCE_DIR}/horovod/tensorflow/mpi_ops.cc")
-list(APPEND TF_SOURCES "${PROJECT_SOURCE_DIR}/horovod/tensorflow/xla_mpi_ops.cc")
+if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  # See https://github.com/horovod/horovod/issues/3132
+  # Disable XLA for OSX
+  list(APPEND TF_SOURCES "${PROJECT_SOURCE_DIR}/horovod/tensorflow/xla_mpi_ops.cc")
+endif()
 
 # Create library
 set_output_dir()
