@@ -309,6 +309,7 @@ class FilesystemStore(AbstractFilesystemStore):
         run_path = self.get_run_path(run_id)
 
         def fn(local_run_path):
+            print(f"Syncing dir {local_run_path} to dir {run_path}")
             self.fs.put(local_run_path, run_path, recursive=True, overwrite=True)
 
         return fn
@@ -438,6 +439,8 @@ class HDFSStore(AbstractFilesystemStore):
         hdfs_root_path = self.get_run_path(run_id)
 
         def fn(local_run_path):
+            print(f"Syncing local dir {local_run_path} to hdfs dir {hdfs_root_path}")
+
             if state.fs is None:
                 state.fs = get_filesystem()
 
@@ -450,6 +453,7 @@ class HDFSStore(AbstractFilesystemStore):
 
             for local_dir, dirs, files in os.walk(local_run_path):
                 hdfs_dir = os.path.join(hdfs_root_path, local_dir[prefix:])
+
                 for file in files:
                     local_path = os.path.join(local_dir, file)
                     modified_ts = int(os.path.getmtime(local_path))
