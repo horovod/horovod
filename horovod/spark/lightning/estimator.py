@@ -542,6 +542,23 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
         else:
             return self._get_optimizer()
 
+    def get_prediction_fn(self):
+        """Return a function to perdict output from Row. """
+
+        input_shapes = self.getInputShapes()
+        feature_cols = self.getFeatureColumns()
+
+        def predict_fn(model, row):
+            data = [torch.tensor([row[col]]).reshape(shape) for
+                    col, shape in zip(feature_cols, input_shapes)]
+
+            with torch.no_grad():
+                pred = model(*data)
+
+            return pred
+
+        return predict_fn
+
     # To run locally on OS X, need export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
     def _transform(self, df):
         import copy
@@ -553,11 +570,10 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
         serialize = serialize_fn()
         serialized_model = serialize(model_pre_predict)
 
-        input_shapes = self.getInputShapes()
         label_cols = self.getLabelColumns()
         output_cols = self.getOutputCols()
-        feature_cols = self.getFeatureColumns()
         metadata = self._get_metadata()
+        prediction_fn = self.get_prediction_fn()
 
         final_output_cols = util.get_output_cols(df.schema, output_cols)
 
@@ -569,14 +585,7 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
             # Perform predictions.
             for row in rows:
                 fields = row.asDict().copy()
-
-                # Note: if the col is SparseVector, torch.tensor(col) correctly converts it to a
-                # dense torch tensor.
-                data = [torch.tensor([row[col]]).reshape(shape) for
-                        col, shape in zip(feature_cols, input_shapes)]
-
-                with torch.no_grad():
-                    preds = model(*data)
+                preds = prediction_fn(model, row)
 
                 if not isinstance(preds, list) and not isinstance(preds, tuple):
                     preds = [preds]
