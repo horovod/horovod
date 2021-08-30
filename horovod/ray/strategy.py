@@ -136,32 +136,7 @@ class ColocatedStrategy(BaseStrategy):
         return self.workers, self.get_node_workers(self.workers)
 
 
-def _setup_worker_gpus(workers):
-    node_ids = ray.get(
-        [worker.node_id.remote() for worker in workers])
-    gpus = ray.get(
-        [worker.get_gpu_ids.remote() for worker in workers])
-    node_workers = defaultdict(list)
-    node_id_to_gpus = defaultdict(list)
-    for worker, node_id, worker_gpu_ids in zip(workers, node_ids,
-                                               gpus):
-        node_workers[node_id].append(worker)
-        node_id_to_gpus[node_id].extend(worker_gpu_ids)
-
-    futures = []
-    for node_id, gpu_ids in node_id_to_gpus.items():
-        all_ids = ",".join([str(gpu_id) for gpu_id in gpu_ids])
-
-        for worker in node_workers[node_id]:
-            futures.append(
-                worker.update_env_vars.remote({
-                    "CUDA_VISIBLE_DEVICES":
-                    all_ids
-                }))
-    ray.get(futures)
-
-
-class PackStrategy(BaseStrategy):
+class PGStrategy(BaseStrategy):
     """Packs workers together but does not guarantee balanced hosts.
 
     Will use the current placement group if one is available.

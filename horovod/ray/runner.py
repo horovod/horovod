@@ -11,7 +11,7 @@ import logging
 from horovod.runner.common.util import secret, timeout, hosts
 from horovod.runner.http.http_server import RendezvousServer
 from horovod.ray.utils import detect_nics, nics_to_env_var, map_blocking
-from horovod.ray.strategy import ColocatedStrategy, PackStrategy, PGStrategy
+from horovod.ray.strategy import ColocatedStrategy, PGStrategy
 logger = logging.getLogger(__name__)
 
 
@@ -404,7 +404,7 @@ class _ExecutorDriver:
                     "`use_current_placement_group=False`."
                 )
             num_workers = self.num_workers or self.num_workers_per_host * self.num_hosts
-            return PackStrategy(
+            return PGStrategy(
                 settings=self.settings,
                 num_workers=num_workers,
                 use_gpu=self.use_gpu,
