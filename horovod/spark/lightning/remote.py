@@ -118,10 +118,9 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                     is_model_checkpoint_callback_exist = True
                     break
 
-            if remote_store.saving_runs:
+            if remote_store.saving_runs and hvd.rank() == 0:
                 class _SyncCallback(Callback):
                     def on_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
-                        print(f"Syncing to remote_store for logs path {logs_path}.")
                         remote_store.sync(logs_path)
 
                 callbacks.append(_SyncCallback())
@@ -200,8 +199,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             torch.save(output, serialized_checkpoint)
 
-            if remote_store.saving_runs:
-                print(f"Syncing to remote_store for {logs_path}.")
+            if remote_store.saving_runs and hvd.rank() == 0:
                 remote_store.sync(logs_path)
 
             serialized_checkpoint.seek(0)
