@@ -447,6 +447,7 @@ def test_horovod_train_in_pg(ray_start_4_cpus):
                 gpus_per_worker=int(torch.cuda.is_available()) or None,
                 use_gpu=torch.cuda.is_available())
             hjob.start()
+            assert not hjob.driver.strategy._created_placement_group
             result = hjob.execute(simple_fn)
             assert set(result) == {0, 1, 2, 3}
             hjob.shutdown()
