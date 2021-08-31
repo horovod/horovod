@@ -1,5 +1,6 @@
 import argparse
 import os
+from distutils.version import LooseVersion
 from filelock import FileLock
 
 import torch.multiprocessing as mp
@@ -30,6 +31,8 @@ parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                     help='how many batches to wait before logging training status')
 parser.add_argument('--fp16-allreduce', action='store_true', default=False,
                     help='use fp16 compression during allreduce')
+parser.add_argument('--use-mixed-precision', action='store_true', default=False,
+                    help='use mixed precision for training')
 parser.add_argument('--use-adasum', action='store_true', default=False,
                     help='use adasum algorithm to do reduction')
 parser.add_argument('--gradient-predivide-factor', type=float, default=1.0,
@@ -56,6 +59,34 @@ class Net(nn.Module):
         x = self.fc2(x)
         return F.log_softmax(x)
 
+def train_mixed_precision(epoch, scaler):
+    model.train()
+    # Horovod: set epoch to sampler for shuffling.
+    train_sampler.set_epoch(epoch)
+    for batch_idx, (data, target) in enumerate(train_loader):
+        if args.cuda:
+            data, target = data.cuda(), target.cuda()
+        optimizer.zero_grad()
+        with torch.cuda.amp.autocast():
+            output = model(data)
+            loss = F.nll_loss(output, target)
+
+        scaler.scale(loss).backward()
+        # Make sure all async allreduces are done
+        optimizer.synchronize()
+        # In-place unscaling of all gradients before weights update
+        scaler.unscale_(optimizer)
+        with optimizer.skip_synchronize():
+            scaler.step(optimizer)
+        # Update scaler in case of overflow/underflow
+        scaler.update()
+
+        if batch_idx % args.log_interval == 0:
+            # Horovod: use train_sampler to determine the number of examples in
+            # this worker's partition.
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tLoss Scale: {}'.format(
+                epoch, batch_idx * len(data), len(train_sampler),
+                100. * batch_idx / len(train_loader), loss.item(), scaler.get_scale()))
 
 def train(epoch):
     model.train()
@@ -124,7 +155,14 @@ if __name__ == '__main__':
         # Horovod: pin GPU to local rank.
         torch.cuda.set_device(hvd.local_rank())
         torch.cuda.manual_seed(args.seed)
+    else:
+        if args.use_mixed_precision:
+            raise ValueError("Mixed precision is only supported with cuda enabled.")
 
+    if (args.use_mixed_precision and LooseVersion(torch.__version__)
+            < LooseVersion('1.6.0')):
+        raise ValueError("""Mixed precision is using torch.cuda.amp.autocast(),
+                            which requires torch >= 1.6.0""")
 
     # Horovod: limit # of CPU threads to be used per worker.
     torch.set_num_threads(1)
@@ -192,6 +230,14 @@ if __name__ == '__main__':
                                          op=hvd.Adasum if args.use_adasum else hvd.Average,
                                          gradient_predivide_factor=args.gradient_predivide_factor)
 
+    if args.use_mixed_precision:
+        # Initialize scaler in global scale
+        scaler = torch.cuda.amp.GradScaler()
+
     for epoch in range(1, args.epochs + 1):
-        train(epoch)
+        if args.use_mixed_precision:
+            train_mixed_precision(epoch, scaler)
+        else:
+            train(epoch)
+        # Keep test in full precision since computation is relatively light.
         test()

@@ -160,6 +160,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         train_steps_per_epoch: (Optional) Number of steps to train each epoch. Useful for testing
                                 that model trains successfully. Defaults to training the entire
                                 dataset each epoch.
+        trainer_args:   (Optional) Dict of args to pass to trainer, it will be used to add/override the args which estimator gives to trainer.
         transformation_fn:  (Optional) function that takes a row as its parameter and returns a
                             modified row that is then fed into the train or validation step.
                             This transformation is applied after batching. See Petastorm
@@ -175,6 +176,9 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         validation_steps_per_epoch: (Optional) Number of validation steps to perform each epoch.
         verbose:    (Optional)Verbosity level, 0 for silent. (default: 1).
         profiler:    (Optional)Lightning profiler to enable. (disabled by default).
+        debug_data_loader: (Optional)Debugging flag for data loader.
+        train_async_data_loader_queue_size: (Optional) Size of train async data loader queue.
+        val_async_data_loader_queue_size: (Optional) Size of val async data loader queue.
     """
 
     input_shapes = Param(Params._dummy(), 'input_shapes', 'input layer shapes')
@@ -206,6 +210,15 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     profiler = Param(Params._dummy(), 'profiler', 'lightning profiler to use')
 
+    trainer_args = Param(Params._dummy(), 'trainer_args',
+                        'Dict of args to pass to trainer, it will be used to add/override the args which estimator gives to trainer. ')
+
+    debug_data_loader = Param(Params._dummy(), 'debug_data_loader', 'Flag to enable debug for data laoder.')
+
+    train_async_data_loader_queue_size = Param(Params._dummy(), 'train_async_data_loader_queue_size', 'Size of train async data loader queue.')
+
+    val_async_data_loader_queue_size = Param(Params._dummy(), 'val_async_data_loader_queue_size', 'Size of val async data loader queue.')
+
     @keyword_only
     def __init__(self,
                  num_proc=None,
@@ -236,6 +249,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  validation_steps_per_epoch=None,
                  transformation_fn=None,
                  train_reader_num_workers=None,
+                 trainer_args=None,
                  val_reader_num_workers=None,
                  reader_pool_type=None,
                  label_shapes=None,
@@ -246,7 +260,10 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  data_module=None,
                  loader_num_epochs=None,
                  terminate_on_nan=False,
-                 profiler=None):
+                 profiler=None,
+                 debug_data_loader=False,
+                 train_async_data_loader_queue_size=None,
+                 val_async_data_loader_queue_size=None):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
@@ -260,7 +277,11 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                          data_module=None,
                          loader_num_epochs=None,
                          terminate_on_nan=False,
-                         profiler=None)
+                         profiler=None,
+                         trainer_args=None,
+                         debug_data_loader=False,
+                         train_async_data_loader_queue_size=None,
+                         val_async_data_loader_queue_size=None)
 
         kwargs = self._input_kwargs
 
@@ -333,11 +354,35 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     def getTerminateOnNan(self):
         return self.getOrDefault(self.terminate_on_nan)
 
+    def setTrainerArgs(self, value):
+        return self._set(trainer_args=value)
+
+    def getTrainerArgs(self):
+        return self.getOrDefault(self.trainer_args)
+
     def getProfiler(self):
         return self.getOrDefault(self.profiler)
 
     def _get_optimizer(self):
         return self.getOrDefault(self.optimizer)
+
+    def setDebugDataLoader(self, value):
+        return self._set(debug_data_loader=value)
+
+    def getDebugDataLoader(self):
+        return self.getOrDefault(self.debug_data_loader)
+
+    def setTrainAsyncDataLoaderQueueSize(self, value):
+        return self._set(train_async_data_loader_queue_size=value)
+
+    def getTrainAsyncDataLoaderQueueSize(self):
+        return self.getOrDefault(self.train_async_data_loader_queue_size)
+
+    def setValAsyncDataLoaderQueueSize(self, value):
+        return self._set(val_async_data_loader_queue_size=value)
+
+    def getValAsyncDataLoaderQueueSize(self):
+        return self.getOrDefault(self.val_async_data_loader_queue_size)
 
     # Overwrites Model's getOptimizer method
     def getOptimizer(self):
@@ -401,6 +446,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                                         validation=self.getValidation())
 
         serialized_model = serialize_fn()(model)
+        # FIXME: checkpoint bytes should be loaded into serialized_model, same as Keras Estimator.
         ckpt_bytes = self._read_checkpoint(run_id) if self._has_checkpoint(run_id) else None
         trainer = remote.RemoteTrainer(self,
                                        metadata=metadata,
@@ -430,14 +476,13 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         best_checkpoint = torch.load(serialized_checkpoint, map_location=torch.device('cpu'))
 
         model = copy.deepcopy(self.getModel())
-        # optimizer = copy.deepcopy(self.getOptimizer())
-
         model.load_state_dict(best_checkpoint['model'])
-
         model.eval()
 
-        # optimizer.load_state_dict(best_checkpoint['optimizer'])
-        history = None
+        history = best_checkpoint['logged_metrics']
+
+        # Optimizer is part of the model no need to return it to transformer.
+        # TODO: (Pengz) Update the latest state of the optimizer in the model for retraining.
         optimizer = None
 
         return self.get_model_class()(**self._get_model_kwargs(

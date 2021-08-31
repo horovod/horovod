@@ -6,11 +6,10 @@ from contextlib import contextmanager
 import psutil
 import os
 import socket
-
+import time
 import mock
 import pytest
 import ray
-
 from horovod.common.util import gloo_built
 from horovod.runner.elastic.discovery import HostDiscovery
 from horovod.ray.elastic import ElasticRayExecutor, RayHostDiscovery
@@ -142,9 +141,14 @@ class TestRayDiscoverySuite:
 
 
 class SimpleTestDiscovery(HostDiscovery):
-    def __init__(self, schedule):
+    def __init__(self, schedule, wait_for_previous_set=True):
         self._schedule = schedule
         self._generator = self.host_generator()
+        self.executor = None
+        # The previous set of hosts
+        # We need a reference to them as iterators only can provide the next set
+        self.prevlist = None
+        self.wait_for_previous_set = wait_for_previous_set
 
     def host_generator(self):
         for iters, hosts in self._schedule:
@@ -154,12 +158,55 @@ class SimpleTestDiscovery(HostDiscovery):
 
     def find_available_hosts_and_slots(self):
         hostlist = next(self._generator)
+        # Ensure discovery waits for the previous set to register
+        self._wait_for_previous_set_registration(hostlist)
+
         hosts = {}
         for item in hostlist:
             host, slots = item.split(":")
             slots = int(slots)
             hosts[host] = slots
+
         return hosts
+
+    def _wait_for_previous_set_registration(self, hostlist):
+        """
+        Ensure that at least one host from the previous set of hosts have
+        been registered.
+        Without this, the discovery script will "discover" the new
+        set of hosts before the current set can register.
+        This would result in a race condition.
+        Consider a discovery schedule:
+        ```
+        discovery_schedule = [
+            (10, ['host-1:2']),
+            (30, ['host-1:2', 'host-2:1', 'host-3:1']),
+            (None, ['host-2:1']),
+        ]
+        ```
+        The initial set is: ['host-1:2']. Before this is registered in the driver, the discovery script
+        discovers the set: ['host-1:2', 'host-2:1', 'host-3:1'], and adds ['host-2:1', 'host-3:1'].
+        However, since ['host-1:2'] has not registered, there is no coordinator to notify the workers.
+        When host-1 and host-3 are removed, driver.resume will call _activate_workers, which will update the host assignments.
+        It has a check to see if the intersection between the previous and current set of hosts. It finds that the previous
+        set is  ['host-1:2'], and the current set is ['host-2:1'], since there was no notification for the added and removed
+        hosts.
+        This ensures that the previous set of hosts can register before the current set is discovered.
+        """
+        if self.wait_for_previous_set is False:
+            return
+        while(self.prevlist and self.executor):
+            for item in self.prevlist:
+                host, slots = item.split(":")
+                slot = self.executor.driver.get_slot_info(host, 0)
+                # Avoid the empty slot
+                if (not slot.hostname) or self.executor.driver.get_worker_client(slot):
+                    break
+            else:
+                time.sleep(0.001)
+                continue
+            break
+        self.prevlist = hostlist
 
 
 class StatusCallback:
@@ -215,9 +262,6 @@ def fault_tolerance_patches():
 
 @pytest.mark.skipif(
     not gloo_built(), reason='Gloo is required for Ray integration')
-@pytest.mark.skipif(
-    os.environ.get('GITHUB_ACTIONS', 'false') == 'true',
-    reason='This test fails on GitHub Workflow, see https://github.com/horovod/horovod/issues/2813')
 def test_fault_tolerance_hosts_added_and_removed(ray_8_cpus):
     with fault_tolerance_patches():
         discovery_schedule = [
@@ -231,7 +275,7 @@ def test_fault_tolerance_hosts_added_and_removed(ray_8_cpus):
         settings.discovery = SimpleTestDiscovery(discovery_schedule)
         executor = ElasticRayExecutor(
             settings, cpus_per_slot=1, override_discovery=False)
-
+        settings.discovery.executor = executor
         training_fn = _create_training_function(iterations=50)
         executor.start()
         trace = StatusCallback()
@@ -245,9 +289,7 @@ def test_fault_tolerance_hosts_added_and_removed(ray_8_cpus):
 
 @pytest.mark.skipif(
     not gloo_built(), reason='Gloo is required for Ray integration')
-@pytest.mark.skipif(
-    os.environ.get('GITHUB_ACTIONS', 'false') == 'true',
-    reason='This test fails on GitHub Workflow, see https://github.com/horovod/horovod/issues/2813')
+@pytest.mark.skip(reason='https://github.com/horovod/horovod/issues/3197')
 def test_fault_tolerance_hosts_remove_and_add(ray_8_cpus):
     with fault_tolerance_patches():
         discovery_schedule = [

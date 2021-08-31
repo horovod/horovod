@@ -117,6 +117,10 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
         # Horovod: initialize library.
         hvd.init()
 
+        if user_verbose:
+            import horovod as _horovod
+            print(f"Shared lib path is pointing to: {_horovod.common.process_sets._basics.MPI_LIB_CTYPES}")
+
         if not user_shuffle_buffer_size:
             shuffle_buffer_size = \
                 calculate_shuffle_buffer_size(hvd, avg_row_size, train_rows / hvd.size())

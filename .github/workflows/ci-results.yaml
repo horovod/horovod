@@ -1,0 +1,237 @@
+# publishes test results from the CI workflow (not when run on schedule)
+# this publishes test results of PRs from horovod repository and fork repositories
+# buildkite tests are only run here for fork repositories
+name: CI (Results)
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug Action
+        uses: hmarr/debug-action@v1.0.0
+
+  ci-workflow:
+    name: "Check CI workflow outcome"
+    runs-on: ubuntu-latest
+    # only run if CI workflow has not been skipped or cancelled
+    # only run if CI workflow did not run on schedule
+    if: >
+      github.event.workflow_run.conclusion != 'skipped' &&
+      github.event.workflow_run.conclusion != 'cancelled' &&
+      github.event.workflow_run.event != 'schedule'
+    outputs:
+      build-and-test: ${{ steps.workflow-conclusion.outputs.build-and-test }}
+      pr-json: ${{ steps.pr.outputs.json }}
+
+    steps:
+    - name: Fetch workflow conclusion
+      id: workflow-conclusion
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        conclusion=$(gh api "${{ github.event.workflow_run.jobs_url }}" -q '.jobs[] | select(.name | startswith("Build and Test (")) | .conclusion' | sort | uniq | paste -sd "," -)
+        echo "build-and-test conclusion: ${conclusion}"
+        echo "::set-output name=build-and-test::${conclusion}"
+      shell: bash
+
+    - name: Fetch PR meta
+      id: pr
+      if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.head_repository.fork
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        artifacts_url=${{ github.event.workflow_run.artifacts_url }}
+        gh api "$artifacts_url" -q '.artifacts[] | select(.name == "PR Meta") .archive_download_url' | while read url
+        do
+          gh api "$url" > "pr.zip"
+          unzip -o "pr.zip"
+          echo "::set-output name=json::$(cat pr.json)"
+          cat pr.json
+          echo
+        done
+
+        if [[ ! -e "pr.json" ]]
+        then
+          echo "::error title=Artifact 'PR Meta' missing::Expected artifact 'PR Meta' does not exist for pull_request event."
+          exit 1
+        fi
+
+  buildkite:
+    name: "Build and Test GPU (on Builtkite)"
+    needs: [ci-workflow]
+    runs-on: ubuntu-latest
+    # only run if CI workflow's build-and-test job succeeded and CI workflow ran on a fork
+    if: >
+      needs.ci-workflow.outputs.build-and-test == 'success' &&
+      github.event.workflow_run.head_repository.fork
+
+    steps:
+      - name: Trigger Buildkite Pipeline
+        id: buildkite
+        uses: EnricoMi/trigger-pipeline-action@master
+        env:
+          PIPELINE: "horovod/horovod"
+          COMMIT: "${{ fromJSON( needs.ci-workflow.outputs.pr-json ).merge_sha }}"
+          BRANCH: "${{ github.event.workflow_run.head_repository.owner.login }}:${{ github.event.workflow_run.head_branch }}"
+          MESSAGE: "${{ github.event.workflow_run.head_commit.message }} (release versions)"
+          BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
+          BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU NON HEADS\"}"
+
+      - name: Download Buildkite Artifacts
+        id: download
+        uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1
+        with:
+          github_token: ${{ github.token }}
+          buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
+          buildkite_build_url: ${{ steps.buildkite.outputs.url }}
+          ignore_build_states: blocked,canceled,skipped,not_run
+          ignore_job_states: timed_out
+          output_path: artifacts/Unit Test Results - GPU NON HEADS on Builtkite
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: Unit Test Results - GPU NON HEADS on Builtkite
+          path: artifacts/Unit Test Results - GPU NON HEADS on Builtkite/**/*.xml
+
+      - name: Check Buildkite job state
+        if: >
+          always() &&
+          steps.download.conclusion == 'success' &&
+          steps.download.outputs.build-state != 'passed'
+        run: |
+          echo "::warning::Buildkite pipeline did not pass: ${{ steps.buildkite.outputs.url }}"
+          exit 1
+
+  buildkite-heads:
+    name: "Build and Test GPU heads (on Builtkite)"
+    needs: [ci-workflow, buildkite]
+    runs-on: ubuntu-latest
+    # only run if CI workflow's build-and-test job succeeded and CI workflow ran on a fork
+    if: >
+      needs.ci-workflow.outputs.build-and-test == 'success' &&
+      github.event.workflow_run.head_repository.fork
+
+    steps:
+      - name: Trigger Buildkite Pipeline
+        id: buildkite
+        uses: EnricoMi/trigger-pipeline-action@master
+        env:
+          PIPELINE: "horovod/horovod"
+          COMMIT: "${{ fromJSON( needs.ci-workflow.outputs.pr-json ).merge_sha }}"
+          BRANCH: "${{ github.event.workflow_run.head_repository.owner.login }}:${{ github.event.workflow_run.head_branch }}"
+          MESSAGE: "${{ github.event.workflow_run.head_commit.message }} (head versions)"
+          BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
+          BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU HEADS\"}"
+
+      - name: Download Buildkite Artifacts
+        id: download
+        uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1
+        with:
+          github_token: ${{ github.token }}
+          buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
+          buildkite_build_url: ${{ steps.buildkite.outputs.url }}
+          ignore_build_states: blocked,canceled,skipped,not_run
+          ignore_job_states: timed_out
+          output_path: artifacts/Unit Test Results - GPU HEADS on Builtkite
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: Unit Test Results - GPU HEADS on Builtkite
+          path: artifacts/Unit Test Results - GPU HEADS on Builtkite/**/*.xml
+
+      - name: Check Buildkite job state
+        if: >
+          always() &&
+          steps.download.conclusion == 'success' &&
+          steps.download.outputs.build-state != 'passed'
+        run: |
+          echo "::warning::Buildkite pipeline did not pass: ${{ steps.buildkite.outputs.url }}"
+          exit 1
+
+  publish-test-results:
+    name: "Publish Unit Tests Results"
+    needs: [ci-workflow, buildkite, buildkite-heads]
+    runs-on: ubuntu-latest
+    # only publish results when ci-workflow job has not been skipped, meaning:
+    # - CI workflow has not been skipped or cancelled
+    # - CI workflow did not run on schedule
+    # and CI workflow's build-and-test jobs have not all been skipped
+    if: >
+      always() &&
+      needs.ci-workflow.result != 'skipped' &&
+      needs.ci-workflow.outputs.build-and-test != 'skipped'
+
+    steps:
+      - name: Debug Action
+        uses: hmarr/debug-action@v2.0.0
+
+      - name: Download and Extract Artifacts
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        run: |
+          mkdir -p artifacts && cd artifacts
+
+          artifacts_url=${{ github.event.workflow_run.artifacts_url }}
+
+          gh api "$artifacts_url" -q '.artifacts[] | [.name, .archive_download_url] | @tsv' | while read artifact
+          do
+            IFS=$'\t' read name url <<< "$artifact"
+            gh api $url > "$name.zip"
+            unzip -d "$name" "$name.zip"
+          done
+
+      - name: Download Buildkite Artifacts
+        uses: actions/download-artifact@v2
+        with:
+          path: artifacts
+
+      - name: Identify last run of each test
+        continue-on-error: true
+        run: |
+          declare -A last_runs
+          ls -d artifacts/Unit\ Test\ Results\ */* | sort > runs.txt
+          while read run
+          do
+            test=${run/%[_-]run[_-][0123456789]/}
+            last_runs[$test]=$run
+          done < runs.txt
+
+          echo "LAST_RUNS<<EOF" >> $GITHUB_ENV
+          for test in "${!last_runs[@]}"
+          do
+            echo "${last_runs[$test]}" >&2
+            echo "${last_runs[$test]}/**/*.xml" >> $GITHUB_ENV
+          done
+          echo "EOF" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Publish Unit Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v1
+        if: always()
+        with:
+          check_name: Unit Test Results
+          event_file: artifacts/Event File/event.json
+          event_name: ${{ github.event.workflow_run.event }}
+          commit: ${{ github.event.workflow_run.head_sha }}
+          files: "${{ env.LAST_RUNS }}"
+
+      - name: Publish Unit Test Results (with flaky tests)
+        uses: EnricoMi/publish-unit-test-result-action@v1
+        if: always()
+        with:
+          check_name: Unit Test Results (with flaky tests)
+          event_file: artifacts/Event File/event.json
+          event_name: ${{ github.event.workflow_run.event }}
+          commit: ${{ github.event.workflow_run.head_sha }}
+          files: "artifacts/Unit Test Results */**/*.xml"
+          fail_on: errors

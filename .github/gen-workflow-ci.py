@@ -113,6 +113,7 @@ def main():
                 f'\n'
                 f'on:\n'
                 f'  schedule:\n'
+                f'    # run a build on master (this does not publish test results or cancel concurrent builds)\n'
                 f'    - cron: \'0 10 * * *\' # everyday at 10am\n'
                 f'  push:\n'
                 f'    # only consider push to master and tags\n'
@@ -120,14 +121,28 @@ def main():
                 f'    branches: [ master ]\n'
                 f'    tags: [ \'v*.*.*\' ]\n'
                 f'  pull_request:\n'
+                f'    # only consider pull requests into master\n'
                 f'    branches: [ master ]\n'
                 f'\n'
                 f'concurrency:\n'
-                f'  # github.ref means something like refs/heads/master or refs/tags/v0.22.1 or the branch.\n'
-                f'  # This helps to not cancel concurrent runs on master and a tag that share the same commit\n'
-                f'  # On master, head_ref is empty, so we use the SHA of the commit, this means\n'
-                f'  # individual commits to master will not be cancelled, but tagged\n'
-                f'  group: ci-${{{{ github.ref }}}}-${{{{ github.head_ref || github.sha }}}}\n'
+                f'  # This controls which concurrent builds to cancel:\n'
+                f'  # - we do not want any concurrent builds on a branch (pull_request)\n'
+                f'  # - we do not want concurrent builds on the same commit on master (push)\n'
+                f'  # - we do not want concurrent builds on the same commit on a tag (push)\n'
+                f'  # - we allow concurrent runs on the same commit on master and its tag (push)\n'
+                f'  # - we allow concurrent runs on the same commit on master (push) and a scheduled build (schedule)\n'
+                f'  #\n'
+                f'  # A pull_request event only runs on branch commit, a push event only on master and tag commit.\n'
+                f'  # A schedule event only runs on master HEAD commit.\n'
+                f'  #\n'
+                f'  # Expression github.ref means something like refs/heads/master or refs/tags/v0.22.1 or the branch.\n'
+                f'  # This helps to not cancel concurrent runs on master or a tag that share the same commit.\n'
+                f'  # Expression github.head_ref refers to the branch of the pull request.\n'
+                f'  # On master, github.head_ref is empty, so we use the SHA of the commit, this means individual\n'
+                f'  # commits to master will not be cancelled, while there can only be one concurrent build on a branch.\n'
+                f'  #\n'
+                f'  # We include the event name to we allow for concurrent scheduled and master builds.\n'
+                f'  group: ci-${{{{ github.event_name }}}}-${{{{ github.ref }}}}-${{{{ github.head_ref || github.sha }}}}\n'
                 f'  cancel-in-progress: true\n'
                 f'\n')
 
@@ -137,7 +152,20 @@ def main():
                '    runs-on: ubuntu-latest\n' \
                '    steps:\n' \
                '    - name: Debug Action\n' \
-               '      uses: hmarr/debug-action@v1.0.0\n' + \
+               '      uses: hmarr/debug-action@v1.0.0\n' \
+               '    - name: Debug Concurrency\n' \
+               '      run: echo "ci-${{ github.event_name }}-${{ github.ref }}-${{ github.head_ref || github.sha }}"\n' \
+               '\n' \
+               '  event_file:\n' \
+               '    name: "Event File"\n' \
+               '    runs-on: ubuntu-latest\n' \
+               '    steps:\n' \
+               '    - name: Upload\n' \
+               '      uses: actions/upload-artifact@v2\n' \
+               '      with:\n' \
+               '        name: Event File\n' \
+               '        path: ${{ github.event_path }}\n' \
+               '\n' + \
                '\n'.join(jobs)
 
     def init_workflow_job() -> str:
@@ -145,9 +173,11 @@ def main():
                 f'    name: "Init Workflow"\n'
                 f'    runs-on: ubuntu-latest\n'
                 f'    outputs:\n'
-                f"      run_at_all: ${{{{ github.event_name != 'schedule' || github.repository == 'horovod/horovod' }}}}\n"
+                f"      run-at-all: ${{{{ github.event_name != 'schedule' || github.repository == 'horovod/horovod' }}}}\n"
                 f"      # if we don't get a clear 'false', we fall back to building and testing\n"
-                f"      run_builds_and_tests: ${{{{ steps.tests.outputs.needed != 'false' }}}}\n"
+                f"      run-builds-and-tests: ${{{{ steps.tests.outputs.needed != 'false' }}}}\n"
+                f'      buildkite-branch-label: "${{{{ steps.config-buildkite.outputs.branch-label }}}}"\n'
+                f'      buildkite-message: "${{{{ steps.config-buildkite.outputs.message }}}}"\n'
                 f'\n'
                 f'    steps:\n'
                 f'      - name: Checkout\n'
@@ -172,8 +202,8 @@ def main():
                 f'      - name: Check if tests are needed\n'
                 f'        id: tests\n'
                 f'        env:\n'
-                f'          GITHUB_BASE: ${{{{ github.event.pull_request.base.sha }}}}\n'
-                f'          GITHUB_HEAD: ${{{{ github.event.pull_request.head.sha }}}}\n'
+                f'          GITHUB_BASE_SHA: ${{{{ github.event.pull_request.base.sha }}}}\n'
+                f'          GITHUB_HEAD_SHA: ${{{{ github.event.pull_request.head.sha }}}}\n'
                 f'        run: |\n'
                 f'          if [[ "${{{{ github.event_name }}}}" == "pull_request" ]]\n'
                 f'          then\n'
@@ -190,7 +220,50 @@ def main():
                 f'          else\n'
                 f'            echo "This is not part of a pull request, we need to build and test"\n'
                 f'            echo "::set-output name=needed::true"\n'
-                f'          fi\n')
+                f'          fi\n'
+                f'\n'
+                f'      - name: Configure Buildkite Build\n'
+                f'        id: config-buildkite\n'
+                f'        env:\n'
+                f'          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}\n'
+                f'        run: |\n'
+                f'          branch="${{{{ github.event.pull_request.head.ref || github.ref }}}}"\n'
+                f'          branch="${{branch#"refs/heads/"}}"\n'
+                f'          branch="${{branch#"refs/tags/"}}"\n'
+                f'\n'
+                f'          branch_label="${{branch}}"\n'
+                f'          if [[ "${{{{ github.event_name }}}}" == "schedule" ]]\n'
+                f'          then\n'
+                f'            # we add this label to the branch used by Buildkite to avoid it cancelling one of concurrent schedule and push builds on master\n'
+                f'            branch_label="${{branch}} (schedule)"\n'
+                f'          fi\n'
+                f'          echo "::set-output name=branch-label::${{branch_label}}"\n'
+                f'\n'
+                f'          if [[ "${{{{ github.event_name }}}}" == "pull_request" ]]\n'
+                f'          then\n'
+                f'            head_sha="${{{{ github.event.pull_request.head.sha }}}}"\n'
+                f'            message="$(gh api https://api.github.com/repos/horovod/horovod/commits/${{head_sha}} -q .commit.message | head -n1)"\n'
+                f'            echo "::set-output name=message::${{message}}"\n'
+                f'          fi\n'
+                f'\n'
+                f'      - name: Provide PR meta\n'
+                f"        if: github.event_name == 'pull_request'\n"
+                f'        run: |\n'
+                f'          rm -f pr.json\n'
+                f'          echo -n "{{" >> pr.json\n'
+                f'          echo -n " \\\"merge_sha\\\": \\\"${{{{ github.sha }}}}\\\"," >> pr.json\n'
+                f'          echo -n " \\\"base_sha\\\": \\\"${{{{ github.event.pull_request.base.sha }}}}\\\"," >> pr.json\n'
+                f'          echo -n " \\\"head_sha\\\": \\\"${{{{ github.event.pull_request.head.sha }}}}\\\" " >> pr.json\n'
+                f'          echo -n "}}" >> pr.json\n'
+                f'          cat pr.json\n'
+                f'\n'
+                f'      - name: Upload PR meta\n'
+                f'        uses: actions/upload-artifact@v2\n'
+                f"        if: github.event_name == 'pull_request'\n"
+                f'        with:\n'
+                f'          name: PR Meta\n'
+                f'          path: pr.json\n'
+                f'\n')
 
     def build_and_test_images(id: str,
                               name: str,
@@ -207,8 +280,8 @@ def main():
                 f'    name: "{name} (${{{{ matrix.image }}}})"\n'
                 f'    needs: [{", ".join(needs)}]\n'
                 f'    if: >\n'
-                f"      needs.init-workflow.outputs.run_at_all == 'true' &&\n"
-                f"      needs.init-workflow.outputs.run_builds_and_tests == 'true'\n"
+                f"      needs.init-workflow.outputs.run-at-all == 'true' &&\n"
+                f"      needs.init-workflow.outputs.run-builds-and-tests == 'true'\n"
                 f'    runs-on: ubuntu-latest\n'
                 f'\n'
                 f'    strategy:\n'
@@ -358,8 +431,8 @@ def main():
                 f'    name: "{name} (${{{{ matrix.image }}}}-macos)"\n'
                 f'    needs: [{", ".join(needs)}]\n'
                 f'    if: >\n'
-                f"      needs.init-workflow.outputs.run_at_all == 'true' &&\n"
-                f"      needs.init-workflow.outputs.run_builds_and_tests == 'true'\n"
+                f"      needs.init-workflow.outputs.run-at-all == 'true' &&\n"
+                f"      needs.init-workflow.outputs.run-builds-and-tests == 'true'\n"
                 f'    runs-on: macos-latest\n'
                 f'\n'
                 f'    strategy:\n'
@@ -368,34 +441,34 @@ def main():
                 f'      matrix:\n'
                 f'        include:\n'
                 f''
-                f'          - image: test-cpu-openmpi-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_0\n'
+                f'          - image: test-cpu-openmpi-py3_7-tf1_15_5-keras2_2_4-torch1_6_0-mxnet1_5_0\n'
                 f'            HOROVOD_WITH_MPI: 1\n'
                 f'            HOROVOD_WITHOUT_GLOO: 1\n'
                 f'            TENSORFLOW: 1.15.0\n'
                 f'            KERAS: 2.2.4\n'
-                f'            PYTORCH: 1.2.0\n'
-                f'            PYTORCH_LIGHTNING: 0.7.6\n'
-                f'            TORCHVISION: 0.4.0\n'
+                f'            PYTORCH: 1.6.0\n'
+                f'            PYTORCH_LIGHTNING: 1.3.8\n'
+                f'            TORCHVISION: 0.7.0\n'
                 f'            MXNET: 1.5.0\n'
                 f'\n'
-                f'          - image: test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0\n'
+                f'          - image: test-cpu-gloo-py3_8-tf2_5_1-keras2_4_3-torch1_8_1-mxnet1_5_0\n'
                 f'            HOROVOD_WITHOUT_MPI: 1\n'
                 f'            HOROVOD_WITH_GLOO: 1\n'
-                f'            TENSORFLOW: 2.2.0\n'
-                f'            KERAS: 2.3.1\n'
-                f'            PYTORCH: 1.5.0\n'
-                f'            PYTORCH_LIGHTNING: 1.2.9\n'
-                f'            TORCHVISION: 0.6.0\n'
+                f'            TENSORFLOW: 2.5.1\n'
+                f'            KERAS: 2.5.0rc0\n'
+                f'            PYTORCH: 1.8.1\n'
+                f'            PYTORCH_LIGHTNING: 1.3.8\n'
+                f'            TORCHVISION: 0.9.1\n'
                 f'            MXNET: 1.5.0\n'
                 f'\n'
-                f'          - image: test-openmpi-cpu-gloo-py3_8-tf2_3_0-keras2_3_1-torch1_6_0-mxnet1_5_0\n'
+                f'          - image: test-openmpi-cpu-gloo-py3_8-tf2_6_0-keras2_6_0-torch1_9_0-mxnet1_5_0\n'
                 f'            HOROVOD_WITH_MPI: 1\n'
                 f'            HOROVOD_WITH_GLOO: 1\n'
-                f'            TENSORFLOW: 2.3.0\n'
-                f'            KERAS: 2.3.1\n'
-                f'            PYTORCH: 1.6.0\n'
-                f'            PYTORCH_LIGHTNING: 1.2.9\n'
-                f'            TORCHVISION: 0.7.0\n'
+                f'            TENSORFLOW: 2.6.0\n'
+                f'            KERAS: 2.6.0\n'
+                f'            PYTORCH: 1.9.0\n'
+                f'            PYTORCH_LIGHTNING: 1.3.8\n'
+                f'            TORCHVISION: 0.10.0\n'
                 f'            MXNET: 1.5.0\n'
                 f'\n'
                 f'    steps:\n'
@@ -418,11 +491,14 @@ def main():
                 f'          TORCHVISION: ${{{{ matrix.TORCHVISION }}}}\n'
                 f'          MXNET: ${{{{ matrix.MXNET }}}}\n'
                 f'\n'
+                f'        # The python patch in the pyenv install step is to work around an incompatibility introduced in new xcode version in macOS Big Sur. The patch is provided by python team.\n'
+                f'        # The original discussion is here https://github.com/pyenv/pyenv/issues/1737\n'
                 f'        run: |\n'
-                f'          brew install -f openmpi cmake libuv pyenv coreutils\n'
+                f'          brew reinstall -f zlib bzip2\n'
+                f'          brew install -f openmpi cmake libuv pyenv coreutils curl\n'
                 f'          export PATH=$(pyenv root)/shims:$PATH\n'
                 f'          pyenv uninstall -f 3.7.7\n'
-                f'          pyenv install 3.7.7\n'
+                f'          CFLAGS="-I$(brew --prefix bzip2)/include -I$(brew --prefix zlib)/include" LDFLAGS="-L$(brew --prefix zlib)/lib -L$(brew --prefix bzip2)/lib" pyenv install --patch 3.7.7 < <(curl -sSL https://github.com/python/cpython/commit/8ea6353.patch)\n'
                 f'          pyenv global 3.7.7\n'
                 f'          python --version\n'
                 f'\n'
@@ -462,17 +538,17 @@ def main():
                 '\n'.join([f'            ${{{{ steps.test-{attempt}.outputs.artifacts-path }}}}'
                            for attempt in range(1, attempts+1)]))
 
-    def trigger_buildkite_job(id: str, needs: List[str]) -> str:
+    def trigger_buildkite_job(id: str, name: str, needs: List[str], mode: str) -> str:
         if 'init-workflow' not in needs:
             needs.insert(0, 'init-workflow')
         return (f'  {id}:\n'
-                f'    name: "Build and Test GPU (on Builtkite)"\n'
+                f'    name: "{name}"\n'
                 f'    needs: [{", ".join(needs)}]\n'
                 f'    runs-on: ubuntu-latest\n'
                 f'    if: >\n'
                 f'      github.repository == \'horovod/horovod\' &&\n'
-                f"      needs.init-workflow.outputs.run_at_all == 'true' &&\n"
-                f"      needs.init-workflow.outputs.run_builds_and_tests == 'true' &&\n"
+                f"      needs.init-workflow.outputs.run-at-all == 'true' &&\n"
+                f"      needs.init-workflow.outputs.run-builds-and-tests == 'true' &&\n"
                 f'      ( github.event_name != \'pull_request\' || github.event.pull_request.head.repo.full_name == github.repository )\n'
                 f'\n'
                 f'    steps:\n'
@@ -481,12 +557,12 @@ def main():
                 f'        uses: EnricoMi/trigger-pipeline-action@master\n'
                 f'        env:\n'
                 f'          PIPELINE: "horovod/horovod"\n'
-                # on "push" event, github.event.pull_request.head.ref will be empty
-                # and trigger-pipeline-action falls back to github.ref
-                f'          BRANCH: "${{{{ github.event.pull_request.head.ref }}}}"\n'
-                f'          MESSAGE: "GPU Tests triggered by GitHub"\n'
+                f'          # COMMIT is taken from GITHUB_SHA\n'
+                f'          BRANCH: "${{{{ needs.init-workflow.outputs.buildkite-branch-label }}}}"\n'
+                f'          # empty MESSAGE will be filled by Buildkite from commit message\n'
+                f'          MESSAGE: "${{{{ needs.init-workflow.outputs.buildkite-message }}}}"\n'
                 f'          BUILDKITE_API_ACCESS_TOKEN: ${{{{ secrets.BUILDKITE_TOKEN }}}}\n'
-                f'          BUILD_ENV_VARS: "{{\\"PIPELINE_MODE\\": \\"GPU FULL\\"}}"\n'
+                f'          BUILD_ENV_VARS: "{{\\"PIPELINE_MODE\\": \\"{mode}\\"}}"\n'
                 f'\n'
                 f'      - name: Download Buildkite Artifacts\n'
                 f'        id: download\n'
@@ -497,14 +573,14 @@ def main():
                 f'          buildkite_build_url: ${{{{ steps.build.outputs.url }}}}\n'
                 f'          ignore_build_states: blocked,canceled,skipped,not_run\n'
                 f'          ignore_job_states: timed_out\n'
-                f'          output_path: artifacts/Unit Test Results - GPUs on Buildkite\n'
+                f'          output_path: artifacts/Unit Test Results - {mode} on Builtkite\n'
                 f'\n'
                 f'      - name: Upload Test Results\n'
                 f'        uses: actions/upload-artifact@v2\n'
                 f'        if: always()\n'
                 f'        with:\n'
-                f'          name: Unit Test Results - GPUs on Builtkite\n'
-                f'          path: artifacts/Unit Test Results - GPUs on Buildkite/**/*.xml\n'
+                f'          name: Unit Test Results - {mode} on Builtkite\n'
+                f'          path: artifacts/Unit Test Results - {mode} on Builtkite/**/*.xml\n' +
                 f'\n'
                 f'      - name: Check Buildkite job state\n'
                 f'        if: >\n'
@@ -515,60 +591,6 @@ def main():
                 f'          echo "::warning::Buildkite pipeline did not pass: ${{{{ steps.build.outputs.url }}}}"\n'
                 f'          exit 1\n')
 
-    def publish_unit_test_results(id: str, needs: List[str]) -> str:
-        return (f'  {id}:\n'
-                f'    name: "Publish Unit Tests Results"\n'
-                f'    needs: [{", ".join(needs)}]\n'
-                f'    runs-on: ubuntu-latest\n'
-                f'    # only run this job when the workflow is in success or failure state,\n'
-                f'    # not when it is in cancelled or skipped state\n'
-                f'    # only run this job on push events or when the event does not run in a fork repository\n'
-                f'    if: >\n'
-                f'      ( success() || failure() ) &&\n'
-                f"      needs.init-workflow.outputs.run_at_all == 'true' &&\n"
-                f'      ( github.event_name == \'push\' || ! github.event.head.repo.fork )\n'
-                f'\n'
-                f'    steps:\n'
-                f'      - name: Download GitHub Artifacts\n'
-                f'        uses: actions/download-artifact@v2\n'
-                f'        with:\n'
-                f'          path: artifacts\n'
-                f'\n'
-                f'      - name: Identify last run of each test\n'
-                f'        continue-on-error: true\n'
-                f'        run: |\n'
-                f'          declare -A last_runs\n'
-                f'          ls -d artifacts/Unit\\ Test\\ Results\\ */* | sort > runs.txt\n'
-                f'          while read run\n'
-                f'          do\n'
-                f'            test=${{run/%[_-]run[_-][0123456789]/}}\n'
-                f'            last_runs[$test]=$run\n'
-                f'          done < runs.txt\n'
-                f'\n'
-                f'          echo "LAST_RUNS<<EOF" >> $GITHUB_ENV\n'
-                f'          for test in "${{!last_runs[@]}}"\n'
-                f'          do\n'
-                f'            echo "${{last_runs[$test]}}" >&2\n'
-                f'            echo "${{last_runs[$test]}}/**/*.xml" >> $GITHUB_ENV\n'
-                f'          done\n'
-                f'          echo "EOF" >> $GITHUB_ENV\n'
-                f'        shell: bash\n'
-                f'\n'
-                f'      - name: Publish Unit Test Results\n'
-                f'        uses: EnricoMi/publish-unit-test-result-action@v1\n'
-                f'        if: always()\n'
-                f'        with:\n'
-                f'          check_name: Unit Test Results\n'
-                f'          files: "${{{{ env.LAST_RUNS }}}}"\n'
-                f'\n'
-                f'      - name: Publish Unit Test Results (with flaky tests)\n'
-                f'        uses: EnricoMi/publish-unit-test-result-action@v1\n'
-                f'        if: always()\n'
-                f'        with:\n'
-                f'          check_name: Unit Test Results (with flaky tests)\n'
-                f'          fail_on: errors\n'
-                f'          files: "artifacts/Unit Test Results */**/*.xml"\n')
-
     def publish_docker_images(needs: List[str], images: List[str]) -> str:
         if 'init-workflow' not in needs:
             needs.insert(0, 'init-workflow')
@@ -577,13 +599,13 @@ def main():
         return (f'  docker-config:\n'
                 f'    name: Configure docker build\n'
                 f'    needs: [{", ".join(needs)}]\n'
-                f"    # build-and-test-cpu, build-gpu and buildkite might have been skipped (! needs.init-workflow.outputs.run_builds_and_tests)\n"
+                f"    # build-and-test-cpu, build-gpu and buildkite might have been skipped (! needs.init-workflow.outputs.run-builds-and-tests)\n"
                 f'    # buildkite might have been skipped (workflow runs for a fork PR),\n'
                 f'    # we still want to build docker images (though we might not want to push them)\n'
                 f'    if: >\n'
                 f'      always() &&\n'
-                f"      needs.init-workflow.outputs.run_at_all == 'true' &&\n"
-                f"      needs.init-workflow.outputs.run_builds_and_tests == 'true' &&\n"
+                f"      needs.init-workflow.outputs.run-at-all == 'true' &&\n"
+                f"      needs.init-workflow.outputs.run-builds-and-tests == 'true' &&\n"
                 f"      needs.build-and-test.result == 'success' &&\n"
                 f"      ( needs.buildkite.result == 'success' || needs.buildkite.result == 'skipped' )\n"
                 f'    runs-on: ubuntu-latest\n'
@@ -779,8 +801,8 @@ def main():
             build_and_test_images(id='build-and-test', name='Build and Test', needs=['init-workflow'], images=release_images, parallel_images='-cpu-', tests_per_image=tests_per_image, tests=tests),
             build_and_test_images(id='build-and-test-heads', name='Build and Test heads', needs=['build-and-test'], images=allhead_images, parallel_images='', tests_per_image=tests_per_image, tests=tests),
             build_and_test_macos(id='build-and-test-macos', name='Build and Test macOS', needs=['build-and-test']),
-            trigger_buildkite_job(id='buildkite', needs=['build-and-test']),
-            publish_unit_test_results(id='publish-test-results', needs=['build-and-test', 'build-and-test-heads', 'build-and-test-macos', 'buildkite']),
+            trigger_buildkite_job(id='buildkite', name='Build and Test GPU (on Builtkite)', needs=['build-and-test'], mode='GPU NON HEADS'),
+            trigger_buildkite_job(id='buildkite-heads', name='Build and Test GPU heads (on Builtkite)', needs=['buildkite'], mode='GPU HEADS'),
             publish_docker_images(needs=['build-and-test', 'buildkite'], images=['horovod', 'horovod-cpu', 'horovod-ray']),
             sync_files(needs=['init-workflow'])
         )

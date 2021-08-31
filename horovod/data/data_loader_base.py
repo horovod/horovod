@@ -55,11 +55,12 @@ class AsyncDataLoaderMixin(object):
         class PytorchAsyncDataLoader(AsyncDataLoaderMixin, PytorchDataLoader):
     """
 
-    def __init__(self, async_loader_queue_size=64, *args, **kwargs):
+    def __init__(self, async_loader_queue_size=64, debug_data_loader=False, *args, **kwargs):
         """
         initialize the async data loader. Need to add this in the __init__() of the implementation
         """
         self.async_loader_queue_size = async_loader_queue_size
+        self.debug_data_loader = debug_data_loader
         super().__init__(*args, **kwargs)
 
         print(f"Apply the AsyncDataLoaderMixin on top of the data loader, async_loader_queue_size={async_loader_queue_size}. ")
@@ -75,16 +76,31 @@ class AsyncDataLoaderMixin(object):
         """
         Close the async data loader.
         """
-        print("Closing the AsyncDataLoaderMixin.")
+        print(f"close_async_loader[{self.async_loader_queue_size}], Closing the AsyncDataLoaderMixin.")
         if self.async_loader_queue_size > 0 and self.started:
             self.finished_event.set()
+            c = 0
             while True:
                 try:
                     # Drain buffer
                     self.queue.get_nowait()
+                    if self.debug_data_loader:
+                        print(f"close_async_loader[{self.async_loader_queue_size}], discarded batch #{c} from Queue.")
+
+                    c += 1
+
+                    # Force break out if hanging. We assume hanging if already pop items more than twice of the size of the queue.
+                    if c > max(2 * self.async_loader_queue_size, 200):
+                        print(f"close_async_loader: ERROR!!! Force break out after {c} times get_nowait.")
+                        break
                 except Empty:
                     break
+            if self.debug_data_loader:
+                print(f"close_async_loader[{self.async_loader_queue_size}], joining...")
+
             self.thread.join()
+
+        print(f"close_async_loader[{self.async_loader_queue_size}] is closed.")
 
     def _async_worker(self):
         """
@@ -92,17 +108,29 @@ class AsyncDataLoaderMixin(object):
         User need to implement self._iterate() to read the data.
         """
         try:
+            c = 0
             while not self.finished_event.is_set():
                 for batch in self._iterate():
                     if self.finished_event.is_set():
                         break
                     self.queue.put(batch)
+
+                    if self.debug_data_loader:
+                        print(f"_async_worker[{self.async_loader_queue_size}], push batch #{c}.")
+                        c += 1
+
+                if self.debug_data_loader:
+                    print(f"_async_worker[{self.async_loader_queue_size}], finish reading at #{c}, reset debugging counter, append None to queue.")
+                    c = 0
+
                 self.queue.put(None)
         except Exception as ex:
             self.queue.put(ex)
             self.queue.put(None)
         finally:
             self.queue.put(None)
+
+        print(f"_async_worker[{self.async_loader_queue_size}], stoped")
 
     def __iter__(self):
         """
@@ -115,12 +143,22 @@ class AsyncDataLoaderMixin(object):
             if not self.started:
                 self.started = True
                 self.thread.start()
+
+            c = 0
             while True:
                 batch = self.queue.get()
+
+                if self.debug_data_loader:
+                    print(f"__iter__[{self.async_loader_queue_size}], get batch #{c}.")
+                    c += 1
+
                 if batch is None:
+                    if self.debug_data_loader:
+                        print(f"__iter__[{self.async_loader_queue_size}], get None from queue at #{c}.")
                     break
                 if isinstance(batch, Exception):
                     raise batch
+
                 yield self._process_batch(batch)
         else:
             for batch in self._iterate():

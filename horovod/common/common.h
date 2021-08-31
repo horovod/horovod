@@ -153,6 +153,9 @@ namespace common {
 // Temporary tensor name for ranks that did Join().
 #define JOIN_TENSOR_NAME "join.noname"
 
+// Fixed tensor name for all barrier operations
+#define BARRIER_TENSOR_NAME "barrier.noname"
+
 // List of supported frameworks.
 enum Framework { TENSORFLOW, PYTORCH, MXNET, XLA };
 
@@ -185,6 +188,7 @@ struct Event {
   Event(std::shared_ptr<gpuEvent_t> event, gpuStream_t stream) :
     event(event), stream(stream) {};
   std::shared_ptr<gpuEvent_t> event;
+  uint64_t event_idx;
   gpuStream_t stream = nullptr;
 #endif
 };

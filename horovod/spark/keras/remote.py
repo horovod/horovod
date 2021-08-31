@@ -109,6 +109,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
 
         hvd = get_horovod()
         hvd.init()
+
         pin_gpu(hvd, tf, k)
 
         if not user_shuffle_buffer_size:
@@ -128,6 +129,9 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
 
         # Verbose mode 1 will print a progress bar
         verbose = user_verbose if hvd.rank() == 0 else 0
+
+        if verbose:
+            print(f"Shared lib path is pointing to: {_horovod.common.process_sets._basics.MPI_LIB_CTYPES}")
 
         transform_spec = None
         if transformation:
@@ -151,6 +155,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 # TensorBoard, or other metrics-based callbacks.
                 hvd.callbacks.MetricAverageCallback(),
             ]
+
             callbacks += user_callbacks
 
             # Horovod: save checkpoints only on the first worker to prevent other workers from
@@ -176,7 +181,18 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 callbacks.append(_checkpoint_callback)
 
                 if remote_store.saving_runs:
-                    callbacks.append(k.callbacks.TensorBoard(logs_dir))
+                    tb_callback = None
+                    for i, c in enumerate(callbacks):
+                        if isinstance(c, k.callbacks.TensorBoard):
+                            tb_callback = c
+                            print(f"Found TensorBoard callback, updating log_dir to {logs_dir}")
+                            tb_callback.log_dir = logs_dir
+                            break
+                    if tb_callback:
+                        # Rather than a possibly arbitrary order, we always place the TensorBoard
+                        # callback right before the SyncCallback
+                        callbacks.pop(i)
+                    callbacks.append(tb_callback or k.callbacks.TensorBoard(logs_dir))
                     callbacks.append(SyncCallback(run_output_dir, remote_store.sync, k))
 
             if train_steps_per_epoch is None:
@@ -267,7 +283,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                         with k.utils.custom_object_scope(custom_objects):
                             model = k.models.load_model(ckpt_file)
                         serialized_model = keras_utils.serialize_model(model)
-                    else:    
+                    else:
                         with open(ckpt_file, 'rb') as f:
                             serialized_model = codec.dumps_base64(f.read())
 

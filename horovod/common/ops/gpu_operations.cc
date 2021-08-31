@@ -24,7 +24,8 @@
 namespace horovod {
 namespace common {
 
-GPUOpContext::GPUOpContext(GPUContext* context, HorovodGlobalState* global_state)
+GPUOpContext::GPUOpContext(GPUContext* context,
+                           HorovodGlobalState* global_state)
     : gpu_context_(context), global_state_(global_state) {}
 
 void GPUOpContext::InitGPU(const std::vector<TensorTableEntry>& entries) {
@@ -32,23 +33,29 @@ void GPUOpContext::InitGPU(const std::vector<TensorTableEntry>& entries) {
   gpu_context_->SetDevice(first_entry.device);
 
   // Ensure stream is in the map before executing reduction.
-  gpuStream_t& stream = gpu_context_->streams[global_state_->current_nccl_stream][first_entry.device];
+  gpuStream_t& stream =
+      gpu_context_
+          ->streams[global_state_->current_nccl_stream][first_entry.device];
   if (stream == nullptr) {
     gpu_context_->StreamCreate(&stream);
   }
 }
 
-void GPUOpContext::InitGPUQueue(const std::vector<TensorTableEntry>& entries, const Response& response) {
+void GPUOpContext::InitGPUQueue(const std::vector<TensorTableEntry>& entries,
+                                const Response& response) {
   event_queue = std::queue<std::pair<std::string, Event>>();
-  stream = &gpu_context_->streams[global_state_->current_nccl_stream][entries[0].device];
+  stream =
+      &gpu_context_
+           ->streams[global_state_->current_nccl_stream][entries[0].device];
 
   if (global_state_->timeline.Initialized()) {
     gpu_context_->RecordEvent(event_queue, QUEUE, *stream);
   }
 }
 
-Status GPUOpContext::FinalizeGPUQueue(std::vector<TensorTableEntry>& entries, bool free_host_buffer /*= true*/,
-                                      const std::function<void()>& error_check_callback) {
+Status GPUOpContext::FinalizeGPUQueue(
+    std::vector<TensorTableEntry>& entries, bool free_host_buffer /*= true*/,
+    const std::function<void()>& error_check_callback) {
   // Use completion marker via event because it's faster than
   // blocking gpuStreamSynchronize() in this thread.
   if (!global_state_->enable_async_completion) {
@@ -60,67 +67,99 @@ Status GPUOpContext::FinalizeGPUQueue(std::vector<TensorTableEntry>& entries, bo
   auto& evt_queue = event_queue;
   auto& timeline = global_state_->timeline;
   auto& gpu_context = gpu_context_;
+  auto& global_state = global_state_;
 
-  // Claim a std::shared_ptr to the fusion buffer to prevent its memory from being reclaimed
-  // during finalization.
+  // Claim a std::shared_ptr to the fusion buffer to prevent its memory from
+  // being reclaimed during finalization.
   auto fusion_buffer = global_state_->fusion_buffer.GetBuffer(
-      first_entry.device, first_entry.context->framework(), global_state_->current_nccl_stream);
+      first_entry.device, first_entry.context->framework(),
+      global_state_->current_nccl_stream);
 
   bool elastic = global_state_->elastic_enabled;
   bool enable_async_completion = global_state_->enable_async_completion;
   auto current_stream = *stream;
-  gpu_context_->finalizer_thread_pool.execute([entries, first_entry, cpu_buffer, fusion_buffer, free_host_buffer,
-                                               evt_queue, &timeline, &gpu_context, error_check_callback,
-                                               elastic, enable_async_completion, current_stream]() mutable {
-    gpu_context->SetDevice(first_entry.device);
+  gpu_context_->finalizer_thread_pool.execute(
+      [entries, first_entry, cpu_buffer, fusion_buffer, free_host_buffer,
+       evt_queue, &timeline, &gpu_context, error_check_callback, elastic,
+       enable_async_completion, current_stream, &global_state]() mutable {
+        gpu_context->SetDevice(first_entry.device);
 
-    Event event;
-    if (!enable_async_completion || timeline.Initialized()) {
-      // If timeline is enabled, wait for events on CPU for accurate timings.
-      gpu_context->WaitForEvents(evt_queue, entries, timeline, error_check_callback, elastic);
-    } else {
-      gpu_context->ClearEvents(evt_queue, entries, timeline, error_check_callback, elastic);
-      event = gpu_context->RecordEvent(current_stream);
-    }
+        Event event;
+        bool gpu_evt_failed = false;
+        std::string gpu_evt_err_msg;
+        if (!enable_async_completion || timeline.Initialized()) {
+          // If timeline is enabled, wait for events on CPU for accurate
+          // timings.
+          if (elastic) {
+            try {
+              gpu_context->WaitForEventsElastic(evt_queue, entries, timeline,
+                                                error_check_callback);
+            } catch (std::exception& e) {
+              // notify background loop to exit and reinit rather than just
+              // aborting the program
+              global_state->shut_down = true;
+              gpu_evt_failed = true;
+              gpu_evt_err_msg = e.what();
+            }
+          } else {
+            gpu_context->WaitForEvents(evt_queue, entries, timeline,
+                                       error_check_callback);
+          }
+        } else {
+          gpu_context->ClearEvents(evt_queue, entries, timeline,
+                                   error_check_callback, elastic);
+          event = gpu_context->RecordEvent(current_stream);
+        }
 
-    if (free_host_buffer && cpu_buffer != nullptr) {
-      free(cpu_buffer);
-    }
+        if (free_host_buffer && cpu_buffer != nullptr) {
+          free(cpu_buffer);
+        }
 
-    for (auto& e : entries) {
-      timeline.End(e.tensor_name, e.output);
-      auto status = Status::OK();
-      status.event = event;
-      e.FinishWithCallback(status);
-    }
-    if (enable_async_completion) {
-      gpu_context->ReleaseEvent(event);
-    }
-  });
+        Status status;
+        if (gpu_evt_failed) {
+          status = Status::UnknownError(gpu_evt_err_msg);
+        } else {
+          status = Status::OK();
+          status.event = event;
+        }
+
+        for (auto& e : entries) {
+          timeline.End(e.tensor_name, e.output);
+          e.FinishWithCallback(status);
+        }
+        if (enable_async_completion) {
+          gpu_context->ReleaseEvent(event);
+        }
+      });
 
   // Update current stream
-  global_state_->current_nccl_stream = (global_state_->current_nccl_stream + 1) %
-                                  global_state_->num_nccl_streams;
+  global_state_->current_nccl_stream =
+      (global_state_->current_nccl_stream + 1) %
+      global_state_->num_nccl_streams;
 
   return Status::InProgress();
 }
 
-GPUAllreduce::GPUAllreduce(GPUContext* context, HorovodGlobalState* global_state)
-    : AllreduceOp(global_state), gpu_context_(context), gpu_op_context_(context, global_state) {}
+GPUAllreduce::GPUAllreduce(GPUContext* context,
+                           HorovodGlobalState* global_state)
+    : AllreduceOp(global_state), gpu_context_(context),
+      gpu_op_context_(context, global_state) {}
 
 bool GPUAllreduce::Enabled(const ParameterManager& param_manager,
-                            const std::vector<TensorTableEntry>& entries,
-                            const Response& response) const {
+                           const std::vector<TensorTableEntry>& entries,
+                           const Response& response) const {
   return entries[0].device != CPU_DEVICE_ID;
 }
 
 #if HAVE_CUDA
-void GPUAllreduce::MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
-                                        void*& buffer_data, size_t& buffer_len) {
+void GPUAllreduce::MemcpyInFusionBuffer(
+    const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
+    void*& buffer_data, size_t& buffer_len) {
   // Access the fusion buffer.
   auto& first_entry = entries[0];
   auto buffer = global_state_->fusion_buffer.GetBuffer(
-      first_entry.device, first_entry.context->framework(), global_state_->current_nccl_stream);
+      first_entry.device, first_entry.context->framework(),
+      global_state_->current_nccl_stream);
   buffer_data = const_cast<void*>(buffer->AccessData(first_entry.context));
 
   if (global_state_->batch_d2d_memcopies) {
@@ -135,18 +174,24 @@ void GPUAllreduce::MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& ent
 
       // Set input/output pointers and sizes
       d2d_params.out[idx % BATCHED_D2D_CAPACITY] = buffer_data_at_offset;
-      d2d_params.in[idx % BATCHED_D2D_CAPACITY] = (void*) e.tensor->data();
+      d2d_params.in[idx % BATCHED_D2D_CAPACITY] = (void*)e.tensor->data();
       d2d_params.sizes[idx % BATCHED_D2D_CAPACITY] = e.tensor->size();
 
-      offset += BATCHED_D2D_PADDING * ((e.tensor->size() + BATCHED_D2D_PADDING - 1) / BATCHED_D2D_PADDING);
+      offset +=
+          BATCHED_D2D_PADDING *
+          ((e.tensor->size() + BATCHED_D2D_PADDING - 1) / BATCHED_D2D_PADDING);
       idx++;
       count++;
 
-      if (idx % BATCHED_D2D_CAPACITY == 0 || idx == (int) entries.size()) {
+      if (idx % BATCHED_D2D_CAPACITY == 0 || idx == (int)entries.size()) {
         // Perform batched d2d memcpy
-        BatchedD2DMemcpyCudaImpl(d2d_params, count, gpu_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
+        BatchedD2DMemcpyCudaImpl(
+            d2d_params, count,
+            gpu_context_->streams[global_state_->current_nccl_stream]
+                                 [first_entry.device]);
         // TODO: https://github.com/horovod/horovod/issues/2230
-        //gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl", cudaGetLastError());
+        // gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl",
+        // cudaGetLastError());
         count = 0;
       }
     }
@@ -155,12 +200,12 @@ void GPUAllreduce::MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& ent
   } else {
     int64_t offset = 0;
     for (auto& e : entries) {
-      void* buffer_data_at_offset = (uint8_t*) buffer_data + offset;
+      void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
       MemcpyEntryInFusionBuffer(entries, e, buffer_data_at_offset);
       offset += e.tensor->size();
     }
 
-    buffer_len = (size_t) offset;
+    buffer_len = (size_t)offset;
   }
 
   // Set the input data to originate from the buffer.
@@ -169,12 +214,14 @@ void GPUAllreduce::MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& ent
 #endif
 
 #if HAVE_CUDA
-void GPUAllreduce::ScaleMemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
-                                             void*& buffer_data, size_t& buffer_len, double scale_factor) {
+void GPUAllreduce::ScaleMemcpyInFusionBuffer(
+    const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
+    void*& buffer_data, size_t& buffer_len, double scale_factor) {
   auto& first_entry = entries[0];
   // Access the fusion buffer.
   auto buffer = global_state_->fusion_buffer.GetBuffer(
-      first_entry.device, first_entry.context->framework(), global_state_->current_nccl_stream);
+      first_entry.device, first_entry.context->framework(),
+      global_state_->current_nccl_stream);
   buffer_data = const_cast<void*>(buffer->AccessData(first_entry.context));
 
   if (global_state_->batch_d2d_memcopies) {
@@ -188,19 +235,24 @@ void GPUAllreduce::ScaleMemcpyInFusionBuffer(const std::vector<TensorTableEntry>
 
       // Set input/output pointers and sizes
       d2d_params.out[idx % BATCHED_D2D_CAPACITY] = buffer_data_at_offset;
-      d2d_params.in[idx % BATCHED_D2D_CAPACITY] = (void*) e.tensor->data();
+      d2d_params.in[idx % BATCHED_D2D_CAPACITY] = (void*)e.tensor->data();
       d2d_params.sizes[idx % BATCHED_D2D_CAPACITY] = e.tensor->size();
 
-      offset += BATCHED_D2D_PADDING * ((e.tensor->size() + BATCHED_D2D_PADDING - 1) / BATCHED_D2D_PADDING);
+      offset +=
+          BATCHED_D2D_PADDING *
+          ((e.tensor->size() + BATCHED_D2D_PADDING - 1) / BATCHED_D2D_PADDING);
       idx++;
       count++;
 
-      if (idx % BATCHED_D2D_CAPACITY == 0 || idx == (int) entries.size()) {
+      if (idx % BATCHED_D2D_CAPACITY == 0 || idx == (int)entries.size()) {
         // Perform batched d2d memcpy
-        BatchedScaledD2DMemcpyCudaImpl(d2d_params, count, scale_factor, first_entry.tensor->dtype(),
-                                       gpu_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
+        BatchedScaledD2DMemcpyCudaImpl(
+            d2d_params, count, scale_factor, first_entry.tensor->dtype(),
+            gpu_context_->streams[global_state_->current_nccl_stream]
+                                 [first_entry.device]);
         // TODO: https://github.com/horovod/horovod/issues/2230
-        //gpu_context_->ErrorCheck("BatchedScaledD2DMemcpyCudaImpl", cudaGetLastError());
+        // gpu_context_->ErrorCheck("BatchedScaledD2DMemcpyCudaImpl",
+        // cudaGetLastError());
         count = 0;
       }
     }
@@ -209,15 +261,17 @@ void GPUAllreduce::ScaleMemcpyInFusionBuffer(const std::vector<TensorTableEntry>
   } else {
     int64_t offset = 0;
     for (auto& e : entries) {
-      void* buffer_data_at_offset = (uint8_t*) buffer_data + offset;
+      void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
       MemcpyEntryInFusionBuffer(entries, e, buffer_data_at_offset);
       offset += e.tensor->size();
     }
 
-    buffer_len = (size_t) offset;
-    int64_t num_elements = buffer_len / DataType_Size(first_entry.tensor->dtype());
+    buffer_len = (size_t)offset;
+    int64_t num_elements =
+        buffer_len / DataType_Size(first_entry.tensor->dtype());
     if (scale_factor != 1.0) {
-      ScaleBuffer(scale_factor, entries, buffer_data, buffer_data, num_elements);
+      ScaleBuffer(scale_factor, entries, buffer_data, buffer_data,
+                  num_elements);
     }
   }
 
@@ -226,16 +280,19 @@ void GPUAllreduce::ScaleMemcpyInFusionBuffer(const std::vector<TensorTableEntry>
 }
 #endif
 
-
-void GPUAllreduce::MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                             const TensorTableEntry& e, void* buffer_data_at_offset) {
+void GPUAllreduce::MemcpyEntryInFusionBuffer(
+    const std::vector<TensorTableEntry>& entries, const TensorTableEntry& e,
+    void* buffer_data_at_offset) {
   auto& first_entry = entries[0];
-  gpu_context_->MemcpyAsyncD2D(buffer_data_at_offset, e.tensor->data(), (size_t) e.tensor->size(),
-                               gpu_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
+  gpu_context_->MemcpyAsyncD2D(
+      buffer_data_at_offset, e.tensor->data(), (size_t)e.tensor->size(),
+      gpu_context_
+          ->streams[global_state_->current_nccl_stream][first_entry.device]);
 }
 
 #if HAVE_CUDA
-void GPUAllreduce::MemcpyOutFusionBuffer(const void* buffer_data, std::vector<TensorTableEntry>& entries) {
+void GPUAllreduce::MemcpyOutFusionBuffer(
+    const void* buffer_data, std::vector<TensorTableEntry>& entries) {
   if (global_state_->batch_d2d_memcopies) {
     int64_t offset = 0;
     int idx = 0;
@@ -251,15 +308,21 @@ void GPUAllreduce::MemcpyOutFusionBuffer(const void* buffer_data, std::vector<Te
       d2d_params.in[idx % BATCHED_D2D_CAPACITY] = buffer_data_at_offset;
       d2d_params.sizes[idx % BATCHED_D2D_CAPACITY] = e.tensor->size();
 
-      offset += BATCHED_D2D_PADDING * ((e.tensor->size() + BATCHED_D2D_PADDING - 1) / BATCHED_D2D_PADDING);
+      offset +=
+          BATCHED_D2D_PADDING *
+          ((e.tensor->size() + BATCHED_D2D_PADDING - 1) / BATCHED_D2D_PADDING);
       idx++;
       count++;
 
-      if (idx % BATCHED_D2D_CAPACITY == 0 || idx == (int) entries.size()) {
+      if (idx % BATCHED_D2D_CAPACITY == 0 || idx == (int)entries.size()) {
         // Perform batched d2d memcpy
-        BatchedD2DMemcpyCudaImpl(d2d_params, count, gpu_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
+        BatchedD2DMemcpyCudaImpl(
+            d2d_params, count,
+            gpu_context_->streams[global_state_->current_nccl_stream]
+                                 [first_entry.device]);
         // TODO: https://github.com/horovod/horovod/issues/2230
-        //gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl", cudaGetLastError());
+        // gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl",
+        // cudaGetLastError());
         count = 0;
       }
     }
@@ -267,7 +330,7 @@ void GPUAllreduce::MemcpyOutFusionBuffer(const void* buffer_data, std::vector<Te
   } else {
     int64_t offset = 0;
     for (auto& e : entries) {
-      void* buffer_data_at_offset = (uint8_t*) buffer_data + offset;
+      void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
       MemcpyEntryOutFusionBuffer(entries, buffer_data_at_offset, e);
       offset += e.tensor->size();
     }
@@ -276,8 +339,9 @@ void GPUAllreduce::MemcpyOutFusionBuffer(const void* buffer_data, std::vector<Te
 #endif
 
 #if HAVE_CUDA
-void GPUAllreduce::ScaleMemcpyOutFusionBuffer(void* buffer_data, size_t buffer_len, double scale_factor,
-                                              std::vector<TensorTableEntry>& entries) {
+void GPUAllreduce::ScaleMemcpyOutFusionBuffer(
+    void* buffer_data, size_t buffer_len, double scale_factor,
+    std::vector<TensorTableEntry>& entries) {
   auto& first_entry = entries[0];
 
   if (global_state_->batch_d2d_memcopies) {
@@ -294,29 +358,36 @@ void GPUAllreduce::ScaleMemcpyOutFusionBuffer(void* buffer_data, size_t buffer_l
       d2d_params.in[idx % BATCHED_D2D_CAPACITY] = buffer_data_at_offset;
       d2d_params.sizes[idx % BATCHED_D2D_CAPACITY] = e.tensor->size();
 
-      offset += BATCHED_D2D_PADDING * ((e.tensor->size() + BATCHED_D2D_PADDING - 1) / BATCHED_D2D_PADDING);
+      offset +=
+          BATCHED_D2D_PADDING *
+          ((e.tensor->size() + BATCHED_D2D_PADDING - 1) / BATCHED_D2D_PADDING);
       idx++;
       count++;
 
-      if (idx % BATCHED_D2D_CAPACITY == 0 || idx == (int) entries.size()) {
+      if (idx % BATCHED_D2D_CAPACITY == 0 || idx == (int)entries.size()) {
         // Perform batched d2d memcpy
-        BatchedScaledD2DMemcpyCudaImpl(d2d_params, count, scale_factor, first_entry.tensor->dtype(),
-                                       gpu_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
+        BatchedScaledD2DMemcpyCudaImpl(
+            d2d_params, count, scale_factor, first_entry.tensor->dtype(),
+            gpu_context_->streams[global_state_->current_nccl_stream]
+                                 [first_entry.device]);
         // TODO: https://github.com/horovod/horovod/issues/2230
-        //gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl", cudaGetLastError());
+        // gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl",
+        // cudaGetLastError());
         count = 0;
       }
     }
 
   } else {
-    int64_t num_elements = buffer_len / DataType_Size(first_entry.tensor->dtype());
+    int64_t num_elements =
+        buffer_len / DataType_Size(first_entry.tensor->dtype());
     if (scale_factor != 1.0) {
-      ScaleBuffer(scale_factor, entries, buffer_data, buffer_data, num_elements);
+      ScaleBuffer(scale_factor, entries, buffer_data, buffer_data,
+                  num_elements);
     }
 
     int64_t offset = 0;
     for (auto& e : entries) {
-      void* buffer_data_at_offset = (uint8_t*) buffer_data + offset;
+      void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
       MemcpyEntryOutFusionBuffer(entries, buffer_data_at_offset, e);
       offset += e.tensor->size();
     }
@@ -324,22 +395,31 @@ void GPUAllreduce::ScaleMemcpyOutFusionBuffer(void* buffer_data, size_t buffer_l
 }
 #endif
 
-void GPUAllreduce::MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                               const void* buffer_data_at_offset, TensorTableEntry& e) {
+void GPUAllreduce::MemcpyEntryOutFusionBuffer(
+    const std::vector<TensorTableEntry>& entries,
+    const void* buffer_data_at_offset, TensorTableEntry& e) {
   auto& first_entry = entries[0];
-  gpu_context_->MemcpyAsyncD2D((void*) e.output->data(), buffer_data_at_offset, (size_t) e.tensor->size(),
-                               gpu_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
+  gpu_context_->MemcpyAsyncD2D(
+      (void*)e.output->data(), buffer_data_at_offset, (size_t)e.tensor->size(),
+      gpu_context_
+          ->streams[global_state_->current_nccl_stream][first_entry.device]);
 }
 
-void GPUAllreduce::ScaleBuffer(double scale_factor, const std::vector<TensorTableEntry>& entries,
-                               const void* fused_input_data, void* buffer_data, int64_t num_elements) {
-  gpu_context_->ScaleBufferImpl(fused_input_data, buffer_data, num_elements, scale_factor, entries[0].tensor->dtype(),
-                                gpu_context_->streams[global_state_->current_nccl_stream][entries[0].device]);
-
+void GPUAllreduce::ScaleBuffer(double scale_factor,
+                               const std::vector<TensorTableEntry>& entries,
+                               const void* fused_input_data, void* buffer_data,
+                               int64_t num_elements) {
+  gpu_context_->ScaleBufferImpl(
+      fused_input_data, buffer_data, num_elements, scale_factor,
+      entries[0].tensor->dtype(),
+      gpu_context_
+          ->streams[global_state_->current_nccl_stream][entries[0].device]);
 }
 
-GPUAllgather::GPUAllgather(GPUContext* context, HorovodGlobalState* global_state)
-    : AllgatherOp(global_state), gpu_context_(context), gpu_op_context_(context, global_state) {}
+GPUAllgather::GPUAllgather(GPUContext* context,
+                           HorovodGlobalState* global_state)
+    : AllgatherOp(global_state), gpu_context_(context),
+      gpu_op_context_(context, global_state) {}
 
 bool GPUAllgather::Enabled(const ParameterManager& param_manager,
                            const std::vector<TensorTableEntry>& entries,
@@ -347,24 +427,32 @@ bool GPUAllgather::Enabled(const ParameterManager& param_manager,
   return entries[0].device != CPU_DEVICE_ID;
 }
 
-void GPUAllgather::MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                             const TensorTableEntry& e, void* buffer_data_at_offset) {
+void GPUAllgather::MemcpyEntryInFusionBuffer(
+    const std::vector<TensorTableEntry>& entries, const TensorTableEntry& e,
+    void* buffer_data_at_offset) {
   auto& first_entry = entries[0];
-  gpu_context_->MemcpyAsyncD2D(buffer_data_at_offset, e.tensor->data(), (size_t) e.tensor->size(),
-                               gpu_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
+  gpu_context_->MemcpyAsyncD2D(
+      buffer_data_at_offset, e.tensor->data(), (size_t)e.tensor->size(),
+      gpu_context_
+          ->streams[global_state_->current_nccl_stream][first_entry.device]);
 }
 
-void GPUAllgather::MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                              const void* buffer_data_at_offset, TensorTableEntry& e,
-                                              int64_t entry_offset, size_t entry_size) {
+void GPUAllgather::MemcpyEntryOutFusionBuffer(
+    const std::vector<TensorTableEntry>& entries,
+    const void* buffer_data_at_offset, TensorTableEntry& e,
+    int64_t entry_offset, size_t entry_size) {
   auto& first_entry = entries[0];
-  gpu_context_->MemcpyAsyncD2D((int8_t*)e.output->data() + entry_offset, buffer_data_at_offset, entry_size,
-                               gpu_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
+  gpu_context_->MemcpyAsyncD2D(
+      (int8_t*)e.output->data() + entry_offset, buffer_data_at_offset,
+      entry_size,
+      gpu_context_
+          ->streams[global_state_->current_nccl_stream][first_entry.device]);
 }
 
 GPUBroadcast::GPUBroadcast(GPUContext* context,
                            HorovodGlobalState* global_state)
-    : BroadcastOp(global_state), gpu_context_(context), gpu_op_context_(context, global_state) {}
+    : BroadcastOp(global_state), gpu_context_(context),
+      gpu_op_context_(context, global_state) {}
 
 bool GPUBroadcast::Enabled(const ParameterManager& param_manager,
                            const std::vector<TensorTableEntry>& entries,
@@ -372,9 +460,9 @@ bool GPUBroadcast::Enabled(const ParameterManager& param_manager,
   return entries[0].device != CPU_DEVICE_ID;
 }
 
-GPUAlltoall::GPUAlltoall(GPUContext* context,
-		         HorovodGlobalState* global_state)
-    : AlltoallOp(global_state), gpu_context_(context), gpu_op_context_(context, global_state) {}
+GPUAlltoall::GPUAlltoall(GPUContext* context, HorovodGlobalState* global_state)
+    : AlltoallOp(global_state), gpu_context_(context),
+      gpu_op_context_(context, global_state) {}
 
 bool GPUAlltoall::Enabled(const ParameterManager& param_manager,
                           const std::vector<TensorTableEntry>& entries,

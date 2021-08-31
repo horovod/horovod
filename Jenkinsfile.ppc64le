@@ -1,12 +1,12 @@
 pipeline {
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
-        timeout(time: 15, unit: 'MINUTES')
+        timeout(time: 30, unit: 'MINUTES')
     }
     agent {
         docker {
             alwaysPull true
-            // WMLCE 1.7.0 has CUDA 10.2, NCCL 2.5.6, TensorFlow 2.1.0, and PyTorch 1.3.1
+            // WMLCE 1.7.0 has CUDA 10.2, NCCL 2.5.6, TensorFlow 2.1.0, and PyTorch 1.8.0
             image 'tensorflowppc64le/tensorflow-ppc64le:osuosl-ubuntu-horovod-wlmce1.7.0-py3.7-ppc64le'
             args '--cap-add=SYS_PTRACE --shm-size=256g'
             label 'power8-gpu'
@@ -27,7 +27,7 @@ pipeline {
                       conda activate ${CONDA_ENV}
                       conda install -y cmake make
                       set -xe
-                      HOROVOD_WITHOUT_MXNET=1 HOROVOD_WITHOUT_GLOO=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 \
+                      HOROVOD_WITHOUT_MXNET=1 HOROVOD_WITHOUT_GLOO=1 HOROVOD_WITHOUT_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 \
                           HOROVOD_CUDA_HOME=$CONDA_PREFIX HOROVOD_GPU_OPERATIONS=NCCL MAKEFLAGS="-j1" \
                           pip install -v . --no-cache-dir --no-deps
                 '''
@@ -47,7 +47,7 @@ pipeline {
                           horovodrun -n 1 -H localhost:1 --mpi-args="-pami_noib" pytest -k 'multi_gpu' -v -s test/parallel/test_tensorflow.py
 
                           # PyTorch unit tests
-                          horovodrun -n 2 -H localhost:2 --mpi-args="-pami_noib" pytest -v -s test/parallel/test_torch.py
+                          # horovodrun -n 2 -H localhost:2 --mpi-args="-pami_noib" pytest -v -s test/parallel/test_torch.py
                     '''
                 }
             }

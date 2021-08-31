@@ -40,8 +40,8 @@ else:
 _NULL = ""
 
 _basics = _HorovodBasics(__file__, 'mpi_lib_v2')
+
 # import basic methods
-init = _basics.init
 is_initialized = _basics.is_initialized
 start_timeline = _basics.start_timeline
 stop_timeline = _basics.stop_timeline
@@ -61,9 +61,17 @@ ddl_built = _basics.ddl_built
 ccl_built = _basics.ccl_built
 cuda_built = _basics.cuda_built
 rocm_built = _basics.rocm_built
+
 def shutdown(*args, **kwargs):
     mpi_lib.horovod_torch_reset()
     return _basics.shutdown(*args, **kwargs)
+
+def init(*args, **kwargs):
+    global _handle_map
+    _handle_map = {}
+    _basics.init(*args, **kwargs)
+    # Call set up again to make sure the basics is in sync
+    _setup_process_sets(_basics)
 
 # import reduction op values
 Average = _basics.Average
@@ -939,6 +947,7 @@ def synchronize(handle):
         output = _handle_map.pop(handle)[-1]
         return output
     except RuntimeError as e:
+        _handle_map.pop(handle, None)
         raise HorovodInternalError(e)
 
 
@@ -963,3 +972,23 @@ def join(device=-1) -> int:
     _handle_map[handle] = (None, output)
 
     return synchronize(handle).item()
+
+def barrier(process_set=global_process_set):
+    """
+    A function that acts as a simple sychronization point for ranks specified
+    in the given process group(default to global group). Ranks that reach
+    this function call will stall until all other ranks have reached.
+
+    Arguments:
+        process_set: Process set object to limit this operation to a subset of
+                     Horovod processes. Default is the global process set.
+    """
+
+    try:
+        handle = mpi_lib.horovod_torch_barrier(process_set.process_set_id)
+    except RuntimeError as e:
+        raise HorovodInternalError(e)
+
+    _handle_map[handle] = (None, None)
+
+    synchronize(handle)

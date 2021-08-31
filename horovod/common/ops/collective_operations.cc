@@ -312,6 +312,22 @@ Status JoinOp::Execute(std::vector<TensorTableEntry>& entries,
   return Status::OK();
 }
 
+// Barrier
+BarrierOp::BarrierOp(HorovodGlobalState* global_state) : HorovodOp(global_state) {}
+
+Status BarrierOp::Execute(std::vector<TensorTableEntry>& entries,
+                       const Response& response) {
+  assert(entries.size() == 1);
+  int& process_set_id = entries[0].process_set_id;
+  auto& process_set = global_state_->process_set_table.Get(process_set_id);
+
+
+  process_set.controller->Barrier(Communicator::GLOBAL);
+  LOG(TRACE, global_state_->global_controller->GetRank()) << "Released from barrier.";
+
+  return Status::OK();
+}
+
 // Error
 ErrorOp::ErrorOp(HorovodGlobalState* global_state) : HorovodOp(global_state) {}
 

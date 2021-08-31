@@ -14,8 +14,8 @@
 // limitations under the License.
 // =============================================================================
 
-#include "gpu_operations.h"
 #include "../message.h"
+#include "gpu_operations.h"
 
 #include <thread>
 
@@ -64,21 +64,24 @@ public:
 
   void ErrorCheck(std::string op_name, hipError_t hip_result) {
     if (hip_result != hipSuccess) {
-      throw std::logic_error(std::string(op_name) + " failed: " + hipGetErrorString(hip_result));
+      throw std::logic_error(std::string(op_name) +
+                             " failed: " + hipGetErrorString(hip_result));
     }
   }
 
-  void RecordEvent(std::queue<std::pair<std::string, hipEvent_t>>& event_queue, std::string name, hipStream_t& stream) {
+  void RecordEvent(std::queue<std::pair<std::string, hipEvent_t>>& event_queue,
+                   std::string name, hipStream_t& stream) {
     hipEvent_t event;
     ErrorCheck("GetGpuEvent", GetGpuEvent(&event));
     ErrorCheck("hipEventRecord", hipEventRecord(event, stream));
     event_queue.emplace(name, event);
   }
 
-  void WaitForEvents(std::queue<std::pair<std::string, hipEvent_t>>& event_queue,
-      const std::vector<TensorTableEntry>& entries, Timeline& timeline,
-      const std::function<void()>& error_check_callback,
-      bool elastic) {
+  void
+  WaitForEvents(std::queue<std::pair<std::string, hipEvent_t>>& event_queue,
+                const std::vector<TensorTableEntry>& entries,
+                Timeline& timeline,
+                const std::function<void()>& error_check_callback) {
     while (!event_queue.empty()) {
       std::string name;
       hipEvent_t event;
@@ -88,7 +91,8 @@ public:
         timeline.ActivityStartAll(entries, name);
       }
 
-      // Check for async (networking) errors while waiting for the event to complete
+      // Check for async (networking) errors while waiting for the event to
+      // complete
       hipError_t hip_result;
       while (true) {
         hip_result = hipEventQuery(event);
@@ -97,7 +101,8 @@ public:
         }
 
         if (hip_result != hipErrorNotReady) {
-          throw std::logic_error(std::string("hipEventQuery failed: ") + hipGetErrorString(hip_result));
+          throw std::logic_error(std::string("hipEventQuery failed: ") +
+                                 hipGetErrorString(hip_result));
         }
 
         if (error_check_callback) {
@@ -113,12 +118,20 @@ public:
     }
   }
 
-  void StreamCreate(hipStream_t *stream) {
+  void WaitForEventsElastic(
+      std::queue<std::pair<std::string, hipEvent_t>>& event_queue,
+      const std::vector<TensorTableEntry>& entries, Timeline& timeline,
+      const std::function<void()>& error_check_callback) {
+    WaitForEvents(event_queue, entries, timeline, error_check_callback);
+  }
+
+  void StreamCreate(hipStream_t* stream) {
     int greatest_priority;
     ErrorCheck("hipDeviceGetStreamPriorityRange",
-        hipDeviceGetStreamPriorityRange(NULL, &greatest_priority));
+               hipDeviceGetStreamPriorityRange(NULL, &greatest_priority));
     ErrorCheck("hipStreamCreateWithPriority",
-        hipStreamCreateWithPriority(stream, hipStreamNonBlocking, greatest_priority));
+               hipStreamCreateWithPriority(stream, hipStreamNonBlocking,
+                                           greatest_priority));
   }
 
   void StreamSynchronize(hipStream_t stream) {
@@ -135,25 +148,34 @@ public:
     ErrorCheck("hipSetDevice", hipSetDevice(device));
   }
 
-  void MemcpyAsyncD2D(void* dst, const void* src, size_t count, hipStream_t stream) {
-    ErrorCheck("hipMemcpyAsync", hipMemcpyAsync(dst, src, count, hipMemcpyDeviceToDevice, stream));
+  void MemcpyAsyncD2D(void* dst, const void* src, size_t count,
+                      hipStream_t stream) {
+    ErrorCheck(
+        "hipMemcpyAsync",
+        hipMemcpyAsync(dst, src, count, hipMemcpyDeviceToDevice, stream));
   }
 
-  void MemcpyAsyncH2D(void* dst, const void* src, size_t count, hipStream_t stream) {
-    ErrorCheck("hipMemcpyAsync", hipMemcpyAsync(dst, src, count, hipMemcpyHostToDevice, stream));
+  void MemcpyAsyncH2D(void* dst, const void* src, size_t count,
+                      hipStream_t stream) {
+    ErrorCheck("hipMemcpyAsync",
+               hipMemcpyAsync(dst, src, count, hipMemcpyHostToDevice, stream));
   }
 
-  void MemcpyAsyncD2H(void* dst, const void* src, size_t count, hipStream_t stream) {
-    ErrorCheck("hipMemcpyAsync", hipMemcpyAsync(dst, src, count, hipMemcpyDeviceToHost, stream));
+  void MemcpyAsyncD2H(void* dst, const void* src, size_t count,
+                      hipStream_t stream) {
+    ErrorCheck("hipMemcpyAsync",
+               hipMemcpyAsync(dst, src, count, hipMemcpyDeviceToHost, stream));
   }
 
-  void ScaleBufferImpl(const void* fused_input_data, void* buffer_data, int64_t num_elements,
-                   double scale_factor, DataType dtype, hipStream_t stream) {
+  void ScaleBufferImpl(const void* fused_input_data, void* buffer_data,
+                       int64_t num_elements, double scale_factor,
+                       DataType dtype, hipStream_t stream) {
     throw std::logic_error("ScaleBuffer not implemented for AMD GPUs.");
   }
 
 private:
-  // We reuse HIP events as it appears that their creation carries non-zero cost.
+  // We reuse HIP events as it appears that their creation carries non-zero
+  // cost.
   std::unordered_map<int, std::queue<hipEvent_t>> hip_events;
   std::mutex hip_events_mutex;
 };

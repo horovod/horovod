@@ -28,6 +28,7 @@ import time
 import json
 
 from collections.abc import Iterable
+from datetime import datetime
 
 import numpy as np
 import pytest
@@ -42,6 +43,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 from common import mpi_env_rank_and_size, skip_or_fail_gpu_test, temppath
 
 _1_5_api = LooseVersion(torch.__version__) >= LooseVersion('1.5.0')
+_1_10_api = LooseVersion(torch.__version__) >= LooseVersion('1.10.0')
+_is_mac = platform.system() == 'Darwin'
 
 ccl_supported_types = set([torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
                            torch.IntTensor, torch.LongTensor, torch.FloatTensor,
@@ -61,6 +64,14 @@ class TorchTests(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(TorchTests, self).__init__(*args, **kwargs)
         warnings.simplefilter('module')
+
+    def setup(self):
+        hvd.init()
+
+    def tearDown(self):
+        gloo_rank = int(os.getenv('HOROVOD_RANK', -1))
+        if hvd.is_initialized() and not _is_mac and gloo_rank != -1:
+            hvd.shutdown()
 
     def convert_cpu_fp16_to_fp32(self, *values):
         # PyTorch doesn't support any CPU ops on FP16 tensors.
@@ -87,7 +98,6 @@ class TorchTests(unittest.TestCase):
         if not torch.cuda.is_available():
             skip_or_fail_gpu_test(self, "No GPUs available")
 
-    @pytest.mark.skipif(platform.system() == 'Darwin', reason='Reinit not supported on macOS')
     def test_horovod_reinit(self):
         """Test that Horovod can init -> shutdown -> init successfully."""
         mpi_rank, _ = mpi_env_rank_and_size()
@@ -3170,7 +3180,74 @@ class TorchTests(unittest.TestCase):
         hvd.remove_process_set(odd_set)
         hvd.remove_process_set(even_set)
 
+    def test_process_set_barrier_op(self):
+        """Test that process set barrier stalls all ranks in that process set"""
+        hvd.init()
 
+        # No need to test if only one rank is available
+        if hvd.size() == 1:
+            self.skipTest("Number of ranks is 1. Skipping test.")
+
+        even_ranks = [rk for rk in range(0, hvd.size()) if rk % 2 == 0]
+        odd_ranks = [rk for rk in range(0, hvd.size()) if rk % 2 == 1]
+        even_set = hvd.add_process_set(even_ranks)
+        odd_set = hvd.add_process_set(odd_ranks)
+
+        # Make sure all ranks are initialized
+        i = 0
+        while hvd.allreduce_(torch.IntTensor([int(hvd.is_initialized())]), None, 'is_initialized{}'.format(i), hvd.Sum) != hvd.size():
+            i+=1
+            continue
+
+        even_barrier_time = 0
+        odd_barrier_time = 0
+        even_barrier_time_start = datetime.now()
+        odd_barrier_time_start = datetime.now()
+
+        if hvd.rank() in even_ranks:
+            # rank 0 sleeps for 5 seconds
+            if hvd.rank() == 0:
+                time.sleep(5)
+            hvd.barrier(even_set)
+            # barrier time should be at least 5 seconds for all even ranks
+            even_barrier_time_end = datetime.now()
+            even_barrier_time = (even_barrier_time_end - even_barrier_time_start).total_seconds()
+            self.assertTrue(even_barrier_time >= 5)
+        # No stall time for odd ranks
+        elif hvd.rank() in odd_ranks:
+            hvd.barrier(odd_set)
+            odd_barrier_time_end = datetime.now()
+            odd_barrier_time = (odd_barrier_time_end - odd_barrier_time_start).total_seconds()
+            self.assertTrue(odd_barrier_time <= 1)
+
+        hvd.barrier()
+
+    def test_global_barrier_op(self):
+        """Test that global barrier stalls all ranks"""
+        hvd.init()
+
+        # No need to test if only one rank is available
+        if hvd.size() == 1:
+            self.skipTest("Number of ranks is 1. Skipping test.")
+
+        # Make sure all ranks are initialized
+        i = 0
+        while hvd.allreduce_(torch.IntTensor([int(hvd.is_initialized())]), None, 'is_initialized{}'.format(i), hvd.Sum) != hvd.size():
+            i+=1
+            continue
+
+        # Sleep rank 0 for 5 seconds, all the other ranks will arrive barrier right away.
+        barrier_time = 0
+        barrier_time_start = datetime.now()
+        if hvd.rank() == 0:
+            time.sleep(5)
+        hvd.barrier()
+
+        # barrier time should be at least 5 seconds for all ranks
+        barrier_time_end = datetime.now()
+        barrier_time = (barrier_time_end - barrier_time_start).total_seconds()
+
+        self.assertTrue(barrier_time >= 5)
 
 if __name__ == "__main__":
    unittest.main()

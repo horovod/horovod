@@ -32,7 +32,7 @@ class ElasticSampler(torch.utils.data.Sampler):
     In order to use this object successfully it is recommended that the user:
 
     1. Include this object in the `TorchState`.
-    2. Call `record_batch` or `record_indices` after processing a set of samples.
+    2. Call `record_batch` after processing a set of samples.
     3. Call `set_epoch` at the end of each epoch to clear the processed indices.
 
     Args:
@@ -54,6 +54,7 @@ class ElasticSampler(torch.utils.data.Sampler):
         self.remaining_indices = []
         self.num_samples = 0
         self.total_size = 0
+        self.processed_num = 0
 
         self.reset()
 
@@ -71,33 +72,22 @@ class ElasticSampler(torch.utils.data.Sampler):
             epoch: Epoch number.
         """
         self.epoch = epoch
-        self.processed_indices = set()
+        self.processed_num = 0
         self.reset()
 
     def record_batch(self, batch_idx, batch_size):
-        """Record indices at batch `batch_idx` with length `batch_size` as processed."""
-        indices = set(self.get_indices(batch_idx, batch_size))
-        self.record_indices(indices)
-
-    def record_indices(self, indices):
-        """Record set `indices` as processed."""
-        self.processed_indices.update(indices)
-
-    def get_indices(self, batch_idx, batch_size):
-        """Return list of indices at batch `batch_idx` with length `batch_size`."""
-        start_idx = batch_idx * batch_size
-        end_idx = min(start_idx + batch_size, len(self.indices))
-        return self.indices[start_idx:end_idx]
+        """Record the number of processed samples."""
+        self.processed_num += (batch_size * self.num_replicas)
 
     def load_state_dict(self, state_dict):
         self.epoch = state_dict['epoch']
-        self.processed_indices = state_dict['processed_indices']
+        self.processed_num = state_dict["processed_num"]
         self.reset()
 
     def state_dict(self):
         return dict(
             epoch=self.epoch,
-            processed_indices=self.processed_indices
+            processed_num=self.processed_num
         )
 
     def reset(self):
@@ -105,18 +95,18 @@ class ElasticSampler(torch.utils.data.Sampler):
         self.rank = rank()
 
         # Exclude any samples we have already processed this epoch
-        self.remaining_indices = [idx for idx in range(len(self.dataset))
-                                  if idx not in self.processed_indices]
+        all_indices = [idx for idx in range(len(self.dataset))]
+        if self.shuffle:
+            # Shuffle indices across workers deterministically in place
+            seed = self.seed + self.epoch
+            random.Random(seed).shuffle(all_indices)
+        self.remaining_indices = all_indices[self.processed_num:]
 
         self.num_samples = int(math.ceil(len(self.remaining_indices) * 1.0 / self.num_replicas))
         self.total_size = self.num_samples * self.num_replicas
 
     def __iter__(self):
         self.indices = self.remaining_indices[:]
-        if self.shuffle:
-            # Shuffle indices across workers deterministically in place
-            seed = self.seed + self.epoch
-            random.Random(seed).shuffle(self.indices)
 
         # add extra samples to make it evenly divisible
         self.indices += self.indices[:(self.total_size - len(self.indices))]

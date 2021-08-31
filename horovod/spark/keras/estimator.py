@@ -12,13 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
-import horovod.spark.common._namedtuple_fix
-
 import numbers
 import time
-
-from distutils.version import LooseVersion
 
 import numpy as np
 import tensorflow as tf
@@ -35,10 +30,7 @@ from horovod.spark.common.estimator import HorovodEstimator, HorovodModel
 from horovod.spark.common.params import EstimatorParams
 from horovod.spark.common.serialization import HorovodParamsWriter, HorovodParamsReader
 from horovod.spark.keras import remote
-from horovod.spark.keras.util import \
-    BARE_KERAS, TF_KERAS, \
-    BareKerasUtil, TFKerasUtil, \
-    is_instance_of_bare_keras_model, is_instance_of_bare_keras_optimizer
+from horovod.spark.keras.util import TFKerasUtil
 
 
 class KerasEstimatorParamsWriter(HorovodParamsWriter):
@@ -75,16 +67,6 @@ class KerasEstimatorParamsReader(HorovodParamsReader):
 
         # In order to deserialize the model, we need to deserialize the custom_objects param
         # first.
-        keras_utils = None
-        if KerasEstimator._keras_pkg_type.name in dict:
-            keras_pkg_type = _param_deserializer_fn(KerasEstimator._keras_pkg_type.name,
-                                                    dict[KerasEstimator._keras_pkg_type.name],
-                                                    None, None)
-            if keras_pkg_type == BARE_KERAS:
-                keras_utils = BareKerasUtil
-            elif keras_pkg_type == TF_KERAS:
-                keras_utils = TFKerasUtil
-
         custom_objects = {}
         if KerasEstimator.custom_objects.name in dict:
             custom_objects = _param_deserializer_fn(KerasEstimator.custom_objects.name,
@@ -92,7 +74,7 @@ class KerasEstimatorParamsReader(HorovodParamsReader):
                                                     None, None)
 
         for key, val in dict.items():
-            dict[key] = _param_deserializer_fn(key, val, keras_utils, custom_objects)
+            dict[key] = _param_deserializer_fn(key, val, TFKerasUtil, custom_objects)
         return dict
 
 
@@ -166,7 +148,6 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
     """
 
     custom_objects = Param(Params._dummy(), 'custom_objects', 'custom objects')
-    _keras_pkg_type = Param(Params._dummy(), '_keras_pkg_type', 'keras package type')
     checkpoint_callback = Param(Params._dummy(), 'checkpoint_callback',
                                 'model checkpointing callback')
     inmemory_cache_all = Param(Params._dummy(), 'inmemory_cache_all',
@@ -214,7 +195,6 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
 
         self._setDefault(optimizer=None,
                          custom_objects={},
-                         _keras_pkg_type=None,
                          checkpoint_callback=None,
                          inmemory_cache_all=False,
                          backend_env={'LIBHDFS_OPTS': '-Xms2048m -Xmx2048m'})
@@ -223,47 +203,22 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
         self.setParams(**kwargs)
 
     def _get_keras_utils(self):
-        # This function determines the keras package type of the Estimator based on the passed
-        # optimizer and model and updates _keras_pkg_type parameter.
+        # This function checks the keras package type is tensorflow.keras
 
-        model_type = None
         model = self.getModel()
         if model:
-            if isinstance(model, tf.keras.Model):
-                model_type = TF_KERAS
-            elif is_instance_of_bare_keras_model(model):
-                model_type = BARE_KERAS
-            else:
+            if not isinstance(model, tf.keras.Model):
                 raise ValueError(
-                    "model has to be an instance of tensorflow.keras.Model or keras.Model")
+                    "model has to be an instance of tensorflow.keras.Model")
 
-        optimizer_type = None
         optimizer = self.getOptimizer()
         if optimizer:
             if isinstance(optimizer, str):
-                optimizer_type = None
-            elif isinstance(optimizer, tf.keras.optimizers.Optimizer):
-                optimizer_type = TF_KERAS
-            elif is_instance_of_bare_keras_optimizer(optimizer):
-                optimizer_type = BARE_KERAS
-            else:
-                raise ValueError("invalid optimizer type")
+                pass
+            elif not isinstance(optimizer, tf.keras.optimizers.Optimizer):
+                raise ValueError("optimizer has to be an instance of tensorflow.keras.optimizers.Optimizer")
 
-        types = set([model_type, optimizer_type])
-        types.discard(None)
-
-        if len(types) > 1:
-            raise ValueError('mixed keras and tf.keras values for optimizers and model')
-        elif len(types) == 1:
-            pkg_type = types.pop()
-            super(KerasEstimator, self)._set(_keras_pkg_type=pkg_type)
-
-            if pkg_type == TF_KERAS:
-                return TFKerasUtil
-            elif pkg_type == BARE_KERAS:
-                return BareKerasUtil
-            else:
-                raise ValueError("invalid keras type")
+        return TFKerasUtil
 
     def setCustomObjects(self, value):
         return self._set(custom_objects=value)
@@ -428,11 +383,6 @@ class KerasModel(HorovodModel, KerasEstimatorParamsReadable,
     """
 
     custom_objects = Param(Params._dummy(), 'custom_objects', 'custom objects')
-
-    # Setting _keras_pkg_type parameter helps us determine the type of keras package during
-    # deserializing the transformer
-    _keras_pkg_type = Param(Params._dummy(), '_keras_pkg_type', 'keras package type')
-
     _floatx = Param(Params._dummy(), '_floatx', 'keras default float type')
 
     @keyword_only
@@ -466,22 +416,11 @@ class KerasModel(HorovodModel, KerasEstimatorParamsReadable,
         # infer keras package from model
         model = self.getModel()
         if model:
-            if isinstance(model, tf.keras.Model):
-                pkg_type = TF_KERAS
-            elif is_instance_of_bare_keras_model(model):
-                pkg_type = BARE_KERAS
-            else:
+            if not isinstance(model, tf.keras.Model):
                 raise ValueError(
-                    "model has to be an instance of tensorflow.keras.Model or keras.Model")
+                    "model has to be an instance of tensorflow.keras.Model")
 
-            super(KerasModel, self)._set(_keras_pkg_type=pkg_type)
-
-            if pkg_type == TF_KERAS:
-                return TFKerasUtil
-            elif pkg_type == BARE_KERAS:
-                return BareKerasUtil
-            else:
-                raise ValueError("invalid keras type")
+            return TFKerasUtil
 
         raise ValueError("model is not set")
 
@@ -578,4 +517,3 @@ class KerasModel(HorovodModel, KerasEstimatorParamsReadable,
 
         # Use the schema from previous section to construct the final DF with prediction
         return spark0.createDataFrame(pred_rdd, schema=final_output_schema)
-

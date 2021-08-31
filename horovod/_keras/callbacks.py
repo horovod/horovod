@@ -54,7 +54,7 @@ class MetricAverageCallbackImpl(object):
         self.allreduce_ops = {}
         self.device = device
 
-        if LooseVersion(tf.__version__) >= LooseVersion("2.3"):
+        if LooseVersion("2.3") <= LooseVersion(tf.__version__) < LooseVersion("2.5"):
             warnings.warn(
                 "Some callbacks may not have access to the averaged metrics, "
                 "see https://github.com/horovod/horovod/issues/2440")
@@ -107,10 +107,10 @@ class LearningRateScheduleCallbackImpl(object):
         self.current_epoch = None
 
         # set multiplier, which is a fn(epoch) and is the amount by which self.initial_lr is
-        # multiplied by on each batch / epoch begin (depending on whether you set staircase or not
+        # multiplied by on each batch / epoch begin (depending on whether you set staircase or not)
         if not callable(multiplier):
             # If multiplier is a constant, it corresponds to exponential decay
-            self.multiplier = lambda epoch: multiplier ** epoch
+            self.multiplier = lambda epoch: multiplier ** (epoch - start_epoch)
         else:
             self.multiplier = multiplier
 
