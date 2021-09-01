@@ -76,8 +76,8 @@ class ColocatedStrategy(BaseStrategy):
         self.gpus_per_worker = gpus_per_worker or 1
 
     @property
-    def num_workers(self):
-        return self.num_hosts * self.num_workers_per_host
+    def num_workers(self) -> int:
+        return int(self.num_hosts * self.num_workers_per_host)
 
     def _resources_per_host(self):
         num_cpus = self.cpus_per_worker * self.num_workers_per_host
@@ -157,8 +157,8 @@ class PGStrategy(BaseStrategy):
         self._created_placement_group = False
 
     @property
-    def num_workers(self):
-        return self._num_workers
+    def num_workers(self) -> int:
+        return int(self._num_workers)
 
     def resources_per_worker(self):
         num_cpus = self.cpus_per_worker
