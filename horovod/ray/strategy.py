@@ -173,20 +173,18 @@ class PGStrategy(BaseStrategy):
                 pg_strategy="PACK",
                 pg_timeout=self.settings.placement_group_timeout_s)
             self._created_placement_group = True
-        else:
-            bundles = self._placement_group_bundles
 
         # Placement group has started. Now create the workers.
         self.workers = []
         remote_cls = ray.remote(BaseHorovodWorker)
 
-        for bundle_index in range(len(bundles)):
+        for bundle_index in range(self.num_workers):
             remote_cls_with_options = remote_cls.options(
                 num_cpus=self.cpus_per_worker,
                 num_gpus=self.gpus_per_worker * int(self.use_gpu),
                 placement_group_capture_child_tasks=False,
                 placement_group=self.placement_group,
-                placement_group_bundle_index=bundle_index)
+                placement_group_bundle_index=bundle_index if self._created_placement_group else -1)
             worker = remote_cls_with_options.remote(
                 world_rank=bundle_index, world_size=self.num_workers)
 
