@@ -76,7 +76,7 @@ class ElasticSampler(torch.utils.data.Sampler):
         self.reset()
 
     def record_batch(self, batch_idx, batch_size):
-        """Record indices at batch `batch_idx` with length `batch_size` as processed."""
+        """Record the number of processed samples."""
         self.processed_num += (batch_size * self.num_replicas)
 
     def load_state_dict(self, state_dict):
