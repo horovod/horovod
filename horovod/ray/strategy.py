@@ -167,7 +167,7 @@ class PGStrategy(BaseStrategy):
 
     def create_workers(self):
         if not self.placement_group:
-            self.placement_group, bundles = create_placement_group(
+            self.placement_group, _ = create_placement_group(
                 resources_per_bundle=self.resources_per_worker(),
                 num_bundles=self.num_workers,
                 pg_strategy="PACK",
@@ -178,15 +178,15 @@ class PGStrategy(BaseStrategy):
         self.workers = []
         remote_cls = ray.remote(BaseHorovodWorker)
 
-        for bundle_index in range(self.num_workers):
+        for worker_index in range(self.num_workers):
             remote_cls_with_options = remote_cls.options(
                 num_cpus=self.cpus_per_worker,
                 num_gpus=self.gpus_per_worker * int(self.use_gpu),
                 placement_group_capture_child_tasks=False,
                 placement_group=self.placement_group,
-                placement_group_bundle_index=bundle_index if self._created_placement_group else -1)
+                placement_group_bundle_index=worker_index if self._created_placement_group else -1)
             worker = remote_cls_with_options.remote(
-                world_rank=bundle_index, world_size=self.num_workers)
+                world_rank=worker_index, world_size=self.num_workers)
 
             self.workers.append(worker)
 

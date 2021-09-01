@@ -431,8 +431,6 @@ def test_horovod_train_in_pg(ray_start_4_cpus):
     @ray.remote
     class _Actor():
         def run(self):
-            print("run")
-
             def simple_fn(worker):
                 local_rank = _train()
                 return local_rank
