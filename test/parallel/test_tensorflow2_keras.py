@@ -16,23 +16,26 @@
 """Tests for horovod.tensorflow.keras in TensorFlow 2."""
 
 import math
+import tensorflow as tf
+import numpy as np
 import os
 import warnings
+
 from distutils.version import LooseVersion
 
-import horovod.tensorflow.keras as hvd
-import numpy as np
 import pytest
-import tensorflow as tf
+
 from tensorflow import keras
 from tensorflow.python.keras.optimizer_v2 import optimizer_v2
+
+import horovod.tensorflow.keras as hvd
+
 
 _PRE_TF_2_4_0 = LooseVersion(tf.__version__) < LooseVersion("2.4.0")
 _PRE_TF_2_2_0 = LooseVersion(tf.__version__) < LooseVersion("2.2.0")
 
 # Set environment variable to enable adding/removing process sets after initializing Horovod.
 os.environ["HOROVOD_DYNAMIC_PROCESS_SETS"] = "1"
-
 
 @pytest.mark.skipif(LooseVersion(tf.__version__) < LooseVersion('2.0.0'), reason='TensorFlow v2 tests')
 class Tf2KerasTests(tf.test.TestCase):
@@ -203,7 +206,6 @@ class Tf2KerasTests(tf.test.TestCase):
             """
             Custom optimizer we use for testing gradient aggregation.
             """
-
             def get_config(self):
                 config = super(TestingOptimizer, self).get_config()
                 return config
@@ -282,17 +284,13 @@ class Tf2KerasTests(tf.test.TestCase):
         class TestOptimizer(keras.optimizers.Optimizer):
             def __init__(self, name, **kwargs):
                 super(TestOptimizer, self).__init__(name, **kwargs)
-
             def get_gradients(self, loss, params):
                 assert len(params) == 1
                 return [tf.constant([float(hvd.rank())])]
-
             def _create_slots(self, var_list):
                 pass
-
             def _resource_apply_dense(self, grad, var, apply_state):
                 return var.assign_add(grad)
-
             def get_config(self):
                 config = super(TestOptimizer, self).get_config()
                 return config
