@@ -39,7 +39,7 @@ MOCK_MODULES = [
 
     'fsspec',
     'fsspec.core',
-    'fsspec.utils'
+    'fsspec.utils',
 
     'pyarrow',
     'pyarrow.parquet',
