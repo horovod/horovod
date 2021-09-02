@@ -40,8 +40,8 @@ else:
 _NULL = ""
 
 _basics = _HorovodBasics(__file__, 'mpi_lib_v2')
+
 # import basic methods
-#init = _basics.init
 is_initialized = _basics.is_initialized
 start_timeline = _basics.start_timeline
 stop_timeline = _basics.stop_timeline
@@ -61,6 +61,7 @@ ddl_built = _basics.ddl_built
 ccl_built = _basics.ccl_built
 cuda_built = _basics.cuda_built
 rocm_built = _basics.rocm_built
+
 def shutdown(*args, **kwargs):
     mpi_lib.horovod_torch_reset()
     return _basics.shutdown(*args, **kwargs)
