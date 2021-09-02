@@ -14,6 +14,7 @@ import torch
 from horovod.common.util import gloo_built
 from horovod.ray.runner import (Coordinator, MiniSettings, RayExecutor)
 from horovod.ray.worker import BaseHorovodWorker
+from horovod.ray.strategy import create_placement_group
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -419,6 +420,38 @@ def test_horovod_train(ray_start_4_cpus, num_workers, num_hosts,
     result = hjob.execute(simple_fn)
     assert set(result) == {0, 1, 2, 3}
     hjob.shutdown()
+
+
+@pytest.mark.skipif(
+    not gloo_built(), reason='Gloo is required for Ray integration')
+def test_horovod_train_in_pg(ray_start_4_cpus):
+    pg, _ = create_placement_group(
+        {"CPU": 1, "GPU": int(torch.cuda.is_available())}, 4, 30, "PACK")
+
+    @ray.remote
+    class _Actor():
+        def run(self):
+            def simple_fn(worker):
+                local_rank = _train()
+                return local_rank
+
+            setting = RayExecutor.create_settings(timeout_s=30)
+            hjob = RayExecutor(
+                setting,
+                num_workers=4,
+                num_hosts=None,
+                num_workers_per_host=None,
+                cpus_per_worker=1,
+                gpus_per_worker=int(torch.cuda.is_available()) or None,
+                use_gpu=torch.cuda.is_available())
+            hjob.start()
+            assert not hjob.driver.strategy._created_placement_group
+            result = hjob.execute(simple_fn)
+            assert set(result) == {0, 1, 2, 3}
+            hjob.shutdown()
+    actor = _Actor.options(
+        num_cpus=0, num_gpus=0, placement_group_capture_child_tasks=True, placement_group=pg).remote()
+    ray.get(actor.run.remote())
 
 
 @pytest.mark.skipif(
