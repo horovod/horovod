@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Fix Horovod develop/editable install mode and incremental builds. ([#3074](https://github.com/horovod/horovod/pull/3074))
 - Estimator/Lightning: use lightning datamodule ([#3084](https://github.com/horovod/horovod/pull/3084))
+- Fix Horovod Spark StringType and numpy type mapping issue ([#3146](https://github.com/horovod/horovod/pull/3146))
 
 ## [v0.22.1] - 2021-06-10
 

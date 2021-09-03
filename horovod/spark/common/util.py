@@ -132,7 +132,7 @@ def data_type_to_numpy(dtype):
     elif dtype == IntegerType:
         return np.int32
     elif dtype == StringType:
-        return np.uint8
+        return np.str
     elif dtype == FloatType:
         return np.float32
     elif dtype == BinaryType:
