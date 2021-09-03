@@ -85,9 +85,19 @@ class TFKerasUtil(object):
 
             # Decompress sparse data if necessary
             if has_sparse_col:
-                dataset = dataset.batch(1).map(reshape)
+                if LooseVersion(tf.__version__) >= LooseVersion("2.5.0"):
+                    dataset = dataset.batch(1,
+                                            num_parallel_calls=tf.data.AUTOTUNE,
+                                            deterministic=False).map(reshape)
+                else:
+                    dataset = dataset.batch(1).map(reshape)
 
-            dataset = dataset.batch(batch_size).map(prep_data_tf_keras)
+            if LooseVersion(tf.__version__) >= LooseVersion("2.5.0"):
+                dataset = dataset.batch(batch_size,
+                                        num_parallel_calls=tf.data.AUTOTUNE,
+                                        deterministic=False).map(prep_data_tf_keras)
+            else:
+                dataset = dataset.batch(batch_size).map(prep_data_tf_keras)
             if hasattr(tf.data, 'AUTOTUNE'):
                 dataset = dataset.prefetch(tf.data.AUTOTUNE)
             else:
