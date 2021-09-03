@@ -58,6 +58,7 @@ class Tf2KerasTests(tf.test.TestCase):
         initial_lr = 0.1 * hvd.size()
         opt = tf.keras.optimizers.Adam()
         opt = hvd.DistributedOptimizer(opt)
+        linear_multiplier = lambda epoch: epoch
 
         model = keras.models.Sequential()
         model.add(keras.layers.Dense(2, input_shape=(3,)))
@@ -75,15 +76,15 @@ class Tf2KerasTests(tf.test.TestCase):
                 # test learning rate warmup
                 lr = self.model.optimizer.lr.numpy()
                 if epoch >= 0 and epoch < 5:
-                    assert lr <= np.float32(initial_lr)
-                if epoch == 4:
-                    assert lr == np.float32(initial_lr)
+                    assert lr <= initial_lr or np.isclose(lr, initial_lr)
 
-                # test learning rate schedule callback
-                if epoch >= 5 and epoch < 10:
-                    assert lr == np.float32(initial_lr*1e-1)
-                if epoch >= 10 and epoch < 15:
-                    assert lr == np.float32(initial_lr*1e-2)
+                # # test learning rate schedule callback
+                if epoch > 5 and epoch < 10:
+                    assert lr <= initial_lr*1e-1 or np.isclose(lr, initial_lr*1e-1)
+                if epoch > 10 and epoch < 15:
+                    assert lr < initial_lr*1e-2  or np.isclose(lr, initial_lr*1e-2)
+                if epoch >= 15 and epoch < 20:
+                    assert np.isclose(lr, initial_lr*linear_multiplier(epoch))
 
         # No assertions needed for BroadcastGlobalVariableCallbacks
         # We just need to verify that it doesn't hang or error
@@ -100,13 +101,17 @@ class Tf2KerasTests(tf.test.TestCase):
                                                        multiplier=1e-2,
                                                        start_epoch=10,
                                                        end_epoch=15),
+            hvd.callbacks.LearningRateScheduleCallback(initial_lr=initial_lr,
+                                                       multiplier=linear_multiplier,
+                                                       start_epoch=15,
+                                                       end_epoch=20),
             StoreLearningRateCallback()
         ]
         train_history = model.fit(x,
                                   y,
                                   steps_per_epoch=5,
                                   callbacks=callbacks,
-                                  epochs=15)
+                                  epochs=20)
 
         # test that the metrics average is being respected
         loss_metrics = train_history.history["loss"]
