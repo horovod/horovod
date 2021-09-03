@@ -176,7 +176,17 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 callbacks.append(_checkpoint_callback)
 
                 if remote_store.saving_runs:
-                    callbacks.append(k.callbacks.TensorBoard(logs_dir))
+                    tb_callback = None
+                    for i, c in enumerate(callbacks):
+                        if isinstance(c, k.callbacks.TensorBoard):
+                            tb_callback = c
+                            tb_callback.log_dir = logs_dir
+                            break
+                    if tb_callback:
+                        # Rather than a possibly arbitrary order, we always have the TensorBoard
+                        # callback right before the SyncCallback
+                        callbacks.remove(i)
+                    callbacks.append(tb_callback or k.callbacks.TensorBoard(logs_dir))
                     callbacks.append(SyncCallback(run_output_dir, remote_store.sync, k))
 
             if train_steps_per_epoch is None:
@@ -267,7 +277,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                         with k.utils.custom_object_scope(custom_objects):
                             model = k.models.load_model(ckpt_file)
                         serialized_model = keras_utils.serialize_model(model)
-                    else:    
+                    else:
                         with open(ckpt_file, 'rb') as f:
                             serialized_model = codec.dumps_base64(f.read())
 
