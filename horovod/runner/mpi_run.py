@@ -153,7 +153,7 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None):
     if mpi_impl_flags is None:
         raise Exception(_MPI_NOT_FOUND_ERROR_MSG)
 
-    impi = _IMPI_IMPL == mpi
+    impi = (_IMPI_IMPL == mpi or _MPICH_IMPL == mpi)
 
     ssh_args = []
     if settings.ssh_port:
