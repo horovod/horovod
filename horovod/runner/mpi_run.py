@@ -153,7 +153,7 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None):
     if mpi_impl_flags is None:
         raise Exception(_MPI_NOT_FOUND_ERROR_MSG)
 
-    impi = (_IMPI_IMPL == mpi or _MPICH_IMPL == mpi)
+    impi_or_mpich = mpi in (_IMPI_IMPL, _MPICH_IMPL)
 
     ssh_args = []
     if settings.ssh_port:
@@ -164,27 +164,27 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None):
     mpi_ssh_args = ''
     if ssh_args:
         joined_ssh_args = ' '.join(ssh_args)
-        mpi_ssh_args = f'-bootstrap=ssh -bootstrap-exec-args \"{joined_ssh_args}\"' if impi else f'-mca plm_rsh_args \"{joined_ssh_args}\"'
+        mpi_ssh_args = f'-bootstrap=ssh -bootstrap-exec-args \"{joined_ssh_args}\"' if impi_or_mpich else f'-mca plm_rsh_args \"{joined_ssh_args}\"'
 
     tcp_intf_arg = '-mca btl_tcp_if_include {nics}'.format(
-        nics=','.join(nics)) if nics and not impi else ''
+        nics=','.join(nics)) if nics and not impi_or_mpich else ''
     nccl_socket_intf_arg = '-{opt} NCCL_SOCKET_IFNAME={nics}'.format(
-        opt='genv' if impi else 'x',
+        opt='genv' if impi_or_mpich else 'x',
         nics=','.join(nics)) if nics else ''
 
     # On large cluster runs (e.g. Summit), we need extra settings to work around OpenMPI issues
     host_names, host_to_slots = hosts.parse_hosts_and_slots(settings.hosts)
-    if not impi and host_names and len(host_names) >= _LARGE_CLUSTER_THRESHOLD:
+    if not impi_or_mpich and host_names and len(host_names) >= _LARGE_CLUSTER_THRESHOLD:
         mpi_impl_flags.append('-mca plm_rsh_no_tree_spawn true')
         mpi_impl_flags.append('-mca plm_rsh_num_concurrent {}'.format(len(host_names)))
 
     # if user does not specify any hosts, mpirun by default uses local host.
     # There is no need to specify localhost.
-    hosts_arg = '-{opt} {hosts}'.format(opt='hosts' if impi else 'H',
-                hosts=','.join(host_names) if host_names and impi else settings.hosts)
+    hosts_arg = '-{opt} {hosts}'.format(opt='hosts' if impi_or_mpich else 'H',
+                hosts=','.join(host_names) if host_names and impi_or_mpich else settings.hosts)
 
     ppn_arg = ' '
-    if host_to_slots and impi:
+    if host_to_slots and impi_or_mpich:
         ppn = host_to_slots[host_names[0]]
         for h_name in host_names[1:]:
             if ppn != host_to_slots[h_name]:
@@ -192,19 +192,19 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None):
                                  Use -machinefile <machine_file> for this purpose.''')
         ppn_arg = ' -ppn {} '.format(ppn)
 
-    if settings.prefix_output_with_timestamp and not impi:
+    if settings.prefix_output_with_timestamp and not impi_or_mpich:
         mpi_impl_flags.append('--timestamp-output')
 
-    binding_args = settings.binding_args if settings.binding_args and not impi else ' '.join(impl_binding_args)
+    binding_args = settings.binding_args if settings.binding_args and not impi_or_mpich else ' '.join(impl_binding_args)
 
-    basic_args = '-l' if impi else '--allow-run-as-root --tag-output'
+    basic_args = '-l' if impi_or_mpich else '--allow-run-as-root --tag-output'
 
     output = []
     if settings.output_filename:
-        output.append('-outfile-pattern' if impi else '--output-filename')
+        output.append('-outfile-pattern' if impi_or_mpich else '--output-filename')
         output.append(settings.output_filename)
 
-    env_list = '' if impi else ' '.join(
+    env_list = '' if impi_or_mpich else ' '.join(
                     '-x %s' % key for key in sorted(env.keys()) if env_util.is_exportable(key))
 
     # Pass all the env variables to the mpirun command.
