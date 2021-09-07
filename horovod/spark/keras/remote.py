@@ -152,10 +152,6 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 hvd.callbacks.MetricAverageCallback(),
             ]
 
-            if hvd.local_rank() != 0:
-                # The TB callback appears to conflict across processes on the same machine
-                user_callbacks[:] = [c for c in user_callbacks if not isinstance(c, k.callbacks.TensorBoard)]
-
             callbacks += user_callbacks
 
             # Horovod: save checkpoints only on the first worker to prevent other workers from
