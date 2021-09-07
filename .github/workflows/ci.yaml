@@ -3429,7 +3429,7 @@ jobs:
           BRANCH: "${{ github.event.pull_request.head.ref }}"
           MESSAGE: "GPU Tests triggered by GitHub"
           BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
-          BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU FULL\"}"
+          BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU NON HEADS\"}"
 
       - name: Download Buildkite Artifacts
         id: download
@@ -3440,14 +3440,62 @@ jobs:
           buildkite_build_url: ${{ steps.build.outputs.url }}
           ignore_build_states: blocked,canceled,skipped,not_run
           ignore_job_states: timed_out
-          output_path: artifacts/Unit Test Results - GPUs on Buildkite
+          output_path: artifacts/Unit Test Results - GPU NON HEADS on Builtkite
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v2
         if: always()
         with:
-          name: Unit Test Results - GPUs on Builtkite
-          path: artifacts/Unit Test Results - GPUs on Buildkite/**/*.xml
+          name: Unit Test Results - GPU NON HEADS on Builtkite
+          path: artifacts/Unit Test Results - GPU NON HEADS on Builtkite/**/*.xml
+
+      - name: Check Buildkite job state
+        if: >
+          always() &&
+          steps.download.conclusion == 'success' &&
+          steps.download.outputs.build-state != 'passed'
+        run: |
+          echo "::warning::Buildkite pipeline did not pass: ${{ steps.build.outputs.url }}"
+          exit 1
+
+  buildkite-heads:
+    name: "Build and Test GPU heads (on Builtkite)"
+    needs: [init-workflow, buildkite]
+    runs-on: ubuntu-latest
+    if: >
+      github.repository == 'horovod/horovod' &&
+      needs.init-workflow.outputs.run_at_all == 'true' &&
+      needs.init-workflow.outputs.run_builds_and_tests == 'true' &&
+      ( github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository )
+
+    steps:
+      - name: Trigger Buildkite Pipeline
+        id: build
+        uses: EnricoMi/trigger-pipeline-action@master
+        env:
+          PIPELINE: "horovod/horovod"
+          BRANCH: "${{ github.event.pull_request.head.ref }}"
+          MESSAGE: "GPU Tests triggered by GitHub"
+          BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
+          BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU HEADS\"}"
+
+      - name: Download Buildkite Artifacts
+        id: download
+        uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1
+        with:
+          github_token: ${{ github.token }}
+          buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
+          buildkite_build_url: ${{ steps.build.outputs.url }}
+          ignore_build_states: blocked,canceled,skipped,not_run
+          ignore_job_states: timed_out
+          output_path: artifacts/Unit Test Results - GPU HEADS on Builtkite
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: Unit Test Results - GPU HEADS on Builtkite
+          path: artifacts/Unit Test Results - GPU HEADS on Builtkite/**/*.xml
 
       - name: Check Buildkite job state
         if: >
@@ -3460,7 +3508,7 @@ jobs:
 
   publish-test-results:
     name: "Publish Unit Tests Results"
-    needs: [build-and-test, build-and-test-heads, build-and-test-macos, buildkite]
+    needs: [build-and-test, build-and-test-heads, build-and-test-macos, buildkite, buildkite-heads]
     runs-on: ubuntu-latest
     # only run this job when the workflow is in success or failure state,
     # not when it is in cancelled or skipped state

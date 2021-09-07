@@ -462,11 +462,11 @@ def main():
                 '\n'.join([f'            ${{{{ steps.test-{attempt}.outputs.artifacts-path }}}}'
                            for attempt in range(1, attempts+1)]))
 
-    def trigger_buildkite_job(id: str, needs: List[str]) -> str:
+    def trigger_buildkite_job(id: str, name: str, needs: List[str], mode: str) -> str:
         if 'init-workflow' not in needs:
             needs.insert(0, 'init-workflow')
         return (f'  {id}:\n'
-                f'    name: "Build and Test GPU (on Builtkite)"\n'
+                f'    name: "{name}"\n'
                 f'    needs: [{", ".join(needs)}]\n'
                 f'    runs-on: ubuntu-latest\n'
                 f'    if: >\n'
@@ -486,7 +486,7 @@ def main():
                 f'          BRANCH: "${{{{ github.event.pull_request.head.ref }}}}"\n'
                 f'          MESSAGE: "GPU Tests triggered by GitHub"\n'
                 f'          BUILDKITE_API_ACCESS_TOKEN: ${{{{ secrets.BUILDKITE_TOKEN }}}}\n'
-                f'          BUILD_ENV_VARS: "{{\\"PIPELINE_MODE\\": \\"GPU FULL\\"}}"\n'
+                f'          BUILD_ENV_VARS: "{{\\"PIPELINE_MODE\\": \\"{mode}\\"}}"\n'
                 f'\n'
                 f'      - name: Download Buildkite Artifacts\n'
                 f'        id: download\n'
@@ -497,14 +497,14 @@ def main():
                 f'          buildkite_build_url: ${{{{ steps.build.outputs.url }}}}\n'
                 f'          ignore_build_states: blocked,canceled,skipped,not_run\n'
                 f'          ignore_job_states: timed_out\n'
-                f'          output_path: artifacts/Unit Test Results - GPUs on Buildkite\n'
+                f'          output_path: artifacts/Unit Test Results - {mode} on Builtkite\n'
                 f'\n'
                 f'      - name: Upload Test Results\n'
                 f'        uses: actions/upload-artifact@v2\n'
                 f'        if: always()\n'
                 f'        with:\n'
-                f'          name: Unit Test Results - GPUs on Builtkite\n'
-                f'          path: artifacts/Unit Test Results - GPUs on Buildkite/**/*.xml\n'
+                f'          name: Unit Test Results - {mode} on Builtkite\n'
+                f'          path: artifacts/Unit Test Results - {mode} on Builtkite/**/*.xml\n' +
                 f'\n'
                 f'      - name: Check Buildkite job state\n'
                 f'        if: >\n'
@@ -779,8 +779,9 @@ def main():
             build_and_test_images(id='build-and-test', name='Build and Test', needs=['init-workflow'], images=release_images, parallel_images='-cpu-', tests_per_image=tests_per_image, tests=tests),
             build_and_test_images(id='build-and-test-heads', name='Build and Test heads', needs=['build-and-test'], images=allhead_images, parallel_images='', tests_per_image=tests_per_image, tests=tests),
             build_and_test_macos(id='build-and-test-macos', name='Build and Test macOS', needs=['build-and-test']),
-            trigger_buildkite_job(id='buildkite', needs=['build-and-test']),
-            publish_unit_test_results(id='publish-test-results', needs=['build-and-test', 'build-and-test-heads', 'build-and-test-macos', 'buildkite']),
+            trigger_buildkite_job(id='buildkite', name='Build and Test GPU (on Builtkite)', needs=['build-and-test'], mode='GPU NON HEADS'),
+            trigger_buildkite_job(id='buildkite-heads', name='Build and Test GPU heads (on Builtkite)', needs=['buildkite'], mode='GPU HEADS'),
+            publish_unit_test_results(id='publish-test-results', needs=['build-and-test', 'build-and-test-heads', 'build-and-test-macos', 'buildkite', 'buildkite-heads']),
             publish_docker_images(needs=['build-and-test', 'buildkite'], images=['horovod', 'horovod-cpu', 'horovod-ray']),
             sync_files(needs=['init-workflow'])
         )
