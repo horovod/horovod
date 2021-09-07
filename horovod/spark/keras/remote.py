@@ -151,6 +151,11 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 # TensorBoard, or other metrics-based callbacks.
                 hvd.callbacks.MetricAverageCallback(),
             ]
+
+            if hvd.local_rank() != 0:
+                # The TB callback appears to conflict across processes on the same machine
+                user_callbacks[:] = [c for c in user_callbacks if not isinstance(c, k.callbacks.TensorBoard)]
+
             callbacks += user_callbacks
 
             # Horovod: save checkpoints only on the first worker to prevent other workers from
@@ -180,12 +185,13 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                     for i, c in enumerate(callbacks):
                         if isinstance(c, k.callbacks.TensorBoard):
                             tb_callback = c
+                            print(f"Found TensorBoard callback, updating log_dir to {logs_dir}")
                             tb_callback.log_dir = logs_dir
                             break
                     if tb_callback:
-                        # Rather than a possibly arbitrary order, we always have the TensorBoard
+                        # Rather than a possibly arbitrary order, we always place the TensorBoard
                         # callback right before the SyncCallback
-                        callbacks.remove(i)
+                        callbacks.pop(i)
                     callbacks.append(tb_callback or k.callbacks.TensorBoard(logs_dir))
                     callbacks.append(SyncCallback(run_output_dir, remote_store.sync, k))
 
