@@ -56,44 +56,46 @@ class BuildKiteTests(unittest.TestCase):
     """
     Tests the generated GPU buildkite pipeline.
     
-    Compares output of .buildkite/gen-pipeline.sh with test/single/data/expected_buildkite_pipeline.yaml.
+    Compares output of .buildkite/gen-pipeline.sh with test/single/data/expected_buildkite_gpu_heads_pipeline.yaml.
     To see the changes in the output, run the following in your Horovod project root:
     
-        BUILDKITE_PIPELINE_SLUG=SLUG BUILDKITE_BRANCH=BRANCH PIPELINE_MODE="GPU FULL" .buildkite/gen-pipeline.sh > test/single/data/expected_buildkite_gpu_pipeline.yaml
+        BUILDKITE_PIPELINE_SLUG=SLUG BUILDKITE_BRANCH=BRANCH PIPELINE_MODE="GPU HEADS" .buildkite/gen-pipeline.sh > test/single/data/expected_buildkite_gpu_heads_pipeline.yaml
     
     Then run `git diff` to see the changes in the generated pipeline YAML.
-    Commit `test/single/data/expected_buildkite_gpu_pipeline.yaml` to get those changes into your PR.
+    Commit `test/single/data/expected_buildkite_gpu_heads_pipeline.yaml` to get those changes into your PR.
     """
-    def test_gen_pipeline(self):
-        expected_filename = os.path.join(os.path.dirname(__file__), 'data/expected_buildkite_gpu_pipeline.yaml')
+    def test_gen_gpu_heads_pipeline(self):
+        self.do_test_gen_pipeline(GEN_PIPELINE_FNAME, 'GPU HEADS', {}, 'WARNING:root:no commit (None) or default branch (None) given\n')
+
+    """
+    Tests the generated GPU buildkite pipeline.
+
+    Compares output of .buildkite/gen-pipeline.sh with test/single/data/expected_buildkite_gpu_non_heads_pipeline.yaml.
+    To see the changes in the output, run the following in your Horovod project root:
+
+        BUILDKITE_PIPELINE_SLUG=SLUG BUILDKITE_BRANCH=BRANCH PIPELINE_MODE="GPU NON HEADS" .buildkite/gen-pipeline.sh > test/single/data/expected_buildkite_gpu_non_heads_pipeline.yaml
+
+    Then run `git diff` to see the changes in the generated pipeline YAML.
+    Commit `test/single/data/expected_buildkite_gpu_non_heads_pipeline.yaml` to get those changes into your PR.
+    """
+    def test_gen_gpu_non_heads_pipeline(self):
+        self.do_test_gen_pipeline(GEN_PIPELINE_FNAME, 'GPU NON HEADS', {}, 'WARNING:root:no commit (None) or default branch (None) given\n')
+
+    """
+    Tests the given command produces the expected pipeline.
+    """
+    def do_test_gen_pipeline(self, cmd, flavour='GPU NON HEADS', env=dict(), expected_log=''):
+        expected_filename = os.path.join(os.path.dirname(__file__), f'data/expected_buildkite_{flavour.lower().replace(" ", "_")}_pipeline.yaml')
         with open(expected_filename, 'r') as f:
             lines = f.readlines()
             expected_pipeline = ''.join(lines)
 
-        gen_pipeline_env = dict(BUILDKITE_PIPELINE_SLUG='SLUG', BUILDKITE_BRANCH='BRANCH', PIPELINE_MODE='GPU FULL')
-        gen_pipeline_cmd = GEN_PIPELINE_FNAME
-
-        exit_code, actual_pipeline, gen_pipeline_log = self._run(gen_pipeline_cmd, gen_pipeline_env)
-
-        self.assertEqual(0, exit_code)
-        self.assertEqual('WARNING:root:no commit (None) or default branch (None) given\n', gen_pipeline_log)
-        self.assertEqual(expected_pipeline, actual_pipeline)
-
-    """
-    Tests the given command produces the full pipeline.
-    """
-    def do_test_gen_full_pipeline(self, cmd, env=dict()):
-        expected_filename = os.path.join(os.path.dirname(__file__), 'data/expected_buildkite_gpu_pipeline.yaml')
-        with open(expected_filename, 'r') as f:
-            lines = f.readlines()
-            expected_pipeline = ''.join(lines)
-
-        cmd_env = dict(BUILDKITE_PIPELINE_SLUG='SLUG', BUILDKITE_BRANCH='BRANCH', PIPELINE_MODE='GPU FULL')
+        cmd_env = dict(BUILDKITE_PIPELINE_SLUG='SLUG', BUILDKITE_BRANCH='BRANCH', PIPELINE_MODE=flavour)
         cmd_env.update(env)
         exit_code, pipeline, log = self._run(cmd, cmd_env)
 
         self.assertEqual(0, exit_code)
-        self.assertEqual('', log)
+        self.assertEqual(expected_log, log)
         self.assertEqual(expected_pipeline, pipeline)
 
     """
@@ -117,7 +119,7 @@ class BuildKiteTests(unittest.TestCase):
                 with open(os.path.join(dir, 'get_changed_code_files.py'), 'w') as py:
                     py.write("print('{}')".format(filename))
 
-                self.do_test_gen_full_pipeline(tmp_gen_pipeline_sh)
+                self.do_test_gen_pipeline(tmp_gen_pipeline_sh)
 
     """
     Tests non-code changes produces the short pipeline.
@@ -156,7 +158,7 @@ class BuildKiteTests(unittest.TestCase):
                 py.write("pass")
 
             env = dict(BUILDKITE_BRANCH='default', BUILDKITE_PIPELINE_DEFAULT_BRANCH='default')
-            self.do_test_gen_full_pipeline(tmp_gen_pipeline_sh, env)
+            self.do_test_gen_pipeline(tmp_gen_pipeline_sh, env=env)
 
     """
     Tests a failing get_changed_code_files.py script produces the full pipeline.
@@ -174,7 +176,7 @@ class BuildKiteTests(unittest.TestCase):
                 py.write('import sys\n')
                 py.write('sys.exit(1)')
 
-            self.do_test_gen_full_pipeline(tmp_gen_pipeline_sh)
+            self.do_test_gen_pipeline(tmp_gen_pipeline_sh)
 
     """
     Tests .buildkite/get_changed_code_files.py identifies files as non-code files.
