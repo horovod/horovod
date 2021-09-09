@@ -115,7 +115,8 @@ if __name__ == '__main__':
                                          batch_size=args.batch_size,
                                          epochs=args.epochs,
                                          inmemory_cache_all=True,
-                                         verbose=1)
+                                         verbose=1,
+                                         callbacks=[keras.callbacks.TensorBoard(profile_batch=5)])
 
     keras_model = keras_estimator.fit(train_df).setOutputCols(['label_prob'])
 
