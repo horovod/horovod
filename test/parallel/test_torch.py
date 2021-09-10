@@ -612,6 +612,9 @@ class TorchTests(unittest.TestCase):
             assert False, 'hvd.allreduce_async did not throw error'
         except (torch.FatalError, ValueError):
             pass
+        if LooseVersion(torch.__version__) >= LooseVersion('1.10.0'):
+            # To fix https://github.com/horovod/horovod/issues/3149
+            hvd.join()
 
     def test_horovod_allreduce_grad(self):
         """Test the correctness of the allreduce gradient."""
@@ -1218,6 +1221,9 @@ class TorchTests(unittest.TestCase):
             assert False, 'hvd.allgather_async did not throw error'
         except (torch.FatalError, ValueError):
             pass
+        if LooseVersion(torch.__version__) >= LooseVersion('1.10.0'):
+            # To fix https://github.com/horovod/horovod/issues/3149
+            hvd.join()
 
     def test_horovod_allgather_grad(self):
         """Test the correctness of the allgather gradient."""
@@ -1528,6 +1534,9 @@ class TorchTests(unittest.TestCase):
             assert False, 'hvd.broadcast_async did not throw error'
         except (torch.FatalError, ValueError):
             pass
+        if LooseVersion(torch.__version__) >= LooseVersion('1.10.0'):
+            # To fix https://github.com/horovod/horovod/issues/3149
+            hvd.join()
 
     def test_horovod_broadcast_grad(self):
         """Test the correctness of the broadcast gradient."""
