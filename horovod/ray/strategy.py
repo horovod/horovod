@@ -3,6 +3,7 @@ import logging
 from typing import Dict
 
 import ray
+from ray.util.placement_group import get_current_placement_group
 from horovod.ray.utils import map_blocking
 from horovod.ray.worker import BaseHorovodWorker
 
@@ -75,8 +76,8 @@ class ColocatedStrategy(BaseStrategy):
         self.gpus_per_worker = gpus_per_worker or 1
 
     @property
-    def num_workers(self):
-        return self.num_hosts * self.num_workers_per_host
+    def num_workers(self) -> int:
+        return int(self.num_hosts * self.num_workers_per_host)
 
     def _resources_per_host(self):
         num_cpus = self.cpus_per_worker * self.num_workers_per_host
@@ -135,20 +136,29 @@ class ColocatedStrategy(BaseStrategy):
         return self.workers, self.get_node_workers(self.workers)
 
 
-class PackStrategy(BaseStrategy):
-    """Packs workers together but does not guarantee balanced hosts."""
+class PGStrategy(BaseStrategy):
+    """Packs workers together but does not guarantee balanced hosts.
+
+    Will use the current placement group if one is available.
+    """
 
     def __init__(self, *, settings, num_workers, use_gpu, cpus_per_worker,
-                 gpus_per_worker):
+                 gpus_per_worker, placement_group=None, force_create_placement_group=False):
         self.settings = settings
         self._num_workers = num_workers
         self.cpus_per_worker = cpus_per_worker
         self.gpus_per_worker = gpus_per_worker or 1
         self.use_gpu = use_gpu
+        if force_create_placement_group:
+            self.placement_group = None
+        else:
+            self.placement_group = placement_group or get_current_placement_group()
+        self._placement_group_bundles = self.placement_group.bundle_specs if self.placement_group else None
+        self._created_placement_group = False
 
     @property
-    def num_workers(self):
-        return self._num_workers
+    def num_workers(self) -> int:
+        return int(self._num_workers)
 
     def resources_per_worker(self):
         num_cpus = self.cpus_per_worker
@@ -156,25 +166,27 @@ class PackStrategy(BaseStrategy):
         return dict(CPU=num_cpus, GPU=num_gpus)
 
     def create_workers(self):
-        self.placement_group, bundles = create_placement_group(
-            resources_per_bundle=self.resources_per_worker(),
-            num_bundles=self.num_workers,
-            pg_strategy="PACK",
-            pg_timeout=self.settings.placement_group_timeout_s)
+        if not self.placement_group:
+            self.placement_group, _ = create_placement_group(
+                resources_per_bundle=self.resources_per_worker(),
+                num_bundles=self.num_workers,
+                pg_strategy="PACK",
+                pg_timeout=self.settings.placement_group_timeout_s)
+            self._created_placement_group = True
 
         # Placement group has started. Now create the workers.
         self.workers = []
         remote_cls = ray.remote(BaseHorovodWorker)
 
-        for bundle_index in range(len(bundles)):
+        for worker_index in range(self.num_workers):
             remote_cls_with_options = remote_cls.options(
                 num_cpus=self.cpus_per_worker,
                 num_gpus=self.gpus_per_worker * int(self.use_gpu),
                 placement_group_capture_child_tasks=False,
                 placement_group=self.placement_group,
-                placement_group_bundle_index=bundle_index)
+                placement_group_bundle_index=worker_index if self._created_placement_group else -1)
             worker = remote_cls_with_options.remote(
-                world_rank=bundle_index, world_size=self.num_workers)
+                world_rank=worker_index, world_size=self.num_workers)
 
             self.workers.append(worker)
 
@@ -202,3 +214,10 @@ class PackStrategy(BaseStrategy):
                         }))
             ray.get(futures)
         return self.workers, self.get_node_workers(self.workers)
+
+    def shutdown(self):
+        if self._created_placement_group and self.placement_group:
+            ray.util.remove_placement_group(self.placement_group)
+            self.placement_group = None
+
+        self.workers = []

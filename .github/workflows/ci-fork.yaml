@@ -50,7 +50,7 @@ jobs:
           BRANCH: "${{ github.event.workflow_run.head_repository.owner.login }}:${{ github.event.workflow_run.head_branch }}"
           MESSAGE: "${{ github.event.workflow_run.message }}"
           BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
-          BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU FULL\"}"
+          BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU NON HEADS\"}"
 
       - name: Download Buildkite Artifacts
         id: download
@@ -61,14 +61,60 @@ jobs:
           buildkite_build_url: ${{ steps.buildkite.outputs.url }}
           ignore_build_states: blocked,canceled,skipped,not_run
           ignore_job_states: timed_out
-          output_path: artifacts/Unit Test Results - GPUs on Buildkite
+          output_path: artifacts/Unit Test Results - GPU NON HEADS on Builtkite
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v2
         if: always()
         with:
-          name: Unit Test Results - GPUs on Builtkite
-          path: artifacts/Unit Test Results - GPUs on Buildkite/**/*.xml
+          name: Unit Test Results - GPU NON HEADS on Builtkite
+          path: artifacts/Unit Test Results - GPU NON HEADS on Builtkite/**/*.xml
+
+      - name: Check Buildkite job state
+        if: >
+          always() &&
+          steps.download.conclusion == 'success' &&
+          steps.download.outputs.build-state != 'passed'
+        run: |
+          echo "::warning::Buildkite pipeline did not pass: ${{ steps.buildkite.outputs.url }}"
+          exit 1
+
+  buildkite-heads:
+    name: "Build and Test GPU heads (on Builtkite)"
+    needs: [buildkite]
+    runs-on: ubuntu-latest
+    # only run if CI workflow's build-and-test job succeeded and CI workflow ran on a fork
+    if: needs.ci-workflow.outputs.build-and-test == 'success'
+
+    steps:
+      - name: Trigger Buildkite Pipeline
+        id: buildkite
+        uses: EnricoMi/trigger-pipeline-action@master
+        env:
+          PIPELINE: "horovod/horovod"
+          COMMIT: "${{ github.event.workflow_run.head_sha }}"
+          BRANCH: "${{ github.event.workflow_run.head_repository.owner.login }}:${{ github.event.workflow_run.head_branch }}"
+          MESSAGE: "${{ github.event.workflow_run.message }}"
+          BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
+          BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU HEADS\"}"
+
+      - name: Download Buildkite Artifacts
+        id: download
+        uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1
+        with:
+          github_token: ${{ github.token }}
+          buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
+          buildkite_build_url: ${{ steps.buildkite.outputs.url }}
+          ignore_build_states: blocked,canceled,skipped,not_run
+          ignore_job_states: timed_out
+          output_path: artifacts/Unit Test Results - GPU HEADS on Builtkite
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: Unit Test Results - GPU HEADS on Builtkite
+          path: artifacts/Unit Test Results - GPU HEADS on Builtkite/**/*.xml
 
       - name: Check Buildkite job state
         if: >
@@ -81,7 +127,7 @@ jobs:
 
   publish-test-results:
     name: "Publish Unit Tests Results"
-    needs: [buildkite]
+    needs: [buildkite, buildkite-heads]
     runs-on: ubuntu-latest
     # only run if CI workflow ran on a fork
     if: >
