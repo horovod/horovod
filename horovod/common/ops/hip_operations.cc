@@ -21,10 +21,9 @@
 
 namespace horovod {
 namespace common {
-
 class GPUContext::impl {
 public:
-  hipError_t GetGpuEvent(hipEvent_t* event) {
+  hipError_t GetGpuEvent(Event* event, hipStream_t stream) {
     int device;
     auto status = hipGetDevice(&device);
     if (status != hipSuccess) {
@@ -34,18 +33,32 @@ public:
     auto& mutex = hip_events_mutex;
     {
       std::lock_guard<std::mutex> guard(mutex);
-      auto& queue = hip_events[device];
+      auto key = std::make_pair(device, stream);
+      auto& queue = hip_events[key];
+      if (!prepopulated[key]){
+        for (int i = 0; i < N_HIP_EVENTS_PREPOPULATE; ++i){
+          hipEvent_t ev;
+          status = hipEventCreateWithFlags(&ev, hipEventDisableTiming);
+          queue.emplace(std::make_shared<hipEvent_t>(ev), stream);
+        }
+        prepopulated[key] = true;
+      }
       if (!queue.empty()) {
         *event = queue.front();
         queue.pop();
         return hipSuccess;
       }
-    }
 
-    return hipEventCreateWithFlags(event, hipEventDisableTiming);
+      hipEvent_t ev;
+      status = hipEventCreateWithFlags(&ev, hipEventDisableTiming);
+      event->event = std::make_shared<hipEvent_t>(ev);
+      event->stream = stream;
+
+      return status;
+    }
   }
 
-  hipError_t ReleaseGpuEvent(hipEvent_t event) {
+  hipError_t ReleaseGpuEvent(Event event) {
     int device;
     auto status = hipGetDevice(&device);
     if (status != hipSuccess) {
@@ -55,7 +68,7 @@ public:
     auto& mutex = hip_events_mutex;
     {
       std::lock_guard<std::mutex> guard(mutex);
-      auto& queue = hip_events[device];
+      auto& queue = hip_events[std::make_pair(device, event.stream)];
       queue.push(event);
     }
 
@@ -68,20 +81,27 @@ public:
     }
   }
 
-  void RecordEvent(std::queue<std::pair<std::string, hipEvent_t>>& event_queue, std::string name, hipStream_t& stream) {
-    hipEvent_t event;
-    ErrorCheck("GetGpuEvent", GetGpuEvent(&event));
-    ErrorCheck("hipEventRecord", hipEventRecord(event, stream));
+  void RecordEvent(std::queue<std::pair<std::string, Event>>& event_queue, std::string name, hipStream_t& stream) {
+    Event event;
+    ErrorCheck("GetGpuEvent", GetGpuEvent(&event, stream));
+    ErrorCheck("hipEventRecord", hipEventRecord(*(event.event), event.stream));
     event_queue.emplace(name, event);
   }
 
-  void WaitForEvents(std::queue<std::pair<std::string, hipEvent_t>>& event_queue,
+  Event RecordEvent(hipStream_t& stream){
+    Event event;
+    ErrorCheck("GetGpuEvent", GetGpuEvent(&event, stream));
+    ErrorCheck("hipEventRecord", hipEventRecord(*(event.event), event.stream));
+    return event;
+  }
+
+  void WaitForEvents(std::queue<std::pair<std::string, Event>>& event_queue,
       const std::vector<TensorTableEntry>& entries, Timeline& timeline,
       const std::function<void()>& error_check_callback,
       bool elastic) {
     while (!event_queue.empty()) {
       std::string name;
-      hipEvent_t event;
+      Event event;
       std::tie(name, event) = event_queue.front();
       event_queue.pop();
       if (name != "") {
@@ -89,21 +109,31 @@ public:
       }
 
       // Check for async (networking) errors while waiting for the event to complete
-      hipError_t hip_result;
-      while (true) {
-        hip_result = hipEventQuery(event);
-        if (hip_result == hipSuccess) {
-          break;
-        }
+      if (elastic){
+        hipError_t hip_result;
+        while (true) {
+          hip_result = hipEventQuery(*(event.event));
+          if (hip_result == hipSuccess) {
+            break;
+          }
 
-        if (hip_result != hipErrorNotReady) {
-          throw std::logic_error(std::string("hipEventQuery failed: ") + hipGetErrorString(hip_result));
-        }
+          if (hip_result != hipErrorNotReady) {
+            throw std::logic_error(std::string("hipEventQuery failed: ") + hipGetErrorString(hip_result));
+          }
 
+          if (error_check_callback) {
+            error_check_callback();
+          }
+          std::this_thread::yield();
+        }
+      } else {
+        hipError_t hip_result = hipEventSynchronize(*(event.event));
+        if (hip_result != hipSuccess) {
+          throw std::logic_error(std::string("hipEventSynchronize failed: ") + hipGetErrorString(hip_result));
+        }
         if (error_check_callback) {
           error_check_callback();
         }
-        std::this_thread::yield();
       }
 
       if (name != "") {
@@ -113,6 +143,26 @@ public:
     }
   }
 
+  void ClearEvents(std::queue<std::pair<std::string, Event>>& event_queue,
+      const std::vector<TensorTableEntry>& entries, Timeline& timeline,
+      const std::function<void()>& error_check_callback,
+      bool elastic) {
+    while (!event_queue.empty()) {
+      std::string name;
+      Event event;
+      std::tie(name, event) = event_queue.front();
+      event_queue.pop();
+      if (name != "") {
+        timeline.ActivityStartAll(entries, name);
+      }
+
+      if (name != "") {
+        timeline.ActivityEndAll(entries);
+      }
+      ErrorCheck("ReleaseGpuEvent", ReleaseGpuEvent(event));
+    }
+  }
+  
   void StreamCreate(hipStream_t *stream) {
     int greatest_priority;
     ErrorCheck("hipDeviceGetStreamPriorityRange",
@@ -154,8 +204,11 @@ public:
 
 private:
   // We reuse HIP events as it appears that their creation carries non-zero cost.
-  std::unordered_map<int, std::queue<hipEvent_t>> hip_events;
+  std::unordered_map<std::pair<int, hipStream_t>, std::queue<Event>> hip_events;
+  std::unordered_map<std::pair<int, hipStream_t>, bool> prepopulated;
   std::mutex hip_events_mutex;
+
+  static constexpr int N_HIP_EVENTS_PREPOPULATE = 128;
 };
 
 #include "gpu_context_impl.cc"

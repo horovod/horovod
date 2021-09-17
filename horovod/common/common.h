@@ -45,7 +45,6 @@ using gpuStream_t = cudaStream_t;
       throw std::logic_error(std::string("GPU Error:") + cudaGetErrorString(cuda_result));  \
     }                                                                                       \
   } while (0)
-#endif
 #elif HAVE_ROCM
 #include <hip/hip_runtime_api.h>
 using gpuError_t = hipError_t;
@@ -63,6 +62,7 @@ using gpuStream_t = hipStream_t;
       throw std::logic_error(std::string("GPU Error:") + hipGetErrorString(hip_result));  \
     }                                                                                     \
   } while (0)
+#endif
 #endif
 
 
