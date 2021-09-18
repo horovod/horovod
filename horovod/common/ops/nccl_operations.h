@@ -87,7 +87,7 @@ public:
 
   Status Execute(std::vector<TensorTableEntry>& entries,
                  const Response& response) override;
-  )
+  
 
 protected:
   NCCLContext* nccl_context_;

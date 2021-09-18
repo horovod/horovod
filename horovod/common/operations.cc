@@ -144,8 +144,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   // Order of these operations is very important. Operations will be checked
   // sequentially from the first to the last. The first 'Enabled' operation will
   // be executed.
-  std::vector<std::shared_ptr<AllreduceOp>> reduce_ops;
   std::vector<std::shared_ptr<AllreduceOp>> allreduce_ops;
+  std::vector<std::shared_ptr<AllreduceOp>> reduce_ops;
   std::vector<std::shared_ptr<AllgatherOp>> allgather_ops;
   std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops;
   std::vector<std::shared_ptr<AllreduceOp>> adasum_ops;
@@ -188,10 +188,11 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #if HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
   allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
       new NCCLAllreduce(&nccl_context, &gpu_context, &state)));
+#endif
 
+#if HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
   reduce_ops.push_back(std::shared_ptr<AllreduceOp>(
       new NCCLReduce(&nccl_context, &gpu_context, &state)));
-
 #endif
 
 #if HAVE_NCCL && HOROVOD_GPU_BROADCAST == 'N'
@@ -252,7 +253,6 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 
   std::shared_ptr<JoinOp> join_op(new JoinOp(&state));
   std::shared_ptr<ErrorOp> error_op(new ErrorOp(&state));
-
   return new OperationManager(&state.parameter_manager, allreduce_ops, reduce_ops,
                               allgather_ops, broadcast_ops, alltoall_ops,
                               join_op, adasum_ops, error_op);
@@ -1143,17 +1143,36 @@ Status EnqueueTensorReduce(std::shared_ptr<OpContext> context,
                            std::shared_ptr<Tensor> output, int root_rank,
                            std::shared_ptr<ReadyEvent> ready_event,
                            const std::string& name, const int device,
-                           StatusCallback callback){
+                           StatusCallback callback,
+                           ReduceOp reduce_op,
+                           double prescale_factor,
+                           double postscale_factor){
   Request message;
+
+
+ if (reduce_op == ReduceOp::AVERAGE) {
+#if !HAVE_ROCM
+    // Averaging happens via postscale_factor
+    postscale_factor /= horovod_global.controller->GetSize();
+#else
+    LOG(ERROR, horovod_global.controller->GetRank()) << "Enqueuing AVERAGE allreduce is not allowed.";
+    return status.Aborted("AVERAGE not allowed.");
+#endif
+  }
+
+
   message.set_request_rank(horovod_global.controller->GetRank());
   message.set_tensor_name(name);
   message.set_tensor_type(tensor->dtype());
   message.set_root_rank(root_rank);
   message.set_device(device);
-  message.set_request_type(Request::BROADCAST);
+  message.set_request_type(Request::REDUCE);
+  message.set_prescale_factor(prescale_factor);
+  message.set_postscale_factor(postscale_factor);
   for (int i = 0; i < tensor->shape().dims(); ++i) {
     message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
   }
+
 
 
   TensorTableEntry e;
@@ -1167,7 +1186,15 @@ Status EnqueueTensorReduce(std::shared_ptr<OpContext> context,
   e.callback = callback;
   e.nvtx_op_range.Start(RegisteredNvtxOp::HorovodReduce, e.tensor->size());
 
+  if (horovod_global.shut_down) {
+    return SHUT_DOWN_ERROR;
+  }
+  Status status = horovod_global.tensor_queue.AddToTensorQueue(e, message);
 
+  if (status.ok()) {
+    LOG(TRACE, horovod_global.controller->GetRank()) << "Enqueued " << name;
+  }
+  return status;
                            }
 
 

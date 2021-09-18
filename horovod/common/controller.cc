@@ -548,10 +548,9 @@ Response Controller::ConstructResponse(const std::string& name, int joined_size)
   double prescale_factor;
   double postscale_factor;
   if (message_type == Request::ALLREDUCE ||
-      message_type == Request::ADASUM) {
+      message_type == Request::ADASUM || message_type == Request::REDUCE) {
     prescale_factor = requests[0].prescale_factor();
     postscale_factor = requests[0].postscale_factor();
-
     for (unsigned int i = 1; i < requests.size(); ++i) {
       if (error) {
         break;
@@ -727,6 +726,10 @@ Response Controller::ConstructResponse(const std::string& name, int joined_size)
     response.set_postscale_factor(postscale_factor);
   } else if (message_type == Request::BROADCAST) {
     response.set_response_type(Response::BROADCAST);
+  } else if (message_type == Request::REDUCE){
+    response.set_response_type(Response::REDUCE);
+    response.set_prescale_factor(prescale_factor);
+    response.set_postscale_factor(postscale_factor);
   } else if (message_type == Request::ALLTOALL) {
     response.set_response_type(Response::ALLTOALL);
   } else if (message_type == Request::ADASUM) {

@@ -158,7 +158,10 @@ Status EnqueueTensorReduce(std::shared_ptr<OpContext> context,
                            std::shared_ptr<Tensor> output, int root_rank,
                            std::shared_ptr<ReadyEvent> ready_event,
                            const std::string& name, const int device,
-                           StatusCallback callback);
+                           StatusCallback callback,
+                           ReduceOp reduce_op = ReduceOp::SUM,
+                           double prescale_factor = 1.0,
+                           double postscale_factor = 1.0);
 
 
 Status EnqueueJoin(std::shared_ptr<OpContext> context,

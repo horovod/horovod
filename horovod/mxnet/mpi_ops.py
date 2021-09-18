@@ -322,6 +322,50 @@ def broadcast(tensor, root_rank, name=None, priority=0):
     return output
 
 
+def reduce(tensor, root_rank, average = True, name=None, priority=0, prescale_factor=1.0,
+              postscale_factor=1.0):
+    """
+    A function that broadcasts the input tensor on root rank to the same input
+    tensor on all other Horovod processes. The operation is performed in-place.
+
+    The broadcast operation is keyed by the name. If name is not provided, an
+    incremented auto-generated name is used. The tensor type and shape must be
+    the same on all Horovod processes for a given name. The broadcast will not
+    start until all processes are ready to send and receive the tensor.
+
+    Arguments:
+        tensor: A tensor to broadcast.
+        root_rank: The rank to broadcast the value from.
+        name: A name of the broadcast operation.
+        priority: The priority of this operation. Higher priority operations
+                  are likely to be executed before other operations.
+
+    Returns:
+        A tensor of the same shape and type as `tensor`, with the value
+        broadcasted from root rank.
+    """
+
+    if rank() == root_rank:
+        output = tensor.copy()
+    else:
+        output = mx.nd.zeros(shape=tensor.shape, ctx=tensor.context,
+                             dtype=tensor.dtype)
+
+    c_in = tensor.handle
+    c_out = output.handle
+    if isinstance(name, string_types):
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_reduce_async(
+            c_in, c_out, c_str(name), ctypes.c_int(root_rank), ctypes.c_bool(average),
+            ctypes.c_int(priority), ctypes.c_double(prescale_factor),
+        ctypes.c_double(postscale_factor)))
+    else:
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_reduce_async(
+            c_in, c_out, name, ctypes.c_int(root_rank), ctypes.c_bool(average),
+            ctypes.c_int(priority), ctypes.c_double(prescale_factor),
+        ctypes.c_double(postscale_factor)))
+
+    return tensor
+
 def broadcast_(tensor, root_rank, name=None, priority=0):
     """
     A function that broadcasts the input tensor on root rank to the same input

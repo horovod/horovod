@@ -97,8 +97,8 @@ void TensorQueue::GetTensorEntriesFromResponse(
              response.response_type() == Response::BROADCAST ||
              response.response_type() == Response::ALLTOALL ||
              response.response_type() == Response::ADASUM ||
-             response.response_type() == Response::ERROR);
-
+             response.response_type() == Response::ERROR ||
+             response.response_type() == Response::REDUCE);
       if (!joined) {
         // We should never fail at finding this key in the tensor table.
         auto iter = tensor_table_.find(name);
@@ -127,6 +127,7 @@ void TensorQueue::GetTensorEntriesFromResponse(
       }
       i++;
     }
+
   }
 }
 
