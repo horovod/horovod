@@ -16,20 +16,24 @@
 // =============================================================================
 
 #include "mpi_gpu_operations.h"
+#include "../mpi/mpi_context.h"
 
 namespace horovod {
 namespace common {
 
-MPI_GPUAllreduce::MPI_GPUAllreduce(MPIContext* mpi_context,
-                                   GPUContext* gpu_context,
+MPI_GPUAllreduce::MPI_GPUAllreduce(GPUContext* gpu_context,
                                    HorovodGlobalState* global_state)
-    : GPUAllreduce(gpu_context, global_state),
-      mpi_context_(mpi_context) {}
+    : GPUAllreduce(gpu_context, global_state) {}
 
 Status MPI_GPUAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   auto& first_entry = entries[0];
+  auto& process_set =
+      global_state_->process_set_table.Get(first_entry.process_set_id);
+  const auto& mpi_context = process_set.mpi_context;
 
   gpu_op_context_.InitGPU(entries);
+
+  WaitForData(entries);
 
   const void* fused_input_data;
   void* buffer_data;
@@ -62,11 +66,11 @@ Status MPI_GPUAllreduce::Execute(std::vector<TensorTableEntry>& entries, const R
   timeline.ActivityStartAll(entries, MPI_ALLREDUCE);
   const void* sendbuf = entries.size() > 1 || fused_input_data == buffer_data
                         ? MPI_IN_PLACE : fused_input_data;
-  int op = MPI_Allreduce(sendbuf, buffer_data,
-                         (int) num_elements,
-                         mpi_context_->GetMPIDataType(first_entry.tensor),
-                         mpi_context_->GetMPISumOp(first_entry.tensor->dtype()),
-                         mpi_context_->GetMPICommunicator(Communicator::GLOBAL));
+  int op =
+      MPI_Allreduce(sendbuf, buffer_data, (int)num_elements,
+                    mpi_context.GetMPIDataType(first_entry.tensor),
+                    mpi_context.GetMPISumOp(first_entry.tensor->dtype()),
+                    mpi_context.GetMPICommunicator(Communicator::GLOBAL));
   if (op != MPI_SUCCESS) {
     throw std::runtime_error("MPI_Allreduce failed, see MPI output for details.");
   }
@@ -90,16 +94,22 @@ Status MPI_GPUAllreduce::Execute(std::vector<TensorTableEntry>& entries, const R
   return Status::OK();
 }
 
-MPI_GPUAllgather::MPI_GPUAllgather(MPIContext* mpi_context,
-                                   GPUContext* gpu_context,
+MPI_GPUAllgather::MPI_GPUAllgather(GPUContext* gpu_context,
                                    HorovodGlobalState* global_state)
-    : GPUAllgather(gpu_context, global_state),
-      mpi_context_(mpi_context) {}
+    : GPUAllgather(gpu_context, global_state) {}
 
 Status MPI_GPUAllgather::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+  assert(!entries.empty());
+  auto& first_entry = entries[0];
+  auto& process_set =
+      global_state_->process_set_table.Get(first_entry.process_set_id);
+  const auto& mpi_context = process_set.mpi_context;
+
   auto& timeline = global_state_->timeline;
 
   gpu_op_context_.InitGPU(entries);
+
+  WaitForData(entries);
 
   // Sizes of subcomponents of each entry from all ranks
   auto** entry_component_sizes = new int64_t* [entries.size()];
@@ -108,7 +118,7 @@ Status MPI_GPUAllgather::Execute(std::vector<TensorTableEntry>& entries, const R
   // allgatherv
   auto** entry_component_offsets = new int64_t* [entries.size()];
 
-  int global_size = global_state_->controller->GetSize();
+  int global_size = process_set.controller->GetSize();
   auto* recvcounts = new int[global_size]();
   auto* displcmnts = new int[global_size]();
 
@@ -117,8 +127,6 @@ Status MPI_GPUAllgather::Execute(std::vector<TensorTableEntry>& entries, const R
     entry_component_offsets[ec] = new int64_t[global_size]();
   }
 
-  auto& first_entry = entries[0];
-
   timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
   Status status = AllocateOutput(entries, response, entry_component_sizes, recvcounts);
   if (!status.ok()) {
@@ -126,10 +134,10 @@ Status MPI_GPUAllgather::Execute(std::vector<TensorTableEntry>& entries, const R
   }
   timeline.ActivityEndAll(entries);
 
-  SetDisplacements(recvcounts, displcmnts);
+  SetDisplacements(recvcounts, displcmnts, global_size);
   SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts, entry_component_offsets);
 
-  int element_size = mpi_context_->GetMPITypeSize(first_entry.tensor->dtype());
+  int element_size = mpi_context.GetMPITypeSize(first_entry.tensor->dtype());
 
   const void* sendbuf = nullptr;
   void* buffer_data;
@@ -148,7 +156,7 @@ Status MPI_GPUAllgather::Execute(std::vector<TensorTableEntry>& entries, const R
   }
 
   global_state_->timeline.ActivityStartAll(entries, MPI_ALLGATHER);
-  auto dtype = mpi_context_->GetMPIDataType(first_entry.tensor->dtype());
+  auto dtype = mpi_context.GetMPIDataType(first_entry.tensor->dtype());
   int op = MPI_Allgatherv(sendbuf != nullptr ? sendbuf : MPI_IN_PLACE,
                           (int) total_num_elements,
                           dtype,
@@ -156,7 +164,7 @@ Status MPI_GPUAllgather::Execute(std::vector<TensorTableEntry>& entries, const R
                           recvcounts,
                           displcmnts,
                           dtype,
-                          mpi_context_->GetMPICommunicator(Communicator::GLOBAL));
+                          mpi_context.GetMPICommunicator(Communicator::GLOBAL));
   if (op != MPI_SUCCESS) {
     throw std::runtime_error("MPI_Allgatherv failed, see MPI output for details.");
   }
@@ -185,17 +193,20 @@ Status MPI_GPUAllgather::Execute(std::vector<TensorTableEntry>& entries, const R
   return Status::OK();
 }
 
-MPI_GPUAlltoall::MPI_GPUAlltoall(MPIContext* mpi_context,
-                                  GPUContext* gpu_context,
-                                  HorovodGlobalState* global_state)
-    : GPUAlltoall(gpu_context, global_state),
-      mpi_context_(mpi_context) {}
+MPI_GPUAlltoall::MPI_GPUAlltoall(GPUContext* gpu_context,
+                                 HorovodGlobalState* global_state)
+    : GPUAlltoall(gpu_context, global_state) {}
 
 Status MPI_GPUAlltoall::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   assert(entries.size() == 1);
 
   gpu_op_context_.InitGPU(entries);
+
+  WaitForData(entries);
+
   auto e = entries[0];
+  auto& process_set = global_state_->process_set_table.Get(e.process_set_id);
+  const auto& mpi_context = process_set.mpi_context;
 
   std::vector<int32_t> sdispls, rdispls;
   std::vector<int32_t> sendcounts, recvcounts;
@@ -208,11 +219,12 @@ Status MPI_GPUAlltoall::Execute(std::vector<TensorTableEntry>& entries, const Re
   void* buffer_data = (void*) e.output->data();
   global_state_->timeline.ActivityStartAll(entries, MPI_ALLTOALL);
 
-  int op = MPI_Alltoallv(sendbuf, sendcounts.data(), sdispls.data(),
-                         mpi_context_->GetMPIDataType(e.tensor->dtype()),
-                         buffer_data, recvcounts.data(), rdispls.data(),
-                         mpi_context_->GetMPIDataType(e.output->dtype()),
-                         mpi_context_->GetMPICommunicator(Communicator::GLOBAL));
+  int op =
+      MPI_Alltoallv(sendbuf, sendcounts.data(), sdispls.data(),
+                    mpi_context.GetMPIDataType(e.tensor->dtype()), buffer_data,
+                    recvcounts.data(), rdispls.data(),
+                    mpi_context.GetMPIDataType(e.output->dtype()),
+                    mpi_context.GetMPICommunicator(Communicator::GLOBAL));
   if (op != MPI_SUCCESS) {
     throw std::runtime_error("MPI_Alltoallv failed, see MPI output for details.");
   }

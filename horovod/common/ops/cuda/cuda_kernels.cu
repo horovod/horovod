@@ -186,6 +186,140 @@ void ScaleBufferCudaImpl(const void* fused_input_data, void* buffer_data, const 
   }
 }
 
+template<typename TL, int blocks_per_copy, typename T, typename TS>
+__device__ void batched_scaled_memcpy_d(size_t idx, const T* input, T* output, size_t size, const TS scale_factor) {
+
+  const int64_t num_words = size / sizeof(TL);
+  const TL* read_ptr = reinterpret_cast<const TL*>(input);
+  TL* write_ptr = reinterpret_cast<TL*>(output);
+  for (size_t i = idx; i < num_words; i += blockDim.x * blocks_per_copy) {
+    // Load word
+    TL word = read_ptr[i];
+    T* val = reinterpret_cast<T*>(&word);
+
+    // Scale elements in word
+    for (int j = 0; j < sizeof(TL) / sizeof(T); ++j) {
+      val[j] *= scale_factor;
+    }
+
+    // Write word
+    write_ptr[i] = word;
+  }
+
+  // Deal with any remaining elements
+  size_t remainder = (size % sizeof(TL)) / sizeof(T);
+  if (remainder > 0 && idx < remainder) {
+    const T* input_r = reinterpret_cast<const T*>(read_ptr + num_words);
+    T* output_r = reinterpret_cast<T*>(write_ptr + num_words);
+    output_r[idx] = scale_factor * input_r[idx];
+  }
+}
+
+// Specialization for architectures without __half compute
+template<typename TL, int blocks_per_copy>
+__device__ void batched_scaled_memcpy_d(size_t idx, const __half* input, __half* output, size_t size, const __half scale_factor) {
+
+  const int64_t num_words = size / sizeof(TL);
+  const TL* read_ptr = reinterpret_cast<const TL*>(input);
+  TL* write_ptr = reinterpret_cast<TL*>(output);
+  for (size_t i = idx; i < num_words; i += blockDim.x * blocks_per_copy) {
+    // Load word
+    TL word = read_ptr[i];
+    __half* val = reinterpret_cast<__half*>(&word);
+
+    // Scale elements in word
+    for (int j = 0; j < sizeof(TL) / sizeof(__half); ++j) {
+#if __CUDA_ARCH__ > 530
+      val[j] *= scale_factor;
+#else
+      val[j] = __float2half(__half2float(scale_factor) * __half2float(val[j]));
+#endif
+    }
+
+    // Write word
+    write_ptr[i] = word;
+  }
+
+  // Deal with any remaining elements
+  size_t remainder = (size % sizeof(TL)) / sizeof(__half);
+  if (remainder > 0 && idx < remainder) {
+    const __half* input_r = reinterpret_cast<const __half*>(read_ptr + num_words);
+    __half* output_r = reinterpret_cast<__half*>(write_ptr + num_words);
+#if __CUDA_ARCH__ > 530
+    output_r[idx] = scale_factor * input_r[idx];
+#else
+    output_r[idx] = __float2half(__half2float(scale_factor) * __half2float(input_r[idx]));
+#endif
+  }
+}
+
+template<typename T, int blocks_per_copy, typename TS>
+__global__ void batched_scaled_memcpy_k(BatchedD2DParams params, TS scale_factor) {
+  const size_t idx = blockDim.x * (blockIdx.x % blocks_per_copy) + threadIdx.x;
+
+  const size_t size = params.sizes[blockIdx.x / blocks_per_copy];
+  const T* input = reinterpret_cast<const T*>(params.in[blockIdx.x / blocks_per_copy]);
+  T* output = reinterpret_cast<T*>(params.out[blockIdx.x / blocks_per_copy]);
+
+  // Check alignment relative to 16 bytes
+  size_t align_in = reinterpret_cast<size_t>(input) % BATCHED_D2D_PADDING;
+  size_t align_out = reinterpret_cast<size_t>(output) % BATCHED_D2D_PADDING;
+
+  // Select load/store size based on the misaligned buffer
+  size_t align = (align_out == 0) ? align_in : align_out;
+  if (align_in && align_out) {
+
+    // If both are misaligned, use datatype size
+    align = sizeof(T);
+  }
+
+  if (align % 16 == 0) {
+    batched_scaled_memcpy_d<ulonglong2, blocks_per_copy>(idx, input, output, size, scale_factor);
+  } else if (align % 8 == 0) {
+    batched_scaled_memcpy_d<unsigned long long, blocks_per_copy>(idx, input, output, size, scale_factor);
+  } else if (align % 4 == 0) {
+    batched_scaled_memcpy_d<unsigned int, blocks_per_copy>(idx, input, output, size, scale_factor);
+  } else if (align % 2 == 0) {
+    batched_scaled_memcpy_d<unsigned short, blocks_per_copy>(idx, input, output, size, scale_factor);
+  } else {
+    batched_scaled_memcpy_d<unsigned char, blocks_per_copy>(idx, input, output, size, scale_factor);
+  }
+}
+
+void BatchedScaledD2DMemcpyCudaImpl(BatchedD2DParams& params, int num_copies, double scale_factor,
+                                    DataType dtype, cudaStream_t stream) {
+  const int64_t blocks = num_copies * BLOCKS_PER_COPY_D2D_KERNEL;
+  const int threads = NTHREADS_D2D_KERNEL;
+  switch (dtype) {
+   case HOROVOD_UINT8:
+     batched_scaled_memcpy_k<uint8_t, BLOCKS_PER_COPY_D2D_KERNEL><<<blocks, threads, 0, stream>>>(params, scale_factor);
+     break;
+   case HOROVOD_INT8:
+     batched_scaled_memcpy_k<int8_t, BLOCKS_PER_COPY_D2D_KERNEL><<<blocks, threads, 0, stream>>>(params, scale_factor);
+     break;
+   case HOROVOD_INT32:
+     batched_scaled_memcpy_k<int32_t, BLOCKS_PER_COPY_D2D_KERNEL><<<blocks, threads, 0, stream>>>(params, scale_factor);
+     break;
+   case HOROVOD_INT64:
+     batched_scaled_memcpy_k<int64_t, BLOCKS_PER_COPY_D2D_KERNEL><<<blocks, threads, 0, stream>>>(params, scale_factor);
+     break;
+   case HOROVOD_FLOAT16: {
+     __half scale_factor_half = __float2half((float) scale_factor);
+     batched_scaled_memcpy_k<__half, BLOCKS_PER_COPY_D2D_KERNEL><<<blocks, threads, 0, stream>>>(params, scale_factor_half);
+     break;
+   }
+   case HOROVOD_FLOAT32:
+     batched_scaled_memcpy_k<float, BLOCKS_PER_COPY_D2D_KERNEL><<<blocks, threads, 0, stream>>>(params, (float) scale_factor);
+     break;
+   case HOROVOD_FLOAT64:
+     batched_scaled_memcpy_k<double, BLOCKS_PER_COPY_D2D_KERNEL><<<blocks, threads, 0, stream>>>(params, scale_factor);
+     break;
+   default:
+     throw std::logic_error("Type " + DataType_Name(dtype) +
+                            " not supported by BatchedScaledD2DMemcpyCudaImpl.");
+  }
+}
+
 } // namespace common
 } // namespace horovod
 

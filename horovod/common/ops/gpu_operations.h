@@ -66,12 +66,22 @@ public:
 
   void ErrorCheck(std::string op_name, gpuError_t gpu_result);
 
-  void RecordEvent(std::queue<std::pair<std::string, gpuEvent_t>>& event_queue, std::string name,
+  void RecordEvent(std::queue<std::pair<std::string, Event>>& event_queue, std::string name,
                    gpuStream_t& stream);
 
-  void WaitForEvents(std::queue<std::pair<std::string, gpuEvent_t>>& event_queue,
+  Event RecordEvent(gpuStream_t& stream);
+
+  void ReleaseEvent(Event event);
+
+  void WaitForEvents(std::queue<std::pair<std::string, Event>>& event_queue,
                      const std::vector<TensorTableEntry>& entries, Timeline& timeline,
-                     const std::function<void()>& error_check_callback = nullptr);
+                     const std::function<void()>& error_check_callback = nullptr,
+                     bool elastic = false);
+
+  void ClearEvents(std::queue<std::pair<std::string, Event>>& event_queue,
+                   const std::vector<TensorTableEntry>& entries, Timeline& timeline,
+                   const std::function<void()>& error_check_callback = nullptr,
+                   bool elastic = false);
 
   void StreamCreate(gpuStream_t *stream);
   void StreamSynchronize(gpuStream_t stream);
@@ -116,7 +126,7 @@ public:
   //
   // For more information of CUDA Events, see:
   // https://devblogs.nvidia.com/how-implement-performance-metrics-cuda-cc/
-  std::queue<std::pair<std::string, gpuEvent_t>> event_queue;
+  std::queue<std::pair<std::string, Event>> event_queue;
 
   gpuStream_t* stream;
   void* host_buffer = nullptr;
@@ -138,9 +148,14 @@ public:
 protected:
 #if HAVE_CUDA
   void MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
-                                    void*& buffer_data, size_t& buffer_len) override;
+                            void*& buffer_data, size_t& buffer_len) override;
 
   void MemcpyOutFusionBuffer(const void* buffer_data, std::vector<TensorTableEntry>& entries) override;
+
+  void ScaleMemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
+                                 void*& buffer_data, size_t& buffer_len, double scale_factor);
+  void ScaleMemcpyOutFusionBuffer(void* buffer_data, size_t buffer_len, double scale_factor,
+                                  std::vector<TensorTableEntry>& entries);
 #endif
 
   void MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,

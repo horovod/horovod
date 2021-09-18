@@ -23,7 +23,8 @@ AdasumGpuAllreduceOp::AdasumGpuAllreduceOp(MPIContext* mpi_context,
                                            GPUContext* gpu_context,
                                            HorovodGlobalState* global_state)
     : AdasumMPI(mpi_context, global_state),
-      NCCLAllreduce(nccl_context, gpu_context, global_state, Communicator::LOCAL) {
+      NCCLAllreduce(nccl_context, gpu_context, global_state,
+                    Communicator::LOCAL) {
   // Pre-allocate host buffer size equal to the fusion buffer length
   current_host_buffer_length =
       global_state->parameter_manager.TensorFusionThresholdBytes();
@@ -35,11 +36,18 @@ AdasumGpuAllreduceOp::~AdasumGpuAllreduceOp() {
     free(gpu_op_context_.host_buffer);
   }
 }
+
+void AdasumGpuAllreduceOp::WaitForData(std::vector<TensorTableEntry>& entries) {
+  HorovodOp::WaitForData(entries);
+}
+
 Status AdasumGpuAllreduceOp::Execute(std::vector<TensorTableEntry>& entries,
                                      const Response& response) {
   if (entries.empty()) {
     return Status::OK();
   }
+
+  WaitForData(entries);
 
   // Lazily initialize reduction communicators for VHDD algorithm when Adasum reduction is actually called.
   if (!reduction_comms_initialized) {
@@ -56,13 +64,16 @@ uint8_t* AdasumGpuAllreduceOp::GetHostBuffer(uint64_t buffer_length) {
 Status
 AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
                                        const Response& response) {
+  assert(!entries.empty());
   auto& first_entry = entries[0];
+  assert(first_entry.process_set_id == 0);  // TODO: generalize
+  auto& process_set =
+      global_state_->process_set_table.Get(first_entry.process_set_id);
 
   // Determine GPU IDs of the devices participating in this communicator.
   std::vector<int32_t> nccl_device_map;
-  nccl_device_map.reserve(
-      global_state_->controller->GetLocalCommRanks().size());
-  for (size_t rank : global_state_->controller->GetLocalCommRanks()) {
+  nccl_device_map.reserve(process_set.controller->GetLocalCommRanks().size());
+  for (size_t rank : process_set.controller->GetLocalCommRanks()) {
     nccl_device_map.push_back(response.devices()[rank]);
   }
   gpu_op_context_.InitGPU(entries);
@@ -96,14 +107,14 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
 
   // Do allreduce.
   int element_size = mpi_context_->GetMPITypeSize(first_entry.tensor->dtype());
-  int local_size = global_state_->controller->GetLocalSize();
-  int local_rank = global_state_->controller->GetLocalRank();
+  int local_size = process_set.controller->GetLocalSize();
+  int local_rank = process_set.controller->GetLocalRank();
 
   // If cluster is homogeneous and we are using fusion buffer, include
   // dummy elements from the buffer (if necessary) to make sure the data
   // is divisible by local_size. This is always possible since we
   // set the fusion buffer size divisible by local_size.
-  if (global_state_->controller->IsHomogeneous() && entries.size() > 1) {
+  if (process_set.controller->IsHomogeneous() && entries.size() > 1) {
     // Making sure the number of elements is divisible by
     // FUSION_BUFFER_ATOMIC_UNIT for improved performance
     int div = local_size * FUSION_BUFFER_ATOMIC_UNIT;
@@ -123,7 +134,7 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
   // non-divisible part (if any), do NCCL Reduce (at rank local_size-1),
   // MPI Allreduce (across rank (local_size-1)'s), and NCCL Bcast
 
-  int64_t num_elements_per_rank = global_state_->controller->IsHomogeneous()
+  int64_t num_elements_per_rank = process_set.controller->IsHomogeneous()
                                       ? num_elements / local_size
                                       : 0;
 
@@ -132,7 +143,7 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
   void* buffer_data_at_rank_offset =
       (uint8_t*)buffer_data + buffer_len_per_rank * local_rank;
 
-  int64_t num_elements_remaining = global_state_->controller->IsHomogeneous()
+  int64_t num_elements_remaining = process_set.controller->IsHomogeneous()
                                        ? num_elements % local_size
                                        : num_elements;
 
@@ -144,8 +155,7 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
   void* fused_input_data_remainder =
       (uint8_t*)fused_input_data + buffer_len_per_rank * local_size;
 
-  int root_rank =
-      global_state_->controller->IsHomogeneous() ? local_size - 1 : 0;
+  int root_rank = process_set.controller->IsHomogeneous() ? local_size - 1 : 0;
   bool is_root_rank = local_rank == root_rank;
 
   int64_t total_num_elements =
@@ -184,13 +194,13 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
     }
   }
 
-  if (global_state_->controller->IsHomogeneous() || is_root_rank) {
+  if (process_set.controller->IsHomogeneous() || is_root_rank) {
     // cudaHostAlloc is significantly slower than malloc.  Pre-allocating
     // a buffer is not safe since the tensor can be arbitrarily large.
     host_buffer = GetHostBuffer((uint64_t)total_buffer_len);
     // Synchronize.
     gpu_context_->WaitForEvents(gpu_op_context_.event_queue, entries,
-                                 timeline);
+                                 timeline, nullptr, global_state_->elastic_enabled);
 
     // According to https://docs.nvidia.com/cuda/cuda-runtime-api/
     // api-sync-behavior.html#api-sync-behavior__memcpy-async,
@@ -208,7 +218,7 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
     // tensors needs to know boundaries of tensors. Calculate here the count
     // of elements for each tensor owned by this rank.
     std::vector<int> tensor_counts(entries.size());
-    if (global_state_->controller->IsHomogeneous()) {
+    if (process_set.controller->IsHomogeneous()) {
       // For homogeneous clusters each rank owns a slice of the fused tensor.
 
       int64_t num_elements_sofar = 0;
@@ -252,9 +262,9 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
     DispatchFusedAllreduce(
         entries, (void*)host_buffer, (void*)recv_buffer, tensor_counts,
         local_size, // start_level
-        global_state_->controller->IsHomogeneous()
-            ? MPI_COMM_WORLD
-            : mpi_context_->GetMPICommunicator(Communicator::CROSS),
+        mpi_context_->GetMPICommunicator(process_set.controller->IsHomogeneous()
+                                    ? Communicator::GLOBAL
+                                    : Communicator::CROSS),
         0, reduction_comms_, first_entry.tensor->dtype(), global_state_);
     timeline.ActivityEndAll(entries);
 

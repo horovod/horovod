@@ -39,7 +39,7 @@ from horovod.spark.keras.util import _custom_sparse_to_dense_fn, _serialize_para
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 from common import temppath
-from spark_common import CallbackBackend, create_mnist_data, create_xor_data, local_store, spark_session
+from spark_common import CallbackBackend, create_mnist_data, create_xor_data, create_xor_data_with_val, local_store, spark_session
 
 
 def create_xor_model():
@@ -72,7 +72,9 @@ def get_mock_fit_fn():
     return fit
 
 
-@pytest.mark.skipif(LooseVersion(tf.__version__) >= LooseVersion('2.0.0'), reason='TensorFlow v1 tests')
+#PR3099 [https://github.com/horovod/horovod/pull/3099] doesn't fix
+#Tensorflow>=2.6.0 tests
+@pytest.mark.skipif(LooseVersion(tf.__version__) >= LooseVersion('2.6.0'), reason='TensorFlow>=2.6.0 tests')
 class SparkKerasTests(tf.test.TestCase):
     def __init__(self, *args, **kwargs):
         super(SparkKerasTests, self).__init__(*args, **kwargs)
@@ -197,37 +199,45 @@ class SparkKerasTests(tf.test.TestCase):
         mock_pin_gpu_fn.return_value = mock.Mock()
 
         with spark_session('test_keras_direct_parquet_train') as spark:
-            df = create_xor_data(spark)
+            df = create_xor_data_with_val(spark)
 
             backend = CallbackBackend()
             with local_store() as store:
                 store.get_train_data_path = lambda v=None: store._train_path
                 store.get_val_data_path = lambda v=None: store._val_path
 
-                with util.prepare_data(backend.num_processes(),
-                                       store,
-                                       df,
-                                       feature_columns=['features'],
-                                       label_columns=['y']):
-                    model = create_xor_model()
-                    optimizer = tf.keras.optimizers.SGD(lr=0.1)
-                    loss = 'binary_crossentropy'
+                # Make sure we cover val dataloader cases
+                for validation in [None, 'val']:
+                    with util.prepare_data(backend.num_processes(),
+                                           store,
+                                           df,
+                                           feature_columns=['features'],
+                                           label_columns=['y'],
+                                           validation=validation):
+                        model = create_xor_model()
+                        optimizer = tf.keras.optimizers.SGD(lr=0.1)
+                        loss = 'binary_crossentropy'
 
-                    est = hvd.KerasEstimator(
-                        backend=backend,
-                        store=store,
-                        model=model,
-                        optimizer=optimizer,
-                        loss=loss,
-                        feature_cols=['features'],
-                        label_cols=['y'],
-                        batch_size=1,
-                        epochs=3,
-                        verbose=2)
+                        for inmemory_cache_all in [False, True]:
+                            for reader_pool_type in ['process', 'thread']:
+                                est = hvd.KerasEstimator(
+                                    backend=backend,
+                                    store=store,
+                                    model=model,
+                                    optimizer=optimizer,
+                                    loss=loss,
+                                    feature_cols=['features'],
+                                    label_cols=['y'],
+                                    batch_size=1,
+                                    epochs=3,
+                                    reader_pool_type=reader_pool_type,
+                                    validation=validation,
+                                    inmemory_cache_all=inmemory_cache_all,
+                                    verbose=2)
 
-                    transformer = est.fit_on_parquet()
-                    predictions = transformer.transform(df)
-                assert predictions.count() == df.count()
+                                transformer = est.fit_on_parquet()
+                                predictions = transformer.transform(df)
+                                assert predictions.count() == df.count()
 
     @mock.patch('horovod.spark.keras.remote._pin_gpu_fn')
     @mock.patch('horovod.spark.keras.util.TFKerasUtil.fit_fn')
@@ -466,25 +476,35 @@ class SparkKerasTests(tf.test.TestCase):
         def _create_numpy_array(n_rows, shape):
             return np.array([[i for i in range(j, j + shape)] for j in range(n_rows)])
 
-        def dummy_reader():
-            Row = collections.namedtuple('row', ['col1', 'col2', 'sample_weight', 'label'])
+        """A dummy reader class only run 1 epoch (2 rows of data) for each iteration"""
+        class DummyReader():
+            def __init__(self):
+                self._in_iter = False
 
-            col11 = _create_numpy_array(rows_in_row_group, 1)
-            col21 = _create_numpy_array(rows_in_row_group, 10)
-            label1 = _create_numpy_array(rows_in_row_group, 8)
-            sw1 = np.array([i / 100. for i in range(rows_in_row_group)])
+            def __iter__(self):
+                if self._in_iter:
+                    raise RuntimeError('Do not support resetting a dummy reader while in the middle of iteration.')
 
-            row1 = Row(col1=col11, col2=col21, label=label1, sample_weight=sw1)
+                self._in_iter = True
+                Row = collections.namedtuple('row', ['col1', 'col2', 'sample_weight', 'label'])
 
-            col12 = _create_numpy_array(rows_in_row_group, 1)
-            col22 = _create_numpy_array(rows_in_row_group, 10)
-            label2 = _create_numpy_array(rows_in_row_group, 8)
-            sw2 = np.array([i / 100. for i in range(rows_in_row_group)])
-            row2 = Row(col1=col12, col2=col22, label=label2, sample_weight=sw2)
+                col11 = _create_numpy_array(rows_in_row_group, 1)
+                col21 = _create_numpy_array(rows_in_row_group, 10)
+                label1 = _create_numpy_array(rows_in_row_group, 8)
+                sw1 = np.array([i / 100. for i in range(rows_in_row_group)])
 
-            while True:
-                yield row1
-                yield row2
+                row1 = Row(col1=col11, col2=col21, label=label1, sample_weight=sw1)
+
+                col12 = _create_numpy_array(rows_in_row_group, 1)
+                col22 = _create_numpy_array(rows_in_row_group, 10)
+                label2 = _create_numpy_array(rows_in_row_group, 8)
+                sw2 = np.array([i / 100. for i in range(rows_in_row_group)])
+                row2 = Row(col1=col12, col2=col22, label=label2, sample_weight=sw2)
+                try:
+                    yield row1
+                    yield row2
+                finally:
+                    self._in_iter = False
 
         metadata = \
             {
@@ -508,7 +528,7 @@ class SparkKerasTests(tf.test.TestCase):
                 },
             }
 
-        reader = dummy_reader()
+        reader = DummyReader()
 
         feature_columns = ['col1', 'col2']
         label_columns = ['label']
@@ -519,10 +539,10 @@ class SparkKerasTests(tf.test.TestCase):
 
         batch_generator = BareKerasUtil._batch_generator_fn(
             feature_columns, label_columns, sample_weight_col,
-            input_shapes, output_shapes, batch_size, metadata)
+            input_shapes, output_shapes, metadata)
 
         for shuffle in [True, False]:
-            batch_gen = batch_generator(reader, shuffle_buffer_size, shuffle=shuffle)
+            batch_gen = batch_generator(reader, batch_size, shuffle_buffer_size, shuffle=shuffle)
 
             for _ in range(10):
                 batch = next(batch_gen)

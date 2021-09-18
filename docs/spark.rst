@@ -42,7 +42,7 @@ Horovod Spark Estimators additionally require at least one of these combinations
 
 *  ``tensorflow-gpu >= 1.12.0`` or ``tensorflow >= 1.12.0`` (for ``KerasEstimator``)
 *  ``torch >= 1.0.0`` and ``tensorboard >= 1.14.0`` (for ``TorchEstimator``)
-*  ``torch >= 1.4.0`` and ``pytorch_lightning >= 1.2.9`` (for ``LightningEstimator``)
+*  ``torch >= 1.4.0`` and ``pytorch_lightning >= 1.3.8`` (for ``LightningEstimator``)
 
 
 Horovod Spark Estimators
@@ -95,6 +95,8 @@ Estimators can be used to track experiment history through model checkpointing, 
 logging (for Tensorboard) using the Estimator ``Store`` abstraction.  Stores are used for persisting all training
 artifacts including intermediate representations of the training data.  Horovod natively supports stores for HDFS
 and local filesystems.
+
+`Petastorm <https://github.com/uber/petastorm/blob/master/petastorm/pytorch.py#L258>` based data loader is used by default, but user can define a custom data loader by override the `BaseDataLoader` interface. A async data loader mixin can also added on top of the data loader.
 
 End-to-end example
 ------------------

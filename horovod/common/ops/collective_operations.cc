@@ -32,6 +32,35 @@ int64_t HorovodOp::NumElements(std::vector<TensorTableEntry>& entries) {
   return num_elements;
 }
 
+void HorovodOp::WaitForData(std::vector<TensorTableEntry>& entries) {
+  // On GPU data readiness is signalled by ready_event.
+  auto& timeline = global_state_->timeline;
+  std::vector<TensorTableEntry> waiting_tensors;
+  for (auto& e : entries) {
+    if (e.ready_event_list.size() != 0) {
+      timeline.ActivityStart(e.tensor_name, WAIT_FOR_DATA);
+      waiting_tensors.push_back(e);
+    }
+  }
+  while (!waiting_tensors.empty()) {
+    for (auto it = waiting_tensors.begin(); it != waiting_tensors.end();) {
+      if (it->ready_event_list.Ready()) {
+        timeline.ActivityEnd(it->tensor_name);
+        timeline.ActivityStart(it->tensor_name, WAIT_FOR_OTHER_TENSOR_DATA);
+        it = waiting_tensors.erase(it);
+      } else {
+        ++it;
+      }
+    }
+    std::this_thread::sleep_for(std::chrono::nanoseconds(100));
+  }
+  for (auto& e : entries) {
+    if (e.ready_event_list.size() != 0) {
+      timeline.ActivityEnd(e.tensor_name);
+    }
+  }
+}
+
 // Allreduce
 AllreduceOp::AllreduceOp(HorovodGlobalState* global_state)
     : HorovodOp(global_state) {}
@@ -124,9 +153,10 @@ Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
                                    const Response& response,
                                    int64_t**& entry_component_sizes,
                                    int*& recvcounts) {
-  int global_size = global_state_->controller->GetSize();
   for (size_t ec = 0; ec < entries.size(); ++ec) {
     auto& e = entries[ec];
+    auto& process_set = global_state_->process_set_table.Get(e.process_set_id);
+    int global_size = process_set.controller->GetSize();
     // Every tensor participating in Allgather operation may have different
     // first dimension size, but the rest of dimensions are same for all
     // tensors.  Here we get shape of tensor sliced by first dimension.
@@ -168,8 +198,8 @@ Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
   return Status::OK();
 }
 
-void AllgatherOp::SetDisplacements(const int* recvcounts, int*& displcmnts) {
-  int global_size = global_state_->controller->GetSize();
+void AllgatherOp::SetDisplacements(const int* recvcounts, int*& displcmnts,
+                                   int global_size) {
   for (int rc = 0; rc < global_size; ++rc) {
     if (rc == 0) {
       displcmnts[rc] = 0;
@@ -183,8 +213,11 @@ void AllgatherOp::SetEntryComponentOffsets(
     const std::vector<TensorTableEntry>& entries,
     const int64_t* const* entry_component_sizes, const int* recvcounts,
     int64_t**& entry_component_offsets) {
+  assert(!entries.empty());
+  auto& process_set =
+      global_state_->process_set_table.Get(entries[0].process_set_id);
   unsigned int rank_displacement = 0;
-  int global_size = global_state_->controller->GetSize();
+  int global_size = process_set.controller->GetSize();
   for (int rc = 0; rc < global_size; ++rc) {
     for (size_t ec = 0; ec < entries.size(); ++ec) {
       if (ec == 0) {
@@ -201,13 +234,16 @@ void AllgatherOp::SetEntryComponentOffsets(
 void AllgatherOp::MemcpyInFusionBuffer(
     const std::vector<TensorTableEntry>& entries, const int* displcmnts,
     int element_size, void*& buffer_data) {
+  assert(!entries.empty());
   // Access the fusion buffer.
   auto& first_entry = entries[0];
   auto buffer = global_state_->fusion_buffer.GetBuffer(
       first_entry.device, first_entry.context->framework(), global_state_->current_nccl_stream);
   buffer_data = const_cast<void*>(buffer->AccessData(first_entry.context));
 
-  int64_t offset = displcmnts[global_state_->controller->GetRank()] * element_size;
+  auto& process_set =
+      global_state_->process_set_table.Get(first_entry.process_set_id);
+  int64_t offset = displcmnts[process_set.controller->GetRank()] * element_size;
   for (auto& e : entries) {
     void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
     MemcpyEntryInFusionBuffer(entries, e, buffer_data_at_offset);
@@ -220,9 +256,10 @@ void AllgatherOp::MemcpyOutFusionBuffer(
     const int64_t* const* entry_component_sizes, const void* buffer_data,
     int element_size, std::vector<TensorTableEntry>& entries) {
   // Copy memory out of the fusion buffer.
-  int global_size = global_state_->controller->GetSize();
   for (size_t ec = 0; ec < entries.size(); ++ec) {
     auto& e = entries[ec];
+    auto& process_set = global_state_->process_set_table.Get(e.process_set_id);
+    int global_size = process_set.controller->GetSize();
     int64_t copy_offset = 0;
     for (int rc = 0; rc < global_size; ++rc) {
       int64_t entry_offset = entry_component_offsets[ec][rc] * element_size;
@@ -260,11 +297,17 @@ AlltoallOp::AlltoallOp(HorovodGlobalState* global_state)
 JoinOp::JoinOp(HorovodGlobalState* global_state) : HorovodOp(global_state) {}
 
 Status JoinOp::Execute(std::vector<TensorTableEntry>& entries,
-                       const Response& response) {
-  assert(entries.size() == 0);
-  if (global_state_->joined) {
-    global_state_->tensor_queue.RemoveJoinTensor();
-    global_state_->joined = false;
+                       const Response& response, ProcessSet& process_set) {
+  WaitForData(entries);
+
+  assert(entries.size() == 1);
+  auto e = entries[0];
+  auto output_ptr = (int*) e.output->data();
+  *output_ptr = response.last_joined_rank();
+  if (process_set.joined) {
+    process_set.tensor_queue.RemoveJoinTensor();
+    process_set.joined = false;
+    process_set.last_joined_rank = -1;
   }
   return Status::OK();
 }

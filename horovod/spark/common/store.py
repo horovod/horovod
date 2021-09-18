@@ -16,6 +16,7 @@
 import contextlib
 import errno
 import os
+import pathlib
 import re
 import shutil
 import tempfile
@@ -26,7 +27,11 @@ from distutils.version import LooseVersion
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from horovod.spark.common.util import is_databricks
+import fsspec
+from fsspec.core import split_protocol
+from fsspec.utils import update_storage_options
+
+from horovod.spark.common.util import is_databricks, host_hash
 
 
 class Store(object):
@@ -155,26 +160,28 @@ class Store(object):
         elif is_databricks() and DBFSLocalStore.matches_dbfs(prefix_path):
             return DBFSLocalStore(prefix_path, *args, **kwargs)
         else:
-            return LocalStore(prefix_path, *args, **kwargs)
+            return FilesystemStore(prefix_path, *args, **kwargs)
 
 
-class FilesystemStore(Store):
+class AbstractFilesystemStore(Store):
     """Abstract class for stores that use a filesystem for underlying storage."""
 
-    def __init__(self, prefix_path, train_path=None, val_path=None, test_path=None, runs_path=None, save_runs=True):
+    def __init__(self, prefix_path, train_path=None, val_path=None, test_path=None,
+            runs_path=None, save_runs=True, storage_options=None, **kwargs):
         self.prefix_path = self.get_full_path(prefix_path)
         self._train_path = self._get_full_path_or_default(train_path, 'intermediate_train_data')
         self._val_path = self._get_full_path_or_default(val_path, 'intermediate_val_data')
         self._test_path = self._get_full_path_or_default(test_path, 'intermediate_test_data')
         self._runs_path = self._get_full_path_or_default(runs_path, 'runs')
         self._save_runs = save_runs
-        super(FilesystemStore, self).__init__()
+        self.storage_options = storage_options
+        super().__init__()
 
     def exists(self, path):
-        return self.get_filesystem().exists(self.get_localized_path(path))
+        return self.fs.exists(self.get_localized_path(path)) or self.fs.isdir(path)
 
     def read(self, path):
-        with self.get_filesystem().open(self.get_localized_path(path), 'rb') as f:
+        with self.fs.open(self.get_localized_path(path), 'rb') as f:
             return f.read()
 
     def read_serialized_keras_model(self, ckpt_path, model, custom_objects):
@@ -188,12 +195,20 @@ class FilesystemStore(Store):
         :return: the base 64 encoded model bytes of the checkpoint model.
         """
         from horovod.runner.common.util import codec
+        import tensorflow
+        from tensorflow import keras
+        from horovod.spark.keras.util import TFKerasUtil
 
-        model_bytes = self.read(ckpt_path)
-        return codec.dumps_base64(model_bytes)
+        if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
+            model_bytes = self.read(ckpt_path)
+            return codec.dumps_base64(model_bytes)
+        else:
+            with keras.utils.custom_object_scope(custom_objects):
+                model = keras.models.load_model(ckpt_path)
+            return TFKerasUtil.serialize_model(model)
 
     def write_text(self, path, text):
-        with self.get_filesystem().open(self.get_localized_path(path), 'w') as f:
+        with self.fs.open(self.get_localized_path(path), 'w') as f:
             f.write(text)
 
     def is_parquet_dataset(self, path):
@@ -204,7 +219,7 @@ class FilesystemStore(Store):
             return False
 
     def get_parquet_dataset(self, path):
-        return pq.ParquetDataset(self.get_localized_path(path), filesystem=self.get_filesystem())
+        return pq.ParquetDataset(self.get_localized_path(path), filesystem=self.fs)
 
     def get_train_data_path(self, idx=None):
         return '{}.{}'.format(self._train_path, idx) if idx is not None else self._train_path
@@ -219,7 +234,8 @@ class FilesystemStore(Store):
         localized_path = self.get_localized_path(path)
         if localized_path.endswith('/'):
             localized_path = localized_path[:-1] # Remove the slash at the end if there is one
-        metadata_cache = localized_path+"_cached_metadata.pkl"
+        file_hash = host_hash()
+        metadata_cache = localized_path+"_"+file_hash+"_cached_metadata.pkl"
         return metadata_cache
 
     def saving_runs(self):
@@ -237,7 +253,7 @@ class FilesystemStore(Store):
 
     def get_checkpoints(self, run_id, suffix='.ckpt'):
         checkpoint_dir = self.get_localized_path(self.get_checkpoint_path(run_id))
-        filenames = self.get_filesystem().ls(checkpoint_dir)
+        filenames = self.fs.ls(checkpoint_dir)
         return sorted([name for name in filenames if name.endswith(suffix)])
 
     def get_logs_path(self, run_id):
@@ -250,23 +266,6 @@ class FilesystemStore(Store):
     def get_logs_subdir(self):
         return 'logs'
 
-    def get_full_path(self, path):
-        if not self.matches(path):
-            return self.path_prefix() + path
-        return path
-
-    def get_localized_path(self, path):
-        if self.matches(path):
-            return path[len(self.path_prefix()):]
-        return path
-
-    def get_full_path_fn(self):
-        prefix = self.path_prefix()
-
-        def get_path(path):
-            return prefix + path
-        return get_path
-
     def _get_full_path_or_default(self, path, default_key):
         if path is not None:
             return self.get_full_path(path)
@@ -275,66 +274,95 @@ class FilesystemStore(Store):
     def _get_path(self, key):
         return os.path.join(self.prefix_path, key)
 
-    def path_prefix(self):
+    def get_local_output_dir_fn(self, run_id):
+        @contextlib.contextmanager
+        def local_run_path():
+            with tempfile.TemporaryDirectory() as tmpdir:
+                yield tmpdir
+        return local_run_path
+
+    def get_localized_path(self, path):
         raise NotImplementedError()
 
-    def get_filesystem(self):
+    def get_full_path(self, path):
         raise NotImplementedError()
+
+    def get_full_path_fn(self):
+        raise NotImplementedError()
+
+    @property
+    def fs(self):
+        raise NotImplementedError()
+
+
+class FilesystemStore(AbstractFilesystemStore):
+    """Concrete filesystems store that delegates to `fsspec`."""
+
+    def __init__(self, prefix_path, *args, **kwargs):
+        self.storage_options = kwargs['storage_options'] if 'storage_options' in kwargs else {}
+        self.prefix_path = prefix_path
+        self._fs, self.protocol = self._get_fs_and_protocol()
+        std_params = ['train_path', 'val_path', 'test_path', 'runs_path', 'save_runs', 'storage_options'] 
+        params = dict((k, kwargs[k]) for k in std_params if k in kwargs)
+        super().__init__(prefix_path, *args, **params)
+
+    def sync_fn(self, run_id):
+        run_path = self.get_run_path(run_id)
+
+        def fn(local_run_path):
+            print(f"Syncing dir {local_run_path} to dir {run_path}")
+            self.fs.put(local_run_path, run_path, recursive=True, overwrite=True)
+
+        return fn
+
+    def get_filesystem(self):
+        return self.fs
+
+    def get_localized_path(self, path):
+        _, lpath = split_protocol(path)
+        return lpath
+
+    def get_full_path(self, path):
+        return self.get_full_path_fn()(path)
+
+    def get_full_path_fn(self):
+        def get_path(path):
+            protocol, _ = split_protocol(path)
+            if protocol is not None:
+                return path
+            return pathlib.Path(os.path.abspath(path)).as_uri()
+        return get_path
+
+    @property
+    def fs(self):
+        return self._fs
+
+    #@staticmethod
+    def _get_fs_and_protocol(self):
+        storage_options = self.storage_options or {}
+        protocol, path = split_protocol(self.prefix_path)
+        cls = fsspec.get_filesystem_class(protocol)
+        options = cls._get_kwargs_from_urls(self.prefix_path)
+        update_storage_options(options, storage_options)
+        fs = cls(**options)
+        return fs, protocol
 
     @classmethod
     def matches(cls, path):
-        return path.startswith(cls.filesystem_prefix())
-
-    @classmethod
-    def filesystem_prefix(cls):
-        raise NotImplementedError()
+        return True
 
 
 class LocalStore(FilesystemStore):
-    """Uses the local filesystem as a store of intermediate data and training artifacts."""
+    """Uses the local filesystem as a store of intermediate data and training artifacts.
 
-    FS_PREFIX = 'file://'
+    This class is deprecated and now just resolves to FilesystemStore.
+    """
 
-    def __init__(self, prefix_path, *args, **kwargs):
-        self._fs = pa.LocalFileSystem()
-        super(LocalStore, self).__init__(prefix_path, *args, **kwargs)
-
-    def path_prefix(self):
-        return self.FS_PREFIX
-
-    def get_filesystem(self):
-        return self._fs
-
-    def get_local_output_dir_fn(self, run_id):
-        run_path = self.get_localized_path(self.get_run_path(run_id))
-
-        @contextlib.contextmanager
-        def local_run_path():
-            if not os.path.exists(run_path):
-                try:
-                    os.makedirs(run_path, mode=0o755)
-                except OSError as e:
-                    # Race condition from workers on the same host: ignore
-                    if e.errno != errno.EEXIST:
-                        raise
-            yield run_path
-
-        return local_run_path
-
-    def sync_fn(self, run_id):
-        run_path = self.get_localized_path(self.get_run_path(run_id))
-
-        def fn(local_run_path):
-            # No-op for LocalStore since the `local_run_path` will be the same as the run path
-            assert run_path == local_run_path
-        return fn
-
-    @classmethod
-    def filesystem_prefix(cls):
-        return cls.FS_PREFIX
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
-class HDFSStore(FilesystemStore):
+class HDFSStore(AbstractFilesystemStore):
     """Uses HDFS as a store of intermediate data and training artifacts.
 
     Initialized from a `prefix_path` that can take one of the following forms:
@@ -358,9 +386,7 @@ class HDFSStore(FilesystemStore):
 
     def __init__(self, prefix_path,
                  host=None, port=None, user=None, kerb_ticket=None,
-                 driver='libhdfs', extra_conf=None, temp_dir=None, *args, **kwargs):
-        self._temp_dir = temp_dir
-
+                 driver='libhdfs', extra_conf=None, *args, **kwargs):
         prefix, url_host, url_port, path, path_offset = self.parse_url(prefix_path)
         self._check_url(prefix_path, prefix, path)
         self._url_prefix = prefix_path[:path_offset] if prefix else self.FS_PREFIX
@@ -391,24 +417,21 @@ class HDFSStore(FilesystemStore):
         path_offset = match.start(4)
         return prefix, host, port, path, path_offset
 
-    def path_prefix(self):
-        return self._url_prefix
+    def get_full_path(self, path):
+        if not self.matches(path):
+            return self._url_prefix + path
+        return path
 
-    def get_filesystem(self):
+    def get_full_path_fn(self):
+        prefix = self._url_prefix
+
+        def get_path(path):
+            return prefix + path
+        return get_path
+
+    @property
+    def fs(self):
         return self._hdfs
-
-    def get_local_output_dir_fn(self, run_id):
-        temp_dir = self._temp_dir
-
-        @contextlib.contextmanager
-        def local_run_path():
-            dirpath = tempfile.mkdtemp(dir=temp_dir)
-            try:
-                yield dirpath
-            finally:
-                shutil.rmtree(dirpath)
-
-        return local_run_path
 
     def sync_fn(self, run_id):
         class SyncState(object):
@@ -421,6 +444,8 @@ class HDFSStore(FilesystemStore):
         hdfs_root_path = self.get_run_path(run_id)
 
         def fn(local_run_path):
+            print(f"Syncing local dir {local_run_path} to hdfs dir {hdfs_root_path}")
+
             if state.fs is None:
                 state.fs = get_filesystem()
 
@@ -433,6 +458,7 @@ class HDFSStore(FilesystemStore):
 
             for local_dir, dirs, files in os.walk(local_run_path):
                 hdfs_dir = os.path.join(hdfs_root_path, local_dir[prefix:])
+
                 for file in files:
                     local_path = os.path.join(local_dir, file)
                     modified_ts = int(os.path.getmtime(local_path))
@@ -464,13 +490,18 @@ class HDFSStore(FilesystemStore):
 
         if not path:
             raise ValueError('Failed to parse path from URL: {}'.format(url))
+    
+    def get_localized_path(self, path):
+        if self.matches(path):
+            return path[len(self._url_prefix):]
+        return path
 
     @classmethod
-    def filesystem_prefix(cls):
-        return cls.FS_PREFIX
+    def matches(cls, path):
+        return path.startswith(cls.FS_PREFIX)
 
 
-class DBFSLocalStore(LocalStore):
+class DBFSLocalStore(FilesystemStore):
     """Uses Databricks File System (DBFS) local file APIs as a store of intermediate data and
     training artifacts.
 

@@ -27,11 +27,8 @@
 #include <rccl.h>
 #endif
 
-#if HAVE_MPI
-#include "../mpi/mpi_context.h"
-#endif
-
 #include "gpu_operations.h"
+#include "../hashes.h"
 
 #include <functional>
 
@@ -41,7 +38,10 @@ namespace common {
 ncclDataType_t GetNCCLDataType(const std::shared_ptr<Tensor> tensor);
 
 struct NCCLContext {
-  std::vector<std::unordered_map<std::vector<int32_t>, ncclComm_t>> nccl_comms;
+  // indexed by [nccl stream][{process set id, device id vector}]
+  std::vector<
+      std::unordered_map<std::tuple<int32_t, std::vector<int32_t>>, ncclComm_t>>
+      nccl_comms;
 
   void ErrorCheck(std::string op_name, ncclResult_t nccl_result, ncclComm_t& nccl_comm);
 
@@ -51,7 +51,7 @@ struct NCCLContext {
 class NCCLOpContext {
 public:
   NCCLOpContext(NCCLContext* nccl_context, HorovodGlobalState* global_state,
-                horovod::common::Communicator communicator_type)
+                Communicator communicator_type)
       : nccl_comm_(nullptr),
         error_check_callback_(std::bind(&NCCLOpContext::AsyncErrorCheck, this)),
         nccl_context_(nccl_context),
@@ -68,11 +68,12 @@ public:
 
 private:
   void PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
-                                Communicator& nccl_id_bcast_comm);
+                                Communicator& nccl_id_bcast_comm,
+                                const ProcessSet& process_set);
 
   NCCLContext* nccl_context_;
   HorovodGlobalState* global_state_;
-  horovod::common::Communicator communicator_type_;
+  Communicator communicator_type_;
 };
 
 class NCCLReduce :public GPUAllreduce{
@@ -101,7 +102,7 @@ class NCCLAllreduce : public GPUAllreduce {
 public:
   NCCLAllreduce(NCCLContext* nccl_context, GPUContext* gpu_context,
                 HorovodGlobalState* global_state,
-                horovod::common::Communicator communicator_type = Communicator::GLOBAL)
+                Communicator communicator_type = Communicator::GLOBAL)
       : GPUAllreduce(gpu_context, global_state),
         nccl_context_(nccl_context),
         nccl_op_context_(nccl_context, global_state, communicator_type),
@@ -111,6 +112,8 @@ public:
                  const Response& response) override;
 
 protected:
+  void WaitForData(std::vector<TensorTableEntry>& entries) override;
+
   NCCLContext* nccl_context_;
   NCCLOpContext nccl_op_context_;
   HorovodGlobalState* global_state_;
@@ -129,6 +132,8 @@ public:
                  const Response& response) override;
 
 protected:
+  void WaitForData(std::vector<TensorTableEntry>& entries) override;
+
   NCCLContext* nccl_context_;
   NCCLOpContext nccl_op_context_;
   HorovodGlobalState* global_state_;
@@ -147,6 +152,8 @@ public:
                  const Response& response) override;
 
 protected:
+  void WaitForData(std::vector<TensorTableEntry>& entries) override;
+
   NCCLContext* nccl_context_;
   NCCLOpContext nccl_op_context_;
   HorovodGlobalState* global_state_;
@@ -155,31 +162,10 @@ protected:
 #if HAVE_MPI
 class NCCLHierarchicalAllreduce : public NCCLAllreduce {
 public:
-  NCCLHierarchicalAllreduce(NCCLContext* nccl_context, MPIContext* mpi_context,
-                            GPUContext* gpu_context,
+  NCCLHierarchicalAllreduce(NCCLContext* nccl_context, GPUContext* gpu_context,
                             HorovodGlobalState* global_state)
-      : NCCLAllreduce(nccl_context, gpu_context, global_state, Communicator::LOCAL),
-        mpi_context_(mpi_context){};
-
-  Status Execute(std::vector<TensorTableEntry>& entries,
-                 const Response& response) override;
-
-  bool Enabled(const ParameterManager& param_manager,
-               const std::vector<TensorTableEntry>& entries,
-               const Response& response) const override;
-
-private:
-  MPIContext* mpi_context_;
-};
-#endif
-
-class NCCLAllgather : public GPUAllgather {
-public:
-  NCCLAllgather(NCCLContext* nccl_context, GPUContext* gpu_context,
-                  HorovodGlobalState* global_state)
-      : GPUAllgather(gpu_context, global_state),
-        nccl_op_context_(nccl_context, global_state, Communicator::GLOBAL),
-        global_state_(global_state){};
+      : NCCLAllreduce(nccl_context, gpu_context, global_state,
+                      Communicator::LOCAL) {};
 
   Status Execute(std::vector<TensorTableEntry>& entries,
                  const Response& response) override;
@@ -189,6 +175,31 @@ public:
                const Response& response) const override;
 
 protected:
+  void WaitForData(std::vector<TensorTableEntry>& entries) override;
+
+private:
+  MPIContext* mpi_context_;
+};
+#endif
+
+class NCCLAllgather : public GPUAllgather {
+public:
+  NCCLAllgather(NCCLContext* nccl_context, GPUContext* gpu_context,
+                HorovodGlobalState* global_state)
+      : GPUAllgather(gpu_context, global_state), nccl_context_(nccl_context),
+        nccl_op_context_(nccl_context, global_state, Communicator::GLOBAL),
+        global_state_(global_state) {}
+
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
+
+  bool Enabled(const ParameterManager& param_manager,
+               const std::vector<TensorTableEntry>& entries,
+               const Response& response) const override;
+
+protected:
+  void WaitForData(std::vector<TensorTableEntry>& entries) override;
+
   NCCLContext* nccl_context_;
   NCCLOpContext nccl_op_context_;
   HorovodGlobalState* global_state_;

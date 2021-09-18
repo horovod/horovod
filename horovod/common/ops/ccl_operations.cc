@@ -46,15 +46,17 @@ private:
   // Initialize CCL's kvs and broadcast to all peers.
   // We use HVD's controller for the broadcast.
   void InitKVS(const HorovodGlobalState* global_state) {
-    if (global_state->controller->GetRank() == 0) {
+    if (global_state->global_controller->GetRank() == 0) {
       this->kvs_ = ccl::create_main_kvs();
       auto main_addr = this->kvs_->get_address();
-      global_state->controller->Bcast((void*)main_addr.data(), main_addr.size(),
-                                      0, Communicator::GLOBAL);
+      global_state->global_controller->Bcast((void*)main_addr.data(),
+                                             main_addr.size(), 0,
+                                             Communicator::GLOBAL);
     } else {
       ccl::kvs::address_type main_addr;
-      global_state->controller->Bcast((void*)main_addr.data(), main_addr.size(),
-                                      0, Communicator::GLOBAL);
+      global_state->global_controller->Bcast((void*)main_addr.data(),
+                                             main_addr.size(), 0,
+                                             Communicator::GLOBAL);
       this->kvs_ = ccl::create_kvs(main_addr);
     }
   }
@@ -74,8 +76,8 @@ public:
       if (!this->kvs_)
         this->InitKVS(global_state);
 
-      auto rank = global_state->controller->GetRank();
-      auto size = global_state->controller->GetSize();
+      auto rank = global_state->global_controller->GetRank();
+      auto size = global_state->global_controller->GetSize();
 
       assert(e.device == CPU_DEVICE_ID);
       auto stream = ccl::create_stream();
@@ -223,7 +225,10 @@ void CCLAllreduce::ScaleBuffer(double scale_factor,
 
 Status CCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                              const Response& response) {
+  WaitForData(entries);
+
   auto& first_entry = entries[0];
+  assert(first_entry.process_set_id == 0);  // TODO: generalize
   LOG(DEBUG) << "CCLAllreduce::Execute #entries: " << entries.size()
              << " device " << first_entry.device;
 
@@ -340,7 +345,10 @@ void CCLAllgather::MemcpyEntryOutFusionBuffer(
 
 Status CCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
                              const Response& response) {
+  WaitForData(entries);
+
   auto& first_entry = entries[0];
+  assert(first_entry.process_set_id == 0);  // TODO: generalize
   LOG(DEBUG) << "CCLAllgather::Execute #entries: " << entries.size()
              << " device " << first_entry.device;
 
@@ -350,7 +358,7 @@ Status CCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
 
   Status status = Status::OK();
   // shortcut for single rank
-  if (global_state_->controller->GetSize() == 1) {
+  if (global_state_->global_controller->GetSize() == 1) {
     int64_t** entry_component_sizes = nullptr;
     int* recvcounts = nullptr;
     status =
@@ -366,7 +374,7 @@ Status CCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
   // allgatherv
   auto** entry_component_offsets = new int64_t*[entries.size()];
 
-  int global_size = global_state_->controller->GetSize();
+  int global_size = global_state_->global_controller->GetSize();
   auto* recvcounts = new int[global_size]();
   auto* displcmnts = new int[global_size]();
 
@@ -379,12 +387,12 @@ Status CCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
   status = AllocateOutput(entries, response, entry_component_sizes, recvcounts);
   if (status.ok()) {
     timeline.ActivityEndAll(entries);
-    SetDisplacements(recvcounts, displcmnts);
+    SetDisplacements(recvcounts, displcmnts, global_size);
     SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts,
                              entry_component_offsets);
 
-    int element_size =
-        global_state_->controller->GetTypeSize(first_entry.tensor->dtype());
+    int element_size = global_state_->global_controller->GetTypeSize(
+        first_entry.tensor->dtype());
 
     const void* sendbuf = nullptr;
     void* buffer_data;
@@ -448,8 +456,11 @@ Status CCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
 
 Status CCLBroadcast::Execute(std::vector<TensorTableEntry>& entries,
                              const Response& response) {
+  WaitForData(entries);
+
   assert(entries.size() == 1);
   auto& e = entries[0];
+  assert(e.process_set_id == 0);  // TODO: generalize
   LOG(DEBUG) << "CCLBroadcast::Execute #entries: " << entries.size()
              << " device " << e.device;
   auto& c4h = this->ccl_context_->opctxt_->GetCCL4HVD(e, global_state_);
@@ -457,9 +468,9 @@ Status CCLBroadcast::Execute(std::vector<TensorTableEntry>& entries,
   global_state_->timeline.ActivityStartAll(entries, CCL_BCAST);
 
   // shortcut for single rank
-  if (global_state_->controller->GetSize() > 1) {
+  if (global_state_->global_controller->GetSize() > 1) {
     // On root rank, CCL_Bcast sends data, on other ranks it receives data.
-    const bool amroot = global_state_->controller->GetRank() == e.root_rank;
+    const bool amroot = global_state_->global_controller->GetRank() == e.root_rank;
     size_t size = e.tensor->size();
     void* data_ptr = const_cast<void*>((amroot ? e.tensor : e.output)->data());
 
@@ -479,8 +490,11 @@ Status CCLBroadcast::Execute(std::vector<TensorTableEntry>& entries,
 
 Status CCLAlltoall::Execute(std::vector<TensorTableEntry>& entries,
                             const Response& response) {
+  WaitForData(entries);
+
   assert(entries.size() == 1);
   auto e = entries[0];
+  assert(e.process_set_id == 0);  // TODO: generalize
   LOG(DEBUG) << "CCLAlltoall::Execute #entries: " << entries.size()
              << " device " << e.device;
   auto& c4h = this->ccl_context_->opctxt_->GetCCL4HVD(e, global_state_);

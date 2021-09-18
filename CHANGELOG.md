@@ -8,18 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- Added NVTX tracing hooks for profiling with Nsight Systems. ([#2723](https://github.com/horovod/horovod/pull/2723))
-- Added a generic `num_workers` API for ``RayExecutor`` ([#2870](https://github.com/horovod/horovod/pull/2870))
+- Added process sets for TensorFlow: Concurrently running collective operations on subsets of Horovod processes. ([#2839](https://github.com/horovod/horovod/pull/2839))
 
-- Added pytorch_lightning spark estimator which enables training pytorch_lightning models. ([#2713](https://github.com/horovod/horovod/pull/2713))
-
-- Supports Ray Client without code changes. ([#2882](https://github.com/horovod/horovod/pull/2882))
+- Added terminate_on_nan flag to Spark Lightning estimator. [#3088](https://github.com/horovod/horovod/issues/3088)
 
 ### Changed
 
-- Changed `alltoall` to return the received splits as a second return value if non-uniform splits are sent. ([#2631](https://github.com/horovod/horovod/pull/2631))
-- Changed ``RayExecutor`` to use [Ray Placement Groups](https://docs.ray.io/en/master/placement-group.html) for worker colocation. ([#2824](https://github.com/horovod/horovod/pull/2824))
-
+- By default, RayExecutor will now use the current placement group instead of always creating a new one. ([#3134](https://github.com/horovod/horovod/pull/3134))
 
 ### Deprecated
 
@@ -27,7 +22,75 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Fix Horovod develop/editable install mode and incremental builds. ([#3074](https://github.com/horovod/horovod/pull/3074))
+- Estimator/Lightning: use lightning datamodule ([#3084](https://github.com/horovod/horovod/pull/3084))
+- Fix Horovod Spark StringType and numpy type mapping issue ([#3146](https://github.com/horovod/horovod/pull/3146))
+
+## [v0.22.1] - 2021-06-10
+
+### Added
+
+- Estimator: added support for loading data from S3, GCS, ADLS, and other remote filesystems. ([#2927](https://github.com/horovod/horovod/issues/2927))
+
+- Estimator: added custom Spark data loader interface. ([#2938](https://github.com/horovod/horovod/issues/2923))
+
+- LightningEstimator: added support to supply a logger and associated parameter to control the frequency of logging. ([#2926](https://github.com/horovod/horovod/pull/2926))
+
+- Estimator: added check to ensure all ranks have the same device type. ([#2942](https://github.com/horovod/horovod/pull/2942))
+
+### Changed
+
+- Changed behavior from using TensorBoardLogger to now using it as a fallback if a logger is not supplied. ([#2926](https://github.com/horovod/horovod/pull/2926))
+
+- Ray: disabled capturing child tasks in placement group. ([#2920](https://github.com/horovod/horovod/pull/2920))
+
+### Fixed
+
+- Fixed `hvd.tensorflow.keras.Compression`, accidentally removed in v0.22.0. ([#2945](https://github.com/horovod/horovod/pull/2945))
+
+- TorchEstimator: fixed usage of `validation_steps` in place of `validation_steps_per_epoch`. ([#2918](https://github.com/horovod/horovod/pull/2918))
+
+- TensorFlow: fixed C++ API for TF v2.6.0. ([#2932](https://github.com/horovod/horovod/pull/2932))
+
+- PyTorch: fixed `sparse_allreduce_async` for PyTorch v0.10.0. ([#2965](https://github.com/horovod/horovod/pull/2965))
+
+## [v0.22.0] - 2021-05-18
+
+### Added
+
+- Added pytorch_lightning spark estimator which enables training pytorch_lightning models. ([#2713](https://github.com/horovod/horovod/pull/2713))
+
+- Added NVTX tracing hooks for profiling with Nsight Systems. ([#2723](https://github.com/horovod/horovod/pull/2723))
+
+- Added a generic `num_workers` API for ``RayExecutor`` ([#2870](https://github.com/horovod/horovod/pull/2870))
+
+- Supports Ray Client without code changes. ([#2882](https://github.com/horovod/horovod/pull/2882))
+
+- Supports inmemory cache option for Keras Estimator. ([#2896](https://github.com/horovod/horovod/pull/2896))
+
+- Added FP16 support for GPU tensor in mxnet. ([#2915](https://github.com/horovod/horovod/pull/2915))
+
+- Added response caching for allgather operations. ([#2872](https://github.com/horovod/horovod/pull/2872))
+
+- Estimator: add petastorm reader_pool_type into constructor ([#2903](https://github.com/horovod/horovod/pull/2903))
+
+### Changed
+
+- Changed `alltoall` to return the received splits as a second return value if non-uniform splits are sent. ([#2631](https://github.com/horovod/horovod/pull/2631))
+
+- Changed ``RayExecutor`` to use [Ray Placement Groups](https://docs.ray.io/en/master/placement-group.html) for worker colocation. ([#2824](https://github.com/horovod/horovod/pull/2824))
+
+- Changed ``Inmemory dataloader`` usage for Torch Estimator with petastorm v0.11.0 release. ([#2896](https://github.com/horovod/horovod/pull/2896))
+
+### Fixed
+
 - Changed RayExecutor to use Ray node ID to enable multi-container:single-host setups. ([#2883](https://github.com/horovod/horovod/pull/2882))
+
+- Support sparse gradients aggregation in TF1 Keras. ([#2879](https://github.com/horovod/horovod/pull/2879))
+
+- Respect `global_step` parameter for LegacyOptimizers when aggregating gradients.  ([#2879](https://github.com/horovod/horovod/pull/2879))
+
+- Fixed compatibility with PyTorch 1.9.0. ([#2829](https://github.com/horovod/horovod/pull/2829))
 
 ## [v0.21.3] - 2021-02-15
 

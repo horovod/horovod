@@ -29,11 +29,13 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                                  compression, sparse_as_dense, gradient_predivide_factor,
                                  op, backward_passes_per_step=1,
                                  average_aggregated_gradients=False,
-                                 groups=None):
+                                 groups=None, process_set=hvd.global_process_set):
     class _DistributedOptimizer(keras.optimizers.Optimizer):
         _HAS_AGGREGATE_GRAD = True
 
         def __init__(self, **kwargs):
+            super(self.__class__, self).__init__(**kwargs)
+
             self._name = name or "Distributed%s" % self.__class__.__base__.__name__
             self._aggregated_gradients = False
 
@@ -45,7 +47,8 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                 sparse_as_dense,
                 op,
                 gradient_predivide_factor,
-                groups)
+                groups,
+                process_set=process_set)
 
             self._agg_helper = None
             if backward_passes_per_step > 1:
@@ -66,8 +69,6 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                         optimizer_type=LocalGradientAggregationHelper._OPTIMIZER_TYPE_KERAS,
                     )
 
-            super(self.__class__, self).__init__(**kwargs)
-
         def _compute_gradients(self, loss, var_list, grad_loss=None, tape=None):
             """
             Compute gradients of all trainable variables.
@@ -81,7 +82,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                 return super(self.__class__, self)._compute_gradients(
                     loss, var_list, grad_loss, tape)
 
-            tape = backprop.GradientTape() if tape is None else tape
+            tape = tf.GradientTape() if tape is None else tape
             grads_and_vars = super(self.__class__, self)._compute_gradients(
                 # pylint: disable=protected-access
                 loss,

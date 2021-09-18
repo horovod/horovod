@@ -15,6 +15,7 @@
 
 import contextlib
 import copy
+from horovod.spark.common.store import FilesystemStore
 import io
 import itertools
 import logging
@@ -1563,7 +1564,7 @@ class SparkTests(unittest.TestCase):
         # Case 1: full path
         hdfs_root = 'hdfs://namenode01:8020/user/test/output'
         store = HDFSStore(hdfs_root)
-        assert store.path_prefix() == 'hdfs://namenode01:8020', hdfs_root
+        assert store.get_full_path("/output") == 'hdfs://namenode01:8020/output', hdfs_root
         assert store.get_full_path('/user/test/output') == 'hdfs://namenode01:8020/user/test/output', hdfs_root
         assert store.get_localized_path('hdfs://namenode01:8020/user/test/output') == '/user/test/output', hdfs_root
         assert store._hdfs_kwargs['host'] == 'namenode01', hdfs_root
@@ -1572,7 +1573,6 @@ class SparkTests(unittest.TestCase):
         # Case 2: no host and port
         hdfs_root = 'hdfs:///user/test/output'
         store = HDFSStore(hdfs_root)
-        assert store.path_prefix() == 'hdfs://', hdfs_root
         assert store.get_full_path('/user/test/output') == 'hdfs:///user/test/output', hdfs_root
         assert store.get_localized_path('hdfs:///user/test/output') == '/user/test/output', hdfs_root
         assert store._hdfs_kwargs['host'] == 'default', hdfs_root
@@ -1581,7 +1581,6 @@ class SparkTests(unittest.TestCase):
         # Case 3: no prefix
         hdfs_root = '/user/test/output'
         store = HDFSStore(hdfs_root)
-        assert store.path_prefix() == 'hdfs://', hdfs_root
         assert store.get_full_path('/user/test/output') == 'hdfs:///user/test/output', hdfs_root
         assert store.get_localized_path('hdfs:///user/test/output') == '/user/test/output', hdfs_root
         assert store._hdfs_kwargs['host'] == 'default', hdfs_root
@@ -1590,7 +1589,6 @@ class SparkTests(unittest.TestCase):
         # Case 4: no namespace
         hdfs_root = 'hdfs://namenode01:8020/user/test/output'
         store = HDFSStore(hdfs_root)
-        assert store.path_prefix() == 'hdfs://namenode01:8020', hdfs_root
         assert store.get_full_path('/user/test/output') == 'hdfs://namenode01:8020/user/test/output', hdfs_root
         assert store.get_localized_path('hdfs://namenode01:8020/user/test/output') == '/user/test/output', hdfs_root
         assert store._hdfs_kwargs['host'] == 'namenode01', hdfs_root
@@ -1728,7 +1726,7 @@ class SparkTests(unittest.TestCase):
 
         # test Store.create will not create DBFSLocalStore on non-databricks environment
         local_store = Store.create("/dbfs/tmp/test_local_dir")
-        assert isinstance(local_store, LocalStore)
+        assert isinstance(local_store, FilesystemStore)
 
         # test Store.create will create DBFSLocalStore on databricks environment
         try:

@@ -22,9 +22,49 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "message.h"
 #include "nvtx_op_range.h"
+
+#if HAVE_GPU
+#if HAVE_CUDA
+#include <cuda_runtime.h>
+using gpuError_t = cudaError_t;
+using gpuEvent_t = cudaEvent_t;
+using gpuStream_t = cudaStream_t;
+#define gpuEventCreateWithFlags cudaEventCreateWithFlags
+#define gpuEventDisableTiming cudaEventDisableTiming
+#define gpuEventRecord cudaEventRecord
+#define gpuEventSynchronize cudaEventSynchronize
+#define gpuStreamWaitEvent cudaStreamWaitEvent
+#define HVD_GPU_CHECK(x)                                                                    \
+  do {                                                                                      \
+    cudaError_t cuda_result = x;                                                            \
+    if (cuda_result != cudaSuccess) {                                                       \
+      throw std::logic_error(std::string("GPU Error:") + cudaGetErrorString(cuda_result));  \
+    }                                                                                       \
+  } while (0)
+#endif
+#elif HAVE_ROCM
+#include <hip/hip_runtime_api.h>
+using gpuError_t = hipError_t;
+using gpuEvent_t = hipEvent_t;
+using gpuStream_t = hipStream_t;
+#define gpuEventCreateWithFlags hipEventCreateWithFlags
+#define gpuEventDisableTiming hipEventDisableTiming
+#define gpuEventRecord hipEventRecord
+#define gpuEventSynchronize hipEventSynchronize
+#define gpuStreamWaitEvent hipStreamWaitEvent
+#define HVD_GPU_CHECK(x)                                                                  \
+  do {                                                                                    \
+    hipError_t hip_result = x;                                                            \
+    if (hip_result != hipSuccess) {                                                       \
+      throw std::logic_error(std::string("GPU Error:") + hipGetErrorString(hip_result));  \
+    }                                                                                     \
+  } while (0)
+#endif
+
 
 namespace horovod {
 namespace common {
@@ -62,6 +102,7 @@ namespace common {
 #define GLOO_ALLREDUCE "GLOO_ALLREDUCE"
 #define GLOO_ALLGATHER "GLOO_ALLGATHER"
 #define GLOO_BCAST "GLOO_BCAST"
+#define HOROVOD_ELASTIC "HOROVOD_ELASTIC"
 
 // Horovod knobs.
 #define HOROVOD_MPI_THREADS_DISABLE "HOROVOD_MPI_THREADS_DISABLE"
@@ -94,6 +135,9 @@ namespace common {
 #define HOROVOD_THREAD_AFFINITY "HOROVOD_THREAD_AFFINITY"
 #define HOROVOD_DISABLE_GROUP_FUSION "HOROVOD_DISABLE_GROUP_FUSION"
 #define HOROVOD_DISABLE_NVTX_RANGES "HOROVOD_DISABLE_NVTX_RANGES"
+#define HOROVOD_ENABLE_ASYNC_COMPLETION "HOROVOD_ENABLE_ASYNC_COMPLETION"
+#define HOROVOD_DYNAMIC_PROCESS_SETS "HOROVOD_DYNAMIC_PROCESS_SETS"
+#define HOROVOD_ENABLE_XLA_OPS "HOROVOD_ENABLE_XLA_OPS"
 
 // String constant for gloo interface.
 #define GLOO_DEFAULT_IFACE ""
@@ -110,7 +154,7 @@ namespace common {
 #define JOIN_TENSOR_NAME "join.noname"
 
 // List of supported frameworks.
-enum Framework { TENSORFLOW, PYTORCH, MXNET };
+enum Framework { TENSORFLOW, PYTORCH, MXNET, XLA };
 
 enum StatusType { OK, UNKNOWN_ERROR, PRECONDITION_ERROR, ABORTED, INVALID_ARGUMENT, IN_PROGRESS };
 
@@ -135,6 +179,17 @@ inline std::string CommunicatorName(Communicator comm) {
   }
 }
 
+struct Event {
+  Event() = default;
+#if HAVE_GPU
+  Event(std::shared_ptr<gpuEvent_t> event, gpuStream_t stream) :
+    event(event), stream(stream) {};
+  std::shared_ptr<gpuEvent_t> event;
+  gpuStream_t stream = nullptr;
+#endif
+};
+
+
 class Status {
 public:
   Status();
@@ -148,6 +203,7 @@ public:
   bool in_progress() const;
   StatusType type() const;
   const std::string& reason() const;
+  Event event;
 
 private:
   StatusType type_ = StatusType::OK;
@@ -173,6 +229,8 @@ const Status DUPLICATE_NAME_ERROR = Status::InvalidArgument(
 
 class TensorShape {
 public:
+  TensorShape() : shape_() {}
+  TensorShape(std::vector<int64_t> vec) : shape_(vec) {}
   void AddDim(int64_t dim);
   void AppendShape(TensorShape& other);
 
@@ -198,6 +256,43 @@ class ReadyEvent {
 public:
   virtual bool Ready() const = 0;
   virtual ~ReadyEvent() = default;
+#if HAVE_GPU
+  virtual gpuEvent_t event() const = 0;
+#endif
+
+};
+
+class ReadyEventList {
+public:
+  bool Ready() const {
+    for (auto& e : ready_events_) {
+      if (e != nullptr && !e->Ready()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void AddReadyEvent(const std::shared_ptr<ReadyEvent>& e) {
+    ready_events_.emplace_back(e);
+  }
+
+  int size() const {
+    return ready_events_.size();
+  }
+
+#if HAVE_GPU
+  void PushEventsToSet(std::unordered_set<gpuEvent_t>& event_set) {
+    for (auto& e : ready_events_) {
+      event_set.insert(e->event());
+    }
+  }
+#endif
+
+  ~ReadyEventList() = default;
+
+private:
+  std::vector<std::shared_ptr<ReadyEvent>> ready_events_;
 };
 
 class OpContext;
@@ -255,10 +350,12 @@ struct TensorTableEntry {
   std::shared_ptr<Tensor> tensor;
   // Pre-allocated output tensor.
   std::shared_ptr<Tensor> output;
-  // Root rank for broadcast operation.
+  // Identifier for the subset of Horovod processes partaking in this operation.
+  int32_t process_set_id = 0;
+  // Root rank for broadcast operation (relative to process set).
   int root_rank = 0;
-  // Event indicating that data is ready.
-  std::shared_ptr<ReadyEvent> ready_event;
+  // List of events indicating that data is ready.
+  ReadyEventList ready_event_list;
   // GPU to do reduction on, or CPU_DEVICE_ID in case of CPU.
   int device = CPU_DEVICE_ID;
   // A callback to call with the status.

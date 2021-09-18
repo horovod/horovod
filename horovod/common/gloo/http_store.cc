@@ -129,7 +129,7 @@ void HTTPStore::HTTP_PUT(const std::string& key,
 
 void HTTPStore::HTTP_DELETE(const std::string& key) {
   std::string url = url_prefix_ + key;
-  LOG(TRACE) << "Send GET request to " << url;
+  LOG(TRACE) << "Send DELETE request to " << url;
   http::Request request(url);
   PerformHTTP(request, HTTP_DELETE_METHOD);
 }

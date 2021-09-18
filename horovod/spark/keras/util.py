@@ -61,21 +61,37 @@ class TFKerasUtil(object):
             has_sparse_col, sample_weight_col, feature_columns,
             label_columns, input_shapes, label_shapes, output_names)
 
-        def fn(reader, batch_size, shuffle_buffer_size, is_batch_reader, shuffle=False):
+        def fn(reader, batch_size, shuffle_buffer_size, is_batch_reader, shuffle=False, cache=False):
             from petastorm.tf_utils import make_petastorm_dataset
 
             dataset = make_petastorm_dataset(reader)
             if is_batch_reader:
                 dataset = dataset.apply(tf.data.experimental.unbatch())
 
+            # Apply cache() before shuffle, so we can reshuffle in each iteration.
+            if cache:
+                dataset = dataset.cache()
+
             if shuffle:
                 dataset = dataset.shuffle(shuffle_buffer_size)
+
+            # Use tf.data.Dataset.repeat() to set up an infinite iterator
+            # and to enable ranks to perform training and validation with
+            # unequal number of samples.
+            # FIXME(chongxiaoc): Use a very large number (10^9) for enough loops.
+            # None and -1 are not working with petastorm dataset for repeating.
+            # Verify this parameter again in future with new TF and Petastorm versions.
+            dataset = dataset.repeat(1000000000)
 
             # Decompress sparse data if necessary
             if has_sparse_col:
                 dataset = dataset.batch(1).map(reshape)
 
             dataset = dataset.batch(batch_size).map(prep_data_tf_keras)
+            if hasattr(tf.data, 'AUTOTUNE'):
+                dataset = dataset.prefetch(tf.data.AUTOTUNE)
+            else:
+                dataset = dataset.prefetch(1)
             return dataset
         return tf.autograph.experimental.do_not_convert(fn)
 
@@ -220,13 +236,14 @@ class BareKerasUtil(object):
 
     @staticmethod
     def make_dataset_fn(feature_columns, label_columns, sample_weight_col, metadata,
-                        input_shapes, label_shapes, output_names, batch_size):
+                        input_shapes, label_shapes, output_names):
         batch_generator = BareKerasUtil._batch_generator_fn(
             feature_columns, label_columns, sample_weight_col,
-            input_shapes, label_shapes, batch_size, metadata)
+            input_shapes, label_shapes, metadata)
 
-        def fn(reader, shuffle_buffer_size, shuffle=False):
-            return batch_generator(reader, shuffle_buffer_size, shuffle)
+        def fn(reader, batch_size, shuffle_buffer_size, is_batch_reader, shuffle=False, cache=inmemory_cache_all):
+            # is_batch_reader and cache are not used for BareKerasUtil.
+            return batch_generator(reader, batch_size, shuffle_buffer_size, shuffle)
 
         return fn
 
@@ -282,21 +299,25 @@ class BareKerasUtil(object):
 
     @staticmethod
     def _batch_generator_fn(feature_columns, label_columns, sample_weight_col,
-                            input_shapes, label_shapes, batch_size, metadata):
+                            input_shapes, label_shapes, metadata):
         prepare_data_bare_keras = BareKerasUtil._prepare_data_fn(metadata)
 
         cols = feature_columns + label_columns
         if sample_weight_col:
             cols.append(sample_weight_col)
 
-        def batch_generator(reader, shuffle_buffer_size, shuffle=False):
+        def batch_generator(reader, batch_size, shuffle_buffer_size, shuffle=False):
             while True:
                 num_rows_read_sofar = 0
                 data = None
+                # Create iterator from reader to start a new iteration from beginning.
+                reader_iter = iter(reader)
                 while num_rows_read_sofar < shuffle_buffer_size:
-                    # Each call to next reads one row group at a time. reader is an infinite
-                    # generator and never ends
-                    row_group_data = next(reader)
+                    # Each call to next reads one row group at a time.
+                    row_group_data = next(reader_iter, None)
+                    if row_group_data is None:
+                        # No data left in reader, stop filling.
+                        break
                     if not data:
                         data = {col: getattr(row_group_data, col) for col in cols}
                     else:

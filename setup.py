@@ -16,6 +16,7 @@
 # ==============================================================================
 
 import os
+import shutil
 import subprocess
 import sys
 import textwrap
@@ -25,6 +26,7 @@ from setuptools.command.build_ext import build_ext
 
 from horovod import __version__
 
+_FRAMEWORK_METADATA_FILE = 'horovod/metadata.json'
 
 class CMakeExtension(Extension):
     def __init__(self, name, cmake_lists_dir='.', sources=[], **kwa):
@@ -52,6 +54,8 @@ def is_build_action():
     if sys.argv[1].startswith('install'):
         return True
 
+    if sys.argv[1].startswith('develop'):
+        return True
 
 def get_cmake_bin():
     return os.environ.get('HOROVOD_CMAKE', 'cmake')
@@ -66,7 +70,7 @@ class custom_build_ext(build_ext):
 
         cmake_bin = get_cmake_bin()
 
-        config = 'Debug' if self.debug else 'RelWithDebInfo'
+        config = 'Debug' if self.debug or os.environ.get('HOROVOD_DEBUG') == "1" else 'RelWithDebInfo'
 
         ext_name = self.extensions[0].name
         build_dir = self.get_ext_fullpath(ext_name).replace(self.get_ext_filename(ext_name), '')
@@ -98,6 +102,13 @@ class custom_build_ext(build_ext):
         except OSError as e:
             raise RuntimeError('CMake failed: {}'.format(str(e)))
 
+        if sys.argv[1].startswith('develop'):
+            # Copy over metadata.json file from build directory
+            shutil.copyfile(os.path.join(build_dir, _FRAMEWORK_METADATA_FILE),
+                            os.path.join(self.extensions[0].cmake_lists_dir, _FRAMEWORK_METADATA_FILE))
+            # Remove unfound frameworks, otherwise develop mode will fail the install
+            self.extensions = [x for x in self.extensions if os.path.exists(self.get_ext_fullpath(x.name))]
+
 
 # python packages required to use horovod in general
 require_list = ['cloudpickle', 'psutil', 'pyyaml', 'dataclasses;python_version<"3.7"']
@@ -112,7 +123,7 @@ mxnet_require_list = ['mxnet>=1.4.1']
 pyspark_require_list = ['pyspark>=2.3.2;python_version<"3.8"',
                         'pyspark>=3.0.0;python_version>="3.8"']
 # Pin h5py: https://github.com/h5py/h5py/issues/1732
-spark_require_list = ['h5py<3', 'numpy', 'petastorm>=0.9.8', 'pyarrow>=0.15.0']
+spark_require_list = ['h5py<3', 'numpy', 'petastorm>=0.11.0', 'pyarrow>=0.15.0', 'fsspec']
 ray_require_list = ['ray']
 pytorch_spark_require_list = pytorch_require_list + \
                              spark_require_list + \
@@ -120,7 +131,6 @@ pytorch_spark_require_list = pytorch_require_list + \
 
 # all frameworks' dependencies
 all_frameworks_require_list = tensorflow_require_list + \
-                              tensorflow_gpu_require_list + \
                               keras_require_list + \
                               pytorch_require_list + \
                               mxnet_require_list + \
@@ -135,7 +145,7 @@ dev_require_list = ['tensorflow-cpu==2.2.0',
                     'keras==2.3.1',
                     'torch==1.4.0',
                     'torchvision==0.5.0',
-                    'pytorch_lightning>=1.2.9',
+                    'pytorch_lightning>=1.3.8',
                     'mxnet==1.5.0',
                     'pyspark==3.0.1'] + spark_require_list
 # torchvision 0.5.0 depends on torch==1.4.0

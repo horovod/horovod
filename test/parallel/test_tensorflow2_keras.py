@@ -18,6 +18,7 @@
 import math
 import tensorflow as tf
 import numpy as np
+import os
 import warnings
 
 from distutils.version import LooseVersion
@@ -33,6 +34,8 @@ import horovod.tensorflow.keras as hvd
 _PRE_TF_2_4_0 = LooseVersion(tf.__version__) < LooseVersion("2.4.0")
 _PRE_TF_2_2_0 = LooseVersion(tf.__version__) < LooseVersion("2.2.0")
 
+# Set environment variable to enable adding/removing process sets after initializing Horovod.
+os.environ["HOROVOD_DYNAMIC_PROCESS_SETS"] = "1"
 
 @pytest.mark.skipif(LooseVersion(tf.__version__) < LooseVersion('2.0.0'), reason='TensorFlow v2 tests')
 class Tf2KerasTests(tf.test.TestCase):
@@ -52,13 +55,10 @@ class Tf2KerasTests(tf.test.TestCase):
             tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
 
     def test_train_model_lr_schedule(self):
-        lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-            0.001 * hvd.size(),
-            decay_steps=100000,
-            decay_rate=0.96,
-            staircase=True)
-        opt = tf.keras.optimizers.Adam(lr_schedule)
+        initial_lr = 0.1 * hvd.size()
+        opt = tf.keras.optimizers.Adam()
         opt = hvd.DistributedOptimizer(opt)
+        linear_multiplier = lambda epoch: epoch
 
         model = keras.models.Sequential()
         model.add(keras.layers.Dense(2, input_shape=(3,)))
@@ -68,17 +68,58 @@ class Tf2KerasTests(tf.test.TestCase):
                       optimizer=opt,
                       metrics=[keras.metrics.categorical_accuracy],
                       experimental_run_tf_function=False)
+        x = np.random.random((10, 3))
+        y = np.random.random((10, 3, 2))
 
-        x = np.random.random((1, 3))
-        y = np.random.random((1, 3, 2))
+        class StoreLearningRateCallback(tf.keras.callbacks.Callback):
+            def on_epoch_end(self, epoch, logs=None):
+                # test learning rate warmup
+                lr = self.model.optimizer.lr.numpy()
+                if epoch >= 0 and epoch < 5:
+                    assert lr <= initial_lr or np.isclose(lr, initial_lr)
 
-        # No assertions, we just need to verify that it doesn't hang or error
-        callbacks = [hvd.callbacks.BroadcastGlobalVariablesCallback(0)]
-        model.fit(x,
-                  y,
-                  steps_per_epoch=10,
-                  callbacks=callbacks,
-                  epochs=1)
+                # # test learning rate schedule callback
+                if epoch > 5 and epoch < 10:
+                    assert lr <= initial_lr*1e-1 or np.isclose(lr, initial_lr*1e-1)
+                if epoch > 10 and epoch < 15:
+                    assert lr < initial_lr*1e-2  or np.isclose(lr, initial_lr*1e-2)
+                if epoch >= 15 and epoch < 20:
+                    assert np.isclose(lr, initial_lr*linear_multiplier(epoch))
+
+        # No assertions needed for BroadcastGlobalVariableCallbacks
+        # We just need to verify that it doesn't hang or error
+        callbacks = [
+            hvd.callbacks.BroadcastGlobalVariablesCallback(0),
+            hvd.callbacks.MetricAverageCallback(),
+            hvd.callbacks.LearningRateWarmupCallback(initial_lr=initial_lr,
+                                                     warmup_epochs=5),
+            hvd.callbacks.LearningRateScheduleCallback(initial_lr=initial_lr,
+                                                       multiplier=1e-1,
+                                                       start_epoch=5,
+                                                       end_epoch=10),
+            hvd.callbacks.LearningRateScheduleCallback(initial_lr=initial_lr,
+                                                       multiplier=1e-2,
+                                                       start_epoch=10,
+                                                       end_epoch=15),
+            hvd.callbacks.LearningRateScheduleCallback(initial_lr=initial_lr,
+                                                       multiplier=linear_multiplier,
+                                                       start_epoch=15,
+                                                       end_epoch=20),
+            StoreLearningRateCallback()
+        ]
+        train_history = model.fit(x,
+                                  y,
+                                  steps_per_epoch=5,
+                                  callbacks=callbacks,
+                                  epochs=20)
+
+        # test that the metrics average is being respected
+        loss_metrics = train_history.history["loss"]
+        loss_metrics_tensor = tf.convert_to_tensor(
+            loss_metrics, dtype=tf.float32)
+        expected_loss_metrics_tensor = hvd.broadcast(
+            loss_metrics_tensor, root_rank=0)
+        self.assertAllClose(expected_loss_metrics_tensor, loss_metrics_tensor)
 
     def test_sparse_as_dense(self):
         opt = keras.optimizers.RMSprop(lr=0.0001)
@@ -235,3 +276,41 @@ class Tf2KerasTests(tf.test.TestCase):
             updated_variable_value = variables[0][0].numpy()
             assert updated_variable_value == compute_expected_value(idx)
             assert idx + 1 == hvd_optimizer.iterations.numpy()
+
+    def test_process_set_optimizer(self):
+        """ Note that this test makes the most sense when running with > 2 processes. """
+        size = hvd.size()
+
+        if size == 1:
+            self.skipTest("Only one worker available")
+
+        subset = hvd.add_process_set(range(0, size, 2))
+
+        class TestOptimizer(keras.optimizers.Optimizer):
+            def __init__(self, name, **kwargs):
+                super(TestOptimizer, self).__init__(name, **kwargs)
+            def get_gradients(self, loss, params):
+                assert len(params) == 1
+                return [tf.constant([float(hvd.rank())])]
+            def _create_slots(self, var_list):
+                pass
+            def _resource_apply_dense(self, grad, var, apply_state):
+                return var.assign_add(grad)
+            def get_config(self):
+                config = super(TestOptimizer, self).get_config()
+                return config
+
+        opt = TestOptimizer(name="TestOpti")
+        opt = hvd.DistributedOptimizer(opt, process_set=subset)
+
+        variable = tf.Variable([0.0])
+        gradient, = opt.get_gradients(None, [variable])
+        opt.apply_gradients([(gradient, variable)])
+        computed_value = variable.numpy()
+
+        if subset.included():
+            self.assertAlmostEqual(computed_value, sum(range(0, size, 2)) / subset.size())
+        else:
+            self.assertAlmostEqual(computed_value, float(hvd.rank()))
+
+        hvd.remove_process_set(subset)

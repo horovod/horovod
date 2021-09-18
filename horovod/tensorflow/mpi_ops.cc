@@ -25,6 +25,8 @@
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/shape_inference.h"
 
+#include "../common/common.h"
+
 #define EIGEN_USE_THREADS
 
 #if HAVE_GPU
@@ -120,14 +122,26 @@ common::Status ConvertStatus(const Status& status) {
   }
 }
 
+int GetDeviceID(OpKernelContext* context);
+
 #if HAVE_GPU
+struct ReadyEventRegistry {
+  std::unordered_map<int, std::queue<gpuEvent_t>> gpu_events;
+  std::mutex mutex;
+};
+
+static ReadyEventRegistry ready_event_registry;
+
 class TFReadyEvent : public common::ReadyEvent {
 public:
-  TFReadyEvent(DeviceContext* device_context);
+  TFReadyEvent(OpKernelContext* context);
+  ~TFReadyEvent();
   bool Ready() const override;
+  gpuEvent_t event() const override;
 
 private:
-  std::shared_ptr<perftools::gputools::Event> event_;
+  gpuEvent_t event_;
+  int device_ = CPU_DEVICE_ID;
 };
 #endif
 
@@ -138,7 +152,7 @@ public:
   AccessData(std::shared_ptr<common::OpContext> context) const override;
 
 private:
-  std::shared_ptr<PersistentTensor> tensor_;
+  std::shared_ptr<Tensor> tensor_;
 };
 
 class TFTensor : public common::Tensor {
@@ -176,27 +190,47 @@ private:
 };
 
 #if HAVE_GPU
-TFReadyEvent::TFReadyEvent(DeviceContext* device_context) {
-  auto executor = device_context->stream()->parent();
-  auto ready_event = new perftools::gputools::Event(executor);
-  ready_event->Init();
-  device_context->stream()->ThenRecordEvent(ready_event);
-  event_ = std::shared_ptr<perftools::gputools::Event>(ready_event);
+TFReadyEvent::TFReadyEvent(OpKernelContext* context) {
+  device_ = GetDeviceID(context);
+  {
+    std::lock_guard<std::mutex> guard(ready_event_registry.mutex);
+    auto& queue = ready_event_registry.gpu_events[device_];
+    if (!queue.empty()) {
+      event_ = queue.front();
+      queue.pop();
+    } else {
+      HVD_GPU_CHECK(gpuEventCreateWithFlags(&event_, gpuEventDisableTiming));
+    }
+  }
+  auto device_context = context->op_device_context();
+  auto stream = stream_executor::gpu::AsGpuStreamValue(device_context->stream());
+  HVD_GPU_CHECK(gpuEventRecord(event_, stream));
 }
 
 bool TFReadyEvent::Ready() const {
-  return event_->PollForStatus() !=
-         perftools::gputools::Event::Status::kPending;
+  HVD_GPU_CHECK(gpuEventSynchronize(event_));
+  return true;
 }
+
+gpuEvent_t TFReadyEvent::event() const {
+  return event_;
+}
+
+TFReadyEvent::~TFReadyEvent() {
+  {
+    std::lock_guard<std::mutex> guard(ready_event_registry.mutex);
+    auto& queue = ready_event_registry.gpu_events[device_];
+    queue.push(event_);
+  }
+}
+
 #endif
 
 TFPersistentBuffer::TFPersistentBuffer(OpKernelContext* context, int64_t size) {
-  tensor_ = std::make_shared<PersistentTensor>();
+  tensor_ = std::make_shared<Tensor>();
   TensorShape buffer_shape;
   buffer_shape.AddDim(size);
-  Tensor* unused;
-  Status status = context->allocate_persistent(DT_INT8, buffer_shape,
-                                               tensor_.get(), &unused);
+  Status status = context->allocate_temp(DT_INT8, buffer_shape, tensor_.get());
   if (!status.ok()) {
     throw status;
   }
@@ -212,13 +246,7 @@ TFPersistentBuffer::TFPersistentBuffer(OpKernelContext* context, int64_t size) {
 
 const void* TFPersistentBuffer::AccessData(
     std::shared_ptr<common::OpContext> context) const {
-  // It's safe to cast context to TFOpContext, since only TFOpContext creates
-  // TFPersistentBuffer.
-  return (const void *)tensor_
-      ->AccessTensor(
-          std::dynamic_pointer_cast<TFOpContext>(context)->GetKernelContext())
-      ->tensor_data()
-      .data();
+  return (const void *)tensor_->tensor_data().data();
 }
 
 TFTensor::TFTensor(::tensorflow::Tensor& tensor) : tensor_(tensor) {}
@@ -310,8 +338,7 @@ int GetDeviceID(OpKernelContext* context);
 common::Status
 TFOpContext::AllocateZeros(int64_t num_elements, common::DataType dtype,
                            std::shared_ptr<common::Tensor>* tensor) {
-  ::tensorflow::Tensor* unused;
-  std::shared_ptr<PersistentTensor> zero_tensor = std::make_shared<PersistentTensor>();
+  std::shared_ptr<Tensor> zero_tensor = std::make_shared<Tensor>();
   auto tf_data_type = GetTFDataType(dtype);
   ::tensorflow::AllocatorAttributes tf_attribute;
   int device_ = GetDeviceID(context_);
@@ -322,22 +349,21 @@ TFOpContext::AllocateZeros(int64_t num_elements, common::DataType dtype,
     tf_attribute.set_on_host(true);
   }
 
-  Status status = context_->allocate_persistent(tf_data_type, ::tensorflow::TensorShape({num_elements}), zero_tensor.get(), &unused, tf_attribute);
+  Status status = context_->allocate_temp(tf_data_type, ::tensorflow::TensorShape({num_elements}), zero_tensor.get(), tf_attribute);
 
   if (device_ != CPU_DEVICE_ID) {
 #if HAVE_GPU
     auto device_context = context_->op_device_context();
     auto stream = (device_context != nullptr) ? stream_executor::gpu::AsGpuStreamValue(device_context->stream()) : 0;
-    void *ptr = (void*)zero_tensor->AccessTensor(hvd_context->GetKernelContext())->tensor_data().data();
-    auto size = zero_tensor->AccessTensor(hvd_context->GetKernelContext())->tensor_data().size();
+    void *ptr = (void*)zero_tensor->tensor_data().data();
+    auto size = zero_tensor->tensor_data().size();
     gpuMemsetAsync(ptr, 0, size, stream);
 #endif
   } else {
-    memset((void*)zero_tensor->AccessTensor(hvd_context->GetKernelContext())->tensor_data().data(), 0,
-           zero_tensor->AccessTensor(hvd_context->GetKernelContext())->tensor_data().size());
+    memset((void*)zero_tensor->tensor_data().data(), 0, zero_tensor->tensor_data().size());
   }
   if (status.ok()) {
-    *tensor = std::make_shared<TFTensor>(*(zero_tensor->AccessTensor(hvd_context->GetKernelContext())));
+    *tensor = std::make_shared<TFTensor>(*zero_tensor);
   }
 
 #if HAVE_GPU
@@ -368,15 +394,15 @@ int GetDeviceID(OpKernelContext* context) {
 
 // On GPU this event will signal that data is ready, and tensors are
 // allocated.
-common::ReadyEvent* RecordReadyEvent(OpKernelContext* context) {
 #if HAVE_GPU
+common::ReadyEvent* RecordReadyEvent(OpKernelContext* context) {
   auto device_context = context->op_device_context();
   if (device_context != nullptr) {
-    return new TFReadyEvent(device_context);
+    return new TFReadyEvent(context);
   }
-#endif
   return nullptr;
 }
+#endif
 
 } // namespace
 
@@ -388,6 +414,7 @@ public:
     OP_REQUIRES_OK(context, context->GetAttr("prescale_factor", &prescale_factor_));
     OP_REQUIRES_OK(context, context->GetAttr("postscale_factor", &postscale_factor_));
     OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
+    OP_REQUIRES_OK(context, context->GetAttr("process_set_id", &process_set_id_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -408,16 +435,31 @@ public:
     OP_REQUIRES_OK_ASYNC(
         context, context->allocate_output(0, tensor.shape(), &output), done);
     // ReadyEvent makes sure input tensor is ready, and output is allocated.
-    auto ready_event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context));
+    common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+    ready_event_list.AddReadyEvent(std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context)));
+#endif
     auto hvd_context = std::make_shared<TFOpContext>(context);
     auto hvd_tensor = std::make_shared<TFTensor>(tensor);
     auto hvd_output = std::make_shared<TFTensor>(*output);
     auto enqueue_result = EnqueueTensorAllreduce(
-        hvd_context, hvd_tensor, hvd_output, ready_event, node_name, device,
+        hvd_context, hvd_tensor, hvd_output, ready_event_list, node_name, device,
         [context, done](const common::Status& status) {
+#if HAVE_GPU
+          auto hvd_event = status.event;
+          if (hvd_event.event) {
+            auto device_context = context->op_device_context();
+            if (device_context != nullptr) {
+                auto stream = stream_executor::gpu::AsGpuStreamValue(device_context->stream());
+                HVD_GPU_CHECK(gpuStreamWaitEvent(stream, *(hvd_event.event), 0));
+            }
+          }
+#endif
           context->SetStatus(ConvertStatus(status));
           done();
-        }, reduce_op, (double) prescale_factor_, (double) postscale_factor_);
+        },
+        reduce_op, (double)prescale_factor_, (double)postscale_factor_,
+        process_set_id_);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 
@@ -427,6 +469,7 @@ private:
   float prescale_factor_;
   float postscale_factor_;
   bool ignore_name_scope_;
+  int process_set_id_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_CPU),
@@ -442,6 +485,7 @@ REGISTER_OP("HorovodAllreduce")
     .Attr("prescale_factor: float")
     .Attr("postscale_factor: float")
     .Attr("ignore_name_scope: bool = False")
+    .Attr("process_set_id: int = 0")
     .Input("tensor: T")
     .Output("sum: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
@@ -470,6 +514,7 @@ public:
     OP_REQUIRES_OK(context, context->GetAttr("postscale_factor", &postscale_factor_));
     OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
     OP_REQUIRES_OK(context, context->GetAttr("num_tensors", &num_tensors_));
+    OP_REQUIRES_OK(context, context->GetAttr("process_set_id", &process_set_id_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -487,13 +532,13 @@ public:
     horovod::common::ReduceOp reduce_op = static_cast<horovod::common::ReduceOp>(reduce_op_);
     std::vector<Tensor*> outputs(num_tensors_);
 
-    std::vector<std::shared_ptr<common::ReadyEvent>> ready_events;
+    std::vector<common::ReadyEventList> ready_event_lists;
     std::vector<std::shared_ptr<common::OpContext>> hvd_contexts;
     std::vector<std::shared_ptr<common::Tensor>> hvd_tensors;
     std::vector<std::shared_ptr<common::Tensor>> hvd_outputs;
     std::vector<common::StatusCallback> callbacks;
     std::vector<std::string> names;
-    ready_events.reserve(num_tensors_);
+    ready_event_lists.reserve(num_tensors_);
     hvd_contexts.reserve(num_tensors_);
     hvd_tensors.reserve(num_tensors_);
     hvd_outputs.reserve(num_tensors_);
@@ -508,9 +553,17 @@ public:
       OP_REQUIRES_OK_ASYNC(
           context, context->allocate_output(i, tensor.shape(), &outputs[i]),
           done);
-      // ReadyEvent makes sure input tensor is ready, and output is allocated.
-      ready_events.emplace_back(
-          std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context)));
+    }
+
+    // ReadyEvent makes sure input tensors are ready, and outputs are allocated.
+    common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+    ready_event_list.AddReadyEvent(std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context)));
+#endif
+
+    for (int i = 0; i < num_tensors_; ++i) {
+      auto tensor = context->input(i);
+      ready_event_lists.emplace_back(ready_event_list); // Same for all tensors in group
       hvd_contexts.emplace_back(std::make_shared<TFOpContext>(context));
       hvd_tensors.emplace_back(std::make_shared<TFTensor>(tensor));
       names.emplace_back(node_name + "_" + std::to_string(i + 1) + "of" +
@@ -523,6 +576,16 @@ public:
             std::lock_guard<std::mutex> guard(*callback_mutex);
             (*callback_count)++;
             if (*callback_count == num_tensors) {
+#if HAVE_GPU
+              auto hvd_event = status.event;
+              if (hvd_event.event) {
+                auto device_context = context->op_device_context();
+                if (device_context != nullptr) {
+                    auto stream = stream_executor::gpu::AsGpuStreamValue(device_context->stream());
+                    HVD_GPU_CHECK(gpuStreamWaitEvent(stream, *(hvd_event.event), 0));
+                }
+              }
+#endif
               context->SetStatus(ConvertStatus(status));
               done();
             }
@@ -530,8 +593,9 @@ public:
     }
 
     auto enqueue_result = EnqueueTensorAllreduces(
-        hvd_contexts, hvd_tensors, hvd_outputs, ready_events, names, device,
-        callbacks, reduce_op, (double) prescale_factor_, (double) postscale_factor_);
+        hvd_contexts, hvd_tensors, hvd_outputs, ready_event_lists, names, device,
+        callbacks, reduce_op, (double)prescale_factor_,
+        (double)postscale_factor_, process_set_id_);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 
@@ -542,6 +606,7 @@ private:
   float postscale_factor_;
   bool ignore_name_scope_;
   int num_tensors_;
+  int process_set_id_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodGroupedAllreduce").Device(DEVICE_CPU),
@@ -558,6 +623,7 @@ REGISTER_OP("HorovodGroupedAllreduce")
     .Attr("postscale_factor: float")
     .Attr("ignore_name_scope: bool = False")
     .Attr("num_tensors: int")
+    .Attr("process_set_id: int = 0")
     .Input("tensors: num_tensors*T")
     .Output("sum: num_tensors*T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
@@ -584,6 +650,7 @@ public:
   explicit HorovodAllgatherOp(OpKernelConstruction* context)
       : AsyncOpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
+    OP_REQUIRES_OK(context, context->GetAttr("process_set_id", &process_set_id_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -602,20 +669,35 @@ public:
     // ReadyEvent makes sure input tensor is ready.  We cannot pre-allocate
     // output for allgather, since shape of result is only known after all
     // ranks make a request.
-    auto ready_event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context));
+    common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+    ready_event_list.AddReadyEvent(std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context)));
+#endif
     auto hvd_context = std::make_shared<TFOpContext>(context);
     auto hvd_tensor = std::make_shared<TFTensor>(tensor);
     auto enqueue_result = EnqueueTensorAllgather(
-        hvd_context, hvd_tensor, ready_event, node_name, device,
+        hvd_context, hvd_tensor, ready_event_list, node_name, device,
         [context, done](const common::Status& status) {
+#if HAVE_GPU
+          auto hvd_event = status.event;
+          if (hvd_event.event) {
+            auto device_context = context->op_device_context();
+            if (device_context != nullptr) {
+                auto stream = stream_executor::gpu::AsGpuStreamValue(device_context->stream());
+                HVD_GPU_CHECK(gpuStreamWaitEvent(stream, *(hvd_event.event), 0));
+            }
+          }
+#endif
           context->SetStatus(ConvertStatus(status));
           done();
-        });
+        },
+        process_set_id_);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 
 private:
   bool ignore_name_scope_;
+  int process_set_id_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodAllgather").Device(DEVICE_CPU),
@@ -629,6 +711,7 @@ REGISTER_OP("HorovodAllgather")
     .Attr(
         "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
     .Attr("ignore_name_scope: bool = False")
+    .Attr("process_set_id: int = 0")
     .Input("tensor: T")
     .Output("output: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
@@ -656,6 +739,7 @@ public:
       : AsyncOpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("root_rank", &root_rank_));
     OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
+    OP_REQUIRES_OK(context, context->GetAttr("process_set_id", &process_set_id_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -679,7 +763,10 @@ public:
           context, context->allocate_output(0, tensor.shape(), &output), done);
     }
     // ReadyEvent makes sure input tensor is ready, and output is allocated.
-    auto ready_event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context));
+    common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+    ready_event_list.AddReadyEvent(std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context)));
+#endif
     auto hvd_context = std::make_shared<TFOpContext>(context);
     auto hvd_tensor = std::make_shared<TFTensor>(tensor);
     std::shared_ptr<TFTensor> hvd_output = nullptr;
@@ -687,17 +774,29 @@ public:
       hvd_output = std::make_shared<TFTensor>(*output);
     }
     auto enqueue_result = EnqueueTensorBroadcast(
-        hvd_context, hvd_tensor, hvd_output, root_rank_, ready_event, node_name,
+        hvd_context, hvd_tensor, hvd_output, root_rank_, ready_event_list, node_name,
         device, [context, done](const common::Status& status) {
+#if HAVE_GPU
+          auto hvd_event = status.event;
+          if (hvd_event.event) {
+            auto device_context = context->op_device_context();
+            if (device_context != nullptr) {
+                auto stream = stream_executor::gpu::AsGpuStreamValue(device_context->stream());
+                HVD_GPU_CHECK(gpuStreamWaitEvent(stream, *(hvd_event.event), 0));
+            }
+          }
+#endif
           context->SetStatus(ConvertStatus(status));
           done();
-        });
+        },
+        process_set_id_);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 
 private:
   int root_rank_;
   bool ignore_name_scope_;
+  int process_set_id_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodBroadcast").Device(DEVICE_CPU),
@@ -712,6 +811,7 @@ REGISTER_OP("HorovodBroadcast")
         "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
     .Attr("root_rank: int")
     .Attr("ignore_name_scope: bool = False")
+    .Attr("process_set_id: int = 0")
     .Input("tensor: T")
     .Output("output: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
@@ -740,12 +840,30 @@ public:
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(common::CheckInitialized()),
                          done);
     auto device = GetDeviceID(context);
-    auto ready_event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context));
+    Tensor* output = nullptr;
+    OP_REQUIRES_OK_ASYNC(
+        context, context->allocate_output(0, TensorShape(), &output), done);
+
+    common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+    ready_event_list.AddReadyEvent(std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context)));
+#endif
     auto hvd_context = std::make_shared<TFOpContext>(context);
+    std::shared_ptr<TFTensor> hvd_output = std::make_shared<TFTensor>(*output);
     auto enqueue_result = EnqueueJoin(
-      hvd_context, ready_event,
+      hvd_context, hvd_output, ready_event_list,
       JOIN_TENSOR_NAME, device,
         [context, done](const common::Status& status) {
+#if HAVE_GPU
+          auto hvd_event = status.event;
+          if (hvd_event.event) {
+            auto device_context = context->op_device_context();
+            if (device_context != nullptr) {
+                auto stream = stream_executor::gpu::AsGpuStreamValue(device_context->stream());
+                HVD_GPU_CHECK(gpuStreamWaitEvent(stream, *(hvd_event.event), 0));
+            }
+          }
+#endif
           context->SetStatus(ConvertStatus(status));
           done();
         });
@@ -754,17 +872,104 @@ public:
   }
 };
 
-REGISTER_KERNEL_BUILDER(Name("HorovodJoin").Device(DEVICE_CPU),
+REGISTER_KERNEL_BUILDER(Name("HorovodJoin")
+                            .Device(DEVICE_CPU)
+                            .HostMemory("output"),
                         HorovodJoinOp);
 #if HOROVOD_GPU_ALLREDUCE
-REGISTER_KERNEL_BUILDER(Name("HorovodJoin").Device(DEVICE_GPU),
+REGISTER_KERNEL_BUILDER(Name("HorovodJoin")
+                            .Device(DEVICE_GPU)
+                            .HostMemory("output"),
                         HorovodJoinOp);
 #endif
 
 REGISTER_OP("HorovodJoin")
+    .Output("output: int32")
+    .SetShapeFn([](shape_inference::InferenceContext* c) {
+      c->set_output(0, c->Scalar());
+      return Status::OK();
+    })
     .Doc(R"doc(
-Perform an join on a tensor,
+Perform a join on a tensor.
+
+Output
+    output:    A scalar integer tensor containing the last rank that joined.
 )doc");
+
+template <typename T, T f(int)>
+class HorovodReturnScalarForProcessSetOp : public OpKernel {
+public:
+  explicit HorovodReturnScalarForProcessSetOp(OpKernelConstruction* context)
+      : OpKernel(context) {
+    OP_REQUIRES_OK(context,
+                   context->GetAttr("process_set_id", &process_set_id_));
+  }
+
+  void Compute(OpKernelContext* context) override {
+    OP_REQUIRES_OK(context, ConvertStatus(common::CheckInitialized()));
+
+    // Write integer to output tensor
+    Tensor* output;
+    OP_REQUIRES_OK(context,
+                   context->allocate_output(0, TensorShape({}), &output));
+
+    auto flat = output->flat<T>();
+    flat(0) = f(process_set_id_);
+  }
+
+private:
+  int process_set_id_;
+};
+
+REGISTER_KERNEL_BUILDER(
+    Name("HorovodSize").Device(DEVICE_CPU).HostMemory("size"),
+    HorovodReturnScalarForProcessSetOp<int, common::horovod_process_set_size>);
+#if HAVE_GPU
+REGISTER_KERNEL_BUILDER(
+    Name("HorovodSize").Device(DEVICE_GPU).HostMemory("size"),
+    HorovodReturnScalarForProcessSetOp<int, common::horovod_process_set_size>);
+#endif
+
+REGISTER_OP("HorovodSize")
+    .Attr("process_set_id: int = 0")
+    .Output("size: int32")
+    .SetIsStateful()
+    .SetShapeFn([](shape_inference::InferenceContext* c) {
+      c->set_output(0, c->Scalar());
+      return Status::OK();
+    })
+    .Doc(R"doc(
+Returns the number of Horovod processes. If process_set_id > 0, limit the
+count to that process set.
+
+Output
+    size:    An integer scalar containing the number of Horovod processes.
+)doc");
+
+REGISTER_KERNEL_BUILDER(
+    Name("HorovodProcessSetIncluded").Device(DEVICE_CPU).HostMemory("included"),
+    HorovodReturnScalarForProcessSetOp<int, common::horovod_process_set_included>);
+#if HAVE_GPU
+REGISTER_KERNEL_BUILDER(
+    Name("HorovodProcessSetIncluded").Device(DEVICE_GPU).HostMemory("included"),
+    HorovodReturnScalarForProcessSetOp<int, common::horovod_process_set_included>);
+#endif
+
+REGISTER_OP("HorovodProcessSetIncluded")
+    .Attr("process_set_id: int = 0")
+    .Output("included: int32")
+    .SetIsStateful()
+    .SetShapeFn([](shape_inference::InferenceContext* c) {
+      c->set_output(0, c->Scalar());
+      return Status::OK();
+    })
+    .Doc(R"doc(
+Returns 0 or 1 depending on whether the current process is
+included in the specified process set or an error code:
+HOROVOD_PROCESS_SET_ERROR_INIT if Horovod is not initialized,
+HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET if the process set is unknown.
+)doc");
+
 
 template <typename T, T f()> class HorovodReturnScalarOp : public OpKernel {
 public:
@@ -783,29 +988,6 @@ public:
     flat(0) = f();
   }
 };
-
-REGISTER_KERNEL_BUILDER(
-    Name("HorovodSize").Device(DEVICE_CPU).HostMemory("size"),
-    HorovodReturnScalarOp<int, common::horovod_size>);
-#if HAVE_GPU
-REGISTER_KERNEL_BUILDER(
-    Name("HorovodSize").Device(DEVICE_GPU).HostMemory("size"),
-    HorovodReturnScalarOp<int, common::horovod_size>);
-#endif
-
-REGISTER_OP("HorovodSize")
-    .Output("size: int32")
-    .SetIsStateful()
-    .SetShapeFn([](shape_inference::InferenceContext* c) {
-      c->set_output(0, c->Scalar());
-      return Status::OK();
-    })
-    .Doc(R"doc(
-Returns the number of Horovod processes.
-
-Output
-    size:    An integer scalar containing the number of Horovod processes.
-)doc");
 
 REGISTER_KERNEL_BUILDER(
     Name("HorovodLocalSize").Device(DEVICE_CPU).HostMemory("local_size"),
@@ -886,6 +1068,7 @@ public:
   explicit HorovodAlltoallOp(OpKernelConstruction* context)
       : AsyncOpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
+    OP_REQUIRES_OK(context, context->GetAttr("process_set_id", &process_set_id_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -902,20 +1085,35 @@ public:
     auto device = GetDeviceID(context);
     auto tensor = context->input(0);
     auto splits = context->input(1);
-    auto ready_event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context));
+    common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+    ready_event_list.AddReadyEvent(std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context)));
+#endif
     auto hvd_context = std::make_shared<TFOpContext>(context);
     auto hvd_tensor = std::make_shared<TFTensor>(tensor);
     auto splits_tensor = std::make_shared<TFTensor>(splits);
     auto enqueue_result = EnqueueTensorAlltoall(
-        hvd_context, hvd_tensor, splits_tensor, ready_event, node_name, device,
+        hvd_context, hvd_tensor, splits_tensor, ready_event_list, node_name, device,
         [context, done](const common::Status& status) {
+#if HAVE_GPU
+          auto hvd_event = status.event;
+          if (hvd_event.event) {
+            auto device_context = context->op_device_context();
+            if (device_context != nullptr) {
+                auto stream = stream_executor::gpu::AsGpuStreamValue(device_context->stream());
+                HVD_GPU_CHECK(gpuStreamWaitEvent(stream, *(hvd_event.event), 0));
+            }
+          }
+#endif
           context->SetStatus(ConvertStatus(status));
           done();
-        });
+        },
+        process_set_id_);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 private:
   bool ignore_name_scope_;
+  int process_set_id_;
 }; // namespace tensorflow
 
 REGISTER_KERNEL_BUILDER(Name("HorovodAlltoall").Device(DEVICE_CPU),
@@ -932,6 +1130,7 @@ REGISTER_OP("HorovodAlltoall")
     .Attr(
         "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
     .Attr("ignore_name_scope: bool = False")
+    .Attr("process_set_id: int = 0")
     .Input("tensor: T")
     .Input("splits: int32")
     .Output("output: T")

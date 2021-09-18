@@ -37,7 +37,7 @@ static inline bool IsPowerOfTwo(uint64_t x) {
 // Interface for Adasum algorithm
 template <typename Communicator_type> class Adasum {
 public:
-  Adasum(HorovodGlobalState* global_state) {
+  explicit Adasum(HorovodGlobalState* global_state) {
     // Allocate receive buffer size equal to the fusion buffer length
     current_recv_buffer_length =
         global_state->parameter_manager.TensorFusionThresholdBytes();
@@ -198,8 +198,14 @@ private:
                       Communicator_type communicator, int tag,
                       Communicator_type* reduction_comms,
                       HorovodGlobalState* global_state) {
+    assert(!entries.empty());
+    auto& first_entry = entries[0];
+    assert(first_entry.process_set_id == 0);  // TODO: generalize
+    auto& process_set =
+      global_state->process_set_table.Get(first_entry.process_set_id);
+
     int per_element_size =
-        global_state->controller->GetTypeSize(horovod_datatype);
+        process_set.controller->GetTypeSize(horovod_datatype);
     int rank = GetLocalRankWithComm(communicator);
     int size = GetSizeWithComm(communicator);
 
@@ -342,9 +348,15 @@ private:
                                    Communicator_type& comm, bool isLeftNeighbor,
                                    std::vector<double>& normAndDots,
                                    HorovodGlobalState* global_state) {
+    assert(!entries.empty());
+    auto& first_entry = entries[0];
+    assert(first_entry.process_set_id == 0);  // TODO: generalize
+    auto& process_set =
+      global_state->process_set_table.Get(first_entry.process_set_id);
+
     static double sqrt_double_min = std::sqrt(DBL_MIN);
     int per_element_size =
-        global_state->controller->GetTypeSize(horovod_datatype);
+        process_set.controller->GetTypeSize(horovod_datatype);
     int bytesSoFar = 0;
     for (size_t i = 0; i < tensor_counts.size(); i++) {
       double dotProduct = 0.;

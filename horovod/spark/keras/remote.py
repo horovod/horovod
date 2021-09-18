@@ -50,10 +50,12 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     user_shuffle_buffer_size = estimator.getShufflingBufferSize()
     user_verbose = estimator.getVerbose()
     checkpoint_callback = estimator.getCheckpointCallback()
+    inmemory_cache_all = estimator.getInMemoryCacheAll()
 
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
     val_reader_worker_count = estimator.getValReaderNumWorker()
+    reader_pool_type = estimator.getReaderPoolType()
 
     # Model parameters
     input_shapes, output_shapes = estimator.get_model_shapes()
@@ -86,6 +88,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     store = estimator.getStore()
     is_dbfs = isinstance(store, DBFSLocalStore)
     remote_store = store.to_remote(run_id, dataset_idx)
+    storage_options = store.storage_options
 
     def SyncCallback(root_path, sync_to_store_fn, keras):
         class _SyncCallback(keras.callbacks.Callback):
@@ -148,6 +151,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 # TensorBoard, or other metrics-based callbacks.
                 hvd.callbacks.MetricAverageCallback(),
             ]
+
             callbacks += user_callbacks
 
             # Horovod: save checkpoints only on the first worker to prevent other workers from
@@ -173,7 +177,18 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 callbacks.append(_checkpoint_callback)
 
                 if remote_store.saving_runs:
-                    callbacks.append(k.callbacks.TensorBoard(logs_dir))
+                    tb_callback = None
+                    for i, c in enumerate(callbacks):
+                        if isinstance(c, k.callbacks.TensorBoard):
+                            tb_callback = c
+                            print(f"Found TensorBoard callback, updating log_dir to {logs_dir}")
+                            tb_callback.log_dir = logs_dir
+                            break
+                    if tb_callback:
+                        # Rather than a possibly arbitrary order, we always place the TensorBoard
+                        # callback right before the SyncCallback
+                        callbacks.pop(i)
+                    callbacks.append(tb_callback or k.callbacks.TensorBoard(logs_dir))
                     callbacks.append(SyncCallback(run_output_dir, remote_store.sync, k))
 
             if train_steps_per_epoch is None:
@@ -194,6 +209,11 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
             if sample_weight_col:
                 schema_fields.append(sample_weight_col)
 
+            if verbose:
+                print(f"Training parameters: Epochs: {epochs}, Scaled lr: {scaled_lr}\n"
+                      f"Train rows: {train_rows}, Train batch size: {batch_size}, Train_steps_per_epoch: {steps_per_epoch}\n"
+                      f"Val rows: {val_rows}, Val batch size: {val_batch_size}, Val_steps_per_epoch: {validation_steps}\n"
+                      f"Checkpoint file: {remote_store.checkpoint_path}, Logs dir: {remote_store.logs_path}\n")
             # In general, make_batch_reader is faster than make_reader for reading the dataset.
             # However, we found out that make_reader performs data transformations much faster than
             # make_batch_reader with parallel worker processes. Therefore, the default reader
@@ -207,36 +227,34 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 reader_factory = make_batch_reader
                 is_batch_reader = True
 
-            # Petastorm: read data from the store with the correct shard for this rank
-            # setting num_epochs=None will cause an infinite iterator
-            # and enables ranks to perform training and validation with
-            # unequal number of samples
             with reader_factory(remote_store.train_data_path,
-                                num_epochs=None,
+                                num_epochs=1,
                                 cur_shard=hvd.rank(),
-                                reader_pool_type='process',
+                                reader_pool_type=reader_pool_type,
                                 workers_count=train_reader_worker_count,
                                 shard_count=hvd.size(),
                                 hdfs_driver=PETASTORM_HDFS_DRIVER,
                                 schema_fields=schema_fields,
                                 transform_spec=transform_spec,
+                                storage_options=storage_options,
                                 **reader_factory_kwargs) as train_reader:
                 with reader_factory(remote_store.val_data_path,
-                                    num_epochs=None,
+                                    num_epochs=1,
                                     cur_shard=hvd.rank(),
-                                    reader_pool_type='process',
+                                    reader_pool_type=reader_pool_type,
                                     workers_count=val_reader_worker_count,
                                     shard_count=hvd.size(),
                                     hdfs_driver=PETASTORM_HDFS_DRIVER,
                                     schema_fields=schema_fields,
                                     transform_spec=transform_spec,
+                                    storage_options=storage_options,
                                     **reader_factory_kwargs) \
                     if should_validate else empty_batch_reader() as val_reader:
 
                     train_data = make_dataset(train_reader, batch_size, shuffle_buffer_size,
-                                              is_batch_reader, shuffle=True)
+                                              is_batch_reader, shuffle=True, cache=inmemory_cache_all)
                     val_data = make_dataset(val_reader, val_batch_size, shuffle_buffer_size,
-                                            is_batch_reader, shuffle=False) \
+                                            is_batch_reader, shuffle=False, cache=inmemory_cache_all) \
                         if val_reader else None
 
                     history = fit(model, train_data, val_data, steps_per_epoch,
@@ -257,8 +275,13 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                             model = k.models.load_model(ckpt_file)
                     serialized_model = keras_utils.serialize_model(model)
                 else:
-                    with open(ckpt_file, 'rb') as f:
-                        serialized_model = codec.dumps_base64(f.read())
+                    if LooseVersion(tf.__version__) >= LooseVersion("2.0.0"):
+                        with k.utils.custom_object_scope(custom_objects):
+                            model = k.models.load_model(ckpt_file)
+                        serialized_model = keras_utils.serialize_model(model)
+                    else:
+                        with open(ckpt_file, 'rb') as f:
+                            serialized_model = codec.dumps_base64(f.read())
 
                 return history.history, serialized_model, hvd.size()
     return train

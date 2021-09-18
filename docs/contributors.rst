@@ -20,7 +20,7 @@ Develop within a virtual environment to avoid dependency issues:
 
 .. code-block:: bash
 
-    $ virtualenv env
+    $ python3 -m venv env
     $ . env/bin/activate
 
 We recommend installing package versions that match with those under test in
@@ -28,11 +28,6 @@ We recommend installing package versions that match with those under test in
 The following versions are recommended (see default versions defined through :code:`ARG` in
 `Dockerfile.test.cpu <https://github.com/horovod/horovod/blob/master/Dockerfile.test.cpu>`__ and
 `Dockerfile.test.gpu <https://github.com/horovod/horovod/blob/master/Dockerfile.test.gpu>`__ file.
-The versions with CPU support can be installed through the provided :code:`setup.py` file:
-
-.. code-block:: bash
-
-    pip install -e .[dev,test]
 
 You can find all other non-Python packages that need to be installed on your system for Horovod to build
 in the `Dockerfile.test.cpu <https://github.com/horovod/horovod/blob/master/Dockerfile.test.cpu>`__ and
@@ -42,44 +37,59 @@ Specifically, see all :code:`RUN apt-get install` lines.
 Build and Install
 -----------------
 
-First, uninstall any existing version of Horovod.  Be sure to do this *outside* the Horovod root directory:
+From *inside* the Horovod root directory, install Horovod in develop/editable mode:
 
 .. code-block:: bash
 
-    $ cd $HOME
-    $ pip uninstall -y horovod
-    $ cd -
-
-From *inside* the Horovod root directory, remove any previous build artifacts and then install Horovod:
-
-.. code-block:: bash
-
-    $ rm -rf build/ dist/
-    $ HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 python setup.py install
+    $ HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 pip install -v -e .
 
 Set ``HOROVOD_WITHOUT_[FRAMEWORK]=1`` to disable building Horovod plugins for that framework.
 This is useful when you’re testing a feature of one framework in particular and wish to save time.
 
-For a debug build with checked assertions etc. replace the invocation of setup.py by:
+Set ``HOROVOD_WITH_[FRAMEWORK]=1`` to generate an error if the Horovod plugin for that framework failed to build.
 
-.. code-block:: bash
+Set ``HOROVOD_DEBUG=1`` for a debug build with checked assertions, disabled compiler optimizations etc.
 
-    $ HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 python setup.py build_ext --debug install
+Other environmental variables can be found in the `install documentation <https://github.com/horovod/horovod/blob/master/docs/install.rst#environment-variables>`__.
 
+You can install optional dependencies defined in `setup.py <https://github.com/horovod/horovod/blob/master/setup.py>`__ by adding brackets
+at the end of the command line e.g. ``[test]`` for test dependencies.
+If you have not installed specific DL frameworks yet, add ``[dev]`` to install the CPU version of all supported DL frameworks.
+
+In develop mode, you can edit the Horovod source directly in the repo folder. For Python code, the changes will take effect
+immediately. For **C++/CUDA code**, the ``... pip install -v -e .`` command needs to be invoked again to perform an incremental build.
 
 Testing
 -------
 
-Horovod has unit tests for all frameworks you can run from the tests directory:
+Horovod has unit tests for all frameworks under ``test/parallel``. These should be invoked via ``horovodrun`` or
+``mpirun`` and each test script may require to be run independently from the other test scripts:
 
 .. code-block:: bash
 
-    $ cd test
-    $ mpirun -np 2 pytest -v
+    $ cd test/parallel
+    $ horovodrun -np 2 pytest -v test_tensorflow.py
+    $ horovodrun -np 2 pytest -v test_torch.py
+    # ...
+
+    # Or to run all framework tests:
+    $ cd test/parallel
+    $ ls -1 test_*.py | xargs -n 1 horovodrun -np 2 pytest -v
+
+Moreover, there are integration tests and non-parallelized tests to be run directly via ``pytest``:
+
+.. code-block:: bash
+
+    $ cd test/integration
+    $ pytest -v
+
+    $ cd test/single
+    $ pytest -v
 
 **Note:** You will need PySpark and Java to run the Spark tests.
 
-**IMPORTANT:** Some tests contain GPU-only codepaths that will be skipped if running without GPU support.
+**IMPORTANT:** Some tests contain GPU-only codepaths that will be skipped if running without GPU support or, in some
+cases, if there are fewer than four GPUs installed.
 
 
 Continuous Integration
@@ -304,66 +314,17 @@ Tag
     $ git tag -a v0.18.0 -m "Horovodrun config file, bugfixes"
     $ git push origin v0.18.0
 
-
-Upload to PyPI
+Create Release
 ~~~~~~~~~~~~~~
 
-Make a clean recursive clone of the horovod repo:
+Follow the GitHub instructions for `Creating a Release <https://docs.github.com/en/github/administering-a-repository/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release>`_.
 
-.. code-block:: bash
+Once the release has been created, this will trigger a workflow that uploads the Horovod source distribution to `PyPI <https://pypi.org>`_ automatically using `Twine <https://pypi.org/project/twine>`_.
 
-    $ cd /tmp
-    $ rm -rf horovod
-    $ git clone --recursive https://github.com/horovod/horovod.git
-    $ cd horovod
-
-Build the source dist:
-
-.. code-block:: bash
-
-    $ python setup.py sdist
-
-Upload to PyPI using `Twine <https://pypi.org/project/twine>`_:
-
-.. code-block:: bash
-
-    $ pip install twine
-    $ twine upload -r pypi dist/horovod-0.18.0.tar.gz
-
-Create a `PyPI <https://pypi.org>`_ account if you don’t have one. Then ask someone from the Horovod TSC
-to add you to the Horovod project.
-
-Verify that the latest version of Horovod is now available:
+After the workflow completes, verify that the latest version of Horovod is now available:
 
 .. code-block:: bash
 
     $ pip install --upgrade horovod
-
-
-Build Docker Images
-~~~~~~~~~~~~~~~~~~~
-
-Create a `Docker Hub <https://cloud.docker.com>`_ account.  Ask someone from the Horovod TSC to add you to the
-Horovod project.
-
-From a clean copy of the ``horovod`` repository on a Linux machine:
-
-.. code-block:: bash
-
-    $ ./build-docker-images.sh
-
-If you have trouble connecting to external URLs, try changing ``docker build ...`` to
-``docker build --network host ...`` in ``build-docker-images.sh``.
-
-Upload artifacts for Python 3.6, CPU and GPU:
-
-.. code-block:: bash
-
-    $ docker login
-    $ docker push horovod/horovod:0.18.1-tf1.14.0-torch1.2.0-mxnet1.5.0-py3.6-gpu
-    $ docker push horovod/horovod:0.18.1-tf1.14.0-torch1.2.0-mxnet1.5.0-py3.6-cpu
-
-Check the Horovod `Docker Hub project <https://cloud.docker.com/u/horovod/repository/docker/horovod/horovod>`_
-to verify that the image artifacts were successfully uploaded.
 
 .. inclusion-marker-end-do-not-remove

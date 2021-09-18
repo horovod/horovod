@@ -136,6 +136,9 @@ Start the training job and specify the number of workers on the command line as 
     # run training with 8 GPUs on two machines (4 GPUs each)
     $ horovodrun -np 8 -H hostname1:4,hostname2:4 python train.py
 
-You can find an example of use pytorch lightning trainer with horovod backend in `pytorch_lightning_mnist.py script <../examples/pytorch/pytorch_lightning_mnist.py>`__
+You can find an example of using pytorch lightning trainer with horovod backend in `pytorch_lightning_mnist.py 
+<../examples/pytorch/pytorch_lightning_mnist.py>`__
 
 See the PyTorch Lightning `docs <https://pytorch-lightning.readthedocs.io/en/stable/multi_gpu.html#horovod>`_ for more details.
+
+A Pytorch-Lightning based spark estimator is also added, example is in `pytorch_lightning_spark_mnist.py <../examples/spark/pytorch/pytorch_lightning_spark_mnist.py>`__

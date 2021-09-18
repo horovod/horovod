@@ -25,6 +25,9 @@ from mxnet.base import c_handle_array, c_str, c_str_array, check_call, string_ty
 
 from horovod.common.util import check_installed_version, get_ext_suffix
 from horovod.common.basics import HorovodBasics as _HorovodBasics
+from horovod.common.process_sets import _setup as _setup_process_sets
+from horovod.common.process_sets import ProcessSet, global_process_set, add_process_set, remove_process_set, \
+    _temp_process_set_object
 
 # Check possible symbol not found error from mxnet version mismatch
 try:
@@ -62,9 +65,11 @@ dll_path = os.path.join(os.path.dirname(__file__),
                         'mpi_lib' + get_ext_suffix())
 MPI_MXNET_LIB_CTYPES = ctypes.CDLL(dll_path, ctypes.RTLD_GLOBAL)
 
+_setup_process_sets(_basics)
+
 
 def allreduce(tensor, average=True, name=None, priority=0, prescale_factor=1.0,
-              postscale_factor=1.0):
+              postscale_factor=1.0, process_set=global_process_set):
     """
     A function that performs averaging or summation of the input tensor over
     all the Horovod processes. The input tensor is not modified.
@@ -87,6 +92,8 @@ def allreduce(tensor, average=True, name=None, priority=0, prescale_factor=1.0,
                   are likely to be executed before other operations.
         prescale_factor: Multiplicative factor to scale tensor before allreduce
         postscale_factor: Multiplicative factor to scale tensor after allreduce
+        process_set: Process set object to limit this operation to a subset of
+                     Horovod processes. Default is the global process set.
 
     Returns:
         A tensor of the same shape and type as `tensor`, averaged or summed
@@ -103,13 +110,15 @@ def allreduce(tensor, average=True, name=None, priority=0, prescale_factor=1.0,
         ctypes.byref(c_in), ctypes.byref(c_out), c_name, ctypes.c_bool(average),
         ctypes.c_int(priority),
         ctypes.c_double(prescale_factor),
-        ctypes.c_double(postscale_factor), ctypes.c_int(1)))
+        ctypes.c_double(postscale_factor),
+        ctypes.c_int(1),
+        ctypes.c_int(process_set.process_set_id)))
 
     return output
 
 
 def allreduce_(tensor, average=True, name=None, priority=0, prescale_factor=1.0,
-              postscale_factor=1.0):
+               postscale_factor=1.0, process_set=global_process_set):
     """
     A function that performs in-place averaging or summation of the input
     tensor over all the Horovod processes.
@@ -128,6 +137,8 @@ def allreduce_(tensor, average=True, name=None, priority=0, prescale_factor=1.0,
                   are likely to be executed before other operations.
         prescale_factor: Multiplicative factor to scale tensor before allreduce
         postscale_factor: Multiplicative factor to scale tensor after allreduce
+        process_set: Process set object to limit this operation to a subset of
+                     Horovod processes. Default is the global process set.
 
     Returns:
         A tensor of the same shape and type as `tensor`, averaged or summed
@@ -143,12 +154,14 @@ def allreduce_(tensor, average=True, name=None, priority=0, prescale_factor=1.0,
         ctypes.c_int(priority),
         ctypes.c_double(prescale_factor),
         ctypes.c_double(postscale_factor),
-        ctypes.c_int(1)))
+        ctypes.c_int(1),
+        ctypes.c_int(process_set.process_set_id)))
 
     return tensor
 
+
 def grouped_allreduce(tensors, average=True, name=None, priority=0, prescale_factor=1.0,
-              postscale_factor=1.0):
+                      postscale_factor=1.0, process_set=global_process_set):
     """
     A function that performs averaging or summation of the input
     tensors over all the Horovod processes. The input tensors are not modified.
@@ -169,6 +182,8 @@ def grouped_allreduce(tensors, average=True, name=None, priority=0, prescale_fac
                   are likely to be executed before other operations.
         prescale_factor: Multiplicative factor to scale tensor before allreduce
         postscale_factor: Multiplicative factor to scale tensor after allreduce
+        process_set: Process set object to limit this operation to a subset of
+                     Horovod processes. Default is the global process set.
 
     Returns:
         A list containing tensors of the same shape and type as in `tensors`,
@@ -190,12 +205,14 @@ def grouped_allreduce(tensors, average=True, name=None, priority=0, prescale_fac
         ctypes.c_int(priority),
         ctypes.c_double(prescale_factor),
         ctypes.c_double(postscale_factor),
-        ctypes.c_int(len(tensors))))
+        ctypes.c_int(len(tensors)),
+        ctypes.c_int(process_set.process_set_id)))
 
     return outputs
 
+
 def grouped_allreduce_(tensors, average=True, name=None, priority=0, prescale_factor=1.0,
-              postscale_factor=1.0):
+                       postscale_factor=1.0, process_set=global_process_set):
     """
     A function that performs in-place averaging or summation of the input
     tensors over all the Horovod processes.
@@ -216,6 +233,8 @@ def grouped_allreduce_(tensors, average=True, name=None, priority=0, prescale_fa
                   are likely to be executed before other operations.
         prescale_factor: Multiplicative factor to scale tensor before allreduce
         postscale_factor: Multiplicative factor to scale tensor after allreduce
+        process_set: Process set object to limit this operation to a subset of
+                     Horovod processes. Default is the global process set.
 
     Returns:
         A list containing tensors of the same shape and type as in `tensors`,
@@ -234,12 +253,13 @@ def grouped_allreduce_(tensors, average=True, name=None, priority=0, prescale_fa
         ctypes.c_int(priority),
         ctypes.c_double(prescale_factor),
         ctypes.c_double(postscale_factor),
-        ctypes.c_int(len(tensors))))
+        ctypes.c_int(len(tensors)),
+        ctypes.c_int(process_set.process_set_id)))
 
     return tensors
 
 
-def allgather(tensor, name=None, priority=0):
+def allgather(tensor, name=None, priority=0, process_set=global_process_set):
     """
     A function that concatenates the input tensor with the same input tensor on
     all other Horovod processes. The input tensor is not modified.
@@ -253,6 +273,8 @@ def allgather(tensor, name=None, priority=0):
         name: A name of the allgather operation.
         priority: The priority of this operation. Higher priority operations
                   are likely to be executed before other operations.
+        process_set: Process set object to limit this operation to a subset of
+                     Horovod processes. Default is the global process set.
 
     Returns:
         A tensor of the same type as `tensor`, concatenated on dimension zero
@@ -269,17 +291,19 @@ def allgather(tensor, name=None, priority=0):
     c_out = output.handle
     if isinstance(name, string_types):
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allgather_async(
-            c_in, c_out, c_str(name), ctypes.c_int(priority)))
+            c_in, c_out, c_str(name), ctypes.c_int(priority),
+            ctypes.c_int(process_set.process_set_id)))
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allgather_async(
-            c_in, c_out, name, ctypes.c_int(priority)))
+            c_in, c_out, name, ctypes.c_int(priority),
+            ctypes.c_int(process_set.process_set_id)))
 
     # Need to block here so changes to output tensor are visible
     output.wait_to_read()
     return output
 
 
-def broadcast(tensor, root_rank, name=None, priority=0):
+def broadcast(tensor, root_rank, name=None, priority=0, process_set=global_process_set):
     """
     A function that broadcasts the input tensor on root rank to the same input
     tensor on all other Horovod processes. The input tensor is not modified.
@@ -299,6 +323,8 @@ def broadcast(tensor, root_rank, name=None, priority=0):
         name: A name of the broadcast operation.
         priority: The priority of this operation. Higher priority operations
                   are likely to be executed before other operations.
+        process_set: Process set object to limit this operation to a subset of
+                     Horovod processes. Default is the global process set.
 
     Returns:
         A tensor of the same shape and type as `tensor`, with the value
@@ -314,14 +340,15 @@ def broadcast(tensor, root_rank, name=None, priority=0):
     if isinstance(name, string_types):
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(
             c_in, c_out, c_str(name), ctypes.c_int(root_rank),
-            ctypes.c_int(priority)))
+            ctypes.c_int(priority), ctypes.c_int(process_set.process_set_id)))
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(
             c_in, c_out, name, ctypes.c_int(root_rank),
-            ctypes.c_int(priority)))
+            ctypes.c_int(priority), ctypes.c_int(process_set.process_set_id)))
     return output
 
 
+<<<<<<< HEAD
 def reduce(tensor, root_rank, average = True, name=None, priority=0, prescale_factor=1.0,
               postscale_factor=1.0):
     """
@@ -366,7 +393,7 @@ def reduce(tensor, root_rank, average = True, name=None, priority=0, prescale_fa
 
     return tensor
 
-def broadcast_(tensor, root_rank, name=None, priority=0):
+def broadcast_(tensor, root_rank, name=None, priority=0, process_set=global_process_set):
     """
     A function that broadcasts the input tensor on root rank to the same input
     tensor on all other Horovod processes. The operation is performed in-place.
@@ -382,7 +409,8 @@ def broadcast_(tensor, root_rank, name=None, priority=0):
         name: A name of the broadcast operation.
         priority: The priority of this operation. Higher priority operations
                   are likely to be executed before other operations.
-
+        process_set: Process set object to limit this operation to a subset of
+                     Horovod processes. Default is the global process set.
     Returns:
         A tensor of the same shape and type as `tensor`, with the value
         broadcasted from root rank.
@@ -392,14 +420,14 @@ def broadcast_(tensor, root_rank, name=None, priority=0):
     if isinstance(name, string_types):
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(
             c_in, c_out, c_str(name), ctypes.c_int(root_rank),
-            ctypes.c_int(priority)))
+            ctypes.c_int(priority), ctypes.c_int(process_set.process_set_id)))
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(
             c_in, c_out, name, ctypes.c_int(root_rank),
-            ctypes.c_int(priority)))
+            ctypes.c_int(priority), ctypes.c_int(process_set.process_set_id)))
     return tensor
 
-def alltoall(tensor, splits=None, name=None, priority=0):
+def alltoall(tensor, splits=None, name=None, priority=0, process_set=global_process_set):
     """
     A function that scatters slices of the input tensor to all other Horovod processes
     and returns a tensor of gathered slices from all other Horovod processes. The input
@@ -419,6 +447,8 @@ def alltoall(tensor, splits=None, name=None, priority=0):
         name: A name of the alltoall operation.
         priority: The priority of this operation. Higher priority operations
                   are likely to be executed before other operations.
+        process_set: Process set object to limit this operation to a subset of
+                     Horovod processes. Default is the global process set.
 
     Returns:
         1) A tensor containing the gathered tensor data from all workers.
@@ -439,17 +469,19 @@ def alltoall(tensor, splits=None, name=None, priority=0):
     # will be resized during Horovod operation
     output = mx.nd.empty(shape=(1,), ctx=tensor.context,
                          dtype=tensor.dtype)
-    output_received_splits = mx.nd.empty(shape=(size(),), ctx=mx.cpu(), dtype='int32')
+    output_received_splits = mx.nd.empty(shape=(process_set.size(),), ctx=mx.cpu(), dtype='int32')
     c_in = tensor.handle
     c_out = output.handle
     c_splits = splits.handle
     c_out_recv_splits = output_received_splits.handle
     if isinstance(name, string_types):
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_alltoall_async(
-            c_in, c_out, c_str(name), c_splits, c_out_recv_splits, ctypes.c_int(priority)))
+            c_in, c_out, c_str(name), c_splits, c_out_recv_splits, ctypes.c_int(priority),
+            ctypes.c_int(process_set.process_set_id)))
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_alltoall_async(
-            c_in, c_out, name, c_splits, c_out_recv_splits, ctypes.c_int(priority)))
+            c_in, c_out, name, c_splits, c_out_recv_splits, ctypes.c_int(priority),
+            ctypes.c_int(process_set.process_set_id)))
 
     # Need to block here so changes to output tensor are visible
     output.wait_to_read()

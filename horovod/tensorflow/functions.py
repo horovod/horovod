@@ -24,41 +24,47 @@ from tensorflow.python.framework import ops
 from horovod.tensorflow.mpi_ops import allgather, broadcast
 from horovod.tensorflow.mpi_ops import rank, size
 from horovod.tensorflow.util import _cache, _executing_eagerly, _make_subgraph
+from horovod.common.process_sets import ProcessSet, global_process_set
 
 
 @_cache
 def _make_broadcast_group_fn():
     if _executing_eagerly():
         # Eager mode will parallelize independent control flow
-        def broadcast_group(variables, root_rank):
+        def broadcast_group(variables, root_rank, process_set: ProcessSet):
             for var in variables:
-                var.assign(broadcast(var, root_rank))
+                var.assign(broadcast(var, root_rank, process_set=process_set))
 
         return _make_subgraph(broadcast_group)
     else:
         # Graph mode requires an Op
-        def broadcast_group(variables, root_rank):
-            return tf.group(*[var.assign(broadcast(var, root_rank))
+        def broadcast_group(variables, root_rank, process_set: ProcessSet):
+            return tf.group(*[var.assign(broadcast(var, root_rank, process_set=process_set))
                               for var in variables])
 
         return broadcast_group
 
 
-def broadcast_variables(variables, root_rank):
-    """Broadcasts variables from root rank to all other processes.
+def broadcast_variables(variables, root_rank, process_set=global_process_set):
+    """
+    Broadcasts variables from root rank to all other processes
+    in a process set (defaults to all Horovod processes).
 
     Arguments:
         variables: variables for broadcast
         root_rank: rank of the process from which global variables will be broadcasted
                    to all other processes.
+        process_set: Process set object to limit this operation to a subset of
+                     Horovod processes. Default is the global process set.
     """
     broadcast_group = _make_broadcast_group_fn()
-    return broadcast_group(variables, root_rank)
+    return broadcast_group(variables, root_rank, process_set)
 
 
-def broadcast_object(obj, root_rank=0, session=None, name=None):
+def broadcast_object(obj, root_rank=0, session=None, name=None, process_set=global_process_set):
     """
-    Serializes and broadcasts an object from root rank to all other processes.
+    Serializes and broadcasts an object from root rank to all other processes
+    in a process set (defaults to all Horovod processes).
 
     Arguments:
         obj: An object capable of being serialized without losing any context.
@@ -67,6 +73,8 @@ def broadcast_object(obj, root_rank=0, session=None, name=None):
         session: Session for TensorFlow v1 compatibility.
         name: Optional name to use during broadcast, will default to the class
               type.
+        process_set: Process set object to limit this operation to a subset of
+                     Horovod processes. Default is the global process set.
     Returns:
         The object that was broadcast from the `root_rank`.
     """
@@ -85,13 +93,13 @@ def broadcast_object(obj, root_rank=0, session=None, name=None):
         cloudpickle.dump(obj, b)
         t = tf.convert_to_tensor(bytearray(b.getvalue()), dtype=tf.uint8)
         sz = tf.convert_to_tensor([t.shape[0]], dtype=tf.int32)
-        to_numpy(broadcast(sz, root_rank, name + '.sz'))
+        to_numpy(broadcast(sz, root_rank, name + '.sz', process_set=process_set))
     else:
         sz = tf.convert_to_tensor([0], dtype=tf.int32)
-        sz = to_numpy(broadcast(sz, root_rank, name + '.sz'))
+        sz = to_numpy(broadcast(sz, root_rank, name + '.sz', process_set=process_set))
         t = tf.zeros(sz.tolist()[0], dtype=tf.uint8)
 
-    t = to_numpy(broadcast(t, root_rank, name + '.t'))
+    t = to_numpy(broadcast(t, root_rank, name + '.t', process_set=process_set))
 
     if rank() != root_rank:
         buf = io.BytesIO(t.tobytes())
@@ -100,14 +108,14 @@ def broadcast_object(obj, root_rank=0, session=None, name=None):
     return obj
 
 
-def broadcast_object_fn(root_rank=0, session=None, name=None):
+def broadcast_object_fn(root_rank=0, session=None, name=None, process_set=global_process_set):
     name = name or 'broadcast_object_fn'
 
     sz = tf.placeholder(tf.int32, [1], name='bcast_object_size')
-    bcast_size = broadcast(sz, root_rank, name + '.sz')
+    bcast_size = broadcast(sz, root_rank, name + '.sz', process_set=process_set)
 
     t = tf.placeholder(tf.uint8, [None], name='bcast_object_data')
-    bcast_data = broadcast(t, root_rank, name + '.t')
+    bcast_data = broadcast(t, root_rank, name + '.t', process_set=process_set)
 
     session = session or ops.get_default_session()
 
@@ -133,7 +141,7 @@ def broadcast_object_fn(root_rank=0, session=None, name=None):
     return _bcast
 
 
-def allgather_object(obj, session=None, name=None):
+def allgather_object(obj, session=None, name=None, process_set=global_process_set):
     """
     Serializes and allgathers an object from all other processes.
 
@@ -142,6 +150,8 @@ def allgather_object(obj, session=None, name=None):
         session: Session for TensorFlow v1 compatibility.
         name: Optional name to use during allgather, will default to the class
               type.
+        process_set: Process set object to limit this operation to a subset of
+                     Horovod processes. Default is the global process set.
 
     Returns:
         The list of objects that were allgathered across all ranks.
@@ -166,12 +176,12 @@ def allgather_object(obj, session=None, name=None):
     t = tf.convert_to_tensor(bytearray(b.getvalue()), dtype=tf.uint8)
     sz = tf.convert_to_tensor([t.shape[0]], dtype=tf.int32)
 
-    sizes = to_numpy(allgather(sz, name=name + '.sz'))
-    gathered = to_numpy(allgather(t, name=name + '.t'))
+    sizes = to_numpy(allgather(sz, name=name + '.sz', process_set=process_set))
+    gathered = to_numpy(allgather(t, name=name + '.t', process_set=process_set))
 
     def select(i):
         start = sum(sizes[:i])
         end = start + sizes[i]
         return gathered[start:end]
 
-    return [load(select(i)) for i in range(size())]
+    return [load(select(i)) for i in range(process_set.size())]

@@ -16,6 +16,8 @@
 
 #include "mpi_controller.h"
 
+#include <numeric>
+
 #include "../common.h"
 #include "../logging.h"
 
@@ -24,6 +26,11 @@ namespace common {
 
 // MPIController
 void MPIController::DoInitialization() {
+  assert(mpi_ctx_.global_comm != MPI_COMM_NULL);
+  assert(mpi_ctx_.mpi_comm != MPI_COMM_NULL);
+  assert(mpi_ctx_.local_comm != MPI_COMM_NULL);
+  assert(mpi_ctx_.cross_comm != MPI_COMM_NULL);
+
   // Check if multi-thread is supported.
   int provided;
   MPI_Query_thread(&provided);
@@ -37,7 +44,27 @@ void MPIController::DoInitialization() {
   MPI_Comm_size(mpi_ctx_.mpi_comm, &size_);
 
   if (is_coordinator_) {
-    LOG(DEBUG) << "Started Horovod with " << size_ << " processes";
+    LOG(DEBUG) << "Started Horovod process set with " << size_ << " processes";
+  }
+
+  // Build mappings (process-set specific rank) <-> (global rank)
+  {
+    MPI_Group global_group;
+    MPI_Comm_group(mpi_ctx_.global_comm, &global_group);
+    MPI_Group process_set_group;
+    MPI_Comm_group(mpi_ctx_.mpi_comm, &process_set_group);
+
+    global_ranks_ = std::vector<int>(size_);
+    auto process_set_ranks = std::vector<int>(size_);
+    std::iota(process_set_ranks.begin(), process_set_ranks.end(), 0);
+    MPI_Group_translate_ranks(process_set_group, size_,
+                              process_set_ranks.data(), global_group,
+                              global_ranks_.data());
+
+    global_rank_to_controller_rank_ = std::unordered_map<int, int>(size_);
+    for (int rank = 0; rank < size_; ++rank) {
+      global_rank_to_controller_rank_[global_ranks_[rank]] = rank;
+    }
   }
 
   // Determine local rank by querying the local communicator.
@@ -229,6 +256,20 @@ void MPIController::Barrier(Communicator communicator) {
     throw std::runtime_error("MPI_Barrier failed, see MPI output for details.");
   }
 }
+
+void MPIController::Allgather2Ints(std::array<int, 2> values,
+                                   std::vector<int>& recv_values) {
+  recv_values.resize(size_ * 2);
+  MPI_Comm comm = mpi_ctx_.GetMPICommunicator(Communicator::GLOBAL);
+  int ret_code = MPI_Allgather(values.data(), 2, MPI_INT,
+                               recv_values.data(), 2, MPI_INT,
+                               comm);
+  if (ret_code != MPI_SUCCESS) {
+    throw std::runtime_error(
+        "MPI_Allgather failed, see MPI output for details.");
+  }
+}
+
 
 } // namespace common
 } // namespace horovod

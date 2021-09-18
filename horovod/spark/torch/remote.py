@@ -73,6 +73,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
     val_reader_worker_count = estimator.getValReaderNumWorker()
+    reader_pool_type = estimator.getReaderPoolType()
 
     # Utility functions
     deserialize = deserialize_fn()
@@ -90,6 +91,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     store = estimator.getStore()
     remote_store = store.to_remote(run_id, dataset_idx)
     is_dbfs = isinstance(store, DBFSLocalStore)
+    storage_options = store.storage_options
 
     @contextlib.contextmanager
     def empty_batch_reader():
@@ -98,7 +100,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     def train(serialized_model, optimizer_cls, model_opt_state_serialized,
               train_rows, val_rows, avg_row_size):
         from petastorm import TransformSpec, make_reader, make_batch_reader
-        from petastorm.pytorch import BatchedDataLoader
+        from petastorm.pytorch import BatchedDataLoader, InMemBatchedDataLoader
         import torch
         import horovod.torch as hvd
 
@@ -122,6 +124,12 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
             shuffle_buffer_size = user_shuffle_buffer_size
 
         cuda_available = torch.cuda.is_available()
+        # We need to check all ranks have same device type for traning.
+        # Horovod doesn't support heterogeneous allreduce for gradients.
+        cuda_avail_list = hvd.allgather_object(cuda_available, name='device type')
+        if cuda_avail_list.count(cuda_available) != hvd.size():
+            raise RuntimeError("All ranks don't have same device type!")
+
         if cuda_available:
             # Horovod: pin GPU to local rank or the assigned GPU from spark.
             torch.cuda.set_device(_get_assigned_gpu_or_default(default=hvd.local_rank()))
@@ -203,7 +211,10 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                 if cuda_available:
                     model.cuda()
 
-
+            if hvd.rank() == 0 and user_verbose:
+                print(f"Training parameters: Epochs: {epochs}\n"
+                      f"Train rows: {train_rows}, Train batch size: {batch_size}, Train_steps_per_epoch: {steps_per_epoch}\n"
+                      f"Checkpoint file: {ckpt_file}, Logs dir: {logs_dir}\n")
             # In general, make_batch_reader is faster than make_reader for reading the dataset.
             # However, we found out that make_reader performs data transformations much faster than
             # make_batch_reader with parallel worker processes. Therefore, the default reader
@@ -221,32 +232,40 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
             # and enables ranks to perform training and validation with
             # unequal number of samples
             with reader_factory(remote_store.train_data_path,
-                                num_epochs=1 if inmemory_cache_all else None,
+                                num_epochs=None,
                                 cur_shard=hvd.rank(),
-                                reader_pool_type='process',
+                                reader_pool_type=reader_pool_type,
                                 workers_count=train_reader_worker_count,
                                 shard_count=hvd.size(),
                                 hdfs_driver=PETASTORM_HDFS_DRIVER,
                                 schema_fields=schema_fields,
                                 transform_spec=transform_spec,
+                                storage_options=storage_options,
                                 **reader_factory_kwargs) as train_reader:
                 with reader_factory(remote_store.val_data_path,
-                                    num_epochs=1 if inmemory_cache_all else None,
+                                    num_epochs=None,
                                     cur_shard=hvd.rank(),
-                                    reader_pool_type='process',
+                                    reader_pool_type=reader_pool_type,
                                     workers_count=val_reader_worker_count,
                                     shard_count=hvd.size(),
                                     hdfs_driver=PETASTORM_HDFS_DRIVER,
                                     schema_fields=schema_fields,
                                     transform_spec=transform_spec,
+                                    storage_options=storage_options,
                                     **reader_factory_kwargs) \
                     if should_validate else empty_batch_reader() as val_reader:
 
-                    train_loader = BatchedDataLoader(train_reader,
-                                                     num_epochs=epochs if inmemory_cache_all else None,
-                                                     batch_size=batch_size,
-                                                     shuffling_queue_capacity=shuffle_buffer_size,
-                                                     inmemory_cache_all=inmemory_cache_all)
+                    if inmemory_cache_all:
+                        # Petastorm introduced InMemBatchedDataLoader class in v0.11.0
+                        train_loader = InMemBatchedDataLoader(train_reader,
+                                                              batch_size=batch_size,
+                                                              num_epochs=epochs,
+                                                              rows_capacity=steps_per_epoch*batch_size,
+                                                              shuffle=True)
+                    else:
+                        train_loader = BatchedDataLoader(train_reader,
+                                                         batch_size=batch_size,
+                                                         shuffling_queue_capacity=shuffle_buffer_size)
                     train_loader_iter = iter(train_loader)
 
                     def prepare_batch(row):
@@ -330,16 +349,26 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                         return aggregate_metrics('train', epoch, train_loss, metric_value_groups)
 
                     if should_validate:
-                        val_loader = BatchedDataLoader(val_reader,
-                                                       num_epochs=epochs if inmemory_cache_all else None,
-                                                       batch_size=batch_size,
-                                                       inmemory_cache_all=inmemory_cache_all)
-                        val_loader_iter = iter(val_loader)
-
                         if validation_steps_per_epoch is None:
                             validation_steps = int(math.ceil(float(val_rows) / val_batch_size / hvd.size()))
                         else:
                             validation_steps = validation_steps_per_epoch
+
+                        if hvd.rank() == 0 and user_verbose:
+                            print(f"Val rows: {val_rows}, Val batch size: {val_batch_size}, Val_steps_per_epoch: {validation_steps}\n")
+
+                        if inmemory_cache_all:
+                            # Petastorm introduced InMemBatchedDataLoader class in v0.11.0
+                            val_loader = InMemBatchedDataLoader(val_reader,
+                                                                batch_size=val_batch_size,
+                                                                num_epochs=epochs,
+                                                                rows_capacity=validation_steps*val_batch_size,
+                                                                shuffle=False)
+                        else:
+                            val_loader = BatchedDataLoader(val_reader,
+                                                           batch_size=val_batch_size,
+                                                           shuffling_queue_capacity=0)
+                        val_loader_iter = iter(val_loader)
 
                         def _validate(epoch):
                             model.eval()

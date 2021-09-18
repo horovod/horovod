@@ -15,6 +15,15 @@
 // limitations under the License.
 // =============================================================================
 
+#if HAVE_GPU
+#if TORCH_VERSION >= 1005000000
+#include <c10/cuda/CUDAStream.h>
+#include <c10/cuda/CUDAException.h>
+#else
+#include <THC/THC.h>
+#endif
+#endif
+
 #include <chrono>
 #include <memory>
 #include <thread>
@@ -26,6 +35,12 @@
 #include "cuda_util.h"
 #include "handle_manager.h"
 #include "ready_event.h"
+
+#if TORCH_VERSION < 1005000000
+#if HAVE_GPU
+extern THCState* state;
+#endif
+#endif
 
 namespace horovod {
 namespace torch {
@@ -61,14 +76,28 @@ void DivideInPlace(::torch::Tensor& tensor, int divisor) {
   tensor.div_(divisor);
 }
 
+#if HAVE_GPU
+gpuStream_t GetGPUStream(int device) {
+  #if TORCH_VERSION >= 1005000000
+  return c10::cuda::getCurrentCUDAStream(device);
+  #else
+  return THCState_getCurrentStreamOnDevice(state, device);
+  #endif
+}
+#endif
+
 int DoAllreduce(::torch::Tensor tensor, ::torch::Tensor output, int divisor,
                 const std::string& name, int reduce_op_int,
-                double prescale_factor, double postscale_factor) {
+                double prescale_factor, double postscale_factor,
+                int process_set_id) {
   ThrowIfError(common::CheckInitialized());
 
   auto handle = handle_manager.AllocateHandle();
   auto device = GetDeviceID(tensor);
-  auto ready_event = RecordReadyEvent(device);
+  common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+  ready_event_list.AddReadyEvent(RecordReadyEvent(device));
+#endif
   auto hvd_tensor = std::make_shared<TorchTensor>(tensor);
   auto hvd_context = std::make_shared<TorchOpContext>(device, output);
   auto hvd_output = std::make_shared<TorchTensor>(output);
@@ -76,15 +105,22 @@ int DoAllreduce(::torch::Tensor tensor, ::torch::Tensor output, int divisor,
   ReduceOp reduce_op = static_cast<ReduceOp>(reduce_op_int);
   
   auto enqueue_result = EnqueueTensorAllreduce(
-      hvd_context, hvd_tensor, hvd_output, ready_event,
+      hvd_context, hvd_tensor, hvd_output, ready_event_list,
       GetOpName("allreduce", name, handle), device,
-      [handle, divisor, output](const Status& status) mutable {
+      [handle, divisor, output, device](const Status& status) mutable {
+#if HAVE_GPU
+        auto hvd_event = status.event;
+        if (hvd_event.event) {
+          auto stream = GetGPUStream(device);
+          HVD_GPU_CHECK(gpuStreamWaitEvent(stream, *(hvd_event.event), 0));
+        }
+#endif
         // Will execute in the `device` context.
         if (divisor > 1) {
           DivideInPlace(output, divisor);
         }
         handle_manager.MarkDone(handle, status);
-      }, reduce_op, prescale_factor, postscale_factor);
+      }, reduce_op, prescale_factor, postscale_factor, process_set_id);
   ThrowIfError(enqueue_result);
 
   return handle;
@@ -92,7 +128,8 @@ int DoAllreduce(::torch::Tensor tensor, ::torch::Tensor output, int divisor,
 
 int DoAllreduceCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int divisor,
                          const std::string& name, int reduce_op_int,
-                         double prescale_factor, double postscale_factor) {
+                         double prescale_factor, double postscale_factor,
+                         int process_set_id) {
   ThrowIfError(common::CheckInitialized());
 
   // Make async copy of input tensor to CPU tensor and record completion event.
@@ -100,7 +137,10 @@ int DoAllreduceCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int div
   auto cpu_buffer =
       tensor.to(::torch::Device(::torch::kCPU), /*non_blocking=*/true);
   auto hvd_cpu_buffer = std::make_shared<TorchTensor>(cpu_buffer);
-  auto ready_event = RecordReadyEvent(device);
+  common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+  ready_event_list.AddReadyEvent(RecordReadyEvent(device));
+#endif
 
   auto hvd_context =
       std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_buffer);
@@ -108,7 +148,7 @@ int DoAllreduceCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int div
   ReduceOp reduce_op = static_cast<ReduceOp>(reduce_op_int);
   auto handle = handle_manager.AllocateHandle();
   auto enqueue_result = EnqueueTensorAllreduce(
-      hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, ready_event,
+      hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, ready_event_list,
       GetOpName("allreduce", name, handle), CPU_DEVICE_ID,
       [handle, divisor, cpu_buffer, output,
        device](const Status& status) mutable {
@@ -120,7 +160,7 @@ int DoAllreduceCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int div
           DivideInPlace(output, divisor);
         }
         handle_manager.MarkDone(handle, status);
-      }, reduce_op, prescale_factor, postscale_factor);
+      }, reduce_op, prescale_factor, postscale_factor, process_set_id);
   ThrowIfError(enqueue_result);
 
   return handle;
@@ -129,17 +169,21 @@ int DoAllreduceCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int div
 int DoGroupedAllreduce(const std::vector<::torch::Tensor>& tensors,
                        const std::vector<::torch::Tensor>& outputs, int divisor,
                        const std::string& name, int reduce_op_int,
-                       double prescale_factor, double postscale_factor) {
+                       double prescale_factor, double postscale_factor,
+                       int process_set_id) {
   ThrowIfError(common::CheckInitialized());
 
   auto handle = handle_manager.AllocateHandle();
   auto device = GetDeviceID(tensors[0]);
-  auto ready_event = RecordReadyEvent(device);
+  common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+  ready_event_list.AddReadyEvent(RecordReadyEvent(device));
+#endif
 
   std::vector<std::shared_ptr<Tensor>> hvd_tensors;
   std::vector<std::shared_ptr<OpContext>> hvd_contexts;
   std::vector<std::shared_ptr<Tensor>> hvd_outputs;
-  std::vector<std::shared_ptr<ReadyEvent>> ready_events;
+  std::vector<common::ReadyEventList> ready_event_lists;
   std::vector<StatusCallback> callbacks;
   std::vector<std::string> names;
 
@@ -147,7 +191,7 @@ int DoGroupedAllreduce(const std::vector<::torch::Tensor>& tensors,
   hvd_tensors.reserve(num_tensors);
   hvd_contexts.reserve(num_tensors);
   hvd_outputs.reserve(num_tensors);
-  ready_events.reserve(num_tensors);
+  ready_event_lists.reserve(num_tensors);
   names.reserve(num_tensors);
   callbacks.reserve(num_tensors);
 
@@ -162,11 +206,19 @@ int DoGroupedAllreduce(const std::vector<::torch::Tensor>& tensors,
     hvd_tensors.emplace_back(std::make_shared<TorchTensor>(tensors[i]));
     hvd_contexts.emplace_back(std::make_shared<TorchOpContext>(device, outputs[i]));
     hvd_outputs.emplace_back(std::make_shared<TorchTensor>(outputs[i]));
-    ready_events.emplace_back(ready_event); // Same for all tensors
+    ready_event_lists.emplace_back(ready_event_list); // Same for all tensors in group
     names.emplace_back(base_name + "_" + std::to_string(i+1) + "of" + std::to_string(num_tensors));
     auto output = outputs[i];
     callbacks.emplace_back(
-      [handle, divisor, output, callback_mutex, callback_count, num_tensors](const Status& status) mutable {
+      [handle, divisor, output, callback_mutex, callback_count, num_tensors,
+       device](const Status& status) mutable {
+#if HAVE_GPU
+        auto hvd_event = status.event;
+        if (hvd_event.event) {
+          auto stream = GetGPUStream(device);
+          HVD_GPU_CHECK(gpuStreamWaitEvent(stream, *(hvd_event.event), 0));
+        }
+#endif
         // Will execute in the `device` context.
         if (divisor > 1) {
           DivideInPlace(output, divisor);
@@ -184,17 +236,19 @@ int DoGroupedAllreduce(const std::vector<::torch::Tensor>& tensors,
   ReduceOp reduce_op = static_cast<ReduceOp>(reduce_op_int);
 
   auto enqueue_result = EnqueueTensorAllreduces(
-      hvd_contexts, hvd_tensors, hvd_outputs, ready_events,
-      names, device, callbacks, reduce_op, prescale_factor, postscale_factor);
+      hvd_contexts, hvd_tensors, hvd_outputs, ready_event_lists,
+      names, device, callbacks, reduce_op, prescale_factor, postscale_factor,
+      process_set_id);
   ThrowIfError(enqueue_result);
 
   return handle;
 }
 
 int DoGroupedAllreduceCudaOnCPU(const std::vector<::torch::Tensor>& tensors,
-                       const std::vector<::torch::Tensor>& outputs, int divisor,
-                       const std::string& name, int reduce_op_int,
-                       double prescale_factor, double postscale_factor) {
+                                const std::vector<::torch::Tensor>& outputs,
+                                int divisor, const std::string& name,
+                                int reduce_op_int, double prescale_factor,
+                                double postscale_factor, int process_set_id) {
   ThrowIfError(common::CheckInitialized());
 
   auto handle = handle_manager.AllocateHandle();
@@ -202,14 +256,14 @@ int DoGroupedAllreduceCudaOnCPU(const std::vector<::torch::Tensor>& tensors,
 
   std::vector<std::shared_ptr<Tensor>> cpu_buffers;
   std::vector<std::shared_ptr<OpContext>> hvd_contexts;
-  std::vector<std::shared_ptr<ReadyEvent>> ready_events;
+  std::vector<common::ReadyEventList> ready_event_lists;
   std::vector<StatusCallback> callbacks;
   std::vector<std::string> names;
 
   auto num_tensors = tensors.size();
   cpu_buffers.reserve(num_tensors);
   hvd_contexts.reserve(num_tensors);
-  ready_events.reserve(num_tensors);
+  ready_event_lists.reserve(num_tensors);
   names.reserve(num_tensors);
   callbacks.reserve(num_tensors);
 
@@ -225,7 +279,11 @@ int DoGroupedAllreduceCudaOnCPU(const std::vector<::torch::Tensor>& tensors,
         tensors[i].to(::torch::Device(::torch::kCPU), /*non_blocking=*/true);
     cpu_buffers.emplace_back(std::make_shared<TorchTensor>(cpu_buffer));
     hvd_contexts.emplace_back(std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_buffer));
-    ready_events.emplace_back(RecordReadyEvent(device));
+    common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+    ready_event_list.AddReadyEvent(RecordReadyEvent(device));
+#endif
+    ready_event_lists.emplace_back(ready_event_list);
     names.emplace_back(base_name + "_" + std::to_string(i+1) + "of" + std::to_string(num_tensors));
     auto output = outputs[i];
     callbacks.emplace_back(
@@ -251,35 +309,46 @@ int DoGroupedAllreduceCudaOnCPU(const std::vector<::torch::Tensor>& tensors,
   ReduceOp reduce_op = static_cast<ReduceOp>(reduce_op_int);
 
   auto enqueue_result = EnqueueTensorAllreduces(
-      hvd_contexts, cpu_buffers, cpu_buffers, ready_events,
-      names, device, callbacks, reduce_op, prescale_factor, postscale_factor);
+      hvd_contexts, cpu_buffers, cpu_buffers, ready_event_lists, names, device,
+      callbacks, reduce_op, prescale_factor, postscale_factor, process_set_id);
   ThrowIfError(enqueue_result);
 
   return handle;
 }
 
-int DoAllgather(::torch::Tensor tensor, ::torch::Tensor output, const std::string& name) {
+int DoAllgather(::torch::Tensor tensor, ::torch::Tensor output,
+                const std::string& name, int process_set_id) {
   ThrowIfError(common::CheckInitialized());
 
   auto device = GetDeviceID(tensor);
-  auto ready_event = RecordReadyEvent(device);
+  common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+  ready_event_list.AddReadyEvent(RecordReadyEvent(device));
+#endif
   auto hvd_tensor = std::make_shared<TorchTensor>(tensor);
   auto hvd_context = std::make_shared<TorchOpContext>(device, output);
 
   auto handle = handle_manager.AllocateHandle();
   auto enqueue_result =
-      EnqueueTensorAllgather(hvd_context, hvd_tensor, ready_event,
+      EnqueueTensorAllgather(hvd_context, hvd_tensor, ready_event_list,
                              GetOpName("allgather", name, handle), device,
-                             [handle](const Status& status) {
+                             [handle, device](const Status& status) {
+#if HAVE_GPU
+                               auto hvd_event = status.event;
+                               if (hvd_event.event) {
+                                 auto stream = GetGPUStream(device);
+                                 HVD_GPU_CHECK(gpuStreamWaitEvent(stream, *(hvd_event.event), 0));
+                               }
+#endif
                                handle_manager.MarkDone(handle, status);
-                             });
+                             }, process_set_id);
   ThrowIfError(enqueue_result);
 
   return handle;
 }
 
 int DoAllgatherCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output,
-                         const std::string& name) {
+                         const std::string& name, int process_set_id) {
   ThrowIfError(common::CheckInitialized());
 
   // Make async copy of input tensor to CPU tensor and record completion event.
@@ -287,7 +356,10 @@ int DoAllgatherCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output,
   auto cpu_tensor =
       tensor.to(::torch::Device(::torch::kCPU), /*non_blocking=*/true);
   auto hvd_cpu_tensor = std::make_shared<TorchTensor>(cpu_tensor);
-  auto ready_event = RecordReadyEvent(device);
+  common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+  ready_event_list.AddReadyEvent(RecordReadyEvent(device));
+#endif
 
   auto cpu_output = ::torch::empty_like(cpu_tensor);
   auto hvd_cpu_output = std::make_shared<TorchTensor>(cpu_output);
@@ -296,7 +368,7 @@ int DoAllgatherCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output,
 
   auto handle = handle_manager.AllocateHandle();
   auto enqueue_result = EnqueueTensorAllgather(
-      hvd_context, hvd_cpu_tensor, ready_event,
+      hvd_context, hvd_cpu_tensor, ready_event_list,
       GetOpName("allgather", name, handle), CPU_DEVICE_ID,
       [handle, cpu_output, output, device](const Status& status) mutable {
         // Since the operation was on CPU, need to perform copy with the GPU
@@ -306,18 +378,21 @@ int DoAllgatherCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output,
         output.resize_(cpu_output.sizes());
         output.copy_(cpu_output);
         handle_manager.MarkDone(handle, status);
-      });
+      }, process_set_id);
   ThrowIfError(enqueue_result);
 
   return handle;
 }
 
 int DoBroadcast(::torch::Tensor tensor, ::torch::Tensor output, int root_rank,
-                const std::string& name) {
+                const std::string& name, int process_set_id) {
   ThrowIfError(common::CheckInitialized());
 
   auto device = GetDeviceID(tensor);
-  auto ready_event = RecordReadyEvent(device);
+  common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+  ready_event_list.AddReadyEvent(RecordReadyEvent(device));
+#endif
   auto hvd_tensor = std::make_shared<TorchTensor>(tensor);
   auto hvd_context = std::make_shared<TorchOpContext>(device, output);
   std::shared_ptr<Tensor> hvd_output = nullptr;
@@ -333,17 +408,24 @@ int DoBroadcast(::torch::Tensor tensor, ::torch::Tensor output, int root_rank,
   auto handle = handle_manager.AllocateHandle();
   auto enqueue_result =
       EnqueueTensorBroadcast(hvd_context, hvd_tensor, hvd_output, root_rank,
-                             ready_event, GetOpName("broadcast", name, handle),
-                             device, [handle](const Status& status) {
+                             ready_event_list, GetOpName("broadcast", name, handle),
+                             device, [handle, device](const Status& status) {
+#if HAVE_GPU
+                               auto hvd_event = status.event;
+                               if (hvd_event.event) {
+                                 auto stream = GetGPUStream(device);
+                                 HVD_GPU_CHECK(gpuStreamWaitEvent(stream, *(hvd_event.event), 0));
+                               }
+#endif
                                handle_manager.MarkDone(handle, status);
-                             });
+                             }, process_set_id);
   ThrowIfError(enqueue_result);
 
   return handle;
 }
 
 int DoBroadcastCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int root_rank,
-                         const std::string& name) {
+                         const std::string& name, int process_set_id) {
   ThrowIfError(common::CheckInitialized());
 
   // Make async copy of input tensor to CPU tensor and record completion event.
@@ -351,14 +433,17 @@ int DoBroadcastCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int roo
   auto cpu_buffer =
       tensor.to(::torch::Device(::torch::kCPU), /*non_blocking=*/true);
   auto hvd_cpu_buffer = std::make_shared<TorchTensor>(cpu_buffer);
-  auto ready_event = RecordReadyEvent(device);
+  common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+  ready_event_list.AddReadyEvent(RecordReadyEvent(device));
+#endif
 
   auto hvd_context =
       std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_buffer);
 
   auto handle = handle_manager.AllocateHandle();
   auto enqueue_result = EnqueueTensorBroadcast(
-      hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, root_rank, ready_event,
+      hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, root_rank, ready_event_list,
       GetOpName("broadcast", name, handle), CPU_DEVICE_ID,
       [handle, cpu_buffer, output, device](const Status& status) mutable {
         // Since the operation was on CPU, need to perform copy with the GPU
@@ -366,7 +451,7 @@ int DoBroadcastCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int roo
         with_device device_guard(device);
         output.copy_(cpu_buffer);
         handle_manager.MarkDone(handle, status);
-      });
+      }, process_set_id);
   ThrowIfError(enqueue_result);
 
   return handle;
@@ -374,11 +459,14 @@ int DoBroadcastCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int roo
 
 int DoAlltoall(::torch::Tensor tensor, ::torch::Tensor splits,
                ::torch::Tensor output, ::torch::Tensor output_received_splits,
-               const std::string& name) {
+               const std::string& name, int process_set_id) {
   ThrowIfError(common::CheckInitialized());
 
   auto device = GetDeviceID(tensor);
-  auto ready_event = RecordReadyEvent(device);
+  common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+  ready_event_list.AddReadyEvent(RecordReadyEvent(device));
+#endif
   auto hvd_tensor = std::make_shared<TorchTensor>(tensor);
 
   // Make sync copy of splits tensor to CPU if needed
@@ -397,17 +485,24 @@ int DoAlltoall(::torch::Tensor tensor, ::torch::Tensor splits,
 
   auto handle = handle_manager.AllocateHandle();
   auto enqueue_result = EnqueueTensorAlltoall(
-      hvd_context, hvd_tensor, hvd_cpu_splits, ready_event,
+      hvd_context, hvd_tensor, hvd_cpu_splits, ready_event_list,
       GetOpName("alltoall", name, handle), device,
       [handle, cpu_received_splits, output_received_splits,
-       received_splits_device](const Status& status) mutable {
+       received_splits_device, device](const Status& status) mutable {
+#if HAVE_GPU
+        auto hvd_event = status.event;
+        if (hvd_event.event) {
+          auto stream = GetGPUStream(device);
+          HVD_GPU_CHECK(gpuStreamWaitEvent(stream, *(hvd_event.event), 0));
+        }
+#endif
         if (received_splits_device != CPU_DEVICE_ID) {
           with_device device_guard(received_splits_device);
           output_received_splits.resize_(cpu_received_splits.sizes());
           output_received_splits.copy_(cpu_received_splits);
         }
         handle_manager.MarkDone(handle, status); 
-      });
+      }, process_set_id);
   ThrowIfError(enqueue_result);
 
   return handle;
@@ -416,7 +511,7 @@ int DoAlltoall(::torch::Tensor tensor, ::torch::Tensor splits,
 int DoAlltoallCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor splits,
                         ::torch::Tensor output,
                         ::torch::Tensor output_received_splits,
-                        const std::string& name) {
+                        const std::string& name, int process_set_id) {
   ThrowIfError(common::CheckInitialized());
 
   // Make sync copy of splits tensor to CPU if needed
@@ -431,7 +526,10 @@ int DoAlltoallCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor splits,
   auto cpu_tensor =
       tensor.to(::torch::Device(::torch::kCPU), /*non_blocking=*/true);
   auto hvd_cpu_tensor = std::make_shared<TorchTensor>(cpu_tensor);
-  auto ready_event = RecordReadyEvent(device);
+  common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+  ready_event_list.AddReadyEvent(RecordReadyEvent(device));
+#endif
 
   auto cpu_output = ::torch::empty_like(cpu_tensor);
   auto hvd_cpu_output = std::make_shared<TorchTensor>(cpu_output);
@@ -447,7 +545,7 @@ int DoAlltoallCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor splits,
 
   auto handle = handle_manager.AllocateHandle();
   auto enqueue_result = EnqueueTensorAlltoall(
-      hvd_context, hvd_cpu_tensor, hvd_cpu_splits, ready_event,
+      hvd_context, hvd_cpu_tensor, hvd_cpu_splits, ready_event_list,
       GetOpName("alltoall", name, handle), CPU_DEVICE_ID,
       [handle, cpu_output, output, device, cpu_received_splits,
        output_received_splits,
@@ -465,6 +563,40 @@ int DoAlltoallCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor splits,
           output_received_splits.copy_(cpu_received_splits);
         }
         handle_manager.MarkDone(handle, status);
+      }, process_set_id);
+  ThrowIfError(enqueue_result);
+
+  return handle;
+}
+
+int DoJoin(::torch::Tensor output_last_joined_rank, int device) {
+  ThrowIfError(common::CheckInitialized());
+
+#if !HOROVOD_GPU_ALLREDUCE
+  device = CPU_DEVICE_ID;
+#endif
+
+  auto handle = handle_manager.AllocateHandle();
+  common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+  ready_event_list.AddReadyEvent(RecordReadyEvent(device));
+#endif
+  auto hvd_context =
+      std::make_shared<TorchOpContext>(device, output_last_joined_rank);
+  std::shared_ptr<Tensor> hvd_output = std::make_shared<TorchTensor>(
+      output_last_joined_rank);
+
+  auto enqueue_result = EnqueueJoin(
+      hvd_context, hvd_output, ready_event_list, JOIN_TENSOR_NAME, device,
+      [handle, device](const Status& status) mutable {
+#if HAVE_GPU
+        auto hvd_event = status.event;
+        if (hvd_event.event) {
+          auto stream = GetGPUStream(device);
+          HVD_GPU_CHECK(gpuStreamWaitEvent(stream, *(hvd_event.event), 0));
+        }
+#endif
+        handle_manager.MarkDone(handle, status);
       });
   ThrowIfError(enqueue_result);
 
@@ -480,30 +612,6 @@ void WaitAndClear(int handle) {
   }
   auto status = handle_manager.ReleaseHandle(handle);
   ThrowIfError(*status);
-}
-
-int DoJoin(int device) {
-  ThrowIfError(common::CheckInitialized());
-
-#if !HOROVOD_GPU_ALLREDUCE
-  device = CPU_DEVICE_ID;
-#endif
-
-  auto handle = handle_manager.AllocateHandle();
-  auto ready_event = RecordReadyEvent(device);
-  auto output = ::torch::empty(1);
-  auto hvd_context = std::make_shared<TorchOpContext>(device, output);
-
-  auto enqueue_result = EnqueueJoin(
-      hvd_context, ready_event,
-      JOIN_TENSOR_NAME, device,
-      [handle](const Status& status) mutable {
-        handle_manager.MarkDone(handle, status);
-      });
-  ThrowIfError(enqueue_result);
-
-  WaitAndClear(handle);
-  return handle;
 }
 
 void Reset() {
