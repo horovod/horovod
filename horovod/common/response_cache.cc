@@ -361,7 +361,6 @@ const std::set<uint32_t>& CacheCoordinator::timeline_bits() const {
 }
 
 bool CacheCoordinator::should_shut_down() const {
-  assert(synced_);
   return should_shut_down_;
 }
 

@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from petastorm.pytorch import BatchedDataLoader
+from petastorm.pytorch import BatchedDataLoader, InMemBatchedDataLoader
 from horovod.data import BaseDataLoader, AsyncDataLoaderMixin
 
 
@@ -32,7 +32,8 @@ class PytorchDataLoader(BaseDataLoader):
               f"limit_step_per_epoch={limit_step_per_epoch}")
 
     def __len__(self):
-        return self.limit_step_per_epoch if self.limit_step_per_epoch != -1 else len(self.reader)
+        # We cannot infer length from reader.
+        return self.limit_step_per_epoch if self.limit_step_per_epoch != -1 else 0
 
     def _iterate(self):
         # Reset the reader if needed.
@@ -83,7 +84,7 @@ class PytorchInfiniteDataLoader(PytorchDataLoader):
             self.reader,
             batch_size=self.batch_size,
             shuffling_queue_capacity=self.shuffling_queue_capacity)
-        self.iterater = iter(self.data_loader)
+        self.iterator = iter(self.data_loader)
 
     def _iterate(self):
         num_steps = 0
@@ -95,10 +96,56 @@ class PytorchInfiniteDataLoader(PytorchDataLoader):
                 break
             num_steps += 1
 
-            yield next(self.iterater)
+            yield next(self.iterator)
 
 
 class PytorchInfiniteAsyncDataLoader(AsyncDataLoaderMixin, PytorchInfiniteDataLoader):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class PytorchInmemDataLoader(BaseDataLoader):
+    def __init__(self, reader, batch_size, num_epochs, name="",
+                 shuffle=False, limit_step_per_epoch=-1, verbose=False):
+        self.batch_size = batch_size
+        self.limit_step_per_epoch = limit_step_per_epoch
+        self.name = name
+        self.verbose = verbose
+
+        if limit_step_per_epoch == -1:
+            raise ValueError('limit_step_per_epoch cannot be -1 for inmem dataloader')
+
+        print(f"[{self.name}]: Initializing petastorm inmem_dataloader with batch_size={batch_size}"
+              f"num_epochs={num_epochs}, "
+              f"shuffle={shuffle}"
+              f"limit_step_per_epoch={limit_step_per_epoch}")
+
+        self.dataloader = InMemBatchedDataLoader(reader, batch_size=batch_size, num_epochs=num_epochs,
+                                                 rows_capacity=batch_size*limit_step_per_epoch, shuffle=shuffle)
+        self.iterator = iter(self.dataloader)
+
+    def __len__(self):
+        # We cannot infer length from reader.
+        return self.limit_step_per_epoch
+
+    def _iterate(self):
+        num_steps = 0
+        self._print_verbose(f"[{self.name}]: Start to generate batch data. limit_step_per_epoch={self.limit_step_per_epoch}")
+
+        while True:
+            if num_steps == self.limit_step_per_epoch:
+                self._print_verbose(f"[{self.name}]: Reach limit_step_per_epoch. Stop at step {num_steps}.")
+                break
+            num_steps += 1
+
+            yield next(self.iterator)
+
+    def _print_verbose(self, *args, **kwargs):
+        if self.verbose:
+            print(*args, **kwargs)
+
+
+class PytorchInmemAsyncDataLoader(AsyncDataLoaderMixin, PytorchInmemDataLoader):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

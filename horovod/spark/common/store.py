@@ -29,8 +29,9 @@ import pyarrow.parquet as pq
 
 import fsspec
 from fsspec.core import split_protocol
+from fsspec.utils import update_storage_options
 
-from horovod.spark.common.util import is_databricks
+from horovod.spark.common.util import is_databricks, host_hash
 
 
 class Store(object):
@@ -194,9 +195,17 @@ class AbstractFilesystemStore(Store):
         :return: the base 64 encoded model bytes of the checkpoint model.
         """
         from horovod.runner.common.util import codec
+        import tensorflow
+        from tensorflow import keras
+        from horovod.spark.keras.util import TFKerasUtil
 
-        model_bytes = self.read(ckpt_path)
-        return codec.dumps_base64(model_bytes)
+        if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
+            model_bytes = self.read(ckpt_path)
+            return codec.dumps_base64(model_bytes)
+        else:
+            with keras.utils.custom_object_scope(custom_objects):
+                model = keras.models.load_model(ckpt_path)
+            return TFKerasUtil.serialize_model(model)
 
     def write_text(self, path, text):
         with self.fs.open(self.get_localized_path(path), 'w') as f:
@@ -225,7 +234,8 @@ class AbstractFilesystemStore(Store):
         localized_path = self.get_localized_path(path)
         if localized_path.endswith('/'):
             localized_path = localized_path[:-1] # Remove the slash at the end if there is one
-        metadata_cache = localized_path+"_cached_metadata.pkl"
+        file_hash = host_hash()
+        metadata_cache = localized_path+"_"+file_hash+"_cached_metadata.pkl"
         return metadata_cache
 
     def saving_runs(self):
@@ -300,6 +310,7 @@ class FilesystemStore(AbstractFilesystemStore):
         run_path = self.get_run_path(run_id)
 
         def fn(local_run_path):
+            print(f"Syncing dir {local_run_path} to dir {run_path}")
             self.fs.put(local_run_path, run_path, recursive=True, overwrite=True)
 
         return fn
@@ -328,8 +339,12 @@ class FilesystemStore(AbstractFilesystemStore):
 
     #@staticmethod
     def _get_fs_and_protocol(self):
+        storage_options = self.storage_options or {}
         protocol, path = split_protocol(self.prefix_path)
-        fs = fsspec.filesystem(protocol, **self.storage_options)
+        cls = fsspec.get_filesystem_class(protocol)
+        options = cls._get_kwargs_from_urls(self.prefix_path)
+        update_storage_options(options, storage_options)
+        fs = cls(**options)
         return fs, protocol
 
     @classmethod
@@ -429,6 +444,8 @@ class HDFSStore(AbstractFilesystemStore):
         hdfs_root_path = self.get_run_path(run_id)
 
         def fn(local_run_path):
+            print(f"Syncing local dir {local_run_path} to hdfs dir {hdfs_root_path}")
+
             if state.fs is None:
                 state.fs = get_filesystem()
 
@@ -441,6 +458,7 @@ class HDFSStore(AbstractFilesystemStore):
 
             for local_dir, dirs, files in os.walk(local_run_path):
                 hdfs_dir = os.path.join(hdfs_root_path, local_dir[prefix:])
+
                 for file in files:
                     local_path = os.path.join(local_dir, file)
                     modified_ts = int(os.path.getmtime(local_path))

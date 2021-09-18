@@ -41,12 +41,18 @@ enum ReduceOp {
 
 extern "C" {
 
-// C interface to initialize Horovod.
-void horovod_init(const int *ranks, int nranks);
+// C interface to initialize Horovod. Returns false on failure.
+bool horovod_init(const int* ranks, int nranks, const int* process_set_ranks,
+                  const int* process_set_sizes, int num_process_sets);
 
 #if HAVE_MPI
-// C interface to initialize Horovod with the given MPI communicator.
-void horovod_init_comm(MPI_Comm comm);
+// C interface to initialize Horovod with an array of existing MPI
+// communicators. We will build matching process sets for these in addition to
+// those defined via rank indices. Returns false on failure.
+bool horovod_init_multi_comm(MPI_Comm* comm, int ncomms,
+                             const int* process_set_ranks_via_ranks,
+                             const int* process_set_sizes_via_ranks,
+                             int num_process_sets_via_ranks);
 #endif
 
 // C interface to shut down Horovod.
@@ -109,17 +115,81 @@ int horovod_reduce_op_sum();
 // C interface to return value of the ReduceOp::ADASUM enum field.
 int horovod_reduce_op_adasum();
 
+extern const int HOROVOD_PROCESS_SET_ERROR_INIT;
+extern const int HOROVOD_PROCESS_SET_ERROR_DYNAMIC;
+extern const int HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET;
+extern const int HOROVOD_PROCESS_SET_ERROR_FOREIGN_SET;
+extern const int HOROVOD_PROCESS_SET_ERROR_EXISTING_SET;
+extern const int HOROVOD_PROCESS_SET_ERROR_SHUTDOWN;
+
+// C interface to register a new process set containing the given ranks
+// (blocking). Returns positive process set id or an error code:
+// HOROVOD_PROCESS_SET_ERROR_EXISTING_SET if a process set containing the
+// same ranks (after sorting) has been added before,
+// HOROVOD_PROCESS_SET_ERROR_INIT if Horovod is not initialized,
+// HOROVOD_PROCESS_SET_ERROR_SHUTDOWN if Horovod is shutting down,
+// HOROVOD_PROCESS_SET_ERROR_DYNAMIC if dynamic process sets are not enabled,
+int horovod_add_process_set(const int *ranks, int nranks);
+
+// C interface to deregister a previously registered process set (blocking).
+// Returns process_set_id or an error code:
+// HOROVOD_PROCESS_SET_ERROR_INIT if Horovod is not initialized,
+// HOROVOD_PROCESS_SET_ERROR_SHUTDOWN if Horovod is shutting down,
+// HOROVOD_PROCESS_SET_ERROR_DYNAMIC if dynamic process sets are not enabled,
+// HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET if that process set is unknown,
+int horovod_remove_process_set(int process_set_id);
+
+// C interface to return the rank of this process counted in the specified
+// process set or an error code:
+// HOROVOD_PROCESS_SET_ERROR_INIT if Horovod is not initialized,
+// HOROVOD_PROCESS_SET_ERROR_FOREIGN_SET if the process is not part of this set,
+// HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET if the process set is unknown,
+int horovod_process_set_rank(int process_set_id);
+
+// C interface to return the size of the specified process set or an error code:
+// HOROVOD_PROCESS_SET_ERROR_INIT if Horovod is not initialized,
+// HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET if the process set is unknown,
+int horovod_process_set_size(int process_set_id);
+
+// C interface to return 0 or 1 depending on whether the current process is
+// included in the specified process set or an error code:
+// HOROVOD_PROCESS_SET_ERROR_INIT if Horovod is not initialized,
+// HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET if the process set is unknown,
+int horovod_process_set_included(int process_set_id);
+
+// C interface to return the current number of process sets.
+int horovod_number_of_process_sets();
+
+// C interface to assign the ids of all process sets to the preallocated array.
+void horovod_process_set_ids(int* ids_prealloc);
+
+// C interface to assign the ranks belonging to the process sets with the given
+// id to the preallocated array. Returns 0 or an error code:
+// HOROVOD_PROCESS_SET_ERROR_INIT if Horovod is not initialized,
+// HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET if the process set is unknown,
+int horovod_process_set_ranks(int id, int* ranks_prealloc);
+
+#if HAVE_MPI
+// C interface to return process set id corresponding to processes belonging
+// to this MPI communicator or an error code:
+// HOROVOD_PROCESS_SET_ERROR_INIT if Horovod is not initialized,
+// HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET if there is no process set
+// corresponding to this communicator.
+int horovod_comm_process_set(MPI_Comm comm);
+#endif // HAVE_MPI
+
 }
 
 Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,
                               std::shared_ptr<Tensor> output,
                               ReadyEventList ready_event_list,
-                              std::string name, const int device,
+                              std::string name, int device,
                               StatusCallback callback,
                               ReduceOp reduce_op = ReduceOp::SUM,
                               double prescale_factor = 1.0,
-                              double postscale_factor = 1.0);
+                              double postscale_factor = 1.0,
+                              int32_t process_set_id = 0);
 
 Status EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts,
                                std::vector<std::shared_ptr<Tensor>>& tensors,
@@ -130,32 +200,38 @@ Status EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts
                                std::vector<StatusCallback>& callbacks,
                                ReduceOp reduce_op = ReduceOp::SUM,
                                double prescale_factor = 1.0,
-                               double postscale_factor = 1.0);
+                               double postscale_factor = 1.0,
+                               int32_t process_set_id = 0);
 
 Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,
                               ReadyEventList ready_event_list,
-                              const std::string& name, const int device,
-                              StatusCallback callback);
+                              const std::string& name, int device,
+                              StatusCallback callback,
+                              int32_t process_set_id = 0);
 
 Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,
                               std::shared_ptr<Tensor> output, int root_rank,
                               ReadyEventList ready_event_list,
-                              const std::string& name, const int device,
-                              StatusCallback callback);
+                              const std::string& name, int device,
+                              StatusCallback callback,
+                              int32_t process_set_id = 0);
 
 Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
                              std::shared_ptr<Tensor> tensor,
                              std::shared_ptr<Tensor> splits,
                              ReadyEventList ready_event_list,
-                             const std::string& name, const int device,
-                             StatusCallback callback);
+                             const std::string& name, int device,
+                             StatusCallback callback,
+                             int32_t process_set_id = 0);
 
 Status EnqueueJoin(std::shared_ptr<OpContext> context,
+                   std::shared_ptr<Tensor> output_last_joined_rank,
                    ReadyEventList ready_event_list,
-                   const std::string& name, const int device,
-                   StatusCallback callback);
+                   const std::string& name, int device,
+                   StatusCallback callback,
+                   int32_t process_set_id = 0);
 
 } // namespace common
 } // namespace horovod

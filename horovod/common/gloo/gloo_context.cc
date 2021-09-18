@@ -16,10 +16,14 @@
 #include "gloo_context.h"
 
 #include <chrono>
+#include <iterator>
 #include <memory>
+#include <numeric>
 #include <sstream>
 #include <stdexcept>
 
+#include "gloo/allgather.h"
+#include "gloo/barrier.h"
 #include "gloo/rendezvous/context.h"
 #include "gloo/rendezvous/file_store.h"
 #include "gloo/rendezvous/prefix_store.h"
@@ -79,6 +83,12 @@ std::shared_ptr<gloo::Context> Rendezvous(const std::string& prefix,
   auto context = std::make_shared<gloo::rendezvous::Context>(rank, size);
   context->setTimeout(timeout);
   context->connectFullMesh(*store, dev);
+  {
+    // Don't finalize the store until all clients have had a chance to connect.
+    gloo::BarrierOptions opts(context);
+    opts.setTimeout(timeout);
+    gloo::barrier(opts);
+  }
   store->Finalize();
   return context;
 }
@@ -92,27 +102,30 @@ void GlooContext::InitializeFromMPI(MPIContext& mpi_ctx,
 
   // TODO(sihan): Add support for multiple interfaces:
   //  https://github.com/facebookincubator/gloo/issues/190
+  gloo_iface_ = gloo_iface;
   attr device_attr;
-  device_attr.iface = gloo_iface;
+  device_attr.iface = gloo_iface_;
   device_attr.ai_family = AF_UNSPEC;
   auto dev = CreateDevice(device_attr);
-  auto timeout = GetTimeoutFromEnv();
+  timeout_ = GetTimeoutFromEnv();
 
   auto context =
       std::make_shared<gloo::mpi::Context>(mpi_ctx.GetMPICommunicator(GLOBAL));
-  context->setTimeout(timeout);
+  context->setTimeout(timeout_);
   context->connectFullMesh(dev);
   ctx = context;
 
+  global_ctx = ctx;
+
   auto cross_context =
       std::make_shared<gloo::mpi::Context>(mpi_ctx.GetMPICommunicator(CROSS));
-  cross_context->setTimeout(timeout);
+  cross_context->setTimeout(timeout_);
   cross_context->connectFullMesh(dev);
   cross_ctx = cross_context;
 
   auto local_context =
       std::make_shared<gloo::mpi::Context>(mpi_ctx.GetMPICommunicator(LOCAL));
-  local_context->setTimeout(timeout);
+  local_context->setTimeout(timeout_);
   local_context->connectFullMesh(dev);
   local_ctx = local_context;
 }
@@ -126,15 +139,16 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
   // Create a device for communication
   // TODO(sihan): Add support for multiple interfaces:
   //  https://github.com/facebookincubator/gloo/issues/190
+  gloo_iface_ = gloo_iface;
   attr device_attr;
-  device_attr.iface = gloo_iface;
+  device_attr.iface = gloo_iface_;
 
   device_attr.ai_family = AF_UNSPEC;
   auto dev = CreateDevice(device_attr);
-  auto timeout = GetTimeoutFromEnv();
+  timeout_ = GetTimeoutFromEnv();
 
   auto host_env = std::getenv(HOROVOD_HOSTNAME);
-  std::string hostname = host_env != nullptr ? std::string(host_env) : std::string("localhost");
+  hostname_ = host_env != nullptr ? std::string(host_env) : std::string("localhost");
 
   int rank = GetIntEnvOrDefault(HOROVOD_RANK, 0);
   int size = GetIntEnvOrDefault(HOROVOD_SIZE, 1);
@@ -158,7 +172,7 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
     std::string scope = HOROVOD_GLOO_GET_RANK_AND_SIZE;
     HTTPStore init_store(server_addr, rendezvous_port, scope, rank);
 
-    auto key = hostname + ":" + std::to_string(local_rank);
+    auto key = hostname_ + ":" + std::to_string(local_rank);
     std::vector<char> result = init_store.get(key);
     std::string s(result.begin(), result.end());
     std::stringstream ss(s);
@@ -174,7 +188,7 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
     if (rank == -1) {
       // Signals that this host is not part of the job
       std::ostringstream out;
-      out << hostname << "[" << local_rank << "] has been removed from elastic job";
+      out << hostname_ << "[" << local_rank << "] has been removed from elastic job";
       throw std::runtime_error(out.str());
     }
 
@@ -201,25 +215,179 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
 
   ctx = Rendezvous(HOROVOD_GLOO_GLOBAL_PREFIX,
                    rendezvous_addr_env, rendezvous_port,
-                   rank, size, dev, timeout);
+                   rank, size, dev, timeout_);
   LOG(DEBUG) << "Global Gloo context initialized.";
 
-  local_ctx = Rendezvous(HOROVOD_GLOO_LOCAL_PREFIX + hostname,
+  global_ctx = ctx;
+
+  local_ctx = Rendezvous(HOROVOD_GLOO_LOCAL_PREFIX + hostname_,
                          rendezvous_addr_env, rendezvous_port,
-                         local_rank, local_size, dev, timeout);
+                         local_rank, local_size, dev, timeout_);
   LOG(DEBUG) << "Local Gloo context initialized.";
 
   cross_ctx = Rendezvous(HOROVOD_GLOO_CROSS_PREFIX + std::to_string(local_rank),
                          rendezvous_addr_env, rendezvous_port,
-                         cross_rank, cross_size, dev, timeout);
+                         cross_rank, cross_size, dev, timeout_);
   LOG(DEBUG) << "Cross-node Gloo context initialized.";
 }
+
+namespace {
+
+// Returns the global rank of each process in sub_ctx
+std::vector<int>
+EnumerateSubRanks(const std::shared_ptr<gloo::Context>& global_ctx,
+                  const std::shared_ptr<gloo::Context>& sub_ctx) {
+  std::vector<int> result;
+  if (sub_ctx != nullptr) {
+    auto global_rank = global_ctx->rank;
+    auto sub_rank = sub_ctx->rank;
+    auto sub_size = sub_ctx->size;
+    result.resize((size_t)sub_size);
+    result[sub_rank] = global_rank;
+    {
+      gloo::AllgatherOptions opts(sub_ctx);
+      opts.setInput(&global_rank, 1);
+      opts.setOutput(result.data(), sub_size);
+      gloo::allgather(opts);
+    }
+  }
+  return result;
+}
+
+std::vector<int> RanksIntersection(std::vector<int> ranks,
+                                   std::vector<int> target_ranks) {
+  std::sort(ranks.begin(), ranks.end());
+  std::sort(target_ranks.begin(), target_ranks.end());
+  std::vector<int> result;
+  std::set_intersection(ranks.begin(), ranks.end(), target_ranks.begin(),
+                        target_ranks.end(), std::back_inserter(result));
+  return result;
+}
+
+} // namespace
+
+void GlooContext::InitializeForProcessSet(const GlooContext& global_context,
+                                          const std::vector<int>& registered_ranks) {
+  assert(global_context.IsEnabled());
+
+  auto rendezvous_addr_env = std::getenv(HOROVOD_GLOO_RENDEZVOUS_ADDR);
+  auto rendezvous_port = GetIntEnvOrDefault(HOROVOD_GLOO_RENDEZVOUS_PORT, -1);
+  if (rendezvous_addr_env != nullptr) {
+    LOG(DEBUG) << "rendezvous server address: " << rendezvous_addr_env;
+  } else {
+    LOG(DEBUG) << "no rendezvous server provided, assuming single process execution";
+  }
+
+  attr device_attr;
+  device_attr.iface = gloo_iface_;
+  device_attr.ai_family = AF_UNSPEC;
+  auto dev = CreateDevice(device_attr);
+
+  global_ctx = global_context.ctx;
+  timeout_ = global_context.timeout_;
+  hostname_ = global_context.hostname_;
+
+  std::vector<int> ranks;
+  if (registered_ranks.empty()) {
+    ranks.resize(global_context.ctx->size);
+    std::iota(ranks.begin(), ranks.end(), 0);
+  } else {
+    ranks = registered_ranks;
+  }
+
+  std::string process_set_hash;
+  {
+    std::ostringstream oss_num;
+    std::copy(ranks.begin(), ranks.end(),
+              std::ostream_iterator<int>(oss_num, ","));
+    std::ostringstream oss;
+    oss << std::hex << std::hash<std::string>{}(oss_num.str());
+    process_set_hash = oss.str();
+    LOG(DEBUG) << "Initializing GlooContext for process set: [" << oss_num.str()
+               << "], hash: " << process_set_hash;
+  }
+
+  // All processes in global_context.local_ctx, global_context.cross_ctx
+  // call EnumerateSubRanks() here:
+  auto global_context_all_local_ranks =
+      EnumerateSubRanks(global_context.ctx, global_context.local_ctx);
+  auto global_context_all_cross_ranks =
+      EnumerateSubRanks(global_context.ctx, global_context.cross_ctx);
+  
+  auto global_context_rank = global_context.ctx->rank;
+  auto rank = static_cast<int>(
+      std::distance(ranks.begin(), std::find(ranks.begin(), ranks.end(),
+                                             global_context_rank)));
+  auto size = static_cast<int>(ranks.size());
+  bool current_process_included = (rank < size);
+  if (!current_process_included) {
+    // leaving null: ctx, local_ctx, and cross_ctx 
+    return;
+  }
+  LOG(DEBUG) << "Global Gloo context for process set with rank: " << rank
+             << ", size: " << size;
+  
+  std::string process_set_suffix = "_process_set_hash_" + process_set_hash;
+
+  // 1) process-set-limited global context 
+  ctx = Rendezvous(HOROVOD_GLOO_GLOBAL_PREFIX + process_set_suffix,
+                   rendezvous_addr_env, rendezvous_port, rank, size, dev,
+                   timeout_);
+  LOG(DEBUG) << "Global Gloo context initialized for process set with hash "
+             << process_set_hash << ".";
+
+  // 2) process-set-limited local context
+  auto global_context_local_ranks =
+      RanksIntersection(ranks, global_context_all_local_ranks);
+  auto it_local_rank =
+      std::find(global_context_local_ranks.begin(),
+                global_context_local_ranks.end(), global_context_rank);
+  int local_rank = -1;
+  if (it_local_rank != global_context_local_ranks.end()) {
+    local_rank = static_cast<int>(
+        std::distance(global_context_local_ranks.begin(), it_local_rank));
+    auto local_size = static_cast<int>(global_context_local_ranks.size());
+    LOG(DEBUG) << "Local Gloo context for process set with rank: " << local_rank
+               << ", size: " << local_size;
+
+    local_ctx =
+        Rendezvous(HOROVOD_GLOO_LOCAL_PREFIX + hostname_ + process_set_suffix,
+                   rendezvous_addr_env, rendezvous_port, local_rank, local_size,
+                   dev, timeout_);
+    LOG(DEBUG) << "Local Gloo context initialized for process set with hash "
+               << process_set_hash << ".";
+  }
+  
+  // 3) process-set-limited cross context
+  auto global_context_cross_ranks =
+      RanksIntersection(ranks, global_context_all_cross_ranks);
+  auto it_cross_rank =
+      std::find(global_context_cross_ranks.begin(),
+                global_context_cross_ranks.end(), global_context_rank);
+  if (it_cross_rank != global_context_cross_ranks.end()) {
+    auto cross_rank = static_cast<int>(std::distance(
+        global_context_cross_ranks.begin(), it_cross_rank));
+    auto cross_size = static_cast<int>(global_context_cross_ranks.size());
+    assert(local_rank >= 0);
+    LOG(DEBUG) << "Cross Gloo context for process set with rank: " << cross_rank
+               << ", size: " << cross_size;
+
+    cross_ctx = Rendezvous(HOROVOD_GLOO_CROSS_PREFIX +
+                               std::to_string(local_rank) + process_set_suffix,
+                           rendezvous_addr_env, rendezvous_port, cross_rank,
+                           cross_size, dev, timeout_);
+    LOG(DEBUG) << "Cross-node Gloo context for process set with hash "
+               << process_set_hash << ".";
+  }
+}
+
 
 void GlooContext::Finalize() {
   if (!enabled_) {
     return;
   }
 
+  global_ctx.reset();
   ctx.reset();
   cross_ctx.reset();
   local_ctx.reset();
@@ -227,7 +395,7 @@ void GlooContext::Finalize() {
 }
 
 std::shared_ptr<gloo::Context>
-GlooContext::GetGlooContext(Communicator communicator) {
+GlooContext::GetGlooContext(Communicator communicator) const {
   switch (communicator) {
   case Communicator::GLOBAL:
     return ctx;

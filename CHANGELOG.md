@@ -8,13 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Added process sets for TensorFlow: Concurrently running collective operations on subsets of Horovod processes. ([#2839](https://github.com/horovod/horovod/pull/2839))
+
+- Added terminate_on_nan flag to Spark Lightning estimator. [#3088](https://github.com/horovod/horovod/issues/3088)
+
 ### Changed
+
+- By default, RayExecutor will now use the current placement group instead of always creating a new one. ([#3134](https://github.com/horovod/horovod/pull/3134))
 
 ### Deprecated
 
 ### Removed
 
 ### Fixed
+
+- Fix Horovod develop/editable install mode and incremental builds. ([#3074](https://github.com/horovod/horovod/pull/3074))
+- Estimator/Lightning: use lightning datamodule ([#3084](https://github.com/horovod/horovod/pull/3084))
+- Fix Horovod Spark StringType and numpy type mapping issue ([#3146](https://github.com/horovod/horovod/pull/3146))
 
 ## [v0.22.1] - 2021-06-10
 

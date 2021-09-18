@@ -136,6 +136,8 @@ namespace common {
 #define HOROVOD_DISABLE_GROUP_FUSION "HOROVOD_DISABLE_GROUP_FUSION"
 #define HOROVOD_DISABLE_NVTX_RANGES "HOROVOD_DISABLE_NVTX_RANGES"
 #define HOROVOD_ENABLE_ASYNC_COMPLETION "HOROVOD_ENABLE_ASYNC_COMPLETION"
+#define HOROVOD_DYNAMIC_PROCESS_SETS "HOROVOD_DYNAMIC_PROCESS_SETS"
+#define HOROVOD_ENABLE_XLA_OPS "HOROVOD_ENABLE_XLA_OPS"
 
 // String constant for gloo interface.
 #define GLOO_DEFAULT_IFACE ""
@@ -152,7 +154,7 @@ namespace common {
 #define JOIN_TENSOR_NAME "join.noname"
 
 // List of supported frameworks.
-enum Framework { TENSORFLOW, PYTORCH, MXNET };
+enum Framework { TENSORFLOW, PYTORCH, MXNET, XLA };
 
 enum StatusType { OK, UNKNOWN_ERROR, PRECONDITION_ERROR, ABORTED, INVALID_ARGUMENT, IN_PROGRESS };
 
@@ -227,6 +229,8 @@ const Status DUPLICATE_NAME_ERROR = Status::InvalidArgument(
 
 class TensorShape {
 public:
+  TensorShape() : shape_() {}
+  TensorShape(std::vector<int64_t> vec) : shape_(vec) {}
   void AddDim(int64_t dim);
   void AppendShape(TensorShape& other);
 
@@ -346,7 +350,9 @@ struct TensorTableEntry {
   std::shared_ptr<Tensor> tensor;
   // Pre-allocated output tensor.
   std::shared_ptr<Tensor> output;
-  // Root rank for broadcast operation.
+  // Identifier for the subset of Horovod processes partaking in this operation.
+  int32_t process_set_id = 0;
+  // Root rank for broadcast operation (relative to process set).
   int root_rank = 0;
   // List of events indicating that data is ready.
   ReadyEventList ready_event_list;

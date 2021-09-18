@@ -1,4 +1,5 @@
 import ray
+from ray.util.placement_group import get_current_placement_group
 
 import warnings
 from collections import defaultdict
@@ -10,7 +11,7 @@ import logging
 from horovod.runner.common.util import secret, timeout, hosts
 from horovod.runner.http.http_server import RendezvousServer
 from horovod.ray.utils import detect_nics, nics_to_env_var, map_blocking
-from horovod.ray.strategy import ColocatedStrategy, PackStrategy
+from horovod.ray.strategy import ColocatedStrategy, PGStrategy
 logger = logging.getLogger(__name__)
 
 
@@ -146,6 +147,8 @@ class RayExecutor:
             ``num_workers``. Number of workers to be placed on each machine.
             Used to enforce equal number of workers on each machine. Only
             used in conjunction with `num_hosts`.
+        use_current_placement_group (bool): Whether to use the current
+            placement group instead of creating a new one. Defaults to True.
 
     """
 
@@ -187,6 +190,7 @@ class RayExecutor:
             cpus_per_worker: int = 1,
             use_gpu: bool = False,
             gpus_per_worker: Optional[int] = None,
+            use_current_placement_group: bool = True,
             # Deprecated Args.
             num_slots: Optional[int] = None,
             cpus_per_slot: Optional[int] = None,
@@ -238,6 +242,7 @@ class RayExecutor:
             cpus_per_worker=cpus_per_worker,
             use_gpu=use_gpu,
             gpus_per_worker=gpus_per_worker,
+            use_current_placement_group=use_current_placement_group
         )
         self._is_remote = False
         if ray.util.client.ray.is_connected():
@@ -365,7 +370,8 @@ class _ExecutorDriver:
                  num_workers_per_host: int = 1,
                  cpus_per_worker: int = 1,
                  use_gpu: bool = False,
-                 gpus_per_worker: Optional[int] = None):
+                 gpus_per_worker: Optional[int] = None,
+                 use_current_placement_group: bool = True):
 
         self.settings = settings
         self.num_workers = num_workers
@@ -374,6 +380,7 @@ class _ExecutorDriver:
         self.cpus_per_worker = cpus_per_worker
         self.use_gpu = use_gpu
         self.gpus_per_worker = gpus_per_worker or 1
+        self.use_current_placement_group = use_current_placement_group
 
         self.workers = []
         self.strategy = None
@@ -388,13 +395,22 @@ class _ExecutorDriver:
 
     def _create_strategy(self):
         assert self.num_workers is None or self.num_hosts is None
-        if self.num_workers:
-            return PackStrategy(
+        use_pg = self.use_current_placement_group and get_current_placement_group()
+        if self.num_workers or use_pg:
+            if use_pg:
+                logger.info(
+                    "Found an existing placement group, inheriting. "
+                    "You can disable this behavior by setting "
+                    "`use_current_placement_group=False`."
+                )
+            num_workers = self.num_workers or self.num_workers_per_host * self.num_hosts
+            return PGStrategy(
                 settings=self.settings,
-                num_workers=self.num_workers,
+                num_workers=num_workers,
                 use_gpu=self.use_gpu,
                 cpus_per_worker=self.cpus_per_worker,
-                gpus_per_worker=self.gpus_per_worker)
+                gpus_per_worker=self.gpus_per_worker,
+                force_create_placement_group=not self.use_current_placement_group)
         else:
             return ColocatedStrategy(
                 settings=self.settings,

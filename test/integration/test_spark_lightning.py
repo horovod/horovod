@@ -144,6 +144,28 @@ class SparkLightningTests(unittest.TestCase):
                 assert len(pred) == 1
                 assert pred.dtype == torch.float32
 
+    def test_terminate_on_nan_flag(self):
+        model = create_xor_model()
+
+        with spark_session('test_terminate_on_nan_flag') as spark:
+            df = create_noisy_xor_data(spark)
+
+            with local_store() as store:
+                torch_estimator = hvd_spark.TorchEstimator(
+                    num_proc=2,
+                    store=store,
+                    model=model,
+                    input_shapes=[[-1, 2]],
+                    feature_cols=['features'],
+                    label_cols=['y'],
+                    validation=0.2,
+                    batch_size=4,
+                    epochs=2,
+                    verbose=2,
+                    terminate_on_nan=True,
+                    profiler="pytorch")
+                assert torch_estimator.getTerminateOnNan() == True
+
     def test_legacy_fit_model(self):
         model = create_legacy_xor_model()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
@@ -761,18 +783,16 @@ class SparkLightningTests(unittest.TestCase):
                 assert pred.dtype == torch.float32
 
     """
-    Test train model with pytorch data loader
+    Test train model with inmemory_cache_all
     """
-    def test_train_with_pytorch_data_loader(self):
-        from horovod.spark.data_loaders.pytorch_data_loaders import PytorchDataLoader
-
+    def test_train_with_inmemory_cache_all(self):
         with spark_session('test_fit_model') as spark:
             df = create_noisy_xor_data(spark)
             model = create_xor_model()
 
             with local_store() as store:
                 torch_estimator = hvd_spark.TorchEstimator(
-                    num_proc=2,
+                    num_proc=1, # Normally inmem dataloader is for single worker training with small data
                     store=store,
                     model=model,
                     input_shapes=[[-1, 2]],
@@ -782,7 +802,7 @@ class SparkLightningTests(unittest.TestCase):
                     batch_size=4,
                     epochs=2,
                     verbose=2,
-                    data_loader_class=PytorchDataLoader)
+                    inmemory_cache_all=True)
 
                 torch_model = torch_estimator.fit(df)
 
@@ -793,10 +813,79 @@ class SparkLightningTests(unittest.TestCase):
                 assert pred.dtype == torch.float32
 
     """
-    Test train model with pytorch async data loader
+    Test train model with custom data module (using PytorchAsyncDataLoader)
     """
-    def test_train_with_pytorch_async_data_loader(self):
+    def test_train_with_custom_data_module(self):
         from horovod.spark.data_loaders.pytorch_data_loaders import PytorchAsyncDataLoader
+        class CustomDataModule(pl.LightningDataModule):
+            """Custom DataModule for Lightning Estimator, using PytorchAsyncDataLoader"""
+            def __init__(self, train_dir: str, val_dir: str, has_val: bool=True,
+                         train_batch_size: int=32, val_batch_size: int=32, shuffle_size: int=100,
+                         num_reader_epochs=None, cur_shard: int=0, shard_count: int=1, schema_fields=None,
+                         storage_options=None, steps_per_epoch_train: int=1, steps_per_epoch_val: int=1, verbose=True, **kwargs):
+                super().__init__()
+                self.train_dir = train_dir
+                self.val_dir = val_dir
+                self.has_val = has_val
+                self.train_batch_size = train_batch_size
+                self.val_batch_size = val_batch_size
+                self.shuffle_size = shuffle_size
+                self.num_reader_epochs = num_reader_epochs
+                self.cur_shard = cur_shard
+                self.shard_count = shard_count
+                self.schema_fields = schema_fields
+                self.storage_options = storage_options
+                self.steps_per_epoch_train = steps_per_epoch_train
+                self.steps_per_epoch_val = steps_per_epoch_val
+                self.verbose = verbose
+
+            def setup(self, stage=None):
+                # Assign train/val datasets for use in dataloaders
+                from petastorm import make_batch_reader
+                if stage == 'fit' or stage is None:
+                    self.train_reader = make_batch_reader(self.train_dir, num_epochs=self.num_reader_epochs,
+                                                          cur_shard=self.cur_shard, shard_count=self.shard_count,
+                                                          hdfs_driver='libhdfs',
+                                                          schema_fields=self.schema_fields,
+                                                          storage_options=self.storage_options)
+                    if self.has_val:
+                        self.val_reader = make_batch_reader(self.val_dir, num_epochs=self.num_reader_epochs,
+                                                            cur_shard=self.cur_shard, shard_count=self.shard_count,
+                                                            hdfs_driver='libhdfs',
+                                                            schema_fields=self.schema_fields,
+                                                            storage_options=self.storage_options)
+
+            def teardown(self, stage=None):
+                if stage == "fit" or stage is None:
+                    if self.verbose:
+                        print("Tear down petastorm readers")
+                    self.train_reader.stop()
+                    self.train_reader.join()
+                    if self.has_val:
+                        self.val_reader.stop()
+                        self.val_reader.join()
+
+            def train_dataloader(self):
+                if self.verbose:
+                    print("Setup train dataloader")
+                kwargs = dict(reader=self.train_reader, batch_size=self.train_batch_size,
+                              name="train dataloader",
+                              shuffling_queue_capacity = self.shuffle_size,
+                              limit_step_per_epoch=self.steps_per_epoch_train,
+                              verbose=self.verbose)
+                return PytorchAsyncDataLoader(**kwargs)
+
+            def val_dataloader(self):
+                if not self.has_val:
+                    return None
+                if self.verbose:
+                    print("setup val dataloader")
+                kwargs = dict(reader=self.val_reader, batch_size=self.val_batch_size,
+                              name="val dataloader",
+                              shuffling_queue_capacity = 0,
+                              limit_step_per_epoch=self.steps_per_epoch_val,
+                              verbose=self.verbose)
+                return PytorchAsyncDataLoader(**kwargs)
 
         with spark_session('test_fit_model') as spark:
             df = create_noisy_xor_data(spark)
@@ -813,8 +902,8 @@ class SparkLightningTests(unittest.TestCase):
                     validation=0.2,
                     batch_size=4,
                     epochs=2,
-                    verbose=2,
-                    data_loader_class=PytorchAsyncDataLoader)
+                    data_module=CustomDataModule,
+                    verbose=2)
 
                 torch_model = torch_estimator.fit(df)
 
@@ -823,104 +912,6 @@ class SparkLightningTests(unittest.TestCase):
                 pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
                 assert len(pred) == 1
                 assert pred.dtype == torch.float32
-
-    """
-    Test train model with pytorch infinite async data loader
-    """
-    def test_train_with_pytorch_infinite_async_data_loader(self):
-        from horovod.spark.data_loaders.pytorch_data_loaders import PytorchInfiniteAsyncDataLoader
-
-        with spark_session('test_fit_model') as spark:
-            df = create_noisy_xor_data(spark)
-            model = create_xor_model()
-
-            with local_store() as store:
-                torch_estimator = hvd_spark.TorchEstimator(
-                    num_proc=2,
-                    store=store,
-                    model=model,
-                    input_shapes=[[-1, 2]],
-                    feature_cols=['features'],
-                    label_cols=['y'],
-                    validation=0.2,
-                    batch_size=4,
-                    epochs=2,
-                    verbose=2,
-                    data_loader_class=PytorchInfiniteAsyncDataLoader)
-
-                torch_model = torch_estimator.fit(df)
-
-                # TODO: Find a way to pass log metrics from remote, and assert base on the logger.
-                trained_model = torch_model.getModel()
-                pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
-                assert len(pred) == 1
-                assert pred.dtype == torch.float32
-
-
-    """
-    Test pytorch lightning trainer with origin petastrom reader.
-    """
-    def test_origin_petastorm_reader(self):
-        from pytorch_lightning.callbacks import Callback
-        from horovod.spark.data_loaders.pytorch_data_loaders import PetastormBatchedDataLoader
-
-        model = create_xor_model()
-
-        with spark_session('test_fit_model') as spark:
-            df = create_noisy_xor_data(spark)
-
-            for num_proc in [1, 2]:
-                for epochs in [2, 3]:
-
-                    class MyDummyCallback(Callback):
-                        def __init__(self):
-                            self.epcoh_end_counter = 0
-                            self.train_epcoh_end_counter = 0
-
-                        def on_init_start(self, trainer):
-                            print('Starting to init trainer!')
-
-                        def on_init_end(self, trainer):
-                            print('Trainer is initialized.')
-
-                        def on_epoch_end(self, trainer, model):
-                            print('A epoch ended.')
-                            self.epcoh_end_counter += 1
-
-                        def on_train_epoch_end(self, trainer, model, unused=None):
-                            print('A train epoch ended.')
-                            self.train_epcoh_end_counter += 1
-
-                        def on_train_end(self, trainer, model):
-                            print('Training ends')
-                            assert self.train_epcoh_end_counter == epochs
-
-                    dm_callback = MyDummyCallback()
-                    callbacks = [dm_callback]
-
-                    with local_store() as store:
-                        torch_estimator = hvd_spark.TorchEstimator(
-                            num_proc=num_proc,
-                            store=store,
-                            model=model,
-                            input_shapes=[[-1, 2]],
-                            feature_cols=['features'],
-                            label_cols=['y'],
-                            validation=0.2,
-                            batch_size=4,
-                            epochs=epochs,
-                            verbose=2,
-                            callbacks=callbacks,
-                            data_loader_class=PetastormBatchedDataLoader,
-                            loader_num_epochs=1)
-
-                        torch_model = torch_estimator.fit(df)
-
-                        # TODO: Find a way to pass log metrics from remote, and assert base on the logger.
-                        trained_model = torch_model.getModel()
-                        pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
-                        assert len(pred) == 1
-                        assert pred.dtype == torch.float32
 
 
 def check_fail(dir, rank, epoch, batch):

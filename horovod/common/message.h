@@ -58,7 +58,7 @@ public:
 
   // The request rank is necessary to create a consistent ordering of results,
   // for example in the allgather where the order of outputs should be sorted
-  // by rank.
+  // by rank. This rank is counted relative to the process set.
   int32_t request_rank() const;
 
   void set_request_rank(int32_t value);
@@ -75,6 +75,7 @@ public:
 
   void set_tensor_name(const std::string& value);
 
+  // The root rank is counted relative to the process set.
   int32_t root_rank() const;
 
   void set_root_rank(int32_t value);
@@ -95,9 +96,9 @@ public:
 
   double postscale_factor() const;
 
-  void set_prescale_factor(const double prescale_factor);
+  void set_prescale_factor(double prescale_factor);
 
-  void set_postscale_factor(const double postscale_factor);
+  void set_postscale_factor(double postscale_factor);
 
   static void ParseFromBytes(Request& request, const uint8_t* input);
 
@@ -145,10 +146,10 @@ private:
 };
 
 // A Response is a message sent from the coordinator (rank zero) to a rank
-// greater than zero, informing the rank of an operation should be performed
-// now. If the operation requested would result in an error (for example, due
-// to a type or shape mismatch), then the Response can contain an error and
-// an error message instead.
+// greater than zero, informing the rank of an operation that should be
+// performed now. If the requested operation would result in an error (for
+// example, due to a type or shape mismatch), then the Response can contain an
+// error and an error message instead.
 class Response {
 public:
   enum ResponseType {
@@ -203,9 +204,13 @@ public:
 
   double postscale_factor() const;
 
-  void set_prescale_factor(const double prescale_factor);
+  void set_prescale_factor(double prescale_factor);
 
-  void set_postscale_factor(const double postscale_factor);
+  void set_postscale_factor(double postscale_factor);
+
+  int last_joined_rank() const;
+
+  void set_last_joined_rank(int value);
 
   static void ParseFromBytes(Response& response, const uint8_t* input);
 
@@ -221,6 +226,7 @@ private:
   std::vector<int64_t> tensor_sizes_;
   double prescale_factor_ = 1.0;
   double postscale_factor_ = 1.0;
+  int last_joined_rank_ = -1;
 };
 
 class ResponseList {

@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import time
 import sys
 import unittest
 import warnings
@@ -85,8 +86,12 @@ class InteractiveRunTests(unittest.TestCase):
             rank = hvd.rank()
             if rank == 1:
                 raise RuntimeError()
+            # The other worker waits a while before exiting.
+            time.sleep(120)
 
         assert gloo_built() or mpi_built()
+
+        start = time.time()
 
         if gloo_built():
             with pytest.raises(RuntimeError, match='Horovod detected that one or more processes exited'):
@@ -95,3 +100,6 @@ class InteractiveRunTests(unittest.TestCase):
         if mpi_built():
             with pytest.raises(RuntimeError, match='mpirun failed'):
                 run(fn, np=2, use_mpi=True)
+
+        # The controller should be terminating workers way before the 2-minute delay.
+        assert time.time() - start < 60

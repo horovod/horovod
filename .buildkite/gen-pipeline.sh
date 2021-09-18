@@ -7,29 +7,29 @@ set -eu
 repository=823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
 
 # our baseline test is
-baseline="test-cpu-gloo-py3_8-tf2_5_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2"
+baseline="test-cpu-gloo-py3_8-tf2_6_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2"
 # in run_gloo_integration we run 'Elastic Spark * Tests' for this baseline
 # so it has to have Gloo mpi kind
 
 # skip tests when there are no code changes
 dir="$(dirname "$0")"
 code_files=$(python "$dir/get_changed_code_files.py" || echo failure)
-tests=$(if [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}" ]] || [[ -n "$code_files" ]]; then
+tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}" ]] || [[ -n "$code_files" ]] ); then
   # we vary the baseline along the Python dimension and PySpark together
   # run_gloo_integration expects these to have Gloo mpi kind to run 'Elastic Spark * Tests'
-  printf "test-cpu-gloo-py3_7-tf2_5_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark2_4_8 "
-  printf "test-cpu-gloo-py3_8-tf2_5_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_0_3 "
+  printf "test-cpu-gloo-py3_7-tf2_6_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark2_4_8 "
+  printf "test-cpu-gloo-py3_8-tf2_6_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_0_3 "
   # our baseline
   printf "$baseline "
 
   # then we vary the baseline along mpi kinds dimension
   # our baseline again
-# printf "test-cpu-gloo-py3_8-tf2_5_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2 "
-  printf "test-cpu-mpich-py3_8-tf2_5_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2 "
-  printf "test-cpu-oneccl-py3_8-tf2_5_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2 "
-  printf "test-cpu-openmpi-py3_8-tf2_5_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2 "
+# printf "test-cpu-gloo-py3_8-tf2_6_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2 "
+  printf "test-cpu-mpich-py3_8-tf2_6_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2 "
+  printf "test-cpu-oneccl-py3_8-tf2_6_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2 "
+  printf "test-cpu-openmpi-py3_8-tf2_6_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2 "
   # note: we test openmpi-gloo mpi kind in this variation in each of [cpu, gpu, mixed]
-  printf "test-cpu-openmpi-gloo-py3_8-tf2_5_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2 "
+  printf "test-cpu-openmpi-gloo-py3_8-tf2_6_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2 "
 
   # then we vary the baseline along the framework dimensions all together
   # some frameworks are not available for our baseline Python version 3.8, so we use Python 3.7
@@ -38,28 +38,30 @@ tests=$(if [[ "${BUILDKITE_BRANCH:-}" == "${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-}
   # there is no mxnet-1.6.0.post0 and mxnet-1.6.0 does not work with horovod
   # https://github.com/apache/incubator-mxnet/issues/16193
   # however, there is an mxnet-cu101-1.6.0.post0, so we test this with gpu instead of cpu
-  #printf "test-cpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_7_1-mxnet1_6_0_p0-pyspark3_1_2 "
-  printf "test-cpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_7_0_p2-pyspark3_1_2 "
+  #printf "test-cpu-gloo-py3_8-tf2_4_3-keras2_3_1-torch1_7_1-mxnet1_6_0_p0-pyspark3_1_2 "
+  printf "test-cpu-gloo-py3_8-tf2_5_1-keras_none-torch1_8_1-mxnet1_7_0_p2-pyspark3_1_2 "
   # our baseline again
-# printf "test-cpu-gloo-py3_8-tf2_5_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2 "
+# printf "test-cpu-gloo-py3_8-tf2_6_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2 "
   printf "test-cpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_1_2 "
 
   # then we vary the frameworks for gpu
   printf "test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark3_1_2 "
   # this is required as we cannot test mxnet-1.6.0.post0 with cpu
-  printf "test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_7_1-mxnet1_6_0_p0-pyspark3_1_2 "
+  printf "test-gpu-gloo-py3_8-tf2_4_3-keras2_3_1-torch1_7_1-mxnet1_6_0_p0-pyspark3_1_2 "
   # we additionally test the previous framework combination (CUDA 10.x) with mxnet 1.7.x
-  # as mxnet 1.7.x only supports CUDA 10.x, but next framework combination targets CUAA 11.x
-  printf "test-gpu-gloo-py3_8-tf2_3_2-keras2_3_1-torch1_7_1-mxnet1_7_0_p1-pyspark3_1_2 "
+  # as mxnet 1.7.x only supports CUDA 10.x, but next framework combination targets CUDA 11.x
+  printf "test-gpu-gloo-py3_8-tf2_4_3-keras2_3_1-torch1_7_1-mxnet1_7_0_p1-pyspark3_1_2 "
   # we deviate from mxnet1_7_0_p2 here as other frameworks target CUDA 11.x and
   # mxnet 1.7.x only supports CUDA 10.x, with mxnet 1.8.x we have CUDA 11.x packages
-  printf "test-gpu-gloo-py3_8-tf2_4_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark3_1_2 "
-  printf "test-gpu-openmpi-gloo-py3_8-tf2_5_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2 "
+  printf "test-gpu-gloo-py3_8-tf2_5_1-keras_none-torch1_8_1-mxnet1_8_0_p0-pyspark3_1_2 "
+  printf "test-gpu-openmpi-gloo-py3_8-tf2_6_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2 "
   printf "test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_1_2 "
 
   # and one final test with mixed cpu+gpu
-  printf "test-mixed-openmpi-gloo-py3_8-tf2_5_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2 "
-fi)
+  printf "test-mixed-openmpi-gloo-py3_8-tf2_6_0-keras_none-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2 "
+fi | if [[ "${PIPELINE_MODE:-}" == "GPU"* ]]; then sed -E "s/[^ ]*-cpu-[^ ]*//g"; else cat; fi \
+   | if [[ "${PIPELINE_MODE:-}" == "GPU HEADS" ]]; then sed -E "s/ /\n/g" | grep -e "-tfhead-keras_none-torchhead-mxnethead-" | paste -s -d " "; else cat; fi \
+   | if [[ "${PIPELINE_MODE:-}" == "GPU NON HEADS" ]]; then sed -E "s/[^ ]*-tfhead-keras_none-torchhead-mxnethead-[^ ]*//g"; else cat; fi)
 read -r -a tests <<< "$tests"
 
 
@@ -77,24 +79,6 @@ build_test() {
   echo "  - ecr#v1.2.0:"
   echo "      login: true"
   echo "  timeout_in_minutes: 30"
-  echo "  retry:"
-  echo "    automatic: true"
-  echo "  agents:"
-  echo "    queue: cpu"
-}
-
-cache_test() {
-  local test=$1
-
-  echo "- label: ':docker: Update ${BUILDKITE_PIPELINE_SLUG}-${test}-latest'"
-  echo "  plugins:"
-  echo "  - docker-compose#v3.5.0:"
-  echo "      push: ${test}:${repository}:${BUILDKITE_PIPELINE_SLUG}-${test}-latest"
-  echo "      config: docker-compose.test.yml"
-  echo "      push-retries: 3"
-  echo "  - ecr#v1.2.0:"
-  echo "      login: true"
-  echo "  timeout_in_minutes: 5"
   echo "  retry:"
   echo "    automatic: true"
   echo "  agents:"
@@ -347,7 +331,8 @@ run_spark_integration() {
     if [[ ${queue} != *gpu* ]]; then
       run_test "${test}" "${queue}" \
         ":spark: Spark PyTests (${test})" \
-        "bash -c \"cd /horovod/test/integration && (ls -1 test_spark*.py | xargs -n 1 /bin/bash /pytest_standalone.sh spark)\""
+        "bash -c \"cd /horovod/test/integration && (ls -1 test_spark*.py | xargs -n 1 /bin/bash /pytest_standalone.sh spark)\"" \
+        20
     fi
 
     if [[ ${test} != *"tf2"* && ${test} != *"tfhead"* ]]; then
@@ -414,13 +399,6 @@ done
 
 # wait for all builds to finish
 echo "- wait"
-
-# cache test containers if built from master
-if [[ "${BUILDKITE_BRANCH}" == "master" ]]; then
-  for test in ${tests[@]-}; do
-    cache_test "${test}"
-  done
-fi
 
 oneccl_env="\\\$(cat:/oneccl_env):&&"
 oneccl_cmd_ofi="${oneccl_env}:echo:'/mpirun_command_ofi':>:/mpirun_command:&&"

@@ -18,7 +18,7 @@ endif()
 
 project(horovod CXX)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -59,6 +59,7 @@ list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/common.cc"
         "${PROJECT_SOURCE_DIR}/horovod/common/message.cc"
         "${PROJECT_SOURCE_DIR}/horovod/common/operations.cc"
         "${PROJECT_SOURCE_DIR}/horovod/common/parameter_manager.cc"
+        "${PROJECT_SOURCE_DIR}/horovod/common/process_set.cc"
         "${PROJECT_SOURCE_DIR}/horovod/common/response_cache.cc"
         "${PROJECT_SOURCE_DIR}/horovod/common/stall_inspector.cc"
         "${PROJECT_SOURCE_DIR}/horovod/common/thread_pool.cc"

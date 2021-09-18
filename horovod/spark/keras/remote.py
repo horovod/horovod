@@ -151,6 +151,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 # TensorBoard, or other metrics-based callbacks.
                 hvd.callbacks.MetricAverageCallback(),
             ]
+
             callbacks += user_callbacks
 
             # Horovod: save checkpoints only on the first worker to prevent other workers from
@@ -176,7 +177,18 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 callbacks.append(_checkpoint_callback)
 
                 if remote_store.saving_runs:
-                    callbacks.append(k.callbacks.TensorBoard(logs_dir))
+                    tb_callback = None
+                    for i, c in enumerate(callbacks):
+                        if isinstance(c, k.callbacks.TensorBoard):
+                            tb_callback = c
+                            print(f"Found TensorBoard callback, updating log_dir to {logs_dir}")
+                            tb_callback.log_dir = logs_dir
+                            break
+                    if tb_callback:
+                        # Rather than a possibly arbitrary order, we always place the TensorBoard
+                        # callback right before the SyncCallback
+                        callbacks.pop(i)
+                    callbacks.append(tb_callback or k.callbacks.TensorBoard(logs_dir))
                     callbacks.append(SyncCallback(run_output_dir, remote_store.sync, k))
 
             if train_steps_per_epoch is None:
@@ -197,6 +209,11 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
             if sample_weight_col:
                 schema_fields.append(sample_weight_col)
 
+            if verbose:
+                print(f"Training parameters: Epochs: {epochs}, Scaled lr: {scaled_lr}\n"
+                      f"Train rows: {train_rows}, Train batch size: {batch_size}, Train_steps_per_epoch: {steps_per_epoch}\n"
+                      f"Val rows: {val_rows}, Val batch size: {val_batch_size}, Val_steps_per_epoch: {validation_steps}\n"
+                      f"Checkpoint file: {remote_store.checkpoint_path}, Logs dir: {remote_store.logs_path}\n")
             # In general, make_batch_reader is faster than make_reader for reading the dataset.
             # However, we found out that make_reader performs data transformations much faster than
             # make_batch_reader with parallel worker processes. Therefore, the default reader
@@ -258,8 +275,13 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                             model = k.models.load_model(ckpt_file)
                     serialized_model = keras_utils.serialize_model(model)
                 else:
-                    with open(ckpt_file, 'rb') as f:
-                        serialized_model = codec.dumps_base64(f.read())
+                    if LooseVersion(tf.__version__) >= LooseVersion("2.0.0"):
+                        with k.utils.custom_object_scope(custom_objects):
+                            model = k.models.load_model(ckpt_file)
+                        serialized_model = keras_utils.serialize_model(model)
+                    else:
+                        with open(ckpt_file, 'rb') as f:
+                            serialized_model = codec.dumps_base64(f.read())
 
                 return history.history, serialized_model, hvd.size()
     return train

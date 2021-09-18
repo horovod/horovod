@@ -211,7 +211,10 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                 if cuda_available:
                     model.cuda()
 
-
+            if hvd.rank() == 0 and user_verbose:
+                print(f"Training parameters: Epochs: {epochs}\n"
+                      f"Train rows: {train_rows}, Train batch size: {batch_size}, Train_steps_per_epoch: {steps_per_epoch}\n"
+                      f"Checkpoint file: {ckpt_file}, Logs dir: {logs_dir}\n")
             # In general, make_batch_reader is faster than make_reader for reading the dataset.
             # However, we found out that make_reader performs data transformations much faster than
             # make_batch_reader with parallel worker processes. Therefore, the default reader
@@ -350,6 +353,9 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                             validation_steps = int(math.ceil(float(val_rows) / val_batch_size / hvd.size()))
                         else:
                             validation_steps = validation_steps_per_epoch
+
+                        if hvd.rank() == 0 and user_verbose:
+                            print(f"Val rows: {val_rows}, Val batch size: {val_batch_size}, Val_steps_per_epoch: {validation_steps}\n")
 
                         if inmemory_cache_all:
                             # Petastorm introduced InMemBatchedDataLoader class in v0.11.0

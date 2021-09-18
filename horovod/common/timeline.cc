@@ -638,5 +638,41 @@ void Timeline::DisableNvtx() {
   nvtx_handle_->Disable();
 }
 
+void TimelineController::SetTimelineEnabled(bool value) {
+  std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
+  timeline_enabled_pending_ = value;
+  timeline_enabled_ = value;
+}
+
+void TimelineController::SetTimelineEnabledPending(bool value) {
+  std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
+  timeline_enabled_pending_ = value;
+}
+
+void TimelineController::SetMarkCyclesInTimelinePending(bool value) {
+  std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
+  mark_cycles_in_timeline_pending_ = value;
+}
+
+void TimelineController::SynchronizeTimelineEnabled() {
+  std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
+  timeline_enabled_ = timeline_enabled_pending_;
+}
+
+bool TimelineController::TimelineEnabled() {
+  std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
+  return timeline_enabled_;
+}
+
+bool TimelineController::TimelineEnabledPending() {
+  std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
+  return timeline_enabled_pending_;
+}
+
+bool TimelineController::MarkCyclesInTimelinePending() {
+  std::lock_guard<std::recursive_mutex> guard(timeline_mutex_);
+  return mark_cycles_in_timeline_pending_;
+}
+
 } // namespace common
 } // namespace horovod
