@@ -176,8 +176,8 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
     {
       hvd_outputs.emplace_back(std::make_shared<MXTensor>(ops_param->output_tensors[0].get()));
       enqueue_result = EnqueueTensorReduce(
-          hvd_contexts[0], hvd_tensors[0], hvd_outputs[0], ops_param->root_rank, ready_events[0], ops_param->op_names[0],
-          device, callbacks[0], (average) ? ReduceOp::AVERAGE : ReduceOp::SUM, prescale_factor, postscale_factor);
+          hvd_contexts[0], hvd_tensors[0], hvd_outputs[0], ops_param->root_rank, ready_event_lists[0], ops_param->op_names[0],
+          device, callbacks[0], (average) ? ReduceOp::AVERAGE : ReduceOp::SUM, prescale_factor, postscale_factor, process_set_id);
       break;
 
     }
@@ -489,7 +489,8 @@ extern "C" int horovod_mxnet_reduce_async(NDArray* input,
                                          int priority,
                                          double prescale_factor,
                                          double postscale_factor,
-                                         int num_tensors){
+                                         int num_tensors,
+                                         int process_set_id){
   MX_API_BEGIN();
 
 #if HAVE_ROCM
@@ -502,14 +503,14 @@ extern "C" int horovod_mxnet_reduce_async(NDArray* input,
 #if HAVE_CUDA && !HOROVOD_GPU_ALLREDUCE
   if (IsTensorOnCPU(inputs[0]) && IsTensorOnCPU(outputs[0])) {
     PushHorovodOperation(OperationType::REDUCE, &input, &output,
-                         name, priority, 1, root_rank, average, nullptr, nullptr, prescale_factor, postscale_factor);
+                         name, priority, 1, process_set_id, root_rank, average, nullptr, nullptr, prescale_factor, postscale_factor);
   } else {
     PushHorovodOperationCudaOnCPU(OperationType::REDUCE, &input, &output,
-                                  name, priority, 1, root_rank, average, nullptr, nullptr, prescale_factor, postscale_factor);
+                                  name, priority, 1, process_set_id, root_rank, average, nullptr, nullptr, prescale_factor, postscale_factor);
   }
 #else
   PushHorovodOperation(OperationType::REDUCE, &input, &output,
-                       name, priority, 1, root_rank, average, nullptr, nullptr, prescale_factor, postscale_factor);
+                       name, priority, 1, process_set_id, root_rank, average, nullptr, nullptr, prescale_factor, postscale_factor);
 #endif
 
 #if HAVE_ROCM

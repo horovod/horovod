@@ -1647,19 +1647,43 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
 Status EnqueueTensorReduce(std::shared_ptr<OpContext> context,
                            std::shared_ptr<Tensor> tensor,
                            std::shared_ptr<Tensor> output, int root_rank,
-                           std::shared_ptr<ReadyEvent> ready_event,
+                           ReadyEventList ready_event_list,
                            const std::string& name, const int device,
                            StatusCallback callback,
                            ReduceOp reduce_op,
                            double prescale_factor,
-                           double postscale_factor){
+                           double postscale_factor,
+                           int32_t process_set_id){
+
+  if (horovod_global.cpu_operation == LibType::CCL && process_set_id > 0 &&
+      device == CPU_DEVICE_ID) {
+    return Status::InvalidArgument(
+        "Process sets are not supported yet with oneCCL operations.");
+  }
+  if (!horovod_global.process_set_table.Contains(process_set_id)) {
+    return Status::InvalidArgument("Broadcast: Process set provided does not "
+                                   "exist, or has not been registered.");
+  }
+  auto& process_set = horovod_global.process_set_table.Get(process_set_id);
+
+  int root_rank_in_process_set;
+  try {
+    root_rank_in_process_set =
+        process_set.controller->GetGlobalRankToControllerRank().at(root_rank);
+  } catch (const std::out_of_range& e) {
+    return Status::InvalidArgument(
+        "Reduce received invalid root rank " + std::to_string(root_rank) +
+        " for provided process set");
+  }
+
+
   Request message;
 
 
  if (reduce_op == ReduceOp::AVERAGE) {
 #if !HAVE_ROCM
     // Averaging happens via postscale_factor
-    postscale_factor /= horovod_global.controller->GetSize();
+    postscale_factor /= horovod_global.global_controller->GetSize();
 #else
     LOG(ERROR, horovod_global.controller->GetRank()) << "Enqueuing AVERAGE allreduce is not allowed.";
     return status.Aborted("AVERAGE not allowed.");
@@ -1667,7 +1691,7 @@ Status EnqueueTensorReduce(std::shared_ptr<OpContext> context,
   }
 
 
-  message.set_request_rank(horovod_global.controller->GetRank());
+  message.set_request_rank(horovod_global.global_controller->GetRank());
   message.set_tensor_name(name);
   message.set_tensor_type(tensor->dtype());
   message.set_root_rank(root_rank);
@@ -1687,7 +1711,7 @@ Status EnqueueTensorReduce(std::shared_ptr<OpContext> context,
   e.tensor = tensor;
   e.output = output;
   e.root_rank = root_rank;
-  e.ready_event = ready_event;
+  e.ready_event_list = ready_event_list;
   e.device = device;
   e.callback = callback;
   e.nvtx_op_range.Start(RegisteredNvtxOp::HorovodReduce, e.tensor->size());
@@ -1695,10 +1719,10 @@ Status EnqueueTensorReduce(std::shared_ptr<OpContext> context,
   if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
   }
-  Status status = horovod_global.tensor_queue.AddToTensorQueue(e, message);
+  Status status = process_set.tensor_queue.AddToTensorQueue(e, message);
 
   if (status.ok()) {
-    LOG(TRACE, horovod_global.controller->GetRank()) << "Enqueued " << name;
+    LOG(TRACE, horovod_global.global_controller->GetRank()) << "Enqueued " << name;
   }
   return status;
                            }

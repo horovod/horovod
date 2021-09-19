@@ -137,7 +137,24 @@ void NCCLOpContext::PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
   nccl_id_bcast_comm = communicator_type_;
 }
 
-<<<<<<< HEAD
+
+void NCCLReduce::WaitForData(std::vector<TensorTableEntry>& entries) {
+  if (global_state_->timeline.Initialized()) {
+    // If timeline is initialized, need to use normal CPU syncing path
+    HorovodOp::WaitForData(entries);
+  } else {
+    // Push events to set to deduplicate entries
+    std::unordered_set<gpuEvent_t> event_set;
+    for (auto& e : entries) {
+      e.ready_event_list.PushEventsToSet(event_set);
+    }
+    for (auto& ev : event_set) {
+      HVD_GPU_CHECK(gpuStreamWaitEvent(*gpu_op_context_.stream, ev, 0));
+    }
+  }
+}
+
+
 Status NCCLReduce::Execute(std::vector<TensorTableEntry>& entries,
                               const Response& response){
 
@@ -146,14 +163,16 @@ Status NCCLReduce::Execute(std::vector<TensorTableEntry>& entries,
   nccl_op_context_.InitNCCLComm(entries, response.devices());
   gpu_op_context_.InitGPUQueue(entries, response);
 
+
   auto e = entries[0];
   int root_rank = e.root_rank;
+  auto& process_set = global_state_->process_set_table.Get(e.process_set_id);
 
   //ncclAvg ncclSum
   void* data_ptr;
   void* output_ptr;
   data_ptr = (void*) e.tensor->data();
-  if (global_state_->controller->GetRank() == e.root_rank) {
+  if (process_set.controller->GetRank() == e.root_rank) {
     output_ptr = (void*) e.tensor->data();
   } else {
     output_ptr = (void*) e.tensor->data();
@@ -183,17 +202,10 @@ Status NCCLReduce::Execute(std::vector<TensorTableEntry>& entries,
     gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_REDUCE, *gpu_op_context_.stream);
   }
 
-
-
-
-
-
-
   return gpu_op_context_.FinalizeGPUQueue(entries, true, nccl_op_context_.error_check_callback_);
 }
 
 
-=======
 void NCCLAllreduce::WaitForData(std::vector<TensorTableEntry>& entries) {
   if (global_state_->timeline.Initialized()) {
     // If timeline is initialized, need to use normal CPU syncing path
@@ -210,7 +222,6 @@ void NCCLAllreduce::WaitForData(std::vector<TensorTableEntry>& entries) {
   }
 }
 
->>>>>>> original/master
 Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                               const Response& response) {
   auto& first_entry = entries[0];
