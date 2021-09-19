@@ -348,7 +348,6 @@ def broadcast(tensor, root_rank, name=None, priority=0, process_set=global_proce
     return output
 
 
-<<<<<<< HEAD
 def reduce(tensor, root_rank, average = True, name=None, priority=0, prescale_factor=1.0,
               postscale_factor=1.0):
     """

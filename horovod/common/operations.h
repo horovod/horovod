@@ -235,7 +235,8 @@ Status EnqueueTensorReduce(std::shared_ptr<OpContext> context,
                            StatusCallback callback,
                            ReduceOp reduce_op = ReduceOp::SUM,
                            double prescale_factor = 1.0,
-                           double postscale_factor = 1.0);
+                           double postscale_factor = 1.0,
+                           int32_t process_set_id = 0);
 
 
 Status EnqueueJoin(std::shared_ptr<OpContext> context,
