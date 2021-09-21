@@ -1,4 +1,4 @@
-if (HAVE_CUDA)
+if (${HAVE_CUDA})
   message("Build GPU Library with CUDA")
   set(ENV{PYTHONPATH} "${PROJECT_SOURCE_DIR}/cmake:$ENV{PYTHONPATH}")
   execute_process(COMMAND ${PY_EXE} -c "import build_utils; print(' '.join(build_utils.get_nvcc_flags()))"
@@ -12,7 +12,7 @@ if (HAVE_CUDA)
   
   # if we need compatible c++ abi, build a compatible version
   cuda_add_library(compatible_horovod_gpu_kernels gpu_kernels.cu OPTIONS -D_GLIBCXX_USE_CXX11_ABI=0)
-elseif (HAVE_ROCM)
+elseif (${HAVE_ROCM})
   message("Build GPU Library with ROCM")
   if (NOT DEFINED HCC_APTH)
     if (DEFINED ENV{HCC_PATH})
@@ -33,5 +33,5 @@ elseif (HAVE_ROCM)
   list(APPEND HIP_HCC_FLAGS_DEBUG -G -fPIC)
   
   list(APPEND HIP_HIPCC_FLAGS -D_GLIBCXX_USE_CXX11_ABI=1 -fPIC)
-  hip_add_library(horovod_hip_kernels STATIC hip_kernels.cu)
+  hip_add_library(horovod_gpu_kernels STATIC gpu_kernels.cu)
 endif()

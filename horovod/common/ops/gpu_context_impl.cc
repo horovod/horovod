@@ -15,11 +15,12 @@
 // =============================================================================
 
 #include "gpu_operations.h"
-#ifdef HAVE_CUDA
-#include "cuda/cuda_kernels.h"
-#elif HAVE_ROCM
-#include "hip/hip_kernels.h"
-#endif
+//#ifdef HAVE_CUDA
+//#include "cuda/cuda_kernels.h"
+//#elif HAVE_ROCM
+//#include "hip/hip_kernels.h"
+//#endif
+#include "gpu/gpu_kernels.h"
 #include "../message.h"
 #include "../hashes.h"
 
@@ -33,22 +34,25 @@ public:
     int device;
 #ifdef HAVE_CUDA
     auto status = cudaGetDevice(&device);
-#elif HAVE_RCOM
-    auto status = hipGetDevice(&device);
-#endif
-    if (status != gpuSuccess) {
+    if (status != cudaSuccess) {
       return status;
     }
+#elif HAVE_ROCM
+    auto status = hipGetDevice(&device);
+    if (status != hipSuccess) {
+      return status;
+    }
+#endif
 
     auto& mutex = gpu_events_mutex;
     {
       std::lock_guard<std::mutex> guard(mutex);
       auto key = std::make_pair(device, stream);
-      auto& queue = cuda_events[key];
+      auto& queue = gpu_events[key];
       if (!prepopulated[key]) {
         // On first call for device and stream pair, prepopulate event queue.
         // This is to minimize event reuse of callback events passed to framework.
-        for (int i = 0; i < N_CUDA_EVENTS_PREPOPULATE; ++i) {
+        for (int i = 0; i < N_GPU_EVENTS_PREPOPULATE; ++i) {
           gpuEvent_t ev;
 #ifdef HAVE_CUDA
           status = cudaEventCreateWithFlags(&ev, cudaEventDisableTiming);
@@ -62,14 +66,18 @@ public:
       if (!queue.empty()) {
         *event = queue.front();
         queue.pop();
-        return gpuSuccess;
+#ifdef HAVE_CUDA
+        return cudaSuccess;
+#elif HAVE_ROCM
+        return hipSuccess;
+#endif
       }
     }
 
     gpuEvent_t ev;
 #ifdef HAVE_CUDA
     status = cudaEventCreateWithFlags(&ev, cudaEventDisableTiming);
-#elif HAVE_RCOM
+#elif HAVE_ROCM
     status = hipEventCreateWithFlags(&ev, hipEventDisableTiming);
 #endif
     event->event = std::make_shared<gpuEvent_t>(ev);
@@ -80,14 +88,17 @@ public:
 
   gpuError_t ReleaseGpuEvent(Event event) {
     int device;
-#if HAVE_CUDA
+#ifdef HAVE_CUDA
     auto status = cudaGetDevice(&device);
-#elif HAVE_ROCM
-    auto status = hipGetDevice(&device);
-#endif
-    if (status != gpuSuccess) {
+    if (status != cudaSuccess) {
       return status;
     }
+#elif HAVE_ROCM
+    auto status = hipGetDevice(&device);
+    if (status != hipSuccess) {
+      return status;
+    }
+#endif
 
     auto& mutex = gpu_events_mutex;
     {
@@ -96,17 +107,23 @@ public:
       queue.push(event);
     }
 
-    return gpuSuccess;
+#ifdef HAVE_CUDA
+    return cudaSuccess;
+#elif HAVE_ROCM
+    return hipSuccess;
+#endif
   }
 
   void ErrorCheck(std::string op_name, gpuError_t gpu_result) {
-    if (gpu_result != gpuSuccess) {
 #ifdef HAVE_CUDA
+    if (gpu_result != cudaSuccess) {
       throw std::logic_error(std::string(op_name) + " failed: " + cudaGetErrorString(gpu_result));
-#elif HAVE_RCOM
-      throw std::logic_error(std::string(op_name) + " failed: " + hipGetErrorString(gpu_result));
-#endif
     }
+#elif HAVE_ROCM
+    if (gpu_result != hipSuccess) {
+      throw std::logic_error(std::string(op_name) + " failed: " + hipGetErrorString(gpu_result));
+    }
+#endif
   }
 
   void RecordEvent(std::queue<std::pair<std::string, Event>>& event_queue, std::string name, gpuStream_t& stream) {
@@ -125,7 +142,7 @@ public:
     ErrorCheck("GetGpuEvent", GetGpuEvent(&event, stream));
 #ifdef HAVE_CUDA
     ErrorCheck("cudaEventRecord", cudaEventRecord(*(event.event), event.stream));
-#elif HAVE_RCOM
+#elif HAVE_ROCM
     ErrorCheck("cudaEventRecord", hipEventRecord(*(event.event), event.stream));
 #endif
     return event;
@@ -150,12 +167,15 @@ public:
         while (true) {
 #ifdef HAVE_CUDA
           gpu_result = cudaEventQuery(*(event.event));
-#elif HAVE_ROCM
-          gpu_result = hipEventQuery(*(event.event));
-#endif
-          if (gpu_result == gpuSuccess) {
+          if (gpu_result == cudaSuccess) {
             break;
           }
+#elif HAVE_ROCM
+          gpu_result = hipEventQuery(*(event.event));
+          if (gpu_result == hipSuccess) {
+            break;
+          }
+#endif
 
 #ifdef HAVE_CUDA
           if (gpu_result != cudaErrorNotReady) {
@@ -175,13 +195,14 @@ public:
         gpuError_t gpu_result;
 #ifdef HAVE_CUDA
         gpu_result= cudaEventSynchronize(*(event.event));
-#elif HAVE_RCOM
+#elif HAVE_ROCM
         gpu_result= hipEventSynchronize(*(event.event));
 #endif
-        if (gpu_result != gpuSuccess){ 
 #ifdef HAVE_CUDA
+        if (gpu_result != cudaSuccess){ 
           throw std::logic_error(std::string("gpuEventSynchronize failed: ") + cudaGetErrorString(gpu_result));
-#elif HAVE_RCOM
+#elif HAVE_ROCM
+        if (gpu_result != hipSuccess){ 
           throw std::logic_error(std::string("gpuEventSynchronize failed: ") + hipGetErrorString(gpu_result));
 #endif 
         }
@@ -225,15 +246,15 @@ public:
         cudaDeviceGetStreamPriorityRange(NULL, &greatest_priority));
     ErrorCheck("GpuStreamCreateWithPriority",
         cudaStreamCreateWithPriority(stream, cudaStreamNonBlocking, greatest_priority));
-#elif HAVE_CROM
+#elif HAVE_ROCM
     ErrorCheck("GpuDeviceGetStreamPriorityRange",
         hipDeviceGetStreamPriorityRange(NULL, &greatest_priority));
     ErrorCheck("GpuStreamCreateWithPriority",
-        hipStreamCreateWithPriority(stream, cudaStreamNonBlocking, greatest_priority));
+        hipStreamCreateWithPriority(stream, hipStreamNonBlocking, greatest_priority));
 #endif
   }
 
-  void StreamSynchronize(hipStream_t stream) {
+  void StreamSynchronize(gpuStream_t stream) {
 #ifdef HAVE_CUDA
     ErrorCheck("gpuStreamSynchronize", cudaStreamSynchronize(stream));
 #elif HAVE_ROCM
@@ -245,7 +266,7 @@ public:
     int device;
 #ifdef HAVE_CUDA
     ErrorCheck("gpuGetDevice", cudaGetDevice(&device));
-#elif HAVE_RCOM
+#elif HAVE_ROCM
     ErrorCheck("gpuGetDevice", hipGetDevice(&device));
 #endif
     return device;
@@ -254,12 +275,12 @@ public:
   void SetDevice(int device) {
 #ifdef HAVE_CUDA
     ErrorCheck("gpuSetDevice", cudaSetDevice(device));
-#elif HAVE_RCOM
+#elif HAVE_ROCM
     ErrorCheck("gpuSetDevice", hipSetDevice(device));
 #endif
   }
 
-  void MemcpyAsyncD2D(void* dst, const void* src, size_t count, hipStream_t stream) {
+  void MemcpyAsyncD2D(void* dst, const void* src, size_t count, gpuStream_t stream) {
 #ifdef HAVE_CUDA
     ErrorCheck("gpuMemcpyAsync", cudaMemcpyAsync(dst, src, count, cudaMemcpyDeviceToDevice, stream));
 #elif HAVE_ROCM
@@ -267,18 +288,18 @@ public:
 #endif
   }
 
-  void MemcpyAsyncH2D(void* dst, const void* src, size_t count, hipStream_t stream) {
+  void MemcpyAsyncH2D(void* dst, const void* src, size_t count, gpuStream_t stream) {
 #ifdef HAVE_CUDA
     ErrorCheck("gpuMemcpyAsync", cudaMemcpyAsync(dst, src, count, cudaMemcpyHostToDevice, stream));
-#elif HAVE_RCOM
+#elif HAVE_ROCM
     ErrorCheck("gpuMemcpyAsync", hipMemcpyAsync(dst, src, count, hipMemcpyHostToDevice, stream));
 #endif
   }
 
-  void MemcpyAsyncD2H(void* dst, const void* src, size_t count, cudaStream_t stream) {
+  void MemcpyAsyncD2H(void* dst, const void* src, size_t count, gpuStream_t stream) {
 #ifdef HAVE_CUDA
     ErrorCheck("gpuMemcpyAsync", cudaMemcpyAsync(dst, src, count, cudaMemcpyDeviceToHost, stream));
-#elif HAVE_RCOM
+#elif HAVE_ROCM
     ErrorCheck("gpuMemcpyAsync", hipMemcpyAsync(dst, src, count, hipMemcpyDeviceToHost, stream));
 #endif
   }

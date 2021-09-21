@@ -161,7 +161,8 @@ macro(ADD_CUDA)
     find_package(CUDA REQUIRED)
     include_directories(SYSTEM ${CUDA_INCLUDE_DIRS})
     list(APPEND LINKER_LIBS ${CUDA_LIBRARIES})
-    list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/gpu_operations.cc")
+    list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/gpu_operations.cc"
+                        "${PROJECT_SOURCE_DIR}/horovod/common/ops/gpu_context_impl.cc")
     # CUDA + MPI
     if(HAVE_MPI)
         list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/mpi_gpu_operations.cc")
@@ -181,9 +182,11 @@ if(DEFINED HOROVOD_GPU_ALLREDUCE OR DEFINED HOROVOD_GPU_ALLGATHER OR DEFINED HOR
 	include_directories(SYSTEM ${ROCM_INCLUDE_DIRS} "${ROCM_PATH}/hip/include")
         list(APPEND LINKER_LIBS ${ROCM_LIBRARIES})
         set(CMAKE_CXX_FLAGS "${ROCM_COMPILE_FLAGS} ${CMAKE_CXX_FLAGS}")
-        list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/gpu_operations.cc")
+        list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/gpu_operations.cc"
+                            "${PROJECT_SOURCE_DIR}/horovod/common/ops/gpu_context_impl.cc")
         add_definitions(-DHAVE_ROCM=1 -DHAVE_GPU=1)
         set(HAVE_ROCM TRUE)
+        set(HAVE_GPU TRUE)
     else()
         message(FATAL_ERROR "Unknown HOROVOD_GPU type: ${HOROVOD_GPU}")
     endif()
@@ -309,6 +312,7 @@ endif()
 execute_process(COMMAND ${PY_EXE} -c "import sysconfig; print(next(x for x in [sysconfig.get_config_var('EXT_SUFFIX'), sysconfig.get_config_var('SO'), '.so'] if x))"
                 OUTPUT_VARIABLE Python_SUFFIX OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
 
+
 # TF
 add_subdirectory(horovod/tensorflow)
 # PyTorch
@@ -316,13 +320,13 @@ add_subdirectory(horovod/torch)
 #MXNet
 add_subdirectory(horovod/mxnet)
 
-# Correctly wrap up json format
-file(APPEND "${CMAKE_LIBRARY_OUTPUT_DIRECTORY_ROOT}/metadata.json" "\"dummy\": \"none\"\n}")
-
 # GPU (CUDA + HIP) kernels
-if(HAVE_CUDA OR HAVE_SUB_PROJECT_CUDA)
+if(HAVE_GPU OR HAVE_SUB_PROJECT_CUDA)
     add_subdirectory(horovod/common/ops/gpu)
 endif()
+
+# Correctly wrap up json format
+file(APPEND "${CMAKE_LIBRARY_OUTPUT_DIRECTORY_ROOT}/metadata.json" "\"dummy\": \"none\"\n}")
 
 # if we need compatible c++ abi
 # Duplicate gloo folder and add it as a new sub-project
