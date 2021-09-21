@@ -21,10 +21,8 @@ if (LEN EQUAL "4")
     list(GET Tensorflow_OUTPUT 2 Tensorflow_LIBRARIES)
     string(REPLACE " " ";" Tensorflow_LIBRARIES_LIST "${Tensorflow_LIBRARIES}")
     list(GET Tensorflow_LIBRARIES_LIST 0 Tensorflow_LIB_PATH)
-    if ((Tensorflow_VERSION VERSION_GREATER_EQUAL "2.6") AND (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin"))
+    if (Tensorflow_VERSION VERSION_GREATER_EQUAL "2.6")
         # XLA implementations are in _pywrap_tensorflow_internal.so
-        # See https://github.com/horovod/horovod/issues/3132
-        # _pywrap_tensorflow_internal.so is not working correctly for linking on OSX
         set(Tensorflow_LIBRARIES "${Tensorflow_LIBRARIES} ${Tensorflow_LIB_PATH}/python/ -l:_pywrap_tensorflow_internal.so")
     endif()
     message("Tensorflow_LIBRARIES := ${Tensorflow_LIBRARIES}")
