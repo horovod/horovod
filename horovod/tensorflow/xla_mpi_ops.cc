@@ -45,9 +45,6 @@
         << "CUDA: " << cudaGetErrorString(e);                                  \
   }
 
-//#elif HAVE_ROCM
-//#inlude <hip/hip_runtime.h>
-//#endif
 #define OMPI_SKIP_MPICXX
 #include "../common/operations.h"
 #include "../common/utils/env_parser.h"
@@ -574,6 +571,5 @@ XLA_REGISTER_CUSTOM_CALL_TARGET(CallbackHVDAllreduceDone, "CUDA");
 } // namespace horovod
 
 #endif // TENSORFLOW_VERSION >= 2006000000
-//#endif //HAVE_ROCM
 #endif // HAVE_CUDA
 #endif // HAVE_GPU
