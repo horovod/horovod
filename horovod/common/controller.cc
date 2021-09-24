@@ -27,8 +27,8 @@
 #include "logging.h"
 #include "operations.h"
 
-#if HAVE_CUDA
-#include "ops/cuda/cuda_kernels.h"
+#if HAVE_GPU
+#include "ops/gpu/gpu_kernels.h"
 #endif
 
 
