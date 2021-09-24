@@ -68,6 +68,40 @@ class MXTests:
         if not has_gpu:
             skip_or_fail_gpu_test(self, "No GPUs available")
 
+    def test_horovod_reduce(self):
+        hvd.init()
+        size = hvd.size()
+        dtypes = self.filter_supported_types(['int32', 'int64',
+                                              'float32', 'float64'])
+        dims = [1, 2, 3]
+        ctx = self._current_context()
+        count = 0
+        shapes = [(), (17), (17, 17), (17, 17, 17)]
+        for dtype, dim in itertools.product(dtypes, dims):
+            # MXNet uses gpu_id as part of the seed, so to get identical seeds
+            # we must set a context.
+            mx.random.seed(1234, ctx=ctx)
+            tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim],
+                                          ctx=ctx)
+            tensor = tensor.astype(dtype)
+            summed = hvd.reduce(tensor, average=False, name=str(count))
+            multiplied = tensor * size
+            count += 1
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in ['int32', 'int64']:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+
+            assert almost_equal(summed.asnumpy(), multiplied.asnumpy(), atol=threshold), \
+                f'hvd.allreduce produces incorrect results: {hvd.rank()} {count} {dtype} {dim}'
+
     def test_horovod_allreduce(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
