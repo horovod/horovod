@@ -166,12 +166,13 @@ Status NCCLReduce::Execute(std::vector<TensorTableEntry>& entries,
 
   auto e = entries[0];
   int root_rank = e.root_rank;
-  auto& process_set = global_state_->process_set_table.Get(e.process_set_id);
 
+  auto& process_set = global_state_->process_set_table.Get(e.process_set_id);
   //ncclAvg ncclSum
   void* data_ptr;
   void* output_ptr;
   data_ptr = (void*) e.tensor->data();
+
   if (process_set.controller->GetRank() == e.root_rank) {
     output_ptr = (void*) e.tensor->data();
   } else {

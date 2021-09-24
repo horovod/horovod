@@ -87,7 +87,6 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
   auto postscale_factor = ops_param->postscale_factor;
   auto num_tensors = ops_param->input_tensors.size();
   auto process_set_id = ops_param->process_set_id;
-
   std::vector<std::shared_ptr<Tensor>> hvd_tensors;
   std::vector<std::shared_ptr<OpContext>> hvd_contexts;
   std::vector<StatusCallback> callbacks;
@@ -158,7 +157,6 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
       } else {
         hvd_outputs.emplace_back(nullptr);
       }
-
       enqueue_result = EnqueueTensorBroadcast(
           hvd_contexts[0], hvd_tensors[0], hvd_outputs[0], ops_param->root_rank,
           ready_event_lists[0], ops_param->op_names[0], device, callbacks[0],
@@ -268,7 +266,6 @@ inline void PushHorovodOperation(OperationType op_type, NDArray* const * inputs,
       cpu_input_tensors, cpu_output_tensors, op_type, std::move(op_names),
       root_rank, average, splits_tensor, received_splits_tensor,
       prescale_factor, postscale_factor, process_set_id);
-
   // Not in-place
   if (!inplace) {
     if (splits) {
@@ -492,7 +489,6 @@ extern "C" int horovod_mxnet_reduce_async(NDArray* input,
                                          int num_tensors,
                                          int process_set_id){
   MX_API_BEGIN();
-
 #if HAVE_ROCM
   // Averaging left at framework level for ROCm until ScaleBuffer implementation
   // added.
@@ -534,7 +530,6 @@ extern "C" int horovod_mxnet_allreduce_async(NDArray* const * inputs,
                                              int num_tensors,
                                              int process_set_id) {
   MX_API_BEGIN();
-
 #if HAVE_ROCM
   // Averaging left at framework level for ROCm until ScaleBuffer implementation
   // added.

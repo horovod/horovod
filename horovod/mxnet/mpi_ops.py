@@ -349,7 +349,7 @@ def broadcast(tensor, root_rank, name=None, priority=0, process_set=global_proce
 
 
 def reduce(tensor, root_rank, average = True, name=None, priority=0, prescale_factor=1.0,
-              postscale_factor=1.0):
+              postscale_factor=1.0, process_set=global_process_set):
     """
     A function that broadcasts the input tensor on root rank to the same input
     tensor on all other Horovod processes. The operation is performed in-place.
@@ -383,12 +383,12 @@ def reduce(tensor, root_rank, average = True, name=None, priority=0, prescale_fa
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_reduce_async(
             c_in, c_out, c_str(name), ctypes.c_int(root_rank), ctypes.c_bool(average),
             ctypes.c_int(priority), ctypes.c_double(prescale_factor),
-        ctypes.c_double(postscale_factor)))
+        ctypes.c_double(postscale_factor), ctypes.c_int(1), ctypes.c_int(process_set.process_set_id)))
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_reduce_async(
             c_in, c_out, name, ctypes.c_int(root_rank), ctypes.c_bool(average),
             ctypes.c_int(priority), ctypes.c_double(prescale_factor),
-        ctypes.c_double(postscale_factor)))
+        ctypes.c_double(postscale_factor), ctypes.c_int(1), ctypes.c_int(process_set.process_set_id)))
 
     return tensor
 
@@ -419,11 +419,11 @@ def broadcast_(tensor, root_rank, name=None, priority=0, process_set=global_proc
     if isinstance(name, string_types):
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(
             c_in, c_out, c_str(name), ctypes.c_int(root_rank),
-            ctypes.c_int(priority), ctypes.c_int(process_set.process_set_id)))
+            ctypes.c_int(priority), ctypes.c_int(1), ctypes.c_int(process_set.process_set_id)))
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(
             c_in, c_out, name, ctypes.c_int(root_rank),
-            ctypes.c_int(priority), ctypes.c_int(process_set.process_set_id)))
+            ctypes.c_int(priority), ctypes.c_int(1),cctypes.c_int(process_set.process_set_id)))
     return tensor
 
 def alltoall(tensor, splits=None, name=None, priority=0, process_set=global_process_set):

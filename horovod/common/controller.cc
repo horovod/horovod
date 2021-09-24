@@ -452,7 +452,8 @@ ResponseList Controller::ComputeResponseList(bool this_process_requested_shutdow
       if ((response.response_type() == Response::ResponseType::ALLREDUCE ||
            response.response_type() == Response::ResponseType::ALLGATHER ||
            response.response_type() == Response::ResponseType::ADASUM ||
-           response.response_type() == Response::ResponseType::ALLTOALL) &&
+           response.response_type() == Response::ResponseType::ALLTOALL ||
+           response.response_type() == Response::ResponseType::REDUCE) &&
           (int)response.devices().size() == size_) {
         response_cache_.put(response, tensor_queue_, process_set.joined);
       }
@@ -532,7 +533,8 @@ Response Controller::ConstructResponse(const std::string& name, int joined_size)
   // identical.
   if (message_type == Request::ALLREDUCE ||
       message_type == Request::ADASUM ||
-      message_type == Request::BROADCAST) {
+      message_type == Request::BROADCAST ||
+      message_type == Request::REDUCE) {
     TensorShape tensor_shape;
     for (auto dim : requests[0].tensor_shape()) {
       tensor_shape.AddDim(dim);
@@ -672,7 +674,7 @@ Response Controller::ConstructResponse(const std::string& name, int joined_size)
     tensor_sizes.push_back(tensor_shape.num_elements());
   }
 
-  if (message_type == Request::BROADCAST) {
+  if (message_type == Request::BROADCAST || message_type == Request::REDUCE) {
     if (joined_size > 0) {
       error = true;
       error_message_stream << "Broadcast is not supported with Join at this time.";

@@ -121,6 +121,14 @@ extern "C" int horovod_mxnet_allgather_async(NDArray* input,
                                              NDArray* output,
                                              const char* name, int priority,
                                              int process_set_id);
+extern "C" int horovod_mxnet_reduce_async(NDArray* input,
+                                         NDArray* output,
+                                         const char* name, int root_rank, bool average,
+                                         int priority,
+                                         double prescale_factor,
+                                         double postscale_factor,
+                                         int num_tensors,
+                                         int process_set_id);
 extern "C" int horovod_mxnet_broadcast_async(NDArray* input,
                                              NDArray* output,
                                              const char* name, int root_rank,
@@ -133,6 +141,8 @@ extern "C" int horovod_mxnet_alltoall_async(NDArray* input,
                                             NDArray* output_received_splits,
                                             int priority,
                                             int process_set_id);
+
+
 
 } // namespace mxnet
 } // namespace horovod

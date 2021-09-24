@@ -1654,14 +1654,13 @@ Status EnqueueTensorReduce(std::shared_ptr<OpContext> context,
                            double prescale_factor,
                            double postscale_factor,
                            int32_t process_set_id){
-
   if (horovod_global.cpu_operation == LibType::CCL && process_set_id > 0 &&
       device == CPU_DEVICE_ID) {
     return Status::InvalidArgument(
         "Process sets are not supported yet with oneCCL operations.");
   }
   if (!horovod_global.process_set_table.Contains(process_set_id)) {
-    return Status::InvalidArgument("Broadcast: Process set provided does not "
+    return Status::InvalidArgument("reduce: Process set provided does not "
                                    "exist, or has not been registered.");
   }
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
@@ -1694,7 +1693,7 @@ Status EnqueueTensorReduce(std::shared_ptr<OpContext> context,
   message.set_request_rank(horovod_global.global_controller->GetRank());
   message.set_tensor_name(name);
   message.set_tensor_type(tensor->dtype());
-  message.set_root_rank(root_rank);
+  message.set_root_rank(root_rank_in_process_set);
   message.set_device(device);
   message.set_request_type(Request::REDUCE);
   message.set_prescale_factor(prescale_factor);
@@ -1704,18 +1703,17 @@ Status EnqueueTensorReduce(std::shared_ptr<OpContext> context,
   }
 
 
-
   TensorTableEntry e;
   e.tensor_name = name;
   e.context = context;
   e.tensor = tensor;
   e.output = output;
-  e.root_rank = root_rank;
+  e.process_set_id = process_set_id;
+  e.root_rank = root_rank_in_process_set;
   e.ready_event_list = ready_event_list;
   e.device = device;
   e.callback = callback;
   e.nvtx_op_range.Start(RegisteredNvtxOp::HorovodReduce, e.tensor->size());
-
   if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
   }

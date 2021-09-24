@@ -127,6 +127,7 @@ Status OperationManager::ExecuteOperation(std::vector<TensorTableEntry>& entries
   } else if (response.response_type() == Response::ADASUM) {
     return ExecuteAdasum(entries, response);
   } else if (response.response_type() == Response::REDUCE) {
+    printf("in operation_manager.cc line 130 go on\n");
     return ExecuteReduce(entries, response);
   }else if (response.response_type() == Response::ERROR) {
     return ExecuteError(entries, response);
