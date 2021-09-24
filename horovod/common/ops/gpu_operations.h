@@ -22,17 +22,8 @@
 #include <unordered_map>
 #include <vector>
 
-#if HAVE_CUDA
-#include <cuda_fp16.h>
-#include <cuda_runtime.h>
-using gpuError_t = cudaError_t;
-using gpuEvent_t = cudaEvent_t;
-using gpuStream_t = cudaStream_t;
-#elif HAVE_ROCM
-#include <hip/hip_runtime_api.h>
-using gpuError_t = hipError_t;
-using gpuEvent_t = hipEvent_t;
-using gpuStream_t = hipStream_t;
+#if HAVE_GPU
+#include "gpu_common.h"
 #endif
 
 #include "../thread_pool.h"
@@ -77,12 +68,7 @@ public:
   WaitForEvents(std::queue<std::pair<std::string, Event>>& event_queue,
                 const std::vector<TensorTableEntry>& entries,
                 Timeline& timeline,
-                const std::function<void()>& error_check_callback = nullptr);
-
-  void WaitForEventsElastic(
-      std::queue<std::pair<std::string, Event>>& event_queue,
-      const std::vector<TensorTableEntry>& entries, Timeline& timeline,
-      const std::function<void()>& error_check_callback = nullptr);
+                const std::function<void()>& error_check_callback = nullptr, bool elastic=false);
 
   void ClearEvents(std::queue<std::pair<std::string, Event>>& event_queue,
                    const std::vector<TensorTableEntry>& entries,
@@ -160,20 +146,15 @@ public:
                const Response& response) const override;
 
 protected:
-#if HAVE_CUDA
-  void MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                            const void*& fused_input_data, void*& buffer_data,
-                            size_t& buffer_len) override;
+#if HAVE_GPU
+  void MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
+                            void*& buffer_data, size_t& buffer_len) override;
 
-  void MemcpyOutFusionBuffer(const void* buffer_data,
-                             std::vector<TensorTableEntry>& entries) override;
+  void MemcpyOutFusionBuffer(const void* buffer_data, std::vector<TensorTableEntry>& entries) override;
 
-  void ScaleMemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                 const void*& fused_input_data,
-                                 void*& buffer_data, size_t& buffer_len,
-                                 double scale_factor);
-  void ScaleMemcpyOutFusionBuffer(void* buffer_data, size_t buffer_len,
-                                  double scale_factor,
+  void ScaleMemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
+                                 void*& buffer_data, size_t& buffer_len, double scale_factor);
+  void ScaleMemcpyOutFusionBuffer(void* buffer_data, size_t buffer_len, double scale_factor,
                                   std::vector<TensorTableEntry>& entries);
 #endif
 
