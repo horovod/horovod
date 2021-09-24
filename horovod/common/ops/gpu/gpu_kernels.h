@@ -13,10 +13,16 @@
 // limitations under the License.
 // =============================================================================
 
-#ifndef CUDA_KERNELS_H
-#define CUDA_KERNELS_H
+#ifndef GPU_KERNELS_H
+#define GPU_KERNELS_H
 
+#ifdef HAVE_CUDA
 #include <cuda_runtime.h>
+using gpuStream_t = cudaStream_t;
+#elif HAVE_ROCM
+#include <hip/hip_runtime.h>
+using gpuStream_t = hipStream_t;
+#endif
 
 #include "../../message.h"
 
@@ -33,16 +39,16 @@ struct BatchedD2DParams {
 };
 
 // Performs a batched d2d memcopy
-void BatchedD2DMemcpyCudaImpl(BatchedD2DParams& params, int num_copies, cudaStream_t stream);
+void BatchedD2DMemcpyGPUImpl(BatchedD2DParams& params, int num_copies, gpuStream_t stream);
 
 // Scales buffer by scalar
-void ScaleBufferCudaImpl(const void* fused_input_data, void* buffer_data, const int64_t num_elements,
-                         double scale_factor, DataType dtype, cudaStream_t stream);
+void ScaleBufferGPUImpl(const void* fused_input_data, void* buffer_data, const int64_t num_elements,
+                         double scale_factor, DataType dtype, gpuStream_t stream);
 
-void BatchedScaledD2DMemcpyCudaImpl(BatchedD2DParams& params, int num_copies, double scale_factor,
-                                    DataType dtype, cudaStream_t stream);
+void BatchedScaledD2DMemcpyGPUImpl(BatchedD2DParams& params, int num_copies, double scale_factor,
+                                    DataType dtype, gpuStream_t stream);
 
 } // namespace common
 } // namespace horovod
 
-#endif // CUDA_KERNELS_H
+#endif // GPU_KERNELS_H

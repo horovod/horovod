@@ -23,9 +23,13 @@
 #include <unordered_map>
 
 #define EIGEN_USE_THREADS
-#if HAVE_CUDA || HAVE_ROCM
+#if HAVE_GPU
 #define EIGEN_USE_GPU
-#endif  // HAVE_CUDA || HAVE_ROCM
+#endif  
+
+#if HAVE_ROCM
+#define EIGEN_USE_HIP
+#endif
 
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/op_kernel.h"
@@ -41,7 +45,6 @@
 #include "../common/common.h"
 
 #if HAVE_GPU
-
 #if HAVE_CUDA
 #include <cuda_runtime.h>
 using GpuStreamHandle = cudaStream_t;
@@ -50,7 +53,7 @@ using GpuStreamHandle = cudaStream_t;
 #include <hip/hip_runtime.h>
 using GpuStreamHandle = hipStream_t;
 #define gpuMemsetAsync hipMemsetAsync
-#endif // HAVE_CUDA, HAVE_ROCM
+#endif
 
 // Forward declaration of AsGpuStreamValue
 namespace stream_executor {

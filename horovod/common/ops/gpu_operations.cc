@@ -15,9 +15,7 @@
 // =============================================================================
 
 #include "gpu_operations.h"
-#if HAVE_CUDA
-#include "cuda/cuda_kernels.h"
-#endif
+#include "gpu/gpu_kernels.h"
 
 #include <thread>
 
@@ -92,8 +90,8 @@ Status GPUOpContext::FinalizeGPUQueue(
           // timings.
           if (elastic) {
             try {
-              gpu_context->WaitForEventsElastic(evt_queue, entries, timeline,
-                                                error_check_callback);
+              gpu_context->WaitForEvents(evt_queue, entries, timeline,
+                                                error_check_callback, elastic);
             } catch (std::exception& e) {
               // notify background loop to exit and reinit rather than just
               // aborting the program
@@ -103,7 +101,7 @@ Status GPUOpContext::FinalizeGPUQueue(
             }
           } else {
             gpu_context->WaitForEvents(evt_queue, entries, timeline,
-                                       error_check_callback);
+                                       error_check_callback, elastic);
           }
         } else {
           gpu_context->ClearEvents(evt_queue, entries, timeline,
@@ -151,10 +149,9 @@ bool GPUAllreduce::Enabled(const ParameterManager& param_manager,
   return entries[0].device != CPU_DEVICE_ID;
 }
 
-#if HAVE_CUDA
-void GPUAllreduce::MemcpyInFusionBuffer(
-    const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
-    void*& buffer_data, size_t& buffer_len) {
+#if HAVE_GPU
+void GPUAllreduce::MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
+                                        void*& buffer_data, size_t& buffer_len) {
   // Access the fusion buffer.
   auto& first_entry = entries[0];
   auto buffer = global_state_->fusion_buffer.GetBuffer(
@@ -185,10 +182,7 @@ void GPUAllreduce::MemcpyInFusionBuffer(
 
       if (idx % BATCHED_D2D_CAPACITY == 0 || idx == (int)entries.size()) {
         // Perform batched d2d memcpy
-        BatchedD2DMemcpyCudaImpl(
-            d2d_params, count,
-            gpu_context_->streams[global_state_->current_nccl_stream]
-                                 [first_entry.device]);
+        BatchedD2DMemcpyGPUImpl(d2d_params, count, gpu_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
         // TODO: https://github.com/horovod/horovod/issues/2230
         // gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl",
         // cudaGetLastError());
@@ -213,10 +207,9 @@ void GPUAllreduce::MemcpyInFusionBuffer(
 }
 #endif
 
-#if HAVE_CUDA
-void GPUAllreduce::ScaleMemcpyInFusionBuffer(
-    const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
-    void*& buffer_data, size_t& buffer_len, double scale_factor) {
+#if HAVE_GPU
+void GPUAllreduce::ScaleMemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
+                                             void*& buffer_data, size_t& buffer_len, double scale_factor) {
   auto& first_entry = entries[0];
   // Access the fusion buffer.
   auto buffer = global_state_->fusion_buffer.GetBuffer(
@@ -246,10 +239,8 @@ void GPUAllreduce::ScaleMemcpyInFusionBuffer(
 
       if (idx % BATCHED_D2D_CAPACITY == 0 || idx == (int)entries.size()) {
         // Perform batched d2d memcpy
-        BatchedScaledD2DMemcpyCudaImpl(
-            d2d_params, count, scale_factor, first_entry.tensor->dtype(),
-            gpu_context_->streams[global_state_->current_nccl_stream]
-                                 [first_entry.device]);
+        BatchedScaledD2DMemcpyGPUImpl(d2d_params, count, scale_factor, first_entry.tensor->dtype(),
+                                       gpu_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
         // TODO: https://github.com/horovod/horovod/issues/2230
         // gpu_context_->ErrorCheck("BatchedScaledD2DMemcpyCudaImpl",
         // cudaGetLastError());
@@ -290,9 +281,8 @@ void GPUAllreduce::MemcpyEntryInFusionBuffer(
           ->streams[global_state_->current_nccl_stream][first_entry.device]);
 }
 
-#if HAVE_CUDA
-void GPUAllreduce::MemcpyOutFusionBuffer(
-    const void* buffer_data, std::vector<TensorTableEntry>& entries) {
+#if HAVE_GPU
+void GPUAllreduce::MemcpyOutFusionBuffer(const void* buffer_data, std::vector<TensorTableEntry>& entries) {
   if (global_state_->batch_d2d_memcopies) {
     int64_t offset = 0;
     int idx = 0;
@@ -316,10 +306,7 @@ void GPUAllreduce::MemcpyOutFusionBuffer(
 
       if (idx % BATCHED_D2D_CAPACITY == 0 || idx == (int)entries.size()) {
         // Perform batched d2d memcpy
-        BatchedD2DMemcpyCudaImpl(
-            d2d_params, count,
-            gpu_context_->streams[global_state_->current_nccl_stream]
-                                 [first_entry.device]);
+        BatchedD2DMemcpyGPUImpl(d2d_params, count, gpu_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
         // TODO: https://github.com/horovod/horovod/issues/2230
         // gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl",
         // cudaGetLastError());
@@ -338,10 +325,9 @@ void GPUAllreduce::MemcpyOutFusionBuffer(
 }
 #endif
 
-#if HAVE_CUDA
-void GPUAllreduce::ScaleMemcpyOutFusionBuffer(
-    void* buffer_data, size_t buffer_len, double scale_factor,
-    std::vector<TensorTableEntry>& entries) {
+#if HAVE_GPU
+void GPUAllreduce::ScaleMemcpyOutFusionBuffer(void* buffer_data, size_t buffer_len, double scale_factor,
+                                              std::vector<TensorTableEntry>& entries) {
   auto& first_entry = entries[0];
 
   if (global_state_->batch_d2d_memcopies) {
@@ -366,10 +352,8 @@ void GPUAllreduce::ScaleMemcpyOutFusionBuffer(
 
       if (idx % BATCHED_D2D_CAPACITY == 0 || idx == (int)entries.size()) {
         // Perform batched d2d memcpy
-        BatchedScaledD2DMemcpyCudaImpl(
-            d2d_params, count, scale_factor, first_entry.tensor->dtype(),
-            gpu_context_->streams[global_state_->current_nccl_stream]
-                                 [first_entry.device]);
+        BatchedScaledD2DMemcpyGPUImpl(d2d_params, count, scale_factor, first_entry.tensor->dtype(),
+                                       gpu_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
         // TODO: https://github.com/horovod/horovod/issues/2230
         // gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl",
         // cudaGetLastError());
