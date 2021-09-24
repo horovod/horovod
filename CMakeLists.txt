@@ -89,6 +89,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -fPIC -Wall -ftree-vectorize")
 string(REPLACE "-O2" "-O3" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
 string(REPLACE "-O2" "-O3" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
 string(REPLACE "-O2" "-O3" CMAKE_CUDA_FLAGS_RELWITHDEBINFO "${CMAKE_CUDA_FLAGS_RELWITHDEBINFO}")
+string(REPLACE "-O2" "-O3" CMAKE_HIP_FLAGS_RELWITHDEBINFO "${CMAKE_HIP_FLAGS_RELWITHDEBINFO}")
 
 # Add architecture specific optimization flags
 set(ARCH_FLAGS "-mf16c" "-mavx" "-mfma")
@@ -176,8 +177,8 @@ macro(ADD_CUDA)
     elseif (lowercase_CMAKE_CUDA_RUNTIME_LIBRARY STREQUAL "shared")
         list(APPEND LINKER_LIBS CUDA::cudart)
     endif()
-    list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/cuda_operations.cc"
-                        "${PROJECT_SOURCE_DIR}/horovod/common/ops/gpu_operations.cc")
+    list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/gpu_operations.cc"
+                        "${PROJECT_SOURCE_DIR}/horovod/common/ops/gpu_context_impl.cc")
     # CUDA + MPI
     if(HAVE_MPI)
         list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/mpi_gpu_operations.cc")
@@ -194,13 +195,14 @@ if(DEFINED HOROVOD_GPU_ALLREDUCE OR DEFINED HOROVOD_GPU_ALLGATHER OR DEFINED HOR
         add_cuda()
     elseif(HOROVOD_GPU STREQUAL "ROCM")
         find_package(ROCM REQUIRED)
-        include_directories(SYSTEM ${ROCM_INCLUDE_DIRS})
+	include_directories(SYSTEM ${ROCM_INCLUDE_DIRS} "${ROCM_PATH}/hip/include")
         list(APPEND LINKER_LIBS ${ROCM_LIBRARIES})
         set(CMAKE_CXX_FLAGS "${ROCM_COMPILE_FLAGS} ${CMAKE_CXX_FLAGS}")
-        list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/hip_operations.cc"
-                            "${PROJECT_SOURCE_DIR}/horovod/common/ops/gpu_operations.cc")
+        list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/gpu_operations.cc"
+                            "${PROJECT_SOURCE_DIR}/horovod/common/ops/gpu_context_impl.cc")
         add_definitions(-DHAVE_ROCM=1 -DHAVE_GPU=1)
         set(HAVE_ROCM TRUE)
+        set(HAVE_GPU TRUE)
     else()
         message(FATAL_ERROR "Unknown HOROVOD_GPU type: ${HOROVOD_GPU}")
     endif()
@@ -333,13 +335,13 @@ add_subdirectory(horovod/torch)
 #MXNet
 add_subdirectory(horovod/mxnet)
 
+# GPU (CUDA + HIP) kernels
+if(HAVE_GPU OR HAVE_SUB_PROJECT_CUDA)
+    add_subdirectory(horovod/common/ops/gpu)
+endif()
+
 # Correctly wrap up json format
 file(APPEND "${CMAKE_LIBRARY_OUTPUT_DIRECTORY_ROOT}/metadata.json" "\"dummy\": \"none\"\n}")
-
-# CUDA kernels
-if(HAVE_CUDA OR HAVE_SUB_PROJECT_CUDA)
-    add_subdirectory(horovod/common/ops/cuda)
-endif()
 
 # if we need compatible c++ abi
 # Duplicate gloo folder and add it as a new sub-project

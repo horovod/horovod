@@ -204,13 +204,8 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
     // a buffer is not safe since the tensor can be arbitrarily large.
     host_buffer = GetHostBuffer((uint64_t)total_buffer_len);
     // Synchronize.
-    if (global_state_->elastic_enabled) {
-      gpu_context_->WaitForEventsElastic(gpu_op_context_.event_queue, entries,
-                                         timeline, nullptr);
-    } else {
-      gpu_context_->WaitForEvents(gpu_op_context_.event_queue, entries,
-                                  timeline, nullptr);
-    }
+    gpu_context_->WaitForEvents(gpu_op_context_.event_queue, entries,
+                                timeline, nullptr, global_state_->elastic_enabled);
 
     // According to https://docs.nvidia.com/cuda/cuda-runtime-api/
     // api-sync-behavior.html#api-sync-behavior__memcpy-async,

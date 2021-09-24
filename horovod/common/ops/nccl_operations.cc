@@ -410,9 +410,9 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
 
     // Synchronize.
     if (global_state_->elastic_enabled) {
-      gpu_context_->WaitForEventsElastic(
+      gpu_context_->WaitForEvents(
           gpu_op_context_.event_queue, entries, timeline,
-          nccl_op_context_.error_check_callback_);
+          nccl_op_context_.error_check_callback_, global_state_->elastic_enabled);
     } else {
       gpu_context_->WaitForEvents(gpu_op_context_.event_queue, entries,
                                   timeline,
