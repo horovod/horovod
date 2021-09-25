@@ -56,11 +56,15 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     train_steps_per_epoch = estimator.getTrainStepsPerEpoch()
     val_steps_per_epoch = estimator.getValidationStepsPerEpoch()
     num_gpus = estimator.getNumGPUs()
-    logger = estimator.getLogger()
-    log_every_n_steps = estimator.getLogEveryNSteps()
     data_module = estimator.getDataModule() if estimator.getDataModule() else PetastormDataModule
     loader_num_epochs = estimator.getLoaderNumEpochs()
     verbose = (estimator.getVerbose() > 0)
+
+    # get logger
+    logger = estimator.getLogger()
+    log_every_n_steps = estimator.getLogEveryNSteps()
+    print(f"logger is configured. _experiment_key={logger._experiment_key}, {var(logger)}")
+    comet_experiment_key = logger._experiment_key
 
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
@@ -101,7 +105,8 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             # Use default logger if no logger is supplied
             train_logger = logger
-            print(f"Train_logger is {train_logger}")
+            print(f"Train_logger is _experiment_key={train_logger._experiment_key} , {comet_experiment_key}, {var(train_logger)}")
+            logger._experiment_key = comet_experiment_key
 
             if train_logger is None:
                 train_logger = TensorBoardLogger(logs_path)
