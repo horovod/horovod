@@ -419,11 +419,11 @@ def broadcast_(tensor, root_rank, name=None, priority=0, process_set=global_proc
     if isinstance(name, string_types):
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(
             c_in, c_out, c_str(name), ctypes.c_int(root_rank),
-            ctypes.c_int(priority), ctypes.c_int(1), ctypes.c_int(process_set.process_set_id)))
+            ctypes.c_int(priority), ctypes.c_int(process_set.process_set_id)))
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(
             c_in, c_out, name, ctypes.c_int(root_rank),
-            ctypes.c_int(priority), ctypes.c_int(1),cctypes.c_int(process_set.process_set_id)))
+            ctypes.c_int(priority), ctypes.c_int(process_set.process_set_id)))
     return tensor
 
 def alltoall(tensor, splits=None, name=None, priority=0, process_set=global_process_set):
