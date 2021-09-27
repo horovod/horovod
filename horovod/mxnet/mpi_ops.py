@@ -351,10 +351,9 @@ def broadcast(tensor, root_rank, name=None, priority=0, process_set=global_proce
 def reduce(tensor, root_rank, average = True, name=None, priority=0, prescale_factor=1.0,
               postscale_factor=1.0, process_set=global_process_set):
     """
-    A function that broadcasts the input tensor on root rank to the same input
-    tensor on all other Horovod processes. The operation is performed in-place.
+    A function that reduce the input tensor on root rank. The input tensor is not modified.
 
-    The broadcast operation is keyed by the name. If name is not provided, an
+    The reduce operation is keyed by the name. If name is not provided, an
     incremented auto-generated name is used. The tensor type and shape must be
     the same on all Horovod processes for a given name. The broadcast will not
     start until all processes are ready to send and receive the tensor.
@@ -368,7 +367,7 @@ def reduce(tensor, root_rank, average = True, name=None, priority=0, prescale_fa
 
     Returns:
         A tensor of the same shape and type as `tensor`, with the value
-        broadcasted from root rank.
+        reduce on root rank.
     """
 
     if rank() == root_rank:
@@ -379,6 +378,43 @@ def reduce(tensor, root_rank, average = True, name=None, priority=0, prescale_fa
 
     c_in = tensor.handle
     c_out = output.handle
+    if isinstance(name, string_types):
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_reduce_async(
+            c_in, c_out, c_str(name), ctypes.c_int(root_rank), ctypes.c_bool(average),
+            ctypes.c_int(priority), ctypes.c_double(prescale_factor),
+        ctypes.c_double(postscale_factor), ctypes.c_int(1), ctypes.c_int(process_set.process_set_id)))
+    else:
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_reduce_async(
+            c_in, c_out, name, ctypes.c_int(root_rank), ctypes.c_bool(average),
+            ctypes.c_int(priority), ctypes.c_double(prescale_factor),
+        ctypes.c_double(postscale_factor), ctypes.c_int(1), ctypes.c_int(process_set.process_set_id)))
+
+    return tensor
+
+def reduce_(tensor, root_rank, average = True, name=None, priority=0, prescale_factor=1.0,
+              postscale_factor=1.0, process_set=global_process_set):
+    """
+    A function that broadcasts the input tensor on root rank to the same input
+    tensor on all other Horovod processes. The operation is performed in-place.
+
+    The reduce operation is keyed by the name. If name is not provided, an
+    incremented auto-generated name is used. The tensor type and shape must be
+    the same on all Horovod processes for a given name. The broadcast will not
+    start until all processes are ready to send and receive the tensor.
+
+    Arguments:
+        tensor: A tensor to reduce.
+        root_rank: The rank to broadcast the value from.
+        name: A name of the broadcast operation.
+        priority: The priority of this operation. Higher priority operations
+                  are likely to be executed before other operations.
+
+    Returns:
+        A tensor of the same shape and type as `tensor`, with the value
+        reduce on root rank.
+    """
+    c_in = tensor.handle
+    c_out = tensor.handle
     if isinstance(name, string_types):
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_reduce_async(
             c_in, c_out, c_str(name), ctypes.c_int(root_rank), ctypes.c_bool(average),
