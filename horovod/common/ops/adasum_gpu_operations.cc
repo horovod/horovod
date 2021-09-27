@@ -288,12 +288,22 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
     }
   }
   if (num_elements_remaining > 0) {
+#if NCCL_MAJOR >= 2 && NCCL_MINOR >= 2 && NCCL_PATCH >= 12
+    nccl_context_->ErrorCheck(
+        "ncclBroadcast",
+        ncclBroadcast(buffer_data_remainder, buffer_data_remainder,
+                      (size_t)num_elements_remaining,
+                      GetNCCLDataType(first_entry.tensor), root_rank,
+                      *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream),
+        *nccl_op_context_.nccl_comm_);
+#else
     nccl_context_->ErrorCheck(
         "ncclBcast",
         ncclBcast(buffer_data_remainder, (size_t)num_elements_remaining,
-                  GetNCCLDataType(first_entry.tensor), root_rank, *nccl_op_context_.nccl_comm_,
-                  *gpu_op_context_.stream),
+                  GetNCCLDataType(first_entry.tensor), root_rank,
+                  *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream),
         *nccl_op_context_.nccl_comm_);
+#endif
     if (global_state_->timeline.Initialized()) {
       gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_BCAST,
                                 *gpu_op_context_.stream);

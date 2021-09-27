@@ -411,6 +411,7 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     }
   }
   if (num_elements_remaining > 0) {
+#if NCCL_MAJOR >= 2 && NCCL_MINOR >= 2 && NCCL_PATCH >= 12
     nccl_context_->ErrorCheck("ncclBroadcast",
                               ncclBroadcast(buffer_data_remainder,
                                             buffer_data_remainder,
@@ -418,6 +419,14 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                                             GetNCCLDataType(first_entry.tensor), root_rank,
                                             *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream),
                               *nccl_op_context_.nccl_comm_);
+#else
+    nccl_context_->ErrorCheck("ncclBcast",
+                              ncclBcast(buffer_data_remainder,
+                                        (size_t) num_elements_remaining,
+                                        GetNCCLDataType(first_entry.tensor), root_rank,
+                                        *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream),
+                              *nccl_op_context_.nccl_comm_);
+#endif
     if (global_state_->timeline.Initialized()) {
       gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_BCAST, *gpu_op_context_.stream);
     }
@@ -488,14 +497,24 @@ Status NCCLBroadcast::Execute(std::vector<TensorTableEntry>& entries,
 
   // We only use 'ncclChar' for this operation because the type format does not matter for a
   // broadcast, only the size of the data.
-  nccl_context_->ErrorCheck("ncclBroadcast",
-                            ncclBroadcast(data_ptr,
+#if NCCL_MAJOR >= 2 && NCCL_MINOR >= 2 && NCCL_PATCH >= 12
+    nccl_context_->ErrorCheck("ncclBroadcast",
+                              ncclBroadcast(data_ptr,
                                           data_ptr,
                                           e.tensor->shape().num_elements() *
                                           DataType_Size(e.tensor->dtype()),
                                           ncclChar, e.root_rank,
                                           *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream),
-                            *nccl_op_context_.nccl_comm_);
+                              *nccl_op_context_.nccl_comm_);
+#else
+    nccl_context_->ErrorCheck("ncclBcast",
+                              ncclBcast(data_ptr,
+                                        e.tensor->shape().num_elements() *
+                                        DataType_Size(e.tensor->dtype()),
+                                        ncclChar, e.root_rank,
+                                        *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream),
+                              *nccl_op_context_.nccl_comm_);
+#endif
   if (global_state_->timeline.Initialized()) {
     gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_BCAST, *gpu_op_context_.stream);
   }
