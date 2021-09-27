@@ -29,6 +29,7 @@ using gpuError_t = cudaError_t;
 using gpuEvent_t = cudaEvent_t;
 using gpuStream_t = cudaStream_t;
 #elif HAVE_ROCM
+#include <hip/hip_fp16.h>
 #include <hip/hip_runtime_api.h>
 using gpuError_t = hipError_t;
 using gpuEvent_t = hipEvent_t;
@@ -146,7 +147,7 @@ public:
                const Response& response) const override;
 
 protected:
-#if HAVE_CUDA
+#if HAVE_GPU
   void MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
                             void*& buffer_data, size_t& buffer_len) override;
 

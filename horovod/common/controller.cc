@@ -27,8 +27,12 @@
 #include "logging.h"
 #include "operations.h"
 
+#if HAVE_GPU
 #if HAVE_CUDA
 #include "ops/cuda/cuda_kernels.h"
+#elif HAVE_ROCM
+#include "ops/hip/hip_kernels.h"
+#endif
 #endif
 
 
@@ -809,7 +813,7 @@ void Controller::FuseResponses(std::deque<Response>& responses,
       // Attempt to add more responses to this fused response.
 
       tensor_size = response.tensor_sizes()[0] * GetTypeSize(response.tensor_type());
-#if HAVE_CUDA
+#if HAVE_GPU
       if (state.batch_d2d_memcopies) {
         // Add 16 byte pad for batched memcpy op
         tensor_size = BATCHED_D2D_PADDING * ((tensor_size + BATCHED_D2D_PADDING - 1) / BATCHED_D2D_PADDING);
@@ -826,7 +830,7 @@ void Controller::FuseResponses(std::deque<Response>& responses,
                                       : new_response.tensor_sizes()[0] *
                                         GetTypeSize(new_response.tensor_type());
 
-#if HAVE_CUDA
+#if HAVE_GPU
         if (state.batch_d2d_memcopies) {
           // Add 16 byte pad for batched memcpy op
           new_tensor_size = BATCHED_D2D_PADDING * ((new_tensor_size + BATCHED_D2D_PADDING - 1) / BATCHED_D2D_PADDING);

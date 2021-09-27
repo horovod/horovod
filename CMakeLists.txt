@@ -179,6 +179,9 @@ if(DEFINED HOROVOD_GPU_ALLREDUCE OR DEFINED HOROVOD_GPU_ALLGATHER OR DEFINED HOR
         set(CMAKE_CXX_FLAGS "${ROCM_COMPILE_FLAGS} ${CMAKE_CXX_FLAGS}")
         list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/hip_operations.cc"
                             "${PROJECT_SOURCE_DIR}/horovod/common/ops/gpu_operations.cc")
+        if(HAVE_MPI)
+            list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/mpi_gpu_operations.cc")
+        endif()
         add_definitions(-DHAVE_ROCM=1 -DHAVE_GPU=1)
         set(HAVE_ROCM TRUE)
     else()
@@ -319,6 +322,10 @@ file(APPEND "${CMAKE_LIBRARY_OUTPUT_DIRECTORY_ROOT}/metadata.json" "\"dummy\": \
 # CUDA kernels
 if(HAVE_CUDA OR HAVE_SUB_PROJECT_CUDA)
     add_subdirectory(horovod/common/ops/cuda)
+endif()
+
+if (HAVE_ROCM)
+    add_subdirectory(horovod/common/ops/hip)
 endif()
 
 # if we need compatible c++ abi
