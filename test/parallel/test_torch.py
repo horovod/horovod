@@ -62,6 +62,10 @@ class TorchTests(unittest.TestCase):
         super(TorchTests, self).__init__(*args, **kwargs)
         warnings.simplefilter('module')
 
+    def tearDown(self):
+        if hvd.is_initialized():
+            hvd.join()
+
     def convert_cpu_fp16_to_fp32(self, *values):
         # PyTorch doesn't support any CPU ops on FP16 tensors.
         # In case we need to do ops, we will convert tensor to FP32 here.
