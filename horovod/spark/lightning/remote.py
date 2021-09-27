@@ -63,7 +63,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     # get logger
     logger = estimator.getLogger()
     log_every_n_steps = estimator.getLogEveryNSteps()
-    print(f"logger is configured. _experiment_key={logger._experiment_key}, {var(logger)}")
+    print(f"logger is configured. _experiment_key={logger._experiment_key}, {vars(logger)}")
     comet_experiment_key = logger._experiment_key
 
     # Data reader parameters
@@ -105,7 +105,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             # Use default logger if no logger is supplied
             train_logger = logger
-            print(f"Train_logger is _experiment_key={train_logger._experiment_key} , {comet_experiment_key}, {var(train_logger)}")
+            print(f"Train_logger is _experiment_key={train_logger._experiment_key} , {comet_experiment_key}, {vars(train_logger)}")
             logger._experiment_key = comet_experiment_key
 
             if train_logger is None:
