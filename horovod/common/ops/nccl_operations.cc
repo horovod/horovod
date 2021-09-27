@@ -172,12 +172,13 @@ Status NCCLReduce::Execute(std::vector<TensorTableEntry>& entries,
   void* data_ptr;
   void* output_ptr;
   data_ptr = (void*) e.tensor->data();
-
+  /*
   if (process_set.controller->GetRank() == e.root_rank) {
-    output_ptr = (void*) e.tensor->data();
+    output_ptr = (void*) e.output->data();
   } else {
-    output_ptr = (void*) e.tensor->data();
-  }
+    output_ptr = (void*) e.output->data();
+  }*/
+  output_ptr = (void*) e.output->data();
 
   int64_t num_elements = (size_t) entries[0].output->size() / DataType_Size(entries[0].tensor->dtype());
   if (response.prescale_factor() != 1.0) {
