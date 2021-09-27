@@ -147,18 +147,19 @@ Framework TorchOpContext::framework() const {
 }
 
 void ThrowIfError(Status status) {
-  switch (status.type()) {
-  case StatusType::OK:
-    return;
-  case StatusType::PRECONDITION_ERROR:
-    throw std::logic_error(status.reason());
-  case StatusType::ABORTED:
-    throw std::runtime_error(status.reason());
-  case StatusType::INVALID_ARGUMENT:
-    throw std::invalid_argument(status.reason());
-  default: // Includes UNKNOWN_ERROR
-    throw std::runtime_error(status.reason());
-  }
+  TORCH_CHECK(status.type() == StatusType::OK, status.reason());
+//  switch (status.type()) {
+//  case StatusType::OK:
+//    return;
+//  case StatusType::PRECONDITION_ERROR:
+//    throw std::logic_error(status.reason());
+//  case StatusType::ABORTED:
+//    throw std::runtime_error(status.reason());
+//  case StatusType::INVALID_ARGUMENT:
+//    throw std::invalid_argument(status.reason());
+//  default: // Includes UNKNOWN_ERROR
+//    throw std::runtime_error(status.reason());
+//  }
 }
 
 } // namespace torch
