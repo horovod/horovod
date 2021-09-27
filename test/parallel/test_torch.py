@@ -42,6 +42,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 from common import mpi_env_rank_and_size, skip_or_fail_gpu_test, temppath
 
 _1_5_api = LooseVersion(torch.__version__) >= LooseVersion('1.5.0')
+_1_10_api = LooseVersion(torch.__version__) >= LooseVersion('1.10.0')
 
 ccl_supported_types = set([torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
                            torch.IntTensor, torch.LongTensor, torch.FloatTensor,
@@ -63,7 +64,8 @@ class TorchTests(unittest.TestCase):
         warnings.simplefilter('module')
 
     def tearDown(self):
-        if hvd.is_initialized():
+        if _1_10_api and hvd.is_initialized():
+            # To fix https://github.com/horovod/horovod/issues/3149
             hvd.join()
 
     def convert_cpu_fp16_to_fp32(self, *values):
@@ -616,9 +618,6 @@ class TorchTests(unittest.TestCase):
             assert False, 'hvd.allreduce_async did not throw error'
         except (torch.FatalError, ValueError):
             pass
-        if LooseVersion(torch.__version__) >= LooseVersion('1.10.0'):
-            # To fix https://github.com/horovod/horovod/issues/3149
-            hvd.join()
 
     def test_horovod_allreduce_grad(self):
         """Test the correctness of the allreduce gradient."""
@@ -1225,9 +1224,6 @@ class TorchTests(unittest.TestCase):
             assert False, 'hvd.allgather_async did not throw error'
         except (torch.FatalError, ValueError):
             pass
-        if LooseVersion(torch.__version__) >= LooseVersion('1.10.0'):
-            # To fix https://github.com/horovod/horovod/issues/3149
-            hvd.join()
 
     def test_horovod_allgather_grad(self):
         """Test the correctness of the allgather gradient."""
@@ -1538,9 +1534,6 @@ class TorchTests(unittest.TestCase):
             assert False, 'hvd.broadcast_async did not throw error'
         except (torch.FatalError, ValueError):
             pass
-        if LooseVersion(torch.__version__) >= LooseVersion('1.10.0'):
-            # To fix https://github.com/horovod/horovod/issues/3149
-            hvd.join()
 
     def test_horovod_broadcast_grad(self):
         """Test the correctness of the broadcast gradient."""
