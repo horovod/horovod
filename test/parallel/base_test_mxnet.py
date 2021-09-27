@@ -71,20 +71,22 @@ class MXTests:
     def test_horovod_reduce(self):
         hvd.init()
         size = hvd.size()
+        rank = hvd.rank()
         dtypes = self.filter_supported_types(['int32', 'int64',
                                               'float32', 'float64'])
         dims = [1, 2, 3]
         ctx = self._current_context()
         count = 0
         shapes = [(), (17), (17, 17), (17, 17, 17)]
-        for dtype, dim in itertools.product(dtypes, dims):
+        root_ranks = list(range(size))
+        for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
             # MXNet uses gpu_id as part of the seed, so to get identical seeds
             # we must set a context.
             mx.random.seed(1234, ctx=ctx)
             tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim],
                                           ctx=ctx)
             tensor = tensor.astype(dtype)
-            summed = hvd.reduce(tensor, average=False, name=str(count))
+            summed = hvd.reduce(tensor, root_rank = root_rank, average=False, name=str(count))
             multiplied = tensor * size
             count += 1
 
@@ -98,9 +100,148 @@ class MXTests:
                 threshold = 5e-4
             else:
                 break
+            if root_rank == rank:
+                assert almost_equal(summed.asnumpy(), multiplied.asnumpy(), atol=threshold), \
+                    f'hvd.allreduce produces incorrect results: {hvd.rank()} {count} {dtype} {dim}'
 
-            assert almost_equal(summed.asnumpy(), multiplied.asnumpy(), atol=threshold), \
-                f'hvd.allreduce produces incorrect results: {hvd.rank()} {count} {dtype} {dim}'
+    def test_horovod_reduce_average(self):
+        hvd.init()
+        size = hvd.size()
+        rank = hvd.rank()
+        dtypes = self.filter_supported_types(['int32', 'int64',
+                                              'float32', 'float64'])
+        dims = [1, 2, 3]
+        ctx = self._current_context()
+        count = 0
+        shapes = [(), (17), (17, 17), (17, 17, 17)]
+        root_ranks = list(range(size))
+        for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
+            # MXNet uses gpu_id as part of the seed, so to get identical seeds
+            # we must set a context.
+            mx.random.seed(1234, ctx=ctx)
+            tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim],
+                                          ctx=ctx)
+            tensor = tensor.astype(dtype)
+            summed = hvd.reduce(tensor, root_rank = root_rank, average=True, name=str(count))
+            multiplied = tensor * size
+            multiplied /= size
+            count += 1
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in ['int32', 'int64']:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+            if root_rank == rank:
+                assert almost_equal(summed.asnumpy(), multiplied.asnumpy(), atol=threshold), \
+                    f'hvd.allreduce produces incorrect results: {hvd.rank()} {count} {dtype} {dim}'
+
+    def test_horovod_reduce_prescale(self):
+        hvd.init()
+        size = hvd.size()
+        rank = hvd.rank()
+        dtypes = self.filter_supported_types(['int32', 'int64',
+                                              'float32', 'float64'])
+        dims = [1, 2, 3]
+        ctx = self._current_context()
+        count = 0
+        shapes = [(), (17), (17, 17), (17, 17, 17)]
+        root_ranks = list(range(size))
+        for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
+            # MXNet uses gpu_id as part of the seed, so to get identical seeds
+            # we must set a context.
+            mx.random.seed(1234, ctx=ctx)
+            np.random.seed(1234)
+            factor = np.random.uniform()
+            tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim],
+                                          ctx=ctx)
+            tensor = tensor.astype(dtype)
+            scaled = hvd.reduce(tensor, root_rank = root_rank, average=True, name=str(count), prescale_factor = factor)
+            if ctx != mx.cpu() and not int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
+                # For integer types, scaling done in FP64
+                factor = factor.astype('float64' if dtype in int_types else dtype)
+                tensor = tensor.astype('float64' if dtype in int_types else dtype)
+            else:
+                # For integer types, scaling done in FP64, FP32 math for FP16 on CPU
+                factor = factor.astype('float32' if dtype == 'float16' else
+                                       'float64' if dtype in int_types else dtype)
+                tensor = tensor.astype('float32' if dtype == 'float16' else
+                                       'float64' if dtype in int_types else dtype)
+
+            expected = factor * tensor
+            expected = expected.astype(dtype)
+            expected *= size
+            count += 1
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in ['int32', 'int64']:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+            if root_rank == rank:
+                assert almost_equal(scaled.asnumpy(), multiplied.asnumpy(), atol=threshold), \
+                    f'hvd.allreduce produces incorrect results: {hvd.rank()} {count} {dtype} {dim}'
+
+    def test_horovod_reduce_prescale(self):
+        hvd.init()
+        size = hvd.size()
+        rank = hvd.rank()
+        dtypes = self.filter_supported_types(['int32', 'int64',
+                                              'float32', 'float64'])
+        dims = [1, 2, 3]
+        ctx = self._current_context()
+        count = 0
+        shapes = [(), (17), (17, 17), (17, 17, 17)]
+        root_ranks = list(range(size))
+        for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
+            # MXNet uses gpu_id as part of the seed, so to get identical seeds
+            # we must set a context.
+            mx.random.seed(1234, ctx=ctx)
+            np.random.seed(1234)
+            factor = np.random.uniform()
+            tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim],
+                                          ctx=ctx)
+            tensor = tensor.astype(dtype)
+            scaled = hvd.reduce(tensor, root_rank = root_rank, average=True, name=str(count), postscale_factor = factor)
+            if ctx != mx.cpu() and not int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
+                # For integer types, scaling done in FP64
+                factor = factor.astype('float64' if dtype in int_types else dtype)
+                tensor = tensor.astype('float64' if dtype in int_types else dtype)
+            else:
+                # For integer types, scaling done in FP64, FP32 math for FP16 on CPU
+                factor = factor.astype('float32' if dtype == 'float16' else
+                                       'float64' if dtype in int_types else dtype)
+                tensor = tensor.astype('float32' if dtype == 'float16' else
+                                       'float64' if dtype in int_types else dtype)
+
+            expected = factor * tensor
+            expected = expected.astype(dtype)
+            expected *= size
+            count += 1
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in ['int32', 'int64']:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+            if root_rank == rank:
+                assert almost_equal(scaled.asnumpy(), multiplied.asnumpy(), atol=threshold), \
+                    f'hvd.allreduce produces incorrect results: {hvd.rank()} {count} {dtype} {dim}'
 
     def test_horovod_allreduce(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
