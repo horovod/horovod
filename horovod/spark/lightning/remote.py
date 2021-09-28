@@ -63,8 +63,11 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     # get logger
     logger = estimator.getLogger()
     log_every_n_steps = estimator.getLogEveryNSteps()
-    print(f"logger is configured. _experiment_key={logger._experiment_key}, {vars(logger)}")
-    comet_experiment_key = logger._experiment_key
+    print(f"logger is configured: {vars(logger)}")
+
+    # Comet logger's expriment key is not serialize correctly. Need to remember the key, and
+    # resume the logger experiment from GPU instance.
+    logger_experiment_key = logger._experiment_key if hasattr(logger, '_experiment_key') else None
 
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
@@ -105,8 +108,11 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             # Use default logger if no logger is supplied
             train_logger = logger
-            print(f"Train_logger is _experiment_key={train_logger._experiment_key} , {comet_experiment_key}, {vars(train_logger)}")
-            logger._experiment_key = comet_experiment_key
+
+            # Resume logger experiment key if passed from CPU.
+            if logger_experiment_key:
+                train_logger._experiment_key = logger_experiment_key
+            print(f"Train_logger is {vars(train_logger)}")
 
             if train_logger is None:
                 train_logger = TensorBoardLogger(logs_path)
