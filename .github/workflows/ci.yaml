@@ -27,6 +27,17 @@ jobs:
     steps:
     - name: Debug Action
       uses: hmarr/debug-action@v1.0.0
+
+  event_file:
+    name: "Event File"
+    runs-on: ubuntu-latest
+    steps:
+    - name: Upload
+      uses: actions/upload-artifact@v2
+      with:
+        name: Event File
+        path: ${{ github.event_path }}
+
   init-workflow:
     name: "Init Workflow"
     runs-on: ubuntu-latest
@@ -3505,59 +3516,6 @@ jobs:
         run: |
           echo "::warning::Buildkite pipeline did not pass: ${{ steps.build.outputs.url }}"
           exit 1
-
-  publish-test-results:
-    name: "Publish Unit Tests Results"
-    needs: [build-and-test, build-and-test-heads, build-and-test-macos, buildkite, buildkite-heads]
-    runs-on: ubuntu-latest
-    # only run this job when the workflow is in success or failure state,
-    # not when it is in cancelled or skipped state
-    # only run this job on push events or when the event does not run in a fork repository
-    if: >
-      ( success() || failure() ) &&
-      needs.init-workflow.outputs.run_at_all == 'true' &&
-      ( github.event_name == 'push' || ! github.event.head.repo.fork )
-
-    steps:
-      - name: Download GitHub Artifacts
-        uses: actions/download-artifact@v2
-        with:
-          path: artifacts
-
-      - name: Identify last run of each test
-        continue-on-error: true
-        run: |
-          declare -A last_runs
-          ls -d artifacts/Unit\ Test\ Results\ */* | sort > runs.txt
-          while read run
-          do
-            test=${run/%[_-]run[_-][0123456789]/}
-            last_runs[$test]=$run
-          done < runs.txt
-
-          echo "LAST_RUNS<<EOF" >> $GITHUB_ENV
-          for test in "${!last_runs[@]}"
-          do
-            echo "${last_runs[$test]}" >&2
-            echo "${last_runs[$test]}/**/*.xml" >> $GITHUB_ENV
-          done
-          echo "EOF" >> $GITHUB_ENV
-        shell: bash
-
-      - name: Publish Unit Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v1
-        if: always()
-        with:
-          check_name: Unit Test Results
-          files: "${{ env.LAST_RUNS }}"
-
-      - name: Publish Unit Test Results (with flaky tests)
-        uses: EnricoMi/publish-unit-test-result-action@v1
-        if: always()
-        with:
-          check_name: Unit Test Results (with flaky tests)
-          fail_on: errors
-          files: "artifacts/Unit Test Results */**/*.xml"
 
   docker-config:
     name: Configure docker build
