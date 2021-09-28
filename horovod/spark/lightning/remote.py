@@ -110,7 +110,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             train_logger = logger
 
             # Resume logger experiment key if passed from CPU.
-            if logger_experiment_key:
+            if hasattr(train_logger, '_experiment_key') and train_logger._experiment_key is None:
                 train_logger._experiment_key = logger_experiment_key
             print(f"Train_logger is {vars(train_logger)}")
 
