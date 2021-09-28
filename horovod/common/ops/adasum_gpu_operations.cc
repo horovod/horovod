@@ -288,7 +288,7 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
     }
   }
   if (num_elements_remaining > 0) {
-#if NCCL_MAJOR >= 2 && NCCL_MINOR >= 2 && NCCL_PATCH >= 12
+#if NCCL_VERSION_CODE >= NCCL_VERSION(2, 2, 12)
     nccl_context_->ErrorCheck(
         "ncclBroadcast",
         ncclBroadcast(buffer_data_remainder, buffer_data_remainder,
