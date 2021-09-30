@@ -57,11 +57,22 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     train_steps_per_epoch = estimator.getTrainStepsPerEpoch()
     val_steps_per_epoch = estimator.getValidationStepsPerEpoch()
     num_gpus = estimator.getNumGPUs()
-    logger = estimator.getLogger()
-    log_every_n_steps = estimator.getLogEveryNSteps()
     data_module = estimator.getDataModule() if estimator.getDataModule() else PetastormDataModule
     loader_num_epochs = estimator.getLoaderNumEpochs()
     verbose = (estimator.getVerbose() > 0)
+
+    # get logger
+    logger = estimator.getLogger()
+    log_every_n_steps = estimator.getLogEveryNSteps()
+    print(f"logger is configured: {logger}")
+
+    # Comet logger's expriment key is not serialize correctly. Need to remember the key, and
+    # resume the logger experiment from GPU instance.
+    if isinstance(logger, CometLogger):
+        logger_experiment_key = logger._experiment_key
+        print(f"logger vars: {vars(logger)}")
+    else:
+        logger_experiment_key = None
 
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
@@ -96,12 +107,23 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             ckpt_dir = run_output_dir
             ckpt_filename = remote_store.checkpoint_filename
 
-            # Use default logger if no logger is supplied
-            train_logger = logger
-            print(f"Train_logger is {train_logger}")
-
-            if train_logger is None:
+            if logger is None:
+                # Use default logger if no logger is supplied
                 train_logger = TensorBoardLogger(logs_path)
+                print(f"Setup logger: Using TensorBoardLogger: {train_logger}")
+
+            elif isinstance(logger, CometLogger) and logger._experiment_key is None:
+                # Resume logger experiment key if passed correctly from CPU.
+                train_logger = CometLogger(
+                    api_key=logger.api_key,
+                    experiment_key=logger_experiment_key,
+                )
+
+                print(f"Setup logger: Resume comet logger: {vars(train_logger)}")
+            else:
+                # use logger passed in.
+                train_logger = logger
+                print(f"Setup logger: Using logger passed from estimator: {train_logger}")
 
             # Lightning requires to add checkpoint callbacks for all ranks.
             # Otherwise we are seeing hanging in training.
