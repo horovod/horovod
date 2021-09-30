@@ -110,24 +110,23 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             os.makedirs(logs_path, exist_ok=True)
             print(f"Made directory {logs_path} for horovod rank {hvd.rank()}")
 
-
             if logger is None:
                 # Use default logger if no logger is supplied
                 train_logger = TensorBoardLogger(logs_path)
+                print(f"Setup logger: Using TensorBoardLogger: {train_logger}")
 
             elif isinstance(logger, CometLogger) and logger._experiment_key is None:
-                # Resume logger experiment key if passed from CPU.
+                # Resume logger experiment key if passed correctly from CPU.
                 train_logger = CometLogger(
                     api_key=logger.api_key,
                     experiment_key=logger_experiment_key,
                 )
 
-                print(f"Resume comet logger: {vars(train_logger)}")
+                print(f"Setup logger: Resume comet logger: {vars(train_logger)}")
             else:
                 # use logger passed in.
                 train_logger = logger
-
-
+                print(f"Setup logger: Using logger passed from estimator: {train_logger}")
 
             # TODO: find out a way to use ckpt_path created from remote store, but all other parameters ingest from estimator config
             # ckpt_path = os.path.join(run_output_dir, remote_store.checkpoint_filename)
