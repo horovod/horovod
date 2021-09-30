@@ -63,11 +63,15 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     # get logger
     logger = estimator.getLogger()
     log_every_n_steps = estimator.getLogEveryNSteps()
-    print(f"logger is configured: {dir(logger)}")
+    print(f"logger is configured: {logger}")
 
     # Comet logger's expriment key is not serialize correctly. Need to remember the key, and
     # resume the logger experiment from GPU instance.
-    logger_experiment_key = logger._experiment_key if isinstance(logger, CometLogger) else None
+    if isinstance(logger, CometLogger):
+        logger_experiment_key = logger._experiment_key
+        print(f"logger vars: {vars(logger)}")
+    else:
+        logger_experiment_key = None
 
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
@@ -113,17 +117,17 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             elif isinstance(logger, CometLogger) and logger._experiment_key is None:
                 # Resume logger experiment key if passed from CPU.
-                print(f"Resume Comet Logger from experiment key = {logger_experiment_key}.")
-
                 train_logger = CometLogger(
                     api_key=logger.api_key,
                     experiment_key=logger_experiment_key,
                 )
+
+                print(f"Resume comet logger: {vars(train_logger)}")
             else:
                 # use logger passed in.
                 train_logger = logger
 
-            print(f"Train_logger is {dir(train_logger)}")
+
 
             # TODO: find out a way to use ckpt_path created from remote store, but all other parameters ingest from estimator config
             # ckpt_path = os.path.join(run_output_dir, remote_store.checkpoint_filename)
