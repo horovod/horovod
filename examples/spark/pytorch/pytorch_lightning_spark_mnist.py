@@ -43,6 +43,8 @@ parser.add_argument('--work-dir', default='/tmp',
                     help='temporary working directory to write intermediate files (prefix with hdfs:// to use HDFS)')
 parser.add_argument('--data-dir', default='/tmp',
                     help='location of the training dataset in the local filesystem (will be downloaded if needed)')
+parser.add_argument('--enable-profiler', action='store_true',
+                    help='Enable profiler')
 
 
 def train_model(args):
@@ -195,7 +197,7 @@ def train_model(args):
                                          validation=0.1,
                                          verbose=1,
                                          callbacks=callbacks,
-                                         profiler="simple")
+                                         profiler="simple" if args.enable_profiler else None)
 
     torch_model = torch_estimator.fit(train_df).setOutputCols(['label_prob'])
 

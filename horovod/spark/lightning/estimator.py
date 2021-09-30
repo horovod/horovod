@@ -206,6 +206,9 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     profiler = Param(Params._dummy(), 'profiler', 'lightning profiler to use')
 
+    checkpoint_callback = Param(Params._dummy(), 'checkpoint_callback',
+                                'model checkpointing callback')
+
     @keyword_only
     def __init__(self,
                  num_proc=None,
@@ -246,7 +249,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  data_module=None,
                  loader_num_epochs=None,
                  terminate_on_nan=False,
-                 profiler=None):
+                 profiler=None,
+                 checkpoint_callback=None):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
@@ -260,7 +264,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                          data_module=None,
                          loader_num_epochs=None,
                          terminate_on_nan=False,
-                         profiler=None)
+                         profiler=None,
+                         checkpoint_callback=None)
 
         kwargs = self._input_kwargs
 
@@ -333,6 +338,12 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     def getTerminateOnNan(self):
         return self.getOrDefault(self.terminate_on_nan)
 
+    def setCheckpointCallback(self, value):
+        return self._set(checkpoint_callback=value)
+
+    def getCheckpointCallback(self):
+        return self.getOrDefault(self.checkpoint_callback)
+
     def getProfiler(self):
         return self.getOrDefault(self.profiler)
 
@@ -401,6 +412,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                                         validation=self.getValidation())
 
         serialized_model = serialize_fn()(model)
+        # FIXME: checkpoint bytes should be loaded into serialized_model, same as Keras Estimator.
         ckpt_bytes = self._read_checkpoint(run_id) if self._has_checkpoint(run_id) else None
         trainer = remote.RemoteTrainer(self,
                                        metadata=metadata,
