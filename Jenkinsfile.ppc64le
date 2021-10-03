@@ -27,8 +27,7 @@ pipeline {
                       conda activate ${CONDA_ENV}
                       conda install -y cmake make
                       set -xe
-                      pip install torch==1.8.1+cu102 torchvision==0.9.1+cu102 -f https://download.pytorch.org/whl/cu102/torch_stable.html
-                      HOROVOD_WITHOUT_MXNET=1 HOROVOD_WITHOUT_GLOO=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 \
+                      HOROVOD_WITHOUT_MXNET=1 HOROVOD_WITHOUT_GLOO=1 HOROVOD_WITHOUT_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 \
                           HOROVOD_CUDA_HOME=$CONDA_PREFIX HOROVOD_GPU_OPERATIONS=NCCL MAKEFLAGS="-j1" \
                           pip install -v . --no-cache-dir --no-deps
                 '''
@@ -48,7 +47,7 @@ pipeline {
                           horovodrun -n 1 -H localhost:1 --mpi-args="-pami_noib" pytest -k 'multi_gpu' -v -s test/parallel/test_tensorflow.py
 
                           # PyTorch unit tests
-                          horovodrun -n 2 -H localhost:2 --mpi-args="-pami_noib" pytest -v -s test/parallel/test_torch.py
+                          # horovodrun -n 2 -H localhost:2 --mpi-args="-pami_noib" pytest -v -s test/parallel/test_torch.py
                     '''
                 }
             }
