@@ -6,7 +6,7 @@ pipeline {
     agent {
         docker {
             alwaysPull true
-            // WMLCE 1.7.0 has CUDA 10.2, NCCL 2.5.6, TensorFlow 2.1.0, and PyTorch 1.3.1
+            // WMLCE 1.7.0 has CUDA 10.2, NCCL 2.5.6, TensorFlow 2.1.0, and PyTorch 1.8.0
             image 'tensorflowppc64le/tensorflow-ppc64le:osuosl-ubuntu-horovod-wlmce1.7.0-py3.7-ppc64le'
             args '--cap-add=SYS_PTRACE --shm-size=256g'
             label 'power8-gpu'
