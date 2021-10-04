@@ -97,33 +97,36 @@ enum RequestType : int8_t {
   RequestType_ALLGATHER = 1,
   RequestType_BROADCAST = 2,
   RequestType_JOIN = 3,
+  RequestType_BARRIER = 4,
   RequestType_MIN = RequestType_ALLREDUCE,
-  RequestType_MAX = RequestType_JOIN
+  RequestType_MAX = RequestType_BARRIER
 };
 
-inline const RequestType (&EnumValuesRequestType())[4] {
+inline const RequestType (&EnumValuesRequestType())[5] {
   static const RequestType values[] = {
     RequestType_ALLREDUCE,
     RequestType_ALLGATHER,
     RequestType_BROADCAST,
-    RequestType_JOIN
+    RequestType_JOIN,
+    RequestType_BARRIER
   };
   return values;
 }
 
 inline const char * const *EnumNamesRequestType() {
-  static const char * const names[5] = {
+  static const char * const names[6] = {
     "ALLREDUCE",
     "ALLGATHER",
     "BROADCAST",
     "JOIN",
+    "BARRIER",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameRequestType(RequestType e) {
-  if (flatbuffers::IsOutRange(e, RequestType_ALLREDUCE, RequestType_JOIN)) return "";
+  if (flatbuffers::IsOutRange(e, RequestType_ALLREDUCE, RequestType_BARRIER)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesRequestType()[index];
 }
@@ -134,30 +137,33 @@ enum ResponseType : int8_t {
   ResponseType_BROADCAST = 2,
   ResponseType_JOIN = 3,
   ResponseType_ADASUM = 4,
-  ResponseType_ERROR = 5,
+  ResponseType_BARRIER = 5,
+  ResponseType_ERROR = 6,
   ResponseType_MIN = ResponseType_ALLREDUCE,
   ResponseType_MAX = ResponseType_ERROR
 };
 
-inline const ResponseType (&EnumValuesResponseType())[6] {
+inline const ResponseType (&EnumValuesResponseType())[7] {
   static const ResponseType values[] = {
     ResponseType_ALLREDUCE,
     ResponseType_ALLGATHER,
     ResponseType_BROADCAST,
     ResponseType_JOIN,
     ResponseType_ADASUM,
+    ResponseType_BARRIER,
     ResponseType_ERROR
   };
   return values;
 }
 
 inline const char * const *EnumNamesResponseType() {
-  static const char * const names[7] = {
+  static const char * const names[8] = {
     "ALLREDUCE",
     "ALLGATHER",
     "BROADCAST",
     "JOIN",
     "ADASUM",
+    "BARRIER",
     "ERROR",
     nullptr
   };
