@@ -34,7 +34,7 @@ import horovod.spark.keras as hvd
 from horovod.spark.common import constants, util
 from horovod.spark.keras import remote
 from horovod.spark.keras.estimator import EstimatorParams
-from horovod.spark.keras.util import _custom_sparse_to_dense_fn, _serialize_param_value, BareKerasUtil, TFKerasUtil
+from horovod.spark.keras.util import _custom_sparse_to_dense_fn, _serialize_param_value, TFKerasUtil
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
@@ -423,134 +423,6 @@ class SparkKerasTests(tf.test.TestCase):
         assert sparse_vector_values[3] == 30
         assert sparse_vector_values[6] == 60
         assert len(sparse_vector_values) == dense_shape
-
-    def test_convert_custom_sparse_to_dense_bare_keras_fn(self):
-        convert_custom_sparse_to_dense_bare_keras = BareKerasUtil._convert_custom_sparse_to_dense_fn()
-        custom_sparse_row = np.array([2, 1, 2, 0.1, 0.2])
-        sparse_row = convert_custom_sparse_to_dense_bare_keras(custom_sparse_row, 4)
-        assert np.array_equal(sparse_row, np.array([0., 0.1, 0.2, 0.]))
-
-    def test_prepare_data_bare_keras_fn(self):
-        metadata = \
-            {
-                'col1': {
-                    'dtype': float,
-                    'intermediate_format': 'nochange',
-                    'max_size': 1,
-                    'shape': 1
-                },
-                'col2': {
-                    'dtype': 'float',
-                    'intermediate_format': 'nochange',
-                    'max_size': 1,
-                    'shape': 1
-                },
-                'col3': {
-                    'dtype': SparseVector,
-                    'intermediate_format': 'custom_sparse_format',
-                    'max_size': 7,
-                    'shape': 10
-                }
-            }
-        prepare_data_bare_keras = BareKerasUtil._prepare_data_fn(metadata)
-
-        col1 = np.array([1., 2., 3.])
-        col1_prepared = prepare_data_bare_keras(col1, 'col1', [-1, 3])
-        assert col1_prepared.shape == (1, 3)
-        assert np.array_equal(col1_prepared, np.array([[1., 2., 3.]]))
-
-        col3 = [np.array([3., 0., 2., 5., 0., 0.2, 0.5, 0, 0]),
-                np.array([4., 0., 2., 5., 6., 0.2, 0.5, 0.6, 0])]
-
-        col3_prepared = prepare_data_bare_keras(col3, 'col3', [-1, 10])
-
-        assert col3_prepared.shape == (2, 10)
-        assert np.array_equal(col3_prepared, np.array(
-            [[0., 0., 0.2, 0., 0., 0.5, 0., 0., 0., 0.], [0.2, 0., 0.5, 0., 0., 0.6, 0., 0., 0., 0.]]))
-
-    def test_batch_generator_fn(self):
-        shuffle_buffer_size = 10
-        rows_in_row_group = 100
-        batch_size = 32
-
-        def _create_numpy_array(n_rows, shape):
-            return np.array([[i for i in range(j, j + shape)] for j in range(n_rows)])
-
-        """A dummy reader class only run 1 epoch (2 rows of data) for each iteration"""
-        class DummyReader():
-            def __init__(self):
-                self._in_iter = False
-
-            def __iter__(self):
-                if self._in_iter:
-                    raise RuntimeError('Do not support resetting a dummy reader while in the middle of iteration.')
-
-                self._in_iter = True
-                Row = collections.namedtuple('row', ['col1', 'col2', 'sample_weight', 'label'])
-
-                col11 = _create_numpy_array(rows_in_row_group, 1)
-                col21 = _create_numpy_array(rows_in_row_group, 10)
-                label1 = _create_numpy_array(rows_in_row_group, 8)
-                sw1 = np.array([i / 100. for i in range(rows_in_row_group)])
-
-                row1 = Row(col1=col11, col2=col21, label=label1, sample_weight=sw1)
-
-                col12 = _create_numpy_array(rows_in_row_group, 1)
-                col22 = _create_numpy_array(rows_in_row_group, 10)
-                label2 = _create_numpy_array(rows_in_row_group, 8)
-                sw2 = np.array([i / 100. for i in range(rows_in_row_group)])
-                row2 = Row(col1=col12, col2=col22, label=label2, sample_weight=sw2)
-                try:
-                    yield row1
-                    yield row2
-                finally:
-                    self._in_iter = False
-
-        metadata = \
-            {
-                'col1': {
-                    'dtype': float,
-                    'intermediate_format': constants.NOCHANGE,
-                    'max_size': 1,
-                    'shape': 1
-                },
-                'col2': {
-                    'dtype': DenseVector,
-                    'intermediate_format': constants.ARRAY,
-                    'max_size': 10,
-                    'shape': 10
-                },
-                'label': {
-                    'dtype': float,
-                    'intermediate_format': constants.NOCHANGE,
-                    'max_size': 1,
-                    'shape': 1
-                },
-            }
-
-        reader = DummyReader()
-
-        feature_columns = ['col1', 'col2']
-        label_columns = ['label']
-        sample_weight_col = 'sample_weight'
-
-        input_shapes = [[-1, 1], [-1, 2, 5]]
-        output_shapes = [[-1, 2, 4]]
-
-        batch_generator = BareKerasUtil._batch_generator_fn(
-            feature_columns, label_columns, sample_weight_col,
-            input_shapes, output_shapes, metadata)
-
-        for shuffle in [True, False]:
-            batch_gen = batch_generator(reader, batch_size, shuffle_buffer_size, shuffle=shuffle)
-
-            for _ in range(10):
-                batch = next(batch_gen)
-                assert batch[0][0][0].shape == (1,)
-                assert batch[0][1][0].shape == (2, 5)
-                assert batch[1][0][0].shape == (2, 4)
-                # sample weight has to be a singel np array with shape (batch_size,)
-                assert batch[2][0].shape == (batch_size,)
 
     def test_reshape(self):
         metadata = \
