@@ -361,7 +361,7 @@ int DoAllgatherCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output,
   ready_event_list.AddReadyEvent(RecordReadyEvent(device));
 #endif
 
-  auto cpu_output = ::torch::empty_like(cpu_tensor);
+  auto cpu_output = ::torch::empty_like(cpu_tensor, LEGACY_CONTIGUOUS_MEMORY_FORMAT);
   auto hvd_cpu_output = std::make_shared<TorchTensor>(cpu_output);
   auto hvd_context =
       std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_output);
@@ -478,7 +478,7 @@ int DoAlltoall(::torch::Tensor tensor, ::torch::Tensor splits,
   // Deal with possibility of output_received_splits being on GPU
   auto received_splits_device = GetDeviceID(output_received_splits);
   auto cpu_received_splits = (received_splits_device != CPU_DEVICE_ID)
-                                 ? ::torch::empty_like(cpu_splits)
+                                 ? ::torch::empty_like(cpu_splits, LEGACY_CONTIGUOUS_MEMORY_FORMAT)
                                  : output_received_splits;
   auto hvd_context = std::make_shared<TorchOpContext>(device, output);
   hvd_context->AddOutput(CPU_DEVICE_ID, cpu_received_splits);
@@ -531,13 +531,13 @@ int DoAlltoallCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor splits,
   ready_event_list.AddReadyEvent(RecordReadyEvent(device));
 #endif
 
-  auto cpu_output = ::torch::empty_like(cpu_tensor);
+  auto cpu_output = ::torch::empty_like(cpu_tensor, LEGACY_CONTIGUOUS_MEMORY_FORMAT);
   auto hvd_cpu_output = std::make_shared<TorchTensor>(cpu_output);
 
   // Deal with possibility of output_received_splits being on GPU
   auto received_splits_device = GetDeviceID(output_received_splits);
   auto cpu_received_splits = (received_splits_device != CPU_DEVICE_ID)
-                                 ? ::torch::empty_like(cpu_splits)
+                                 ? ::torch::empty_like(cpu_splits, LEGACY_CONTIGUOUS_MEMORY_FORMAT)
                                  : output_received_splits;
   auto hvd_context =
       std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_output);
