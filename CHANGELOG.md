@@ -20,6 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Removed
 
+- Spark/Keras: remove bare Keras support. ([#3191](https://github.com/horovod/horovod/pull/3191))
+
 ### Fixed
 
 - Fix Horovod develop/editable install mode and incremental builds. ([#3074](https://github.com/horovod/horovod/pull/3074))
