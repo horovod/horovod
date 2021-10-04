@@ -1,4 +1,8 @@
-name: CI (Fork)
+# publishes test results from the CI workflow
+# this has been moved out of the CI workflow into this workflow_run event to support PRs from fork repositories
+# this also publishes test results of PRs from horovod repositories
+# buildkite tests are only run here for fork repositories
+name: CI (Results)
 
 on:
   workflow_run:
@@ -129,12 +133,10 @@ jobs:
     name: "Publish Unit Tests Results"
     needs: [buildkite, buildkite-heads]
     runs-on: ubuntu-latest
-    # only run if CI workflow ran on a fork
     if: >
       always() &&
       github.event.workflow_run.conclusion != 'skipped' &&
-      github.event.workflow_run.conclusion != 'cancelled' &&
-      github.event.workflow_run.head_repository.fork
+      github.event.workflow_run.conclusion != 'cancelled'
 
     steps:
       - name: Debug Action
@@ -160,8 +162,43 @@ jobs:
         with:
           path: artifacts
 
+      - name: Identify last run of each test
+        continue-on-error: true
+        run: |
+          declare -A last_runs
+          ls -d artifacts/Unit\ Test\ Results\ */* | sort > runs.txt
+          while read run
+          do
+            test=${run/%[_-]run[_-][0123456789]/}
+            last_runs[$test]=$run
+          done < runs.txt
+
+          echo "LAST_RUNS<<EOF" >> $GITHUB_ENV
+          for test in "${!last_runs[@]}"
+          do
+            echo "${last_runs[$test]}" >&2
+            echo "${last_runs[$test]}/**/*.xml" >> $GITHUB_ENV
+          done
+          echo "EOF" >> $GITHUB_ENV
+        shell: bash
+
       - name: Publish Unit Test Results
         uses: EnricoMi/publish-unit-test-result-action@v1
+        if: always()
         with:
+          check_name: Unit Test Results
+          event_file: artifacts/Event File/event.json
+          event_name: ${{ github.event.workflow_run.event }}
           commit: ${{ github.event.workflow_run.head_sha }}
-          files: "artifacts/*/**/*.xml"
+          files: "${{ env.LAST_RUNS }}"
+
+      - name: Publish Unit Test Results (with flaky tests)
+        uses: EnricoMi/publish-unit-test-result-action@v1
+        if: always()
+        with:
+          check_name: Unit Test Results (with flaky tests)
+          event_file: artifacts/Event File/event.json
+          event_name: ${{ github.event.workflow_run.event }}
+          commit: ${{ github.event.workflow_run.head_sha }}
+          files: "artifacts/Unit Test Results */**/*.xml"
+          fail_on: errors
