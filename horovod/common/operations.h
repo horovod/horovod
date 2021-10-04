@@ -233,7 +233,8 @@ Status EnqueueJoin(std::shared_ptr<OpContext> context,
                    StatusCallback callback,
                    int32_t process_set_id = 0);
 
-Status CallBarrier(int32_t process_set_id = 0);
+Status EnqueueBarrier(StatusCallback callback,
+                   int32_t process_set_id = 0);
 
 } // namespace common
 } // namespace horovod

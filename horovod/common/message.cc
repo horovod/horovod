@@ -111,6 +111,9 @@ const std::string& Request::RequestType_Name(RequestType value) {
     case RequestType::ALLTOALL:
       static const std::string alltoall("ALLTOALL");
       return alltoall;
+    case RequestType::BARRIER:
+      static const std::string barrier("BARRIER");
+      return barrier;
     default:
       static const std::string unknown("<unknown>");
       return unknown;
@@ -300,6 +303,9 @@ const std::string& Response::ResponseType_Name(ResponseType value) {
     case ResponseType::ALLTOALL:
       static const std::string alltoall("ALLTOALL");
       return alltoall;
+    case ResponseType::BARRIER:
+      static const std::string barrier("BARRIER");
+      return barrier;
     case ResponseType::ERROR:
       static const std::string error("ERROR");
       return error;

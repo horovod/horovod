@@ -245,11 +245,12 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #endif
 
   std::shared_ptr<JoinOp> join_op(new JoinOp(&state));
+  std::shared_ptr<BarrierOp> barrier_op(new BarrierOp(&state));
   std::shared_ptr<ErrorOp> error_op(new ErrorOp(&state));
 
   return new OperationManager(&state.parameter_manager, allreduce_ops,
                               allgather_ops, broadcast_ops, alltoall_ops,
-                              join_op, adasum_ops, error_op);
+                              join_op, adasum_ops, barrier_op, error_op);
 }
 
 // Process a Response by doing a reduction, a gather, a broadcast, or
@@ -259,7 +260,9 @@ void PerformOperation(Response response, ProcessSet& process_set) {
   auto& timeline = horovod_global.timeline;
   process_set.tensor_queue.GetTensorEntriesFromResponse(response, entries,
                                                         process_set.joined);
-  if (response.response_type() != Response::JOIN) {
+
+  if (response.response_type() != Response::JOIN &&
+      response.response_type() != Response::BARRIER) {
     for (auto& e : entries) {
       timeline.Start(e.tensor_name, response.response_type(), e.tensor->size());
     }
@@ -1757,8 +1760,9 @@ Status EnqueueJoin(std::shared_ptr<OpContext> context,
 
 // Contexts and controller must be initialized and the background thread
 // must be running before this function is called.
-Status CallBarrier(int32_t process_set_id) {
+Status EnqueueBarrier(StatusCallback callback, int32_t process_set_id) {
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
+
   if (!process_set.IsCurrentProcessIncluded()) {
     return Status::InvalidArgument(
         "Barrier: Rank " +
@@ -1766,9 +1770,26 @@ Status CallBarrier(int32_t process_set_id) {
         " is not a member of the provided process set.");
   }
 
-  process_set.controller->Barrier(Communicator::GLOBAL);
-  LOG(TRACE, horovod_global.global_controller->GetRank()) << "Released from barrier.";
-  return Status::OK();
+  Request message;
+  // Barrier doesn't need a tensor, we set an arbitrary name for tracing purposes.
+  message.set_tensor_name(BARRIER_TENSOR_NAME);
+  message.set_request_rank(process_set.controller->GetRank());
+  message.set_request_type(Request::BARRIER);
+
+  TensorTableEntry e;
+  e.tensor_name = BARRIER_TENSOR_NAME;
+  e.process_set_id = process_set_id;
+  e.callback = callback;
+
+  if (horovod_global.shut_down) {
+    return SHUT_DOWN_ERROR;
+  }
+  Status status = process_set.tensor_queue.AddToTensorQueue(e, message);
+  if (status.ok()) {
+    LOG(TRACE, horovod_global.global_controller->GetRank()) << "Enqueued barrier op";
+  }
+
+  return status;
 }
 
 } // namespace common

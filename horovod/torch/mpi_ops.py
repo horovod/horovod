@@ -983,6 +983,10 @@ def barrier(process_set=global_process_set):
     """
 
     try:
-        mpi_lib.horovod_torch_barrier(process_set.process_set_id)
+        handle = mpi_lib.horovod_torch_barrier(process_set.process_set_id)
     except RuntimeError as e:
         raise HorovodInternalError(e)
+
+    _handle_map[handle] = (None, None)
+
+    synchronize(handle)
