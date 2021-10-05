@@ -223,8 +223,9 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                     # One more file sync to push profiler result.
                     remote_store.sync(logs_path)
 
-                # rank 0 overwrites model with best checkpoint and returns.
-                best_model = model.load_from_checkpoint(_checkpoint_callback.best_model_path)
+                # Rank 0 overwrites model with best checkpoint and returns.
+                # Need to set strict=False for dynamically added layers.
+                best_model = model.load_from_checkpoint(_checkpoint_callback.best_model_path, strict=False)
                 serialized_checkpoint = io.BytesIO()
                 module = best_model if not is_legacy else best_model._model
 
