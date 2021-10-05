@@ -64,13 +64,13 @@ class TorchTests(unittest.TestCase):
         super(TorchTests, self).__init__(*args, **kwargs)
         warnings.simplefilter('module')
 
-    def setup(self):
-        hvd.init()
+    # def setup(self):
+    #     hvd.init()
 
     def tearDown(self):
         if hvd.is_initialized() and not _is_mac:
-            # Repeatedly re-init on mac raises errors with libuv
-            hvd.shutdown()
+            # hvd.shutdown()
+            hvd.allreduce(torch.zeros(1))
 
         # if _1_10_api and hvd.is_initialized():
         #     # To fix https://github.com/horovod/horovod/issues/3149
