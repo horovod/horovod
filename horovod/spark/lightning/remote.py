@@ -133,10 +133,11 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                 _checkpoint_callback.dir_path = ckpt_dir
                 _checkpoint_callback.filename = ckpt_filename
 
-                # will weights selected from checkpoint callback instead of the last
+                # will use the weights selected from checkpoint callback instead of the last
                 use_last_model_weights = False
             else:
                 # By default 'monitor'=None which saves a checkpoint only for the last epoch.
+                # No need to load weights from check point after training.
                 _checkpoint_callback = ModelCheckpoint(dirpath=ckpt_dir,
                                                        filename=ckpt_filename,
                                                        verbose=True)
