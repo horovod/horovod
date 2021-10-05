@@ -215,9 +215,7 @@ def fault_tolerance_patches():
 
 @pytest.mark.skipif(
     not gloo_built(), reason='Gloo is required for Ray integration')
-@pytest.mark.skipif(
-    os.environ.get('GITHUB_ACTIONS', 'false') == 'true',
-    reason='This test fails on GitHub Workflow, see https://github.com/horovod/horovod/issues/2813')
+@pytest.mark.skip(reason='https://github.com/horovod/horovod/issues/3197')
 def test_fault_tolerance_hosts_added_and_removed(ray_8_cpus):
     with fault_tolerance_patches():
         discovery_schedule = [
@@ -245,9 +243,7 @@ def test_fault_tolerance_hosts_added_and_removed(ray_8_cpus):
 
 @pytest.mark.skipif(
     not gloo_built(), reason='Gloo is required for Ray integration')
-@pytest.mark.skipif(
-    os.environ.get('GITHUB_ACTIONS', 'false') == 'true',
-    reason='This test fails on GitHub Workflow, see https://github.com/horovod/horovod/issues/2813')
+@pytest.mark.skip(reason='https://github.com/horovod/horovod/issues/3197')
 def test_fault_tolerance_hosts_remove_and_add(ray_8_cpus):
     with fault_tolerance_patches():
         discovery_schedule = [
