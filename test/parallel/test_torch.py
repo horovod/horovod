@@ -43,6 +43,7 @@ from common import mpi_env_rank_and_size, skip_or_fail_gpu_test, temppath
 
 _1_5_api = LooseVersion(torch.__version__) >= LooseVersion('1.5.0')
 _1_10_api = LooseVersion(torch.__version__) >= LooseVersion('1.10.0')
+_is_mac = platform.system() == 'Darwin'
 
 ccl_supported_types = set([torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
                            torch.IntTensor, torch.LongTensor, torch.FloatTensor,
@@ -63,10 +64,17 @@ class TorchTests(unittest.TestCase):
         super(TorchTests, self).__init__(*args, **kwargs)
         warnings.simplefilter('module')
 
+    def setup(self):
+        hvd.init()
+
     def tearDown(self):
-        if _1_10_api and hvd.is_initialized():
-            # To fix https://github.com/horovod/horovod/issues/3149
-            hvd.join()
+        if hvd.is_initialized() and not _is_mac:
+            # Repeatedly re-init on mac raises errors with libuv
+            hvd.shutdown()
+
+        # if _1_10_api and hvd.is_initialized():
+        #     # To fix https://github.com/horovod/horovod/issues/3149
+        #     hvd.allreduce(torch.zeros(1))
 
     def convert_cpu_fp16_to_fp32(self, *values):
         # PyTorch doesn't support any CPU ops on FP16 tensors.
@@ -93,7 +101,6 @@ class TorchTests(unittest.TestCase):
         if not torch.cuda.is_available():
             skip_or_fail_gpu_test(self, "No GPUs available")
 
-    @pytest.mark.skipif(platform.system() == 'Darwin', reason='Reinit not supported on macOS')
     def test_horovod_reinit(self):
         """Test that Horovod can init -> shutdown -> init successfully."""
         mpi_rank, _ = mpi_env_rank_and_size()
