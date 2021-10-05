@@ -427,3 +427,4 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
     # If there's no exception, execution results are in this queue.
     results = result_queue.get_nowait()
     return [results[index] for index in indices_in_rank_order]
+
