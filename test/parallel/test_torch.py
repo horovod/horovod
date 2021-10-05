@@ -64,13 +64,14 @@ class TorchTests(unittest.TestCase):
         super(TorchTests, self).__init__(*args, **kwargs)
         warnings.simplefilter('module')
 
-    # def setup(self):
-    #     hvd.init()
+    def setup(self):
+        hvd.init()
 
     def tearDown(self):
-        if hvd.is_initialized() and not _is_mac:
-            # hvd.shutdown()
-            hvd.allreduce(torch.zeros(1))
+        gloo_rank = int(os.getenv('HOROVOD_RANK', -1))
+        if hvd.is_initialized() and not _is_mac and gloo_rank != -1:
+            hvd.shutdown()
+            # hvd.allreduce(torch.zeros(1))
 
         # if _1_10_api and hvd.is_initialized():
         #     # To fix https://github.com/horovod/horovod/issues/3149
