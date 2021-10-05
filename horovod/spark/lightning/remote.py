@@ -128,9 +128,13 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             # Lightning requires to add checkpoint callbacks for all ranks.
             # Otherwise we are seeing hanging in training.
             _checkpoint_callback = checkpoint_callback
+            use_last_model_weights = True
             if _checkpoint_callback:
                 _checkpoint_callback.dir_path = ckpt_dir
                 _checkpoint_callback.filename = ckpt_filename
+
+                # will weights selected from checkpoint callback instead of the last
+                use_last_model_weights = False
             else:
                 # By default 'monitor'=None which saves a checkpoint only for the last epoch.
                 _checkpoint_callback = ModelCheckpoint(dirpath=ckpt_dir,
@@ -224,8 +228,8 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                     remote_store.sync(logs_path)
 
                 # Rank 0 overwrites model with best checkpoint and returns.
-                # Need to set strict=False for dynamically added layers.
-                best_model = model.load_from_checkpoint(_checkpoint_callback.best_model_path, strict=False)
+                best_model = model if use_last_model_weights else model.load_from_checkpoint(_checkpoint_callback.best_model_path, strict=False)
+
                 serialized_checkpoint = io.BytesIO()
                 module = best_model if not is_legacy else best_model._model
 
