@@ -32,35 +32,8 @@
 #include "tensorflow/core/lib/hash/hash.h"
 #include "tensorflow/core/platform/human_readable_json.h"
 
+#include "../common/ops/gpu_common.h"
 #if HAVE_GPU
-#if HAVE_CUDA
-
-#include <cuda.h>
-#include <cuda_runtime.h>
-
-#define CUDA_CALL(func)                                                        \
-  {                                                                            \
-    cudaError_t e = (func);                                                    \
-    CHECK(e == cudaSuccess || e == cudaErrorCudartUnloading)                   \
-        << "CUDA: " << cudaGetErrorString(e);                                  \
-  }
-
-using gpuEvent_t = cudaEvent_t;
-using gpuErrot_t = cudaError_t;
-using gpuStream_t = cudaStream_t;
-#elif HAVE_ROCM
-#include <hip/hip_runtime.h>
-
-#define HIP_CALL(func)                                                        \
-  {                                                                           \
-    hipError_t e = (func);                                                    \
-    CHECK(e == hipSuccess)                                                    \
-        << "HIP: " << hipGetErrorString(e);                                   \
-  }
-using gpuEvent_t = hipEvent_t;
-using gpuErrot_t = hipError_t;
-using gpuStream_t = hipStream_t;
-#endif
 
 #define OMPI_SKIP_MPICXX
 #include "../common/operations.h"
@@ -389,11 +362,7 @@ public:
       delete queue;
     }
     if (event) {
-#if HAVE_CUDA
-      CUDA_CALL(cudaStreamWaitEvent(stream, *event, /*flags=*/0));
-#elif HAVE_ROCM
-      HIP_CALL(hipStreamWaitEvent(stream, *event, /*flags=*/0));
-#endif
+      HVD_GPU_CHECK(gpuStreamWaitEvent(stream, *event, /*flags=*/0));
     }
     delete payload;
   }
@@ -425,33 +394,17 @@ private:
 
 class XLAReadyEvent : public common::ReadyEvent {
 public:
-#if HAVE_CUDA
-  XLAReadyEvent(cudaStream_t stream) : stream_(stream) {
-    CUDA_CALL(cudaEventCreate(&event_));
-    CUDA_CALL(cudaEventRecord(event_, stream));
+  XLAReadyEvent(gpuStream_t stream) : stream_(stream) {
+    HVD_GPU_CHECK(gpuEventCreate(&event_));
+    HVD_GPU_CHECK(gpuEventRecord(event_, stream));
   }
-#elif HAVE_ROCM
-  XLAReadyEvent(hipStream_t stream) : stream_(stream) {
-    HIP_CALL(hipEventCreate(&event_));
-    HIP_CALL(hipEventRecord(event_, stream));
-  }
-#endif
   ~XLAReadyEvent() { 
-#if HAVE_CUDA
-    CUDA_CALL(cudaEventDestroy(event_)); 
-#elif HAVE_ROCM
-    HIP_CALL(hipEventDestroy(event_)); 
-#endif
+    HVD_GPU_CHECK(gpuEventDestroy(event_));
   }
 
   bool Ready() const override {
-#if HAVE_CUDA
-    cudaError_t result = cudaEventQuery(event_);
-    return cudaErrorNotReady != result;
-#elif HAVE_ROCM
-    hipError_t result = hipEventQuery(event_);
-    return hipErrorNotReady != result;
-#endif
+    gpuError_t result = gpuEventQuery(event_);
+    return gpuErrorNotReady != result;
   }
   gpuEvent_t event() const override { return event_; }
 
@@ -515,19 +468,11 @@ private:
 XLAPersistentBuffer::XLAPersistentBuffer(int device, int64_t size)
     : device_(device) {
   int restore_device;
-#if HAVE_CUDA
-  CUDA_CALL(cudaGetDevice(&restore_device));
-  CUDA_CALL(cudaSetDevice(device));
+  HVD_GPU_CHECK(gpuGetDevice(&restore_device));
+  HVD_GPU_CHECK(gpuSetDevice(device));
   // Simply call cudaMalloc for persistent buffer.
-  CUDA_CALL(cudaMalloc((void**)&buffer_, size));
-  CUDA_CALL(cudaSetDevice(restore_device));
-#elif HAVE_ROCM
-  HIP_CALL(hipGetDevice(&restore_device));
-  HIP_CALL(hipSetDevice(device));
-  // Simply call hipMalloc for persistent buffer.
-  HIP_CALL(hipMalloc((void**)&buffer_, size));
-  HIP_CALL(hipSetDevice(restore_device));
-#endif
+  HVD_GPU_CHECK(gpuMalloc((void**)&buffer_, size));
+  HVD_GPU_CHECK(gpuSetDevice(restore_device));
 }
 
 const void* XLAPersistentBuffer::AccessData(
@@ -562,13 +507,8 @@ common::ReadyEvent* RecordReadyEvent(gpuStream_t stream) {
 }
 
 int GetDeviceOrdinal(void* ptr) {
-#if HAVE_CUDA
-  cudaPointerAttributes attrs;
-  CUDA_CALL(cudaPointerGetAttributes(&attrs, ptr));
-#elif HAVE_ROCM
-  hipPointerAttribute_t attrs;
-  HIP_CALL(hipPointerGetAttributes(&attrs, ptr));
-#endif
+  gpuPointerAttributes attrs;
+  HVD_GPU_CHECK(gpuPointerGetAttributes(&attrs, ptr));
   return attrs.device;
 }
 
@@ -616,18 +556,12 @@ void CallbackHVDAllreduceDone(gpuStream_t stream, void** /*buffers*/,
   VLOG(2) << "hvd-allreduce-done - End";
 }
 
-#if HAVE_CUDA
-XLA_REGISTER_CUSTOM_CALL_TARGET(CallbackHVDAllreduce, "CUDA");
-XLA_REGISTER_CUSTOM_CALL_TARGET(CallbackHVDAllreduceDone, "CUDA");
-#elif HAVE_ROCM
-XLA_REGISTER_CUSTOM_CALL_TARGET(CallbackHVDAllreduce, "ROCM");
-XLA_REGISTER_CUSTOM_CALL_TARGET(CallbackHVDAllreduceDone, "ROCM");
-#endif
+XLA_REGISTER_CUSTOM_CALL_TARGET(CallbackHVDAllreduce, xstr(GPU));
+XLA_REGISTER_CUSTOM_CALL_TARGET(CallbackHVDAllreduceDone, xstr(GPU));
 
 } // namespace
 } // namespace tensorflow
 } // namespace horovod
 
 #endif // TENSORFLOW_VERSION >= 2006000000
-//#endif // HAVE_CUDA
 #endif // HAVE_GPU
