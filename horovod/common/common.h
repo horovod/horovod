@@ -28,41 +28,7 @@
 #include "nvtx_op_range.h"
 
 #if HAVE_GPU
-#if HAVE_CUDA
-#include <cuda_runtime.h>
-using gpuError_t = cudaError_t;
-using gpuEvent_t = cudaEvent_t;
-using gpuStream_t = cudaStream_t;
-#define gpuEventCreateWithFlags cudaEventCreateWithFlags
-#define gpuEventDisableTiming cudaEventDisableTiming
-#define gpuEventRecord cudaEventRecord
-#define gpuEventSynchronize cudaEventSynchronize
-#define gpuStreamWaitEvent cudaStreamWaitEvent
-#define HVD_GPU_CHECK(x)                                                                    \
-  do {                                                                                      \
-    cudaError_t cuda_result = x;                                                            \
-    if (cuda_result != cudaSuccess) {                                                       \
-      throw std::logic_error(std::string("GPU Error:") + cudaGetErrorString(cuda_result));  \
-    }                                                                                       \
-  } while (0)
-#elif HAVE_ROCM
-#include <hip/hip_runtime_api.h>
-using gpuError_t = hipError_t;
-using gpuEvent_t = hipEvent_t;
-using gpuStream_t = hipStream_t;
-#define gpuEventCreateWithFlags hipEventCreateWithFlags
-#define gpuEventDisableTiming hipEventDisableTiming
-#define gpuEventRecord hipEventRecord
-#define gpuEventSynchronize hipEventSynchronize
-#define gpuStreamWaitEvent hipStreamWaitEvent
-#define HVD_GPU_CHECK(x)                                                                  \
-  do {                                                                                    \
-    hipError_t hip_result = x;                                                            \
-    if (hip_result != hipSuccess) {                                                       \
-      throw std::logic_error(std::string("GPU Error:") + hipGetErrorString(hip_result));  \
-    }                                                                                     \
-  } while (0)
-#endif
+#include "ops/gpu_common.h"
 #endif
 
 

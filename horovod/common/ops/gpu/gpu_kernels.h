@@ -16,14 +16,7 @@
 #ifndef GPU_KERNELS_H
 #define GPU_KERNELS_H
 
-#ifdef HAVE_CUDA
-#include <cuda_runtime.h>
-using gpuStream_t = cudaStream_t;
-#elif HAVE_ROCM
-#include <hip/hip_runtime.h>
-using gpuStream_t = hipStream_t;
-#endif
-
+#include "../gpu_common.h"
 #include "../../message.h"
 
 #define BATCHED_D2D_CAPACITY 160
