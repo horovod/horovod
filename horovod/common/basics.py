@@ -150,7 +150,8 @@ class HorovodBasics(object):
 
     def is_initialized(self):
         """Returns True if Horovod is initialized"""
-        return self.MPI_LIB_CTYPES.horovod_is_initialized()
+        is_initialized = self.MPI_LIB_CTYPES.horovod_is_initialized()
+        return bool(is_initialized)
 
     def start_timeline(self, file_path, mark_cycles=False):
         """Creates a timeline file at `file_path` and begins recording.

@@ -42,6 +42,7 @@ if _MPI_LIB_AVAILABLE:
     from horovod.torch.mpi_ops import broadcast, broadcast_async, broadcast_, broadcast_async_
     from horovod.torch.mpi_ops import alltoall, alltoall_async
     from horovod.torch.mpi_ops import join
+    from horovod.torch.mpi_ops import barrier
     from horovod.torch.mpi_ops import poll, synchronize
     from horovod.torch.mpi_ops import init, shutdown
     from horovod.torch.mpi_ops import is_initialized, start_timeline, stop_timeline
