@@ -74,6 +74,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Fixed race condition in PyTorch async dataloader. ([#3120](https://github.com/horovod/horovod/pull/3120))
 
+- Keras: Fixed learning rate scheduler. ([#3142](https://github.com/horovod/horovod/pull/3142), [#3135](https://github.com/horovod/horovod/pull/3135))
+
 ## [v0.22.1] - 2021-06-10
 
 ### Added
