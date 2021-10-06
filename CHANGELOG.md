@@ -20,7 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- Added process sets to concurrently run collective operations on subsets of Horovod processes in TensorFlow, PyTorch, and MXNet. ([#2839](https://github.com/horovod/horovod/pull/2839), [#3042](https://github.com/horovod/horovod/pull/3042), [#3043](https://github.com/horovod/horovod/pull/3043), [#3083](https://github.com/horovod/horovod/pull/3083))
+- Added process sets to concurrently run collective operations on subsets of Horovod processes in TensorFlow, PyTorch, and MXNet. ([#2839](https://github.com/horovod/horovod/pull/2839), [#3042](https://github.com/horovod/horovod/pull/3042), [#3043](https://github.com/horovod/horovod/pull/3043), [#3054](https://github.com/horovod/horovod/pull/3054), [#3083](https://github.com/horovod/horovod/pull/3083), [#3090](https://github.com/horovod/horovod/pull/3090))
 
 - Added XLA support for Allreduce via `tf.function(jit_compile=True)`. ([#3053](https://github.com/horovod/horovod/pull/3053))
 
