@@ -603,6 +603,20 @@ int DoJoin(::torch::Tensor output_last_joined_rank, int device) {
   return handle;
 }
 
+int DoBarrier(int process_set_id = 0) {
+  ThrowIfError(common::CheckInitialized());
+
+  auto handle = handle_manager.AllocateHandle();
+
+  auto enqueue_result = EnqueueBarrier(
+      [handle](const Status& status) mutable {
+        handle_manager.MarkDone(handle, status);
+      }, process_set_id);
+  ThrowIfError(enqueue_result);
+
+  return handle;
+}
+
 int PollHandle(int handle) { return handle_manager.PollHandle(handle) ? 1 : 0; }
 
 void WaitAndClear(int handle) {
@@ -617,7 +631,6 @@ void WaitAndClear(int handle) {
 void Reset() {
   handle_manager.Reset();
 }
-
 
 PYBIND11_MODULE(mpi_lib_v2, m) {
   // allreduce
@@ -783,6 +796,9 @@ PYBIND11_MODULE(mpi_lib_v2, m) {
 
   // join
   m.def("horovod_torch_join", &DoJoin);
+
+  // barrier
+  m.def("horovod_torch_barrier", &DoBarrier);
 
   // basics
   m.def("horovod_torch_poll", &PollHandle);

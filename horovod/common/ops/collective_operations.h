@@ -289,6 +289,15 @@ public:
                          const Response& response, ProcessSet& process_set);
 };
 
+class BarrierOp : public HorovodOp {
+public:
+  explicit BarrierOp(HorovodGlobalState* global_state);
+
+  virtual ~BarrierOp() = default;
+
+  virtual Status Execute(std::vector<TensorTableEntry>& entries, const Response& response);
+};
+
 class ErrorOp : public HorovodOp {
 public:
   explicit ErrorOp(HorovodGlobalState* global_state);

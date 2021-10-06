@@ -27,6 +27,7 @@ OperationManager::OperationManager(ParameterManager* param_manager,
                                    std::vector<std::shared_ptr<AlltoallOp>> alltoall_ops,
                                    std::shared_ptr<JoinOp> join_op,
                                    std::vector<std::shared_ptr<AllreduceOp>> adasum_ops,
+                                   std::shared_ptr<BarrierOp> barrier_op,
                                    std::shared_ptr<ErrorOp> error_op)
     : param_manager_(param_manager),
       allreduce_ops_(std::move(allreduce_ops)),
@@ -35,6 +36,7 @@ OperationManager::OperationManager(ParameterManager* param_manager,
       alltoall_ops_(std::move(alltoall_ops)),
       join_op_(std::move(join_op)),
       adasum_ops_(std::move(adasum_ops)),
+      barrier_op_(std::move(barrier_op)),
       error_op_(std::move(error_op)) {}
 
 Status OperationManager::ExecuteAllreduce(std::vector<TensorTableEntry>& entries,
@@ -93,6 +95,11 @@ Status OperationManager::ExecuteAdasum(std::vector<TensorTableEntry>& entries,
   throw std::logic_error("No Adasum operation enabled");
 }
 
+Status OperationManager::ExecuteBarrier(std::vector<TensorTableEntry>& entries,
+                                     const Response& response) const {
+  return barrier_op_->Execute(entries, response);
+}
+
 Status OperationManager::ExecuteError(std::vector<TensorTableEntry>& entries,
                                       const Response& response) const {
   return error_op_->Execute(entries, response);
@@ -113,6 +120,8 @@ Status OperationManager::ExecuteOperation(std::vector<TensorTableEntry>& entries
     return ExecuteJoin(entries, response, process_set);
   } else if (response.response_type() == Response::ADASUM) {
     return ExecuteAdasum(entries, response);
+  } else if (response.response_type() == Response::BARRIER) {
+    return ExecuteBarrier(entries, response);
   } else if (response.response_type() == Response::ERROR) {
     return ExecuteError(entries, response);
   } else {

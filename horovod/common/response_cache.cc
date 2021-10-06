@@ -39,6 +39,8 @@ static Response::ResponseType RequestTypeToResponseType(Request::RequestType val
       return Response::ResponseType::ADASUM;
     case Request::RequestType::ALLTOALL:
       return Response::ResponseType::ALLTOALL;
+    case Request::RequestType::BARRIER:
+      return Response::ResponseType::BARRIER;
     default:
       throw std::logic_error("No corresponding ResponseType for provided RequestType.");
   }

@@ -33,6 +33,7 @@ public:
                    std::vector<std::shared_ptr<AlltoallOp>> alltoall_ops,
                    std::shared_ptr<JoinOp> join_op,
                    std::vector<std::shared_ptr<AllreduceOp>> adasum_ops,
+                   std::shared_ptr<BarrierOp> barrier_op,
                    std::shared_ptr<ErrorOp> error_op);
 
   virtual ~OperationManager() = default;
@@ -52,6 +53,8 @@ public:
 
   Status ExecuteAdasum(std::vector<TensorTableEntry>& entries, const Response& response) const;
 
+  Status ExecuteBarrier(std::vector<TensorTableEntry>& entries, const Response& response) const;
+
   Status ExecuteOperation(std::vector<TensorTableEntry>& entries,
                           const Response& response,
                           ProcessSet& process_set) const;
@@ -65,6 +68,7 @@ private:
   std::vector<std::shared_ptr<AlltoallOp>> alltoall_ops_;
   std::shared_ptr<JoinOp> join_op_;
   std::vector<std::shared_ptr<AllreduceOp>> adasum_ops_;
+  std::shared_ptr<BarrierOp> barrier_op_;
   std::shared_ptr<ErrorOp> error_op_;
 };
 
