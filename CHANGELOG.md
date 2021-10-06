@@ -70,7 +70,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Fixed MPICH support to use Intel MPI's implementation. ([#3148](https://github.com/horovod/horovod/pull/3148))
 
-- Fixed CMake builds to be compatible with older versions of CMake. ([#3196](https://github.com/horovod/horovod/pull/3196))
 
 - Fixed race condition in PyTorch async dataloader. ([#3120](https://github.com/horovod/horovod/pull/3120))
 
