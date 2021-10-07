@@ -11,8 +11,8 @@
 # Compatible layer for CMake <3.12. Tensorflow_ROOT will be accounted in for searching paths and libraries for CMake >=3.12.
 list(APPEND CMAKE_PREFIX_PATH ${Tensorflow_ROOT})
 
-execute_process(COMMAND ${PY_EXE} -c "import tensorflow as tf; print(tf.__version__); print(tf.sysconfig.get_include()); print(' '.join(tf.sysconfig.get_link_flags())); print(' '.join(tf.sysconfig.get_compile_flags()))"
-                OUTPUT_VARIABLE Tensorflow_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+execute_process(COMMAND ${PY_EXE} -c "import os; os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' ; import tensorflow as tf; print(tf.__version__); print(tf.sysconfig.get_include()); print(' '.join(tf.sysconfig.get_link_flags())); print(' '.join(tf.sysconfig.get_compile_flags()))"
+                OUTPUT_VARIABLE Tensorflow_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE)
 string(REGEX REPLACE "\n" ";" Tensorflow_OUTPUT "${Tensorflow_OUTPUT}")
 list(LENGTH Tensorflow_OUTPUT LEN)
 if (LEN EQUAL "4")
