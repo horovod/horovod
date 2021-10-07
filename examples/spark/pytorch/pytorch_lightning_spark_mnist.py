@@ -177,14 +177,15 @@ def train_model(args):
 
     # added EarlyStopping and ModelCheckpoint
     from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
-    callbacks.append(ModelCheckpoint(dirpath=args.work_dir))
+    callbacks.append(ModelCheckpoint(monitor='val_loss', mode="min",
+                                     save_top_k=1, verbose=True))
 
     from pytorch_lightning.callbacks.early_stopping import EarlyStopping
     callbacks.append(EarlyStopping(monitor='val_loss',
-                                   min_delta=0.00,
+                                   min_delta=0.001,
                                    patience=3,
                                    verbose=True,
-                                   mode='max'))
+                                   mode='min'))
 
     torch_estimator = hvd.TorchEstimator(backend=backend,
                                          store=store,

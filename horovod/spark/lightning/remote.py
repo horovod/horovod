@@ -53,7 +53,6 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     transformation = transformation_fn if transformation_fn else None
     inmemory_cache_all = estimator.getInMemoryCacheAll()
     callbacks = estimator.getCallbacks() or []
-    checkpoint_callback = estimator.getCheckpointCallback()
     train_steps_per_epoch = estimator.getTrainStepsPerEpoch()
     val_steps_per_epoch = estimator.getValidationStepsPerEpoch()
     num_gpus = estimator.getNumGPUs()
@@ -99,6 +98,8 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
         import horovod.torch as hvd
         # Horovod: initialize library.
         hvd.init()
+        _checkpoint_callback = None
+        require_checkpoint = False
 
         with remote_store.get_local_output_dir() as run_output_dir:
             logs_path = os.path.join(run_output_dir, remote_store.logs_subdir)
@@ -115,6 +116,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             elif isinstance(logger, CometLogger) and logger._experiment_key is None:
                 # Resume logger experiment key if passed correctly from CPU.
                 train_logger = CometLogger(
+                    save_dir=logs_path,
                     api_key=logger.api_key,
                     experiment_key=logger_experiment_key,
                 )
@@ -123,20 +125,24 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             else:
                 # use logger passed in.
                 train_logger = logger
+                train_logger.save_dir = logs_path
                 print(f"Setup logger: Using logger passed from estimator: {train_logger}")
 
             # Lightning requires to add checkpoint callbacks for all ranks.
             # Otherwise we are seeing hanging in training.
-            _checkpoint_callback = checkpoint_callback
-            if _checkpoint_callback:
-                _checkpoint_callback.dir_path = ckpt_dir
-                _checkpoint_callback.filename = ckpt_filename
-            else:
+            for cb in callbacks:
+                if isinstance(cb, ModelCheckpoint):
+                    cb.dir_path = ckpt_dir
+                    cb.filename = ckpt_filename
+                    _checkpoint_callback = cb
+                    require_checkpoint = True
+                    break
+            if not _checkpoint_callback:
                 # By default 'monitor'=None which saves a checkpoint only for the last epoch.
                 _checkpoint_callback = ModelCheckpoint(dirpath=ckpt_dir,
                                                        filename=ckpt_filename,
                                                        verbose=True)
-            callbacks.append(_checkpoint_callback)
+                callbacks.append(_checkpoint_callback)
 
             if remote_store.saving_runs and hvd.rank() == 0:
                 # Horovod: sync checkpoint and logging files only on rank 0 to
@@ -224,7 +230,13 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                     remote_store.sync(logs_path)
 
                 # rank 0 overwrites model with best checkpoint and returns.
-                best_model = model.load_from_checkpoint(_checkpoint_callback.best_model_path)
+                if require_checkpoint:
+                    if verbose:
+                        print("load from checkpoint best model path:",
+                              _checkpoint_callback.best_model_path)
+                    best_model = model.load_from_checkpoint(_checkpoint_callback.best_model_path)
+                else:
+                    best_model = model
                 serialized_checkpoint = io.BytesIO()
                 module = best_model if not is_legacy else best_model._model
 
