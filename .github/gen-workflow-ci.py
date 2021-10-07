@@ -492,10 +492,10 @@ def main():
                 f'        uses: EnricoMi/trigger-pipeline-action@master\n'
                 f'        env:\n'
                 f'          PIPELINE: "horovod/horovod"\n'
-                # on "push" event, github.event.pull_request.head.ref will be empty
-                # and trigger-pipeline-action falls back to github.ref
+                f'          # COMMIT is taken from GITHUB_SHA\n'
+                f'          # BRANCH falls back to GITHUB_REF if empty\n'
                 f'          BRANCH: "${{{{ github.event.pull_request.head.ref }}}}"\n'
-                f'          MESSAGE: "GPU Tests triggered by GitHub"\n'
+                f'          # empty MESSAGE will be filled by Buildkite\n'
                 f'          BUILDKITE_API_ACCESS_TOKEN: ${{{{ secrets.BUILDKITE_TOKEN }}}}\n'
                 f'          BUILD_ENV_VARS: "{{\\"PIPELINE_MODE\\": \\"{mode}\\"}}"\n'
                 f'\n'
