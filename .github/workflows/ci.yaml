@@ -101,7 +101,7 @@ jobs:
         env:
           PIPELINE: "horovod/horovod"
           COMMIT: 66ad6d5a3586decdac356e8ec95c204990bbc3d6
-          BRANCH: "refs/tags/v0.23.0"
+          BRANCH: "master (schedule)"
           # empty MESSAGE will be filled by Buildkite
           BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
           BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU NON HEADS\"}"

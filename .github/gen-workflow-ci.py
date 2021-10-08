@@ -488,7 +488,7 @@ def main():
                 f'        env:\n'
                 f'          PIPELINE: "horovod/horovod"\n'
                 f'          COMMIT: 66ad6d5a3586decdac356e8ec95c204990bbc3d6\n'
-                f'          BRANCH: "refs/tags/v0.23.0"\n'
+                f'          BRANCH: "master (schedule)"\n'
                 f'          # empty MESSAGE will be filled by Buildkite\n'
                 f'          BUILDKITE_API_ACCESS_TOKEN: ${{{{ secrets.BUILDKITE_TOKEN }}}}\n'
                 f'          BUILD_ENV_VARS: "{{\\"PIPELINE_MODE\\": \\"{mode}\\"}}"\n'
