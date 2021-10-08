@@ -3437,8 +3437,10 @@ jobs:
         uses: EnricoMi/trigger-pipeline-action@master
         env:
           PIPELINE: "horovod/horovod"
+          # COMMIT is taken from GITHUB_SHA
+          # BRANCH falls back to GITHUB_REF if empty
           BRANCH: "${{ github.event.pull_request.head.ref }}"
-          MESSAGE: "GPU Tests triggered by GitHub"
+          # empty MESSAGE will be filled by Buildkite
           BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
           BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU NON HEADS\"}"
 
@@ -3485,8 +3487,10 @@ jobs:
         uses: EnricoMi/trigger-pipeline-action@master
         env:
           PIPELINE: "horovod/horovod"
+          # COMMIT is taken from GITHUB_SHA
+          # BRANCH falls back to GITHUB_REF if empty
           BRANCH: "${{ github.event.pull_request.head.ref }}"
-          MESSAGE: "GPU Tests triggered by GitHub"
+          # empty MESSAGE will be filled by Buildkite
           BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
           BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU HEADS\"}"
 
