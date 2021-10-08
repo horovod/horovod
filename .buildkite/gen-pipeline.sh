@@ -45,7 +45,7 @@ tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${B
   printf "test-cpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_1_2 "
 
   # then we vary the frameworks for gpu
-  printf "test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark3_1_2 "
+  printf "test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_6_0-mxnet1_5_1_p0-pyspark3_1_2 "
   # this is required as we cannot test mxnet-1.6.0.post0 with cpu
   printf "test-gpu-gloo-py3_8-tf2_4_3-keras2_3_1-torch1_7_1-mxnet1_6_0_p0-pyspark3_1_2 "
   # we additionally test the previous framework combination (CUDA 10.x) with mxnet 1.7.x
@@ -78,7 +78,7 @@ build_test() {
   echo "      push-retries: 5"
   echo "  - ecr#v1.2.0:"
   echo "      login: true"
-  echo "  timeout_in_minutes: 30"
+  echo "  timeout_in_minutes: 40"
   echo "  retry:"
   echo "    automatic: true"
   echo "  agents:"
@@ -125,7 +125,7 @@ run_mpi_pytest() {
   run_test "${test}" "${queue}" \
     ":pytest: MPI Parallel PyTests (${test})" \
     "bash -c \"${oneccl_env} ${test_env} cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \\\$(cat /mpirun_command) /bin/bash /pytest.sh mpi)\"" \
-    5
+    10
   run_test "${test}" "${queue}" \
     ":pytest: MPI Single PyTests (${test})" \
     "bash -c \"${oneccl_env} ${test_env} cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh mpi)\"" \
@@ -231,7 +231,7 @@ run_gloo_pytest() {
   run_test "${test}" "${queue}" \
     ":pytest: Gloo Parallel PyTests (${test})" \
     "bash -c \"${test_env} cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)\"" \
-    5
+    10
   run_test "${test}" "${queue}" \
     ":pytest: Gloo Single PyTests (${test})" \
     "bash -c \"${test_env} cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh gloo)\"" \

@@ -137,7 +137,18 @@ def main():
                '    runs-on: ubuntu-latest\n' \
                '    steps:\n' \
                '    - name: Debug Action\n' \
-               '      uses: hmarr/debug-action@v1.0.0\n' + \
+               '      uses: hmarr/debug-action@v1.0.0\n' \
+               '\n' \
+               '  event_file:\n' \
+               '    name: "Event File"\n' \
+               '    runs-on: ubuntu-latest\n' \
+               '    steps:\n' \
+               '    - name: Upload\n' \
+               '      uses: actions/upload-artifact@v2\n' \
+               '      with:\n' \
+               '        name: Event File\n' \
+               '        path: ${{ github.event_path }}\n' \
+               '\n' + \
                '\n'.join(jobs)
 
     def init_workflow_job() -> str:
@@ -368,34 +379,34 @@ def main():
                 f'      matrix:\n'
                 f'        include:\n'
                 f''
-                f'          - image: test-cpu-openmpi-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_0\n'
+                f'          - image: test-cpu-openmpi-py3_7-tf1_15_5-keras2_2_4-torch1_6_0-mxnet1_5_0\n'
                 f'            HOROVOD_WITH_MPI: 1\n'
                 f'            HOROVOD_WITHOUT_GLOO: 1\n'
                 f'            TENSORFLOW: 1.15.0\n'
                 f'            KERAS: 2.2.4\n'
-                f'            PYTORCH: 1.2.0\n'
-                f'            PYTORCH_LIGHTNING: 0.7.6\n'
-                f'            TORCHVISION: 0.4.0\n'
+                f'            PYTORCH: 1.6.0\n'
+                f'            PYTORCH_LIGHTNING: 1.3.8\n'
+                f'            TORCHVISION: 0.7.0\n'
                 f'            MXNET: 1.5.0\n'
                 f'\n'
-                f'          - image: test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0\n'
+                f'          - image: test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_8_1-mxnet1_5_0\n'
                 f'            HOROVOD_WITHOUT_MPI: 1\n'
                 f'            HOROVOD_WITH_GLOO: 1\n'
                 f'            TENSORFLOW: 2.2.0\n'
                 f'            KERAS: 2.3.1\n'
-                f'            PYTORCH: 1.5.0\n'
-                f'            PYTORCH_LIGHTNING: 1.2.9\n'
-                f'            TORCHVISION: 0.6.0\n'
+                f'            PYTORCH: 1.8.1\n'
+                f'            PYTORCH_LIGHTNING: 1.3.8\n'
+                f'            TORCHVISION: 0.9.1\n'
                 f'            MXNET: 1.5.0\n'
                 f'\n'
-                f'          - image: test-openmpi-cpu-gloo-py3_8-tf2_3_0-keras2_3_1-torch1_6_0-mxnet1_5_0\n'
+                f'          - image: test-openmpi-cpu-gloo-py3_8-tf2_3_0-keras2_3_1-torch1_9_0-mxnet1_5_0\n'
                 f'            HOROVOD_WITH_MPI: 1\n'
                 f'            HOROVOD_WITH_GLOO: 1\n'
                 f'            TENSORFLOW: 2.3.0\n'
                 f'            KERAS: 2.3.1\n'
-                f'            PYTORCH: 1.6.0\n'
-                f'            PYTORCH_LIGHTNING: 1.2.9\n'
-                f'            TORCHVISION: 0.7.0\n'
+                f'            PYTORCH: 1.9.0\n'
+                f'            PYTORCH_LIGHTNING: 1.3.8\n'
+                f'            TORCHVISION: 0.10.0\n'
                 f'            MXNET: 1.5.0\n'
                 f'\n'
                 f'    steps:\n'
@@ -481,10 +492,10 @@ def main():
                 f'        uses: EnricoMi/trigger-pipeline-action@master\n'
                 f'        env:\n'
                 f'          PIPELINE: "horovod/horovod"\n'
-                # on "push" event, github.event.pull_request.head.ref will be empty
-                # and trigger-pipeline-action falls back to github.ref
+                f'          # COMMIT is taken from GITHUB_SHA\n'
+                f'          # BRANCH falls back to GITHUB_REF if empty\n'
                 f'          BRANCH: "${{{{ github.event.pull_request.head.ref }}}}"\n'
-                f'          MESSAGE: "GPU Tests triggered by GitHub"\n'
+                f'          # empty MESSAGE will be filled by Buildkite\n'
                 f'          BUILDKITE_API_ACCESS_TOKEN: ${{{{ secrets.BUILDKITE_TOKEN }}}}\n'
                 f'          BUILD_ENV_VARS: "{{\\"PIPELINE_MODE\\": \\"{mode}\\"}}"\n'
                 f'\n'
@@ -514,60 +525,6 @@ def main():
                 f'        run: |\n'
                 f'          echo "::warning::Buildkite pipeline did not pass: ${{{{ steps.build.outputs.url }}}}"\n'
                 f'          exit 1\n')
-
-    def publish_unit_test_results(id: str, needs: List[str]) -> str:
-        return (f'  {id}:\n'
-                f'    name: "Publish Unit Tests Results"\n'
-                f'    needs: [{", ".join(needs)}]\n'
-                f'    runs-on: ubuntu-latest\n'
-                f'    # only run this job when the workflow is in success or failure state,\n'
-                f'    # not when it is in cancelled or skipped state\n'
-                f'    # only run this job on push events or when the event does not run in a fork repository\n'
-                f'    if: >\n'
-                f'      ( success() || failure() ) &&\n'
-                f"      needs.init-workflow.outputs.run_at_all == 'true' &&\n"
-                f'      ( github.event_name == \'push\' || ! github.event.head.repo.fork )\n'
-                f'\n'
-                f'    steps:\n'
-                f'      - name: Download GitHub Artifacts\n'
-                f'        uses: actions/download-artifact@v2\n'
-                f'        with:\n'
-                f'          path: artifacts\n'
-                f'\n'
-                f'      - name: Identify last run of each test\n'
-                f'        continue-on-error: true\n'
-                f'        run: |\n'
-                f'          declare -A last_runs\n'
-                f'          ls -d artifacts/Unit\\ Test\\ Results\\ */* | sort > runs.txt\n'
-                f'          while read run\n'
-                f'          do\n'
-                f'            test=${{run/%[_-]run[_-][0123456789]/}}\n'
-                f'            last_runs[$test]=$run\n'
-                f'          done < runs.txt\n'
-                f'\n'
-                f'          echo "LAST_RUNS<<EOF" >> $GITHUB_ENV\n'
-                f'          for test in "${{!last_runs[@]}}"\n'
-                f'          do\n'
-                f'            echo "${{last_runs[$test]}}" >&2\n'
-                f'            echo "${{last_runs[$test]}}/**/*.xml" >> $GITHUB_ENV\n'
-                f'          done\n'
-                f'          echo "EOF" >> $GITHUB_ENV\n'
-                f'        shell: bash\n'
-                f'\n'
-                f'      - name: Publish Unit Test Results\n'
-                f'        uses: EnricoMi/publish-unit-test-result-action@v1\n'
-                f'        if: always()\n'
-                f'        with:\n'
-                f'          check_name: Unit Test Results\n'
-                f'          files: "${{{{ env.LAST_RUNS }}}}"\n'
-                f'\n'
-                f'      - name: Publish Unit Test Results (with flaky tests)\n'
-                f'        uses: EnricoMi/publish-unit-test-result-action@v1\n'
-                f'        if: always()\n'
-                f'        with:\n'
-                f'          check_name: Unit Test Results (with flaky tests)\n'
-                f'          fail_on: errors\n'
-                f'          files: "artifacts/Unit Test Results */**/*.xml"\n')
 
     def publish_docker_images(needs: List[str], images: List[str]) -> str:
         if 'init-workflow' not in needs:
@@ -781,7 +738,6 @@ def main():
             build_and_test_macos(id='build-and-test-macos', name='Build and Test macOS', needs=['build-and-test']),
             trigger_buildkite_job(id='buildkite', name='Build and Test GPU (on Builtkite)', needs=['build-and-test'], mode='GPU NON HEADS'),
             trigger_buildkite_job(id='buildkite-heads', name='Build and Test GPU heads (on Builtkite)', needs=['buildkite'], mode='GPU HEADS'),
-            publish_unit_test_results(id='publish-test-results', needs=['build-and-test', 'build-and-test-heads', 'build-and-test-macos', 'buildkite', 'buildkite-heads']),
             publish_docker_images(needs=['build-and-test', 'buildkite'], images=['horovod', 'horovod-cpu', 'horovod-ray']),
             sync_files(needs=['init-workflow'])
         )

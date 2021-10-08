@@ -27,6 +27,17 @@ jobs:
     steps:
     - name: Debug Action
       uses: hmarr/debug-action@v1.0.0
+
+  event_file:
+    name: "Event File"
+    runs-on: ubuntu-latest
+    steps:
+    - name: Upload
+      uses: actions/upload-artifact@v2
+      with:
+        name: Event File
+        path: ${{ github.event_path }}
+
   init-workflow:
     name: "Init Workflow"
     runs-on: ubuntu-latest
@@ -234,7 +245,7 @@ jobs:
             Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_3_1-mxnet1_5_1_p0-pyspark3_1_2
+          - image: test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_6_0-mxnet1_5_1_p0-pyspark3_1_2
             build_timeout: 40
 
           - image: test-gpu-gloo-py3_8-tf2_4_3-keras2_3_1-torch1_7_1-mxnet1_6_0_p0-pyspark3_1_2
@@ -593,7 +604,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Gloo_Parallel_PyTests && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Gloo_Parallel_PyTests_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Parallel_PyTests_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Parallel_PyTests_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
         shell: bash
 
       - name: "Gloo Parallel PyTests [attempt 2 of 3]"
@@ -602,7 +613,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Gloo_Parallel_PyTests && steps.Gloo_Parallel_PyTests_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Gloo_Parallel_PyTests_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Parallel_PyTests_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Parallel_PyTests_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
         shell: bash
 
       - name: "Gloo Parallel PyTests [attempt 3 of 3]"
@@ -611,7 +622,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Gloo_Parallel_PyTests && steps.Gloo_Parallel_PyTests_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Gloo_Parallel_PyTests_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Parallel_PyTests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Parallel_PyTests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
         shell: bash
 
       - name: "Gloo PyTorch MNIST [attempt 1 of 3]"
@@ -917,7 +928,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Parallel_PyTests && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c "  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
         shell: bash
 
       - name: "MPI Parallel PyTests [attempt 2 of 3]"
@@ -926,7 +937,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Parallel_PyTests && steps.MPI_Parallel_PyTests_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c "  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
         shell: bash
 
       - name: "MPI Parallel PyTests [attempt 3 of 3]"
@@ -935,7 +946,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Parallel_PyTests && steps.MPI_Parallel_PyTests_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c "  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
         shell: bash
 
       - name: "MPI Parallel PyTests [ONECCL MPI] [attempt 1 of 3]"
@@ -944,7 +955,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Parallel_PyTests_ONECCL_MPI && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_MPI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
         shell: bash
 
       - name: "MPI Parallel PyTests [ONECCL MPI] [attempt 2 of 3]"
@@ -953,7 +964,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Parallel_PyTests_ONECCL_MPI && steps.MPI_Parallel_PyTests_ONECCL_MPI_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_MPI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
         shell: bash
 
       - name: "MPI Parallel PyTests [ONECCL MPI] [attempt 3 of 3]"
@@ -962,7 +973,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Parallel_PyTests_ONECCL_MPI && steps.MPI_Parallel_PyTests_ONECCL_MPI_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_MPI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
         shell: bash
 
       - name: "MPI Parallel PyTests [ONECCL OFI] [attempt 1 of 3]"
@@ -971,7 +982,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Parallel_PyTests_ONECCL_OFI && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_OFI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
         shell: bash
 
       - name: "MPI Parallel PyTests [ONECCL OFI] [attempt 2 of 3]"
@@ -980,7 +991,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Parallel_PyTests_ONECCL_OFI && steps.MPI_Parallel_PyTests_ONECCL_OFI_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_OFI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
         shell: bash
 
       - name: "MPI Parallel PyTests [ONECCL OFI] [attempt 3 of 3]"
@@ -989,7 +1000,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Parallel_PyTests_ONECCL_OFI && steps.MPI_Parallel_PyTests_ONECCL_OFI_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_OFI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
         shell: bash
 
       - name: "MPI PyTorch MNIST [attempt 1 of 3]"
@@ -2116,7 +2127,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Gloo_Parallel_PyTests && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Gloo_Parallel_PyTests_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Parallel_PyTests_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Parallel_PyTests_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
         shell: bash
 
       - name: "Gloo Parallel PyTests [attempt 2 of 3]"
@@ -2125,7 +2136,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Gloo_Parallel_PyTests && steps.Gloo_Parallel_PyTests_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Gloo_Parallel_PyTests_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Parallel_PyTests_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Parallel_PyTests_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
         shell: bash
 
       - name: "Gloo Parallel PyTests [attempt 3 of 3]"
@@ -2134,7 +2145,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Gloo_Parallel_PyTests && steps.Gloo_Parallel_PyTests_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Gloo_Parallel_PyTests_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Parallel_PyTests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Parallel_PyTests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
         shell: bash
 
       - name: "Gloo PyTorch MNIST [attempt 1 of 3]"
@@ -2440,7 +2451,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Parallel_PyTests && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c "  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
         shell: bash
 
       - name: "MPI Parallel PyTests [attempt 2 of 3]"
@@ -2449,7 +2460,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Parallel_PyTests && steps.MPI_Parallel_PyTests_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c "  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
         shell: bash
 
       - name: "MPI Parallel PyTests [attempt 3 of 3]"
@@ -2458,7 +2469,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Parallel_PyTests && steps.MPI_Parallel_PyTests_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c "  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
         shell: bash
 
       - name: "MPI Parallel PyTests [ONECCL MPI] [attempt 1 of 3]"
@@ -2467,7 +2478,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Parallel_PyTests_ONECCL_MPI && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_MPI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
         shell: bash
 
       - name: "MPI Parallel PyTests [ONECCL MPI] [attempt 2 of 3]"
@@ -2476,7 +2487,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Parallel_PyTests_ONECCL_MPI && steps.MPI_Parallel_PyTests_ONECCL_MPI_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_MPI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
         shell: bash
 
       - name: "MPI Parallel PyTests [ONECCL MPI] [attempt 3 of 3]"
@@ -2485,7 +2496,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Parallel_PyTests_ONECCL_MPI && steps.MPI_Parallel_PyTests_ONECCL_MPI_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_MPI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
         shell: bash
 
       - name: "MPI Parallel PyTests [ONECCL OFI] [attempt 1 of 3]"
@@ -2494,7 +2505,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Parallel_PyTests_ONECCL_OFI && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_OFI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
         shell: bash
 
       - name: "MPI Parallel PyTests [ONECCL OFI] [attempt 2 of 3]"
@@ -2503,7 +2514,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Parallel_PyTests_ONECCL_OFI && steps.MPI_Parallel_PyTests_ONECCL_OFI_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_OFI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
         shell: bash
 
       - name: "MPI Parallel PyTests [ONECCL OFI] [attempt 3 of 3]"
@@ -2512,7 +2523,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Parallel_PyTests_ONECCL_OFI && steps.MPI_Parallel_PyTests_ONECCL_OFI_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_OFI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 5m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
         shell: bash
 
       - name: "MPI PyTorch MNIST [attempt 1 of 3]"
@@ -3279,34 +3290,34 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - image: test-cpu-openmpi-py3_7-tf1_15_5-keras2_2_4-torch1_2_0-mxnet1_5_0
+          - image: test-cpu-openmpi-py3_7-tf1_15_5-keras2_2_4-torch1_6_0-mxnet1_5_0
             HOROVOD_WITH_MPI: 1
             HOROVOD_WITHOUT_GLOO: 1
             TENSORFLOW: 1.15.0
             KERAS: 2.2.4
-            PYTORCH: 1.2.0
-            PYTORCH_LIGHTNING: 0.7.6
-            TORCHVISION: 0.4.0
+            PYTORCH: 1.6.0
+            PYTORCH_LIGHTNING: 1.3.8
+            TORCHVISION: 0.7.0
             MXNET: 1.5.0
 
-          - image: test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0
+          - image: test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_8_1-mxnet1_5_0
             HOROVOD_WITHOUT_MPI: 1
             HOROVOD_WITH_GLOO: 1
             TENSORFLOW: 2.2.0
             KERAS: 2.3.1
-            PYTORCH: 1.5.0
-            PYTORCH_LIGHTNING: 1.2.9
-            TORCHVISION: 0.6.0
+            PYTORCH: 1.8.1
+            PYTORCH_LIGHTNING: 1.3.8
+            TORCHVISION: 0.9.1
             MXNET: 1.5.0
 
-          - image: test-openmpi-cpu-gloo-py3_8-tf2_3_0-keras2_3_1-torch1_6_0-mxnet1_5_0
+          - image: test-openmpi-cpu-gloo-py3_8-tf2_3_0-keras2_3_1-torch1_9_0-mxnet1_5_0
             HOROVOD_WITH_MPI: 1
             HOROVOD_WITH_GLOO: 1
             TENSORFLOW: 2.3.0
             KERAS: 2.3.1
-            PYTORCH: 1.6.0
-            PYTORCH_LIGHTNING: 1.2.9
-            TORCHVISION: 0.7.0
+            PYTORCH: 1.9.0
+            PYTORCH_LIGHTNING: 1.3.8
+            TORCHVISION: 0.10.0
             MXNET: 1.5.0
 
     steps:
@@ -3426,8 +3437,10 @@ jobs:
         uses: EnricoMi/trigger-pipeline-action@master
         env:
           PIPELINE: "horovod/horovod"
+          # COMMIT is taken from GITHUB_SHA
+          # BRANCH falls back to GITHUB_REF if empty
           BRANCH: "${{ github.event.pull_request.head.ref }}"
-          MESSAGE: "GPU Tests triggered by GitHub"
+          # empty MESSAGE will be filled by Buildkite
           BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
           BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU NON HEADS\"}"
 
@@ -3474,8 +3487,10 @@ jobs:
         uses: EnricoMi/trigger-pipeline-action@master
         env:
           PIPELINE: "horovod/horovod"
+          # COMMIT is taken from GITHUB_SHA
+          # BRANCH falls back to GITHUB_REF if empty
           BRANCH: "${{ github.event.pull_request.head.ref }}"
-          MESSAGE: "GPU Tests triggered by GitHub"
+          # empty MESSAGE will be filled by Buildkite
           BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
           BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU HEADS\"}"
 
@@ -3505,59 +3520,6 @@ jobs:
         run: |
           echo "::warning::Buildkite pipeline did not pass: ${{ steps.build.outputs.url }}"
           exit 1
-
-  publish-test-results:
-    name: "Publish Unit Tests Results"
-    needs: [build-and-test, build-and-test-heads, build-and-test-macos, buildkite, buildkite-heads]
-    runs-on: ubuntu-latest
-    # only run this job when the workflow is in success or failure state,
-    # not when it is in cancelled or skipped state
-    # only run this job on push events or when the event does not run in a fork repository
-    if: >
-      ( success() || failure() ) &&
-      needs.init-workflow.outputs.run_at_all == 'true' &&
-      ( github.event_name == 'push' || ! github.event.head.repo.fork )
-
-    steps:
-      - name: Download GitHub Artifacts
-        uses: actions/download-artifact@v2
-        with:
-          path: artifacts
-
-      - name: Identify last run of each test
-        continue-on-error: true
-        run: |
-          declare -A last_runs
-          ls -d artifacts/Unit\ Test\ Results\ */* | sort > runs.txt
-          while read run
-          do
-            test=${run/%[_-]run[_-][0123456789]/}
-            last_runs[$test]=$run
-          done < runs.txt
-
-          echo "LAST_RUNS<<EOF" >> $GITHUB_ENV
-          for test in "${!last_runs[@]}"
-          do
-            echo "${last_runs[$test]}" >&2
-            echo "${last_runs[$test]}/**/*.xml" >> $GITHUB_ENV
-          done
-          echo "EOF" >> $GITHUB_ENV
-        shell: bash
-
-      - name: Publish Unit Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v1
-        if: always()
-        with:
-          check_name: Unit Test Results
-          files: "${{ env.LAST_RUNS }}"
-
-      - name: Publish Unit Test Results (with flaky tests)
-        uses: EnricoMi/publish-unit-test-result-action@v1
-        if: always()
-        with:
-          check_name: Unit Test Results (with flaky tests)
-          fail_on: errors
-          files: "artifacts/Unit Test Results */**/*.xml"
 
   docker-config:
     name: Configure docker build

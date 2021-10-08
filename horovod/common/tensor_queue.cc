@@ -109,17 +109,18 @@ void TensorQueue::GetTensorEntriesFromResponse(
              response.response_type() == Response::BROADCAST ||
              response.response_type() == Response::ALLTOALL ||
              response.response_type() == Response::ADASUM ||
+             response.response_type() == Response::BARRIER ||
              response.response_type() == Response::ERROR);
 
       if (!joined) {
         // We should never fail at finding this key in the tensor table.
         auto iter = tensor_table_.find(name);
         assert(iter != tensor_table_.end());
-
         entries.push_back(std::move(iter->second));
 
         // Clear the tensor table of this tensor.
         tensor_table_.erase(iter);
+
       } else if (response.response_type() != Response::ERROR) {
 
         // Find Join tensor to use its context.
@@ -150,6 +151,12 @@ TensorQueue::GetTensorEntry(const std::string& tensor_name) const{
   auto& iter = tensor_table_.at(tensor_name);
 
   return iter;
+}
+
+bool TensorQueue::IsTensorPresentInTable(const std::string& tensor_name) const {
+  // Lock on the tensor table.
+  std::lock_guard<std::mutex> guard(mutex_);
+  return tensor_table_.find(tensor_name) != tensor_table_.end();
 }
 
 // Pop out all the messages from the queue

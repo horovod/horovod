@@ -401,6 +401,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                                         validation=self.getValidation())
 
         serialized_model = serialize_fn()(model)
+        # FIXME: checkpoint bytes should be loaded into serialized_model, same as Keras Estimator.
         ckpt_bytes = self._read_checkpoint(run_id) if self._has_checkpoint(run_id) else None
         trainer = remote.RemoteTrainer(self,
                                        metadata=metadata,
