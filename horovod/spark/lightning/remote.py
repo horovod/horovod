@@ -132,7 +132,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             # Otherwise we are seeing hanging in training.
             for cb in callbacks:
                 if isinstance(cb, ModelCheckpoint):
-                    cb.dir_path = ckpt_dir
+                    cb.dirpath = ckpt_dir
                     cb.filename = ckpt_filename
                     _checkpoint_callback = cb
                     require_checkpoint = True
