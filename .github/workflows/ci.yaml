@@ -3449,14 +3449,22 @@ jobs:
       ( github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository )
 
     steps:
+      - name: Configure Buildkite Build
+        id: config
+        run: |
+          if [[ "${{ github.event_name }}" == "schedule" ]]
+          then
+            # we add this label to the branch used by Buildkite to avoid it cancelling one of concurrent schedule and push builds on master
+            echo "::set-output name=branch-label:: (schedule)"
+          fi
+
       - name: Trigger Buildkite Pipeline
         id: build
         uses: EnricoMi/trigger-pipeline-action@master
         env:
           PIPELINE: "horovod/horovod"
           # COMMIT is taken from GITHUB_SHA
-          # BRANCH falls back to GITHUB_REF if empty
-          BRANCH: "${{ github.event.pull_request.head.ref }}"
+          BRANCH: "${{ github.event.pull_request.head.ref || github.ref }}${{ steps.config.outputs.branch-label }}"
           # empty MESSAGE will be filled by Buildkite
           BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
           BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU NON HEADS\"}"
@@ -3499,14 +3507,22 @@ jobs:
       ( github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository )
 
     steps:
+      - name: Configure Buildkite Build
+        id: config
+        run: |
+          if [[ "${{ github.event_name }}" == "schedule" ]]
+          then
+            # we add this label to the branch used by Buildkite to avoid it cancelling one of concurrent schedule and push builds on master
+            echo "::set-output name=branch-label:: (schedule)"
+          fi
+
       - name: Trigger Buildkite Pipeline
         id: build
         uses: EnricoMi/trigger-pipeline-action@master
         env:
           PIPELINE: "horovod/horovod"
           # COMMIT is taken from GITHUB_SHA
-          # BRANCH falls back to GITHUB_REF if empty
-          BRANCH: "${{ github.event.pull_request.head.ref }}"
+          BRANCH: "${{ github.event.pull_request.head.ref || github.ref }}${{ steps.config.outputs.branch-label }}"
           # empty MESSAGE will be filled by Buildkite
           BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
           BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU HEADS\"}"
