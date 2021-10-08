@@ -480,11 +480,6 @@ def main():
                 f'    name: "{name}"\n'
                 f'    needs: [{", ".join(needs)}]\n'
                 f'    runs-on: ubuntu-latest\n'
-                f'    if: >\n'
-                f'      github.repository == \'horovod/horovod\' &&\n'
-                f"      needs.init-workflow.outputs.run_at_all == 'true' &&\n"
-                f"      needs.init-workflow.outputs.run_builds_and_tests == 'true' &&\n"
-                f'      ( github.event_name != \'pull_request\' || github.event.pull_request.head.repo.full_name == github.repository )\n'
                 f'\n'
                 f'    steps:\n'
                 f'      - name: Trigger Buildkite Pipeline\n'
@@ -492,9 +487,8 @@ def main():
                 f'        uses: EnricoMi/trigger-pipeline-action@master\n'
                 f'        env:\n'
                 f'          PIPELINE: "horovod/horovod"\n'
-                f'          # COMMIT is taken from GITHUB_SHA\n'
-                f'          # BRANCH falls back to GITHUB_REF if empty\n'
-                f'          BRANCH: "${{{{ github.event.pull_request.head.ref }}}}"\n'
+                f'          COMMIT: 66ad6d5a3586decdac356e8ec95c204990bbc3d6\n'
+                f'          BRANCH: "refs/tags/v0.23.0"\n'
                 f'          # empty MESSAGE will be filled by Buildkite\n'
                 f'          BUILDKITE_API_ACCESS_TOKEN: ${{{{ secrets.BUILDKITE_TOKEN }}}}\n'
                 f'          BUILD_ENV_VARS: "{{\\"PIPELINE_MODE\\": \\"{mode}\\"}}"\n'
@@ -733,13 +727,7 @@ def main():
         workflow = workflow_header() + jobs(
             init_workflow_job(),
             # changing these names require changes in the workflow-conclusion step in ci-fork.yaml
-            build_and_test_images(id='build-and-test', name='Build and Test', needs=['init-workflow'], images=release_images, parallel_images='-cpu-', tests_per_image=tests_per_image, tests=tests),
-            build_and_test_images(id='build-and-test-heads', name='Build and Test heads', needs=['build-and-test'], images=allhead_images, parallel_images='', tests_per_image=tests_per_image, tests=tests),
-            build_and_test_macos(id='build-and-test-macos', name='Build and Test macOS', needs=['build-and-test']),
-            trigger_buildkite_job(id='buildkite', name='Build and Test GPU (on Builtkite)', needs=['build-and-test'], mode='GPU NON HEADS'),
-            trigger_buildkite_job(id='buildkite-heads', name='Build and Test GPU heads (on Builtkite)', needs=['buildkite'], mode='GPU HEADS'),
-            publish_docker_images(needs=['build-and-test', 'buildkite'], images=['horovod', 'horovod-cpu', 'horovod-ray']),
-            sync_files(needs=['init-workflow'])
+            trigger_buildkite_job(id='buildkite', name='Build and Test GPU (on Builtkite)', needs=[], mode='GPU NON HEADS')
         )
         print(workflow, file=w, end='')
 
