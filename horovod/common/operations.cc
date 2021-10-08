@@ -1723,7 +1723,7 @@ Status EnqueueTensorReduce(std::shared_ptr<OpContext> context,
     LOG(TRACE, horovod_global.global_controller->GetRank()) << "Enqueued " << name;
   }
   return status;
-                           }
+}
 
 
 // Contexts and controller must be initialized and the background thread
