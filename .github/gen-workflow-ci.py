@@ -113,6 +113,7 @@ def main():
                 f'\n'
                 f'on:\n'
                 f'  schedule:\n'
+                f'    # run a build on master (this does not publish test results or cancel concurrent builds)\n'
                 f'    - cron: \'0 10 * * *\' # everyday at 10am\n'
                 f'  push:\n'
                 f'    # only consider push to master and tags\n'
@@ -120,14 +121,28 @@ def main():
                 f'    branches: [ master ]\n'
                 f'    tags: [ \'v*.*.*\' ]\n'
                 f'  pull_request:\n'
+                f'    # only consider pull requests into master\n'
                 f'    branches: [ master ]\n'
                 f'\n'
                 f'concurrency:\n'
-                f'  # github.ref means something like refs/heads/master or refs/tags/v0.22.1 or the branch.\n'
-                f'  # This helps to not cancel concurrent runs on master and a tag that share the same commit\n'
-                f'  # On master, head_ref is empty, so we use the SHA of the commit, this means\n'
-                f'  # individual commits to master will not be cancelled, but tagged\n'
-                f'  group: ci-${{{{ github.ref }}}}-${{{{ github.head_ref || github.sha }}}}\n'
+                f'  # This controls which concurrent builds to cancel:\n'
+                f'  # - we do not want any concurrent builds on a branch (pull_request)\n'
+                f'  # - we do not want concurrent builds on the same commit on master (push)\n'
+                f'  # - we do not want concurrent builds on the same commit on a tag (push)\n'
+                f'  # - we allow concurrent runs on the same commit on master and its tag (push)\n'
+                f'  # - we allow concurrent runs on the same commit on master (push) and a scheduled build (schedule)\n'
+                f'  #\n'
+                f'  # A pull_request event only runs on branch commit, a push event only on master and tag commit.\n'
+                f'  # A schedule event only runs on master HEAD commit.\n'
+                f'  #\n'
+                f'  # Expression github.ref means something like refs/heads/master or refs/tags/v0.22.1 or the branch.\n'
+                f'  # This helps to not cancel concurrent runs on master or a tag that share the same commit.\n'
+                f'  # Expression github.head_ref refers to the branch of the pull request.\n'
+                f'  # On master, github.head_ref is empty, so we use the SHA of the commit, this means individual\n'
+                f'  # commits to master will not be cancelled, while there can only be one concurrent build on a branch.\n'
+                f'  #\n'
+                f'  # We include the event name to we allow for concurrent scheduled and master builds.\n'
+                f'  group: ci-${{{{ github.event_name }}}}-${{{{ github.ref }}}}-${{{{ github.head_ref || github.sha }}}}\n'
                 f'  cancel-in-progress: true\n'
                 f'\n')
 
@@ -138,6 +153,8 @@ def main():
                '    steps:\n' \
                '    - name: Debug Action\n' \
                '      uses: hmarr/debug-action@v1.0.0\n' \
+               '    - name: Debug Concurrency\n' \
+               '      run: echo "ci-${{ github.event_name }}-${{ github.ref }}-${{ github.head_ref || github.sha }}"\n' \
                '\n' \
                '  event_file:\n' \
                '    name: "Event File"\n' \
