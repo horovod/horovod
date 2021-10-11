@@ -160,6 +160,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         train_steps_per_epoch: (Optional) Number of steps to train each epoch. Useful for testing
                                 that model trains successfully. Defaults to training the entire
                                 dataset each epoch.
+        trainer_args:   (Optional) Dict of args to pass to trainer, it will be used to add/override the args which estimator gives to trainer.
         transformation_fn:  (Optional) function that takes a row as its parameter and returns a
                             modified row that is then fed into the train or validation step.
                             This transformation is applied after batching. See Petastorm
@@ -206,6 +207,10 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     profiler = Param(Params._dummy(), 'profiler', 'lightning profiler to use')
 
+    trainer_args = Param(Params._dummy(), 'trainer_args',
+                        'Dict of args to pass to trainer, it will be used to add/override the args which estimator gives to trainer. ')
+
+
     @keyword_only
     def __init__(self,
                  num_proc=None,
@@ -236,6 +241,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  validation_steps_per_epoch=None,
                  transformation_fn=None,
                  train_reader_num_workers=None,
+                 trainer_args=None,
                  val_reader_num_workers=None,
                  reader_pool_type=None,
                  label_shapes=None,
@@ -260,7 +266,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                          data_module=None,
                          loader_num_epochs=None,
                          terminate_on_nan=False,
-                         profiler=None)
+                         profiler=None,
+                         trainer_args=None)
 
         kwargs = self._input_kwargs
 
@@ -332,6 +339,12 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def getTerminateOnNan(self):
         return self.getOrDefault(self.terminate_on_nan)
+
+    def setTrainerArgs(self, value):
+        return self._set(trainer_args=value)
+
+    def getTrainerArgs(self):
+        return self.getOrDefault(self.trainer_args)
 
     def getProfiler(self):
         return self.getOrDefault(self.profiler)
@@ -426,19 +439,16 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         return store.read(last_ckpt_path)
 
     def _create_model(self, run_results, run_id, metadata):
-        serialized_checkpoint = run_results[0]
+        serialized_checkpoint, history = run_results[0]
         serialized_checkpoint.seek(0)
         best_checkpoint = torch.load(serialized_checkpoint, map_location=torch.device('cpu'))
 
         model = copy.deepcopy(self.getModel())
-        # optimizer = copy.deepcopy(self.getOptimizer())
-
         model.load_state_dict(best_checkpoint['model'])
-
         model.eval()
 
-        # optimizer.load_state_dict(best_checkpoint['optimizer'])
-        history = None
+        # Optimizer is part of the model no need to return it to transformer.
+        # TODO: (Pengz) Update the latest state of the optimizer in the model for retraining.
         optimizer = None
 
         return self.get_model_class()(**self._get_model_kwargs(
