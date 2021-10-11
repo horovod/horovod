@@ -51,10 +51,11 @@ jobs:
         do
           gh api "$url" > "pr.zip"
           unzip -o "pr.zip"
+          cat pr.json
           echo "::set-output name=json::$(cat pr.json)"
         done
 
-        if [ ! -e "pr.json" ]]
+        if [[ ! -e "pr.json" ]]
         then
           echo "::error title=Artifact 'PR Meta' missing::Expected artifact 'PR Meta' does not exist for pull_request event."
         fi
