@@ -209,6 +209,9 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     checkpoint_callback = Param(Params._dummy(), 'checkpoint_callback',
                                 'model checkpointing callback')
 
+    trainer_args = Param(Params._dummy(), 'trainer_args',
+                                'Dict of args to pass to trainer, it will be used to add/override the args which estimator gives to trainer. ')
+
     @keyword_only
     def __init__(self,
                  num_proc=None,
@@ -250,7 +253,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  loader_num_epochs=None,
                  terminate_on_nan=False,
                  profiler=None,
-                 checkpoint_callback=None):
+                 checkpoint_callback=None,
+                 trainer_args=None):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
@@ -265,7 +269,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                          loader_num_epochs=None,
                          terminate_on_nan=False,
                          profiler=None,
-                         checkpoint_callback=None)
+                         checkpoint_callback=None,
+                         trainer_args=None)
 
         kwargs = self._input_kwargs
 
@@ -343,6 +348,12 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def getCheckpointCallback(self):
         return self.getOrDefault(self.checkpoint_callback)
+
+    def setTrainerArgs(self, value):
+        return self._set(trainer_args=value)
+
+    def getTrainerArgs(self):
+        return self.getOrDefault(self.trainer_args)
 
     def getProfiler(self):
         return self.getOrDefault(self.profiler)
@@ -437,19 +448,16 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         return store.read(last_ckpt_path)
 
     def _create_model(self, run_results, run_id, metadata):
-        serialized_checkpoint = run_results[0]
+        serialized_checkpoint, history = run_results[0]
         serialized_checkpoint.seek(0)
         best_checkpoint = torch.load(serialized_checkpoint, map_location=torch.device('cpu'))
 
         model = copy.deepcopy(self.getModel())
-        # optimizer = copy.deepcopy(self.getOptimizer())
-
         model.load_state_dict(best_checkpoint['model'])
-
         model.eval()
 
-        # optimizer.load_state_dict(best_checkpoint['optimizer'])
-        history = None
+        # Optimizer is part of the model no need to return it to transformer.
+        # TODO: (Pengz) Update the latest state of the optimizer in the model for retraining.
         optimizer = None
 
         return self.get_model_class()(**self._get_model_kwargs(
