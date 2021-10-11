@@ -218,12 +218,12 @@ class RayExecutor:
             cpus_per_worker = cpus_per_slot
             gpus_per_worker = gpus_per_slot
 
-        if num_workers is None and num_hosts is None:
-            raise ValueError("Either `num_workers` or `num_hosts` must be "
+        if not (num_workers or num_hosts):
+            raise ValueError("One of `num_workers` or `num_hosts` must be "
                              "set.")
 
         if num_workers and num_hosts:
-            raise ValueError("Both `num_workers` and `num_hosts` cannot be "
+            raise ValueError("Only one of `num_workers` and `num_hosts` must be "
                              "set.")
 
         if gpus_per_worker and not use_gpu:
