@@ -58,6 +58,7 @@ jobs:
         if [[ ! -e "pr.json" ]]
         then
           echo "::error title=Artifact 'PR Meta' missing::Expected artifact 'PR Meta' does not exist for pull_request event."
+          exit 1
         fi
 
   buildkite:
