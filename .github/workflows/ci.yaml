@@ -110,6 +110,8 @@ jobs:
 
       - name: Configure Buildkite Build
         id: config-buildkite
+        env:
+          GITHUB_TOKEN: ${secrets.GITHUB_TOKEN}
         run: |
           branch="${{ github.event.pull_request.head.ref || github.ref }}"
           branch="${branch#"refs/heads/"}"
@@ -126,7 +128,7 @@ jobs:
           if [[ "${{ github.event_name }}" == "pull_request" ]]
           then
             head_sha="${{ github.event.pull_request.head.sha }}"
-            message="$(git log --format=%s -n 1 ${head_sha})"
+            message="$(gh api https://api.github.com/repos/horovod/horovod/commits/${head_sha} -q .commit.message | head -n1)"
             echo "::set-output name=message::${message}"
           fi
 
