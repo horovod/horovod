@@ -137,9 +137,9 @@ jobs:
         run: |
           rm -f pr.json
           echo -n "{" >> pr.json
-          echo -n " "merge_sha": "${{ github.sha }}"," >> pr.json
-          echo -n " "base_sha": "${{ github.event.pull_request.base.sha }}"," >> pr.json
-          echo -n " "head_sha": "${{ github.event.pull_request.head.sha }}" " >> pr.json
+          echo -n " \"merge_sha\": \"${{ github.sha }}\"," >> pr.json
+          echo -n " \"base_sha\": \"${{ github.event.pull_request.base.sha }}\"," >> pr.json
+          echo -n " \"head_sha\": \"${{ github.event.pull_request.head.sha }}\" " >> pr.json
           echo -n "}" >> pr.json
           cat pr.json
 
