@@ -50,7 +50,7 @@ jobs:
         gh api "$artifacts_url" -q '.artifacts[] | select(.name == "PR Meta") .archive_download_url' | while read url
         do
           gh api "$url" > "pr.zip"
-          unzip "pr.zip"
+          unzip -o "pr.zip"
           echo "::set-output name=json::$(cat pr.json)"
         done
 
