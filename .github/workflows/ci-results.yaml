@@ -27,7 +27,7 @@ jobs:
       github.event.workflow_run.event != 'schedule'
     outputs:
       build-and-test: ${{ steps.workflow-conclusion.outputs.build-and-test }}
-      pr: ${{ fromJSON( steps.pr.outputs.json ) }}
+      pr-json: ${{ steps.pr.outputs.json }}
 
     steps:
     - name: Fetch workflow conclusion
@@ -74,7 +74,7 @@ jobs:
         uses: EnricoMi/trigger-pipeline-action@master
         env:
           PIPELINE: "horovod/horovod"
-          COMMIT: "${{ needs.ci-workflow.outputs.pr.merge_sha }}"
+          COMMIT: "${{ fromJSON( needs.ci-workflow.outputs.pr-json ).merge_sha }}"
           BRANCH: "${{ github.event.workflow_run.head_repository.owner.login }}:${{ github.event.workflow_run.head_branch }}"
           MESSAGE: "${{ github.event.workflow_run.head_commit.message }} (release versions)"
           BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
@@ -122,7 +122,7 @@ jobs:
         uses: EnricoMi/trigger-pipeline-action@master
         env:
           PIPELINE: "horovod/horovod"
-          COMMIT: "${{ needs.ci-workflow.outputs.pr.merge_sha }}"
+          COMMIT: "${{ fromJSON( needs.ci-workflow.outputs.pr-json ).merge_sha }}"
           BRANCH: "${{ github.event.workflow_run.head_repository.owner.login }}:${{ github.event.workflow_run.head_branch }}"
           MESSAGE: "${{ github.event.workflow_run.head_commit.message }} (head versions)"
           BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
