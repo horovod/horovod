@@ -439,13 +439,15 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         return store.read(last_ckpt_path)
 
     def _create_model(self, run_results, run_id, metadata):
-        serialized_checkpoint, history = run_results[0]
+        serialized_checkpoint = run_results[0]
         serialized_checkpoint.seek(0)
         best_checkpoint = torch.load(serialized_checkpoint, map_location=torch.device('cpu'))
 
         model = copy.deepcopy(self.getModel())
         model.load_state_dict(best_checkpoint['model'])
         model.eval()
+
+        history = best_checkpoint['logged_metrics']
 
         # Optimizer is part of the model no need to return it to transformer.
         # TODO: (Pengz) Update the latest state of the optimizer in the model for retraining.
