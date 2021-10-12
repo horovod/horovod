@@ -51,8 +51,9 @@ jobs:
         do
           gh api "$url" > "pr.zip"
           unzip -o "pr.zip"
-          cat pr.json
           echo "::set-output name=json::$(cat pr.json)"
+          cat pr.json
+          echo
         done
 
         if [[ ! -e "pr.json" ]]
