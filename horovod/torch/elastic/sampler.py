@@ -32,7 +32,7 @@ class ElasticSampler(torch.utils.data.Sampler):
     In order to use this object successfully it is recommended that the user:
 
     1. Include this object in the `TorchState`.
-    2. Call `record_batch` or `record_indices` after processing a set of samples.
+    2. Call `record_batch` after processing a set of samples.
     3. Call `set_epoch` at the end of each epoch to clear the processed indices.
 
     Args:
