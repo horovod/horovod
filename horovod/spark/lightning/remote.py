@@ -248,15 +248,11 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                 serialized_checkpoint = io.BytesIO()
                 module = best_model if not is_legacy else best_model._model
 
-                # TODO: find a way to pass trainer.logged_metrics out.
-                output = {'model': module.state_dict()}
+                output = {'model': module.state_dict(), 'logged_metrics': trainer.logged_metrics}
 
                 torch.save(output, serialized_checkpoint)
 
-                # Save logged metrics as history, which will saved in transformer.
-                history = trainer.logged_metrics
-
-                return serialized_checkpoint, history
+                return serialized_checkpoint
     return train
 
 
