@@ -7,8 +7,8 @@ import re
 import requests
 
 # this script outputs all code files that have changed between commit and master
-# environment variable GITHUB_HEAD provides the commit SHA
-# environment variable GITHUB_BASE provides the master SHA
+# environment variable GITHUB_HEAD_SHA provides the commit SHA
+# environment variable GITHUB_BASE_SHA provides the master SHA
 
 # files that match any of these regexps are considered non-code files
 # even though those files have changed, they will not be in the output of this script
@@ -49,8 +49,8 @@ def is_non_code_file(file):
 if __name__ == "__main__":
     logging.getLogger().level = logging.DEBUG
 
-    base = os.environ.get('GITHUB_BASE')
-    head = os.environ.get('GITHUB_HEAD')
+    base = os.environ.get('GITHUB_BASE_SHA')
+    head = os.environ.get('GITHUB_HEAD_SHA')
     if head is None or base is None:
         logging.warning('no base commit ({}) or head commit ({}) given'.format(base, head))
         sys.exit(1)

@@ -173,9 +173,11 @@ def main():
                 f'    name: "Init Workflow"\n'
                 f'    runs-on: ubuntu-latest\n'
                 f'    outputs:\n'
-                f"      run_at_all: ${{{{ github.event_name != 'schedule' || github.repository == 'horovod/horovod' }}}}\n"
+                f"      run-at-all: ${{{{ github.event_name != 'schedule' || github.repository == 'horovod/horovod' }}}}\n"
                 f"      # if we don't get a clear 'false', we fall back to building and testing\n"
-                f"      run_builds_and_tests: ${{{{ steps.tests.outputs.needed != 'false' }}}}\n"
+                f"      run-builds-and-tests: ${{{{ steps.tests.outputs.needed != 'false' }}}}\n"
+                f'      buildkite-branch-label: "${{{{ steps.config-buildkite.outputs.branch-label }}}}"\n'
+                f'      buildkite-message: "${{{{ steps.config-buildkite.outputs.message }}}}"\n'
                 f'\n'
                 f'    steps:\n'
                 f'      - name: Checkout\n'
@@ -200,8 +202,8 @@ def main():
                 f'      - name: Check if tests are needed\n'
                 f'        id: tests\n'
                 f'        env:\n'
-                f'          GITHUB_BASE: ${{{{ github.event.pull_request.base.sha }}}}\n'
-                f'          GITHUB_HEAD: ${{{{ github.event.pull_request.head.sha }}}}\n'
+                f'          GITHUB_BASE_SHA: ${{{{ github.event.pull_request.base.sha }}}}\n'
+                f'          GITHUB_HEAD_SHA: ${{{{ github.event.pull_request.head.sha }}}}\n'
                 f'        run: |\n'
                 f'          if [[ "${{{{ github.event_name }}}}" == "pull_request" ]]\n'
                 f'          then\n'
@@ -218,7 +220,50 @@ def main():
                 f'          else\n'
                 f'            echo "This is not part of a pull request, we need to build and test"\n'
                 f'            echo "::set-output name=needed::true"\n'
-                f'          fi\n')
+                f'          fi\n'
+                f'\n'
+                f'      - name: Configure Buildkite Build\n'
+                f'        id: config-buildkite\n'
+                f'        env:\n'
+                f'          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}\n'
+                f'        run: |\n'
+                f'          branch="${{{{ github.event.pull_request.head.ref || github.ref }}}}"\n'
+                f'          branch="${{branch#"refs/heads/"}}"\n'
+                f'          branch="${{branch#"refs/tags/"}}"\n'
+                f'\n'
+                f'          branch_label="${{branch}}"\n'
+                f'          if [[ "${{{{ github.event_name }}}}" == "schedule" ]]\n'
+                f'          then\n'
+                f'            # we add this label to the branch used by Buildkite to avoid it cancelling one of concurrent schedule and push builds on master\n'
+                f'            branch_label="${{branch}} (schedule)"\n'
+                f'          fi\n'
+                f'          echo "::set-output name=branch-label::${{branch_label}}"\n'
+                f'\n'
+                f'          if [[ "${{{{ github.event_name }}}}" == "pull_request" ]]\n'
+                f'          then\n'
+                f'            head_sha="${{{{ github.event.pull_request.head.sha }}}}"\n'
+                f'            message="$(gh api https://api.github.com/repos/horovod/horovod/commits/${{head_sha}} -q .commit.message | head -n1)"\n'
+                f'            echo "::set-output name=message::${{message}}"\n'
+                f'          fi\n'
+                f'\n'
+                f'      - name: Provide PR meta\n'
+                f"        if: github.event_name == 'pull_request'\n"
+                f'        run: |\n'
+                f'          rm -f pr.json\n'
+                f'          echo -n "{{" >> pr.json\n'
+                f'          echo -n " \\\"merge_sha\\\": \\\"${{{{ github.sha }}}}\\\"," >> pr.json\n'
+                f'          echo -n " \\\"base_sha\\\": \\\"${{{{ github.event.pull_request.base.sha }}}}\\\"," >> pr.json\n'
+                f'          echo -n " \\\"head_sha\\\": \\\"${{{{ github.event.pull_request.head.sha }}}}\\\" " >> pr.json\n'
+                f'          echo -n "}}" >> pr.json\n'
+                f'          cat pr.json\n'
+                f'\n'
+                f'      - name: Upload PR meta\n'
+                f'        uses: actions/upload-artifact@v2\n'
+                f"        if: github.event_name == 'pull_request'\n"
+                f'        with:\n'
+                f'          name: PR Meta\n'
+                f'          path: pr.json\n'
+                f'\n')
 
     def build_and_test_images(id: str,
                               name: str,
@@ -235,8 +280,8 @@ def main():
                 f'    name: "{name} (${{{{ matrix.image }}}})"\n'
                 f'    needs: [{", ".join(needs)}]\n'
                 f'    if: >\n'
-                f"      needs.init-workflow.outputs.run_at_all == 'true' &&\n"
-                f"      needs.init-workflow.outputs.run_builds_and_tests == 'true'\n"
+                f"      needs.init-workflow.outputs.run-at-all == 'true' &&\n"
+                f"      needs.init-workflow.outputs.run-builds-and-tests == 'true'\n"
                 f'    runs-on: ubuntu-latest\n'
                 f'\n'
                 f'    strategy:\n'
@@ -386,8 +431,8 @@ def main():
                 f'    name: "{name} (${{{{ matrix.image }}}}-macos)"\n'
                 f'    needs: [{", ".join(needs)}]\n'
                 f'    if: >\n'
-                f"      needs.init-workflow.outputs.run_at_all == 'true' &&\n"
-                f"      needs.init-workflow.outputs.run_builds_and_tests == 'true'\n"
+                f"      needs.init-workflow.outputs.run-at-all == 'true' &&\n"
+                f"      needs.init-workflow.outputs.run-builds-and-tests == 'true'\n"
                 f'    runs-on: macos-latest\n'
                 f'\n'
                 f'    strategy:\n'
@@ -499,28 +544,20 @@ def main():
                 f'    runs-on: ubuntu-latest\n'
                 f'    if: >\n'
                 f'      github.repository == \'horovod/horovod\' &&\n'
-                f"      needs.init-workflow.outputs.run_at_all == 'true' &&\n"
-                f"      needs.init-workflow.outputs.run_builds_and_tests == 'true' &&\n"
+                f"      needs.init-workflow.outputs.run-at-all == 'true' &&\n"
+                f"      needs.init-workflow.outputs.run-builds-and-tests == 'true' &&\n"
                 f'      ( github.event_name != \'pull_request\' || github.event.pull_request.head.repo.full_name == github.repository )\n'
                 f'\n'
                 f'    steps:\n'
-                f'      - name: Configure Buildkite Build\n'
-                f'        id: config\n'
-                f'        run: |\n'
-                f'          if [[ "${{{{ github.event_name }}}}" == "schedule" ]]\n'
-                f'          then\n'
-                f'            # we add this label to the branch used by Buildkite to avoid it cancelling one of concurrent schedule and push builds on master\n'
-                f'            echo "::set-output name=branch-label:: (schedule)"\n'
-                f'          fi\n'
-                f'\n'
                 f'      - name: Trigger Buildkite Pipeline\n'
                 f'        id: build\n'
                 f'        uses: EnricoMi/trigger-pipeline-action@master\n'
                 f'        env:\n'
                 f'          PIPELINE: "horovod/horovod"\n'
                 f'          # COMMIT is taken from GITHUB_SHA\n'
-                f'          BRANCH: "${{{{ github.event.pull_request.head.ref || github.ref }}}}${{{{ steps.config.outputs.branch-label }}}}"\n'
-                f'          # empty MESSAGE will be filled by Buildkite\n'
+                f'          BRANCH: "${{{{ needs.init-workflow.outputs.buildkite-branch-label }}}}"\n'
+                f'          # empty MESSAGE will be filled by Buildkite from commit message\n'
+                f'          MESSAGE: "${{{{ needs.init-workflow.outputs.buildkite-message }}}}"\n'
                 f'          BUILDKITE_API_ACCESS_TOKEN: ${{{{ secrets.BUILDKITE_TOKEN }}}}\n'
                 f'          BUILD_ENV_VARS: "{{\\"PIPELINE_MODE\\": \\"{mode}\\"}}"\n'
                 f'\n'
@@ -559,13 +596,13 @@ def main():
         return (f'  docker-config:\n'
                 f'    name: Configure docker build\n'
                 f'    needs: [{", ".join(needs)}]\n'
-                f"    # build-and-test-cpu, build-gpu and buildkite might have been skipped (! needs.init-workflow.outputs.run_builds_and_tests)\n"
+                f"    # build-and-test-cpu, build-gpu and buildkite might have been skipped (! needs.init-workflow.outputs.run-builds-and-tests)\n"
                 f'    # buildkite might have been skipped (workflow runs for a fork PR),\n'
                 f'    # we still want to build docker images (though we might not want to push them)\n'
                 f'    if: >\n'
                 f'      always() &&\n'
-                f"      needs.init-workflow.outputs.run_at_all == 'true' &&\n"
-                f"      needs.init-workflow.outputs.run_builds_and_tests == 'true' &&\n"
+                f"      needs.init-workflow.outputs.run-at-all == 'true' &&\n"
+                f"      needs.init-workflow.outputs.run-builds-and-tests == 'true' &&\n"
                 f"      needs.build-and-test.result == 'success' &&\n"
                 f"      ( needs.buildkite.result == 'success' || needs.buildkite.result == 'skipped' )\n"
                 f'    runs-on: ubuntu-latest\n'
