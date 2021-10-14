@@ -890,10 +890,6 @@ public:
     variable_locks.reserve(num_variables_);
 
     for (int tensor_index = 0; tensor_index < num_variables_; ++tensor_index) {
-      // Custom ops with resource variables are broken for at least TF 2.3, 2.4,
-      // and 2.5. A fix has been introduced to TF 2.6 via this PR:
-      // https://github.com/tensorflow/tensorflow/pull/47072
-
       DataType dtype;
       OP_REQUIRES_OK(
           context, GetInputDataTypeFromVariable(context, tensor_index, dtype));
@@ -947,7 +943,9 @@ private:
               any_failures_and_tensors_done) {
     const bool do_lock = true;
     const bool sparse = false;
-    // MaybeLockVariableInputMutexesInOrder() seems to be broken at the moment
+    // Here we need to replicate the functionality provided by
+    // MaybeLockVariableInputMutexesInOrder(). That function currently does
+    // not work as intended for input_ids not starting at 0. See:
     // https://github.com/tensorflow/tensorflow/issues/51686
     {
       Var* var;
@@ -976,9 +974,10 @@ private:
     std::string var_name = variable_names_[tensor_index];
     if (context->input_dtype(tensor_index) == DT_RESOURCE && var_name.empty()) {
       const ResourceHandle& handle = HandleFromInput(context, tensor_index);
-      // handle.name() seems to be something like _AnonymousVar18. The Python
-      // name attribute of the variable is apparently not passed through
-      // automatically. So we use this only if we do not have a proper name.
+      // We use handle.name() as a fallback only when we do not have a proper
+      // name because typically it seems to be something like _AnonymousVar18.
+      // The Python name attribute of the variable does not appear to be passed
+      // through automatically.
       var_name = handle.name();
     }
 
@@ -1047,6 +1046,8 @@ processes that do a broadcast on variables with the same names must have the
 same dimensions for those variables. All variables must be located on the same
 device and they must be of the same data type.
 
+This requires TensorFlow 2.6+.
+
 Arguments
     root_rank:      Rank that will send data, other ranks will receive data.
     variable_names: Names associated to the variables (obtained via Python
@@ -1081,6 +1082,8 @@ Perform an in-place Broadcast on (TF2-style) resource variables. All other
 processes that do a broadcast on variables with the same names must have the
 same dimensions for those variables. All variables must be located on the same
 device.
+
+This requires TensorFlow 2.6+.
 
 Arguments
     root_rank:      Rank that will send data, other ranks will receive data.

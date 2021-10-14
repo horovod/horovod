@@ -1,4 +1,3 @@
-
 # Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 # Modifications copyright (C) 2018 Uber Technologies, Inc.
 # Modifications copyright (C) 2019 Intel Corporation
@@ -2187,7 +2186,6 @@ class TensorFlowTests(tf.test.TestCase):
                     tf.cast(root_tensor, tf.int32), tf.cast(broadcasted_tensor, tf.int32)))),
                 "hvd.broadcast produces incorrect broadcasted tensor")
 
-
     def test_horovod_broadcast_gpu(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors on GPU."""
         # Only do this test if there are GPUs available.
@@ -2226,7 +2224,6 @@ class TensorFlowTests(tf.test.TestCase):
                 self.evaluate(tf.reduce_all(tf.equal(
                     tf.cast(root_tensor, tf.int32), tf.cast(broadcasted_tensor, tf.int32)))),
                 "hvd.broadcast produces incorrect broadcasted tensor")
-
 
     def test_horovod_broadcast_inplace_cpu(self):
         """Test that the inplace broadcast correctly broadcasts 1D, 2D, 3D variables on CPU."""
@@ -2277,7 +2274,6 @@ class TensorFlowTests(tf.test.TestCase):
                         self.evaluate(tf.reduce_all(tf.equal(
                             tf.cast(root_tensor, tf.int32), tf.cast(broadcasted_tensor, tf.int32)))),
                         "Inplace hvd.broadcast_ produces incorrect broadcasted variable value")
-
 
     def test_horovod_broadcast_inplace_gpu(self):
         """Test that the inplace broadcast correctly broadcasts 1D, 2D, 3D variables on GPU."""

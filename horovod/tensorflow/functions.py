@@ -68,10 +68,11 @@ def broadcast_variables(variables, root_rank, process_set=global_process_set, in
     Broadcasts variables from root rank to all other processes
     in a process set (defaults to all Horovod processes).
 
-    Optionally, the broadcast may be performed in-place. This is only supported with
-    TensorFlow 2.6 or later. Reference variables (legacy support in TF 2) must all
-    be of the same data type. There is no such restriction for resource variables
-    (default in TF 2).
+    Optionally, the broadcast may be performed in-place, which avoids
+    temporary memory allocations and fragmentation. This is only
+    supported with TensorFlow 2.6 or later. Reference variables
+    (legacy support in TF 2) must all be of the same data type. There
+    is no such restriction for resource variables (default in TF 2).
 
     Arguments:
         variables: variables for broadcast
