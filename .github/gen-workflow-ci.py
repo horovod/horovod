@@ -491,6 +491,8 @@ def main():
                 f'          TORCHVISION: ${{{{ matrix.TORCHVISION }}}}\n'
                 f'          MXNET: ${{{{ matrix.MXNET }}}}\n'
                 f'\n'
+                f'        # The python patch in the pyenv install step is to work around an incompatibility introduced in new xcode version in macOS Big Sur. The patch is provided by python team.\n'
+                f'        # The original discussion is here https://github.com/pyenv/pyenv/issues/1737\n'
                 f'        run: |\n'
                 f'          brew reinstall -f zlib bzip2\n'
                 f'          brew install -f openmpi cmake libuv pyenv coreutils curl\n'
