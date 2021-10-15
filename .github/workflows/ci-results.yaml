@@ -112,7 +112,7 @@ jobs:
 
   buildkite-heads:
     name: "Build and Test GPU heads (on Builtkite)"
-    needs: [buildkite]
+    needs: [ci-workflow, buildkite]
     runs-on: ubuntu-latest
     # only run if CI workflow's build-and-test job succeeded and CI workflow ran on a fork
     if: >
