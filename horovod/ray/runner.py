@@ -1,19 +1,21 @@
 import ray
 from ray.util.placement_group import get_current_placement_group
 
-import warnings
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 import os
 from typing import Dict, Callable, Any, Optional, List
 import logging
+import ray.exceptions
+from horovod.ray.adapter import Adapter, BaseParams
 
 from horovod.runner.common.util import secret, timeout, hosts
 from horovod.runner.http.http_server import RendezvousServer
 from horovod.ray.utils import detect_nics, nics_to_env_var, map_blocking
 from horovod.ray.strategy import ColocatedStrategy, PGStrategy
-logger = logging.getLogger(__name__)
+from horovod.ray.elastic_v2 import ElasticParams
 
+logger = logging.getLogger(__name__)
 
 @dataclass
 class MiniSettings:
@@ -28,6 +30,7 @@ class MiniSettings:
     ssh_identity_file: str = None
     timeout_s: int = 300
     placement_group_timeout_s: int = 100
+    elastic: bool = False
 
     @property
     def start_timeout(self):
@@ -126,6 +129,42 @@ class Coordinator:
         }
 
 
+@dataclass
+class StaticParams(BaseParams):
+    """Parameters for non-elastic jobs.
+
+    Args:
+        num_workers (int): Number of workers to use for training.
+        cpus_per_worker (int): Number of CPU resources to allocate to
+            each worker.
+        use_gpu (bool): Whether to use GPU for allocation. TODO: this
+            can be removed.
+        gpus_per_worker (int): Number of GPU resources to allocate to
+            each worker.
+        num_hosts (int): Alternative API to ``num_workers``. Number of
+            machines to execute the job on. Used to enforce equal number of
+            workers on each machine.
+        num_workers_per_host (int): Alternative API to
+            ``num_workers``. Number of workers to be placed on each machine.
+            Used to enforce equal number of workers on each machine. Only
+            used in conjunction with `num_hosts`.
+        use_current_placement_group (bool): Whether to use the current
+            placement group instead of creating a new one. Defaults to True.
+
+    """
+    num_workers: Optional[int] = None
+    num_hosts: Optional[int] = None
+    num_workers_per_host: int = 1
+    use_current_placement_group: bool = True
+
+    @property
+    def elastic(self):
+        return False
+
+    @property
+    def adapter(self):
+        return StaticAdapter
+
 class RayExecutor:
     """Job class for Horovod + Ray integration.
 
@@ -149,15 +188,32 @@ class RayExecutor:
             used in conjunction with `num_hosts`.
         use_current_placement_group (bool): Whether to use the current
             placement group instead of creating a new one. Defaults to True.
+        min_workers (int): Minimum number of processes running for
+            training to continue. If number of available processes dips
+            below this threshold, then training will wait for
+            more instances to become available.
+        max_workers (int): Maximum number of training processes,
+            beyond which no additional processes will be created.
+            If not specified, then will be unbounded.
+        reset_limit (int): Maximum number of times that the training
+            job can scale up or down the number of workers after
+            which the job is terminated.
+        elastic_timeout (int): Timeout for elastic initialisation after
+            re-scaling the cluster. The default value is 600 seconds.
+            Alternatively, the environment variable
+            HOROVOD_ELASTIC_TIMEOUT can also be used.
+        override_discovery (bool): Whether for the ElasticRayExecutor to
+            automatically provide a discovery mechanism for ElasticSettings.
 
     """
 
     @classmethod
     def create_settings(cls,
-                        timeout_s,
+                        timeout_s=30,
                         ssh_identity_file=None,
                         ssh_str=None,
-                        placement_group_timeout_s=100):
+                        placement_group_timeout_s=100,
+                        nics=None):
         """Create a mini setting object.
 
         Args:
@@ -168,6 +224,7 @@ class RayExecutor:
                 file contents. Writes the private key to ssh_identity_file.
             placement_group_timeout_s (int): Timeout parameter for Ray
                 Placement Group creation.
+            nics (set): Network interfaces that can be used for communication.
 
         Returns:
             MiniSettings object.
@@ -179,7 +236,8 @@ class RayExecutor:
         return MiniSettings(
             ssh_identity_file=ssh_identity_file,
             timeout_s=timeout_s,
-            placement_group_timeout_s=placement_group_timeout_s)
+            placement_group_timeout_s=placement_group_timeout_s,
+            nics=nics)
 
     def __init__(
             self,
@@ -191,66 +249,43 @@ class RayExecutor:
             use_gpu: bool = False,
             gpus_per_worker: Optional[int] = None,
             use_current_placement_group: bool = True,
-            # Deprecated Args.
-            num_slots: Optional[int] = None,
-            cpus_per_slot: Optional[int] = None,
-            gpus_per_slot: Optional[int] = None):
 
-        if num_slots:
-            warnings.warn(
-                "`num_slots` is now deprecated. Please use the `num_workers` "
-                "API, or to enforce an equal number of workers on each node, "
-                "set `num_hosts` and `num_workers_per_host`. "
-                "This will raise an error in a later release of Horovod. "
-                "Setting num_workers_per_host = num_slots.",
-                category=DeprecationWarning,
-                stacklevel=2)
-            num_workers_per_host = num_slots
+            min_workers: int = None,
+            max_workers: int = None,
+            reset_limit: int = None,
+            elastic_timeout: int = 600,
+            override_discovery: bool = True
+            ):
+        if max_workers and (not min_workers or min_workers <= 0):
+            raise ValueError("`max_workers` provided without any positive `min_workers`"
+                            "Elastic workloads require a positive `min_workers`")
+        if min_workers and num_workers:
+            raise ValueError("Both `min_workers` and `num_workers` provided."
+                             "Only one of the above is allowed as workloads cannot be elastic and non-elastic.")
 
-        if cpus_per_slot or gpus_per_slot:
-            warnings.warn(
-                "`cpus_per_slot` and `gpus_per_slot` have been deprecated. "
-                "Use `cpus_per_worker` and `gpus_per_worker` instead. "
-                "This will raise an error in a later release of Horovod. "
-                "Setting cpus/gpus_per_slot = cpus/gpus_per_worker.",
-                category=DeprecationWarning,
-                stacklevel=2)
-            cpus_per_worker = cpus_per_slot
-            gpus_per_worker = gpus_per_slot
-
-        if not (num_workers or num_hosts):
-            raise ValueError("One of `num_workers` or `num_hosts` must be "
-                             "set.")
-
-        if num_workers and num_hosts:
-            raise ValueError("Only one of `num_workers` and `num_hosts` must be "
-                             "set.")
-
-        if gpus_per_worker and not use_gpu:
-            raise ValueError("gpus_per_worker is set, but use_gpu is False. "
-                             "use_gpu must be True if gpus_per_worker is "
-                             "set. ")
-        if use_gpu and isinstance(gpus_per_worker,
-                                  int) and gpus_per_worker < 1:
-            raise ValueError(
-                f"gpus_per_worker must be >= 1: Got {gpus_per_worker}.")
-
-        kwargs = dict(
-            num_workers=num_workers,
-            num_hosts=num_hosts,
-            num_workers_per_host=num_workers_per_host,
-            cpus_per_worker=cpus_per_worker,
-            use_gpu=use_gpu,
-            gpus_per_worker=gpus_per_worker,
-            use_current_placement_group=use_current_placement_group
-        )
-        self._is_remote = False
-        if ray.util.client.ray.is_connected():
-            RemoteDriver = ray.remote(_ExecutorDriver)
-            self.driver = RemoteDriver.remote(settings, **kwargs)
-            self._is_remote = True
+        if min_workers is not None:
+            self.params = ElasticParams(
+                min_workers=min_workers,
+                max_workers=max_workers,
+                reset_limit=reset_limit,
+                elastic_timeout=elastic_timeout,
+                override_discovery=override_discovery,
+                cpus_per_worker=cpus_per_worker,
+                use_gpu=use_gpu,
+                gpus_per_worker=gpus_per_worker
+            )
         else:
-            self.driver = _ExecutorDriver(settings, **kwargs)
+            self.params = StaticParams(
+                num_workers=num_workers,
+                num_hosts=num_hosts,
+                num_workers_per_host=num_workers_per_host,
+                cpus_per_worker=cpus_per_worker,
+                use_gpu=use_gpu,
+                gpus_per_worker=gpus_per_worker,
+                use_current_placement_group=use_current_placement_group
+            )
+        self.settings = settings
+        self.settings.elastic = self.params.elastic
 
     def start(self,
               executable_cls: type = None,
@@ -274,31 +309,51 @@ class RayExecutor:
                 worker class upon initialization.
             extra_env_vars (Dict): Environment variables to be set
                 on the actors (worker processes) before initialization.
-
         """
+        self._initialize_adapter()
+
         kwargs_ = dict(
             executable_cls=executable_cls,
             executable_args=executable_args,
             executable_kwargs=executable_kwargs,
             extra_env_vars=extra_env_vars)
-        return self._maybe_call_ray(self.driver.start, **kwargs_)
+        return self._maybe_call_ray(self.adapter.start, **kwargs_)
 
-    def execute(self, fn: Callable[["executable_cls"], Any]) -> List[Any]:
+    def _initialize_adapter(self):
+        kwargs = asdict(self.params)
+        logger.debug(f"Kwargs: {kwargs}")
+        Adapter = self.params.adapter
+        self._is_remote = False
+        if ray.util.client.ray.is_connected():
+            RemoteAdapter = ray.remote(Adapter)
+            self.adapter = RemoteAdapter.remote(self.settings, **kwargs)
+            self._is_remote = True
+        else:
+            self.adapter= Adapter(self.settings, **kwargs)
+
+    def execute(self, fn: Callable[["executable_cls"], Any],
+                callbacks: Optional[List[Callable]] = None) -> List[Any]:
         """Executes the provided function on all workers.
 
         Args:
             fn: Target function to be invoked on every object.
+            callbacks: List of callables. Each callback must either
+                be a callable function or a class that implements __call__.
+                Every callback will be invoked on every value logged
+                by the rank 0 worker.
 
         Returns:
             Deserialized return values from the target function.
         """
-        kwargs_ = dict(fn=fn)
-        return self._maybe_call_ray(self.driver.execute, **kwargs_)
+        kwargs_ = dict(fn=fn, callbacks=callbacks)
+        # invoke run_remote
+        return self._maybe_call_ray(self.adapter.execute, **kwargs_)
 
     def run(self,
             fn: Callable[[Any], Any],
             args: Optional[List] = None,
-            kwargs: Optional[Dict] = None) -> List[Any]:
+            kwargs: Optional[Dict] = None,
+            callbacks: Optional[List[Callable]] = None) -> List[Any]:
         """Executes the provided function on all workers.
 
         Args:
@@ -307,12 +362,16 @@ class RayExecutor:
             args: List of arguments to be passed into the target function.
             kwargs: Dictionary of keyword arguments to be
                 passed into the target function.
+            callbacks: List of callables. Each callback must either
+                be a callable function or a class that implements __call__.
+                Every callback will be invoked on every value logged
+                by the rank 0 worker.
 
         Returns:
             Deserialized return values from the target function.
         """
-        kwargs_ = dict(fn=fn, args=args, kwargs=kwargs)
-        return self._maybe_call_ray(self.driver.run, **kwargs_)
+        kwargs_ = dict(fn=fn, args=args, kwargs=kwargs, callbacks=callbacks)
+        return self._maybe_call_ray(self.adapter.run, **kwargs_)
 
     def run_remote(self,
                    fn: Callable[[Any], Any],
@@ -332,7 +391,7 @@ class RayExecutor:
                 retrieve values.
         """
         kwargs_ = dict(fn=fn, args=args, kwargs=kwargs)
-        return self._maybe_call_ray(self.driver.run_remote, **kwargs_)
+        return self._maybe_call_ray(self.adapter.run_remote, **kwargs_)
 
     def execute_single(self,
                        fn: Callable[["executable_cls"], Any]) -> List[Any]:
@@ -345,12 +404,12 @@ class RayExecutor:
             Deserialized return values from the target function.
         """
         kwargs = dict(fn=fn)
-        return self._maybe_call_ray(self.driver.execute_single, **kwargs)
+        return self._maybe_call_ray(self.adapter.execute_single, **kwargs)
 
     def shutdown(self):
         """Destroys the provided workers."""
-        result = self._maybe_call_ray(self.driver.shutdown)
-        del self.driver
+        result = self._maybe_call_ray(self.adapter.shutdown)
+        del self.adapter
         return result
 
     def _maybe_call_ray(self, driver_func, *args, **kwargs):
@@ -360,9 +419,31 @@ class RayExecutor:
             return driver_func(**kwargs)
 
 
-class _ExecutorDriver:
-    """Base driver for executing Ray calls."""
+class StaticAdapter(Adapter):
+    """Adapter for executing Ray calls for non-elastic Horovod jobs.
 
+    Args:
+        settings (horovod.Settings): Configuration for job setup. You can
+            use a standard Horovod Settings object or create one directly
+            from RayExecutor.create_settings.
+        num_workers (int): Number of workers to use for training.
+        cpus_per_worker (int): Number of CPU resources to allocate to
+            each worker.
+        use_gpu (bool): Whether to use GPU for allocation. TODO: this
+            can be removed.
+        gpus_per_worker (int): Number of GPU resources to allocate to
+            each worker.
+        num_hosts (int): Alternative API to ``num_workers``. Number of
+            machines to execute the job on. Used to enforce equal number of
+            workers on each machine.
+        num_workers_per_host (int): Alternative API to
+            ``num_workers``. Number of workers to be placed on each machine.
+            Used to enforce equal number of workers on each machine. Only
+            used in conjunction with `num_hosts`.
+        use_current_placement_group (bool): Whether to use the current
+            placement group instead of creating a new one. Defaults to True.
+
+    """
     def __init__(self,
                  settings,
                  num_workers: Optional[int] = None,
@@ -477,21 +558,27 @@ class _ExecutorDriver:
         self._start_executables(executable_cls, executable_args,
                                 executable_kwargs)
 
-    def execute(self, fn: Callable[["executable_cls"], Any]) -> List[Any]:
+    def execute(self, fn: Callable[["executable_cls"], Any],
+                callbacks: Optional[List[Callable]] = None) -> List[Any]:
         """Executes the provided function on all workers.
 
         Args:
             fn: Target function to be invoked on every object.
+            callbacks: List of callables. Each callback must either
+                be a callable function or a class that implements __call__.
+                Every callback will be invoked on every value logged
+                by the rank 0 worker.
 
         Returns:
             Deserialized return values from the target function.
         """
-        return ray.get([worker.execute.remote(fn) for worker in self.workers])
+        return ray.get(self._run_remote(fn))
 
     def run(self,
             fn: Callable[[Any], Any],
             args: Optional[List] = None,
-            kwargs: Optional[Dict] = None) -> List[Any]:
+            kwargs: Optional[Dict] = None,
+            callbacks: Optional[List[Callable]] = None) -> List[Any]:
         """Executes the provided function on all workers.
 
         Args:
@@ -504,12 +591,17 @@ class _ExecutorDriver:
         Returns:
             Deserialized return values from the target function.
         """
-        return ray.get(self.run_remote(fn, args, kwargs))
+        args = args or []
+        kwargs = kwargs or {}
+        f = lambda w: fn(*args, **kwargs)
+        return ray.get(self._run_remote(fn=f))
 
     def run_remote(self,
                    fn: Callable[[Any], Any],
                    args: Optional[List] = None,
-                   kwargs: Optional[Dict] = None) -> List[Any]:
+                   kwargs: Optional[Dict] = None,
+                   callbacks: Optional[List[Callable]] = None):
+
         """Executes the provided function on all workers.
 
         Args:
@@ -525,9 +617,25 @@ class _ExecutorDriver:
         """
         args = args or []
         kwargs = kwargs or {}
+        f = lambda w: fn(*args, **kwargs)
+        return self._run_remote(fn=f)
+
+    def _run_remote(self,
+                   fn: Callable[[Any], Any]) -> List[Any]:
+        """Executes the provided function on all workers.
+
+        Args:
+            fn: Target function that can be executed with arbitrary
+                args and keyword arguments.
+
+        Returns:
+            list: List of ObjectRefs that you can run `ray.get` on to
+                retrieve values.
+        """
+        # Use run_remote for all calls
+        # for elastic, start the driver and launch the job
         return [
-            worker.execute.remote(lambda w: fn(*args, **kwargs))
-            for worker in self.workers
+            worker.execute.remote(fn) for worker in self.workers
         ]
 
     def execute_single(self,
@@ -543,7 +651,7 @@ class _ExecutorDriver:
         return ray.get(self.workers[0].execute.remote(fn))
 
     def shutdown(self):
-        """Destroys the provided workers."""
+        """Destroys the workers."""
         for worker in self.workers:
             del worker
 
