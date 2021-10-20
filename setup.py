@@ -29,7 +29,9 @@ from horovod import __version__
 _FRAMEWORK_METADATA_FILE = 'horovod/metadata.json'
 
 class CMakeExtension(Extension):
-    def __init__(self, name, cmake_lists_dir='.', sources=[], **kwa):
+    def __init__(self, name, cmake_lists_dir='.', sources=None, **kwa):
+        if sources is None:
+            sources = []
         Extension.__init__(self, name, sources=sources, **kwa)
         self.cmake_lists_dir = os.path.abspath(cmake_lists_dir)
 
