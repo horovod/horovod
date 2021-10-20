@@ -29,11 +29,11 @@ Current non-voting members of the Horovod TSC:
 * [Leonard Lausen](https://github.com/leezu) - Amazon
 * [Jonathan Dekhtiar](https://github.com/DEKHTIARJonathan) - NVIDIA
 * [Richard Liaw](https://github.com/richardliaw) - Anyscale
-* [Armand McQueen](https://github.com/armandmcqueen) - Determined AI
-* [Neil Conway](https://github.com/neilconway) - Determined AI
+* [Neil Conway](https://github.com/neilconway) - Determined AI, HPE
 * [Min Cai](https://github.com/mincai) - Uber
 * [Chongxiao Cao](https://github.com/chongxiaoc) - Uber
 * [Max Gerlach](https://github.com/maxhgerlach) - DeepL
+* [Ryan Beethe](https://github.com/rb-determined-ai) - Determined AI, HPE
 
 Emeritus members of the Horovod TSC:
 * [Lin Yuan](https://github.com/apeforest)
@@ -43,6 +43,7 @@ Emeritus members of the Horovod TSC:
 * [Aaron Harlap](https://github.com/aaron276h)
 * [Jaliya Ekanayake](https://github.com/jaliyae)
 * [Kaarthik Sivashanmugam](https://github.com/skaarthik)
+* [Armand McQueen](https://github.com/armandmcqueen)
 
 Non-voting members of the TSC ("maintainers") have commit access to the Horovod GitHub repository, and take part in the
 standing TSC meetings and mailing lists. Emeritus members are no longer active maintainers of the project, but are
