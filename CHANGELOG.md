@@ -8,13 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- Added process sets for TensorFlow: Concurrently running collective operations on subsets of Horovod processes. ([#2839](https://github.com/horovod/horovod/pull/2839))
-
-- Added terminate_on_nan flag to Spark Lightning estimator. [#3088](https://github.com/horovod/horovod/issues/3088)
-
 ### Changed
-
-- By default, RayExecutor will now use the current placement group instead of always creating a new one. ([#3134](https://github.com/horovod/horovod/pull/3134))
 
 ### Deprecated
 
@@ -22,9 +16,69 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+## [v0.23.0] - 2021-10-06
+
+### Added
+
+- Added process sets to concurrently run collective operations on subsets of Horovod processes in TensorFlow, PyTorch, and MXNet. ([#2839](https://github.com/horovod/horovod/pull/2839), [#3042](https://github.com/horovod/horovod/pull/3042), [#3043](https://github.com/horovod/horovod/pull/3043), [#3054](https://github.com/horovod/horovod/pull/3054), [#3083](https://github.com/horovod/horovod/pull/3083), [#3090](https://github.com/horovod/horovod/pull/3090))
+
+- Added XLA support for Allreduce via `tf.function(jit_compile=True)`. ([#3053](https://github.com/horovod/horovod/pull/3053))
+
+- Added fused buffer scaling and unpack/pack kernels on GPU. ([#2973](https://github.com/horovod/horovod/pull/2973))
+
+- Added support for NCCL on CUDA 11.4. ([#3182](https://github.com/horovod/horovod/issues/3182))
+
+- Added fp16 compression for MXNet. ([#2987](https://github.com/horovod/horovod/issues/2987))
+
+- Added terminate_on_nan flag to Spark Lightning estimator. ([#3088](https://github.com/horovod/horovod/issues/3088))
+
+- Added barrier() API to torch module to support simple synchronization among ranks and to achieve parity with PyTorch DDP and similar frameworks. [#3139](https://github.com/horovod/horovod/pull/3139)
+
+- Added params for customizing Tensorboard callback. ([#3153](https://github.com/horovod/horovod/issues/3153))
+
+- Added `hvd.cross_rank()` for keras. ([#3008](https://github.com/horovod/horovod/issues/3008))
+
+- Added barrier() API to torch module to support simple synchronization among ranks and to achieve parity with PyTorch DDP and similar frameworks. [#3139](https://github.com/horovod/horovod/pull/3139)
+
+### Changed
+
+- Implemented more asynchronous dependency handling on GPU. ([#2963](https://github.com/horovod/horovod/pull/2963))
+
+- Ray: RayExecutor will now use the current placement group instead of always creating a new one. ([#3134](https://github.com/horovod/horovod/pull/3134))
+
+- Lightning: turned off shuffling for validation dataset. ([#2974](https://github.com/horovod/horovod/pull/2974))
+
+- Ray: RayExecutor will use the current placement group if one exists. ([#3134](https://github.com/horovod/horovod/pull/3134))
+
+- Extended `hvd.join()` to return the last rank that joined. ([#3097](https://github.com/horovod/horovod/pull/3097)
+### Deprecated
+
+### Removed
+
+- Spark/Keras: remove bare Keras support. ([#3191](https://github.com/horovod/horovod/pull/3191))
+
+### Fixed
+
 - Fix Horovod develop/editable install mode and incremental builds. ([#3074](https://github.com/horovod/horovod/pull/3074))
-- Estimator/Lightning: use lightning datamodule ([#3084](https://github.com/horovod/horovod/pull/3084))
-- Fix Horovod Spark StringType and numpy type mapping issue ([#3146](https://github.com/horovod/horovod/pull/3146))
+
+- Estimator/Lightning: use lightning datamodule. ([#3084](https://github.com/horovod/horovod/pull/3084))
+
+- Fix Horovod Spark StringType and numpy type mapping issue. ([#3146](https://github.com/horovod/horovod/pull/3146))
+
+- Fixed error in Keras LearningRateScheduler. ([#3135](https://github.com/horovod/horovod/pull/3135))
+
+- Fixed bug in Lightning Profiler on Ray. ([#3122](https://github.com/horovod/horovod/pull/3122))
+
+- Fixed torch op lazy release to prevent OOM in elastic training. ([#3110](https://github.com/horovod/horovod/pull/3110))
+
+- Lightning: Fixed usage of the checkpoint callback. ([#3186](https://github.com/horovod/horovod/pull/3186))
+
+- Fixed MPICH support to use Intel MPI's implementation. ([#3148](https://github.com/horovod/horovod/pull/3148))
+
+
+- Fixed race condition in PyTorch async dataloader. ([#3120](https://github.com/horovod/horovod/pull/3120))
+
+- Keras: Fixed learning rate scheduler. ([#3142](https://github.com/horovod/horovod/pull/3142), [#3135](https://github.com/horovod/horovod/pull/3135))
 
 ## [v0.22.1] - 2021-06-10
 

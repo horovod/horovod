@@ -114,6 +114,9 @@ const std::string& Request::RequestType_Name(RequestType value) {
     case RequestType::REDUCE:
       static const std::string reduce("REDUCE");
       return reduce;
+    case RequestType::BARRIER:
+      static const std::string barrier("BARRIER");
+      return barrier;
     default:
       static const std::string unknown("<unknown>");
       return unknown;
@@ -306,6 +309,9 @@ const std::string& Response::ResponseType_Name(ResponseType value) {
     case ResponseType::REDUCE:
       static const std::string reduce("REDUCE");
       return reduce;
+    case ResponseType::BARRIER:
+      static const std::string barrier("BARRIER");
+      return barrier;
     case ResponseType::ERROR:
       static const std::string error("ERROR");
       return error;

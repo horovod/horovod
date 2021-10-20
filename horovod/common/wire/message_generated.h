@@ -97,9 +97,10 @@ enum RequestType : int8_t {
   RequestType_ALLGATHER = 1,
   RequestType_BROADCAST = 2,
   RequestType_JOIN = 3,
-  RequestType_REDUCE = 4,
+  RequestType_REDUCE = 5,
+  RequestType_BARRIER = 4,
   RequestType_MIN = RequestType_ALLREDUCE,
-  RequestType_MAX = RequestType_REDUCE
+  RequestType_MAX = RequestType_BARRIER
 };
 
 inline const RequestType (&EnumValuesRequestType())[5] {
@@ -108,7 +109,8 @@ inline const RequestType (&EnumValuesRequestType())[5] {
     RequestType_ALLGATHER,
     RequestType_BROADCAST,
     RequestType_JOIN,
-    RequestType_REDUCE
+    RequestType_REDUCE,
+    RequestType_BARRIER
   };
   return values;
 }
@@ -120,13 +122,14 @@ inline const char * const *EnumNamesRequestType() {
     "BROADCAST",
     "JOIN",
     "REDUCE",
+    "BARRIER",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameRequestType(RequestType e) {
-  if (flatbuffers::IsOutRange(e, RequestType_ALLREDUCE, RequestType_JOIN)) return "";
+  if (flatbuffers::IsOutRange(e, RequestType_ALLREDUCE, RequestType_BARRIER)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesRequestType()[index];
 }
@@ -137,8 +140,10 @@ enum ResponseType : int8_t {
   ResponseType_BROADCAST = 2,
   ResponseType_JOIN = 3,
   ResponseType_ADASUM = 4,
-  ResponseType_ERROR = 5,
   ResponseType_REDUCE = 6,
+  ResponseType_BARRIER = 5,
+  ResponseType_ERROR = 7,
+>>>>>>> original/master
   ResponseType_MIN = ResponseType_ALLREDUCE,
   ResponseType_MAX = ResponseType_REDUCE
 };
@@ -150,8 +155,9 @@ inline const ResponseType (&EnumValuesResponseType())[7] {
     ResponseType_BROADCAST,
     ResponseType_JOIN,
     ResponseType_ADASUM,
-    ResponseType_ERROR,
-    ResponseType_REDUCE
+    ResponseType_REDUCE,
+    ResponseType_BARRIER,
+    ResponseType_ERROR
   };
   return values;
 }
@@ -163,6 +169,7 @@ inline const char * const *EnumNamesResponseType() {
     "BROADCAST",
     "JOIN",
     "ADASUM",
+    "BARRIER",
     "ERROR",
     "REDUCE",
     nullptr

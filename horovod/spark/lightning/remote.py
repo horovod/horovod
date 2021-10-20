@@ -56,11 +56,23 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     train_steps_per_epoch = estimator.getTrainStepsPerEpoch()
     val_steps_per_epoch = estimator.getValidationStepsPerEpoch()
     num_gpus = estimator.getNumGPUs()
-    logger = estimator.getLogger()
-    log_every_n_steps = estimator.getLogEveryNSteps()
     data_module = estimator.getDataModule() if estimator.getDataModule() else PetastormDataModule
     loader_num_epochs = estimator.getLoaderNumEpochs()
     verbose = (estimator.getVerbose() > 0)
+    trainer_args = estimator.getTrainerArgs()
+
+    # get logger
+    logger = estimator.getLogger()
+    log_every_n_steps = estimator.getLogEveryNSteps()
+    print(f"logger is configured: {logger}")
+
+    # Comet logger's expriment key is not serialize correctly. Need to remember the key, and
+    # resume the logger experiment from GPU instance.
+    if isinstance(logger, CometLogger):
+        logger_experiment_key = logger._experiment_key
+        print(f"logger vars: {vars(logger)}")
+    else:
+        logger_experiment_key = None
 
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
@@ -87,41 +99,58 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
         import horovod.torch as hvd
         # Horovod: initialize library.
         hvd.init()
+        _checkpoint_callback = None
+        require_checkpoint = False
 
-        with tempfile.TemporaryDirectory() as last_ckpt_dir, remote_store.get_local_output_dir() as run_output_dir:
-            last_ckpt_file = os.path.join(last_ckpt_dir, 'last.ckpt')
-            if ckpt_bytes:
-                with open(last_ckpt_file, 'wb') as f:
-                    f.write(ckpt_bytes)
-
-            # TODO: Pass the logger from estimator constructor
+        with remote_store.get_local_output_dir() as run_output_dir:
             logs_path = os.path.join(run_output_dir, remote_store.logs_subdir)
             os.makedirs(logs_path, exist_ok=True)
             print(f"Made directory {logs_path} for horovod rank {hvd.rank()}")
+            ckpt_dir = run_output_dir
+            ckpt_filename = remote_store.checkpoint_filename
 
-            # Use default logger if no logger is supplied
-            train_logger = logger
-            print(f"Train_logger is {train_logger}")
-
-            if train_logger is None:
+            if logger is None:
+                # Use default logger if no logger is supplied
                 train_logger = TensorBoardLogger(logs_path)
+                print(f"Setup logger: Using TensorBoardLogger: {train_logger}")
 
-            # TODO: find out a way to use ckpt_path created from remote store, but all other parameters ingest from estimator config
-            # ckpt_path = os.path.join(run_output_dir, remote_store.checkpoint_filename)
-            # os.makedirs(ckpt_path, exist_ok=True)
-            # model_checkpoint_callback = ModelCheckpoint(dirpath=ckpt_path)
-            # callbacks.append(model_checkpoint_callback)
+            elif isinstance(logger, CometLogger) and logger._experiment_key is None:
+                # Resume logger experiment key if passed correctly from CPU.
+                train_logger = CometLogger(
+                    save_dir=logs_path,
+                    api_key=logger.api_key,
+                    experiment_key=logger_experiment_key,
+                )
 
-            is_model_checkpoint_callback_exist = False
+                print(f"Setup logger: Resume comet logger: {vars(train_logger)}")
+            else:
+                # use logger passed in.
+                train_logger = logger
+                train_logger.save_dir = logs_path
+                print(f"Setup logger: Using logger passed from estimator: {train_logger}")
+
+            # Lightning requires to add checkpoint callbacks for all ranks.
+            # Otherwise we are seeing hanging in training.
             for cb in callbacks:
                 if isinstance(cb, ModelCheckpoint):
-                    is_model_checkpoint_callback_exist = True
+                    cb.dirpath = ckpt_dir
+                    cb.filename = ckpt_filename
+                    _checkpoint_callback = cb
+                    require_checkpoint = True
                     break
+            if not _checkpoint_callback:
+                # By default 'monitor'=None which saves a checkpoint only for the last epoch.
+                _checkpoint_callback = ModelCheckpoint(dirpath=ckpt_dir,
+                                                       filename=ckpt_filename,
+                                                       verbose=True)
+                callbacks.append(_checkpoint_callback)
 
             if remote_store.saving_runs and hvd.rank() == 0:
+                # Horovod: sync checkpoint and logging files only on rank 0 to
+                # prevent other ranks from corrupting them.
                 class _SyncCallback(Callback):
                     def on_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
-                        remote_store.sync(logs_path)
+                        remote_store.sync(run_output_dir)
 
                 callbacks.append(_SyncCallback())
 
@@ -133,7 +162,11 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             _val_steps_per_epoch = val_steps_per_epoch if val_steps_per_epoch else \
                 int(math.floor(float(val_rows) / val_batch_size / hvd.size()))
 
-            print(f"Training data of rank[{hvd.local_rank()}]: train_rows:{train_rows}, batch_size:{batch_size}, _train_steps_per_epoch:{_train_steps_per_epoch}.")
+            if verbose:
+                print(f"Training data of rank[{hvd.local_rank()}]: Epochs: {epochs}\n"
+                      f"Train rows: {train_rows}, Train batch size: {batch_size}, Train_steps_per_epoch: {_train_steps_per_epoch}\n"
+                      f"Val rows: {val_rows}, Val batch size: {val_batch_size}, Val_steps_per_epoch: {_val_steps_per_epoch}\n"
+                      f"Checkpoint file: {remote_store.checkpoint_path}, Logs dir: {remote_store.logs_path}\n")
 
             cuda_available = torch.cuda.is_available()
             # We need to check all ranks have same device type for traning.
@@ -152,26 +185,34 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             if _num_gpus is None:
                 _num_gpus = 1 if cuda_available else 0
 
+            # Set bar refresh to 1 / epoch, detailed loss and metrics is avaialbe in logger,
+            # no need to print in screen here. User can still override this in trainer_args
+            progress_bar_refresh_rate = _train_steps_per_epoch
+
             kwargs = {'accelerator': 'horovod',
                       'gpus': _num_gpus,
                       'callbacks': callbacks,
                       'max_epochs': epochs,
                       'logger': train_logger,
                       'log_every_n_steps': log_every_n_steps,
-                      'resume_from_checkpoint': (last_ckpt_file if ckpt_bytes else None),
-                      'checkpoint_callback': is_model_checkpoint_callback_exist,
                       'num_sanity_val_steps': 0,
                       'reload_dataloaders_every_epoch': False,
-                      'progress_bar_refresh_rate': _train_steps_per_epoch // 10,
+                      'progress_bar_refresh_rate': progress_bar_refresh_rate,
                       'terminate_on_nan': terminate_on_nan,
                       'profiler': profiler
                       }
+            if trainer_args:
+                kwargs.update(trainer_args)
+
             print("Creating trainer with: \n ", kwargs)
             trainer = Trainer(**kwargs)
 
             if trainer.profiler:
                 print(f"Set profiler's logs_path to {logs_path}")
                 trainer.profiler.dirpath = logs_path
+                # filename where the profiler results will be saved instead of
+                # printing to stdout. The .txt extension will be used automatically.
+                trainer.profiler.filename = "profile"
 
             print(f"pytorch_lightning version={pl.__version__}")
 
@@ -191,19 +232,27 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                                   verbose=verbose)
             trainer.fit(model, dataset)
 
-            serialized_checkpoint = io.BytesIO()
-            module = model if not is_legacy else model._model
+            if hvd.rank() == 0:
+                if remote_store.saving_runs and trainer.profiler:
+                    # One more file sync to push profiler result.
+                    remote_store.sync(logs_path)
 
-            # TODO: find a way to pass trainer.logged_metrics out.
-            output = {'model': module.state_dict()}
+                # rank 0 overwrites model with best checkpoint and returns.
+                if require_checkpoint:
+                    if verbose:
+                        print("load from checkpoint best model path:",
+                              _checkpoint_callback.best_model_path)
+                    best_model = model.load_from_checkpoint(_checkpoint_callback.best_model_path)
+                else:
+                    best_model = model
+                serialized_checkpoint = io.BytesIO()
+                module = best_model if not is_legacy else best_model._model
 
-            torch.save(output, serialized_checkpoint)
+                output = {'model': module.state_dict(), 'logged_metrics': trainer.logged_metrics}
 
-            if remote_store.saving_runs and hvd.rank() == 0:
-                remote_store.sync(logs_path)
+                torch.save(output, serialized_checkpoint)
 
-            serialized_checkpoint.seek(0)
-            return serialized_checkpoint
+                return serialized_checkpoint
     return train
 
 

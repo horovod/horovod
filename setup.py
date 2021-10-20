@@ -29,7 +29,9 @@ from horovod import __version__
 _FRAMEWORK_METADATA_FILE = 'horovod/metadata.json'
 
 class CMakeExtension(Extension):
-    def __init__(self, name, cmake_lists_dir='.', sources=[], **kwa):
+    def __init__(self, name, cmake_lists_dir='.', sources=None, **kwa):
+        if sources is None:
+            sources = []
         Extension.__init__(self, name, sources=sources, **kwa)
         self.cmake_lists_dir = os.path.abspath(cmake_lists_dir)
 
@@ -124,7 +126,8 @@ pyspark_require_list = ['pyspark>=2.3.2;python_version<"3.8"',
                         'pyspark>=3.0.0;python_version>="3.8"']
 # Pin h5py: https://github.com/h5py/h5py/issues/1732
 spark_require_list = ['h5py<3', 'numpy', 'petastorm>=0.11.0', 'pyarrow>=0.15.0', 'fsspec']
-ray_require_list = ['ray']
+# https://github.com/ray-project/ray/pull/17465
+ray_require_list = ['ray', 'aioredis<2']
 pytorch_spark_require_list = pytorch_require_list + \
                              spark_require_list + \
                              pyspark_require_list

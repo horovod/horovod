@@ -153,6 +153,9 @@ namespace common {
 // Temporary tensor name for ranks that did Join().
 #define JOIN_TENSOR_NAME "join.noname"
 
+// Fixed tensor name for all barrier operations
+#define BARRIER_TENSOR_NAME "barrier.noname"
+
 // List of supported frameworks.
 enum Framework { TENSORFLOW, PYTORCH, MXNET, XLA };
 
