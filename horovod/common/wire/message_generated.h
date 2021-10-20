@@ -103,7 +103,7 @@ enum RequestType : int8_t {
   RequestType_MAX = RequestType_BARRIER
 };
 
-inline const RequestType (&EnumValuesRequestType())[5] {
+inline const RequestType (&EnumValuesRequestType())[6] {
   static const RequestType values[] = {
     RequestType_ALLREDUCE,
     RequestType_ALLGATHER,
@@ -116,7 +116,7 @@ inline const RequestType (&EnumValuesRequestType())[5] {
 }
 
 inline const char * const *EnumNamesRequestType() {
-  static const char * const names[6] = {
+  static const char * const names[7] = {
     "ALLREDUCE",
     "ALLGATHER",
     "BROADCAST",
@@ -143,12 +143,11 @@ enum ResponseType : int8_t {
   ResponseType_REDUCE = 6,
   ResponseType_BARRIER = 5,
   ResponseType_ERROR = 7,
->>>>>>> original/master
   ResponseType_MIN = ResponseType_ALLREDUCE,
   ResponseType_MAX = ResponseType_REDUCE
 };
 
-inline const ResponseType (&EnumValuesResponseType())[7] {
+inline const ResponseType (&EnumValuesResponseType())[8] {
   static const ResponseType values[] = {
     ResponseType_ALLREDUCE,
     ResponseType_ALLGATHER,
@@ -163,7 +162,7 @@ inline const ResponseType (&EnumValuesResponseType())[7] {
 }
 
 inline const char * const *EnumNamesResponseType() {
-  static const char * const names[8] = {
+  static const char * const names[9] = {
     "ALLREDUCE",
     "ALLGATHER",
     "BROADCAST",
