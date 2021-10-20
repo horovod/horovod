@@ -23,7 +23,7 @@ if (LEN EQUAL "4")
     list(GET Tensorflow_LIBRARIES_LIST 0 Tensorflow_LIB_PATH_ARGUMENT)
     string(REGEX REPLACE "^-L" "" Tensorflow_LIB_PATH ${Tensorflow_LIB_PATH_ARGUMENT})
     if (Tensorflow_VERSION VERSION_GREATER "2.6" OR Tensorflow_VERSION VERSION_EQUAL "2.6")
-#        # XLA implementations are in _pywrap_tensorflow_internal.so
+        # XLA implementations and helpers for resource variables are in _pywrap_tensorflow_internal.so
         set(Tensorflow_LIBRARIES "${Tensorflow_LIBRARIES} ${Tensorflow_LIB_PATH}/python/_pywrap_tensorflow_internal.so")
     endif()
     message("Tensorflow_LIBRARIES := ${Tensorflow_LIBRARIES}")

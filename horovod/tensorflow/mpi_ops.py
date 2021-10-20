@@ -294,6 +294,43 @@ def _broadcast_grad(op, grad):
     return grad_reduced
 
 
+def broadcast_(variables, root_rank, name=None, process_set=global_process_set):
+    """An op which broadcasts the input variables from the root rank to the same
+    input variables on all other Horovod processes. The operation is performed
+    in-place.
+
+    The broadcast operation is keyed by the name of the op combined with the names
+    of the variables. The variable type and shape must be the same on all Horovod
+    processes for any given name. The broadcast will not start until all processes
+    are ready to send and receive all variables. In each process all variables need
+    to be located on the same device (CPU or GPU).
+
+    Note: This is only supported with TensorFlow 2.6 or later.
+
+    Returns:
+      The tensor values of the updated `variables` as broadcasted from root rank.
+    """
+    from distutils.version import LooseVersion
+    if LooseVersion(tf.__version__) < LooseVersion('2.6.0'):
+        raise NotImplementedError("In-place broadcasts are only supported with TensorFlow 2.6 or later")
+
+    from tensorflow.python.ops import resource_variable_ops
+    if all(resource_variable_ops.is_resource_variable(var) for var in variables):
+        with tf.control_dependencies(
+            [MPI_LIB.horovod_broadcast_inplace_resource([var.handle for var in variables],
+                                                        variable_names=[var.name for var in variables],
+                                                        name=name,
+                                                        root_rank=root_rank,
+                                                        process_set_id=process_set.process_set_id)]):
+            return [var.read_value() for var in variables]
+    elif all(not resource_variable_ops.is_resource_variable(var) for var in variables):
+        return MPI_LIB.horovod_broadcast_inplace(variables, variable_names=[var.name for var in variables],
+                                                 name=name, root_rank=root_rank,
+                                                 process_set_id=process_set.process_set_id)
+    else:
+        raise ValueError("All variables passed to broadcast_() should be of the same kind, resource or reference")
+
+
 def alltoall(tensor, splits=None, name=None, ignore_name_scope=False, process_set=global_process_set):
     """An op that scatters slices of the input tensor to all other Horovod processes
     and returns a tensor of gathered slices from all other Horovod processes.
