@@ -112,7 +112,7 @@ class TorchElasticTests(unittest.TestCase):
         state.sync()
 
         assert state.sampler.epoch == 0
-        assert len(state.sampler.processed_indices) == 0
+        assert state.sampler.processed_num == 0
 
         # Normal usage, no errors
         epochs = 2
@@ -120,12 +120,8 @@ class TorchElasticTests(unittest.TestCase):
         for epoch in range(epochs):
             sampler.set_epoch(epoch)
             for batch_idx, batch in enumerate(data_loader):
-                batch_indices = sampler.get_indices(batch_idx, batch_size)
-                batch_data = [dataset[idx] for idx in batch_indices]
-                assert batch_data == batch.numpy().tolist()
-
                 sampler.record_batch(batch_idx, batch_size)
-                assert len(sampler.processed_indices) == batch_size * (batch_idx + 1)
+                assert sampler.processed_num == batch_size * (batch_idx + 1)
 
                 total_batches += 1
         assert total_batches == (samples_per_worker / batch_size) * epochs
@@ -133,47 +129,44 @@ class TorchElasticTests(unittest.TestCase):
         # Do not reset epoch: processed samples are retained and data loader repeats
         total_batches = 0
         for _ in enumerate(data_loader):
-            assert len(sampler.processed_indices) == len(sampler)
+            assert sampler.processed_num == len(sampler)
             total_batches += 1
         assert total_batches == samples_per_worker / batch_size
 
         # Elastic: partial epoch + commit
         sampler.set_epoch(2)
-        assert len(sampler.processed_indices) == 0
+        assert sampler.processed_num == 0
 
         sampler.record_batch(0, batch_size)
         sampler.record_batch(1, batch_size)
-        assert len(sampler.processed_indices) == 2 * batch_size
+        assert sampler.processed_num == 2 * batch_size
 
-        committed_indices = copy.copy(sampler.processed_indices)
+        committed_num = copy.copy(sampler.processed_num)
         state.commit()
 
         # Elastic: partial epoch + restore
         sampler.record_batch(2, batch_size)
         sampler.record_batch(3, batch_size)
-        assert len(sampler.processed_indices) == 4 * batch_size
+        assert sampler.processed_num == 4 * batch_size
 
         state.restore()
 
-        assert len(sampler.processed_indices) == 2 * batch_size
-        assert sampler.processed_indices == committed_indices
+        assert sampler.processed_num == 2 * batch_size
+        assert sampler.processed_num == committed_num
 
         # Elastic: sync across workers and verify non-overlap of processed samples
         sampler.record_batch(2, batch_size)
-        assert len(sampler.processed_indices) == 3 * batch_size
+        assert sampler.processed_num == 3 * batch_size
 
         state.commit()
         state.sync()
 
-        assert len(sampler.processed_indices) == 3 * batch_size * hvd.size()
+        assert sampler.processed_num == 3 * batch_size * hvd.size()
 
         # After the sync, the remaining indices should be updated and repartitioned
         total_batches = 0
         assert len(sampler) == batch_size
         for batch_idx, batch in enumerate(data_loader):
-            batch_indices = sampler.get_indices(batch_idx, batch_size)
-            overlap_indices = set(batch_indices) & sampler.processed_indices
-            assert overlap_indices == set()
             total_batches += 1
         assert total_batches == 1
 

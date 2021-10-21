@@ -128,12 +128,7 @@ class SamplerStateHandler(StateHandler):
         self.value.load_state_dict(self._saved_sampler_state)
 
     def sync(self):
-        # Get the set of processed indices from all workers
-        world_processed_indices = _union(allgather_object(self.value.processed_indices))
-
-        # Replace local processed indices with global indices
         state_dict = self.value.state_dict()
-        state_dict['processed_indices'] = world_processed_indices
 
         # Broadcast and load the state to make sure we're all in sync
         self.value.load_state_dict(broadcast_object(state_dict))
