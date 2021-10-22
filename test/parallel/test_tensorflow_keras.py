@@ -25,8 +25,15 @@ import warnings
 
 from distutils.version import LooseVersion
 from tensorflow import keras
-from tensorflow.python.keras import backend as K
-from tensorflow.python.keras.optimizer_v2 import optimizer_v2
+
+from horovod.common.util  import is_version_greater_equal_than
+
+if is_version_greater_equal_than(tf.__version__, "2.5.0"):
+    from keras import backend as K
+    from keras.optimizer_v2 import optimizer_v2
+else:
+    from tensorflow.python.keras import backend as K
+    from tensorflow.python.keras.optimizer_v2 import optimizer_v2
 
 import horovod.tensorflow.keras as hvd
 
