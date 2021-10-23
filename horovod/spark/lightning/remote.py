@@ -193,6 +193,8 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                       'gpus': _num_gpus,
                       'callbacks': callbacks,
                       'max_epochs': epochs,
+                      'limit_train_batches': _train_steps_per_epoch,
+                      'limit_val_batches': _val_steps_per_epoch,
                       'logger': train_logger,
                       'log_every_n_steps': log_every_n_steps,
                       'num_sanity_val_steps': 0,
