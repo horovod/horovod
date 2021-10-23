@@ -1,5 +1,6 @@
 import argparse
 import os
+from distutils.version import LooseVersion
 from filelock import FileLock
 
 import torch.multiprocessing as mp
@@ -158,6 +159,10 @@ if __name__ == '__main__':
         if args.use_mixed_precision:
             raise ValueError("Mixed precision is only supported with cuda enabled.")
 
+    if (args.use_mixed_precision and LooseVersion(torch.__version__)
+            < LooseVersion('1.6.0')):
+        raise ValueError("""Mixed precision is using torch.cuda.amp.autocast(),
+                            which requires torch >= 1.6.0""")
 
     # Horovod: limit # of CPU threads to be used per worker.
     torch.set_num_threads(1)
