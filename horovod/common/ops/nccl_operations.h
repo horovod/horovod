@@ -27,8 +27,8 @@
 #include <rccl.h>
 #endif
 
-#include "gpu_operations.h"
 #include "../hashes.h"
+#include "gpu_operations.h"
 
 #include <functional>
 
@@ -43,9 +43,12 @@ struct NCCLContext {
       std::unordered_map<std::tuple<int32_t, std::vector<int32_t>>, ncclComm_t>>
       nccl_comms;
 
-  void ErrorCheck(std::string op_name, ncclResult_t nccl_result, ncclComm_t& nccl_comm);
+  void ErrorCheck(std::string op_name, ncclResult_t nccl_result,
+                  ncclComm_t& nccl_comm);
 
   void ShutDown();
+
+  bool elastic;
 };
 
 class NCCLOpContext {
@@ -54,8 +57,7 @@ public:
                 Communicator communicator_type)
       : nccl_comm_(nullptr),
         error_check_callback_(std::bind(&NCCLOpContext::AsyncErrorCheck, this)),
-        nccl_context_(nccl_context),
-        global_state_(global_state),
+        nccl_context_(nccl_context), global_state_(global_state),
         communicator_type_(communicator_type){};
 
   void InitNCCLComm(const std::vector<TensorTableEntry>& entries,
@@ -81,8 +83,7 @@ public:
   NCCLAllreduce(NCCLContext* nccl_context, GPUContext* gpu_context,
                 HorovodGlobalState* global_state,
                 Communicator communicator_type = Communicator::GLOBAL)
-      : GPUAllreduce(gpu_context, global_state),
-        nccl_context_(nccl_context),
+      : GPUAllreduce(gpu_context, global_state), nccl_context_(nccl_context),
         nccl_op_context_(nccl_context, global_state, communicator_type),
         global_state_(global_state){};
 
@@ -101,8 +102,7 @@ class NCCLBroadcast : public GPUBroadcast {
 public:
   NCCLBroadcast(NCCLContext* nccl_context, GPUContext* gpu_context,
                 HorovodGlobalState* global_state)
-      : GPUBroadcast(gpu_context, global_state),
-        nccl_context_(nccl_context),
+      : GPUBroadcast(gpu_context, global_state), nccl_context_(nccl_context),
         nccl_op_context_(nccl_context, global_state, Communicator::GLOBAL),
         global_state_(global_state){};
 
@@ -121,8 +121,7 @@ class NCCLAlltoall : public GPUAlltoall {
 public:
   NCCLAlltoall(NCCLContext* nccl_context, GPUContext* gpu_context,
                HorovodGlobalState* global_state)
-      : GPUAlltoall(gpu_context, global_state),
-        nccl_context_(nccl_context),
+      : GPUAlltoall(gpu_context, global_state), nccl_context_(nccl_context),
         nccl_op_context_(nccl_context, global_state, Communicator::GLOBAL),
         global_state_(global_state){};
 
@@ -143,7 +142,7 @@ public:
   NCCLHierarchicalAllreduce(NCCLContext* nccl_context, GPUContext* gpu_context,
                             HorovodGlobalState* global_state)
       : NCCLAllreduce(nccl_context, gpu_context, global_state,
-                      Communicator::LOCAL) {};
+                      Communicator::LOCAL){};
 
   Status Execute(std::vector<TensorTableEntry>& entries,
                  const Response& response) override;
@@ -182,7 +181,6 @@ protected:
   NCCLOpContext nccl_op_context_;
   HorovodGlobalState* global_state_;
 };
-
 
 } // namespace common
 } // namespace horovod
