@@ -35,8 +35,8 @@ using gpuEvent_t = hipEvent_t;
 using gpuStream_t = hipStream_t;
 #endif
 
-#include "collective_operations.h"
 #include "../thread_pool.h"
+#include "collective_operations.h"
 
 namespace horovod {
 namespace common {
@@ -66,36 +66,47 @@ public:
 
   void ErrorCheck(std::string op_name, gpuError_t gpu_result);
 
-  void RecordEvent(std::queue<std::pair<std::string, Event>>& event_queue, std::string name,
-                   gpuStream_t& stream);
+  void RecordEvent(std::queue<std::pair<std::string, Event>>& event_queue,
+                   std::string name, gpuStream_t& stream);
 
   Event RecordEvent(gpuStream_t& stream);
 
   void ReleaseEvent(Event event);
 
-  void WaitForEvents(std::queue<std::pair<std::string, Event>>& event_queue,
-                     const std::vector<TensorTableEntry>& entries, Timeline& timeline,
-                     const std::function<void()>& error_check_callback = nullptr,
-                     bool elastic = false);
+  void
+  WaitForEvents(std::queue<std::pair<std::string, Event>>& event_queue,
+                const std::vector<TensorTableEntry>& entries,
+                Timeline& timeline,
+                const std::function<void()>& error_check_callback = nullptr);
+
+  void WaitForEventsElastic(
+      std::queue<std::pair<std::string, Event>>& event_queue,
+      const std::vector<TensorTableEntry>& entries, Timeline& timeline,
+      const std::function<void()>& error_check_callback = nullptr);
 
   void ClearEvents(std::queue<std::pair<std::string, Event>>& event_queue,
-                   const std::vector<TensorTableEntry>& entries, Timeline& timeline,
+                   const std::vector<TensorTableEntry>& entries,
+                   Timeline& timeline,
                    const std::function<void()>& error_check_callback = nullptr,
                    bool elastic = false);
 
-  void StreamCreate(gpuStream_t *stream);
+  void StreamCreate(gpuStream_t* stream);
   void StreamSynchronize(gpuStream_t stream);
 
   int GetDevice();
 
   void SetDevice(int device);
 
-  void MemcpyAsyncD2D(void* dst, const void* src, size_t count, gpuStream_t stream);
-  void MemcpyAsyncH2D(void* dst, const void* src, size_t count, gpuStream_t stream);
-  void MemcpyAsyncD2H(void* dst, const void* src, size_t count, gpuStream_t stream);
+  void MemcpyAsyncD2D(void* dst, const void* src, size_t count,
+                      gpuStream_t stream);
+  void MemcpyAsyncH2D(void* dst, const void* src, size_t count,
+                      gpuStream_t stream);
+  void MemcpyAsyncD2H(void* dst, const void* src, size_t count,
+                      gpuStream_t stream);
 
-  void ScaleBufferImpl(const void* fused_input_data, void* buffer_data, int64_t num_elements,
-                       double scale_factor, DataType dtype, gpuStream_t stream);
+  void ScaleBufferImpl(const void* fused_input_data, void* buffer_data,
+                       int64_t num_elements, double scale_factor,
+                       DataType dtype, gpuStream_t stream);
 
   // Thread pool for finalizer threads
   ThreadPool finalizer_thread_pool;
@@ -107,21 +118,25 @@ private:
 
 class GPUOpContext {
 public:
-  GPUOpContext(GPUContext* context,
-               HorovodGlobalState* global_state);
+  GPUOpContext(GPUContext* context, HorovodGlobalState* global_state);
 
   void InitGPU(const std::vector<TensorTableEntry>& entries);
 
-  void InitGPUQueue(const std::vector<TensorTableEntry>& entries, const Response& response);
+  void InitGPUQueue(const std::vector<TensorTableEntry>& entries,
+                    const Response& response);
 
-  Status FinalizeGPUQueue(std::vector<TensorTableEntry>& entries, bool free_host_buffer = true,
-                          const std::function<void()>& error_check_callback = nullptr);
+  Status
+  FinalizeGPUQueue(std::vector<TensorTableEntry>& entries,
+                   bool free_host_buffer = true,
+                   const std::function<void()>& error_check_callback = nullptr);
 
-  // GPU events are used as an alternative to host-device synchronization (which stalls the GPU pipeline)
-  // for the purpose of recording timing on the Horovod timeline.
+  // GPU events are used as an alternative to host-device synchronization (which
+  // stalls the GPU pipeline) for the purpose of recording timing on the Horovod
+  // timeline.
   //
-  // When an event we wish to record occurs (for example, NCCL_ALLREDUCE), the event is enqueued. After the entire
-  // operation completes, a background thread is spawned to synchronize on the events in the queue and record
+  // When an event we wish to record occurs (for example, NCCL_ALLREDUCE), the
+  // event is enqueued. After the entire operation completes, a background
+  // thread is spawned to synchronize on the events in the queue and record
   // timing, while allowing Horovod to continue processing additional tensors.
   //
   // For more information of CUDA Events, see:
@@ -138,8 +153,7 @@ private:
 
 class GPUAllreduce : public AllreduceOp {
 public:
-  GPUAllreduce(GPUContext* context,
-               HorovodGlobalState* global_state);
+  GPUAllreduce(GPUContext* context, HorovodGlobalState* global_state);
 
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
@@ -147,35 +161,42 @@ public:
 
 protected:
 #if HAVE_CUDA
-  void MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
-                            void*& buffer_data, size_t& buffer_len) override;
+  void MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                            const void*& fused_input_data, void*& buffer_data,
+                            size_t& buffer_len) override;
 
-  void MemcpyOutFusionBuffer(const void* buffer_data, std::vector<TensorTableEntry>& entries) override;
+  void MemcpyOutFusionBuffer(const void* buffer_data,
+                             std::vector<TensorTableEntry>& entries) override;
 
-  void ScaleMemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
-                                 void*& buffer_data, size_t& buffer_len, double scale_factor);
-  void ScaleMemcpyOutFusionBuffer(void* buffer_data, size_t buffer_len, double scale_factor,
+  void ScaleMemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                 const void*& fused_input_data,
+                                 void*& buffer_data, size_t& buffer_len,
+                                 double scale_factor);
+  void ScaleMemcpyOutFusionBuffer(void* buffer_data, size_t buffer_len,
+                                  double scale_factor,
                                   std::vector<TensorTableEntry>& entries);
 #endif
 
   void MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                 const TensorTableEntry& e, void* buffer_data_at_offset) override;
+                                 const TensorTableEntry& e,
+                                 void* buffer_data_at_offset) override;
 
   void MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                  const void* buffer_data_at_offset, TensorTableEntry& e) override;
+                                  const void* buffer_data_at_offset,
+                                  TensorTableEntry& e) override;
 
-  void ScaleBuffer(double scale_factor, const std::vector<TensorTableEntry>& entries,
-                   const void* fused_input_data, void* buffer_data, int64_t num_elements);
+  void ScaleBuffer(double scale_factor,
+                   const std::vector<TensorTableEntry>& entries,
+                   const void* fused_input_data, void* buffer_data,
+                   int64_t num_elements);
 
   GPUContext* gpu_context_;
   GPUOpContext gpu_op_context_;
-
 };
 
 class GPUAllgather : public AllgatherOp {
 public:
-  GPUAllgather(GPUContext* context,
-               HorovodGlobalState* global_state);
+  GPUAllgather(GPUContext* context, HorovodGlobalState* global_state);
 
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
@@ -183,11 +204,13 @@ public:
 
 protected:
   void MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                 const TensorTableEntry& e, void* buffer_data_at_offset) override;
+                                 const TensorTableEntry& e,
+                                 void* buffer_data_at_offset) override;
 
   void MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                  const void* buffer_data_at_offset, TensorTableEntry& e,
-                                  int64_t entry_offset, size_t entry_size) override;
+                                  const void* buffer_data_at_offset,
+                                  TensorTableEntry& e, int64_t entry_offset,
+                                  size_t entry_size) override;
 
   GPUContext* gpu_context_;
   GPUOpContext gpu_op_context_;
@@ -195,8 +218,7 @@ protected:
 
 class GPUBroadcast : public BroadcastOp {
 public:
-  GPUBroadcast(GPUContext* context,
-               HorovodGlobalState* global_state);
+  GPUBroadcast(GPUContext* context, HorovodGlobalState* global_state);
 
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
@@ -209,11 +231,11 @@ protected:
 
 class GPUAlltoall : public AlltoallOp {
 public:
-  GPUAlltoall(GPUContext* context,
-              HorovodGlobalState* global_state);
+  GPUAlltoall(GPUContext* context, HorovodGlobalState* global_state);
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
                const Response& response) const override;
+
 protected:
   GPUContext* gpu_context_;
   GPUOpContext gpu_op_context_;
@@ -222,4 +244,4 @@ protected:
 } // namespace common
 } // namespace horovod
 
-#endif //HOROVOD_GPU_OPERATIONS_H
+#endif // HOROVOD_GPU_OPERATIONS_H
