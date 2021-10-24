@@ -55,7 +55,7 @@ class AsyncDataLoaderMixin(object):
         class PytorchAsyncDataLoader(AsyncDataLoaderMixin, PytorchDataLoader):
     """
 
-    def __init__(self, async_loader_queue_size=64, *args, **kwargs):
+    def __init__(self, async_loader_queue_size=1, *args, **kwargs):
         """
         initialize the async data loader. Need to add this in the __init__() of the implementation
         """
@@ -92,12 +92,12 @@ class AsyncDataLoaderMixin(object):
         User need to implement self._iterate() to read the data.
         """
         try:
-            # Only need to iterate once because data loader will be re-created in each epoch.
-            for batch in self._iterate():
-                if self.finished_event.is_set():
-                    break
-                self.queue.put(batch)
-            self.queue.put(None)
+            while not self.finished_event.is_set():
+                for batch in self._iterate():
+                    if self.finished_event.is_set():
+                        break
+                    self.queue.put(batch)
+                self.queue.put(None)
         except Exception as ex:
             self.queue.put(ex)
             self.queue.put(None)
@@ -125,3 +125,6 @@ class AsyncDataLoaderMixin(object):
         else:
             for batch in self._iterate():
                 yield self._process_batch(batch)
+
+    def __del__(self):
+        self.close_async_loader()
