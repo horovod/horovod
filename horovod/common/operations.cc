@@ -78,6 +78,7 @@
 #if HAVE_GLOO
 #include "gloo/gloo_controller.h"
 #include "ops/gloo_operations.h"
+#include "ops/adasum_gloo_operations.h"
 #endif
 
 /*
