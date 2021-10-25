@@ -50,6 +50,7 @@ public:
       }
       if (!queue.empty()) {
         *event = queue.front();
+        event->event_idx = ++cuda_event_idx[key];
         queue.pop();
         return cudaSuccess;
       }
@@ -59,6 +60,9 @@ public:
     status = cudaEventCreateWithFlags(&ev, cudaEventDisableTiming);
     event->event = std::make_shared<cudaEvent_t>(ev);
     event->stream = stream;
+    auto key2 = std::make_pair(device, stream);
+    event->event_idx = ++cuda_event_idx[key2];
+
 
     return status;
   }
@@ -255,6 +259,7 @@ private:
   std::unordered_map<std::pair<int, cudaStream_t>, std::queue<Event>>
       cuda_events;
   std::unordered_map<std::pair<int, cudaStream_t>, bool> prepopulated;
+  std::unordered_map<std::pair<int, cudaStream_t>, std::atomic<uint64_t>> cuda_event_idx;
   std::mutex cuda_events_mutex;
 
   static constexpr int N_CUDA_EVENTS_PREPOPULATE = 128;
