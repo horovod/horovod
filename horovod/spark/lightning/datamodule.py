@@ -78,6 +78,7 @@ class PetastormDataModule(pl.LightningDataModule):
                 if self.has_val:
                     self.val_reader.stop()
                     self.val_reader.join()
+            print("Tear down: async dataloaders closed.")
 
     def train_dataloader(self):
         if self.verbose:
