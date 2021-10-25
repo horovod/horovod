@@ -125,6 +125,3 @@ class AsyncDataLoaderMixin(object):
         else:
             for batch in self._iterate():
                 yield self._process_batch(batch)
-
-    def __del__(self):
-        self.close_async_loader()
