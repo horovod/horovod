@@ -55,7 +55,7 @@ class AsyncDataLoaderMixin(object):
         class PytorchAsyncDataLoader(AsyncDataLoaderMixin, PytorchDataLoader):
     """
 
-    def __init__(self, async_loader_queue_size=64, *args, **kwargs):
+    def __init__(self, async_loader_queue_size=5, *args, **kwargs):
         """
         initialize the async data loader. Need to add this in the __init__() of the implementation
         """
@@ -115,6 +115,7 @@ class AsyncDataLoaderMixin(object):
             if not self.started:
                 self.started = True
                 self.thread.start()
+
             while True:
                 batch = self.queue.get()
                 if batch is None:
