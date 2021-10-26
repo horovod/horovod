@@ -72,9 +72,6 @@ def get_mock_fit_fn():
     return fit
 
 
-#PR3099 [https://github.com/horovod/horovod/pull/3099] doesn't fix
-#Tensorflow>=2.6.0 tests
-@pytest.mark.skipif(LooseVersion(tf.__version__) >= LooseVersion('2.6.0'), reason='TensorFlow>=2.6.0 tests')
 class SparkKerasTests(tf.test.TestCase):
     def __init__(self, *args, **kwargs):
         super(SparkKerasTests, self).__init__(*args, **kwargs)

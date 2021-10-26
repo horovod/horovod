@@ -29,7 +29,7 @@ from tensorflow import keras
 
 from horovod.common.util  import is_version_greater_equal_than
 
-if is_version_greater_equal_than(tf.__version__, "2.5.0"):
+if is_version_greater_equal_than(tf.__version__, "2.6.0"):
     from keras.optimizer_v2 import optimizer_v2
 else:
     from tensorflow.python.keras.optimizer_v2 import optimizer_v2
