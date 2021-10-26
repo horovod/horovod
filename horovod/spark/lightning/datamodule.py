@@ -78,6 +78,8 @@ class PetastormDataModule(pl.LightningDataModule):
                 if self.has_val:
                     self.val_reader.stop()
                     self.val_reader.join()
+            if self.verbose:
+                print("Tear down: async dataloaders closed.")
 
     def train_dataloader(self):
         if self.verbose:
@@ -94,6 +96,10 @@ class PetastormDataModule(pl.LightningDataModule):
         else:
             dataloader_class = PytorchInfiniteAsyncDataLoader
             kwargs['shuffling_queue_capacity'] = self.shuffle_size
+            # To avoid loading too much data in memory, need to calculate the queue size
+            # dynamicaly, and limit the data loaded in queue.
+            # Add 1 in size for storing the None in the end of each epoch.
+            kwargs['async_loader_queue_size'] = max(1, min(100000 // kwargs['batch_size'], kwargs['limit_step_per_epoch'] // 4)) + 1
 
         self.train_dl = dataloader_class(**kwargs)
         return self.train_dl
@@ -115,6 +121,10 @@ class PetastormDataModule(pl.LightningDataModule):
         else:
             dataloader_class = PytorchInfiniteAsyncDataLoader
             kwargs['shuffling_queue_capacity'] = 0
+            # To avoid loading too much data in memory, need to calculate the queue size
+            # dynamicaly, and limit the data loaded in queue.
+            # Add 1 in size for storing the None in the end of each epoch.
+            kwargs['async_loader_queue_size'] = max(1, min(10000 // kwargs['batch_size'], kwargs['limit_step_per_epoch'] // 4)) + 1
 
         self.val_dl = dataloader_class(**kwargs)
         return self.val_dl
