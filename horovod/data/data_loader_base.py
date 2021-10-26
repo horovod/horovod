@@ -95,7 +95,6 @@ class AsyncDataLoaderMixin(object):
         """
         try:
             while not self.finished_event.is_set():
-                print("PENG==> 2")
                 for batch in self._iterate():
                     if self.finished_event.is_set():
                         break
@@ -118,20 +117,13 @@ class AsyncDataLoaderMixin(object):
             if not self.started:
                 self.started = True
                 self.thread.start()
-            # remove the left over None if there is from last run.
-            first = True
 
             while True:
-                print("PENG==> 3")
                 batch = self.queue.get()
-                if batch is None and first:
-                    print('PENG==> first in batch')
-                    continue
                 if batch is None:
                     break
                 if isinstance(batch, Exception):
                     raise batch
-                first = False
                 yield self._process_batch(batch)
         else:
             for batch in self._iterate():
