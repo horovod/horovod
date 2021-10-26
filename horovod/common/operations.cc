@@ -159,7 +159,18 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
         new MPI_GPUAllreduce(&gpu_context, &state)));
 
 #elif HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
-    adasum_ops.push_back(std::shared_ptr<AllreduceOp>(new AdasumGpuAllreduceOp(&global_mpi_context, &nccl_context, &gpu_context, &state)));
+    #if HAVE_MPI
+      if (global_mpi_context.IsEnabled()){
+        adasum_ops.push_back(std::shared_ptr<AllreduceOp>(
+            new AdasumGpuAllreduceOp(&global_mpi_context, &nccl_context, &gpu_context, &state)));
+      }
+    #endif
+    #if HAVE_GLOO
+      if (global_gloo_context.IsEnabled()) {
+        adasum_ops.push_back(std::shared_ptr<AllreduceOp>(
+            new AdasumGpuAllreduceOp(&global_gloo_context, &nccl_context, &gpu_context, &state)));
+      }
+    #endif
 
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new NCCLHierarchicalAllreduce(
@@ -206,6 +217,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 
 #if HAVE_GLOO
   if (global_gloo_context.IsEnabled()) {
+    adasum_ops.push_back(
+        std::shared_ptr<AllreduceOp>(new AdasumGlooAllreduceOp(&global_gloo_context, &state)));
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new GlooAllreduce(&state)));
     allgather_ops.push_back(
@@ -231,7 +244,7 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #endif
 
 #if HAVE_MPI
-  if (global_mpi_context.IsEnabled()){
+  if (global_mpi_context.IsEnabled()) {
     adasum_ops.push_back(
         std::shared_ptr<AllreduceOp>(new AdasumMPIAllreduceOp(&global_mpi_context, &state)));
     allreduce_ops.push_back(
