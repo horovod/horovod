@@ -84,7 +84,9 @@ class AsyncDataLoaderMixin(object):
                     self.queue.get_nowait()
                 except Empty:
                     break
+                print("PENG==> 1")
             self.thread.join()
+        print("Closing the AsyncDataLoaderMixin finish.")
 
     def _async_worker(self):
         """
@@ -93,6 +95,7 @@ class AsyncDataLoaderMixin(object):
         """
         try:
             while not self.finished_event.is_set():
+                print("PENG==> 2")
                 for batch in self._iterate():
                     if self.finished_event.is_set():
                         break
@@ -119,6 +122,7 @@ class AsyncDataLoaderMixin(object):
             if not self.queue.empty() and self.queue[0] is None:
                 self.queue.get()
             while True:
+                print("PENG==> 3")
                 batch = self.queue.get()
                 if batch is None:
                     break
