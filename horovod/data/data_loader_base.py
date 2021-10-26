@@ -85,7 +85,6 @@ class AsyncDataLoaderMixin(object):
                 except Empty:
                     break
             self.thread.join()
-        print("Closing the AsyncDataLoaderMixin finish.")
 
     def _async_worker(self):
         """
