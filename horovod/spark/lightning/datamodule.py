@@ -97,7 +97,7 @@ class PetastormDataModule(pl.LightningDataModule):
             kwargs['shuffling_queue_capacity'] = self.shuffle_size
             # To avoid loading too much data in memory, need to limit the queue size so it will
             # only load 1/4 of the data or less than the 10000 rows. (batch_size * queue_size)
-            kwargs['async_loader_queue_size'] = max(1, min(10000 // kwargs['batch_size'], kwargs['limit_step_per_epoch'] // 4)) + 1
+            kwargs['async_loader_queue_size'] = max(4, min(10000 // kwargs['batch_size'], kwargs['limit_step_per_epoch'] // 4)) + 1
 
         self.train_dl = dataloader_class(**kwargs)
         return self.train_dl
