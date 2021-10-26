@@ -84,7 +84,6 @@ class AsyncDataLoaderMixin(object):
                     self.queue.get_nowait()
                 except Empty:
                     break
-                print("PENG==> 1")
             self.thread.join()
         print("Closing the AsyncDataLoaderMixin finish.")
 
