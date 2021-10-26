@@ -25,10 +25,10 @@
 namespace horovod {
 namespace common {
 
-class AdasumMPIAllreduceOp : public AdasumMPI, public AllreduceOp {
+class AdasumGlooAllreduceOp : public AdasumGloo, public AllreduceOp {
 public:
-  AdasumMPIAllreduceOp(MPIContext* mpi_context,
-                       HorovodGlobalState* global_state);
+  AdasumGlooAllreduceOp(MPIContext* mpi_context,
+                        HorovodGlobalState* global_state);
 
   Status Execute(std::vector<TensorTableEntry>& entries,
                  const Response& response) override;

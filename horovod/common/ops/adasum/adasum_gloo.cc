@@ -26,7 +26,7 @@ AdasumGloo::~AdasumGloo() {
   }
 }
 
-void AdasumMPI::InitializeVHDDReductionComms() {
+void AdasumGloo::InitializeVHDDReductionComms() {
   int rank = gloo_context_.ctx->rank;
   int size = gloo_context_.ctx->size;
 
@@ -66,38 +66,30 @@ void AdasumMPI::InitializeVHDDReductionComms() {
   reduction_comms_initialized = true;
 }
 
-int AdasumMPI::GetLocalRankWithComm(MPI_Comm local_comm) {
-  int local_rank = 0;
-  MPI_Comm_rank(local_comm, &local_rank);
-  return local_rank;
+int AdasumGloo::GetLocalRankWithComm(gloo::Context local_comm) {
+  return local_comm.rank();
 }
 
-int AdasumMPI::GetSizeWithComm(MPI_Comm comm) {
-  int size = 0;
-  MPI_Comm_size(comm, &size);
-  return size;
+int AdasumGloo::GetSizeWithComm(gloo::Context comm) {
+  return comm.rank();
 }
 
-void AdasumMPI::SumAllreduceWithComm(std::vector<TensorTableEntry>& entries,
-                                     void* data, int num_elements,
-                                     DataType horovod_datatype, MPI_Comm comm,
-                                     HorovodGlobalState* global_state) {
-  int status;
+void AdasumGloo::SumAllreduceWithComm(std::vector<TensorTableEntry>& entries,
+                                      void* data, int num_elements,
+                                      DataType horovod_datatype, gloo::Context comm,
+                                      HorovodGlobalState* global_state) {
   auto& timeline = global_state->timeline;
-  timeline.ActivityStartAll(entries, MPI_ALLREDUCE);
-  status = MPI_Allreduce(MPI_IN_PLACE, data, num_elements,
-                         mpi_context_->GetMPIDataType(horovod_datatype),
-                         MPI_SUM, comm);
+  timeline.ActivityStartAll(entries, GLOO_ALLREDUCE);
+  std::unique_ptr<IGlooAlgorithms> gloo_algos(
+      GetAlgorithmsForType(horovod_datatype, &gloo_context_));
+  gloo_algos->Allreduce(data, num_elements);
   timeline.ActivityEndAll(entries);
-  if (status != MPI_SUCCESS) {
-    throw std::logic_error("MPI_Allreduce failed, see MPI output for details.");
-  }
 }
 
-void AdasumMPI::PointToPointSendRecv(
+void AdasumGloo::PointToPointSendRecv(
     void* input_data_buffer, int64_t input_buffer_length,
     void* output_data_buffer, int64_t output_buffer_length,
-    DataType horovod_datatype, int dst_src_rank, int tag, MPI_Comm communicator,
+    DataType horovod_datatype, int dst_src_rank, int tag, gloo::Context communicator,
     HorovodGlobalState* global_state) {
   int status;
   int element_size =
