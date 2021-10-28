@@ -75,16 +75,25 @@ class AsyncDataLoaderMixin(object):
         """
         Close the async data loader.
         """
-        print("Closing the AsyncDataLoaderMixin.")
+        print("close_async_loader[{self}:{self.async_loader_queue_size}], Closing the AsyncDataLoaderMixin.")
         if self.async_loader_queue_size > 0 and self.started:
             self.finished_event.set()
+            c = 0
             while True:
                 try:
                     # Drain buffer
-                    self.queue.get_nowait()
+                    batch = self.queue.get_nowait()
+                    msg = f'{batch}'
+                    msg = msg if len(msg) <= 20 else msg[:20]
+                    print(f"close_async_loader[{self}:{self.async_loader_queue_size}], discarding: {msg}")
+                    c += 1
+                    if c == 2000:
+                        break
                 except Empty:
                     break
+            print(f"close_async_loader[{self}:{self.async_loader_queue_size}], joining...")
             self.thread.join()
+            print(f"close_async_loader[{self}:{self.async_loader_queue_size}], joined.")
 
     def _async_worker(self):
         """
@@ -92,17 +101,28 @@ class AsyncDataLoaderMixin(object):
         User need to implement self._iterate() to read the data.
         """
         try:
+            c = 0
             while not self.finished_event.is_set():
                 for batch in self._iterate():
                     if self.finished_event.is_set():
                         break
                     self.queue.put(batch)
+
+                    if c % 1000 == 0:
+                        msg = f'{batch}'
+                        msg = msg if len(msg) <= 20 else msg[:20]
+                        print(f"_async_worker[{self}:{self.async_loader_queue_size}], get batch [{c}] {msg}.")
+                    c += 1
+
+                print(f"_async_worker[{self}:{self.async_loader_queue_size}], finish reading a sycal. [{c}], append None.")
+                c += 1
                 self.queue.put(None)
         except Exception as ex:
             self.queue.put(ex)
             self.queue.put(None)
         finally:
             self.queue.put(None)
+        print(f"_async_worker[{self}:{self.async_loader_queue_size}], stoped")
 
     def __iter__(self):
         """
@@ -116,13 +136,24 @@ class AsyncDataLoaderMixin(object):
                 self.started = True
                 self.thread.start()
 
+            c = 0
             while True:
                 batch = self.queue.get()
+
+                if c % 1000 == 0:
+                    msg = f'{batch}'
+                    msg = msg if len(msg) <= 20 else msg[:20]
+                    print(f"__iter__[{self}:{self.async_loader_queue_size}], get batch [{c}] {msg}.")
+
                 if batch is None:
+                    print(f"__iter__[{self}:{self.async_loader_queue_size}], batch [{c}] is None.")
                     break
                 if isinstance(batch, Exception):
                     raise batch
+
+                c += 1
                 yield self._process_batch(batch)
+
         else:
             for batch in self._iterate():
                 yield self._process_batch(batch)
