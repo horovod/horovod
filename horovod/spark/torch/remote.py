@@ -103,6 +103,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
         from petastorm.pytorch import BatchedDataLoader, InMemBatchedDataLoader
         import torch
         import horovod.torch as hvd
+        import horovod as _horovod
 
         # Deserializing objects
         model_opt_state = torch.load(model_opt_state_serialized)
@@ -226,6 +227,12 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                 reader_factory_kwargs['pyarrow_serialize'] = True
             else:
                 reader_factory = make_batch_reader
+
+            # Call _setup again in process set module to point shared lib to torch's module
+            # since the lib path might be overwritten in remote trainer.
+            _horovod.common.process_sets._setup(_horovod.torch.mpi_ops._basics)
+            if user_verbose:
+                print(f"Set shared lib path to: {_horovod.common.process_sets._basics.MPI_LIB_CTYPES}")
 
             # Petastorm: read data from the store with the correct shard for this rank
             # setting num_epochs=None will cause an infinite iterator

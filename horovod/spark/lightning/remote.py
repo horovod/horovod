@@ -97,6 +97,8 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
     def train(serialized_model):
         import horovod.torch as hvd
+        import horovod as _horovod
+
         # Horovod: initialize library.
         hvd.init()
         _checkpoint_callback = None
@@ -215,6 +217,12 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                 trainer.profiler.filename = "profile"
 
             print(f"pytorch_lightning version={pl.__version__}")
+
+            # Call _setup again in process set module to point shared lib to torch's module
+            # since the lib path might be overwritten in remote trainer.
+            _horovod.common.process_sets._setup(_horovod.torch.mpi_ops._basics)
+            if verbose:
+                print(f"Set shared lib path to: {_horovod.common.process_sets._basics.MPI_LIB_CTYPES}")
 
             dataset = data_module(train_dir=remote_store.train_data_path,
                                   val_dir=remote_store.val_data_path,
