@@ -138,12 +138,13 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                     _checkpoint_callback = cb
                     require_checkpoint = True
                     break
-            if not _checkpoint_callback:
-                # By default 'monitor'=None which saves a checkpoint only for the last epoch.
-                _checkpoint_callback = ModelCheckpoint(dirpath=ckpt_dir,
-                                                       filename=ckpt_filename,
-                                                       verbose=True)
-                callbacks.append(_checkpoint_callback)
+            # if not _checkpoint_callback:
+            #     # By default 'monitor'=None which saves a checkpoint only for the last epoch.
+            #     _checkpoint_callback = ModelCheckpoint(dirpath=ckpt_dir,
+            #                                            filename=ckpt_filename,
+            #                                            verbose=True)
+            #     require_checkpoint = True
+            #     callbacks.append(_checkpoint_callback)
 
             if remote_store.saving_runs and hvd.rank() == 0:
                 # Horovod: sync checkpoint and logging files only on rank 0 to
