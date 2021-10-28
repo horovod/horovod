@@ -213,7 +213,7 @@ diagnose failures:
 Installing Horovod with Conda (+pip)
 ------------------------------------
 
-To use Conda to install PyTorch, TensorFlow, MXNet, Horovod, as well as GPU depdencies such as 
+To use Conda to install PyTorch, TensorFlow, MXNet, Horovod, as well as GPU depdencies such as
 NVIDIA CUDA Toolkit, cuDNN, NCCL, etc., see `Build a Conda Environment with GPU Support for Horovod <conda.rst>`_.
 
 Environment Variables
@@ -236,6 +236,7 @@ Possible values are given in curly brackets: {}.
 * ``HOROVOD_WITHOUT_GLOO`` - {1}. Skip building with Gloo support.
 * ``HOROVOD_WITH_MPI`` - {1}. Require that Horovod is built with MPI support enabled.
 * ``HOROVOD_WITHOUT_MPI`` - {1}. Skip building with MPI support.
+* ``HOROVOD_MPI_HOME`` - path where MPI include and lib directories can be found.
 * ``HOROVOD_GPU`` - {CUDA, ROCM}. Framework to use for GPU operations.
 * ``HOROVOD_GPU_OPERATIONS`` - {NCCL, MPI}. Framework to use for GPU tensor allreduce, allgather, and broadcast.
 * ``HOROVOD_GPU_ALLREDUCE`` - {NCCL, MPI}. Framework to use for GPU tensor allreduce.

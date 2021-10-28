@@ -30,7 +30,7 @@ _UNKNOWN_IMPL = 'Unknown'
 _MISSING_IMPL = 'Missing'
 
 # Open MPI Flags
-_OMPI_FLAGS = ['-mca pml ob1', '-mca btl ^openib']
+_OMPI_FLAGS = ['-mca pml ob1,ucx', '-mca btl ^openib']
 # Spectrum MPI Flags
 _SMPI_FLAGS = []
 _SMPI_FLAGS_TCP = ['-tcp']
