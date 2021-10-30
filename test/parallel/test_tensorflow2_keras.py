@@ -31,13 +31,15 @@ from tensorflow.python.keras.optimizer_v2 import optimizer_v2
 import horovod.tensorflow.keras as hvd
 
 
-_PRE_TF_2_4_0 = LooseVersion(tf.__version__) < LooseVersion("2.4.0")
 _PRE_TF_2_2_0 = LooseVersion(tf.__version__) < LooseVersion("2.2.0")
 
-# Set environment variable to enable adding/removing process sets after initializing Horovod.
+# Set environment variable to enable adding/removing process sets after
+# initializing Horovod.
 os.environ["HOROVOD_DYNAMIC_PROCESS_SETS"] = "1"
 
-@pytest.mark.skipif(LooseVersion(tf.__version__) < LooseVersion('2.0.0'), reason='TensorFlow v2 tests')
+
+@pytest.mark.skipif(LooseVersion(tf.__version__) <
+                    LooseVersion('2.0.0'), reason='TensorFlow v2 tests')
 class Tf2KerasTests(tf.test.TestCase):
     """
     Tests for ops in horovod.tensorflow.keras.
@@ -52,13 +54,15 @@ class Tf2KerasTests(tf.test.TestCase):
         for gpu in gpus:
             tf.config.experimental.set_memory_growth(gpu, True)
         if gpus:
-            tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
+            tf.config.experimental.set_visible_devices(
+                gpus[hvd.local_rank()], 'GPU')
 
     def test_train_model_lr_schedule(self):
         initial_lr = 0.1 * hvd.size()
         opt = tf.keras.optimizers.Adam()
         opt = hvd.DistributedOptimizer(opt)
-        linear_multiplier = lambda epoch: epoch
+        def linear_multiplier(epoch):
+            return epoch
 
         model = keras.models.Sequential()
         model.add(keras.layers.Dense(2, input_shape=(3,)))
@@ -80,33 +84,39 @@ class Tf2KerasTests(tf.test.TestCase):
 
                 # # test learning rate schedule callback
                 if epoch > 5 and epoch < 10:
-                    assert lr <= initial_lr*1e-1 or np.isclose(lr, initial_lr*1e-1)
+                    assert lr <= initial_lr * \
+                        1e-1 or np.isclose(lr, initial_lr * 1e-1)
                 if epoch > 10 and epoch < 15:
-                    assert lr < initial_lr*1e-2  or np.isclose(lr, initial_lr*1e-2)
+                    assert lr < initial_lr * \
+                        1e-2 or np.isclose(lr, initial_lr * 1e-2)
                 if epoch >= 15 and epoch < 20:
-                    assert np.isclose(lr, initial_lr*linear_multiplier(epoch))
+                    assert np.isclose(
+                        lr, initial_lr * linear_multiplier(epoch))
 
         # No assertions needed for BroadcastGlobalVariableCallbacks
         # We just need to verify that it doesn't hang or error
         callbacks = [
             hvd.callbacks.BroadcastGlobalVariablesCallback(0),
             hvd.callbacks.MetricAverageCallback(),
-            hvd.callbacks.LearningRateWarmupCallback(initial_lr=initial_lr,
-                                                     warmup_epochs=5),
-            hvd.callbacks.LearningRateScheduleCallback(initial_lr=initial_lr,
-                                                       multiplier=1e-1,
-                                                       start_epoch=5,
-                                                       end_epoch=10),
-            hvd.callbacks.LearningRateScheduleCallback(initial_lr=initial_lr,
-                                                       multiplier=1e-2,
-                                                       start_epoch=10,
-                                                       end_epoch=15),
-            hvd.callbacks.LearningRateScheduleCallback(initial_lr=initial_lr,
-                                                       multiplier=linear_multiplier,
-                                                       start_epoch=15,
-                                                       end_epoch=20),
-            StoreLearningRateCallback()
-        ]
+            hvd.callbacks.LearningRateWarmupCallback(
+                initial_lr=initial_lr,
+                warmup_epochs=5),
+            hvd.callbacks.LearningRateScheduleCallback(
+                initial_lr=initial_lr,
+                multiplier=1e-1,
+                start_epoch=5,
+                end_epoch=10),
+            hvd.callbacks.LearningRateScheduleCallback(
+                initial_lr=initial_lr,
+                multiplier=1e-2,
+                start_epoch=10,
+                end_epoch=15),
+            hvd.callbacks.LearningRateScheduleCallback(
+                initial_lr=initial_lr,
+                multiplier=linear_multiplier,
+                start_epoch=15,
+                end_epoch=20),
+            StoreLearningRateCallback()]
         train_history = model.fit(x,
                                   y,
                                   steps_per_epoch=5,
@@ -154,7 +164,7 @@ class Tf2KerasTests(tf.test.TestCase):
         ])
         model1.build((2, 2))
         model1.set_weights(
-            [np.array([[v,  v], [v, v]], dtype=np.float32),
+            [np.array([[v, v], [v, v]], dtype=np.float32),
              np.array([v, v], dtype=np.float32)])
 
         model2 = tf.keras.Sequential([
@@ -162,12 +172,18 @@ class Tf2KerasTests(tf.test.TestCase):
         ])
         model2.build((2, 2))
         model2.set_weights(
-            [np.array([[1.0,  2.0], [3.0, 4.0]], dtype=np.float32),
+            [np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32),
              np.array([0.0, 0.0], dtype=np.float32)])
 
         optimizer = tf.optimizers.Adam(0.001 * hvd.size())
 
-        state = hvd.elastic.KerasState(model1, optimizer, batch=20 + hvd.rank(), epoch=10 + hvd.rank())
+        state = hvd.elastic.KerasState(
+            model1,
+            optimizer,
+            batch=20 +
+            hvd.rank(),
+            epoch=10 +
+            hvd.rank())
         state.sync()
 
         model1_weights = model1.get_weights()
@@ -204,13 +220,12 @@ class Tf2KerasTests(tf.test.TestCase):
         assert state.batch == 21
         assert state.epoch == 11
 
-    @pytest.mark.skipif(LooseVersion(tf.__version__) >= LooseVersion('2.4.0'),
-                        reason='TensorFlow 2.4.0+ does not support this path')
     def test_gradient_aggregation(self):
         class TestingOptimizer(optimizer_v2.OptimizerV2):
             """
             Custom optimizer we use for testing gradient aggregation.
             """
+
             def get_config(self):
                 config = super(TestingOptimizer, self).get_config()
                 return config
@@ -234,8 +249,6 @@ class Tf2KerasTests(tf.test.TestCase):
             sum_per_aggregation = 0.0
             for _ in range(backward_passes_per_step):
                 grads_for_batch = 0.0
-                for rank in range(hvd.size()):
-                    grads_for_batch += rank
 
                 # Apply `average_aggregated_gradients`.
                 grads_for_batch /= float(backward_passes_per_step)
@@ -243,35 +256,36 @@ class Tf2KerasTests(tf.test.TestCase):
                 # Averages across workers.
                 sum_per_aggregation += grads_for_batch / float(hvd.size())
 
-            aggregations_completed = math.floor((batch_id + 1) / backward_passes_per_step)
+            aggregations_completed = math.floor(
+                (batch_id + 1) / backward_passes_per_step)
             return aggregations_completed * sum_per_aggregation
 
         @tf.function
-        def apply_gradients_in_tf_function(gradient_updates, model_variables, **kwargs):
+        def apply_gradients_in_tf_function(grads_and_vars, **kwargs):
             # Apply gradient updates in tf.function to reproduce how it is
             # done inside `model.fit()`.
-            hvd_optimizer.apply_gradients(zip(gradient_updates, model_variables), **kwargs)
+            hvd_optimizer.apply_gradients(grads_and_vars, **kwargs)
 
-        gradients = [tf.constant([float(hvd.rank())])]
-        variables = [tf.Variable([0.0])]
+        var = tf.Variable([0.0])
+        variables = [var]
+        def loss():
+            return (var - var)
         for idx in range(10):
             if _PRE_TF_2_2_0:
-                updated_gradients = hvd_optimizer._allreduce(gradients, variables)
-                apply_gradients_in_tf_function(updated_gradients, variables)
-            elif _PRE_TF_2_4_0:
+                grads_and_vars = hvd_optimizer._compute_gradients(
+                    loss, var_list=variables)
+                apply_gradients_in_tf_function(grads_and_vars, variables)
+            else:
                 # In 2.2 and 2.3 the horovod optimizer sets `_HAS_AGGREGATE_GRAD = True`.
                 # This configures tf.keras to call `_aggregate_gradients()` outside of
                 # `apply_gradients()` and to set `experimental_aggregate_gradients` to
                 # False when calling `apply_gradients()` to prevent it from calling
                 # `_aggregate_gradients()` again.
-                updated_gradients = hvd_optimizer._aggregate_gradients(
-                    zip(gradients, variables))
+
+                grads_and_vars = hvd_optimizer._compute_gradients(
+                    loss, var_list=variables)
                 apply_gradients_in_tf_function(
-                    updated_gradients, variables,
-                    experimental_aggregate_gradients=False
-                )
-            else:
-                raise RuntimeError("This test should be skipped ...")
+                    grads_and_vars, experimental_aggregate_gradients=False)
 
             updated_variable_value = variables[0][0].numpy()
             assert updated_variable_value == compute_expected_value(idx)
@@ -289,13 +303,17 @@ class Tf2KerasTests(tf.test.TestCase):
         class TestOptimizer(keras.optimizers.Optimizer):
             def __init__(self, name, **kwargs):
                 super(TestOptimizer, self).__init__(name, **kwargs)
+
             def get_gradients(self, loss, params):
                 assert len(params) == 1
                 return [tf.constant([float(hvd.rank())])]
+
             def _create_slots(self, var_list):
                 pass
+
             def _resource_apply_dense(self, grad, var, apply_state):
                 return var.assign_add(grad)
+
             def get_config(self):
                 config = super(TestOptimizer, self).get_config()
                 return config
@@ -309,7 +327,10 @@ class Tf2KerasTests(tf.test.TestCase):
         computed_value = variable.numpy()
 
         if subset.included():
-            self.assertAlmostEqual(computed_value, sum(range(0, size, 2)) / subset.size())
+            self.assertAlmostEqual(
+                computed_value, sum(
+                    range(
+                        0, size, 2)) / subset.size())
         else:
             self.assertAlmostEqual(computed_value, float(hvd.rank()))
 
