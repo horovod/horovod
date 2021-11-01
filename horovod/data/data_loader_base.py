@@ -79,7 +79,6 @@ class AsyncDataLoaderMixin(object):
         print(f"close_async_loader[{self.async_loader_queue_size}], Closing the AsyncDataLoaderMixin.")
         if self.async_loader_queue_size > 0 and self.started:
             self.finished_event.set()
-            residue = len(self.queue)
             c = 0
             while True:
                 try:
@@ -90,9 +89,9 @@ class AsyncDataLoaderMixin(object):
 
                     c += 1
 
-                    # Force out if hanging.
-                    if c > 2000 and c > 2 * residue:
-                        print(f"close_async_loader: Force break out after {c} get_nowait. (residue was {residue}).")
+                    # Force break out if hanging. We assume hanging if already pop enough items from queue.
+                    if c > max(2 * self.async_loader_queue_size, 200):
+                        print(f"close_async_loader: ERROR!!! Force break out after {c} times get_nowait.")
                         break
                 except Empty:
                     break
