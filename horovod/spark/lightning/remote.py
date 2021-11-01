@@ -60,6 +60,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     loader_num_epochs = estimator.getLoaderNumEpochs()
     verbose = (estimator.getVerbose() > 0)
     trainer_args = estimator.getTrainerArgs()
+    debug_data_loader = estimator.getDebugDataLoader()
 
     # get logger
     logger = estimator.getLogger()
@@ -138,13 +139,12 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                     _checkpoint_callback = cb
                     require_checkpoint = True
                     break
-            # if not _checkpoint_callback:
-            #     # By default 'monitor'=None which saves a checkpoint only for the last epoch.
-            #     _checkpoint_callback = ModelCheckpoint(dirpath=ckpt_dir,
-            #                                            filename=ckpt_filename,
-            #                                            verbose=True)
-            #     require_checkpoint = True
-            #     callbacks.append(_checkpoint_callback)
+            if not _checkpoint_callback:
+                # By default 'monitor'=None which saves a checkpoint only for the last epoch.
+                _checkpoint_callback = ModelCheckpoint(dirpath=ckpt_dir,
+                                                       filename=ckpt_filename,
+                                                       verbose=True)
+                callbacks.append(_checkpoint_callback)
 
             if remote_store.saving_runs and hvd.rank() == 0:
                 # Horovod: sync checkpoint and logging files only on rank 0 to
@@ -200,8 +200,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                       'reload_dataloaders_every_epoch': False,
                       'progress_bar_refresh_rate': progress_bar_refresh_rate,
                       'terminate_on_nan': terminate_on_nan,
-                    #   'profiler': profiler
-                      'profiler': 'simple'
+                      'profiler': profiler
                       }
             if trainer_args:
                 kwargs.update(trainer_args)
@@ -209,7 +208,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             print("Creating trainer with: \n ", kwargs)
             trainer = Trainer(**kwargs)
 
-            if trainer.profiler:
+            if profiler != 'simple' and trainer.profiler:
                 print(f"Set profiler's logs_path to {logs_path}")
                 trainer.profiler.dirpath = logs_path
                 # filename where the profiler results will be saved instead of
@@ -231,7 +230,8 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                                   schema_fields=schema_fields, storage_options=storage_options,
                                   steps_per_epoch_train=_train_steps_per_epoch,
                                   steps_per_epoch_val=_val_steps_per_epoch,
-                                  verbose=verbose)
+                                  verbose=verbose,
+                                  debug_data_loader=debug_data_loader)
             trainer.fit(model, dataset)
 
             if hvd.rank() == 0:

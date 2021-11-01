@@ -17,9 +17,6 @@ from queue import Queue, Empty
 from threading import Thread, Event
 
 
-DEBUGGING = False
-
-
 class BaseDataLoader(object):
     def __len__(self):
         """
@@ -58,11 +55,12 @@ class AsyncDataLoaderMixin(object):
         class PytorchAsyncDataLoader(AsyncDataLoaderMixin, PytorchDataLoader):
     """
 
-    def __init__(self, async_loader_queue_size=5, *args, **kwargs):
+    def __init__(self, async_loader_queue_size=5, debug_data_loader=False, *args, **kwargs):
         """
         initialize the async data loader. Need to add this in the __init__() of the implementation
         """
         self.async_loader_queue_size = async_loader_queue_size
+        self.debug_data_loader = debug_data_loader
         super().__init__(*args, **kwargs)
 
         print(f"Apply the AsyncDataLoaderMixin on top of the data loader, async_loader_queue_size={async_loader_queue_size}. ")
@@ -81,19 +79,21 @@ class AsyncDataLoaderMixin(object):
         print(f"close_async_loader[{self.async_loader_queue_size}], Closing the AsyncDataLoaderMixin.")
         if self.async_loader_queue_size > 0 and self.started:
             self.finished_event.set()
+            residue = len(self.queue)
             c = 0
             while True:
                 try:
                     # Drain buffer
-                    batch = self.queue.get_nowait()
-                    if DEBUGGING:
-                        msg = f'{batch}'
-                        msg = msg if len(msg) <= 30 else msg[:30]
-                        print(f"close_async_loader[{self.async_loader_queue_size}], discarding: {msg}")
-                        c += 1
-                        if c == 2000:
-                            print("close_async_loader break out after 2000.")
-                            break
+                    self.queue.get_nowait()
+                    if self.debug_data_loader:
+                        print(f"close_async_loader[{self.async_loader_queue_size}], discarded batch #{c} from Queue.")
+
+                    c += 1
+
+                    # Force out if hanging.
+                    if c > 2000 and c > 2 * residue:
+                        print(f"close_async_loader: Force break out after {c} get_nowait. (residue was {residue}).")
+                        break
                 except Empty:
                     break
             print(f"close_async_loader[{self.async_loader_queue_size}], joining...")
@@ -113,14 +113,12 @@ class AsyncDataLoaderMixin(object):
                         break
                     self.queue.put(batch)
 
-                    if DEBUGGING:
-                        msg = f'{batch}'
-                        msg = msg if len(msg) <= 30 else msg[:30]
-                        print(f"_async_worker[{self.async_loader_queue_size}], puth batch [{c}] {msg}.")
+                    if self.debug_data_loader:
+                        print(f"_async_worker[{self.async_loader_queue_size}], push batch #{c}.")
                         c += 1
 
-                if DEBUGGING:
-                    print(f"_async_worker[{self.async_loader_queue_size}], finish reading a sycal. [{c}], append None.")
+                if self.debug_data_loader:
+                    print(f"_async_worker[{self.async_loader_queue_size}], finish reading at #{c}, reset debugging counter, append None to queue.")
                     c = 0
 
                 self.queue.put(None)
@@ -147,19 +145,18 @@ class AsyncDataLoaderMixin(object):
             while True:
                 batch = self.queue.get()
 
-                if DEBUGGING:
-                    msg = f'{batch}'
-                    msg = msg if len(msg) <= 30 else msg[:30]
-                    print(f"__iter__[{self.async_loader_queue_size}], get batch [{c}] {msg}.")
+                if self.debug_data_loader:
+                    print(f"__iter__[{self.async_loader_queue_size}], get batch #{c}.")
                     c += 1
 
                 if batch is None:
+                    if self.debug_data_loader:
+                        print(f"__iter__[{self.async_loader_queue_size}], get None from queue at #{c}.")
                     break
                 if isinstance(batch, Exception):
                     raise batch
 
                 yield self._process_batch(batch)
-
         else:
             for batch in self._iterate():
                 yield self._process_batch(batch)

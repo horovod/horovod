@@ -252,7 +252,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  data_module=None,
                  loader_num_epochs=None,
                  terminate_on_nan=False,
-                 profiler=None):
+                 profiler=None,
+                 debug_data_loader=False):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
@@ -267,7 +268,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                          loader_num_epochs=None,
                          terminate_on_nan=False,
                          profiler=None,
-                         trainer_args=None)
+                         trainer_args=None,
+                         debug_data_loader=False)
 
         kwargs = self._input_kwargs
 
@@ -351,6 +353,12 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def _get_optimizer(self):
         return self.getOrDefault(self.optimizer)
+
+    def setDebugDataLoader(self, value):
+        return self._set(debug_data_loader=value)
+
+    def getDebugDataLoader(self):
+        return self.getOrDefault(self.debug_data_loader)
 
     # Overwrites Model's getOptimizer method
     def getOptimizer(self):
