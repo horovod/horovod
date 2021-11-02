@@ -34,6 +34,7 @@ except ImportError:
 
 from horovod.runner.common.util import codec, host_hash as hh
 from horovod.spark.common import cache, constants
+from horovod.spark.common.store import LocalStore
 
 _training_cache = cache.TrainingDataCache()
 
@@ -549,6 +550,9 @@ def _wait_file_available(store, url_list):
     all files are available for reading. This is useful in some filesystems, such as S3 which only
     providing eventually consistency.
     """
+    if isinstance(store, LocalStore):
+        return
+
     def wait_for_file(path):
         end_time = time.time() + _FILE_AVAILABILITY_WAIT_TIMEOUT_SECS
         while time.time() < end_time:
