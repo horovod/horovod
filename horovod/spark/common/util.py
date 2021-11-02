@@ -638,9 +638,9 @@ def _get_or_create_dataset(key, store, df, feature_columns, label_columns,
                     .mode('overwrite') \
                     .parquet(val_data_path)
 
-            saved_file_list = train_df._jdf.inputFiles()
+            saved_file_list = list(train_df._jdf.inputFiles())
             if val_df:
-                saved_file_list += val_df._jdf.inputFiles()
+                saved_file_list += list(val_df._jdf.inputFiles())
 
             _wait_file_available(store, saved_file_list)
 
