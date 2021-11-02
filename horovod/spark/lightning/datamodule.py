@@ -16,7 +16,8 @@ class PetastormDataModule(pl.LightningDataModule):
                  reader_worker_count: int=2, transform_spec=None, inmemory_cache_all=False,
                  cur_shard: int=0, shard_count: int=1, schema_fields=None, storage_options=None,
                  steps_per_epoch_train: int=1, steps_per_epoch_val: int=1, verbose=True,
-                 debug_data_loader: bool=False, **kwargs):
+                 debug_data_loader: bool=False, train_async_data_loader_queue_size: int=None,
+                 val_async_data_loader_queue_size: int=None, **kwargs):
         super().__init__()
         self.train_dir = train_dir
         self.val_dir = val_dir
@@ -38,6 +39,8 @@ class PetastormDataModule(pl.LightningDataModule):
         self.steps_per_epoch_val = steps_per_epoch_val
         self.verbose = verbose
         self.debug_data_loader = debug_data_loader
+        self.train_async_data_loader_queue_size = train_async_data_loader_queue_size
+        self.val_async_data_loader_queue_size = val_async_data_loader_queue_size
 
     def setup(self, stage=None):
         # Assign train/val datasets for use in dataloaders
@@ -98,10 +101,16 @@ class PetastormDataModule(pl.LightningDataModule):
         else:
             dataloader_class = PytorchInfiniteAsyncDataLoader
             kwargs['shuffling_queue_capacity'] = self.shuffle_size
-            # To avoid loading too much data in memory, need to calculate the queue size
-            # dynamicaly, and limit the data loaded in queue.
-            # Add 1 in size for storing the None in the end of each epoch.
-            kwargs['async_loader_queue_size'] = max(1, min(2000000 // kwargs['batch_size'], kwargs['limit_step_per_epoch'] // 4)) + 1
+
+            if self.debug_data_loader:
+                kwargs['debug_data_loader'] = self.debug_data_loader
+
+            if self.train_async_data_loader_queue_size is not None:
+                kwargs['async_loader_queue_size'] = self.train_async_data_loader_queue_size
+            else:
+                # To avoid loading too much data in memory, only load 1/4 of the batches in queue.
+                # Add 1 in size for storing the None in the end of each epoch.
+                kwargs['async_loader_queue_size'] = max(1, kwargs['limit_step_per_epoch'] // 4) + 1
 
         self.train_dl = dataloader_class(**kwargs)
         return self.train_dl
@@ -123,12 +132,16 @@ class PetastormDataModule(pl.LightningDataModule):
         else:
             dataloader_class = PytorchInfiniteAsyncDataLoader
             kwargs['shuffling_queue_capacity'] = 0
-            # To avoid loading too much data in memory, need to calculate the queue size
-            # dynamicaly, and limit the data loaded in queue.
-            # Add 1 in size for storing the None in the end of each epoch.
-            kwargs['async_loader_queue_size'] = max(1, min(200000 // kwargs['batch_size'], kwargs['limit_step_per_epoch'] // 4)) + 1
+
             if self.debug_data_loader:
                 kwargs['debug_data_loader'] = self.debug_data_loader
+
+            if self.val_async_data_loader_queue_size is not None:
+                kwargs['async_loader_queue_size'] = self.val_async_data_loader_queue_size
+            else:
+                # To avoid loading too much data in memory, only load 1/4 of the batches in queue.
+                # Add 1 in size for storing the None in the end of each epoch.
+                kwargs['async_loader_queue_size'] = max(1, kwargs['limit_step_per_epoch'] // 4) + 1
 
         self.val_dl = dataloader_class(**kwargs)
         return self.val_dl

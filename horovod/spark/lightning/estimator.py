@@ -176,6 +176,9 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         validation_steps_per_epoch: (Optional) Number of validation steps to perform each epoch.
         verbose:    (Optional)Verbosity level, 0 for silent. (default: 1).
         profiler:    (Optional)Lightning profiler to enable. (disabled by default).
+        debug_data_loader: (Optional)Debugging flag for data loader.
+        train_async_data_loader_queue_size: (Optional) Size of train async data loader queue.
+        val_async_data_loader_queue_size: (Optional) Size of val async data loader queue.
     """
 
     input_shapes = Param(Params._dummy(), 'input_shapes', 'input layer shapes')
@@ -210,6 +213,11 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     trainer_args = Param(Params._dummy(), 'trainer_args',
                         'Dict of args to pass to trainer, it will be used to add/override the args which estimator gives to trainer. ')
 
+    debug_data_loader = Param(Params._dummy(), 'debug_data_loader', 'Flag to enable debug for data laoder.')
+
+    train_async_data_loader_queue_size = Param(Params._dummy(), 'train_async_data_loader_queue_size', 'Size of train async data loader queue.')
+
+    val_async_data_loader_queue_size = Param(Params._dummy(), 'val_async_data_loader_queue_size', 'Size of val async data loader queue.')
 
     @keyword_only
     def __init__(self,
@@ -253,7 +261,9 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  loader_num_epochs=None,
                  terminate_on_nan=False,
                  profiler=None,
-                 debug_data_loader=False):
+                 debug_data_loader=False,
+                 train_async_data_loader_queue_size=None,
+                 val_async_data_loader_queue_size=None):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
@@ -269,7 +279,9 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                          terminate_on_nan=False,
                          profiler=None,
                          trainer_args=None,
-                         debug_data_loader=False)
+                         debug_data_loader=False,
+                         train_async_data_loader_queue_size=None,
+                         val_async_data_loader_queue_size=None)
 
         kwargs = self._input_kwargs
 
@@ -359,6 +371,18 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def getDebugDataLoader(self):
         return self.getOrDefault(self.debug_data_loader)
+
+    def setTrainAsyncDataLoaderQueueSize(self, value):
+        return self._set(train_async_data_loader_queue_size=value)
+
+    def getTrainAsyncDataLoaderQueueSize(self):
+        return self.getOrDefault(self.train_async_data_loader_queue_size)
+
+    def setValAsyncDataLoaderQueueSize(self, value):
+        return self._set(val_async_data_loader_queue_size=value)
+
+    def getValAsyncDataLoaderQueueSize(self):
+        return self.getOrDefault(self.val_async_data_loader_queue_size)
 
     # Overwrites Model's getOptimizer method
     def getOptimizer(self):

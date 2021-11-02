@@ -61,6 +61,8 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     verbose = (estimator.getVerbose() > 0)
     trainer_args = estimator.getTrainerArgs()
     debug_data_loader = estimator.getDebugDataLoader()
+    train_async_data_loader_queue_size = estimator.getTrainAsyncDataLoaderQueueSize()
+    val_async_data_loader_queue_size = estimator.getValAsyncDataLoaderQueueSize()
 
     # get logger
     logger = estimator.getLogger()
@@ -231,7 +233,9 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                                   steps_per_epoch_train=_train_steps_per_epoch,
                                   steps_per_epoch_val=_val_steps_per_epoch,
                                   verbose=verbose,
-                                  debug_data_loader=debug_data_loader)
+                                  debug_data_loader=debug_data_loader,
+                                  train_async_data_loader_queue_size=train_async_data_loader_queue_size,
+                                  val_async_data_loader_queue_size=val_async_data_loader_queue_size)
             trainer.fit(model, dataset)
 
             if hvd.rank() == 0:
