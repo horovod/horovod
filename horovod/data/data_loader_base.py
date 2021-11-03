@@ -55,7 +55,7 @@ class AsyncDataLoaderMixin(object):
         class PytorchAsyncDataLoader(AsyncDataLoaderMixin, PytorchDataLoader):
     """
 
-    def __init__(self, async_loader_queue_size=5, debug_data_loader=False, *args, **kwargs):
+    def __init__(self, async_loader_queue_size=64, debug_data_loader=False, *args, **kwargs):
         """
         initialize the async data loader. Need to add this in the __init__() of the implementation
         """
