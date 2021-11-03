@@ -80,6 +80,9 @@ RUN if [[ ${SPARK_PACKAGE} != *"-preview"* ]]; then \
 # Updating to 1.7.0 to pass ray tests
 RUN pip install --no-cache-dir ray==1.7.0
 
+# Pin protobuf to 3.9.2 to make tensorflow 2.5.1 happy.
+RUN pip install --no-cache-dir protobuf==3.9.2
+
 # Install MPI.
 RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
         wget --progress=dot:mega -O /tmp/openmpi-3.0.0-bin.tar.gz https://github.com/horovod/horovod/files/1596799/openmpi-3.0.0-bin.tar.gz && \
