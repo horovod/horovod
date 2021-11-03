@@ -207,35 +207,50 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             if trainer_args:
                 kwargs.update(trainer_args)
 
-            print("Creating trainer with: \n ", kwargs)
+            if verbose and hvd.rank() == 0:
+                print("Creating trainer with: \n ", kwargs)
+
             trainer = Trainer(**kwargs)
 
             if profiler != 'simple' and trainer.profiler:
-                print(f"Set profiler's logs_path to {logs_path}")
+                print(f"Set profiler's logs_path for {hvd.rank()} to {logs_path}")
                 trainer.profiler.dirpath = logs_path
                 # filename where the profiler results will be saved instead of
                 # printing to stdout. The .txt extension will be used automatically.
                 trainer.profiler.filename = "profile"
 
-            print(f"pytorch_lightning version={pl.__version__}")
+            if verbose and hvd.rank() == 0:
+                print(f"pytorch_lightning version={pl.__version__}")
 
-            dataset = data_module(train_dir=remote_store.train_data_path,
-                                  val_dir=remote_store.val_data_path,
-                                  num_train_epochs=epochs,
-                                  has_val=should_validate is not None,
-                                  train_batch_size=batch_size, val_batch_size=val_batch_size,
-                                  shuffle_size=calculate_shuffle_buffer_size(),
-                                  num_reader_epochs=loader_num_epochs,
-                                  reader_pool_type=reader_pool_type, reader_worker_count=train_reader_worker_count,
-                                  transform_spec=transformation, inmemory_cache_all=inmemory_cache_all,
-                                  cur_shard=hvd.rank(), shard_count=hvd.size(),
-                                  schema_fields=schema_fields, storage_options=storage_options,
-                                  steps_per_epoch_train=_train_steps_per_epoch,
-                                  steps_per_epoch_val=_val_steps_per_epoch,
-                                  verbose=verbose,
-                                  debug_data_loader=debug_data_loader,
-                                  train_async_data_loader_queue_size=train_async_data_loader_queue_size,
-                                  val_async_data_loader_queue_size=val_async_data_loader_queue_size)
+            data_module_kwargs = {
+                'train_dir': remote_store.train_data_path,
+                'val_dir': remote_store.val_data_path,
+                'num_train_epochs': epochs,
+                'has_val': should_validate is not None,
+                'train_batch_size': batch_size,
+                'val_batch_size': val_batch_size,
+                'shuffle_size': calculate_shuffle_buffer_size(),
+                'num_reader_epochs': loader_num_epochs,
+                'reader_pool_type': reader_pool_type,
+                'reader_worker_count': train_reader_worker_count,
+                'transform_spec': transformation,
+                'inmemory_cache_all': inmemory_cache_all,
+                'cur_shard': hvd.rank(),
+                'shard_count': hvd.size(),
+                'schema_fields': schema_fields,
+                'storage_options': storage_options,
+                'steps_per_epoch_train': _train_steps_per_epoch,
+                'steps_per_epoch_val': _val_steps_per_epoch,
+                'verbose': verbose,
+                'debug_data_loader': debug_data_loader,
+                'train_async_data_loader_queue_size': train_async_data_loader_queue_size,
+                'val_async_data_loader_queue_size': val_async_data_loader_queue_size,
+            }
+            if debug_data_loader and hvd.rank() == 0:
+                print(f"Creating data module with args:\n {data_module_kwargs}")
+
+            dataset = data_module(**data_module_kwargs)
+
             trainer.fit(model, dataset)
 
             if hvd.rank() == 0:

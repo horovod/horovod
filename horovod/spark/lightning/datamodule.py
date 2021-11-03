@@ -42,6 +42,10 @@ class PetastormDataModule(pl.LightningDataModule):
         self.train_async_data_loader_queue_size = train_async_data_loader_queue_size
         self.val_async_data_loader_queue_size = val_async_data_loader_queue_size
 
+        if debug_data_loader:
+            print("Creating data_module")
+
+
     def setup(self, stage=None):
         # Assign train/val datasets for use in dataloaders
         if stage == 'fit' or stage is None:
@@ -108,7 +112,7 @@ class PetastormDataModule(pl.LightningDataModule):
             if self.train_async_data_loader_queue_size is not None:
                 if isinstance(self.train_async_data_loader_queue_size, int):
                     kwargs['async_loader_queue_size'] = self.train_async_data_loader_queue_size
-                elif isinstance(self.trainasync_data_loader_queue_size, float):
+                elif isinstance(self.train_async_data_loader_queue_size, float):
                     # use async data loader queue size as ratio of total steps.
                     kwargs['async_loader_queue_size'] = int(kwargs['limit_step_per_epoch'] * self.train_async_data_loader_queue_size)
                 else:
