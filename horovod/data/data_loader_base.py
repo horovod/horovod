@@ -89,15 +89,18 @@ class AsyncDataLoaderMixin(object):
 
                     c += 1
 
-                    # Force break out if hanging. We assume hanging if already pop enough items from queue.
+                    # Force break out if hanging. We assume hanging if already pop items more than twice of the size of the queue.
                     if c > max(2 * self.async_loader_queue_size, 200):
                         print(f"close_async_loader: ERROR!!! Force break out after {c} times get_nowait.")
                         break
                 except Empty:
                     break
-            print(f"close_async_loader[{self.async_loader_queue_size}], joining...")
+            if self.debug_data_loader:
+                print(f"close_async_loader[{self.async_loader_queue_size}], joining...")
+
             self.thread.join()
-            print(f"close_async_loader[{self.async_loader_queue_size}], joined.")
+
+        print(f"close_async_loader[{self.async_loader_queue_size}] is closed.")
 
     def _async_worker(self):
         """
@@ -126,6 +129,7 @@ class AsyncDataLoaderMixin(object):
             self.queue.put(None)
         finally:
             self.queue.put(None)
+
         print(f"_async_worker[{self.async_loader_queue_size}], stoped")
 
     def __iter__(self):
