@@ -106,11 +106,13 @@ class PetastormDataModule(pl.LightningDataModule):
                 kwargs['debug_data_loader'] = self.debug_data_loader
 
             if self.train_async_data_loader_queue_size is not None:
-                kwargs['async_loader_queue_size'] = self.train_async_data_loader_queue_size
-            else:
-                # To avoid loading too much data in memory, only load 1/4 of the batches in queue.
-                # Add 1 in size for storing the None in the end of each epoch.
-                kwargs['async_loader_queue_size'] = max(1, kwargs['limit_step_per_epoch'] // 4) + 1
+                if isinstance(self.train_async_data_loader_queue_size, int):
+                    kwargs['async_loader_queue_size'] = self.train_async_data_loader_queue_size
+                elif isinstance(self.trainasync_data_loader_queue_size, float):
+                    # use async data loader queue size as ratio of total steps.
+                    kwargs['async_loader_queue_size'] = int(kwargs['limit_step_per_epoch'] * self.train_async_data_loader_queue_size)
+                else:
+                    raise RuntimeError(f"Unsupported type for train_async_data_loader_queue_size={self.train_async_data_loader_queue_size}")
 
         self.train_dl = dataloader_class(**kwargs)
         return self.train_dl
@@ -137,11 +139,13 @@ class PetastormDataModule(pl.LightningDataModule):
                 kwargs['debug_data_loader'] = self.debug_data_loader
 
             if self.val_async_data_loader_queue_size is not None:
-                kwargs['async_loader_queue_size'] = self.val_async_data_loader_queue_size
-            else:
-                # To avoid loading too much data in memory, only load 1/4 of the batches in queue.
-                # Add 1 in size for storing the None in the end of each epoch.
-                kwargs['async_loader_queue_size'] = max(1, kwargs['limit_step_per_epoch'] // 4) + 1
+                if isinstance(self.val_async_data_loader_queue_size, int):
+                    kwargs['async_loader_queue_size'] = self.val_async_data_loader_queue_size
+                elif isinstance(self.val_async_data_loader_queue_size, float):
+                    # use async data loader queue size as ratio of total steps.
+                    kwargs['async_loader_queue_size'] = int(kwargs['limit_step_per_epoch'] * self.val_async_data_loader_queue_size)
+                else:
+                    raise RuntimeError(f"Unsupported type for val_async_data_loader_queue_size={self.val_async_data_loader_queue_size}")
 
         self.val_dl = dataloader_class(**kwargs)
         return self.val_dl
