@@ -177,15 +177,9 @@ jobs:
             Single_Keras_MNIST: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
-            Spark_Keras_MNIST: true
-            Spark_Keras_Rossmann_Estimator: true
-            Spark_Keras_Rossmann_Run: true
-            Spark_Lightning_MNIST: true
-            Spark_PyTests: true
-            Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-gloo-py3_7-tf2_6_0-keras_2_6_0-torch1_9_0-mxnet1_8_0_p0-pyspark2_4_8
+          - image: test-cpu-gloo-py3_7-tf2_6_0-keras2_6_0-torch1_9_0-mxnet1_8_0_p0-pyspark2_4_8
             Elastic_Spark_TensorFlow_Tests_1: true
             Elastic_Spark_Torch_Tests: true
             Elastic_Tests_1: true
@@ -198,12 +192,9 @@ jobs:
             Gloo_TensorFlow_2_0_MNIST: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
-            Spark_Lightning_MNIST: true
-            Spark_PyTests: true
-            Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-gloo-py3_8-tf2_5_1-keras_none-torch1_8_1-mxnet1_7_0_p2-pyspark3_1_2
+          - image: test-cpu-gloo-py3_8-tf2_5_1-keras2_4_3-torch1_8_1-mxnet1_7_0_p2-pyspark3_1_2
             Elastic_Tests_1: true
             Gloo_Cluster_PyTests: true
             Gloo_MXNet_MNIST: true
@@ -214,12 +205,9 @@ jobs:
             Gloo_TensorFlow_2_0_MNIST: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
-            Spark_Lightning_MNIST: true
-            Spark_PyTests: true
-            Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-gloo-py3_8-tf2_6_0-keras_2_6_0-torch1_9_0-mxnet1_8_0_p0-pyspark3_0_3
+          - image: test-cpu-gloo-py3_8-tf2_6_0-keras2_6_0-torch1_9_0-mxnet1_8_0_p0-pyspark3_0_3
             Elastic_Spark_TensorFlow_Tests_1: true
             Elastic_Spark_Torch_Tests: true
             Elastic_Tests_1: true
@@ -232,12 +220,9 @@ jobs:
             Gloo_TensorFlow_2_0_MNIST: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
-            Spark_Lightning_MNIST: true
-            Spark_PyTests: true
-            Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-gloo-py3_8-tf2_6_0-keras_2_6_0-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
+          - image: test-cpu-gloo-py3_8-tf2_6_0-keras2_6_0-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
             Elastic_Spark_TensorFlow_Tests_1: true
             Elastic_Spark_Torch_Tests: true
             Elastic_Tests_1: true
@@ -250,12 +235,9 @@ jobs:
             Gloo_TensorFlow_2_0_MNIST: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
-            Spark_Lightning_MNIST: true
-            Spark_PyTests: true
-            Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-mpich-py3_8-tf2_6_0-keras_2_6_0-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
+          - image: test-cpu-mpich-py3_8-tf2_6_0-keras2_6_0-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
             MPI_Cluster_PyTests: true
             MPI_MXNet_MNIST: true
             MPI_Parallel_PyTests: true
@@ -267,7 +249,7 @@ jobs:
             Single_PyTorch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-openmpi-gloo-py3_8-tf2_6_0-keras_2_6_0-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
+          - image: test-cpu-openmpi-gloo-py3_8-tf2_6_0-keras2_6_0-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
             Elastic_Tests_1: true
             Gloo_Cluster_PyTests: true
             Gloo_MXNet_MNIST: true
@@ -286,12 +268,9 @@ jobs:
             Run_PyTests_test_interactiverun: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
-            Spark_Lightning_MNIST: true
-            Spark_PyTests: true
-            Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-openmpi-py3_8-tf2_6_0-keras_2_6_0-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
+          - image: test-cpu-openmpi-py3_8-tf2_6_0-keras2_6_0-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
             MPI_Cluster_PyTests: true
             MPI_MXNet_MNIST: true
             MPI_Parallel_PyTests: true
@@ -302,9 +281,6 @@ jobs:
             Run_PyTests_test_interactiverun: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
-            Spark_Lightning_MNIST: true
-            Spark_PyTests: true
-            Spark_Torch_MNIST: true
             build_timeout: 30
 
           - image: test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_6_0-mxnet1_5_1_p0-pyspark3_1_2
@@ -316,13 +292,13 @@ jobs:
           - image: test-gpu-gloo-py3_8-tf2_4_3-keras2_3_1-torch1_7_1-mxnet1_7_0_p1-pyspark3_1_2
             build_timeout: 40
 
-          - image: test-gpu-gloo-py3_8-tf2_5_1-keras_none-torch1_8_1-mxnet1_8_0_p0-pyspark3_1_2
+          - image: test-gpu-gloo-py3_8-tf2_5_1-keras2_4_3-torch1_8_1-mxnet1_8_0_p0-pyspark3_1_2
             build_timeout: 40
 
-          - image: test-gpu-openmpi-gloo-py3_8-tf2_6_0-keras_2_6_0-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
+          - image: test-gpu-openmpi-gloo-py3_8-tf2_6_0-keras2_6_0-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
             build_timeout: 40
 
-          - image: test-mixed-openmpi-gloo-py3_8-tf2_6_0-keras_2_6_0-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
+          - image: test-mixed-openmpi-gloo-py3_8-tf2_6_0-keras2_6_0-torch1_9_0-mxnet1_8_0_p0-pyspark3_1_2
             build_timeout: 40
 
     steps:
@@ -1632,168 +1608,6 @@ jobs:
           docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Single_PyTorch_MNIST_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
         shell: bash
 
-      - name: "Spark Keras MNIST [attempt 1 of 3]"
-        id: Spark_Keras_MNIST_run_1
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Keras_MNIST && true
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Keras_MNIST_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Keras_MNIST_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
-        shell: bash
-
-      - name: "Spark Keras MNIST [attempt 2 of 3]"
-        id: Spark_Keras_MNIST_run_2
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Keras_MNIST && steps.Spark_Keras_MNIST_run_1.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Keras_MNIST_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Keras_MNIST_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
-        shell: bash
-
-      - name: "Spark Keras MNIST [attempt 3 of 3]"
-        id: Spark_Keras_MNIST_run_3
-        continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Keras_MNIST && steps.Spark_Keras_MNIST_run_2.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Keras_MNIST_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Keras_MNIST_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
-        shell: bash
-
-      - name: "Spark Keras Rossmann Estimator [attempt 1 of 3]"
-        id: Spark_Keras_Rossmann_Estimator_run_1
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Keras_Rossmann_Estimator && true
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Estimator_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Estimator_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01"
-        shell: bash
-
-      - name: "Spark Keras Rossmann Estimator [attempt 2 of 3]"
-        id: Spark_Keras_Rossmann_Estimator_run_2
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Keras_Rossmann_Estimator && steps.Spark_Keras_Rossmann_Estimator_run_1.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Estimator_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Estimator_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01"
-        shell: bash
-
-      - name: "Spark Keras Rossmann Estimator [attempt 3 of 3]"
-        id: Spark_Keras_Rossmann_Estimator_run_3
-        continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Keras_Rossmann_Estimator && steps.Spark_Keras_Rossmann_Estimator_run_2.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Estimator_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Estimator_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01"
-        shell: bash
-
-      - name: "Spark Keras Rossmann Run [attempt 1 of 3]"
-        id: Spark_Keras_Rossmann_Run_run_1
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Keras_Rossmann_Run && true
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Run_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Run_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.01"
-        shell: bash
-
-      - name: "Spark Keras Rossmann Run [attempt 2 of 3]"
-        id: Spark_Keras_Rossmann_Run_run_2
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Keras_Rossmann_Run && steps.Spark_Keras_Rossmann_Run_run_1.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Run_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Run_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.01"
-        shell: bash
-
-      - name: "Spark Keras Rossmann Run [attempt 3 of 3]"
-        id: Spark_Keras_Rossmann_Run_run_3
-        continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Keras_Rossmann_Run && steps.Spark_Keras_Rossmann_Run_run_2.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Run_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Run_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.01"
-        shell: bash
-
-      - name: "Spark Lightning MNIST [attempt 1 of 3]"
-        id: Spark_Lightning_MNIST_run_1
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Lightning_MNIST && true
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Lightning_MNIST_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Lightning_MNIST_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
-        shell: bash
-
-      - name: "Spark Lightning MNIST [attempt 2 of 3]"
-        id: Spark_Lightning_MNIST_run_2
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Lightning_MNIST && steps.Spark_Lightning_MNIST_run_1.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Lightning_MNIST_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Lightning_MNIST_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
-        shell: bash
-
-      - name: "Spark Lightning MNIST [attempt 3 of 3]"
-        id: Spark_Lightning_MNIST_run_3
-        continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Lightning_MNIST && steps.Spark_Lightning_MNIST_run_2.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Lightning_MNIST_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Lightning_MNIST_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
-        shell: bash
-
-      - name: "Spark PyTests [attempt 1 of 3]"
-        id: Spark_PyTests_run_1
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_PyTests && true
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_PyTests_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_PyTests_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 40m bash -c "cd /horovod/test/integration && (ls -1 test_spark*.py | xargs -n 1 /bin/bash /pytest_standalone.sh spark)"
-        shell: bash
-
-      - name: "Spark PyTests [attempt 2 of 3]"
-        id: Spark_PyTests_run_2
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_PyTests && steps.Spark_PyTests_run_1.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_PyTests_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_PyTests_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 40m bash -c "cd /horovod/test/integration && (ls -1 test_spark*.py | xargs -n 1 /bin/bash /pytest_standalone.sh spark)"
-        shell: bash
-
-      - name: "Spark PyTests [attempt 3 of 3]"
-        id: Spark_PyTests_run_3
-        continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_PyTests && steps.Spark_PyTests_run_2.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_PyTests_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_PyTests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 40m bash -c "cd /horovod/test/integration && (ls -1 test_spark*.py | xargs -n 1 /bin/bash /pytest_standalone.sh spark)"
-        shell: bash
-
-      - name: "Spark Torch MNIST [attempt 1 of 3]"
-        id: Spark_Torch_MNIST_run_1
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Torch_MNIST && true
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Torch_MNIST_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Torch_MNIST_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
-        shell: bash
-
-      - name: "Spark Torch MNIST [attempt 2 of 3]"
-        id: Spark_Torch_MNIST_run_2
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Torch_MNIST && steps.Spark_Torch_MNIST_run_1.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Torch_MNIST_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Torch_MNIST_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
-        shell: bash
-
-      - name: "Spark Torch MNIST [attempt 3 of 3]"
-        id: Spark_Torch_MNIST_run_3
-        continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Torch_MNIST && steps.Spark_Torch_MNIST_run_2.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Torch_MNIST_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Torch_MNIST_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
-        shell: bash
-
       - name: Upload Test Results
         uses: actions/upload-artifact@v2
         if: always() && contains(matrix.image, '-cpu-')
@@ -1840,9 +1654,6 @@ jobs:
             Gloo_TensorFlow_2_0_MNIST: true
             Single_MXNet2_MNIST: true
             Single_PyTorch_MNIST: true
-            Spark_Lightning_MNIST: true
-            Spark_PyTests: true
-            Spark_Torch_MNIST: true
             build_timeout: 30
 
           - image: test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_1_2
@@ -3153,168 +2964,6 @@ jobs:
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Single_PyTorch_MNIST_ONECCL_OFI_run_3
           docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Single_PyTorch_MNIST_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets"
-        shell: bash
-
-      - name: "Spark Keras MNIST [attempt 1 of 3]"
-        id: Spark_Keras_MNIST_run_1
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Keras_MNIST && true
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Keras_MNIST_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Keras_MNIST_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
-        shell: bash
-
-      - name: "Spark Keras MNIST [attempt 2 of 3]"
-        id: Spark_Keras_MNIST_run_2
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Keras_MNIST && steps.Spark_Keras_MNIST_run_1.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Keras_MNIST_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Keras_MNIST_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
-        shell: bash
-
-      - name: "Spark Keras MNIST [attempt 3 of 3]"
-        id: Spark_Keras_MNIST_run_3
-        continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Keras_MNIST && steps.Spark_Keras_MNIST_run_2.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Keras_MNIST_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Keras_MNIST_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
-        shell: bash
-
-      - name: "Spark Keras Rossmann Estimator [attempt 1 of 3]"
-        id: Spark_Keras_Rossmann_Estimator_run_1
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Keras_Rossmann_Estimator && true
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Estimator_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Estimator_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01"
-        shell: bash
-
-      - name: "Spark Keras Rossmann Estimator [attempt 2 of 3]"
-        id: Spark_Keras_Rossmann_Estimator_run_2
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Keras_Rossmann_Estimator && steps.Spark_Keras_Rossmann_Estimator_run_1.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Estimator_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Estimator_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01"
-        shell: bash
-
-      - name: "Spark Keras Rossmann Estimator [attempt 3 of 3]"
-        id: Spark_Keras_Rossmann_Estimator_run_3
-        continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Keras_Rossmann_Estimator && steps.Spark_Keras_Rossmann_Estimator_run_2.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Estimator_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Estimator_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01"
-        shell: bash
-
-      - name: "Spark Keras Rossmann Run [attempt 1 of 3]"
-        id: Spark_Keras_Rossmann_Run_run_1
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Keras_Rossmann_Run && true
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Run_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Run_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.01"
-        shell: bash
-
-      - name: "Spark Keras Rossmann Run [attempt 2 of 3]"
-        id: Spark_Keras_Rossmann_Run_run_2
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Keras_Rossmann_Run && steps.Spark_Keras_Rossmann_Run_run_1.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Run_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Run_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.01"
-        shell: bash
-
-      - name: "Spark Keras Rossmann Run [attempt 3 of 3]"
-        id: Spark_Keras_Rossmann_Run_run_3
-        continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Keras_Rossmann_Run && steps.Spark_Keras_Rossmann_Run_run_2.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Run_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Keras_Rossmann_Run_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.01"
-        shell: bash
-
-      - name: "Spark Lightning MNIST [attempt 1 of 3]"
-        id: Spark_Lightning_MNIST_run_1
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Lightning_MNIST && true
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Lightning_MNIST_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Lightning_MNIST_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
-        shell: bash
-
-      - name: "Spark Lightning MNIST [attempt 2 of 3]"
-        id: Spark_Lightning_MNIST_run_2
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Lightning_MNIST && steps.Spark_Lightning_MNIST_run_1.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Lightning_MNIST_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Lightning_MNIST_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
-        shell: bash
-
-      - name: "Spark Lightning MNIST [attempt 3 of 3]"
-        id: Spark_Lightning_MNIST_run_3
-        continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Lightning_MNIST && steps.Spark_Lightning_MNIST_run_2.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Lightning_MNIST_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Lightning_MNIST_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
-        shell: bash
-
-      - name: "Spark PyTests [attempt 1 of 3]"
-        id: Spark_PyTests_run_1
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_PyTests && true
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_PyTests_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_PyTests_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 40m bash -c "cd /horovod/test/integration && (ls -1 test_spark*.py | xargs -n 1 /bin/bash /pytest_standalone.sh spark)"
-        shell: bash
-
-      - name: "Spark PyTests [attempt 2 of 3]"
-        id: Spark_PyTests_run_2
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_PyTests && steps.Spark_PyTests_run_1.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_PyTests_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_PyTests_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 40m bash -c "cd /horovod/test/integration && (ls -1 test_spark*.py | xargs -n 1 /bin/bash /pytest_standalone.sh spark)"
-        shell: bash
-
-      - name: "Spark PyTests [attempt 3 of 3]"
-        id: Spark_PyTests_run_3
-        continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_PyTests && steps.Spark_PyTests_run_2.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_PyTests_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_PyTests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 40m bash -c "cd /horovod/test/integration && (ls -1 test_spark*.py | xargs -n 1 /bin/bash /pytest_standalone.sh spark)"
-        shell: bash
-
-      - name: "Spark Torch MNIST [attempt 1 of 3]"
-        id: Spark_Torch_MNIST_run_1
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Torch_MNIST && true
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Torch_MNIST_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Torch_MNIST_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
-        shell: bash
-
-      - name: "Spark Torch MNIST [attempt 2 of 3]"
-        id: Spark_Torch_MNIST_run_2
-        continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Torch_MNIST && steps.Spark_Torch_MNIST_run_1.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Torch_MNIST_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Torch_MNIST_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
-        shell: bash
-
-      - name: "Spark Torch MNIST [attempt 3 of 3]"
-        id: Spark_Torch_MNIST_run_3
-        continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.Spark_Torch_MNIST && steps.Spark_Torch_MNIST_run_2.outcome == 'failure'
-        run: |
-          mkdir -p artifacts/${{ matrix.image }}/Spark_Torch_MNIST_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Spark_Torch_MNIST_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
         shell: bash
 
       - name: Upload Test Results
