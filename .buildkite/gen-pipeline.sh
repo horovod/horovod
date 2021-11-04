@@ -300,7 +300,7 @@ run_gloo_integration() {
     run_test "${test}" "${queue}" \
       ":factory: Elastic Spark TensorFlow Tests (${test})" \
       "bash -c \"cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml ${elastic_spark_tensorflow}\"" \
-      20
+      40
   fi
 
   # Elastic Horovod on Spark tests are very expensive (high timeout)
@@ -309,7 +309,7 @@ run_gloo_integration() {
     run_test "${test}" "${queue}" \
       ":factory: Elastic Spark Torch Tests (${test})" \
       "bash -c \"cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py\"" \
-      20
+      40
   fi
 
 }
@@ -332,7 +332,7 @@ run_spark_integration() {
       run_test "${test}" "${queue}" \
         ":spark: Spark PyTests (${test})" \
         "bash -c \"cd /horovod/test/integration && (ls -1 test_spark*.py | xargs -n 1 /bin/bash /pytest_standalone.sh spark)\"" \
-        20
+        40
     fi
 
     if [[ ${test} != *"tf2"* && ${test} != *"tfhead"* ]]; then
