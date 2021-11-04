@@ -109,6 +109,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
 
         hvd = get_horovod()
         hvd.init()
+
         pin_gpu(hvd, tf, k)
 
         if not user_shuffle_buffer_size:
@@ -128,6 +129,9 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
 
         # Verbose mode 1 will print a progress bar
         verbose = user_verbose if hvd.rank() == 0 else 0
+
+        if verbose:
+            print(f"Shared lib path is pointing to: {_horovod.common.process_sets._basics.MPI_LIB_CTYPES}")
 
         transform_spec = None
         if transformation:
@@ -226,12 +230,6 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
             else:
                 reader_factory = make_batch_reader
                 is_batch_reader = True
-
-            # Call _setup again in process set module to point shared lib to tensorflow's module
-            # since the lib path might be overwritten in remote trainer.
-            _horovod.common.process_sets._setup(_horovod.tensorflow.mpi_ops._basics)
-            if verbose:
-                print(f"Set shared lib path to: {_horovod.common.process_sets._basics.MPI_LIB_CTYPES}")
 
             with reader_factory(remote_store.train_data_path,
                                 num_epochs=1,

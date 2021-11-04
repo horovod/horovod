@@ -39,7 +39,6 @@ else:
     check_installed_version('mxnet', mx.__version__)
 
 # import basic methods
-init = _basics.init
 shutdown = _basics.shutdown
 is_initialized = _basics.is_initialized
 start_timeline = _basics.start_timeline
@@ -60,6 +59,11 @@ ddl_built = _basics.ddl_built
 ccl_built = _basics.ccl_built
 cuda_built = _basics.cuda_built
 rocm_built = _basics.rocm_built
+
+def init(*args, **kwargs):
+    _basics.init(*args, **kwargs)
+    # Call set up again to make sure the basics is in sync
+    _setup_process_sets(_basics)
 
 dll_path = os.path.join(os.path.dirname(__file__),
                         'mpi_lib' + get_ext_suffix())

@@ -57,7 +57,6 @@ else:
 _basics = _HorovodBasics(__file__, 'mpi_lib')
 
 # import basic methods
-init = _basics.init
 shutdown = _basics.shutdown
 is_initialized = _basics.is_initialized
 start_timeline = _basics.start_timeline
@@ -83,6 +82,11 @@ rocm_built = _basics.rocm_built
 Average = _basics.Average
 Sum = _basics.Sum
 Adasum = _basics.Adasum
+
+def init(*args, **kwargs):
+    _basics.init(*args, **kwargs)
+    # Call set up again to make sure the basics is in sync
+    _setup_process_sets(_basics)
 
 is_homogeneous = _basics.is_homogeneous
 
