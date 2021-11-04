@@ -541,7 +541,8 @@ def _train_val_split(df, validation):
     return train_df, val_df, validation_ratio
 
 
-_FILE_AVAILABILITY_WAIT_TIMEOUT_SECS = 30
+_FILE_AVAILABILITY_WAIT_TIMEOUT_SECS = \
+    int(os.environ.get('FILE_AVAILABILITY_WAIT_TIMEOUT_SECS', '30'))
 
 
 def _wait_file_available(store, url_list):
@@ -562,7 +563,7 @@ def _wait_file_available(store, url_list):
             time.sleep(0.1)
         return False
 
-    pool = ThreadPool(64)
+    pool = ThreadPool(min(len(url_list), 64))
     try:
         results = pool.map(wait_for_file, url_list)
         failed_list = [url for url, result in zip(url_list, results) if not result]
