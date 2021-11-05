@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
 if(POLICY CMP0074)
     # 1. Introduced with 3.12.4.
     # 2. *_ROOT variables will be checked
