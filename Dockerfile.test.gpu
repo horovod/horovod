@@ -35,7 +35,6 @@ RUN CUDNN_MAJOR=$(cut -d '.' -f 1 <<< "${CUDNN_VERSION}"); \
     apt-get update -qq && apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
         wget \
         ca-certificates \
-        cmake \
         openssh-client \
         openssh-server \
         git \
@@ -45,6 +44,16 @@ RUN CUDNN_MAJOR=$(cut -d '.' -f 1 <<< "${CUDNN_VERSION}"); \
         libcudnn${CUDNN_MAJOR}=${CUDNN_VERSION} \
         libnccl2=${NCCL_VERSION_OVERRIDE} \
         libnccl-dev=${NCCL_VERSION_OVERRIDE}
+
+# Install recent CMake.
+RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor \
+    > /etc/apt/trusted.gpg.d/kitware.gpg \
+ && . /etc/lsb-release \
+ && apt-add-repository "deb https://apt.kitware.com/ubuntu/ $DISTRIB_CODENAME main" \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends \
+    cmake=3.18.* \
+    cmake-data=3.18.*
 
 # setup ssh service
 RUN ssh-keygen -f /root/.ssh/id_rsa -q -N ''

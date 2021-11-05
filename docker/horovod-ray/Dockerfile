@@ -13,15 +13,33 @@ ARG TORCHVISION_VERSION=0.9.1+cu111
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-cu"]
 
+# Package source for recent CMake.
+RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor \
+    > /etc/apt/trusted.gpg.d/kitware.gpg \
+ && . /etc/lsb-release \
+ && apt-add-repository "deb https://apt.kitware.com/ubuntu/ $DISTRIB_CODENAME main"
+
 RUN sudo apt-get update && DEBIAN_FRONTEND="noninteractive" sudo apt-get install -y \
         build-essential \
         wget \
         git \
         curl \
-        cmake \
         rsync \
         vim \
     && sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/*
+
+# Install recent CMake.
+RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor \
+    > /etc/apt/trusted.gpg.d/kitware.gpg \
+ && . /etc/lsb-release \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends software-properties-common \
+ && apt-add-repository "deb https://apt.kitware.com/ubuntu/ $DISTRIB_CODENAME main" \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends \
+    cmake=3.18.* \
+    cmake-data=3.18.* \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install PyTorch
 RUN pip install --no-cache-dir \

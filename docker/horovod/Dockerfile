@@ -24,7 +24,6 @@ SHELL ["/bin/bash", "-cu"]
 
 RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
         build-essential \
-        cmake \
         g++-7 \
         git \
         curl \
@@ -46,6 +45,19 @@ RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-
         openssh-client \
         openssh-server \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install recent CMake.
+RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor \
+    > /etc/apt/trusted.gpg.d/kitware.gpg \
+ && . /etc/lsb-release \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends software-properties-common \
+ && apt-add-repository "deb https://apt.kitware.com/ubuntu/ $DISTRIB_CODENAME main" \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends \
+    cmake=3.18.* \
+    cmake-data=3.18.* \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Open MPI
 RUN wget --progress=dot:mega -O /tmp/openmpi-3.0.0-bin.tar.gz https://github.com/horovod/horovod/files/1596799/openmpi-3.0.0-bin.tar.gz && \
