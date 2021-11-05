@@ -42,6 +42,7 @@ including:
 Building the Docker images should be run from the root Horovod directory. For example:
 
 ```
+export DOCKER_BUILDKIT=1
 docker build \
     --build-arg TENSORFLOW_VERSION=2.3.1 \
     --build-arg PYTORCH_VERSION=1.7.0+cu110 \
