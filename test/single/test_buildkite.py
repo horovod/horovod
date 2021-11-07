@@ -47,6 +47,11 @@ class BuildKiteTests(unittest.TestCase):
         stdout = io.StringIO()
         stderr = io.StringIO()
         try:
+            if env is not None:
+                env = {
+                    'PATH': os.environ['PATH'],
+                    **env,
+                }
             exit_code = safe_shell_exec.execute(cmd, env=env, stdout=stdout, stderr=stderr)
             return exit_code, stdout.getvalue(), stderr.getvalue()
         finally:
