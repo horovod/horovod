@@ -13,8 +13,10 @@
 // limitations under the License.
 // =============================================================================
 
+#include "version.h"
+
 #if HAVE_GPU
-#if TORCH_VERSION >= 1005000000
+#if TORCH_VERSION_NUM >= 1005000000
 #include <c10/cuda/CUDAStream.h>
 #include <c10/cuda/CUDAException.h>
 #else
@@ -31,7 +33,7 @@
 #include "ready_event.h"
 #include "cuda_util.h"
 
-#if TORCH_VERSION < 1005000000
+#if TORCH_VERSION_NUM < 1005000000
 #if HAVE_GPU
 extern THCState* state;
 #endif
@@ -59,7 +61,7 @@ TorchReadyEvent::TorchReadyEvent(int device) : device_(device) {
       cuda_event_ = queue.front();
       queue.pop();
     } else {
-      #if TORCH_VERSION >= 1005000000
+      #if TORCH_VERSION_NUM >= 1005000000
       C10_CUDA_CHECK(cudaEventCreateWithFlags(
           &cuda_event_, cudaEventBlockingSync | cudaEventDisableTiming));
       #else
@@ -68,7 +70,7 @@ TorchReadyEvent::TorchReadyEvent(int device) : device_(device) {
       #endif
     }
   }
-  #if TORCH_VERSION >= 1005000000
+  #if TORCH_VERSION_NUM >= 1005000000
   auto stream = c10::cuda::getCurrentCUDAStream(device_);
   C10_CUDA_CHECK(cudaEventRecord(cuda_event_, stream));
   #else
@@ -86,7 +88,7 @@ TorchReadyEvent::~TorchReadyEvent() {
 }
 
 bool TorchReadyEvent::Ready() const {
-  #if TORCH_VERSION >= 1005000000
+  #if TORCH_VERSION_NUM >= 1005000000
   C10_CUDA_CHECK(cudaEventSynchronize(cuda_event_));
   #else
   THCudaCheck(cudaEventSynchronize(cuda_event_));

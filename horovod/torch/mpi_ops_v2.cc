@@ -15,8 +15,10 @@
 // limitations under the License.
 // =============================================================================
 
+#include "version.h"
+
 #if HAVE_GPU
-#if TORCH_VERSION >= 1005000000
+#if TORCH_VERSION_NUM >= 1005000000
 #include <c10/cuda/CUDAStream.h>
 #include <c10/cuda/CUDAException.h>
 #else
@@ -36,7 +38,7 @@
 #include "handle_manager.h"
 #include "ready_event.h"
 
-#if TORCH_VERSION < 1005000000
+#if TORCH_VERSION_NUM < 1005000000
 #if HAVE_GPU
 extern THCState* state;
 #endif
@@ -67,7 +69,7 @@ int GetDeviceID(const ::torch::Tensor& tensor) {
 } // namespace
 
 void DivideInPlace(::torch::Tensor& tensor, int divisor) {
-#if TORCH_VERSION >= 1005000000
+#if TORCH_VERSION_NUM >= 1005000000
   if (isIntegralType(tensor.scalar_type())) {
     tensor.floor_divide_(divisor);
     return;
@@ -78,7 +80,7 @@ void DivideInPlace(::torch::Tensor& tensor, int divisor) {
 
 #if HAVE_GPU
 gpuStream_t GetGPUStream(int device) {
-  #if TORCH_VERSION >= 1005000000
+  #if TORCH_VERSION_NUM >= 1005000000
   return c10::cuda::getCurrentCUDAStream(device);
   #else
   return THCState_getCurrentStreamOnDevice(state, device);
