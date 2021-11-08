@@ -100,8 +100,14 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
     def train(serialized_model):
         import horovod.torch as hvd
+
         # Horovod: initialize library.
         hvd.init()
+
+        if verbose:
+            import horovod as _horovod
+            print(f"Shared lib path is pointing to: {_horovod.common.process_sets._basics.MPI_LIB_CTYPES}")
+
         _checkpoint_callback = None
         require_checkpoint = False
 
