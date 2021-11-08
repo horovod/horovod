@@ -455,7 +455,7 @@ def main():
                 f'            HOROVOD_WITHOUT_MPI: 1\n'
                 f'            HOROVOD_WITH_GLOO: 1\n'
                 f'            TENSORFLOW: 2.5.1\n'
-                f'            KERAS: 2.4.3\n'
+                f'            KERAS: 2.5.0rc0\n'
                 f'            PYTORCH: 1.8.1\n'
                 f'            PYTORCH_LIGHTNING: 1.3.8\n'
                 f'            TORCHVISION: 0.9.1\n'
