@@ -69,7 +69,9 @@ def shutdown(*args, **kwargs):
 def init(*args, **kwargs):
     global _handle_map
     _handle_map = {}
-    return _basics.init(*args, **kwargs)
+    _basics.init(*args, **kwargs)
+    # Call set up again to make sure the basics is in sync
+    _setup_process_sets(_basics)
 
 # import reduction op values
 Average = _basics.Average
