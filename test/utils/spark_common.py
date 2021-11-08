@@ -16,11 +16,8 @@
 import contextlib
 import os
 import platform
-import pytest
 import stat
 import sys
-import threading
-import time
 
 from tempfile import TemporaryDirectory
 
@@ -33,7 +30,6 @@ from pyspark.sql.types import FloatType, IntegerType, StructField, StructType
 
 from horovod.runner.common.util import secret
 from horovod.spark.common.store import LocalStore
-from horovod.spark.common.util import _wait_file_available
 from horovod.spark.driver.driver_service import SparkDriverService, SparkDriverClient
 from horovod.spark.task.task_service import SparkTaskService, SparkTaskClient
 
@@ -236,41 +232,3 @@ def create_mnist_data(spark):
 
 def create_test_data_from_schema(spark, data, schema):
     return spark.createDataFrame(data, schema=schema)
-
-
-def test_wait_file_available():
-    with tempdir() as d:
-        pq_dir = os.path.join(d, 'test_ev')
-        os.makedirs(pq_dir)
-        file1_path = os.path.join(pq_dir, 'file1')
-        file2_path = os.path.join(pq_dir, 'file2')
-        url1 = 'file://' + file1_path.replace(os.sep, '/')
-        url2 = 'file://' + file2_path.replace(os.sep, '/')
-
-        url_list = [url1, url2]
-
-        def create_file(p):
-            with open(p, 'w'):
-                pass
-
-        # 1. test all files exists.
-        create_file(file1_path)
-        create_file(file2_path)
-        _wait_file_available(url_list)
-
-        # 2. test one file does not exists. Raise error.
-        os.remove(file2_path)
-        with pytest.raises(
-                RuntimeError,
-                match='Timeout while waiting for all parquet-store files to appear at urls'
-        ):
-            _wait_file_available(url_list)
-
-        # 3. test one file accessible after 1 second.
-        def delay_create_file2():
-            time.sleep(1)
-            create_file(file2_path)
-
-        threading.Thread(target=delay_create_file2()).start()
-
-        _wait_file_available(url_list)

@@ -17,9 +17,7 @@ import horovod.spark.common._namedtuple_fix
 
 import contextlib
 import os
-import time
 
-from multiprocessing.pool import ThreadPool
 import pyarrow as pa
 import numpy as np
 import pyspark.sql.functions as f
@@ -541,41 +539,6 @@ def _train_val_split(df, validation):
     return train_df, val_df, validation_ratio
 
 
-_FILE_AVAILABILITY_WAIT_TIMEOUT_SECS = \
-    int(os.environ.get('FILE_AVAILABILITY_WAIT_TIMEOUT_SECS', '30'))
-
-
-def _wait_file_available(store, url_list):
-    """Waiting about _FILE_AVAILABILITY_WAIT_TIMEOUT_SECS seconds (default 30 seconds) to make sure
-    all files are available for reading. This is useful in some filesystems, such as S3 which only
-    providing eventually consistency.
-    """
-    # Import LocalStore here to avoid circular import
-    from horovod.spark.common.store import LocalStore
-    if isinstance(store, LocalStore):
-        return
-
-    def wait_for_file(path):
-        end_time = time.time() + _FILE_AVAILABILITY_WAIT_TIMEOUT_SECS
-        while time.time() < end_time:
-            if store.exists(path):
-                return True
-            time.sleep(0.1)
-        return False
-
-    pool = ThreadPool(min(len(url_list), 64))
-    try:
-        results = pool.map(wait_for_file, url_list)
-        failed_list = [url for url, result in zip(url_list, results) if not result]
-        if failed_list:
-            raise RuntimeError('Timeout while waiting for all parquet-store files to appear at urls {failed_list},'
-                               'Please check whether these files were saved successfully when materializing dataframe.'
-                               .format(failed_list=','.join(failed_list)))
-    finally:
-        pool.close()
-        pool.join()
-
-
 def _get_or_create_dataset(key, store, df, feature_columns, label_columns,
                            validation, sample_weight_col, compress_sparse,
                            num_partitions, num_processes, verbose):
@@ -638,12 +601,6 @@ def _get_or_create_dataset(key, store, df, feature_columns, label_columns,
                     .write \
                     .mode('overwrite') \
                     .parquet(val_data_path)
-
-            saved_file_list = list(train_df._jdf.inputFiles())
-            if val_df:
-                saved_file_list += list(val_df._jdf.inputFiles())
-
-            _wait_file_available(store, saved_file_list)
 
             train_rows, val_rows, pq_metadata, avg_row_size = get_simple_meta_from_parquet(
                 store, label_columns, feature_columns, sample_weight_col, dataset_idx)
