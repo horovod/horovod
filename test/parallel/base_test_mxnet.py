@@ -33,7 +33,10 @@ try:
     from mxnet.test_utils import almost_equal, same
     import horovod.mxnet as hvd
 
-    has_gpu = mx.context.num_gpus() > 0
+    try:
+        has_gpu = mx.context.num_gpus() > 0
+    except AttributeError:
+        has_gpu = mx.device.num_gpus() > 0
 
     ccl_supported_types = set(['int32', 'int64', 'float32', 'float64'])
 

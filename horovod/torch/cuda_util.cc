@@ -15,6 +15,7 @@
 
 #if HAVE_GPU
 #include "cuda_runtime.h"
+#include <ATen/ATen.h>
 #include <THC/THC.h>
 #else
 #include <stdexcept>
@@ -31,8 +32,8 @@ with_device::with_device(int device) {
     restore_device_ = CPU_DEVICE_ID;
   } else {
 #if HAVE_GPU
-    THCudaCheck(cudaGetDevice(&restore_device_));
-    THCudaCheck(cudaSetDevice(device));
+    C10_CUDA_CHECK(cudaGetDevice(&restore_device_));
+    C10_CUDA_CHECK(cudaSetDevice(device));
 #else
     throw std::logic_error("Internal error. Requested device context manager "
                            "with GPU device but not compiled with CUDA.");
@@ -43,7 +44,7 @@ with_device::with_device(int device) {
 with_device::~with_device() {
 #if HAVE_GPU
   if (restore_device_ != CPU_DEVICE_ID) {
-    THCudaCheck(cudaSetDevice(restore_device_));
+    C10_CUDA_CHECK(cudaSetDevice(restore_device_));
   }
 #endif
 }

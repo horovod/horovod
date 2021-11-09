@@ -188,6 +188,7 @@ struct Event {
   Event(std::shared_ptr<gpuEvent_t> event, gpuStream_t stream) :
     event(event), stream(stream) {};
   std::shared_ptr<gpuEvent_t> event;
+  uint64_t event_idx;
   gpuStream_t stream = nullptr;
 #endif
 };
