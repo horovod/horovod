@@ -152,8 +152,8 @@ class MX2Tests(MXTests, unittest.TestCase):
 
         data_gen = gen_random_dataset()
         for (src_data, dst_data) in data_gen:
-            src_data = src_data.as_in_ctx(ctx).astype(np.float32)
-            dst_data = dst_data.as_in_ctx(ctx).astype(np.float32)
+            src_data = src_data.as_in_context(ctx).astype(np.float32)
+            dst_data = dst_data.as_in_context(ctx).astype(np.float32)
             with mx.autograd.record():
                 pred = net(src_data)
                 loss = mx.np.abs(pred - dst_data).mean()
