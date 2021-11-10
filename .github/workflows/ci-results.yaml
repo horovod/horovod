@@ -72,6 +72,19 @@ jobs:
       github.event.workflow_run.head_repository.fork
 
     steps:
+      - name: Create check status
+        continue-on-error: true
+        run: |
+          curl --request POST \
+          --url https://api.github.com/repos/${{ github.repository }}/statuses/${{ github.event.workflow_run.head_commit.id }} \
+          --header 'authorization: Bearer ${{ secrets.GITHUB_TOKEN }}' \
+          --header 'content-type: application/json' \
+          --data '{
+            "state": "pending",
+            "context": "Build and Test GPU (on Builtkite)",
+            "target_url": "${{ github.event.workflow_run.html_url }}"
+            }'
+
       - name: Trigger Buildkite Pipeline
         id: buildkite
         uses: EnricoMi/trigger-pipeline-action@master
@@ -110,6 +123,20 @@ jobs:
           echo "::warning::Buildkite pipeline did not pass: ${{ steps.buildkite.outputs.url }}"
           exit 1
 
+      - name: Update check status
+        if: always()
+        continue-on-error: true
+        run: |
+          curl --request POST \
+          --url https://api.github.com/repos/${{ github.repository }}/statuses/${{ github.event.workflow_run.head_commit.id }} \
+          --header 'authorization: Bearer ${{ secrets.GITHUB_TOKEN }}' \
+          --header 'content-type: application/json' \
+          --data '{
+            "state": "${{ job.status }}",
+            "context": "Build and Test GPU (on Builtkite)",
+            "target_url": "${{ github.event.workflow_run.html_url }}"
+            }'
+
   buildkite-heads:
     name: "Build and Test GPU heads (on Builtkite)"
     needs: [ci-workflow, buildkite]
@@ -120,6 +147,19 @@ jobs:
       github.event.workflow_run.head_repository.fork
 
     steps:
+      - name: Create check status
+        continue-on-error: true
+        run: |
+          curl --request POST \
+          --url https://api.github.com/repos/${{ github.repository }}/statuses/${{ github.event.workflow_run.head_commit.id }} \
+          --header 'authorization: Bearer ${{ secrets.GITHUB_TOKEN }}' \
+          --header 'content-type: application/json' \
+          --data '{
+            "state": "pending",
+            "context": "Build and Test GPU heads (on Builtkite)",
+            "target_url": "${{ github.event.workflow_run.html_url }}"
+            }'
+
       - name: Trigger Buildkite Pipeline
         id: buildkite
         uses: EnricoMi/trigger-pipeline-action@master
@@ -157,6 +197,20 @@ jobs:
         run: |
           echo "::warning::Buildkite pipeline did not pass: ${{ steps.buildkite.outputs.url }}"
           exit 1
+
+      - name: Update check status
+        if: always()
+        continue-on-error: true
+        run: |
+          curl --request POST \
+          --url https://api.github.com/repos/${{ github.repository }}/statuses/${{ github.event.workflow_run.head_commit.id }} \
+          --header 'authorization: Bearer ${{ secrets.GITHUB_TOKEN }}' \
+          --header 'content-type: application/json' \
+          --data '{
+            "state": "${{ job.status }}",
+            "context": "Build and Test GPU heads (on Builtkite)",
+            "target_url": "${{ github.event.workflow_run.html_url }}"
+            }'
 
   publish-test-results:
     name: "Publish Unit Tests Results"
