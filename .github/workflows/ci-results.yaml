@@ -81,7 +81,7 @@ jobs:
           --header 'content-type: application/json' \
           --data '{
             "state": "pending",
-            "context": "${{ github.event.workflow.name }} / Build and Test GPU (on Builtkite)",
+            "context": "${{ env.GITHUB_WORKFLOW }} / Build and Test GPU (on Builtkite)",
             "target_url": "https://github.com/horovod/horovod/actions/runs/${{ env.GITHUB_RUN_ID }}"
             }'
 
@@ -133,7 +133,7 @@ jobs:
           --header 'content-type: application/json' \
           --data '{
             "state": "${{ job.status }}",
-            "context": "${{ github.event.workflow.name }} / Build and Test GPU (on Builtkite)",
+            "context": "${{ env.GITHUB_WORKFLOW }} / Build and Test GPU (on Builtkite)",
             "target_url": "https://github.com/horovod/horovod/actions/runs/${{ env.GITHUB_RUN_ID }}"
             }'
 
@@ -156,7 +156,7 @@ jobs:
           --header 'content-type: application/json' \
           --data '{
             "state": "pending",
-            "context": "${{ github.event.workflow.name }} / Build and Test GPU heads (on Builtkite)",
+            "context": "${{ env.GITHUB_WORKFLOW }} / Build and Test GPU heads (on Builtkite)",
             "target_url": "https://github.com/horovod/horovod/actions/runs/${{ env.GITHUB_RUN_ID }}"
             }'
 
@@ -208,7 +208,7 @@ jobs:
           --header 'content-type: application/json' \
           --data '{
             "state": "${{ job.status }}",
-            "context": "${{ github.event.workflow.name }} / Build and Test GPU heads (on Builtkite)",
+            "context": "${{ env.GITHUB_WORKFLOW }} / Build and Test GPU heads (on Builtkite)",
             "target_url": "https://github.com/horovod/horovod/actions/runs/${{ env.GITHUB_RUN_ID }}"
             }'
 
