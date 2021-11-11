@@ -81,8 +81,8 @@ jobs:
           --header 'content-type: application/json' \
           --data '{
             "state": "pending",
-            "context": "${{ env.GITHUB_WORKFLOW }} / Build and Test GPU (on Builtkite)",
-            "target_url": "https://github.com/horovod/horovod/actions/runs/${{ env.GITHUB_RUN_ID }}"
+            "context": "${GITHUB_WORKFLOW} / Build and Test GPU (on Builtkite)",
+            "target_url": "https://github.com/horovod/horovod/actions/runs/${GITHUB_RUN_ID}"
             }'
 
       - name: Trigger Buildkite Pipeline
@@ -134,8 +134,8 @@ jobs:
           --header 'content-type: application/json' \
           --data '{
             "state": "${{ job.status }}",
-            "context": "${{ env.GITHUB_WORKFLOW }} / Build and Test GPU (on Builtkite)",
-            "target_url": "https://github.com/horovod/horovod/actions/runs/${{ env.GITHUB_RUN_ID }}"
+            "context": "${GITHUB_WORKFLOW} / Build and Test GPU (on Builtkite)",
+            "target_url": "https://github.com/horovod/horovod/actions/runs/${GITHUB_RUN_ID}"
             }'
 
   buildkite-heads:
@@ -157,8 +157,8 @@ jobs:
           --header 'content-type: application/json' \
           --data '{
             "state": "pending",
-            "context": "${{ env.GITHUB_WORKFLOW }} / Build and Test GPU heads (on Builtkite)",
-            "target_url": "https://github.com/horovod/horovod/actions/runs/${{ env.GITHUB_RUN_ID }}"
+            "context": "${GITHUB_WORKFLOW} / Build and Test GPU heads (on Builtkite)",
+            "target_url": "https://github.com/horovod/horovod/actions/runs/${GITHUB_RUN_ID}"
             }'
 
       - name: Trigger Buildkite Pipeline
@@ -210,8 +210,8 @@ jobs:
           --header 'content-type: application/json' \
           --data '{
             "state": "${{ job.status }}",
-            "context": "${{ env.GITHUB_WORKFLOW }} / Build and Test GPU heads (on Builtkite)",
-            "target_url": "https://github.com/horovod/horovod/actions/runs/${{ env.GITHUB_RUN_ID }}"
+            "context": "${GITHUB_WORKFLOW} / Build and Test GPU heads (on Builtkite)",
+            "target_url": "https://github.com/horovod/horovod/actions/runs/${GITHUB_RUN_ID}"
             }'
 
   publish-test-results:
