@@ -124,7 +124,8 @@ jobs:
           exit 1
 
       - name: Update check status
-        if: always()
+        # job status can be success, failure, or cancelled but status state only allows for error, failure, pending, or success
+        if: always() && job.status != 'cancelled'
         continue-on-error: true
         run: |
           curl --request POST \
@@ -199,7 +200,8 @@ jobs:
           exit 1
 
       - name: Update check status
-        if: always()
+        # job status can be success, failure, or cancelled but status state only allows for error, failure, pending, or success
+        if: always() && job.status != 'cancelled'
         continue-on-error: true
         run: |
           curl --request POST \
