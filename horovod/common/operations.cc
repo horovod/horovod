@@ -1399,6 +1399,9 @@ EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts,
     return Status::InvalidArgument("Allreduce: Process set provided does not "
                                    "exist, or has not been registered.");
   }
+  if (horovod_global.shut_down) {
+    return SHUT_DOWN_ERROR;
+  }
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
   Status status;
 
@@ -1503,9 +1506,6 @@ EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts,
     }
   }
 
-  if (horovod_global.shut_down) {
-    return SHUT_DOWN_ERROR;
-  }
   status = process_set.tensor_queue.AddToTensorQueueMulti(entries, messages);
 
   return status;
@@ -1526,6 +1526,9 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
   if (!horovod_global.process_set_table.Contains(process_set_id)) {
     return Status::InvalidArgument("Allgather: Process set provided does not "
                                    "exist, or has not been registered.");
+  }
+  if (horovod_global.shut_down) {
+    return SHUT_DOWN_ERROR;
   }
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
 
@@ -1556,9 +1559,6 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
   e.callback = callback;
   e.nvtx_op_range.Start(RegisteredNvtxOp::HorovodAllgather, e.tensor->size());
 
-  if (horovod_global.shut_down) {
-    return SHUT_DOWN_ERROR;
-  }
   Status status = process_set.tensor_queue.AddToTensorQueue(e, message);
   if (status.ok()) {
     LOG(TRACE, horovod_global.global_controller->GetRank())
@@ -1583,6 +1583,9 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   if (!horovod_global.process_set_table.Contains(process_set_id)) {
     return Status::InvalidArgument("Broadcast: Process set provided does not "
                                    "exist, or has not been registered.");
+  }
+  if (horovod_global.shut_down) {
+    return SHUT_DOWN_ERROR;
   }
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
 
@@ -1626,9 +1629,6 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
         " is not a member of the provided process set.");
   }
 
-  if (horovod_global.shut_down) {
-    return SHUT_DOWN_ERROR;
-  }
   Status status = process_set.tensor_queue.AddToTensorQueue(e, message);
   if (status.ok()) {
     LOG(TRACE, horovod_global.global_controller->GetRank())
@@ -1653,6 +1653,9 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
   if (!horovod_global.process_set_table.Contains(process_set_id)) {
     return Status::InvalidArgument("Alltoall: Process set provided does not "
                                    "exist, or has not been registered.");
+  }
+  if (horovod_global.shut_down) {
+    return SHUT_DOWN_ERROR;
   }
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
 
@@ -1713,9 +1716,6 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
         "Number of entries in splits does not equal number of workers.");
   }
 
-  if (horovod_global.shut_down) {
-    return SHUT_DOWN_ERROR;
-  }
   Status status = process_set.tensor_queue.AddToTensorQueue(e, message);
   if (status.ok()) {
     LOG(TRACE, horovod_global.global_controller->GetRank())
@@ -1731,6 +1731,9 @@ Status EnqueueJoin(std::shared_ptr<OpContext> context,
                    ReadyEventList ready_event_list, const std::string& name,
                    const int device, StatusCallback callback,
                    int32_t process_set_id) {
+  if (horovod_global.shut_down) {
+    return SHUT_DOWN_ERROR;
+  }
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
 
   Request message;
@@ -1747,9 +1750,6 @@ Status EnqueueJoin(std::shared_ptr<OpContext> context,
   e.device = device;
   e.callback = callback;
 
-  if (horovod_global.shut_down) {
-    return SHUT_DOWN_ERROR;
-  }
   Status status = process_set.tensor_queue.AddToTensorQueue(e, message);
   if (status.ok()) {
     LOG(TRACE, horovod_global.global_controller->GetRank())
@@ -1761,6 +1761,9 @@ Status EnqueueJoin(std::shared_ptr<OpContext> context,
 // Contexts and controller must be initialized and the background thread
 // must be running before this function is called.
 Status EnqueueBarrier(StatusCallback callback, int32_t process_set_id) {
+  if (horovod_global.shut_down) {
+    return SHUT_DOWN_ERROR;
+  }
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
 
   if (!process_set.IsCurrentProcessIncluded()) {
@@ -1782,9 +1785,6 @@ Status EnqueueBarrier(StatusCallback callback, int32_t process_set_id) {
   e.process_set_id = process_set_id;
   e.callback = callback;
 
-  if (horovod_global.shut_down) {
-    return SHUT_DOWN_ERROR;
-  }
   Status status = process_set.tensor_queue.AddToTensorQueue(e, message);
   if (status.ok()) {
     LOG(TRACE, horovod_global.global_controller->GetRank())
