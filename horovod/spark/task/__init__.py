@@ -14,6 +14,7 @@
 # ==============================================================================
 
 import os
+import sys
 import time
 
 from horovod.runner.util.threads import in_thread
@@ -28,7 +29,7 @@ def _parent_process_monitor(initial_ppid):
         while True:
             if initial_ppid != os.getppid():
                 # Parent process died, terminate
-                os._exit(1)
+                sys.exit(1)
             time.sleep(1)
     except:
         # Avoids an error message during Python interpreter shutdown.
