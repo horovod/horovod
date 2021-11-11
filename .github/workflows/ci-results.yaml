@@ -81,8 +81,8 @@ jobs:
           --header 'content-type: application/json' \
           --data '{
             "state": "pending",
-            "context": "Build and Test GPU (on Builtkite)",
-            "target_url": "${{ github.event.workflow_run.html_url }}"
+            "context": "${{ env.GITHUB_WORKFLOW }} / Build and Test GPU (on Builtkite)",
+            "target_url": "https://github.com/horovod/horovod/actions/runs/${{ env.GITHUB_RUN_ID }}"
             }'
 
       - name: Trigger Buildkite Pipeline
@@ -124,7 +124,8 @@ jobs:
           exit 1
 
       - name: Update check status
-        if: always()
+        # job status can be success, failure, or cancelled but status state only allows for error, failure, pending, or success
+        if: always() && job.status != 'cancelled'
         continue-on-error: true
         run: |
           curl --request POST \
@@ -133,8 +134,8 @@ jobs:
           --header 'content-type: application/json' \
           --data '{
             "state": "${{ job.status }}",
-            "context": "Build and Test GPU (on Builtkite)",
-            "target_url": "${{ github.event.workflow_run.html_url }}"
+            "context": "${{ env.GITHUB_WORKFLOW }} / Build and Test GPU (on Builtkite)",
+            "target_url": "https://github.com/horovod/horovod/actions/runs/${{ env.GITHUB_RUN_ID }}"
             }'
 
   buildkite-heads:
@@ -156,8 +157,8 @@ jobs:
           --header 'content-type: application/json' \
           --data '{
             "state": "pending",
-            "context": "Build and Test GPU heads (on Builtkite)",
-            "target_url": "${{ github.event.workflow_run.html_url }}"
+            "context": "${{ env.GITHUB_WORKFLOW }} / Build and Test GPU heads (on Builtkite)",
+            "target_url": "https://github.com/horovod/horovod/actions/runs/${{ env.GITHUB_RUN_ID }}"
             }'
 
       - name: Trigger Buildkite Pipeline
@@ -199,7 +200,8 @@ jobs:
           exit 1
 
       - name: Update check status
-        if: always()
+        # job status can be success, failure, or cancelled but status state only allows for error, failure, pending, or success
+        if: always() && job.status != 'cancelled'
         continue-on-error: true
         run: |
           curl --request POST \
@@ -208,8 +210,8 @@ jobs:
           --header 'content-type: application/json' \
           --data '{
             "state": "${{ job.status }}",
-            "context": "Build and Test GPU heads (on Builtkite)",
-            "target_url": "${{ github.event.workflow_run.html_url }}"
+            "context": "${{ env.GITHUB_WORKFLOW }} / Build and Test GPU heads (on Builtkite)",
+            "target_url": "https://github.com/horovod/horovod/actions/runs/${{ env.GITHUB_RUN_ID }}"
             }'
 
   publish-test-results:
