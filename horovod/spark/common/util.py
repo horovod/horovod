@@ -32,6 +32,8 @@ try:
 except ImportError:
     from pyspark.sql.types import from_arrow_type
 
+from pyspark.sql import SparkSession
+
 from horovod.runner.common.util import codec, host_hash as hh
 from horovod.spark.common import cache, constants
 
@@ -576,6 +578,11 @@ def _wait_file_available(store, url_list):
         pool.join()
 
 
+def get_spark_df_saved_file_list(saved_path):
+    spark_session = SparkSession.builder.getOrCreate()
+    return list(spark_session.read.parquet(saved_path)._jdf.inputFiles())
+
+
 def _get_or_create_dataset(key, store, df, feature_columns, label_columns,
                            validation, sample_weight_col, compress_sparse,
                            num_partitions, num_processes, verbose):
@@ -627,6 +634,8 @@ def _get_or_create_dataset(key, store, df, feature_columns, label_columns,
                 .mode('overwrite') \
                 .parquet(train_data_path)
 
+            saved_file_list = get_spark_df_saved_file_list(train_data_path)
+
             if val_df:
                 val_partitions = max(int(num_partitions * validation_ratio),
                                      num_processes)
@@ -639,9 +648,7 @@ def _get_or_create_dataset(key, store, df, feature_columns, label_columns,
                     .mode('overwrite') \
                     .parquet(val_data_path)
 
-            saved_file_list = list(train_df._jdf.inputFiles())
-            if val_df:
-                saved_file_list += list(val_df._jdf.inputFiles())
+                saved_file_list += get_spark_df_saved_file_list(val_data_path)
 
             _wait_file_available(store, saved_file_list)
 
