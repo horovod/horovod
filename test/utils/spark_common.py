@@ -274,3 +274,16 @@ def test_wait_file_available():
         threading.Thread(target=delay_create_file2()).start()
 
         _wait_file_available(url_list)
+
+
+def test_get_spark_df_input_files():
+    with tempdir() as d:
+        pq_dir = os.path.join(d, 'test_spark_df_output')
+        with spark_session('test_get_spark_df_input_files') as spark:
+            spark.range(100).repartition(4).write.parquet(pq_dir)
+
+        pq_files = sorted([filename for filename in os.listdir(pq_dir)
+                           if filename.endswith('.parquet')])
+        assert len(pq_files) == 4
+        for i in range(4):
+            assert pq_files[i].startswith('part-0000' + str(i))
