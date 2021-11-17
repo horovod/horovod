@@ -298,7 +298,7 @@ class AbstractFilesystemStore(Store):
     def get_local_run_dir_fn(self, run_id):
         @contextlib.contextmanager
         def local_run_path():
-            dirpath = os.path.join(tempfile._get_default_tempdir(),self.get)
+            dirpath = os.path.join(tempfile._get_default_tempdir(),self.get_checkpoint_dir)
             os.makedirs(dirpath, exist_ok=True)
             try:
                 yield dirpath
