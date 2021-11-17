@@ -486,3 +486,4 @@ class HorovodBasics(object):
         elif result == self.HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET:
             raise ValueError('MPI communicator does not correspond to any registered process set.')
         return result
+

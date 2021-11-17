@@ -2068,7 +2068,7 @@ class TorchTests(unittest.TestCase):
         def new_optimizer(cls, opt_params, model):
             p = {
                 k: v for k, v in opt_params.items()
-                if k in inspect.getargspec(cls.__init__).args
+                if k in inspect.signature(cls.__init__).parameters
             }
             return cls(model.parameters(), **p)
 
@@ -2220,7 +2220,7 @@ class TorchTests(unittest.TestCase):
             params = params_0 if hvd.rank() == 0 else params_1
             p = {
                 k: v for k, v in params.items()
-                if k in inspect.getargspec(opt_class.__init__).args
+                if k in inspect.signature(opt_class.__init__).parameters
             }
             opt = opt_class(model.parameters(), **p)
             opt = hvd.DistributedOptimizer(opt, named_parameters=model.named_parameters())
@@ -2249,7 +2249,7 @@ class TorchTests(unittest.TestCase):
             hvd.broadcast_optimizer_state(optimizer, root_rank=0)
             p0 = {
                 k: v for k, v in params_0.items()
-                if k in inspect.getargspec(opt_class.__init__).args
+                if k in inspect.signature(opt_class.__init__).parameters
             }
             for k, p in p0.items():
                 p_actual = optimizer.param_groups[0][k]
@@ -2409,7 +2409,7 @@ class TorchTests(unittest.TestCase):
         def new_optimizer(cls, opt_params, model):
             p = {
                 k: v for k, v in opt_params.items()
-                if k in inspect.getargspec(cls.__init__).args
+                if k in inspect.signature(cls.__init__).parameters
             }
             return cls(model.parameters(), **p)
 
@@ -3136,7 +3136,7 @@ class TorchTests(unittest.TestCase):
         def new_optimizer(cls, opt_params, model):
             p = {
                 k: v for k, v in opt_params.items()
-                if k in inspect.getargspec(cls.__init__).args
+                if k in inspect.signature(cls.__init__).parameters
             }
             return cls(model.parameters(), **p)
 
