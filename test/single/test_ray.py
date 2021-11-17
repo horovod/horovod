@@ -339,32 +339,6 @@ def test_ray_executable(ray_start_4_cpus, num_workers, num_hosts,
     hjob.shutdown()
 
 
-@pytest.mark.skipif(
-    not gloo_built(), reason='Gloo is required for Ray integration')
-def test_ray_deprecation(ray_start_4_cpus):
-    class Executable:
-        def __init__(self, epochs):
-            import horovod.torch as hvd
-            self.hvd = hvd
-            self.epochs = epochs
-            self.hvd.init()
-
-        def rank_epoch(self):
-            return self.hvd.rank() * self.epochs
-
-    setting = RayExecutor.create_settings(timeout_s=30)
-    hjob = RayExecutor(
-        setting,
-        num_hosts=1,
-        num_slots=2,
-        cpus_per_slot=2,
-        use_gpu=torch.cuda.is_available())
-    hjob.start(executable_cls=Executable, executable_args=[2])
-    result = hjob.execute(lambda w: w.rank_epoch())
-    assert set(result) == {0, 2}
-    hjob.shutdown()
-
-
 def _train(batch_size=32, batch_per_iter=10):
     import torch.nn.functional as F
     import torch.optim as optim
@@ -445,7 +419,7 @@ def test_horovod_train_in_pg(ray_start_4_cpus):
                 gpus_per_worker=int(torch.cuda.is_available()) or None,
                 use_gpu=torch.cuda.is_available())
             hjob.start()
-            assert not hjob.driver.strategy._created_placement_group
+            assert not hjob.adapter.strategy._created_placement_group
             result = hjob.execute(simple_fn)
             assert set(result) == {0, 1, 2, 3}
             hjob.shutdown()

@@ -7,13 +7,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased] - YYYY-MM-DD
 
 ### Added
+- Added Elastic keyword parameters to RayExecutor API: This API supports both static(non-elastic) and elastic horovod jobs. This resolves issue:
+[#3190](https://github.com/horovod/horovod/issues/3190).
 
 - TensorFlow: Added in-place broadcasting of variables. ([#3128](https://github.com/horovod/horovod/pull/3128))
 
 ### Changed
 
 ### Deprecated
-
+- Deprecated ElasticRayExecutor APIs in favor of the new RayExecutor API for issue: [#3190](https://github.com/horovod/horovod/issues/3190).
 ### Removed
 
 ### Fixed

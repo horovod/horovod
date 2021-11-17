@@ -1,19 +1,22 @@
 from typing import Callable, List, Any, Dict, Optional
 import logging
+import ray.exceptions
 import socket
+
 import time
 import os
 import random
 import math
 import threading
+from dataclasses import dataclass
 
-from horovod.runner.common.util import timeout, secret
-
+from horovod.ray.adapter import Adapter, BaseParams
 from horovod.runner.http.http_server import RendezvousServer
+from horovod.ray.utils import detect_nics
+from horovod.runner.elastic.rendezvous import create_rendezvous_handler
 from horovod.runner.gloo_run import (create_slot_env_vars, create_run_env_vars,
                                      _get_min_start_hosts)
-from horovod.runner.elastic.settings import ElasticSettings
-from horovod.runner.elastic.rendezvous import create_rendezvous_handler
+from horovod.ray.worker import BaseHorovodWorker
 from horovod.runner.elastic.discovery import HostDiscovery
 from horovod.runner.elastic.driver import ElasticDriver
 
@@ -21,7 +24,6 @@ import ray
 import ray.exceptions
 from horovod.ray.worker import BaseHorovodWorker
 from horovod.ray.utils import detect_nics
-
 logger = logging.getLogger(__name__)
 
 if hasattr(ray.exceptions, "GetTimeoutError"):
@@ -40,12 +42,12 @@ class RayHostDiscovery(HostDiscovery):
 
     Assumes that the whole global state is available for usage."""
 
-    def __init__(self, use_gpu=False, cpus_per_slot=1, gpus_per_slot=1):
+    def __init__(self, use_gpu=False, cpus_per_worker=1, gpus_per_worker=1):
         self.use_gpu = use_gpu
-        self.cpus_per_slot = cpus_per_slot
-        self.gpus_per_slot = gpus_per_slot
-        logger.debug(f"Discovery started with {cpus_per_slot} CPU / "
-                     f"{gpus_per_slot} GPU per slot.")
+        self.cpus_per_worker = cpus_per_worker
+        self.gpus_per_worker = gpus_per_worker
+        logger.debug(f"Discovery started with {cpus_per_worker} CPU / "
+                     f"{gpus_per_worker} GPU per slot.")
 
     def find_available_hosts_and_slots(self) -> Dict[str, int]:
         """Returns a dict mapping <hostname> -> <number of slots>."""
@@ -54,9 +56,9 @@ class RayHostDiscovery(HostDiscovery):
         for node in alive_nodes:
             hostname = node["NodeManagerAddress"]
             resources = node["Resources"]
-            slots = resources.get("CPU", 0) // self.cpus_per_slot
+            slots = resources.get("CPU", 0) // self.cpus_per_worker
             if self.use_gpu:
-                gpu_slots = resources.get("GPU", 0) // self.gpus_per_slot
+                gpu_slots = resources.get("GPU", 0) // self.gpus_per_worker
                 slots = min(slots, gpu_slots)
             slots = int(math.ceil(slots))
             if slots:
@@ -75,14 +77,14 @@ class TestDiscovery(RayHostDiscovery):
                  max_hosts,
                  change_frequency_s,
                  use_gpu=False,
-                 cpus_per_slot=1,
-                 gpus_per_slot=1,
+                 cpus_per_worker=1,
+                 gpus_per_worker=1,
                  verbose=True,
                  _graceful=True):
         super().__init__(
             use_gpu=use_gpu,
-            cpus_per_slot=cpus_per_slot,
-            gpus_per_slot=gpus_per_slot)
+            cpus_per_worker=cpus_per_worker,
+            gpus_per_worker=gpus_per_worker)
         self._min_hosts = min_hosts
         self._graceful = _graceful
         self._max_hosts = max_hosts
@@ -145,153 +147,147 @@ class TestDiscovery(RayHostDiscovery):
             print(f"Remaining hosts: {len(remaining)} -- {remaining}")
         return remaining
 
-
-class ElasticRayExecutor:
-    """Executor for elastic jobs using Ray.
-
-    Leverages the Ray global state to detect available hosts and
-    slots. Assumes that the entire Ray cluster is available for
-    the Executor to use.
+@dataclass
+class ElasticParams(BaseParams):
+    """Parameters for elastic jobs.
 
     Args:
-        settings: Configuration for the elastic job
-            setup. You can use a standard Horovod ElasticSettings
-            object or create one directly from
-            ElasticRayExecutor.create_settings.
-        use_gpu (bool): Whether to use GPU for allocation.
-        cpus_per_slot (int): Number of CPU resources to allocate to
+        min_workers (int): Minimum number of processes running for
+            training to continue. If number of available processes dips
+            below this threshold, then training will wait for
+            more instances to become available.
+        max_workers (int): Maximum number of training processes,
+            beyond which no additional processes will be created.
+            If not specified, then will be unbounded.
+        reset_limit (int): Maximum number of times that the training
+            job can scale up or down the number of workers after
+            which the job is terminated.
+        elastic_timeout (int): Timeout for elastic initialisation after
+            re-scaling the cluster. The default value is 600 seconds.
+            Alternatively, the environment variable
+            HOROVOD_ELASTIC_TIMEOUT can also be used.
+        cpus_per_worker (int): Number of CPU resources to allocate to
             each worker.
-        gpus_per_slot (int): Number of GPU resources to allocate to
+        use_gpu (bool): Whether to use GPU for allocation. TODO: this
+            can be removed.
+        gpus_per_worker (int): Number of GPU resources to allocate to
             each worker.
-        env_vars (Dict): Environment variables to be set
-            on the actors (worker processes) before initialization.
+
+    """
+    min_workers: int = 1
+    max_workers: int = None
+    reset_limit: int = None
+    elastic_timeout: int = 600
+    override_discovery: bool = True
+
+    @property
+    def elastic(self):
+        return True
+
+    @property
+    def adapter(self):
+        return ElasticAdapter
+
+class ElasticAdapter(Adapter):
+    """Adapter for executing Ray calls for elastic Horovod jobs.
+
+    Args:
+        settings (horovod.Settings): Configuration for job setup. You can
+            use a standard Horovod Settings object or create one directly
+            from RayExecutor.create_settings.
+        min_workers (int): Minimum number of processes running for
+            training to continue. If number of available processes dips
+            below this threshold, then training will wait for
+            more instances to become available.
+        max_workers (int): Maximum number of training processes,
+            beyond which no additional processes will be created.
+            If not specified, then will be unbounded.
+        reset_limit (int): Maximum number of times that the training
+            job can scale up or down the number of workers after
+            which the job is terminated.
+        elastic_timeout (int): Timeout for elastic initialisation after
+            re-scaling the cluster. The default value is 600 seconds.
+            Alternatively, the environment variable
+            HOROVOD_ELASTIC_TIMEOUT can also be used.'
+        cpus_per_worker (int): Number of CPU resources to allocate to
+            each worker.
+        use_gpu (bool): Whether to use GPU for allocation. TODO: this
+            can be removed.
+        gpus_per_worker (int): Number of GPU resources to allocate to
+            each worker.
         override_discovery (bool): Whether for the ElasticRayExecutor to
             automatically provide a discovery mechanism for ElasticSettings.
 
-    Example:
-
-    .. code-block:: python
-
-        import ray
-        ray.init(address="auto")
-        settings = ElasticRayExecutor.create_settings(verbose=True)
-        executor = ElasticRayExecutor(
-            settings, use_gpu=True, cpus_per_slot=2)
-        executor.start()
-        executor.run(train_fn)
-    warning:: .. deprecated:: 0.25.0
     """
-
-    @staticmethod
-    def create_settings(min_np: int = 1,
-                        max_np: int = None,
-                        reset_limit: int = None,
-                        elastic_timeout: int = 600,
-                        timeout_s: int = 30,
-                        ssh_identity_file: str = None,
-                        nics: str = None,
-                        **kwargs):
-        """Returns a Settings object for ElasticRayExecutor.
-
-        Note that the `discovery` property will be set at runtime.
-
-        Args:
-            min_np (int): Minimum number of processes running for
-                training to continue. If number of available processes dips
-                below this threshold, then training will wait for
-                more instances to become available.
-            max_np (int): Maximum number of training processes,
-                beyond which no additional processes will be created.
-                If not specified, then will be unbounded.
-            reset_limit (int): Maximum number of times that the training
-                job can scale up or down the number of workers after
-                which the job is terminated.
-            elastic_timeout (int): Timeout for elastic initialisation after
-                re-scaling the cluster. The default value is 600 seconds.
-                Alternatively, the environment variable
-                HOROVOD_ELASTIC_TIMEOUT can also be used.'
-            timeout_s (int): Horovod performs all the checks and starts the
-                processes before the specified timeout.
-                The default value is 30 seconds.
-            ssh_identity_file (str): File on the driver from which
-                the identity (private key) is read.
-            nics (set): Network interfaces that can be used for communication.
-        """
-        start_timeout = timeout.Timeout(
-            timeout_s,
-            message="Timed out waiting for {activity}. Please "
-            "check connectivity between servers. You "
-            "may need to increase the --start-timeout "
-            "parameter if you have too many servers.")
-        ssh_identity_file = ssh_identity_file or os.path.expanduser(
-            "~/ray_bootstrap_key.pem")
-        settings = ElasticSettings(
-            discovery=None,
-            min_np=min_np,
-            max_np=max_np,
-            elastic_timeout=elastic_timeout,
-            reset_limit=reset_limit,
-            num_proc=min_np,
-            ssh_identity_file=ssh_identity_file,
-            nics=nics,
-            start_timeout=start_timeout,
-            key=secret.make_secret_key() if secret else None,
-            **kwargs)
-        return settings
-
     def __init__(self,
-                 settings: ElasticSettings,
-                 use_gpu: bool = False,
-                 cpus_per_slot: int = 1,
-                 gpus_per_slot: Optional[int] = None,
-                 env_vars: dict = None,
-                 override_discovery=True):
-        if gpus_per_slot and not use_gpu:
-            raise ValueError("gpus_per_slot is set, but use_gpu is False. "
-                             "use_gpu must be True if gpus_per_slot is set. ")
-
-        gpus_per_slot = gpus_per_slot or int(use_gpu)
-
-        if use_gpu and gpus_per_slot < 1:
-            raise ValueError(
-                f"gpus_per_slot must be >= 1: Got {gpus_per_slot}.")
-
+                settings,
+                min_workers: int,
+                max_workers: Optional[int] = None,
+                use_gpu: bool = False,
+                cpus_per_worker: int = 1,
+                gpus_per_worker: Optional[int] = None,
+                override_discovery: bool=True,
+                reset_limit: int = None,
+                elastic_timeout: int = 600):
+        self.settings = settings
         if override_discovery:
             settings.discovery = RayHostDiscovery(
                 use_gpu=use_gpu,
-                cpus_per_slot=cpus_per_slot,
-                gpus_per_slot=gpus_per_slot)
-        self.cpus_per_slot = cpus_per_slot
-        self.gpus_per_slot = gpus_per_slot
+                cpus_per_worker=cpus_per_worker,
+                gpus_per_worker=gpus_per_worker)
+        self.cpus_per_worker = cpus_per_worker
+        self.gpus_per_worker = gpus_per_worker
         self.use_gpu = use_gpu
-        self.settings = settings
+        # moved from settings
+        self.min_workers = min_workers
+        self.max_workers = max_workers
+        self.num_workers = min_workers
+        self.reset_limit = reset_limit
+        self.elastic_timeout = elastic_timeout
         self.driver = None
         self.rendezvous = None
-        self.env_vars = env_vars or {}
 
-    def start(self):
-        """Starts the Horovod driver and services."""
+    def start(self,
+              executable_cls: type = None,
+              executable_args: Optional[List] = None,
+              executable_kwargs: Optional[Dict] = None,
+              extra_env_vars: Optional[Dict] = None):
+        """Starts the Horovod driver and services.
+
+        Args:
+            executable_cls (type): The class that will be created within
+                an actor (BaseHorovodWorker). This will allow Horovod
+                to establish its connections and set env vars.
+            executable_args (List): Arguments to be passed into the
+                worker class upon initialization.
+            executable_kwargs (Dict): Keyword arguments to be passed into the
+                worker class upon initialization.
+            extra_env_vars (Dict): Environment variables to be set
+                on the actors (worker processes) before initialization.
+
+        """
+
         self.rendezvous = RendezvousServer(self.settings.verbose)
         self.driver = ElasticDriver(
             rendezvous=self.rendezvous,
             discovery=self.settings.discovery,
-            min_np=self.settings.min_np,
-            max_np=self.settings.max_np,
-            timeout=self.settings.elastic_timeout,
-            reset_limit=self.settings.reset_limit,
+            min_np=self.min_workers,
+            max_np=self.max_workers,
+            timeout=self.elastic_timeout,
+            reset_limit=self.reset_limit,
             verbose=self.settings.verbose)
         handler = create_rendezvous_handler(self.driver)
         logger.debug("[ray] starting rendezvous")
         global_rendezv_port = self.rendezvous.start(handler)
 
-        logger.debug(f"[ray] waiting for {self.settings.num_proc} to start.")
-        self.driver.wait_for_available_slots(self.settings.num_proc)
+        logger.debug(f"[ray] waiting for {self.num_workers} to start.")
+        self.driver.wait_for_available_slots(self.num_workers)
 
         # Host-to-host common interface detection
         # requires at least 2 hosts in an elastic job.
         min_hosts = _get_min_start_hosts(self.settings)
         current_hosts = self.driver.wait_for_available_slots(
-            self.settings.num_proc, min_hosts=min_hosts)
+            self.num_workers, min_hosts=min_hosts)
         logger.debug("[ray] getting common interfaces")
         nics = detect_nics(
             self.settings,
@@ -302,10 +298,16 @@ class ElasticRayExecutor:
         self.run_env_vars = create_run_env_vars(
             server_ip, nics, global_rendezv_port, elastic=True)
 
+        self.executable_cls = executable_cls
+        self.executable_args = executable_args
+        self.executable_kwargs = executable_kwargs
+        self.env_vars = extra_env_vars or {}
+
+
     def _create_resources(self, hostname: str):
         resources = dict(
-            num_cpus=self.cpus_per_slot,
-            num_gpus=int(self.use_gpu) * self.gpus_per_slot,
+            num_cpus=self.cpus_per_worker,
+            num_gpus=int(self.use_gpu) * self.gpus_per_worker,
             resources={f"node:{hostname}": 0.01})
         return resources
 
@@ -354,7 +356,7 @@ class ElasticRayExecutor:
                 return 1, time.time()
 
             ray.get(worker.set_queue.remote(queue))
-            future = worker.execute.remote(lambda _: worker_fn())
+            future = worker.execute.remote(worker_fn)
 
             result = None
             while result is None:
@@ -378,7 +380,34 @@ class ElasticRayExecutor:
 
         return worker_loop
 
+
     def run(self,
+            fn: Callable[[Any], Any],
+            args: Optional[List] = None,
+            kwargs: Optional[Dict] = None,
+            callbacks: Optional[List[Callable]] = None) -> List[Any]:
+        """Executes the provided function on all workers.
+
+        Args:
+            fn: Target function that can be executed with arbitrary
+                args and keyword arguments.
+            args: List of arguments to be passed into the target function.
+            kwargs: Dictionary of keyword arguments to be
+                passed into the target function.
+            callbacks: List of callables. Each callback must either
+                be a callable function or a class that implements __call__.
+                Every callback will be invoked on every value logged
+                by the rank 0 worker.
+
+        Returns:
+            Deserialized return values from the target function.
+        """
+        args = args or []
+        kwargs = kwargs or {}
+        f = lambda _: fn(*args, **kwargs)
+        return self._run_remote(f, callbacks=callbacks)
+
+    def _run_remote(self,
             worker_fn: Callable,
             callbacks: Optional[List[Callable]] = None) -> List[Any]:
         """Executes the provided function on all workers.
@@ -408,7 +437,7 @@ class ElasticRayExecutor:
                 }
             })
         self.driver.start(
-            self.settings.num_proc,
+            self.num_workers,
             self._create_spawn_worker_fn(return_values, worker_fn, _queue))
 
         def _process_calls(queue, callbacks, event):
@@ -464,3 +493,41 @@ class ElasticRayExecutor:
             value for k, value in sorted(return_values, key=lambda kv: kv[0])
         ]
         return return_values
+
+    def run_remote(self,
+                fn: Callable[[Any], Any]) -> List[Any]:
+        raise NotImplementedError("ObjectRefs cannot be returned from Elastic runs as the workers are ephemeral")
+
+    def execute(self, fn: Callable[["executable_cls"], Any],
+                callbacks: Optional[List[Callable]] = None) -> List[Any]:
+        """Executes the provided function on all workers.
+
+        Args:
+            fn: Target function to be invoked on every object.
+            callbacks: List of callables. Each callback must either
+                be a callable function or a class that implements __call__.
+                Every callback will be invoked on every value logged
+                by the rank 0 worker.
+        Returns:
+            Deserialized return values from the target function.
+        """
+        return ray.get(self._run_remote(fn, callbacks=callbacks))
+
+    def execute_single(self,
+                       fn: Callable[["executable_cls"], Any]) -> List[Any]:
+        """Executes the provided function on the rank 0 worker (chief).
+
+        Args:
+            fn: Target function to be invoked on the chief object.
+
+        Returns:
+            Deserialized return values from the target function.
+        """
+        raise NotImplementedError("Elastic mode does not support execute_single. Please use the execute method instead")
+
+    def shutdown(self):
+        """Destroys the driver."""
+        if not self.driver:
+            return
+        assert self.driver.finished()
+        self.driver = None
