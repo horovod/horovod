@@ -111,7 +111,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
         _checkpoint_callback = None
         require_checkpoint = False
 
-        with remote_store.get_local_output_dir() as run_output_dir:
+        with remote_store.get_local_run_dir() as run_output_dir:
             logs_path = os.path.join(run_output_dir, remote_store.logs_subdir)
             os.makedirs(logs_path, exist_ok=True)
             print(f"Made directory {logs_path} for horovod rank {hvd.rank()}")
@@ -262,7 +262,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             if hvd.rank() == 0:
                 if remote_store.saving_runs and trainer.profiler:
                     # One more file sync to push profiler result.
-                    remote_store.sync(logs_path)
+                    remote_store.sync(run_output_dir)
 
                 # rank 0 overwrites model with best checkpoint and returns.
                 if require_checkpoint:
