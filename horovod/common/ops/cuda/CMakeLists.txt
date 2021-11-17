@@ -4,6 +4,11 @@ execute_process(COMMAND ${PY_EXE} -c "import build_utils; print(' '.join(build_u
 
 MESSAGE(STATUS "HVD_NVCC_COMPILE_FLAGS = ${HVD_NVCC_COMPILE_FLAGS}")
 
+# If we don't set CMAKE_CUDA_STANDARD, it will default to ${CMAKE_CXX_STANDARD} ("14" at this time). nvcc may fail if
+# the --std=c++... argument is passed multiple times.
+set(CMAKE_CUDA_STANDARD 11)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+
 add_library(horovod_cuda_kernels cuda_kernels.cu)
 target_compile_options(horovod_cuda_kernels PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
                        SHELL:${HVD_NVCC_COMPILE_FLAGS}
