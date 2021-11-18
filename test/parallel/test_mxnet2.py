@@ -19,6 +19,7 @@ import sys
 import itertools
 import unittest
 from distutils.version import LooseVersion
+
 import pytest
 import numpy as np
 
