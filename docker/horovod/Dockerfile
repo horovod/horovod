@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-
         build-essential \
         g++-7 \
         git \
+        gpg \
         curl \
         vim \
         wget \
