@@ -147,6 +147,9 @@ endif()
 
 # CUDA and ROCM
 set(CMAKE_CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
+if(NOT DEFINED CMAKE_CUDA_RUNTIME_LIBRARY)
+    set(CMAKE_CUDA_RUNTIME_LIBRARY "Shared")  # Set to "Static" or "Shared"
+endif()
 if (DEFINED ENV{HOROVOD_CUDA_HOME})
     set(CMAKE_CUDA_COMPILER $ENV{HOROVOD_CUDA_HOME}/bin/nvcc)
 endif()
@@ -157,13 +160,12 @@ if (CMAKE_CUDA_COMPILER)
 endif()
 
 macro(ADD_CUDA)
-    option(CMAKE_CUDA_RUNTIME_LIBRARY "Set to \"Static\" or \"Shared\" to control the linking of the CUDA runtime library if available" Shared)
     find_package(CUDAToolkit REQUIRED)
     include_directories(SYSTEM ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
-    string(TOLOWER "${CUDA_RUNTIME_LIBRARY}" lowercase_CUDA_RUNTIME_LIBRARY)
-    if (lowercase_CUDA_RUNTIME_LIBRARY STREQUAL "static")
+    string(TOLOWER "${CMAKE_CUDA_RUNTIME_LIBRARY}" lowercase_CMAKE_CUDA_RUNTIME_LIBRARY)
+    if (lowercase_CMAKE_CUDA_RUNTIME_LIBRARY STREQUAL "static")
         list(APPEND LINKER_LIBS CUDA::cudart_static)
-    elseif (lowercase_CUDA_RUNTIME_LIBRARY STREQUAL "shared")
+    elseif (lowercase_CMAKE_CUDA_RUNTIME_LIBRARY STREQUAL "shared")
         list(APPEND LINKER_LIBS CUDA::cudart)
     endif()
     list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/cuda_operations.cc"
