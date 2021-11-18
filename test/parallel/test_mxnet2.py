@@ -19,7 +19,6 @@ import sys
 import itertools
 import unittest
 from distutils.version import LooseVersion
-import inspect
 import pytest
 import numpy as np
 
@@ -27,7 +26,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 from base_test_mxnet import *
 
-use_device_argument = 'device_list' in inspect.signature(mx.gluon.utils.split_and_load).parameters.keys()
 
 @pytest.mark.skipif(LooseVersion(mx.__version__) < LooseVersion('2.0.0'), reason='MXNet v2 tests')
 class MX2Tests(MXTests, unittest.TestCase):
@@ -72,13 +70,8 @@ class MX2Tests(MXTests, unittest.TestCase):
 
         net1 = nn.Dense(20, in_units=10)
         net2 = nn.Dense(30, in_units=10)
-
-        if use_device_argument:
-            net1.initialize(device=ctx)
-            net2.initialize(device=ctx)
-        else:
-            net1.initialize(ctx=ctx)
-            net2.initialize(ctx=ctx)
+        net1.initialize(ctx=ctx)
+        net2.initialize(ctx=ctx)
 
         params1 = net1.collect_params()
         params2 = net2.collect_params()
@@ -88,10 +81,7 @@ class MX2Tests(MXTests, unittest.TestCase):
         trainer2 = hvd.DistributedTrainer(params2, 'sgd', {'learning_rate': 0.1}, prefix="net2")
 
         for i in range(10):
-            if use_device_argument:
-                data = mx.np.ones((5, 10), device=ctx)
-            else:
-                data = mx.np.ones((5, 10), ctx=ctx)
+            data = mx.np.ones((5, 10), ctx=ctx)
             with mx.autograd.record():
                 pred1 = net1(data).sum()
                 pred2 = net2(data).sum()
@@ -150,11 +140,7 @@ class MX2Tests(MXTests, unittest.TestCase):
                 return data
 
         net = SimpleNet()
-
-        if use_device_argument:
-            net.initialize(device=ctx)
-        else:
-            net.initialize(ctx=ctx)
+        net.initialize(ctx=ctx)
         net.hybridize(static_alloc=True)
 
         params = net.collect_params()
