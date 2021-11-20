@@ -33,7 +33,7 @@ from pyspark.sql.types import FloatType, IntegerType, StructField, StructType
 
 from horovod.runner.common.util import secret
 from horovod.spark.common.store import LocalStore
-from horovod.spark.common.util import _wait_file_available
+from horovod.spark.common.util import _wait_file_available, _get_spark_df_saved_file_list
 from horovod.spark.driver.driver_service import SparkDriverService, SparkDriverClient
 from horovod.spark.task.task_service import SparkTaskService, SparkTaskClient
 
@@ -262,7 +262,7 @@ def test_wait_file_available():
         os.remove(file2_path)
         with pytest.raises(
                 RuntimeError,
-                match='Timeout while waiting for all parquet-store files to appear at urls'
+                match='Timeout while waiting for all parquet-store files to appear'
         ):
             _wait_file_available(url_list)
 
@@ -276,14 +276,14 @@ def test_wait_file_available():
         _wait_file_available(url_list)
 
 
-def test_get_spark_df_input_files():
+def test_get_spark_df_input_files(spark):
     with tempdir() as d:
         pq_dir = os.path.join(d, 'test_spark_df_output')
         with spark_session('test_get_spark_df_input_files') as spark:
             spark.range(100).repartition(4).write.parquet(pq_dir)
 
-        pq_files = sorted([filename for filename in os.listdir(pq_dir)
-                           if filename.endswith('.parquet')])
+        pq_files = _get_spark_df_saved_file_list(pq_dir)
+        pq_files = sorted(pq_files)
         assert len(pq_files) == 4
         for i in range(4):
             assert pq_files[i].startswith('part-0000' + str(i))

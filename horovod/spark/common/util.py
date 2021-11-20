@@ -543,8 +543,12 @@ def _train_val_split(df, validation):
     return train_df, val_df, validation_ratio
 
 
-_FILE_AVAILABILITY_WAIT_TIMEOUT_SECS = \
-    int(os.environ.get('FILE_AVAILABILITY_WAIT_TIMEOUT_SECS', '30'))
+_DATABRICKS_FILE_AVAILABILITY_WAIT_TIMEOUT_SECS = \
+    int(os.environ.get('DATABRICKS_FILE_AVAILABILITY_WAIT_TIMEOUT_SECS', '30'))
+
+
+_DATABRICKS_FILE_AVAILABILITY_CHECK_INTERVAL_SECS = \
+    float(os.environ.get('DATABRICKS_FILE_AVAILABILITY_CHECK_INTERVAL_SECS', '0.1'))
 
 
 def _wait_file_available(store, url_list):
@@ -558,20 +562,22 @@ def _wait_file_available(store, url_list):
         return
 
     def wait_for_file(path):
-        end_time = time.time() + _FILE_AVAILABILITY_WAIT_TIMEOUT_SECS
+        end_time = time.time() + _DATABRICKS_FILE_AVAILABILITY_WAIT_TIMEOUT_SECS
         while time.time() < end_time:
             if store.exists(path):
                 return True
-            time.sleep(0.1)
+            time.sleep(_DATABRICKS_FILE_AVAILABILITY_CHECK_INTERVAL_SECS)
         return False
+
+    if len(url_list) == 0:
+        raise ValueError('Input url_list argument is empty.')
 
     pool = ThreadPool(min(len(url_list), 64))
     try:
         results = pool.map(wait_for_file, url_list)
         failed_list = [url for url, result in zip(url_list, results) if not result]
         if failed_list:
-            raise RuntimeError('Timeout while waiting for all parquet-store files to appear at urls {failed_list},'
-                               'Please check whether these files were saved successfully when materializing dataframe.'
+            raise TimeoutError('Timeout while waiting for all files to appear at urls {failed_list}.'
                                .format(failed_list=','.join(failed_list)))
     finally:
         pool.close()
@@ -650,7 +656,13 @@ def _get_or_create_dataset(key, store, df, feature_columns, label_columns,
 
                 saved_file_list += _get_spark_df_saved_file_list(val_data_path)
 
-            _wait_file_available(store, saved_file_list)
+            try:
+                _wait_file_available(store, saved_file_list)
+            except TimeoutError as e:
+                err_msg = 'Timeout while waiting for all parquet-store files to appear, Please ' \
+                          'check whether these files were saved successfully when materializing ' \
+                          'dataframe. Internal Error: {e}'.format(e=str(e))
+                raise RuntimeError(err_msg)
 
             train_rows, val_rows, pq_metadata, avg_row_size = get_simple_meta_from_parquet(
                 store, label_columns, feature_columns, sample_weight_col, dataset_idx)
