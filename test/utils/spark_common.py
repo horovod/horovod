@@ -33,7 +33,7 @@ from pyspark.sql.types import FloatType, IntegerType, StructField, StructType
 
 from horovod.runner.common.util import secret
 from horovod.spark.common.store import LocalStore
-from horovod.spark.common.util import _wait_file_available, _get_spark_df_saved_file_list
+from horovod.spark.common.util import _wait_file_available_on_dbfs, _get_spark_df_saved_file_list
 from horovod.spark.driver.driver_service import SparkDriverService, SparkDriverClient
 from horovod.spark.task.task_service import SparkTaskService, SparkTaskClient
 
@@ -256,7 +256,7 @@ def test_wait_file_available():
         # 1. test all files exists.
         create_file(file1_path)
         create_file(file2_path)
-        _wait_file_available(url_list)
+        _wait_file_available_on_dbfs(url_list)
 
         # 2. test one file does not exists. Raise error.
         os.remove(file2_path)
@@ -264,7 +264,7 @@ def test_wait_file_available():
                 RuntimeError,
                 match='Timeout while waiting for all parquet-store files to appear'
         ):
-            _wait_file_available(url_list)
+            _wait_file_available_on_dbfs(url_list)
 
         # 3. test one file accessible after 1 second.
         def delay_create_file2():
@@ -273,7 +273,7 @@ def test_wait_file_available():
 
         threading.Thread(target=delay_create_file2()).start()
 
-        _wait_file_available(url_list)
+        _wait_file_available_on_dbfs(url_list)
 
 
 def test_get_spark_df_input_files(spark):

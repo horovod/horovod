@@ -551,14 +551,19 @@ _DATABRICKS_FILE_AVAILABILITY_CHECK_INTERVAL_SECS = \
     float(os.environ.get('DATABRICKS_FILE_AVAILABILITY_CHECK_INTERVAL_SECS', '0.1'))
 
 
-def _wait_file_available(store, url_list):
-    """Waiting about _FILE_AVAILABILITY_WAIT_TIMEOUT_SECS seconds (default 30 seconds) to make sure
-    all files are available for reading. This is useful in some filesystems, such as S3 which only
-    providing eventually consistency.
+def _wait_file_available_on_dbfs(store, url_list):
+    """
+    On databricks runtime, Waiting about DATABRICKS__FILE_AVAILABILITY_WAIT_TIMEOUT_SECS seconds
+    (default 30 seconds) to make sure all files are available for reading.
+    This is because Databricks filesystem backend storage such as S3 which only providing
+    eventually consistency.
     """
     # Import LocalStore here to avoid circular import
     from horovod.spark.common.store import LocalStore
     if isinstance(store, LocalStore):
+        return
+
+    if not is_databricks():
         return
 
     def wait_for_file(path):
@@ -657,7 +662,7 @@ def _get_or_create_dataset(key, store, df, feature_columns, label_columns,
                 saved_file_list += _get_spark_df_saved_file_list(val_data_path)
 
             try:
-                _wait_file_available(store, saved_file_list)
+                _wait_file_available_on_dbfs(store, saved_file_list)
             except TimeoutError as e:
                 err_msg = 'Timeout while waiting for all parquet-store files to appear, Please ' \
                           'check whether these files were saved successfully when materializing ' \
