@@ -558,7 +558,7 @@ def main():
                 f'        env:\n'
                 f'          PIPELINE: "horovod/horovod"\n'
                 f'          # COMMIT is taken from GITHUB_SHA\n'
-                f'          BRANCH: "${{{{ needs.init-workflow.outputs.buildkite-branch-label }}}}"\n'
+                f'          BRANCH: "${{{{ needs.init-workflow.outputs.buildkite-branch-label }}}} ({mode})"\n'
                 f'          # empty MESSAGE will be filled by Buildkite from commit message\n'
                 f'          MESSAGE: "${{{{ needs.init-workflow.outputs.buildkite-message }}}}"\n'
                 f'          BUILDKITE_API_ACCESS_TOKEN: ${{{{ secrets.BUILDKITE_TOKEN }}}}\n'
@@ -802,7 +802,7 @@ def main():
             build_and_test_images(id='build-and-test-heads', name='Build and Test heads', needs=['build-and-test'], images=allhead_images, parallel_images='', tests_per_image=tests_per_image, tests=tests),
             build_and_test_macos(id='build-and-test-macos', name='Build and Test macOS', needs=['build-and-test']),
             trigger_buildkite_job(id='buildkite', name='Build and Test GPU (on Builtkite)', needs=['build-and-test'], mode='GPU NON HEADS'),
-            trigger_buildkite_job(id='buildkite-heads', name='Build and Test GPU heads (on Builtkite)', needs=['buildkite'], mode='GPU HEADS'),
+            trigger_buildkite_job(id='buildkite-heads', name='Build and Test GPU heads (on Builtkite)', needs=['build-and-test'], mode='GPU HEADS'),
             publish_docker_images(needs=['build-and-test', 'buildkite'], images=['horovod', 'horovod-cpu', 'horovod-ray']),
             sync_files(needs=['init-workflow'])
         )

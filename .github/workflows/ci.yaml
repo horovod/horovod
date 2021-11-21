@@ -3152,7 +3152,7 @@ jobs:
         env:
           PIPELINE: "horovod/horovod"
           # COMMIT is taken from GITHUB_SHA
-          BRANCH: "${{ needs.init-workflow.outputs.buildkite-branch-label }}"
+          BRANCH: "${{ needs.init-workflow.outputs.buildkite-branch-label }} (GPU NON HEADS)"
           # empty MESSAGE will be filled by Buildkite from commit message
           MESSAGE: "${{ needs.init-workflow.outputs.buildkite-message }}"
           BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
@@ -3187,7 +3187,7 @@ jobs:
 
   buildkite-heads:
     name: "Build and Test GPU heads (on Builtkite)"
-    needs: [init-workflow, buildkite]
+    needs: [init-workflow, build-and-test]
     runs-on: ubuntu-latest
     if: >
       github.repository == 'horovod/horovod' &&
@@ -3202,7 +3202,7 @@ jobs:
         env:
           PIPELINE: "horovod/horovod"
           # COMMIT is taken from GITHUB_SHA
-          BRANCH: "${{ needs.init-workflow.outputs.buildkite-branch-label }}"
+          BRANCH: "${{ needs.init-workflow.outputs.buildkite-branch-label }} (GPU HEADS)"
           # empty MESSAGE will be filled by Buildkite from commit message
           MESSAGE: "${{ needs.init-workflow.outputs.buildkite-message }}"
           BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
