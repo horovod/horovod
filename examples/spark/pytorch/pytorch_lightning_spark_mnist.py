@@ -17,6 +17,17 @@ else:
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import udf
 
+# Spark PyTorch Lightning tests conflict with Tensorflow 2.5.x: https://github.com/horovod/horovod/pull/3263
+try:
+    # tensorflow has to be imported BEFORE pytorch_lightning, otherwise we see the segfault right away
+    import tensorflow as tf
+    from distutils.version import LooseVersion
+    if LooseVersion('2.5.0') <= LooseVersion(tf.__version__) < LooseVersion('2.6.0'):
+        print('Skipping test as Pytorch Lightning conflicts with present Tensorflow 2.5.x', file=sys.stderr)
+        sys.exit(0)
+except ImportError:
+    pass
+
 from pytorch_lightning import LightningModule
 
 import torch
