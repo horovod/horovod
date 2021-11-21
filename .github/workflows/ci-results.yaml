@@ -233,7 +233,7 @@ jobs:
 
       - name: Download and Extract Artifacts
         env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p artifacts && cd artifacts
 

@@ -225,7 +225,7 @@ def main():
                 f'      - name: Configure Buildkite Build\n'
                 f'        id: config-buildkite\n'
                 f'        env:\n'
-                f'          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}\n'
+                f'          GITHUB_TOKEN: ${{{{ secrets.GITHUB_TOKEN }}}}\n'
                 f'        run: |\n'
                 f'          branch="${{{{ github.event.pull_request.head.ref || github.ref }}}}"\n'
                 f'          branch="${{branch#"refs/heads/"}}"\n'

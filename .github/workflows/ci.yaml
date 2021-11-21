@@ -111,7 +111,7 @@ jobs:
       - name: Configure Buildkite Build
         id: config-buildkite
         env:
-          GITHUB_TOKEN: ${secrets.GITHUB_TOKEN}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           branch="${{ github.event.pull_request.head.ref || github.ref }}"
           branch="${branch#"refs/heads/"}"
