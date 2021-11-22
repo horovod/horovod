@@ -238,7 +238,7 @@ def create_test_data_from_schema(spark, data, schema):
     return spark.createDataFrame(data, schema=schema)
 
 
-def test_wait_file_available():
+def test_wait_file_available_on_dbfs():
     with tempdir() as d:
         pq_dir = os.path.join(d, 'test_ev')
         os.makedirs(pq_dir)
