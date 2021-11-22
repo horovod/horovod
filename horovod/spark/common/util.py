@@ -553,7 +553,7 @@ _DATABRICKS_FILE_AVAILABILITY_CHECK_INTERVAL_SECS = \
 
 def _wait_file_available_on_dbfs(store, url_list):
     """
-    On databricks runtime, Waiting about DATABRICKS__FILE_AVAILABILITY_WAIT_TIMEOUT_SECS seconds
+    On databricks runtime, Waiting about DATABRICKS_FILE_AVAILABILITY_WAIT_TIMEOUT_SECS seconds
     (default 30 seconds) to make sure all files are available for reading.
     This is because Databricks filesystem backend storage such as S3 which only providing
     eventually consistency.
