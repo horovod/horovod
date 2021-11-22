@@ -38,7 +38,7 @@ Status TensorQueue::AddToTensorQueueMulti(std::vector<TensorTableEntry>& entries
                                           std::vector<Request>& messages) {
   std::lock_guard<std::mutex> guard(mutex_);
 
-  for (int i = 0; i < entries.size(); ++i) {
+  for (std::size_t i = 0; i < entries.size(); ++i) {
     if (tensor_table_.find(entries[i].tensor_name) != tensor_table_.end()) {
       return DUPLICATE_NAME_ERROR;
     }

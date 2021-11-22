@@ -463,7 +463,7 @@ void ParameterManager::BayesianParameter::OnTune(double score, Eigen::VectorXd& 
 }
 
 bool ParameterManager::BayesianParameter::IsDoneTuning() const {
-  return iteration_ > max_samples_;
+  return (int)iteration_ > max_samples_;
 }
 
 void ParameterManager::BayesianParameter::ResetState() {
