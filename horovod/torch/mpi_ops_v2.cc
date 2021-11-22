@@ -16,12 +16,8 @@
 // =============================================================================
 
 #if HAVE_GPU
-#if TORCH_VERSION >= 1005000000
 #include <c10/cuda/CUDAStream.h>
 #include <c10/cuda/CUDAException.h>
-#else
-#include <THC/THC.h>
-#endif
 #endif
 
 #include <chrono>
@@ -35,12 +31,6 @@
 #include "cuda_util.h"
 #include "handle_manager.h"
 #include "ready_event.h"
-
-#if TORCH_VERSION < 1005000000
-#if HAVE_GPU
-extern THCState* state;
-#endif
-#endif
 
 namespace horovod {
 namespace torch {
@@ -67,22 +57,16 @@ int GetDeviceID(const ::torch::Tensor& tensor) {
 } // namespace
 
 void DivideInPlace(::torch::Tensor& tensor, int divisor) {
-#if TORCH_VERSION >= 1005000000
   if (isIntegralType(tensor.scalar_type())) {
     tensor.floor_divide_(divisor);
     return;
   }
-#endif
   tensor.div_(divisor);
 }
 
 #if HAVE_GPU
 gpuStream_t GetGPUStream(int device) {
-  #if TORCH_VERSION >= 1005000000
   return c10::cuda::getCurrentCUDAStream(device);
-  #else
-  return THCState_getCurrentStreamOnDevice(state, device);
-  #endif
 }
 #endif
 

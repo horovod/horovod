@@ -110,7 +110,7 @@ A unique feature of Ray is its support for `stateful Actors <https://docs.ray.io
 Elastic Ray Executor
 --------------------
 
-Ray also supports `elastic execution <elastic.rst>`_ via :ref:`the ElasticRayExecutor <horovod_ray_api>`. Similar to default Horovod, the difference between the non-elastic and elastic versions of Ray is that the hosts and number of workers is dynamically determined at runtime.
+Ray also supports `elastic execution <elastic.rst>`_ via :ref:`the RayExecutor <horovod_ray_api>`. Similar to default Horovod, the difference between the non-elastic and elastic versions of Ray is that the hosts and number of workers is dynamically determined at runtime.
 
 You must first set up `a Ray cluster`_. Ray clusters can support autoscaling for any cloud provider (AWS, GCP, Azure).
 
@@ -153,10 +153,12 @@ You can then attach to the underlying Ray cluster and execute the training funct
 .. code-block:: python
 
     import ray
+    from horovod.ray import RayExecutor
+
     ray.init(address="auto")  # attach to the Ray cluster
-    settings = ElasticRayExecutor.create_settings(verbose=True)
-    executor = ElasticRayExecutor(
-        settings, use_gpu=True, cpus_per_slot=2)
+    settings = RayExecutor.create_settings(verbose=True)
+    executor = RayExecutor(
+        settings, min_workers=1, use_gpu=True, cpus_per_slot=2)
     executor.start()
     executor.run(training_fn)
 
