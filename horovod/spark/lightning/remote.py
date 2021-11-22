@@ -262,7 +262,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             if hvd.rank() == 0:
                 if remote_store.saving_runs and trainer.profiler:
                     # One more file sync to push profiler result.
-                    remote_store.sync(run_output_dir)
+                    remote_store.sync(logs_path)
 
                 # rank 0 overwrites model with best checkpoint and returns.
                 if require_checkpoint:
