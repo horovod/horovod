@@ -188,6 +188,10 @@ def broadcast(backend, value, root_rank, name):
     return _eval(backend, hvd.broadcast(tf.constant(value, name=name), root_rank))
 
 
+def reducescatter(backend, value, name, op):
+    return _eval(backend, hvd.reducescatter(tf.constant(value, name=name), reduce_op=op))
+
+
 def load_model(keras, wrap_optimizer, optimizer_modules, filepath, custom_optimizers, custom_objects):
     horovod_objects = {
         subclass.__name__.lower(): wrap_optimizer(subclass)

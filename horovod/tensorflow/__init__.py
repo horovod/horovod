@@ -26,7 +26,7 @@ check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_
 from horovod.tensorflow import elastic
 from horovod.tensorflow.compression import Compression
 from horovod.tensorflow.functions import allgather_object, broadcast_object, broadcast_object_fn, broadcast_variables
-from horovod.tensorflow.mpi_ops import allgather, broadcast, broadcast_, _allreduce, _grouped_allreduce, alltoall
+from horovod.tensorflow.mpi_ops import allgather, broadcast, broadcast_, _allreduce, _grouped_allreduce, alltoall, _reducescatter
 from horovod.tensorflow.mpi_ops import init, shutdown
 from horovod.tensorflow.mpi_ops import is_initialized, start_timeline, stop_timeline
 from horovod.tensorflow.mpi_ops import size, local_size, cross_size, rank, local_rank, cross_rank, is_homogeneous
@@ -159,6 +159,40 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                 else:
                     new_tensor = summed_tensor
         return new_tensor
+
+
+def reducescatter(tensor, device_dense='', compression=Compression.none, op=Average):
+    """Perform a reducescatter on a tf.Tensor.
+
+    This function performs a bandwidth-optimal reduce and scatter on the input
+    tensor.
+
+    Arguments:
+        tensor: tf.Tensor or tf.Variable to reduce.
+                The shape of the input must be identical across all ranks.
+        device_dense: Device to be used for dense tensors. Uses GPU by default
+                      if Horovod was built with HOROVOD_GPU_REDUCESCATTER.
+        compression: Compression algorithm used to reduce the amount of data
+                     sent and received by each worker node.  Defaults to not
+                     using compression.
+        op: The reduction operation to combine tensors across different ranks.
+            Defaults to Average.
+
+    Returns:
+        A tensor of the same rank and type as `tensor`, summed across all processes.
+        The shape is identical to the input shape, except for the first dimension,
+        which will be divided across the different Horovod processes.
+    """
+    # Averaging happens in framework code, so translate that to Sum for the actual call
+    true_op = Sum if op == Average else op
+
+    with tf.device(device_dense):
+        horovod_size = tf.cast(size(), dtype=tensor.dtype)
+        tensor_compressed, ctx = compression.compress(tensor)
+        reduced_tensor_compressed = _reducescatter(tensor_compressed, op=true_op)
+        reduced_tensor = compression.decompress(reduced_tensor_compressed, ctx)
+        new_tensor = (reduced_tensor / horovod_size) if op == Average else reduced_tensor
+    return new_tensor
 
 def grouped_allreduce(tensors, average=None, device_dense='', device_sparse='',
                       compression=Compression.none, op=None,

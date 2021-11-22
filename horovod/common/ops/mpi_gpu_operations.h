@@ -49,6 +49,17 @@ public:
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 };
 
+class MPI_CUDAReducescatter : public CUDAReducescatter {
+public:
+  MPI_CUDAReducescatter(MPIContext* mpi_context, CUDAContext* cuda_context, HorovodGlobalState* global_state);
+  virtual ~MPI_CUDAReducescatter()=default;
+
+  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+
+protected:
+  MPIContext* mpi_context_;
+};
+
 } // namespace common
 } // namespace horovod
 

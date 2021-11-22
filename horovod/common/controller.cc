@@ -542,11 +542,12 @@ Response Controller::ConstructResponse(const std::string& name, int joined_size)
     }
   }
 
-  // If we are doing an allreduce or broadcast, check that all tensor shapes are
-  // identical.
+  // If we are doing an allreduce, broadcast, or reducescatter check that all
+  // tensor shapes are identical.
   if (message_type == Request::ALLREDUCE ||
       message_type == Request::ADASUM ||
-      message_type == Request::BROADCAST) {
+      message_type == Request::BROADCAST ||
+      message_type == Request::REDUCESCATTER) {
     TensorShape tensor_shape;
     for (auto dim : requests[0].tensor_shape()) {
       tensor_shape.AddDim(dim);
@@ -679,6 +680,19 @@ Response Controller::ConstructResponse(const std::string& name, int joined_size)
     }
   }
 
+  if (message_type == Request::REDUCESCATTER) {
+    if (joined_size > 0) {
+      error = true;
+      error_message_stream << "Reducescatter is not supported with Join at this time.";
+    }
+
+    TensorShape tensor_shape;
+    for (auto dim : requests[0].tensor_shape()) {
+      tensor_shape.AddDim(dim);
+    }
+    tensor_sizes.push_back(tensor_shape.num_elements());
+  }
+
   if (message_type == Request::ALLREDUCE || message_type == Request::ADASUM) {
     TensorShape tensor_shape;
     for (auto dim : requests[0].tensor_shape()) {
@@ -762,6 +776,12 @@ Response Controller::ConstructResponse(const std::string& name, int joined_size)
     response.set_response_type(Response::BROADCAST);
   } else if (message_type == Request::ALLTOALL) {
     response.set_response_type(Response::ALLTOALL);
+  } else if (message_type == Request::REDUCESCATTER) {
+    response.set_response_type(Response::REDUCESCATTER);
+    for (auto dim : tensor_sizes) {
+      response.add_tensor_size(dim);
+    }
+    response.set_tensor_type(data_type);
   } else if (message_type == Request::ADASUM) {
     response.set_response_type(Response::ADASUM);
     for (auto dim : tensor_sizes) {
@@ -821,7 +841,8 @@ void Controller::FuseResponses(std::deque<Response>& responses,
     responses.pop_front();
     int64_t tensor_size = 0;
     if (response.response_type() == Response::ResponseType::ALLREDUCE ||
-        response.response_type() == Response::ResponseType::ADASUM) {
+        response.response_type() == Response::ResponseType::ADASUM ||
+        response.response_type() == Response::ResponseType::REDUCESCATTER) {
       // Attempt to add more responses to this fused response.
 
       tensor_size = response.tensor_sizes()[0] * GetTypeSize(response.tensor_type());

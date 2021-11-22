@@ -108,6 +108,7 @@ void TensorQueue::GetTensorEntriesFromResponse(
              response.response_type() == Response::ALLGATHER ||
              response.response_type() == Response::BROADCAST ||
              response.response_type() == Response::ALLTOALL ||
+             response.response_type() == Response::REDUCESCATTER ||
              response.response_type() == Response::ADASUM ||
              response.response_type() == Response::BARRIER ||
              response.response_type() == Response::ERROR);

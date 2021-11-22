@@ -504,7 +504,7 @@ REGISTER_OP("HorovodAllreduce")
       return Status::OK();
     })
     .Doc(R"doc(
-Perform an MPI Allreduce on a tensor. All other processes that do a reduction
+Perform an Allreduce on a tensor. All other processes that do a reduction
 on a tensor with the same name must have the same dimension for that tensor.
 Tensors are reduced with other tensors that have the same node name for the
 allreduce.
@@ -513,7 +513,7 @@ Arguments
     tensor:     A tensor to reduce.
 
 Output
-    sum:    A tensor with the same shape as `tensor`, summed across all MPI processes.
+    sum:    A tensor with the same shape as `tensor`, summed across all processes.
 )doc");
 
 class HorovodGroupedAllreduceOp : public AsyncOpKernel {
@@ -733,7 +733,7 @@ REGISTER_OP("HorovodAllgather")
       return Status::OK();
     })
     .Doc(R"doc(
-Perform an MPI Allgather on a tensor. All other processes that do a gather on a
+Perform an Allgather on a tensor. All other processes that do a gather on a
 tensor with the same name must have the same rank for that tensor, and have the
 same dimension on all but the first dimension.
 
@@ -741,7 +741,7 @@ Arguments
     tensor:     A tensor to gather.
 
 Output
-    gathered:    A tensor with the same shape as `tensor` except for the first dimension.
+    output:     A tensor with the same shape as `tensor` except for the first dimension.
 )doc");
 
 class HorovodBroadcastOp : public AsyncOpKernel {
@@ -830,7 +830,7 @@ REGISTER_OP("HorovodBroadcast")
       return Status::OK();
     })
     .Doc(R"doc(
-Perform an MPI Broadcast on a tensor. All other processes that do a broadcast
+Perform a Broadcast on a tensor. All other processes that do a broadcast
 on a tensor with the same name must have the same dimension for that tensor.
 
 Arguments
@@ -1095,6 +1095,75 @@ Input
                   to the values from the root rank.
 )doc");
 #endif // TENSORFLOW_VERSION >= 2006000000
+
+class HorovodReducescatterOp : public AsyncOpKernel {
+public:
+  explicit HorovodReducescatterOp(OpKernelConstruction* context)
+      : AsyncOpKernel(context) {
+    int reduce_op;
+    OP_REQUIRES_OK(context, context->GetAttr("reduce_op", &reduce_op));
+    reduce_op_ = static_cast<horovod::common::ReduceOp>(reduce_op);
+  }
+
+  void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(common::CheckInitialized()),
+                         done);
+
+    auto node_name = name();
+    auto device = GetDeviceID(context);
+    auto tensor = context->input(0);
+    // ReadyEvent makes sure input tensor is ready.  We cannot pre-allocate
+    // output for reducescatter, since shape of result is only known after all
+    // ranks make a request.
+    auto ready_event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context));
+    auto hvd_context = std::make_shared<TFOpContext>(context);
+    auto hvd_tensor = std::make_shared<TFTensor>(tensor);
+    auto enqueue_result = EnqueueTensorReducescatter(
+        hvd_context, hvd_tensor, ready_event, node_name, device,
+        [context, done](const common::Status& status) {
+          context->SetStatus(ConvertStatus(status));
+          done();
+        }, reduce_op_);
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
+  }
+
+private:
+  horovod::common::ReduceOp reduce_op_;
+}; // namespace tensorflow
+
+REGISTER_KERNEL_BUILDER(Name("HorovodReducescatter").Device(DEVICE_CPU),
+                        HorovodReducescatterOp);
+#if HOROVOD_GPU_REDUCESCATTER
+REGISTER_KERNEL_BUILDER(Name("HorovodReducescatter").Device(DEVICE_GPU),
+                        HorovodReducescatterOp);
+#endif
+
+REGISTER_OP("HorovodReducescatter")
+    .Attr("T: {int32, int64, float16, float32, float64}")
+    .Attr("reduce_op: int")
+    .Input("tensor: T")
+    .Output("output: T")
+    .SetShapeFn([](shape_inference::InferenceContext* c) {
+      shape_inference::ShapeHandle output;
+      TF_RETURN_IF_ERROR(
+          c->ReplaceDim(c->input(0), 0, c->UnknownDim(), &output));
+      c->set_output(0, output);
+      return Status::OK();
+    })
+    .Doc(R"doc(
+Perform a Reducescatter on a tensor. All other processes that do a
+reduce scatter on a tensor with the same name must have the same shape for
+that tensor. Tensors are reduced with other tensors that have the same node
+name for the reducescatter. The output shape is identical to the input
+shape except for the first dimension, which will be divided across the
+different Horovod processes.
+
+Arguments
+    tensor:     A tensor to reduce and scatter.
+
+Output
+    output:     A tensor with the same shape as `tensor` except for the first dimension.
+)doc");
 
 class HorovodJoinOp : public AsyncOpKernel {
 public:

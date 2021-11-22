@@ -25,7 +25,7 @@ from horovod.tensorflow import is_initialized, start_timeline, stop_timeline
 from horovod.tensorflow import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.tensorflow import gloo_enabled, gloo_built
 from horovod.tensorflow import nccl_built, ddl_built, ccl_built, cuda_built, rocm_built
-from horovod.tensorflow import Average, Sum
+from horovod.tensorflow import Average, Sum, Adasum  # TODO: neded for reduces_scatter?
 from horovod.tensorflow.compression import Compression
 
 
@@ -162,6 +162,20 @@ def broadcast(value, root_rank, name=None):
         name: Optional name for the constants created by this operation.
     """
     return _impl.broadcast(K, value, root_rank, name)
+
+
+def reducescatter(value, name=None, op=Average):
+    """
+    Perform a reducescatter on a tensor-compatible value.
+
+    Arguments:
+        value: A tensor-compatible value to reduce and scatter.
+               The shape of the input must be identical across all ranks.
+        name: Optional name for the constants created by this operation.
+        op: The reduction operation to combine tensors across different ranks.
+            Defaults to Average.
+    """
+    return _impl.reducescatter(K, value, name, op)
 
 
 def load_model(filepath, custom_optimizers=None, custom_objects=None, compression=Compression.none):

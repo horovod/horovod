@@ -24,6 +24,7 @@ from horovod.mxnet.mpi_ops import allgather
 from horovod.mxnet.mpi_ops import allreduce, allreduce_, grouped_allreduce, grouped_allreduce_
 from horovod.mxnet.mpi_ops import alltoall
 from horovod.mxnet.mpi_ops import broadcast, broadcast_
+from horovod.mxnet.mpi_ops import reducescatter
 from horovod.mxnet.mpi_ops import init, shutdown
 from horovod.mxnet.mpi_ops import is_initialized, start_timeline, stop_timeline
 from horovod.mxnet.mpi_ops import size, local_size, cross_size, rank, local_rank, cross_rank
@@ -31,6 +32,7 @@ from horovod.mxnet.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.mxnet.mpi_ops import gloo_enabled, gloo_built
 from horovod.mxnet.mpi_ops import nccl_built, ddl_built, ccl_built, cuda_built, rocm_built
 from horovod.mxnet.mpi_ops import ProcessSet, global_process_set, add_process_set, remove_process_set
+from horovod.mxnet.mpi_ops import Average, Sum, Adasum  # TODO: needed for reducescatter?
 
 import mxnet as mx
 from collections import OrderedDict, defaultdict

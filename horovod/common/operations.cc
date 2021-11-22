@@ -148,6 +148,7 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   std::vector<std::shared_ptr<AllreduceOp>> allreduce_ops;
   std::vector<std::shared_ptr<AllgatherOp>> allgather_ops;
   std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops;
+  std::vector<std::shared_ptr<ReducescatterOp>> reducescatter_ops;
   std::vector<std::shared_ptr<AllreduceOp>> adasum_ops;
   std::vector<std::shared_ptr<AlltoallOp>> alltoall_ops;
 
@@ -179,6 +180,11 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #if HOROVOD_GPU_ALLTOALL == 'M'
     alltoall_ops.push_back(
         std::shared_ptr<AlltoallOp>(new MPI_GPUAlltoall(&gpu_context, &state)));
+#endif
+
+#if HOROVOD_GPU_REDUCESCATTER == 'M'
+    reducescatter_ops.push_back(std::shared_ptr<ReducescatterOp>(
+        new MPI_CUDAReducescatter(&mpi_context, &cuda_context, &state)));
 #endif
   }
 #endif
@@ -240,6 +246,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
         std::shared_ptr<BroadcastOp>(new MPIBroadcast(&state)));
     alltoall_ops.push_back(
         std::shared_ptr<AlltoallOp>(new MPIAlltoall(&state)));
+    reducescatter_ops.push_back(
+        std::shared_ptr<ReducescatterOp>(new MPIReducescatter(&mpi_context, &state)));
   }
 #endif
 
@@ -249,7 +257,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 
   return new OperationManager(&state.parameter_manager, allreduce_ops,
                               allgather_ops, broadcast_ops, alltoall_ops,
-                              join_op, adasum_ops, barrier_op, error_op);
+                              reducescatter_ops, join_op, adasum_ops,
+                              barrier_op, error_op);
 }
 
 // Process a Response by doing a reduction, a gather, a broadcast, or
@@ -1633,6 +1642,48 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   if (status.ok()) {
     LOG(TRACE, horovod_global.global_controller->GetRank())
         << "Enqueued " << name;
+  }
+  return status;
+}
+
+// Contexts and controller must be initialized and the background thread
+// must be running before this function is called.
+Status EnqueueTensorReducescatter(std::shared_ptr<OpContext> context,
+                                  std::shared_ptr<Tensor> tensor,
+                                  std::shared_ptr<ReadyEvent> ready_event,
+                                  const std::string name, const int device,
+                                  StatusCallback callback,
+                                  ReduceOp reduce_op) {
+  if (reduce_op != ReduceOp::SUM) {
+    // Note: AVERAGE is supported by enqueuing SUM and performing divide at the framework level.
+    LOG(ERROR, horovod_global.controller->GetRank()) << "Reducescatter currently only supports SUM.";
+    return Status::Aborted("Reducescatter currently only supports SUM.");
+  }
+
+  Request message;
+  message.set_request_rank(horovod_global.controller->GetRank());
+  message.set_tensor_name(name);
+  message.set_tensor_type(tensor->dtype());
+  message.set_device(device);
+  message.set_request_type(Request::REDUCESCATTER);
+  for (int i = 0; i < tensor->shape().dims(); ++i) {
+    message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
+  }
+
+  TensorTableEntry e;
+  e.tensor_name = name;
+  e.context = context;
+  e.tensor = tensor;
+  e.ready_event = ready_event;
+  e.device = device;
+  e.callback = callback;
+
+  if (horovod_global.shut_down) {
+    return SHUT_DOWN_ERROR;
+  }
+  Status status = horovod_global.tensor_queue.AddToTensorQueue(e, message);
+  if (status.ok()) {
+    LOG(TRACE, horovod_global.controller->GetRank()) << "Enqueued " << name;
   }
   return status;
 }

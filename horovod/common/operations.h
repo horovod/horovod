@@ -226,6 +226,13 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
                              StatusCallback callback,
                              int32_t process_set_id = 0);
 
+Status EnqueueTensorReducescatter(std::shared_ptr<OpContext> context,
+                                  std::shared_ptr<Tensor> tensor,
+                                  std::shared_ptr<ReadyEvent> ready_event,
+                                  const std::string name, const int device,
+                                  StatusCallback callback,
+                                  ReduceOp reduce_op = ReduceOp::SUM);
+
 Status EnqueueJoin(std::shared_ptr<OpContext> context,
                    std::shared_ptr<Tensor> output_last_joined_rank,
                    ReadyEventList ready_event_list,

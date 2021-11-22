@@ -233,5 +233,73 @@ Status MPI_GPUAlltoall::Execute(std::vector<TensorTableEntry>& entries, const Re
   return Status::OK();
 }
 
+MPI_CUDAReducescatter::MPI_CUDAReducescatter(MPIContext* mpi_context,
+                                             CUDAContext* cuda_context,
+                                             HorovodGlobalState* global_state)
+    : CUDAReducescatter(cuda_context, global_state),
+      mpi_context_(mpi_context) {}
+
+Status MPI_CUDAReducescatter::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+  auto& timeline = global_state_->timeline;
+
+  cuda_op_context_.InitCUDA(entries);
+
+  const void* sendbuf = nullptr;
+  void* buffer_data = nullptr;
+  int global_rank = global_state_->controller->GetRank();
+  auto output_shapes = ComputeOutputShapes(entries);
+  std::vector<int> recvcounts = ComputeReceiveCounts(output_shapes);
+
+  auto& first_entry = entries[0];
+
+  timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
+  Status status = AllocateOutput(entries, output_shapes[global_rank]);
+  if (!status.ok()) {
+    return status;
+  }
+  timeline.ActivityEndAll(entries);
+
+  // Copy memory into the fusion buffer.
+  if (entries.size() > 1) {
+    timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
+    int element_size = mpi_context_->GetMPITypeSize(first_entry.tensor->dtype());
+    MemcpyInFusionBuffer(entries, output_shapes, element_size, buffer_data);
+
+    auto cuda_result = cudaStreamSynchronize(cuda_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
+    cuda_context_->ErrorCheck("cudaStreamSynchronize", cuda_result);
+
+    timeline.ActivityEndAll(entries);
+  } else {
+    sendbuf = first_entry.tensor->data();
+    buffer_data = (void*) first_entry.output->data();
+  }
+
+  // Do reducescatter.
+  timeline.ActivityStartAll(entries, MPI_REDUCESCATTER);
+  int op = MPI_Reduce_scatter(sendbuf != nullptr ? sendbuf : MPI_IN_PLACE,
+                              buffer_data,
+                              recvcounts.data(),
+                              mpi_context_->GetMPIDataType(first_entry.tensor),
+                              mpi_context_->GetMPISumOp(first_entry.tensor->dtype()),
+                              mpi_context_->GetMPICommunicator(Communicator::GLOBAL));
+  if (op != MPI_SUCCESS) {
+    throw std::runtime_error("MPI_Reduce_scatter failed, see MPI output for details.");
+  }
+  timeline.ActivityEndAll(entries);
+
+  // Copy memory out of the fusion buffer.
+  if (entries.size() > 1) {
+    timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
+    MemcpyOutFusionBuffer(buffer_data, entries);
+
+    auto cuda_result = cudaStreamSynchronize(cuda_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
+    cuda_context_->ErrorCheck("cudaStreamSynchronize", cuda_result);
+
+    timeline.ActivityEndAll(entries);
+  }
+
+  return Status::OK();
+}
+
 } // namespace common
 } // namespace horovod

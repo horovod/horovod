@@ -47,6 +47,7 @@ static const char* ALLREDUCE_OP_TYPE_NAME = "horovod_allreduce";
 static const char* ALLGATHER_OP_TYPE_NAME = "horovod_allgather";
 static const char* BROADCAST_OP_TYPE_NAME = "horovod_broadcast";
 static const char* ALLTOALL_OP_TYPE_NAME = "horovod_alltoall";
+static const char* REDUCESCATTER_OP_TYPE_NAME = "horovod_reducescatter";
 
 inline void InvokeCompleteCallback(CallbackOnComplete on_complete, const Status& status) {
   if (status.ok()) {
@@ -67,6 +68,8 @@ inline const char* GetOpTypeName(OperationType op_type) {
       return BROADCAST_OP_TYPE_NAME;
     case OperationType::ALLTOALL:
       return ALLTOALL_OP_TYPE_NAME;
+    case OperationType::REDUCESCATTER:
+      return REDUCESCATTER_OP_TYPE_NAME;
     default:
       throw std::logic_error("Unsupported Horovod operation type.");
   }
@@ -284,6 +287,13 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
           ops_param->op_names[0], device, callbacks[0], process_set_id);
       break;
     }
+    case OperationType::REDUCESCATTER:
+      enqueue_result = EnqueueTensorReducescatter(
+          hvd_context, hvd_tensor, nullptr, name, device,
+          [on_complete](const Status& status) {
+            InvokeCompleteCallback(on_complete, status);
+          });
+      break;
     default:
       throw std::logic_error("Unsupported Horovod operation type.");
   }
@@ -480,6 +490,13 @@ void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
         ops_param->op_names[0], device, callbacks[0], process_set_id);
     break;
   }
+  case OperationType::REDUCESCATTER:
+    enqueue_result = EnqueueTensorReducescatter(
+        hvd_context, hvd_cpu_buffer, nullptr, name, CPU_DEVICE_ID,
+        [on_complete](const Status& status) {
+          InvokeCompleteCallback(on_complete, status);
+        });
+    break;
   default:
     throw std::logic_error("Unsupported Horovod operation type.");
   }
@@ -712,6 +729,34 @@ extern "C" int horovod_mxnet_alltoall_async(NDArray* input,
                        1, process_set_id, -1, false, splits,
                        output_received_splits);
 #endif
+
+  MX_API_END();
+}
+
+extern "C" int horovod_mxnet_reducescatter_async(NDArray* input, NDArray* output,
+                                                 const char* name, int reduce_op_int,
+                                                 int priority) {
+  MX_API_BEGIN();
+
+  auto reduce_op = static_cast<horovod::common::ReduceOp>(reduce_op_int);
+
+#if HAVE_CUDA && !HOROVOD_GPU_REDUCESCATTER
+  if (input->ctx().dev_mask() == cpu::kDevMask &&
+      output->ctx().dev_mask() == cpu::kDevMask) {
+    PushHorovodOperation(OperationType::REDUCESCATTER, input, output,
+                         name, priority);
+  } else {
+    PushHorovodOperationCudaOnCPU(OperationType::REDUCESCATTER, input, output,
+                                  name, priority);
+  }
+#else
+  PushHorovodOperation(OperationType::REDUCESCATTER, input, output,
+                       name, priority);
+#endif
+
+  if (reduce_op == horovod::common::ReduceOp::AVERAGE) {
+    *output /= horovod_size();
+  }
 
   MX_API_END();
 }

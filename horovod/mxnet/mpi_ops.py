@@ -65,6 +65,12 @@ def init(*args, **kwargs):
     # Call set up again to make sure the basics is in sync
     _setup_process_sets(_basics)
 
+# TODO: Do we need these for reducescatter?
+# import reduction op values
+Average = _basics.Average
+Sum = _basics.Sum
+Adasum = _basics.Adasum
+
 dll_path = os.path.join(os.path.dirname(__file__),
                         'mpi_lib' + get_ext_suffix())
 MPI_MXNET_LIB_CTYPES = ctypes.CDLL(dll_path, ctypes.RTLD_GLOBAL)
@@ -449,3 +455,46 @@ def alltoall(tensor, splits=None, name=None, priority=0, process_set=global_proc
         return output, output_received_splits
     else:
         return output
+
+def reducescatter(tensor, op=Average, name=None, priority=0):
+    """
+    A function that performs asynchronous averaging or summation of the input tensor
+    over all the Horovod processes, then scatters the results across all Horovod
+    processes. The input tensor is not modified.
+
+    The reduction operation is keyed by the name. If name is not provided, an
+    incremented auto-generated name is used. The tensor type and shape must be
+    the same on all Horovod processes for a given name. The reduction will not
+    start until all processes are ready to send and receive the tensor.
+
+    This acts as a thin wrapper around an autograd function.  If your input
+    tensor requires gradients, then callings this function will allow gradients
+    to be computed and backpropagated.
+
+    Arguments:
+        tensor: A tensor to average/sum and scatter.
+        op: The reduction operation to combine tensors across different ranks.
+            Defaults to Average.
+        name: A name of the reduction operation.
+        priority: The priority of this operation. Higher priority operations
+                  are likely to be executed before other operations.
+
+    Returns:
+        A tensor of the same rank and type as `tensor` across all processes.
+        The shape is identical to the input shape except for the first dimension,
+        which will be divided across the different Horovod processes.
+    """
+    assert(isinstance(tensor, mx.nd.NDArray))
+    output = mx.nd.zeros(shape=tensor.shape, ctx=tensor.context,
+                         dtype=tensor.dtype)
+    c_in = tensor.handle
+    c_out = output.handle
+    if isinstance(name, string_types):
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_reducescatter_async(
+            c_in, c_out, c_str(name), ctypes.c_int(op),
+            ctypes.c_int(priority)))
+    else:
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_reducescatter_async(
+            c_in, c_out, name, ctypes.c_int(op),
+            ctypes.c_int(priority)))
+    return output
