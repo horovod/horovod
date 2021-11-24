@@ -303,7 +303,10 @@ class AbstractFilesystemStore(Store):
             try:
                 yield dirpath
             finally:
-                shutil.rmtree(dirpath)
+                try:
+                    shutil.rmtree(dirpath)
+                except FileNotFoundError:
+                    pass
         return local_run_path
 
     def get_localized_path(self, path):
