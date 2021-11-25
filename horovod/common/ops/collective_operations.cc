@@ -298,9 +298,7 @@ ReducescatterOp::ReducescatterOp(HorovodGlobalState* global_state)
     : HorovodOp(global_state) {}
 
 TensorShape ReducescatterOp::ComputeOutputShapeForRank(
-    const TensorShape& tensor_shape, int rank) const {
-  int global_size = global_state_->controller->GetSize();
-
+    const TensorShape& tensor_shape, int rank, int global_size) const {
   // The last rank may receive a larger tensor.
   int64_t min_size = tensor_shape.dim_size(0) / global_size;
   int64_t max_size = tensor_shape.dim_size(0) / global_size + tensor_shape.dim_size(0) % global_size;
@@ -316,14 +314,13 @@ TensorShape ReducescatterOp::ComputeOutputShapeForRank(
 }
 
 std::vector<std::vector<TensorShape>> ReducescatterOp::ComputeOutputShapes(
-    const std::vector<TensorTableEntry>& entries) const {
-  int global_size = global_state_->controller->GetSize();
+    const std::vector<TensorTableEntry>& entries, int global_size) const {
   std::vector<std::vector<TensorShape>> output_shapes(global_size);
   for (int rank = 0; rank < global_size; ++rank) {
     output_shapes[rank].reserve(entries.size());
-    for (size_t ec = 0; ec < entries.size(); ++ec) {
-      const auto& e = entries[ec];
-      TensorShape shape = ComputeOutputShapeForRank(e.tensor->shape(), rank);
+    for (const auto& e : entries) {
+      TensorShape shape =
+          ComputeOutputShapeForRank(e.tensor->shape(), rank, global_size);
       output_shapes[rank].emplace_back(std::move(shape));
     }
   }

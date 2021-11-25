@@ -452,19 +452,27 @@ bool MPIAlltoall::Enabled(const ParameterManager& param_manager,
   return true;
 }
 
-MPIReducescatter::MPIReducescatter(MPIContext* mpi_context, HorovodGlobalState* global_state)
-    : ReducescatterOp(global_state), mpi_context_(mpi_context) {}
+MPIReducescatter::MPIReducescatter(HorovodGlobalState* global_state)
+    : ReducescatterOp(global_state) {}
 
-Status MPIReducescatter::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+Status MPIReducescatter::Execute(std::vector<TensorTableEntry>& entries,
+                                 const Response& response) {
+  assert(!entries.empty());
+  WaitForData(entries);
+
+  auto& first_entry = entries[0];
+  auto& process_set =
+      global_state_->process_set_table.Get(first_entry.process_set_id);
+  const auto& mpi_context = process_set.mpi_context;
+
   auto& timeline = global_state_->timeline;
 
   const void* sendbuf = nullptr;
   void* buffer_data = nullptr;
-  int global_rank = global_state_->controller->GetRank();
-  auto output_shapes = ComputeOutputShapes(entries);
+  int global_rank = process_set.controller->GetRank();
+  int global_size = process_set.controller->GetSize();
+  auto output_shapes = ComputeOutputShapes(entries, global_size);
   std::vector<int> recvcounts = ComputeReceiveCounts(output_shapes);
-
-  auto& first_entry = entries[0];
 
   timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
   Status status = AllocateOutput(entries, output_shapes[global_rank]);
@@ -476,24 +484,24 @@ Status MPIReducescatter::Execute(std::vector<TensorTableEntry>& entries, const R
   // Copy memory into the fusion buffer.
   if (entries.size() > 1) {
     timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
-    int element_size = mpi_context_->GetMPITypeSize(first_entry.tensor->dtype());
+    int element_size = mpi_context.GetMPITypeSize(first_entry.tensor->dtype());
     MemcpyInFusionBuffer(entries, output_shapes, element_size, buffer_data);
     timeline.ActivityEndAll(entries);
   } else {
     sendbuf = first_entry.tensor->data();
-    buffer_data = (void*) first_entry.output->data();
+    buffer_data = (void*)first_entry.output->data();
   }
 
   // Do reducescatter.
   timeline.ActivityStartAll(entries, MPI_REDUCESCATTER);
-  int op = MPI_Reduce_scatter(sendbuf != nullptr ? sendbuf : MPI_IN_PLACE,
-                              buffer_data,
-                              recvcounts.data(),
-                              mpi_context_->GetMPIDataType(first_entry.tensor),
-                              mpi_context_->GetMPISumOp(first_entry.tensor->dtype()),
-                              mpi_context_->GetMPICommunicator(Communicator::GLOBAL));
+  int op = MPI_Reduce_scatter(
+      sendbuf != nullptr ? sendbuf : MPI_IN_PLACE, buffer_data,
+      recvcounts.data(), mpi_context.GetMPIDataType(first_entry.tensor),
+      mpi_context.GetMPISumOp(first_entry.tensor->dtype()),
+      mpi_context.GetMPICommunicator(Communicator::GLOBAL));
   if (op != MPI_SUCCESS) {
-    throw std::runtime_error("MPI_Reduce_scatter failed, see MPI output for details.");
+    throw std::runtime_error(
+        "MPI_Reduce_scatter failed, see MPI output for details.");
   }
   timeline.ActivityEndAll(entries);
 

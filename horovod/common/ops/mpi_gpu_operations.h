@@ -51,15 +51,12 @@ public:
 
 class MPI_GPUReduceScatter : public GPUReduceScatter {
 public:
-  MPI_GPUReduceScatter(MPIContext* mpi_context, GPUContext* cuda_context,
+  MPI_GPUReduceScatter(GPUContext* cuda_context,
                        HorovodGlobalState* global_state);
-  virtual ~MPI_GPUReduceScatter() = default;
+  ~MPI_GPUReduceScatter() override = default;
 
   Status Execute(std::vector<TensorTableEntry>& entries,
                  const Response& response) override;
-
-protected:
-  MPIContext* mpi_context_;
 };
 
 } // namespace common

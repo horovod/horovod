@@ -184,7 +184,7 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 
 #if HOROVOD_GPU_REDUCESCATTER == 'M'
     reducescatter_ops.push_back(std::shared_ptr<ReducescatterOp>(
-        new MPI_GPUReduceScatter(&mpi_context, &gpu_context, &state)));
+        new MPI_GPUReduceScatter(&gpu_context, &state)));
 #endif
   }
 #endif
@@ -247,7 +247,7 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
     alltoall_ops.push_back(
         std::shared_ptr<AlltoallOp>(new MPIAlltoall(&state)));
     reducescatter_ops.push_back(
-        std::shared_ptr<ReducescatterOp>(new MPIReducescatter(&mpi_context, &state)));
+        std::shared_ptr<ReducescatterOp>(new MPIReducescatter(&state)));
   }
 #endif
 
