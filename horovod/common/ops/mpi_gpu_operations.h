@@ -49,12 +49,14 @@ public:
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 };
 
-class MPI_CUDAReducescatter : public CUDAReducescatter {
+class MPI_GPUReduceScatter : public GPUReduceScatter {
 public:
-  MPI_CUDAReducescatter(MPIContext* mpi_context, CUDAContext* cuda_context, HorovodGlobalState* global_state);
-  virtual ~MPI_CUDAReducescatter()=default;
+  MPI_GPUReduceScatter(MPIContext* mpi_context, GPUContext* cuda_context,
+                       HorovodGlobalState* global_state);
+  virtual ~MPI_GPUReduceScatter() = default;
 
-  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
 
 protected:
   MPIContext* mpi_context_;

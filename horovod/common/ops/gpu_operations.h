@@ -241,10 +241,9 @@ protected:
   GPUOpContext gpu_op_context_;
 };
 
-class CUDAReducescatter : public ReducescatterOp {
+class GPUReduceScatter : public ReducescatterOp {
 public:
-  CUDAReducescatter(CUDAContext* context,
-                    HorovodGlobalState* global_state);
+  GPUReduceScatter(GPUContext* context, HorovodGlobalState* global_state);
 
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
@@ -252,14 +251,16 @@ public:
 
 protected:
   void MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                 const TensorTableEntry& e, int64_t entry_offset,
-                                 size_t entry_size, void* buffer_data_at_offset) override;
+                                 const TensorTableEntry& e,
+                                 int64_t entry_offset, size_t entry_size,
+                                 void* buffer_data_at_offset) override;
 
   void MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                  const void* buffer_data_at_offset, TensorTableEntry& e) override;
+                                  const void* buffer_data_at_offset,
+                                  TensorTableEntry& e) override;
 
-  struct CUDAContext* cuda_context_;
-  CUDAOpContext cuda_op_context_;
+  GPUContext* gpu_context_;
+  GPUOpContext gpu_op_context_;
 };
 
 } // namespace common

@@ -233,16 +233,20 @@ Status MPI_GPUAlltoall::Execute(std::vector<TensorTableEntry>& entries, const Re
   return Status::OK();
 }
 
-MPI_CUDAReducescatter::MPI_CUDAReducescatter(MPIContext* mpi_context,
-                                             CUDAContext* cuda_context,
-                                             HorovodGlobalState* global_state)
-    : CUDAReducescatter(cuda_context, global_state),
+MPI_GPUReduceScatter::MPI_GPUReduceScatter(MPIContext* mpi_context,
+                                           GPUContext* gpu_context,
+                                           HorovodGlobalState* global_state)
+    : GPUReduceScatter(gpu_context, global_state),
       mpi_context_(mpi_context) {}
 
-Status MPI_CUDAReducescatter::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+Status MPI_GPUReduceScatter::Execute(std::vector<TensorTableEntry>& entries,
+                                     const Response& response) {
+  // TODO: process set, mpi_context
   auto& timeline = global_state_->timeline;
 
-  cuda_op_context_.InitCUDA(entries);
+  gpu_op_context_.InitGPU(entries);
+
+  // TODO: WaitForData
 
   const void* sendbuf = nullptr;
   void* buffer_data = nullptr;
@@ -262,16 +266,18 @@ Status MPI_CUDAReducescatter::Execute(std::vector<TensorTableEntry>& entries, co
   // Copy memory into the fusion buffer.
   if (entries.size() > 1) {
     timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
-    int element_size = mpi_context_->GetMPITypeSize(first_entry.tensor->dtype());
+    int element_size =
+        mpi_context_->GetMPITypeSize(first_entry.tensor->dtype());
     MemcpyInFusionBuffer(entries, output_shapes, element_size, buffer_data);
 
-    auto cuda_result = cudaStreamSynchronize(cuda_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
-    cuda_context_->ErrorCheck("cudaStreamSynchronize", cuda_result);
+    gpu_context_->StreamSynchronize(
+        gpu_context_
+            ->streams[global_state_->current_nccl_stream][first_entry.device]);
 
     timeline.ActivityEndAll(entries);
   } else {
     sendbuf = first_entry.tensor->data();
-    buffer_data = (void*) first_entry.output->data();
+    buffer_data = (void*)first_entry.output->data();
   }
 
   // Do reducescatter.
@@ -292,8 +298,9 @@ Status MPI_CUDAReducescatter::Execute(std::vector<TensorTableEntry>& entries, co
     timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
     MemcpyOutFusionBuffer(buffer_data, entries);
 
-    auto cuda_result = cudaStreamSynchronize(cuda_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
-    cuda_context_->ErrorCheck("cudaStreamSynchronize", cuda_result);
+    gpu_context_->StreamSynchronize(
+        gpu_context_
+            ->streams[global_state_->current_nccl_stream][first_entry.device]);
 
     timeline.ActivityEndAll(entries);
   }

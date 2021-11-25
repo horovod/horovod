@@ -267,35 +267,5 @@ private:
 
 #include "gpu_context_impl.cc"
 
-CUDAReducescatter::CUDAReducescatter(CUDAContext* context,
-                                     HorovodGlobalState* global_state)
-    : ReducescatterOp(global_state), cuda_context_(context), cuda_op_context_(context, global_state) {}
-
-bool CUDAReducescatter::Enabled(const ParameterManager& param_manager,
-                                const std::vector<TensorTableEntry>& entries,
-                                const Response& response) const {
-  return entries[0].device != CPU_DEVICE_ID;
-}
-
-void CUDAReducescatter::MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                                  const TensorTableEntry& e, int64_t entry_offset,
-                                                  size_t entry_size, void* buffer_data_at_offset) {
-  auto& first_entry = entries[0];
-  void* tensor_data_at_offset = (uint8_t*)e.tensor->data() + entry_offset;
-  auto cuda_result = cudaMemcpyAsync(buffer_data_at_offset, tensor_data_at_offset,
-                                     entry_size, cudaMemcpyDeviceToDevice,
-                                     cuda_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
-  cuda_context_->ErrorCheck("cudaMemcpyAsync", cuda_result);
-}
-
-void CUDAReducescatter::MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                                   const void* buffer_data_at_offset, TensorTableEntry& e) {
-  auto& first_entry = entries[0];
-  auto cuda_result = cudaMemcpyAsync((void*) e.output->data(), buffer_data_at_offset,
-                                     (size_t) e.output->size(), cudaMemcpyDeviceToDevice,
-                                     cuda_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
-  cuda_context_->ErrorCheck("cudaMemcpyAsync", cuda_result);
-}
-
 } // namespace common
 } // namespace horovod
