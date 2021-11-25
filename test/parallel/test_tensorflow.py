@@ -434,7 +434,7 @@ class TensorFlowTests(tf.test.TestCase):
         """Test that the allreduce works on GPUs."""
         # Only do this test if there are GPUs available.
         if not tf.test.is_gpu_available(cuda_only=True):
-            self.skipTest(("No GPUs available"))
+            self.skipTest("No GPUs available")
 
         if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
@@ -4420,8 +4420,8 @@ class TensorFlowTests(tf.test.TestCase):
 
     def test_horovod_reducescatter_cpu(self):
         """Test on CPU that the reducescatter correctly sums and scatters 1D, 2D, 3D tensors."""
-        if not hvd.mpi_enabled():
-            return # Reducescatter is not yet implemented in gloo/mlsl
+        if not hvd.mpi_built():
+            self.skipTest("Need MPI: Reducescatter is not yet implemented in gloo/mlsl")
 
         hvd.init()
         rank = hvd.rank()
@@ -4454,8 +4454,8 @@ class TensorFlowTests(tf.test.TestCase):
     def test_horovod_reducescatter_cpu_fused(self):
         """Test on CPU that the reducescatter correctly sums and scatters 1D, 2D, 3D tensors
         with Tensor Fusion."""
-        if not hvd.mpi_enabled():
-            return # Reducescatter is not yet implemented in gloo/mlsl
+        if not hvd.mpi_built():
+            self.skipTest("Need MPI: Reducescatter is not yet implemented in gloo/mlsl")
 
         hvd.init()
         rank = hvd.rank()
@@ -4489,16 +4489,16 @@ class TensorFlowTests(tf.test.TestCase):
 
     def test_horovod_reducescatter_gpu(self):
         """Test that the reducescatter works on GPUs."""
-        if not hvd.mpi_enabled():
-            return # Reducescatter is not yet implemented in gloo/mlsl
+        if not hvd.mpi_built():
+            self.skipTest("Need MPI: Reducescatter is not yet implemented in gloo/mlsl")
 
         # Only do this test if there are GPUs available.
         if not tf.test.is_gpu_available(cuda_only=True):
-            return
+            self.skipTest("No GPUs available")
 
-        if os.environ.get('HOROVOD_MIXED_INSTALL'):
-            # Skip if compiled with CUDA but without HOROVOD_GPU_REDUCESCATTER.
-            return
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
         hvd.init()
         local_rank = hvd.local_rank()
@@ -4536,16 +4536,16 @@ class TensorFlowTests(tf.test.TestCase):
         This test will crash badly if used with an MPI implementation that does
         not support GPU memory transfers directly, as it will call MPI_Send on
         a GPU data pointer."""
-        if not hvd.mpi_enabled():
-            return # Reducescatter is not yet implemented in gloo/mlsl
+        if not hvd.mpi_built():
+            self.skipTest("Need MPI: Reducescatter is not yet implemented in gloo/mlsl")
 
         # Only do this test if there are GPUs available.
         if not tf.test.is_gpu_available(cuda_only=True):
-            return
+            self.skipTest("No GPUs available")
 
-        if os.environ.get('HOROVOD_MIXED_INSTALL'):
-            # Skip if compiled with CUDA but without HOROVOD_GPU_REDUCESCATTER.
-            return
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
         hvd.init()
         local_rank = hvd.local_rank()
@@ -4582,8 +4582,8 @@ class TensorFlowTests(tf.test.TestCase):
     def test_horovod_reducescatter_error(self):
         """Test that the reducescatter raises an error if different ranks try to
         send tensors of different rank or dimension."""
-        if not hvd.mpi_enabled():
-            return # Reducescatter is not yet implemented in gloo/mlsl
+        if not hvd.mpi_built():
+            self.skipTest("Need MPI: Reducescatter is not yet implemented in gloo/mlsl")
 
         hvd.init()
         rank = hvd.rank()
@@ -4591,7 +4591,7 @@ class TensorFlowTests(tf.test.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         # Same rank, different dimension
         dims = [17 + rank] * 3
@@ -4611,8 +4611,8 @@ class TensorFlowTests(tf.test.TestCase):
     def test_horovod_reducescatter_type_error(self):
         """Test that the reducescatter raises an error if different ranks try to
         send tensors of different type."""
-        if not hvd.mpi_enabled():
-            return # Reducescatter is not yet implemented in gloo/mlsl
+        if not hvd.mpi_built():
+            self.skipTest("Need MPI: Reducescatter is not yet implemented in gloo/mlsl")
 
         hvd.init()
         rank = hvd.rank()
@@ -4620,7 +4620,7 @@ class TensorFlowTests(tf.test.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         # Same rank, different dimension
         dims = [17] * 3
@@ -4631,8 +4631,8 @@ class TensorFlowTests(tf.test.TestCase):
 
     def test_horovod_reducescatter_grad_cpu(self):
         """Test the correctness of the reducescatter gradient on CPU."""
-        if not hvd.mpi_enabled():
-            return # Reducescatter is not yet implemented in gloo/mlsl
+        if not hvd.mpi_built():
+            self.skipTest("Need MPI: Reducescatter is not yet implemented in gloo/mlsl")
 
         hvd.init()
         rank = hvd.rank()
@@ -4669,16 +4669,16 @@ class TensorFlowTests(tf.test.TestCase):
 
     def test_horovod_reducescatter_grad_gpu(self):
         """Test the correctness of the reducescatter gradient on GPU."""
-        if not hvd.mpi_enabled():
-            return # Reducescatter is not yet implemented in gloo/mlsl
+        if not hvd.mpi_built():
+            self.skipTest("Need MPI: Reducescatter is not yet implemented in gloo/mlsl")
 
         # Only do this test if there are GPUs available.
         if not tf.test.is_gpu_available(cuda_only=True):
-            return
+            self.skipTest("No GPUs available")
 
-        if os.environ.get('HOROVOD_MIXED_INSTALL'):
-            # Skip if compiled with CUDA but without HOROVOD_GPU_REDUCESCATTER.
-            return
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
         hvd.init()
         local_rank = hvd.local_rank()
