@@ -396,7 +396,8 @@ def _alltoall_grad(op, grad_wrt_output, grad_wrt_received_splits):
     return [grad_wrt_tensor, grad_wrt_splits]
 
 
-def _reducescatter(tensor, name=None, op=Sum):
+def _reducescatter(tensor, name=None, op=Sum, ignore_name_scope=False,
+                   process_set=global_process_set):
     """An op which sums an input tensor over all the Horovod processes, then
     scatters the result across all the Horovod processes.
 
@@ -411,7 +412,9 @@ def _reducescatter(tensor, name=None, op=Sum):
     """
     if name is None and not _executing_eagerly():
         name = 'HorovodReducescatter_%s' % _normalize_name(tensor.name)
-    return MPI_LIB.horovod_reducescatter(tensor, name=name, reduce_op=op)
+    return MPI_LIB.horovod_reducescatter(tensor, name=name, reduce_op=op,
+                                         ignore_name_scope=ignore_name_scope,
+                                         process_set_id=process_set.process_set_id)
 
 
 @ops.RegisterGradient('HorovodReducescatter')
@@ -425,8 +428,11 @@ def _reducescatter_grad(op, grad):
     Returns:
       The gradient with respect to the input of the op.
     """
+    ignore_name_scope = op.get_attr('ignore_name_scope')
+    process_set_id = op.get_attr('process_set_id')
     grad *= size()
-    return allgather(grad)
+    return allgather(grad, ignore_name_scope=ignore_name_scope,
+                     process_set=_temp_process_set_object(process_set_id))
 
 
 def join():

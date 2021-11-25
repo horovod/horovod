@@ -161,7 +161,8 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
         return new_tensor
 
 
-def reducescatter(tensor, device_dense='', compression=Compression.none, op=Average):
+def reducescatter(tensor, device_dense='', compression=Compression.none, op=Average,
+                  name=None, process_set=global_process_set):
     """Perform a reducescatter on a tf.Tensor.
 
     This function performs a bandwidth-optimal reduce and scatter on the input
@@ -177,6 +178,9 @@ def reducescatter(tensor, device_dense='', compression=Compression.none, op=Aver
                      using compression.
         op: The reduction operation to combine tensors across different ranks.
             Defaults to Average.
+        process_set: Process set object to limit this operation to a subset of
+            Horovod processes. Default is the global process set.
+        name: A name of the reduce_scatter operation
 
     Returns:
         A tensor of the same rank and type as `tensor`, summed across all processes.
@@ -187,9 +191,11 @@ def reducescatter(tensor, device_dense='', compression=Compression.none, op=Aver
     true_op = Sum if op == Average else op
 
     with tf.device(device_dense):
-        horovod_size = tf.cast(size(), dtype=tensor.dtype)
+        horovod_size = tf.cast(size_op(process_set_id=process_set.process_set_id)
+                               if int(os.environ.get("HOROVOD_ELASTIC", 0)) else process_set.size(),
+                               dtype=tensor.dtype)
         tensor_compressed, ctx = compression.compress(tensor)
-        reduced_tensor_compressed = _reducescatter(tensor_compressed, op=true_op)
+        reduced_tensor_compressed = _reducescatter(tensor_compressed, op=true_op, name=name, process_set=process_set)
         reduced_tensor = compression.decompress(reduced_tensor_compressed, ctx)
         new_tensor = (reduced_tensor / horovod_size) if op == Average else reduced_tensor
     return new_tensor

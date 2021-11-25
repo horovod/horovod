@@ -1103,6 +1103,10 @@ public:
     int reduce_op;
     OP_REQUIRES_OK(context, context->GetAttr("reduce_op", &reduce_op));
     reduce_op_ = static_cast<horovod::common::ReduceOp>(reduce_op);
+    OP_REQUIRES_OK(context,
+                   context->GetAttr("ignore_name_scope", &ignore_name_scope_));
+    OP_REQUIRES_OK(context,
+                   context->GetAttr("process_set_id", &process_set_id_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -1110,26 +1114,50 @@ public:
                          done);
 
     auto node_name = name();
+    if (ignore_name_scope_) {
+      auto pos = node_name.find_last_of('/');
+      if (pos != std::string::npos) {
+        node_name = node_name.substr(pos + 1);
+      }
+    }
     auto device = GetDeviceID(context);
     auto tensor = context->input(0);
-    // ReadyEvent makes sure input tensor is ready.  We cannot pre-allocate
-    // output for reducescatter, since shape of result is only known after all
-    // ranks make a request.
-    auto ready_event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context));
+    // ReadyEvent makes sure input tensor is ready.
+    common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+    ready_event_list.AddReadyEvent(
+        std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context)));
+#endif
+    // We cannot pre-allocate output for reducescatter, since shape of result is
+    // only known after all ranks make a request.
     auto hvd_context = std::make_shared<TFOpContext>(context);
     auto hvd_tensor = std::make_shared<TFTensor>(tensor);
     auto enqueue_result = EnqueueTensorReducescatter(
-        hvd_context, hvd_tensor, ready_event, node_name, device,
+        hvd_context, hvd_tensor, ready_event_list, node_name, device,
         [context, done](const common::Status& status) {
+#if HAVE_GPU
+          auto hvd_event = status.event;
+          if (hvd_event.event) {
+            auto device_context = context->op_device_context();
+            if (device_context != nullptr) {
+              auto stream = stream_executor::gpu::AsGpuStreamValue(
+                  device_context->stream());
+              HVD_GPU_CHECK(gpuStreamWaitEvent(stream, *(hvd_event.event), 0));
+            }
+          }
+#endif
           context->SetStatus(ConvertStatus(status));
           done();
-        }, reduce_op_);
+        },
+        reduce_op_, process_set_id_);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 
 private:
   horovod::common::ReduceOp reduce_op_;
-}; // namespace tensorflow
+  bool ignore_name_scope_;
+  int process_set_id_;
+};
 
 REGISTER_KERNEL_BUILDER(Name("HorovodReducescatter").Device(DEVICE_CPU),
                         HorovodReducescatterOp);
@@ -1141,6 +1169,8 @@ REGISTER_KERNEL_BUILDER(Name("HorovodReducescatter").Device(DEVICE_GPU),
 REGISTER_OP("HorovodReducescatter")
     .Attr("T: {int32, int64, float16, float32, float64}")
     .Attr("reduce_op: int")
+    .Attr("ignore_name_scope: bool = False")
+    .Attr("process_set_id: int = 0")
     .Input("tensor: T")
     .Output("output: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
