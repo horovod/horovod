@@ -358,7 +358,7 @@ Status ReducescatterOp::AllocateOutput(
 void ReducescatterOp::MemcpyInFusionBuffer(
     const std::vector<TensorTableEntry>& entries,
     const std::vector<std::vector<TensorShape>>& output_shapes,
-    int element_size,
+    std::size_t element_size,
     void*& buffer_data) {
   // Access the fusion buffer.
   auto& first_entry = entries[0];

@@ -836,5 +836,110 @@ Status NCCLAlltoall::Execute(std::vector<TensorTableEntry>& entries,
 #endif
 }
 
+Status NCCLReducescatter::Execute(std::vector<TensorTableEntry>& entries,
+                                  const Response& response) {
+  assert(!entries.empty());
+  auto& first_entry = entries[0];
+  auto& process_set =
+      global_state_->process_set_table.Get(first_entry.process_set_id);
+
+  gpu_op_context_.InitGPU(entries);
+  nccl_op_context_.InitNCCLComm(entries, response.devices());
+  gpu_op_context_.InitGPUQueue(entries, response);
+
+  WaitForData(entries);
+
+  int process_set_rank = process_set.controller->GetRank();
+  int process_set_size = process_set.controller->GetSize();
+  auto output_shapes = ComputeOutputShapes(entries, process_set_size);
+  std::vector<int> recvcounts = ComputeReceiveCounts(output_shapes);
+
+  global_state_->timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
+  Status status = AllocateOutput(entries, output_shapes[process_set_rank]);
+  if (!status.ok()) {
+    return status;
+  }
+  global_state_->timeline.ActivityEndAll(entries);
+
+  void* recv_pointer = nullptr;
+  const void* fused_input_data = nullptr;
+
+  // Copy memory into the fusion buffer.
+  if (entries.size() > 1) {
+    size_t element_size = DataType_Size(first_entry.tensor->dtype());
+    void* buffer_data = nullptr;
+    MemcpyInFusionBuffer(entries, output_shapes, element_size, buffer_data);
+    fused_input_data = buffer_data;
+    recv_pointer = reinterpret_cast<int8_t*>(buffer_data) +
+                   process_set_rank * recvcounts[0] * element_size;
+    // ncclReduceScatter() will be performed in-place on the fusion buffer, cf.:
+    // https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/inplace.html
+  } else {
+    fused_input_data = first_entry.tensor->data();
+    recv_pointer = (void*)first_entry.output->data();
+  }
+
+  bool same_shape = std::all_of(recvcounts.begin() + 1, recvcounts.end(),
+                                [rc0 = recvcounts[0]](int rc) {
+                                  return rc == rc0;
+                                });
+  // TODO: probably equivalent to compare just rc0 and rclast (maybe add an assert for debug builds)
+
+  // Do reducescatter.
+  if (same_shape) {
+    auto nccl_result = ncclReduceScatter(
+        fused_input_data, recv_pointer, recvcounts[0],
+        GetNCCLDataType(first_entry.tensor), ncclSum,
+        *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
+    nccl_context_->ErrorCheck("ncclReduceScatter", nccl_result,
+                              *nccl_op_context_.nccl_comm_);
+    if (global_state_->timeline.Initialized()) {
+      gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_REDUCESCATTER,
+                                *gpu_op_context_.stream);
+    }
+  } else {
+    // TODO: Extend with an extra reduce for last rank (that one may receive a larger tensor)
+    throw std::runtime_error(
+        "For now NCCLReduceScatter only supports tensors that "
+        "can be evenly distributed over the Horovod processes.");
+  }
+
+  // Copy memory out of the fusion buffer.
+  if (entries.size() > 1) {
+    MemcpyOutFusionBuffer(recv_pointer, entries);
+
+    if (global_state_->timeline.Initialized()) {
+      gpu_context_->RecordEvent(gpu_op_context_.event_queue,
+                                MEMCPY_OUT_FUSION_BUFFER,
+                                *gpu_op_context_.stream);
+    }
+  }
+
+  return gpu_op_context_.FinalizeGPUQueue(
+      entries, true, nccl_op_context_.error_check_callback_);
+}
+
+bool NCCLReducescatter::Enabled(const ParameterManager& param_manager,
+                                const std::vector<TensorTableEntry>& entries,
+                                const Response& response) const {
+  return entries[0].device != CPU_DEVICE_ID;
+}
+
+void NCCLReducescatter::WaitForData(std::vector<TensorTableEntry>& entries) {
+  if (global_state_->timeline.Initialized()) {
+    // If timeline is initialized, need to use normal CPU syncing path
+    HorovodOp::WaitForData(entries);
+  } else {
+    // Push events to set to deduplicate entries
+    std::unordered_set<gpuEvent_t> event_set;
+    for (auto& e : entries) {
+      e.ready_event_list.PushEventsToSet(event_set);
+    }
+    for (auto& ev : event_set) {
+      HVD_GPU_CHECK(gpuStreamWaitEvent(*gpu_op_context_.stream, ev, 0));
+    }
+  }
+}
+
 } // namespace common
 } // namespace horovod

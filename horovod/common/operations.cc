@@ -204,6 +204,11 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
       new NCCLAllgather(&nccl_context, &gpu_context, &state)));
 #endif
 
+#if HAVE_NCCL && HOROVOD_GPU_REDUCESCATTER == 'N'
+    reducescatter_ops.push_back(std::shared_ptr<ReducescatterOp>(
+        new NCCLReducescatter(&nccl_context, &gpu_context, &state)));
+#endif
+
 #if HAVE_NCCL && HOROVOD_GPU_ALLTOALL == 'N'
   alltoall_ops.push_back(std::shared_ptr<AlltoallOp>(
       new NCCLAlltoall(&nccl_context, &gpu_context, &state)));

@@ -279,7 +279,7 @@ public:
   virtual ~ReducescatterOp() = default;
 
   Status Execute(std::vector<TensorTableEntry>& entries,
-                 const Response& response) = 0;
+                 const Response& response) override = 0;
 
   virtual bool Enabled(const ParameterManager& param_manager,
                        const std::vector<TensorTableEntry>& entries,
@@ -303,7 +303,7 @@ protected:
   virtual void MemcpyInFusionBuffer(
       const std::vector<TensorTableEntry>& entries,
       const std::vector<std::vector<TensorShape>>& output_shapes,
-      int element_size, void*& buffer_data);
+      std::size_t element_size, void*& buffer_data);
 
   virtual void MemcpyOutFusionBuffer(const void* buffer_data,
                                      std::vector<TensorTableEntry>& entries);
