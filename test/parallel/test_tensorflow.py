@@ -4487,6 +4487,101 @@ class TensorFlowTests(tf.test.TestCase):
         self.assertTrue(self.evaluate(tf.reduce_all(tests)),
                         "hvd.reducescatter produces incorrect results")
 
+    def test_horovod_reducescatter_cpu_uneven(self):
+        """Test on CPU that the reducescatter correctly sums and scatters tensors that cannot
+           be distributed evenly over the Horovod processes"""
+        if not hvd.mpi_built():
+            self.skipTest("Need MPI: Reducescatter is not yet implemented in gloo/mlsl")
+
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        if hvd.size() == 1:
+            self.skipTest("Only one worker available")
+
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        for dtype in dtypes:
+            with tf.device("/cpu:0"):
+                tensor = self.random_uniform(
+                    [size * 4 + 1], -100, 100, dtype=dtype)
+                summed = hvd.reducescatter(tensor, op=hvd.Sum)
+            if rank < size - 1:
+                expected = tensor[rank * 4:(rank + 1) * 4] * size
+            else:
+                expected = tensor[rank * 4:] * size
+            max_difference = tf.reduce_max(tf.abs(summed - expected))
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+
+            diff, expected_shape, summed_shape = self.evaluate([max_difference, tf.shape(expected),
+                                                                tf.shape(summed)])
+            self.assertSequenceEqual(expected_shape, summed_shape,
+                                     "hvd.reducescatter produces incorrect shapes")
+            self.assertTrue(diff <= threshold,
+                            "hvd.reducescatter produces incorrect results")
+
+
+    def test_horovod_reducescatter_cpu_uneven_fused(self):
+        """Test on CPU that the reducescatter correctly sums and scatters tensors that cannot
+           be distributed evenly over the Horovod processes, with Tensor Fusion"""
+        if not hvd.mpi_built():
+            self.skipTest("Need MPI: Reducescatter is not yet implemented in gloo/mlsl")
+
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        if hvd.size() == 1:
+            self.skipTest("Only one worker available")
+
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        indices = [0, 1, 2, 3]
+        tests = []
+        infos = []
+        for dtype, index in itertools.product(dtypes, indices):
+            with tf.device("/cpu:0"):
+                tensor = self.random_uniform(
+                    [size * 4 + 1], -100, 100,
+                    seed=1234 + index,
+                    dtype=dtype)
+                summed = hvd.reducescatter(tensor, op=hvd.Sum)
+            if rank < size - 1:
+                expected = tensor[rank * 4:(rank + 1) * 4] * size
+            else:
+                expected = tensor[rank * 4:] * size
+            max_difference = tf.reduce_max(tf.abs(summed - expected))
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+
+            test = max_difference <= threshold
+            tests.append(test)
+            infos.append({"0_t": tensor, "1_e": expected, "2_s": summed, "3_ok": tf.reduce_all(test)})
+        i = self.evaluate([tf.reduce_all(tests)] + infos)
+        succesful = i.pop(0)
+        # pprint(i)
+        self.assertTrue(succesful,
+                        "hvd.reducescatter produces incorrect results")
+
+
     def test_horovod_reducescatter_gpu(self):
         """Test that the reducescatter works on GPUs."""
         if not hvd.mpi_built():
@@ -4578,6 +4673,118 @@ class TensorFlowTests(tf.test.TestCase):
             tests.append(test)
         self.assertTrue(self.evaluate(tf.reduce_all(tests)),
                         "hvd.reducescatter produces incorrect results")
+
+    def test_horovod_reducescatter_gpu_uneven(self):
+        """Test on GPU that the reducescatter correctly sums and scatters tensors that cannot
+           be distributed evenly over the Horovod processes"""
+        if not hvd.mpi_built():
+            self.skipTest("Need MPI: Reducescatter is not yet implemented in gloo/mlsl")
+
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest("No GPUs available")
+
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        hvd.init()
+        local_rank = hvd.local_rank()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        if hvd.size() == 1:
+            self.skipTest("Only one worker available")
+
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        for dtype in dtypes:
+            with tf.device("/gpu:%d" % local_rank):
+                tensor = self.random_uniform(
+                    [size * 4 + 1], -100, 100, dtype=dtype)
+                summed = hvd.reducescatter(tensor, op=hvd.Sum)
+            if rank < size - 1:
+                expected = tensor[rank * 4:(rank + 1) * 4] * size
+            else:
+                expected = tensor[rank * 4:] * size
+            max_difference = tf.reduce_max(tf.abs(summed - expected))
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+
+            diff, expected_shape, summed_shape = self.evaluate([max_difference, tf.shape(expected),
+                                                                tf.shape(summed)])
+            self.assertSequenceEqual(expected_shape, summed_shape,
+                                     "hvd.reducescatter produces incorrect shapes")
+            self.assertTrue(diff <= threshold,
+                            "hvd.reducescatter produces incorrect results")
+
+    def test_horovod_reducescatter_gpu_uneven_fused(self):
+        """Test on GPU that the reducescatter correctly sums and scatters tensors that cannot
+           be distributed evenly over the Horovod processes, with Tensor Fusion"""
+        if not hvd.mpi_built():
+            self.skipTest("Need MPI: Reducescatter is not yet implemented in gloo/mlsl")
+
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest("No GPUs available")
+
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        hvd.init()
+
+        if hvd.size() == 1:
+            self.skipTest("Only one worker available")
+
+        local_rank = hvd.local_rank()
+        rank = hvd.rank()
+        size = hvd.size()
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        indices = [0, 1, 2, 3]
+        tests = []
+        infos = []
+        for dtype, index in itertools.product(dtypes, indices):
+            with tf.device("/gpu:%d" % local_rank):
+                tensor = self.random_uniform(
+                    [size * 4 + 1], -100, 100,
+                    seed=1234 + index,
+                    dtype=dtype)
+                summed = hvd.reducescatter(tensor, op=hvd.Sum)
+            if rank < size - 1:
+                expected = tensor[rank * 4:(rank + 1) * 4] * size
+            else:
+                expected = tensor[rank * 4:] * size
+            max_difference = tf.reduce_max(tf.abs(summed - expected))
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+
+            test = max_difference <= threshold
+            tests.append(test)
+            infos.append({"0_t": tensor, "1_e": expected, "2_s": summed, "3_ok": tf.reduce_all(test)})
+        i = self.evaluate([tf.reduce_all(tests)] + infos)
+        succesful = i.pop(0)
+        # pprint(i)
+        self.assertTrue(succesful,
+                        "hvd.reducescatter produces incorrect results")
+
 
     def test_horovod_reducescatter_error(self):
         """Test that the reducescatter raises an error if different ranks try to

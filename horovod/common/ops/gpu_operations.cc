@@ -481,25 +481,21 @@ bool GPUReduceScatter::Enabled(const ParameterManager& param_manager,
   return entries[0].device != CPU_DEVICE_ID;
 }
 
-void GPUReduceScatter::MemcpyEntryInFusionBuffer(
-    const std::vector<TensorTableEntry>& entries, const TensorTableEntry& e,
-    int64_t entry_offset, size_t entry_size, void* buffer_data_at_offset) {
-  auto& first_entry = entries[0];
+void GPUReduceScatter::MemcpyEntryInFusionBuffer(const TensorTableEntry& e,
+                                                 size_t entry_offset,
+                                                 size_t entry_size,
+                                                 void* buffer_data_at_offset) {
   void* tensor_data_at_offset = (uint8_t*)e.tensor->data() + entry_offset;
   gpu_context_->MemcpyAsyncD2D(
       buffer_data_at_offset, tensor_data_at_offset, entry_size,
-      gpu_context_
-          ->streams[global_state_->current_nccl_stream][first_entry.device]);
+      gpu_context_->streams[global_state_->current_nccl_stream][e.device]);
 }
 
 void GPUReduceScatter::MemcpyEntryOutFusionBuffer(
-    const std::vector<TensorTableEntry>& entries,
     const void* buffer_data_at_offset, TensorTableEntry& e) {
-  auto& first_entry = entries[0];
   gpu_context_->MemcpyAsyncD2D(
       (void*)e.output->data(), buffer_data_at_offset, (size_t)e.output->size(),
-      gpu_context_
-          ->streams[global_state_->current_nccl_stream][first_entry.device]);
+      gpu_context_->streams[global_state_->current_nccl_stream][e.device]);
 }
 
 } // namespace common

@@ -358,26 +358,26 @@ Status ReducescatterOp::AllocateOutput(
 void ReducescatterOp::MemcpyInFusionBuffer(
     const std::vector<TensorTableEntry>& entries,
     const std::vector<std::vector<TensorShape>>& output_shapes,
-    std::size_t element_size,
-    void*& buffer_data) {
+    std::size_t element_size, void*& buffer_data) {
   // Access the fusion buffer.
   auto& first_entry = entries[0];
   auto buffer = global_state_->fusion_buffer.GetBuffer(
-      first_entry.device, first_entry.context->framework(), global_state_->current_nccl_stream);
+      first_entry.device, first_entry.context->framework(),
+      global_state_->current_nccl_stream);
   buffer_data = const_cast<void*>(buffer->AccessData(first_entry.context));
 
-  int64_t buffer_offset = 0;
-  std::vector<int64_t> entry_offsets(entries.size(), 0);
+  size_t buffer_offset = 0;
+  std::vector<size_t> entry_offsets(entries.size(), 0);
 
-  for (size_t rank = 0; rank < output_shapes.size(); ++rank) {
-    const auto& rank_shapes = output_shapes[rank];
+  for (const auto& rank_shapes : output_shapes) {
     for (size_t ec = 0; ec < entries.size(); ++ec) {
       auto& e = entries[ec];
       const auto& entry_shape = rank_shapes[ec];
-      int64_t entry_offset = entry_offsets[ec];
+      auto entry_offset = entry_offsets[ec];
       size_t entry_size = entry_shape.num_elements() * element_size;
       void* buffer_data_at_offset = (uint8_t*)buffer_data + buffer_offset;
-      MemcpyEntryInFusionBuffer(entries, e, entry_offset, entry_size, buffer_data_at_offset);
+      MemcpyEntryInFusionBuffer(e, entry_offset, entry_size,
+                                buffer_data_at_offset);
       entry_offsets[ec] += entry_size;
       buffer_offset += entry_size;
     }
@@ -389,21 +389,20 @@ void ReducescatterOp::MemcpyOutFusionBuffer(
   int64_t offset = 0;
   for (auto& e : entries) {
     void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
-    MemcpyEntryOutFusionBuffer(entries, buffer_data_at_offset, e);
+    MemcpyEntryOutFusionBuffer(buffer_data_at_offset, e);
     offset += e.output->size();
   }
 }
 
-void ReducescatterOp::MemcpyEntryInFusionBuffer(
-    const std::vector<TensorTableEntry>& entries,
-    const TensorTableEntry& e, int64_t entry_offset,
-    size_t entry_size, void* buffer_data_at_offset) {
+void ReducescatterOp::MemcpyEntryInFusionBuffer(const TensorTableEntry& e,
+                                                size_t entry_offset,
+                                                size_t entry_size,
+                                                void* buffer_data_at_offset) {
   void* tensor_data_at_offset = (uint8_t*)e.tensor->data() + entry_offset;
   std::memcpy(buffer_data_at_offset, tensor_data_at_offset, entry_size);
 }
 
 void ReducescatterOp::MemcpyEntryOutFusionBuffer(
-    const std::vector<TensorTableEntry>& entries,
     const void* buffer_data_at_offset, TensorTableEntry& e) {
   std::memcpy((void*)e.output->data(), buffer_data_at_offset,
               (size_t)e.output->size());

@@ -861,47 +861,65 @@ Status NCCLReducescatter::Execute(std::vector<TensorTableEntry>& entries,
   }
   global_state_->timeline.ActivityEndAll(entries);
 
+  size_t element_size = DataType_Size(first_entry.tensor->dtype());
+  void* buffer_data = nullptr;
   void* recv_pointer = nullptr;
   const void* fused_input_data = nullptr;
 
   // Copy memory into the fusion buffer.
   if (entries.size() > 1) {
-    size_t element_size = DataType_Size(first_entry.tensor->dtype());
-    void* buffer_data = nullptr;
     MemcpyInFusionBuffer(entries, output_shapes, element_size, buffer_data);
     fused_input_data = buffer_data;
     recv_pointer = reinterpret_cast<int8_t*>(buffer_data) +
                    process_set_rank * recvcounts[0] * element_size;
-    // ncclReduceScatter() will be performed in-place on the fusion buffer, cf.:
+    // ncclReduceScatter() will be performed in place on the fusion buffer, cf.:
     // https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/inplace.html
   } else {
     fused_input_data = first_entry.tensor->data();
-    recv_pointer = (void*)first_entry.output->data();
+    buffer_data = (void*)first_entry.output->data();
+    recv_pointer = buffer_data;
   }
 
-  bool same_shape = std::all_of(recvcounts.begin() + 1, recvcounts.end(),
-                                [rc0 = recvcounts[0]](int rc) {
-                                  return rc == rc0;
-                                });
-  // TODO: probably equivalent to compare just rc0 and rclast (maybe add an assert for debug builds)
+  bool same_output_shape = (recvcounts.front() == recvcounts.back());
+  assert(recvcounts.size() < 2 ||
+         std::all_of(recvcounts.begin() + 1, recvcounts.end() - 1,
+                     [rc0 = recvcounts[0]](int rc) { return rc == rc0; }));
 
-  // Do reducescatter.
-  if (same_shape) {
+  if (same_output_shape) {
+    // Do reducescatter.
     auto nccl_result = ncclReduceScatter(
         fused_input_data, recv_pointer, recvcounts[0],
         GetNCCLDataType(first_entry.tensor), ncclSum,
         *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
     nccl_context_->ErrorCheck("ncclReduceScatter", nccl_result,
                               *nccl_op_context_.nccl_comm_);
+
     if (global_state_->timeline.Initialized()) {
       gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_REDUCESCATTER,
                                 *gpu_op_context_.stream);
     }
   } else {
-    // TODO: Extend with an extra reduce for last rank (that one may receive a larger tensor)
-    throw std::runtime_error(
-        "For now NCCLReduceScatter only supports tensors that "
-        "can be evenly distributed over the Horovod processes.");
+    // Simulate "ReduceScatterV" by an equivalent group of reduces.
+    nccl_context_->ErrorCheck("ncclGroupStart", ncclGroupStart(),
+                              *nccl_op_context_.nccl_comm_);
+    std::size_t offset_bytes = 0;
+    for (int recv_rank = 0; recv_rank < process_set_size; ++recv_rank) {
+      const void* send_pointer =
+          reinterpret_cast<const int8_t*>(fused_input_data) + offset_bytes;
+      auto nccl_result =
+          ncclReduce(send_pointer, recv_pointer, recvcounts[recv_rank],
+                     GetNCCLDataType(first_entry.tensor), ncclSum, recv_rank,
+                     *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
+      nccl_context_->ErrorCheck("ncclReduce", nccl_result,
+                                *nccl_op_context_.nccl_comm_);
+      offset_bytes += recvcounts[recv_rank] * element_size;
+    }
+    nccl_context_->ErrorCheck("ncclGroupEnd", ncclGroupEnd(),
+                              *nccl_op_context_.nccl_comm_);
+    if (global_state_->timeline.Initialized()) {
+      gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_REDUCE,
+                                *gpu_op_context_.stream);
+    }
   }
 
   // Copy memory out of the fusion buffer.

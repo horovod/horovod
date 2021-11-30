@@ -308,15 +308,12 @@ protected:
   virtual void MemcpyOutFusionBuffer(const void* buffer_data,
                                      std::vector<TensorTableEntry>& entries);
 
-  virtual void
-  MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                            const TensorTableEntry& e, int64_t entry_offset,
-                            size_t entry_size, void* buffer_data_at_offset);
+  virtual void MemcpyEntryInFusionBuffer(const TensorTableEntry& e,
+                                         size_t entry_offset, size_t entry_size,
+                                         void* buffer_data_at_offset);
 
-  virtual void
-  MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                             const void* buffer_data_at_offset,
-                             TensorTableEntry& e);
+  virtual void MemcpyEntryOutFusionBuffer(const void* buffer_data_at_offset,
+                                          TensorTableEntry& e);
 };
 
 class JoinOp : public HorovodOp {
