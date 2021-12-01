@@ -65,7 +65,6 @@ def init(*args, **kwargs):
     # Call set up again to make sure the basics is in sync
     _setup_process_sets(_basics)
 
-# TODO: Do we need these for reducescatter?
 # import reduction op values
 Average = _basics.Average
 Sum = _basics.Sum
@@ -456,7 +455,8 @@ def alltoall(tensor, splits=None, name=None, priority=0, process_set=global_proc
     else:
         return output
 
-def reducescatter(tensor, op=Average, name=None, priority=0):
+def reducescatter(tensor, op=Average, name=None, priority=0,
+                  process_set=global_process_set):
     """
     A function that performs asynchronous averaging or summation of the input tensor
     over all the Horovod processes, then scatters the results across all Horovod
@@ -478,6 +478,8 @@ def reducescatter(tensor, op=Average, name=None, priority=0):
         name: A name of the reduction operation.
         priority: The priority of this operation. Higher priority operations
                   are likely to be executed before other operations.
+        process_set: Process set object to limit this operation to a subset of
+                     Horovod processes. Default is the global process set.
 
     Returns:
         A tensor of the same rank and type as `tensor` across all processes.
@@ -485,16 +487,26 @@ def reducescatter(tensor, op=Average, name=None, priority=0):
         which will be divided across the different Horovod processes.
     """
     assert(isinstance(tensor, mx.nd.NDArray))
-    output = mx.nd.zeros(shape=tensor.shape, ctx=tensor.context,
+    assert(op in [Average, Sum])
+    # Size of output is unknown, create output array that
+    # will be resized during Horovod operation
+    output = mx.nd.empty(shape=[1], ctx=tensor.context,
                          dtype=tensor.dtype)
     c_in = tensor.handle
     c_out = output.handle
     if isinstance(name, string_types):
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_reducescatter_async(
-            c_in, c_out, c_str(name), ctypes.c_int(op),
-            ctypes.c_int(priority)))
+            c_in, c_out, c_str(name), ctypes.c_int(priority),
+            ctypes.c_int(process_set.process_set_id)))
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_reducescatter_async(
-            c_in, c_out, name, ctypes.c_int(op),
-            ctypes.c_int(priority)))
+            c_in, c_out, name, ctypes.c_int(priority),
+            ctypes.c_int(process_set.process_set_id)))
+
+    # Need to block here so changes to output tensor are visible
+    output.wait_to_read()
+
+    if op == Average:
+        output /= process_set.size()
+
     return output
