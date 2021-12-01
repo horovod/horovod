@@ -189,7 +189,7 @@ def broadcast(backend, value, root_rank, name):
 
 
 def reducescatter(backend, value, name, op):
-    return _eval(backend, hvd.reducescatter(tf.constant(value, name=name), reduce_op=op))
+    return _eval(backend, hvd.reducescatter(tf.constant(value, name=name), op=op))
 
 
 def load_model(keras, wrap_optimizer, optimizer_modules, filepath, custom_optimizers, custom_objects):
