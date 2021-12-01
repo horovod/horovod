@@ -968,7 +968,7 @@ class HorovodReducescatter(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad_output):
         if ctx.op == Sum:
-            grad_output *= size()
+            grad_output *= ctx.process_set.size()
 
         return allgather(grad_output, process_set=ctx.process_set), None, None, None
 
