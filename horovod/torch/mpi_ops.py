@@ -915,21 +915,16 @@ def _reducescatter_function_factory(tensor):
     return 'horovod_torch_reducescatter_async_' + tensor.type().replace('.', '_')
 
 
-def _reducescatter_async(tensor, output, name, op):
-    if tensor.dtype == torch.float16 and not _fp16_supported:
-        raise NotImplementedError(
-            'float16 reducescatter is not supported for PyTorch version {} < 1.0.0'
-            .format(torch.__version__))
-
+def _reducescatter_async(tensor, output, name, op, process_set: ProcessSet):
     function = _check_function(_reducescatter_function_factory, tensor)
     handle = getattr(mpi_lib, function)(tensor, output,
                                         name.encode() if name is not None else _NULL,
-                                        op)
+                                        op, process_set.process_set_id)
     _handle_map[handle] = (tensor, output)
     return handle
 
 
-def reducescatter_async(tensor, name=None, op=Average):
+def reducescatter_async(tensor, name=None, op=Average, process_set=global_process_set):
     """
     A function that performs asynchronous reduction of the input tensor over all the
     Horovod processes, then scatters the results across all Horovod processes. The
@@ -949,22 +944,25 @@ def reducescatter_async(tensor, name=None, op=Average):
         name: A name of the reduction operation.
         op: The reduction operation to combine tensors across different ranks.
             Defaults to Average.
+        process_set: Process set object to limit this operation to a subset of
+                     Horovod processes. Default is the global process set.
 
     Returns:
         A handle to the reducescatter operation that can be used with `poll()` or
         `synchronize()`.
     """
     output = tensor.new()
-    return _reducescatter_async(tensor, output, name, op)
+    return _reducescatter_async(tensor, output, name, op, process_set)
 
 
 class HorovodReducescatter(torch.autograd.Function):
     """An autograd function that performs reducescatter on a tensor."""
 
     @staticmethod
-    def forward(ctx, tensor, name, op):
+    def forward(ctx, tensor, name, op, process_set):
         ctx.op = op
-        handle = reducescatter_async(tensor, name, op)
+        ctx.process_set = process_set
+        handle = reducescatter_async(tensor, name, op, process_set)
         return synchronize(handle)
 
     @staticmethod
@@ -972,10 +970,11 @@ class HorovodReducescatter(torch.autograd.Function):
         if ctx.op == Sum:
             grad_output *= size()
 
-        return allgather(grad_output), None, None
+        return allgather(grad_output, process_set=ctx.process_set), None, None, None
 
 
-def reducescatter(tensor, name=None, compression=Compression.none, op=Average):
+def reducescatter(tensor, name=None, compression=Compression.none, op=Average,
+                  process_set=global_process_set):
     """
     A function that performs reduction of the input tensor over all the Horovod
     processes, then scatters the results across all Horovod processes. The input tensor
@@ -994,6 +993,9 @@ def reducescatter(tensor, name=None, compression=Compression.none, op=Average):
                      not using compression.
         op: The reduction operation to combine tensors across different ranks.
             Defaults to Average.
+        process_set: Process set object to limit this operation to a subset of
+                     Horovod processes. Default is the global process set.
+
 
     Returns:
         A tensor of the same rank and type as `tensor` across all processes. The shape
@@ -1001,7 +1003,7 @@ def reducescatter(tensor, name=None, compression=Compression.none, op=Average):
         divided across the different Horovod processes.
     """
     tensor_compressed, ctx = compression.compress(tensor)
-    reduced_tensor_compressed = HorovodReducescatter.apply(tensor_compressed, name, op)
+    reduced_tensor_compressed = HorovodReducescatter.apply(tensor_compressed, name, op, process_set)
     return compression.decompress(reduced_tensor_compressed, ctx)
 
 

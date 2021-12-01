@@ -57,7 +57,7 @@ int GetDeviceID(const ::torch::Tensor& tensor) {
 } // namespace
 
 void DivideInPlace(::torch::Tensor& tensor, int divisor) {
-  if (isIntegralType(tensor.scalar_type())) {
+  if (isIntegralType(tensor.scalar_type(), false /*includeBool*/)) {
     tensor.floor_divide_(divisor);
     return;
   }
@@ -182,8 +182,8 @@ int DoGroupedAllreduce(const std::vector<::torch::Tensor>& tensors,
   auto base_name = GetOpName("grouped_allreduce", name, handle);
 
   auto callback_mutex = std::make_shared<std::mutex>();
-  auto callback_count = std::make_shared<int>(0);
-  for (int i = 0; i < num_tensors; ++i) {
+  auto callback_count = std::make_shared<std::size_t>(0);
+  for (std::size_t i = 0; i < num_tensors; ++i) {
     if (GetDeviceID(tensors[i]) != device) {
       throw std::logic_error("Tensors in list must be on same device.");
     }
@@ -254,8 +254,8 @@ int DoGroupedAllreduceCudaOnCPU(const std::vector<::torch::Tensor>& tensors,
   auto base_name = GetOpName("grouped_allreduce", name, handle);
 
   auto callback_mutex = std::make_shared<std::mutex>();
-  auto callback_count = std::make_shared<int>(0);
-  for (int i = 0; i < num_tensors; ++i) {
+  auto callback_count = std::make_shared<std::size_t>(0);
+  for (std::size_t i = 0; i < num_tensors; ++i) {
     if (GetDeviceID(tensors[i]) != device) {
       throw std::logic_error("Tensors in list must be on same device.");
     }
@@ -554,7 +554,8 @@ int DoAlltoallCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor splits,
 }
 
 int DoReducescatter(::torch::Tensor tensor, ::torch::Tensor output,
-                    const std::string& name, int reduce_op_int) {
+                    const std::string& name, int reduce_op_int,
+                    int process_set_id) {
   ThrowIfError(common::CheckInitialized());
 
   // For ReduceOp::AVERAGE, we do SUM reduction then divide on the device.
@@ -563,27 +564,40 @@ int DoReducescatter(::torch::Tensor tensor, ::torch::Tensor output,
 
   auto handle = handle_manager.AllocateHandle();
   auto device = GetDeviceID(tensor);
-  auto ready_event = RecordReadyEvent(device);
+  common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+  ready_event_list.AddReadyEvent(RecordReadyEvent(device));
+#endif
   auto hvd_tensor = std::make_shared<TorchTensor>(tensor);
   auto hvd_context = std::make_shared<TorchOpContext>(device, output);
 
   auto enqueue_result = EnqueueTensorReducescatter(
-      hvd_context, hvd_tensor, ready_event,
+      hvd_context, hvd_tensor, ready_event_list,
       GetOpName("reducescatter", name, handle), device,
-      [handle, reduce_op, output](const Status& status) mutable {
+      [handle, reduce_op, output, device,
+       process_set_id](const Status& status) mutable {
+#if HAVE_GPU
+        auto hvd_event = status.event;
+        if (hvd_event.event) {
+          auto stream = GetGPUStream(device);
+          HVD_GPU_CHECK(gpuStreamWaitEvent(stream, *(hvd_event.event), 0));
+        }
+#endif
         // Will execute in the `device` context.
         if (reduce_op == ReduceOp::AVERAGE) {
-          output.div_(horovod_size());
+          DivideInPlace(output, horovod_process_set_size(process_set_id));
         }
         handle_manager.MarkDone(handle, status);
-      }, request_op);
+      },
+      request_op, process_set_id);
   ThrowIfError(enqueue_result);
 
   return handle;
 }
 
 int DoReducescatterCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output,
-                             const std::string& name, int reduce_op_int) {
+                             const std::string& name, int reduce_op_int,
+                             int process_set_id) {
   ThrowIfError(common::CheckInitialized());
 
   // For ReduceOp::AVERAGE, we do SUM reduction then divide on the device.
@@ -595,7 +609,10 @@ int DoReducescatterCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output,
   auto cpu_tensor =
       tensor.to(::torch::Device(::torch::kCPU), /*non_blocking=*/true);
   auto hvd_cpu_tensor = std::make_shared<TorchTensor>(cpu_tensor);
-  auto ready_event = RecordReadyEvent(device);
+  common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+  ready_event_list.AddReadyEvent(RecordReadyEvent(device));
+#endif
 
   auto cpu_output = ::torch::empty_like(cpu_tensor);
   auto hvd_context =
@@ -603,9 +620,10 @@ int DoReducescatterCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output,
 
   auto handle = handle_manager.AllocateHandle();
   auto enqueue_result = EnqueueTensorReducescatter(
-      hvd_context, hvd_cpu_tensor, ready_event,
+      hvd_context, hvd_cpu_tensor, ready_event_list,
       GetOpName("reducescatter", name, handle), CPU_DEVICE_ID,
-      [handle, reduce_op, cpu_output, output, device](const Status& status) mutable {
+      [handle, reduce_op, cpu_output, output, device,
+       process_set_id](const Status& status) mutable {
         // Since the operation was on CPU, need to perform copy with the GPU
         // device guard.
         with_device device_guard(device);
@@ -613,10 +631,11 @@ int DoReducescatterCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output,
         output.resize_(cpu_output.sizes());
         output.copy_(cpu_output);
         if (reduce_op == ReduceOp::AVERAGE) {
-          output.div_(horovod_size());
+          DivideInPlace(output, horovod_process_set_size(process_set_id));
         }
         handle_manager.MarkDone(handle, status);
-      }, request_op);
+      },
+      request_op, process_set_id);
   ThrowIfError(enqueue_result);
 
   return handle;
