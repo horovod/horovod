@@ -4980,6 +4980,75 @@ class TensorFlowTests(tf.test.TestCase):
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
 
+    def test_horovod_reducescatter_grad_cpu_process_sets(self):
+        """Test the correctness of the reducescatter gradient on CPU if restricted to non-global process sets."""
+        if not hvd.mpi_built():
+            self.skipTest("Need MPI: Reducescatter is not yet implemented in gloo/mlsl")
+
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
+        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
+
+        even_set = hvd.add_process_set(even_ranks)
+        odd_set = hvd.add_process_set(odd_ranks)
+
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float16, tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for red_op, dtype, dim in itertools.product([hvd.Sum, hvd.Average], dtypes, dims):
+            with tf.device("/cpu:0"):
+                if _executing_eagerly():
+                    even_rank_tensor = self.tfe.Variable(self.random_uniform(
+                        [len(even_ranks) * 4] * dim, -100, 100, dtype=dtype))
+                    odd_rank_tensor = self.tfe.Variable(self.random_uniform(
+                        [len(odd_ranks) * 4] * dim, -100, 100, dtype=dtype))
+                    with tf.GradientTape() as tape:
+                        if rank in even_ranks:
+                            reduced = hvd.reducescatter(even_rank_tensor, op=red_op,
+                                                       process_set=even_set)
+                        elif rank in odd_ranks:
+                            reduced = hvd.reducescatter(odd_rank_tensor, op=red_op,
+                                                       process_set=odd_set)
+                else:
+                    even_rank_tensor = self.random_uniform([len(even_ranks) * 4] * dim, -100, 100, dtype=dtype)
+                    odd_rank_tensor = self.random_uniform([len(odd_ranks) * 4] * dim, -100, 100, dtype=dtype)
+                    if rank in even_ranks:
+                        reduced = hvd.reducescatter(even_rank_tensor, op=red_op,
+                                                   process_set=even_set)
+                    elif rank in odd_ranks:
+                        reduced = hvd.reducescatter(odd_rank_tensor, op=red_op,
+                                                   process_set=odd_set)
+
+                if rank in even_ranks:
+                    tensor = even_rank_tensor
+                    set_size = len(even_ranks)
+                elif rank in odd_ranks:
+                    tensor = odd_rank_tensor
+                    set_size = len(odd_ranks)
+
+                grad_ys = tf.ones([4] + [set_size * 4] * (dim - 1), dtype=tensor.dtype)
+                if _executing_eagerly():
+                    grad_out = tape.gradient(tf.cast(reduced, dtype=tensor.dtype), tensor, grad_ys)
+                else:
+                    grad = tf.gradients(tf.cast(reduced, dtype=tensor.dtype), tensor, grad_ys)[0]
+                    grad_out = self.evaluate(grad)
+
+            if red_op == hvd.Sum:
+                expected = np.ones([set_size * 4] * dim) * set_size
+            elif red_op == hvd.Average:
+                expected = np.ones([set_size * 4] * dim)
+            err = np.linalg.norm(expected - grad_out)
+            self.assertLess(err, 0.00000001,
+                            "gradient %s differs from expected %s, "
+                            "error: %s" % (grad_out, expected, str(err)))
+
+        hvd.remove_process_set(odd_set)
+        hvd.remove_process_set(even_set)
+
     def test_horovod_reducescatter_grad_gpu(self):
         """Test the correctness of the reducescatter gradient on GPU."""
         if not hvd.mpi_built():

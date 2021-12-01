@@ -430,9 +430,12 @@ def _reducescatter_grad(op, grad):
     """
     ignore_name_scope = op.get_attr('ignore_name_scope')
     process_set_id = op.get_attr('process_set_id')
-    grad *= size()
+    reduce_op = op.get_attr('reduce_op')
+    process_set = _temp_process_set_object(process_set_id)
+    if reduce_op == Sum:
+        grad *= process_set.size()
     return allgather(grad, ignore_name_scope=ignore_name_scope,
-                     process_set=_temp_process_set_object(process_set_id))
+                     process_set=process_set)
 
 
 def join():
