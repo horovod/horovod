@@ -3251,9 +3251,6 @@ class TorchTests(unittest.TestCase):
 
     def test_horovod_reducescatter(self):
         """Test that reducescatter correctly sums and scatters 1D, 2D, 3D tensors."""
-        if not hvd.mpi_built():
-            self.skipTest("Reducescatter is not yet implemented in gloo/mlsl")
-
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -3292,9 +3289,6 @@ class TorchTests(unittest.TestCase):
 
     def test_horovod_reducescatter_average(self):
         """Test that reducescatter correctly averages and scatters 1D, 2D, 3D tensors."""
-        if not hvd.mpi_built():
-            self.skipTest("Reducescatter is not yet implemented in gloo/mlsl")
-
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -3332,9 +3326,6 @@ class TorchTests(unittest.TestCase):
 
     def test_horovod_reducescatter_adasum(self):
         """Test that the reducescatter raises an error if we use Adasum operation."""
-        if not hvd.mpi_built():
-            self.skipTest("Reducescatter is not yet implemented in gloo/mlsl")
-
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -3361,9 +3352,6 @@ class TorchTests(unittest.TestCase):
     def test_horovod_reducescatter_async_fused(self):
         """Test that the reducescatter correctly sums 1D, 2D, 3D tensors
         with Tensor Fusion."""
-        if not hvd.mpi_built():
-            self.skipTest("Reducescatter is not yet implemented in gloo/mlsl")
-
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -3415,9 +3403,6 @@ class TorchTests(unittest.TestCase):
     def test_horovod_reducescatter_error(self):
         """Test that the reducescatter raises an error if different ranks try to
         send tensors of different rank or dimension."""
-        if not hvd.mpi_built():
-            self.skipTest("Reducescatter is not yet implemented in gloo/mlsl")
-
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -3452,9 +3437,6 @@ class TorchTests(unittest.TestCase):
     def test_horovod_reducescatter_type_error(self):
         """Test that the reducescatter raises an error if different ranks try to
         send tensors of different type."""
-        if not hvd.mpi_built():
-            self.skipTest("Reducescatter is not yet implemented in gloo/mlsl")
-
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -3479,9 +3461,6 @@ class TorchTests(unittest.TestCase):
     def test_horovod_reducescatter_duplicate_name_error(self):
         """Test that the reducescatter raises an error if there are
         two concurrent operations with the same name."""
-        if not hvd.mpi_built():
-            self.skipTest("Reducescatter is not yet implemented in gloo/mlsl")
-
         hvd.init()
         size = hvd.size()
 
@@ -3502,9 +3481,6 @@ class TorchTests(unittest.TestCase):
 
     def test_horovod_reducescatter_grad(self):
         """Test the correctness of the reducescatter gradient."""
-        if not hvd.mpi_built():
-            return  # Reducescatter is not yet implemented in gloo/mlsl
-
         hvd.init()
         size = hvd.size()
         # Only Tensors of floating point dtype can require gradients
@@ -3532,9 +3508,6 @@ class TorchTests(unittest.TestCase):
 
     def test_horovod_reducescatter_grad_average(self):
         """Test the correctness of the reducescatter averaged gradient."""
-        if not hvd.mpi_built():
-            self.skipTest("Reducescatter is not yet implemented in gloo/mlsl")
-
         hvd.init()
         size = hvd.size()
         # Only Tensors of floating point dtype can require gradients
@@ -3563,8 +3536,6 @@ class TorchTests(unittest.TestCase):
     def test_horovod_reducescatter_process_sets(self):
         """Test that reducescatter correctly sums and scatters 1D, 2D, 3D tensors if restricted 
         to non-global process sets."""
-        if not hvd.mpi_built():
-            self.skipTest("Reducescatter is not yet implemented in gloo/mlsl")
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
 
@@ -3626,8 +3597,6 @@ class TorchTests(unittest.TestCase):
 
     def test_horovod_reducescatter_grad_process_sets(self):
         """Test the correctness of the reducescatter gradient if restricted to non-global process sets."""
-        if not hvd.mpi_built():
-            return  # Reducescatter is not yet implemented in gloo/mlsl
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
 

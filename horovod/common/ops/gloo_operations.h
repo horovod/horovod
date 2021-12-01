@@ -39,6 +39,9 @@ public:
                         std::vector<int64_t>& sendcounts,
                         std::vector<int64_t>& recvcounts) = 0;
 
+  virtual void Reducescatter(void* buffer_data,
+                             std::vector<int>& recvcounts) = 0;
+
   virtual int ElementSize() const = 0;
 };
 
@@ -58,6 +61,8 @@ public:
   void Alltoall(void* buffer_data, void* buffer_out,
                 std::vector<int64_t>& sendcounts,
                 std::vector<int64_t>& recvcounts) override;
+
+  void Reducescatter(void* buffer_data, std::vector<int>& recvcounts) override;
 
   int ElementSize() const override;
 
@@ -114,6 +119,19 @@ public:
                const std::vector<TensorTableEntry>& entries,
                const Response& response) const override;
 };
+
+class GlooReducescatter : public ReducescatterOp {
+public:
+  explicit GlooReducescatter(HorovodGlobalState* global_state);
+
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
+
+  bool Enabled(const ParameterManager& param_manager,
+               const std::vector<TensorTableEntry>& entries,
+               const Response& response) const override;
+};
+
 
 } // namespace common
 } // namespace horovod

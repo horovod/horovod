@@ -4420,9 +4420,6 @@ class TensorFlowTests(tf.test.TestCase):
 
     def test_horovod_reducescatter_cpu(self):
         """Test on CPU that the reducescatter correctly sums or averages and scatters 1D, 2D, 3D tensors."""
-        if not hvd.mpi_built():
-            self.skipTest("Need MPI: Reducescatter is not yet implemented in gloo/mlsl")
-
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4457,9 +4454,6 @@ class TensorFlowTests(tf.test.TestCase):
     def test_horovod_reducescatter_cpu_fused(self):
         """Test on CPU that the reducescatter correctly sums and scatters 1D, 2D, 3D tensors
         with Tensor Fusion."""
-        if not hvd.mpi_built():
-            self.skipTest("Need MPI: Reducescatter is not yet implemented in gloo/mlsl")
-
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4493,9 +4487,6 @@ class TensorFlowTests(tf.test.TestCase):
     def test_horovod_reducescatter_cpu_uneven(self):
         """Test on CPU that the reducescatter correctly sums and scatters tensors that cannot
            be distributed evenly over the Horovod processes"""
-        if not hvd.mpi_built():
-            self.skipTest("Need MPI: Reducescatter is not yet implemented in gloo/mlsl")
-
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4537,9 +4528,6 @@ class TensorFlowTests(tf.test.TestCase):
     def test_horovod_reducescatter_cpu_uneven_fused(self):
         """Test on CPU that the reducescatter correctly sums and scatters tensors that cannot
            be distributed evenly over the Horovod processes, with Tensor Fusion"""
-        if not hvd.mpi_built():
-            self.skipTest("Need MPI: Reducescatter is not yet implemented in gloo/mlsl")
-
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4587,9 +4575,6 @@ class TensorFlowTests(tf.test.TestCase):
     def test_horovod_reducescatter_cpu_process_sets(self):
         """Test on CPU that the reducescatter correctly sums or averages and scatters 1D, 2D, 3D tensors
         if restricted to non-global process sets."""
-        if not hvd.mpi_built():
-            self.skipTest("Need MPI: Reducescatter is not yet implemented in gloo/mlsl")
-
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4895,9 +4880,6 @@ class TensorFlowTests(tf.test.TestCase):
     def test_horovod_reducescatter_error(self):
         """Test that the reducescatter raises an error if different ranks try to
         send tensors of different rank or dimension."""
-        if not hvd.mpi_built():
-            self.skipTest("Need MPI: Reducescatter is not yet implemented in gloo/mlsl")
-
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4924,9 +4906,6 @@ class TensorFlowTests(tf.test.TestCase):
     def test_horovod_reducescatter_type_error(self):
         """Test that the reducescatter raises an error if different ranks try to
         send tensors of different type."""
-        if not hvd.mpi_built():
-            self.skipTest("Need MPI: Reducescatter is not yet implemented in gloo/mlsl")
-
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4944,9 +4923,6 @@ class TensorFlowTests(tf.test.TestCase):
 
     def test_horovod_reducescatter_grad_cpu(self):
         """Test the correctness of the reducescatter gradient on CPU."""
-        if not hvd.mpi_built():
-            self.skipTest("Need MPI: Reducescatter is not yet implemented in gloo/mlsl")
-
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4982,9 +4958,6 @@ class TensorFlowTests(tf.test.TestCase):
 
     def test_horovod_reducescatter_grad_cpu_process_sets(self):
         """Test the correctness of the reducescatter gradient on CPU if restricted to non-global process sets."""
-        if not hvd.mpi_built():
-            self.skipTest("Need MPI: Reducescatter is not yet implemented in gloo/mlsl")
-
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -5051,9 +5024,6 @@ class TensorFlowTests(tf.test.TestCase):
 
     def test_horovod_reducescatter_grad_gpu(self):
         """Test the correctness of the reducescatter gradient on GPU."""
-        if not hvd.mpi_built():
-            self.skipTest("Need MPI: Reducescatter is not yet implemented in gloo/mlsl")
-
         # Only do this test if there are GPUs available.
         if not tf.test.is_gpu_available(cuda_only=True):
             self.skipTest("No GPUs available")

@@ -1546,9 +1546,6 @@ class MXTests:
 
     def test_horovod_reducescatter(self):
         """Test that reducescatter correctly sums and scatters 1D, 2D, 3D tensors."""
-        if not hvd.mpi_built():
-            self.skipTest("Reducescatter is not yet implemented in gloo/mlsl")
-
         hvd.init()
         size = hvd.size()
         rank = hvd.rank()
@@ -1585,9 +1582,6 @@ class MXTests:
 
     def test_horovod_reducescatter_average(self):
         """Test that reducescatter correctly averages and scatters 1D, 2D, 3D tensors."""
-        if not hvd.mpi_built():
-            self.skipTest("Reducescatter is not yet implemented in gloo/mlsl")
-
         hvd.init()
         size = hvd.size()
         rank = hvd.rank()
@@ -1629,9 +1623,6 @@ class MXTests:
     def test_horovod_reducescatter_error(self):
         """Test that the reducescatter raises an error if different ranks try to
         send tensors of different rank or dimension."""
-        if not hvd.mpi_built():
-            self.skipTest("Reducescatter is not yet implemented in gloo/mlsl")
-
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -1667,8 +1658,6 @@ class MXTests:
     def test_horovod_reducescatter_process_sets(self):
         """Test that reducescatter correctly sums and scatters 1D, 2D, 3D tensors if restricted
         to non-global process sets."""
-        if not hvd.mpi_built():
-            self.skipTest("Reducescatter is not yet implemented in gloo/mlsl")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()

@@ -224,6 +224,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
         std::shared_ptr<BroadcastOp>(new GlooBroadcast(&state)));
     alltoall_ops.push_back(
         std::shared_ptr<AlltoallOp>(new GlooAlltoall(&state)));
+    reducescatter_ops.push_back(
+        std::shared_ptr<ReducescatterOp>(new GlooReducescatter(&state)));
   }
 #endif
 

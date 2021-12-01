@@ -20,6 +20,7 @@
 #include "gloo/allreduce.h"
 #include "gloo/alltoallv.h"
 #include "gloo/broadcast.h"
+#include "gloo/reduce_scatter.h"
 #include "gloo/math.h"
 #include "gloo/types.h"
 
@@ -106,6 +107,24 @@ void GlooAlgorithms<T>::Alltoall(void* buffer_data, void* buffer_out,
   opts.setOutput<T>(static_cast<T*>(buffer_out), recvcounts);
 
   gloo::alltoallv(opts);
+}
+
+template <>
+void GlooAlgorithms<bool>::Reducescatter(void* buffer_data,
+                                         std::vector<int>& recvcounts) {
+  // Need to add this specialization for T=bool because
+  // gloo::ReduceScatterHalvingDoubling does not support vector<bool>
+  throw std::logic_error("GlooReducescatter does not support bool data.");
+}
+
+template <typename T>
+void GlooAlgorithms<T>::Reducescatter(void* buffer_data,
+                                      std::vector<int>& recvcounts) {
+  std::vector<T*> ptrs{reinterpret_cast<T*>(buffer_data)};
+  int num_elements = std::accumulate(recvcounts.begin(), recvcounts.end(), 0);
+  gloo::ReduceScatterHalvingDoubling<T> rs_hd(gloo_context_->ctx, ptrs,
+                                              num_elements, recvcounts);
+  rs_hd.run();
 }
 
 template <typename T> int GlooAlgorithms<T>::ElementSize() const {
@@ -350,6 +369,75 @@ Status GlooAlltoall::Execute(std::vector<TensorTableEntry>& entries, const Respo
 bool GlooAlltoall::Enabled(const ParameterManager& param_manager,
                            const std::vector<TensorTableEntry>& entries,
                            const Response& response) const {
+  return true;
+}
+
+GlooReducescatter::GlooReducescatter(HorovodGlobalState* global_state)
+    : ReducescatterOp(global_state) {}
+
+Status GlooReducescatter::Execute(std::vector<TensorTableEntry>& entries,
+                                  const Response& response) {
+  WaitForData(entries);
+
+  assert(!entries.empty());
+  auto& first_entry = entries[0];
+  auto& process_set =
+      global_state_->process_set_table.Get(first_entry.process_set_id);
+  auto& gloo_context = process_set.gloo_context;
+  auto& timeline = global_state_->timeline;
+
+  void* buffer_data = nullptr;
+  int global_rank = process_set.controller->GetRank();
+  int global_size = process_set.controller->GetSize();
+  auto output_shapes = ComputeOutputShapes(entries, global_size);
+  std::vector<int> recvcounts = ComputeReceiveCounts(output_shapes);
+
+  timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
+  Status status = AllocateOutput(entries, output_shapes[global_rank]);
+  if (!status.ok()) {
+    return status;
+  }
+  timeline.ActivityEndAll(entries);
+
+  std::unique_ptr<IGlooAlgorithms> gloo_algos(
+      GetAlgorithmsForType(first_entry.tensor->dtype(), &gloo_context));
+  int element_size = gloo_algos->ElementSize();
+
+  // Copy memory into the fusion buffer.
+  timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
+  if (entries.size() > 1) {
+    MemcpyInFusionBuffer(entries, output_shapes, element_size, buffer_data);
+  } else {
+    // Allocating a temp buffer because the Reducescatter will be performed
+    // in place and the output tensor will be smaller than the input.
+    buffer_data = new uint8_t[first_entry.tensor->size()];
+    std::memcpy(buffer_data, first_entry.tensor->data(),
+                first_entry.tensor->size());
+  }
+  timeline.ActivityEndAll(entries);
+
+  // Call Gloo Reducescatter API
+  timeline.ActivityStartAll(entries, GLOO_REDUCESCATTER);
+  gloo_algos->Reducescatter(buffer_data, recvcounts);
+  timeline.ActivityEndAll(entries);
+
+  // Copy memory out of the fusion buffer.
+  timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
+  if (entries.size() > 1) {
+    MemcpyOutFusionBuffer(buffer_data, entries);
+  } else {
+    void* output_pointer = const_cast<void*>(first_entry.output->data());
+    std::memcpy(output_pointer, buffer_data, first_entry.output->size());
+    delete[] reinterpret_cast<uint8_t*>(buffer_data);
+  }
+  timeline.ActivityEndAll(entries);
+
+  return Status::OK();
+}
+
+bool GlooReducescatter::Enabled(const ParameterManager& param_manager,
+                                const std::vector<TensorTableEntry>& entries,
+                                const Response& response) const {
   return true;
 }
 
