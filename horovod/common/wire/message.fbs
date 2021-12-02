@@ -39,11 +39,10 @@ enum RequestType:byte {
     ALLGATHER = 1,
     BROADCAST = 2,
     JOIN = 3,
-    BARRIER = 4,
-    REDUCESCATTER = 5
-    REDUCESCATTER = 3,
-    JOIN = 4,
-    ADASUM = 5
+    ADASUM = 4,
+    ALLTOALL = 5,
+    BARRIER = 6,
+    REDUCESCATTER = 7
 }
 table Request {
     // The request rank is necessary to create a consistent ordering of results,
@@ -86,13 +85,10 @@ enum ResponseType:byte {
     BROADCAST = 2,
     JOIN = 3,
     ADASUM = 4,
-    BARRIER = 5,
-    REDUCESCATTER = 6,
-    ERROR = 7
-    REDUCESCATTER = 3,
-    JOIN = 4,
-    ADASUM = 5,
-    ERROR = 6
+    ALLTOALL = 5,
+    BARRIER = 6,
+    REDUCESCATTER = 7,
+    ERROR = 8
 }
 table Response {
     response_type:ResponseType;

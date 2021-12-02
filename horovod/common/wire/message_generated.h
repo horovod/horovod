@@ -97,36 +97,45 @@ enum RequestType : int8_t {
   RequestType_ALLGATHER = 1,
   RequestType_BROADCAST = 2,
   RequestType_JOIN = 3,
-  RequestType_BARRIER = 4,
+  RequestType_ADASUM = 4,
+  RequestType_ALLTOALL = 5,
+  RequestType_BARRIER = 6,
+  RequestType_REDUCESCATTER = 7,
   RequestType_MIN = RequestType_ALLREDUCE,
-  RequestType_MAX = RequestType_BARRIER
+  RequestType_MAX = RequestType_REDUCESCATTER
 };
 
-inline const RequestType (&EnumValuesRequestType())[5] {
+inline const RequestType (&EnumValuesRequestType())[8] {
   static const RequestType values[] = {
     RequestType_ALLREDUCE,
     RequestType_ALLGATHER,
     RequestType_BROADCAST,
     RequestType_JOIN,
-    RequestType_BARRIER
+    RequestType_ADASUM,
+    RequestType_ALLTOALL,
+    RequestType_BARRIER,
+    RequestType_REDUCESCATTER
   };
   return values;
 }
 
 inline const char * const *EnumNamesRequestType() {
-  static const char * const names[6] = {
+  static const char * const names[9] = {
     "ALLREDUCE",
     "ALLGATHER",
     "BROADCAST",
     "JOIN",
+    "ADASUM",
+    "ALLTOALL",
     "BARRIER",
+    "REDUCESCATTER",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameRequestType(RequestType e) {
-  if (flatbuffers::IsOutRange(e, RequestType_ALLREDUCE, RequestType_BARRIER)) return "";
+  if (flatbuffers::IsOutRange(e, RequestType_ALLREDUCE, RequestType_REDUCESCATTER)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesRequestType()[index];
 }
@@ -137,33 +146,39 @@ enum ResponseType : int8_t {
   ResponseType_BROADCAST = 2,
   ResponseType_JOIN = 3,
   ResponseType_ADASUM = 4,
-  ResponseType_BARRIER = 5,
-  ResponseType_ERROR = 6,
+  ResponseType_ALLTOALL = 5,
+  ResponseType_BARRIER = 6,
+  ResponseType_REDUCESCATTER = 7,
+  ResponseType_ERROR = 8,
   ResponseType_MIN = ResponseType_ALLREDUCE,
   ResponseType_MAX = ResponseType_ERROR
 };
 
-inline const ResponseType (&EnumValuesResponseType())[7] {
+inline const ResponseType (&EnumValuesResponseType())[9] {
   static const ResponseType values[] = {
     ResponseType_ALLREDUCE,
     ResponseType_ALLGATHER,
     ResponseType_BROADCAST,
     ResponseType_JOIN,
     ResponseType_ADASUM,
+    ResponseType_ALLTOALL,
     ResponseType_BARRIER,
+    ResponseType_REDUCESCATTER,
     ResponseType_ERROR
   };
   return values;
 }
 
 inline const char * const *EnumNamesResponseType() {
-  static const char * const names[8] = {
+  static const char * const names[10] = {
     "ALLREDUCE",
     "ALLGATHER",
     "BROADCAST",
     "JOIN",
     "ADASUM",
+    "ALLTOALL",
     "BARRIER",
+    "REDUCESCATTER",
     "ERROR",
     nullptr
   };
