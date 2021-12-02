@@ -25,7 +25,7 @@ from horovod.tensorflow import is_initialized, start_timeline, stop_timeline
 from horovod.tensorflow import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.tensorflow import gloo_enabled, gloo_built
 from horovod.tensorflow import nccl_built, ddl_built, ccl_built, cuda_built, rocm_built
-from horovod.tensorflow import Average, Sum, Adasum  # TODO: neded for reduces_scatter?
+from horovod.tensorflow import Average, Sum, Adasum
 from horovod.tensorflow.compression import Compression
 
 
