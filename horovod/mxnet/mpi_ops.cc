@@ -491,7 +491,7 @@ void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
   }
   case OperationType::REDUCESCATTER:
     enqueue_result = EnqueueTensorReducescatter(
-        hvd_contexts[0], hvd_tensors[0], ready_event_lists[0],
+        hvd_contexts[0], hvd_cpu_buffers[0], ready_event_lists[0],
         ops_param->op_names[0], device, callbacks[0],
         ReduceOp::SUM, process_set_id);
     break;
