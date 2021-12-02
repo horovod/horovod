@@ -1546,6 +1546,8 @@ class MXTests:
 
     def test_horovod_reducescatter(self):
         """Test that reducescatter correctly sums and scatters 1D, 2D, 3D tensors."""
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
         hvd.init()
         size = hvd.size()
         rank = hvd.rank()
@@ -1582,6 +1584,8 @@ class MXTests:
 
     def test_horovod_reducescatter_average(self):
         """Test that reducescatter correctly averages and scatters 1D, 2D, 3D tensors."""
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
         hvd.init()
         size = hvd.size()
         rank = hvd.rank()
@@ -1623,6 +1627,8 @@ class MXTests:
     def test_horovod_reducescatter_error(self):
         """Test that the reducescatter raises an error if different ranks try to
         send tensors of different rank or dimension."""
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -1658,12 +1664,11 @@ class MXTests:
     def test_horovod_reducescatter_process_sets(self):
         """Test that reducescatter correctly sums and scatters 1D, 2D, 3D tensors if restricted
         to non-global process sets."""
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
-
-        if hvd.ccl_built():
-            self.skipTest("Multiple process sets currently do not support CCL.")
 
         even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
         odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
@@ -1710,6 +1715,7 @@ class MXTests:
 
             assert almost_equal(summed.asnumpy(), expected.asnumpy(), atol=threshold), \
                 f'hvd.allreduce produces incorrect results: {hvd.rank()} {count} {dtype} {dim}'
+
         hvd.remove_process_set(odd_set)
         hvd.remove_process_set(even_set)
 

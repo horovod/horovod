@@ -1661,10 +1661,9 @@ Status EnqueueTensorReducescatter(std::shared_ptr<OpContext> context,
                                   const std::string& name, const int device,
                                   StatusCallback callback, ReduceOp reduce_op,
                                   int32_t process_set_id) {
-  if (horovod_global.cpu_operation == LibType::CCL && process_set_id > 0 &&
-      device == CPU_DEVICE_ID) {
+  if (horovod_global.cpu_operation == LibType::CCL && device == CPU_DEVICE_ID) {
     return Status::InvalidArgument(
-        "Process sets are not supported yet with oneCCL operations.");
+        "Reducescatter is not supported yet with oneCCL operations.");
   }
   if (!horovod_global.process_set_table.Contains(process_set_id)) {
     return Status::InvalidArgument(

@@ -4420,6 +4420,8 @@ class TensorFlowTests(tf.test.TestCase):
 
     def test_horovod_reducescatter_cpu(self):
         """Test on CPU that the reducescatter correctly sums or averages and scatters 1D, 2D, 3D tensors."""
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4454,6 +4456,8 @@ class TensorFlowTests(tf.test.TestCase):
     def test_horovod_reducescatter_cpu_fused(self):
         """Test on CPU that the reducescatter correctly sums and scatters 1D, 2D, 3D tensors
         with Tensor Fusion."""
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4487,6 +4491,8 @@ class TensorFlowTests(tf.test.TestCase):
     def test_horovod_reducescatter_cpu_uneven(self):
         """Test on CPU that the reducescatter correctly sums and scatters tensors that cannot
            be distributed evenly over the Horovod processes"""
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4528,6 +4534,8 @@ class TensorFlowTests(tf.test.TestCase):
     def test_horovod_reducescatter_cpu_uneven_fused(self):
         """Test on CPU that the reducescatter correctly sums and scatters tensors that cannot
            be distributed evenly over the Horovod processes, with Tensor Fusion"""
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4575,6 +4583,8 @@ class TensorFlowTests(tf.test.TestCase):
     def test_horovod_reducescatter_cpu_process_sets(self):
         """Test on CPU that the reducescatter correctly sums or averages and scatters 1D, 2D, 3D tensors
         if restricted to non-global process sets."""
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4880,6 +4890,8 @@ class TensorFlowTests(tf.test.TestCase):
     def test_horovod_reducescatter_error(self):
         """Test that the reducescatter raises an error if different ranks try to
         send tensors of different rank or dimension."""
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4906,6 +4918,8 @@ class TensorFlowTests(tf.test.TestCase):
     def test_horovod_reducescatter_type_error(self):
         """Test that the reducescatter raises an error if different ranks try to
         send tensors of different type."""
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4923,6 +4937,8 @@ class TensorFlowTests(tf.test.TestCase):
 
     def test_horovod_reducescatter_grad_cpu(self):
         """Test the correctness of the reducescatter gradient on CPU."""
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4958,6 +4974,8 @@ class TensorFlowTests(tf.test.TestCase):
 
     def test_horovod_reducescatter_grad_cpu_process_sets(self):
         """Test the correctness of the reducescatter gradient on CPU if restricted to non-global process sets."""
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
