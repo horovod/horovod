@@ -2856,7 +2856,10 @@ class TorchTests(unittest.TestCase):
                 except (torch.FatalError, RuntimeError):
                     pass
 
-                ret = hvd.join(hvd.local_rank())
+                if torch.cuda.is_available():
+                    ret = hvd.join(hvd.local_rank())
+                else:
+                    ret = hvd.join()
 
             self.assertNotEqual(ret, first_join_rank,
                                 msg="The return value of hvd.join() may not be equal to first_join_rank")
