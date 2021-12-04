@@ -3253,6 +3253,8 @@ class TorchTests(unittest.TestCase):
         """Test that reducescatter correctly sums and scatters 1D, 2D, 3D tensors."""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -3293,6 +3295,8 @@ class TorchTests(unittest.TestCase):
         """Test that reducescatter correctly averages and scatters 1D, 2D, 3D tensors."""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -3330,6 +3334,8 @@ class TorchTests(unittest.TestCase):
         """Test that the reducescatter raises an error if we use Adasum operation."""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         size = hvd.size()
         dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
@@ -3357,6 +3363,8 @@ class TorchTests(unittest.TestCase):
         with Tensor Fusion."""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -3410,6 +3418,8 @@ class TorchTests(unittest.TestCase):
         send tensors of different rank or dimension."""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -3446,6 +3456,8 @@ class TorchTests(unittest.TestCase):
         send tensors of different type."""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -3472,6 +3484,8 @@ class TorchTests(unittest.TestCase):
         two concurrent operations with the same name."""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         size = hvd.size()
 
@@ -3494,6 +3508,8 @@ class TorchTests(unittest.TestCase):
         """Test the correctness of the reducescatter gradient."""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         size = hvd.size()
         # Only Tensors of floating point dtype can require gradients
@@ -3523,6 +3539,8 @@ class TorchTests(unittest.TestCase):
         """Test the correctness of the reducescatter averaged gradient."""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         size = hvd.size()
         # Only Tensors of floating point dtype can require gradients
@@ -3553,6 +3571,8 @@ class TorchTests(unittest.TestCase):
         to non-global process sets."""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -3611,6 +3631,8 @@ class TorchTests(unittest.TestCase):
         """Test the correctness of the reducescatter gradient if restricted to non-global process sets."""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         size = hvd.size()
         rank = hvd.rank()

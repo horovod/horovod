@@ -15,6 +15,7 @@
 # ==============================================================================
 
 import os
+import platform
 import sys
 import itertools
 import unittest
@@ -44,6 +45,8 @@ try:
 except ImportError:
     has_gpu = False
     HAS_MXNET = False
+
+_is_mac = platform.system() == 'Darwin'
 
 # Set environment variable to enable adding/removing process sets after initializing Horovod.
 os.environ["HOROVOD_DYNAMIC_PROCESS_SETS"] = "1"
@@ -1548,6 +1551,8 @@ class MXTests:
         """Test that reducescatter correctly sums and scatters 1D, 2D, 3D tensors."""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         size = hvd.size()
         rank = hvd.rank()
@@ -1586,6 +1591,8 @@ class MXTests:
         """Test that reducescatter correctly averages and scatters 1D, 2D, 3D tensors."""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         size = hvd.size()
         rank = hvd.rank()
@@ -1629,6 +1636,8 @@ class MXTests:
         send tensors of different rank or dimension."""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -1666,6 +1675,8 @@ class MXTests:
         to non-global process sets."""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()

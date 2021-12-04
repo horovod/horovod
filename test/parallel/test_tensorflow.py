@@ -23,6 +23,7 @@ from distutils.version import LooseVersion
 import itertools
 import numpy as np
 import os
+import platform
 import math
 import pytest
 import sys
@@ -58,6 +59,7 @@ ccl_supported_types = set([tf.uint8, tf.int8, tf.uint16, tf.int16,
                            tf.int32, tf.int64, tf.float32, tf.float64])
 
 _IS_TF2 = LooseVersion(tf.__version__) >= LooseVersion('2.0.0')
+_is_mac = platform.system() == 'Darwin'
 
 # Set environment variable to enable adding/removing process sets after initializing Horovod.
 os.environ["HOROVOD_DYNAMIC_PROCESS_SETS"] = "1"
@@ -4422,6 +4424,8 @@ class TensorFlowTests(tf.test.TestCase):
         """Test on CPU that the reducescatter correctly sums or averages and scatters 1D, 2D, 3D tensors."""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4458,6 +4462,8 @@ class TensorFlowTests(tf.test.TestCase):
         with Tensor Fusion."""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4493,6 +4499,8 @@ class TensorFlowTests(tf.test.TestCase):
            be distributed evenly over the Horovod processes"""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4536,6 +4544,8 @@ class TensorFlowTests(tf.test.TestCase):
            be distributed evenly over the Horovod processes, with Tensor Fusion"""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4585,6 +4595,8 @@ class TensorFlowTests(tf.test.TestCase):
         if restricted to non-global process sets."""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4892,6 +4904,8 @@ class TensorFlowTests(tf.test.TestCase):
         send tensors of different rank or dimension."""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4920,6 +4934,8 @@ class TensorFlowTests(tf.test.TestCase):
         send tensors of different type."""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4939,6 +4955,8 @@ class TensorFlowTests(tf.test.TestCase):
         """Test the correctness of the reducescatter gradient on CPU."""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -4976,6 +4994,8 @@ class TensorFlowTests(tf.test.TestCase):
         """Test the correctness of the reducescatter gradient on CPU if restricted to non-global process sets."""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()

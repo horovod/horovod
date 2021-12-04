@@ -438,7 +438,15 @@ Status GlooReducescatter::Execute(std::vector<TensorTableEntry>& entries,
 bool GlooReducescatter::Enabled(const ParameterManager& param_manager,
                                 const std::vector<TensorTableEntry>& entries,
                                 const Response& response) const {
+#ifdef __linux__
   return true;
+#else
+  // On MacOS we cannot use the TCP backend of Gloo. The
+  // ReduceScatterHalvingDoubling algorithm does not work with the libuv backend
+  // that is available because functions like Pair::createSendBuffer() are not
+  // implemented. https://github.com/facebookincubator/gloo/issues/257
+  return false;
+#endif
 }
 
 } // namespace common
