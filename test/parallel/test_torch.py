@@ -623,7 +623,7 @@ class TorchTests(unittest.TestCase):
                 assert False, 'hvd.allreduce_async did not throw error'
             except (torch.FatalError, ValueError):
                 pass
-        hvd.barrier()
+        hvd.allreduce(torch.FloatTensor([1]), name="synch1")
         if rank > 0:
             hvd.allreduce_async(tensor, name='duplicate_name')
             try:
@@ -631,7 +631,7 @@ class TorchTests(unittest.TestCase):
                 assert False, 'hvd.allreduce_async did not throw error'
             except (torch.FatalError, ValueError):
                 pass
-        hvd.allreduce(torch.FloatTensor([0]), name="synch")
+        hvd.allreduce(torch.FloatTensor([2]), name="synch2")
 
     def test_horovod_allreduce_grad(self):
         """Test the correctness of the allreduce gradient."""
@@ -1239,7 +1239,7 @@ class TorchTests(unittest.TestCase):
                 assert False, 'hvd.allgather_async did not throw error'
             except (torch.FatalError, ValueError):
                 pass
-        hvd.barrier()
+        hvd.allreduce(torch.FloatTensor([1]), name="synch1")
         if rank > 0:
             hvd.allgather_async(tensor, name='duplicate_name')
             try:
@@ -1247,7 +1247,7 @@ class TorchTests(unittest.TestCase):
                 assert False, 'hvd.allgather_async did not throw error'
             except (torch.FatalError, ValueError):
                 pass
-        hvd.allreduce(torch.FloatTensor([0]), name="synch")
+        hvd.allreduce(torch.FloatTensor([2]), name="synch2")
 
     def test_horovod_allgather_grad(self):
         """Test the correctness of the allgather gradient."""
@@ -1559,7 +1559,7 @@ class TorchTests(unittest.TestCase):
                 assert False, 'hvd.broadcast_async did not throw error'
             except (torch.FatalError, ValueError):
                 pass
-        hvd.barrier()
+        hvd.allreduce(torch.FloatTensor([1]), name="synch1")
         if rank > 0:
             hvd.broadcast_async(tensor, name='duplicate_name', root_rank=0)
             try:
@@ -1567,7 +1567,7 @@ class TorchTests(unittest.TestCase):
                 assert False, 'hvd.broadcast_async did not throw error'
             except (torch.FatalError, ValueError):
                 pass
-        hvd.allreduce(torch.FloatTensor([0]), name="synch")
+        hvd.allreduce(torch.FloatTensor([2]), name="synch2")
 
     def test_horovod_broadcast_grad(self):
         """Test the correctness of the broadcast gradient."""
