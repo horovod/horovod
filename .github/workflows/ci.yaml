@@ -3414,8 +3414,8 @@ jobs:
           python --version
 
           python -m pip install -U pip
-          if [[ ${TENSORFLOW} == 1.* ]] || [[ ${TENSORFLOW} == 2.[012345].* ]]; then h5py="h5py<3"; fi
-          pip install tensorflow==${TENSORFLOW} keras==${KERAS} ${h5py:-}
+          pip install tensorflow==${TENSORFLOW} keras==${KERAS}
+          if [[ ${TENSORFLOW} == 1.* ]] || [[ ${TENSORFLOW} == 2.[012345].* ]]; then pip install "h5py<3"; fi
           pip install torch==${PYTORCH} pytorch_lightning==${PYTORCH_LIGHTNING} torchvision==${TORCHVISION}
           pip install mxnet==${MXNET}
           HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir .[test]
