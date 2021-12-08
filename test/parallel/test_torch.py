@@ -2549,7 +2549,7 @@ class TorchTests(unittest.TestCase):
         if not hvd.mpi_enabled():
             # TODO support non-MPI Adasum operation
             self.skipTest("Adasum requires MPI")
-        if torch.cuda.is_available():
+        if not torch.cuda.is_available():
             self.skipTest("No GPUs available")
 
         local_rank = hvd.local_rank()
