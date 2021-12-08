@@ -135,12 +135,16 @@ RUN if [[ ${MPI_KIND} != "None" ]]; then \
     fi
 
 # Install TensorFlow and Keras (releases).
+# Pin h5py only for tensorflow<2.5: https://github.com/h5py/h5py/issues/1732
 # Pin scipy!=1.4.0: https://github.com/scipy/scipy/issues/11237
 RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly" ]]; then \
         pip install --no-cache-dir ${TENSORFLOW_PACKAGE}; \
         if [[ ${KERAS_PACKAGE} != "None" ]]; then \
+            if [[ ${TENSORFLOW_PACKAGE} == tensorflow*==1.* ]] || [[ ${TENSORFLOW_PACKAGE} == tensorflow*==2.[012345].* ]]; then \
+                h5py="h5py<3"; \
+            fi; \
             pip uninstall -y keras-nightly; \
-            pip install --no-cache-dir ${KERAS_PACKAGE} "scipy!=1.4.0" "pandas<1.1.0"; \
+            pip install --no-cache-dir ${KERAS_PACKAGE} ${h5py:-} "scipy!=1.4.0" "pandas<1.1.0"; \
         fi; \
         mkdir -p ~/.keras; \
         python -c "import tensorflow as tf; tf.keras.datasets.mnist.load_data()"; \
