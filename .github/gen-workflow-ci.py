@@ -504,7 +504,7 @@ def main():
                 f'          python --version\n'
                 f'\n'
                 f'          python -m pip install -U pip\n'
-                f'          if [[ ${{TENSORFLOW}} == tensorflow*==1.* ]] || [[ ${{TENSORFLOW_PACKAGE}} == tensorflow*==2.[012345].* ]]; then; h5py="h5py<3"; fi\n'
+                f'          if [[ ${{TENSORFLOW}} == tensorflow*==1.* ]] || [[ ${{TENSORFLOW_PACKAGE}} == tensorflow*==2.[012345].* ]]; then h5py="h5py<3"; fi\n'
                 f'          pip install tensorflow==${{TENSORFLOW}} keras==${{KERAS}} ${{h5py:-}}\n'
                 f'          pip install torch==${{PYTORCH}} pytorch_lightning==${{PYTORCH_LIGHTNING}} torchvision==${{TORCHVISION}}\n'
                 f'          pip install mxnet==${{MXNET}}\n'

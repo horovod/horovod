@@ -3414,7 +3414,7 @@ jobs:
           python --version
 
           python -m pip install -U pip
-          if [[ ${TENSORFLOW} == tensorflow*==1.* ]] || [[ ${TENSORFLOW_PACKAGE} == tensorflow*==2.[012345].* ]]; then; h5py="h5py<3"; fi
+          if [[ ${TENSORFLOW} == tensorflow*==1.* ]] || [[ ${TENSORFLOW_PACKAGE} == tensorflow*==2.[012345].* ]]; then h5py="h5py<3"; fi
           pip install tensorflow==${TENSORFLOW} keras==${KERAS} ${h5py:-}
           pip install torch==${PYTORCH} pytorch_lightning==${PYTORCH_LIGHTNING} torchvision==${TORCHVISION}
           pip install mxnet==${MXNET}
