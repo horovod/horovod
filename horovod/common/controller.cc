@@ -273,12 +273,6 @@ ResponseList Controller::ComputeResponseList(bool this_process_requested_shutdow
 
         bool reduce = IncrementTensorCount(message, process_set.joined_size);
 
-        // For barrier request, if not ready to reduce, we add it back to tensor queue
-        // to process in the next cycle.
-        if(!reduce && message.request_type() == Request::BARRIER) {
-          tensor_queue_.PushMessageToQueue(message);
-        }
-
         stall_inspector_.RecordUncachedTensorStart(
             message.tensor_name(), message.request_rank(), size_);
         if (reduce) {
