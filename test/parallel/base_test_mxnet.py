@@ -1316,6 +1316,67 @@ class MXTests:
         except (MXNetError, ValueError):
             pass
 
+    def test_pos_trainer(self):
+        from mxnet import gluon
+        from mxnet.gluon import Block, nn, HybridBlock
+        from mxnet import init
+
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+        ctx = mx.gpu(rank)
+
+        class Easynet(nn.HybridBlock):
+            def __init__(self):
+                super().__init__()
+                self.l1 = nn.Dense(in_units=10, units=20, flatten=False)
+
+            def forward(self, input):
+                input = self.l1(input)
+                return input
+
+        np.random.seed(1234 + 10 * rank)
+        mx.random.seed(1234 + 10 * rank)
+
+        net1 = Easynet()
+        net2 = Easynet()
+        net1.initialize(init=init.One(), ctx=ctx)
+        net2.initialize(init=init.One(), ctx=ctx)
+
+        params1 = net1.collect_params()
+        params2 = net2.collect_params()
+
+        hvd.broadcast_parameters(params1, prefix="net1")
+        hvd.broadcast_parameters(params2, prefix="net2")
+
+        loss_function = gluon.loss.L2Loss()
+
+        trainer1 = hvd.DistributedTrainer(params1, 'sgd', {'learning_rate': 0.1}, prefix="net1")
+        trainer2 = hvd.POS_Trainer(params2, 'sgd', {'learning_rate': 0.1}, prefix="net2")
+
+        for i in range(5):
+            data = mx.np.ones((1, 10), ctx=ctx)
+            label = mx.np.ones((20,), ctx=ctx)
+
+            with mx.autograd.record():
+                output1 = net1(data)
+                loss1 = loss_function(output1, label).mean() / size
+            loss1.backward(retain_graph=True)
+            with mx.autograd.record():
+                output2 = net2(data)
+                loss2 = loss_function(output2, label).mean() / size
+            loss2.backward(retain_graph=True)
+
+            mx.nd.waitall()
+            assert loss1 == loss2
+
+            trainer1.allreduce_grads()
+            trainer2.allreduce_grads()
+
+            trainer1.step(1.0)
+            trainer2.step(1.0)
+            mx.nd.waitall()
+
     def test_two_trainer(self):
         """Test using horovod allreduce in MXNet Gluon trainer."""
         from mxnet import gluon
