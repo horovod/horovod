@@ -104,7 +104,6 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
         self._optimizer.set_wd_mult(args_wd_mult)
 
 
-
 # DistributedTrainer, a subclass of MXNet gluon.Trainer.
 # There are two differences between DistributedTrainer and Trainer:
 # 1. DistributedTrainer calculates gradients using Horovod allreduce
