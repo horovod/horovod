@@ -3311,10 +3311,6 @@ class TorchTests(unittest.TestCase):
         allreduce_tensor = torch.eye(5)
         allreduce_handle = hvd.allreduce_async(allreduce_tensor)
 
-        # Rank 0 sleeps for 3 seconds before synchronizing
-        if hvd.rank() == 0:
-            time.sleep(3)
-
         hvd.barrier()
 
         result = hvd.synchronize(allreduce_handle)
