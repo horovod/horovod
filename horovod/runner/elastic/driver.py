@@ -66,9 +66,9 @@ class ResultsRecorder(object):
 
 
 class ElasticDriver(object):
-    def __init__(self, rendezvous, discovery, min_np, max_np, timeout=None, reset_limit=None, verbose=0):
+    def __init__(self, rendezvous, discovery, min_np, max_np, timeout=None, reset_limit=None, cooldown_range=None, verbose=0):
         self._rendezvous = rendezvous
-        self._host_manager = HostManager(discovery)
+        self._host_manager = HostManager(discovery, cooldown_range)
         self._min_np = min_np
         self._max_np = max_np
         self._verbose = verbose

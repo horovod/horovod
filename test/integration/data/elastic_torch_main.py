@@ -33,7 +33,7 @@ parser.add_argument('--batches-per-commit', type=int, default=1,
                     help='number of batches per commit of the elastic state object')
 parser.add_argument('--epochs', type=int, default=3,
                     help='number of epochs')
-parser.add_argument('--epoch-wait', type=int, default=0,
+parser.add_argument('--epoch-wait', type=float, default=0.0,
                     help='number of seconds each epoch takes')
 parser.add_argument('--logfile', default='/tmp/logfile.txt',
                     help='log file to record results (one line per epoch)')

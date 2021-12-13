@@ -54,6 +54,7 @@ class _HorovodArgs(object):
         self.slots = None
         self.elastic_timeout = None
         self.reset_limit = None
+        self.cooldown_range = None
 
         # timeline arguments
         self.timeline_filename = None
@@ -98,6 +99,7 @@ def run(
         max_np=None,
         slots=None,
         reset_limit=None,
+        cooldown_range=None,
         hosts=None,
         hostfile=None,
         start_timeout=None,
@@ -133,6 +135,7 @@ def run(
                         job after the initial registration. So a reset_limit of 0 would mean the job cannot change
                         membership after its initial set of workers. A reset_limit of 1 means it can resize at most
                         once, etc.
+    :param cooldown_range: Range of seconds(min, max) a failing host will remain in blacklist.
 
     :param hosts: List of host names and the number of available slots
                   for running processes on each, of the form: <hostname>:<slots>
@@ -192,6 +195,7 @@ def run(
     hargs.max_np = max_np
     hargs.slots = slots
     hargs.reset_limit = reset_limit
+    hargs.cooldown_range = cooldown_range
     hargs.hosts = hosts
     hargs.hostfile = hostfile
     hargs.start_timeout = start_timeout

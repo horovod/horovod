@@ -307,6 +307,7 @@ def launch_gloo_elastic(command, exec_command, settings, env, get_common_interfa
                            settings.min_np, settings.max_np,
                            timeout=settings.elastic_timeout,
                            reset_limit=settings.reset_limit,
+                           cooldown_range=settings.cooldown_range,
                            verbose=settings.verbose)
 
     handler = create_rendezvous_handler(driver)

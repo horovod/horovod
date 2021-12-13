@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - TensorFlow: Added in-place broadcasting of variables. ([#3128](https://github.com/horovod/horovod/pull/3128))
 
+- Added support for resurrecting blacklisted hosts. ([#3319](https://github.com/horovod/horovod/pull/3319))
+
 ### Changed
 
 - Moved to CMake version 3.13 with first-class CUDA language support and re-enabled parallelized builds. ([#3261](https://github.com/horovod/horovod/pull/3261))
