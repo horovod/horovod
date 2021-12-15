@@ -32,13 +32,13 @@ from torch.nn import functional as F
 from pyspark.ml.linalg import VectorUDT
 from pyspark.sql.types import FloatType, IntegerType
 
-# Spark PyTorch Lightning tests conflict with Tensorflow 2.5.x: https://github.com/horovod/horovod/pull/3263
+# Spark PyTorch Lightning tests conflict with Tensorflow 2.6.x: https://github.com/horovod/horovod/pull/3263
 skip_lightning_tests = False
 try:
     # tensorflow has to be imported BEFORE pytorch_lightning, otherwise we see the segfault right away
     import tensorflow as tf
     from distutils.version import LooseVersion
-    if LooseVersion('2.5.0') <= LooseVersion(tf.__version__) < LooseVersion('2.6.0'):
+    if LooseVersion('2.6.0') <= LooseVersion(tf.__version__) < LooseVersion('2.7.0'):
         skip_lightning_tests = True
 except ImportError:
     pass
