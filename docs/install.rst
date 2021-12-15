@@ -16,7 +16,7 @@ For best performance on GPU:
 
 - `NCCL 2 <https://developer.nvidia.com/nccl>`__
 
-If Horovod in unable to find the CMake binary, you may need to set ``HOROVOD_CMAKE`` in your environment before
+If Horovod is unable to find the CMake binary, you may need to set ``HOROVOD_CMAKE`` in your environment before
 installing.
 
 Frameworks
