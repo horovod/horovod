@@ -150,7 +150,6 @@ class Store(object):
             'checkpoint_filename': self.get_checkpoint_filename(),
             'logs_subdir': self.get_logs_subdir(),
             'get_local_output_dir': self.get_local_output_dir_fn(run_id),
-            'get_local_run_dir': self.get_local_run_dir_fn(run_id),
             'sync': self.sync_fn(run_id)
         }
 
@@ -248,22 +247,12 @@ class AbstractFilesystemStore(Store):
     def get_run_path(self, run_id):
         return os.path.join(self.get_runs_path(), run_id)
 
-    def get_checkpoint_dir(self, run_id):
-        return os.path.join(self.get_run_path(run_id), self.get_checkpoint_dirname()) \
+    def get_checkpoint_path(self, run_id):
+        return os.path.join(self.get_run_path(run_id), self.get_checkpoint_filename()) \
             if self._save_runs else None
 
-    def get_checkpoint_path(self, run_id):
-        if self._save_runs:
-            dirpath = self.get_checkpoint_dir(run_id)
-            if self.fs.exists(dirpath) and self.fs.isdir(dirpath):
-                return os.path.join(dirpath, self.get_checkpoint_filename())
-            else:
-                return os.path.join(self.get_run_path(run_id), self.get_checkpoint_filename())
-        else:
-            return None
-
     def get_checkpoints(self, run_id, suffix='.ckpt'):
-        checkpoint_dir = self.get_localized_path(self.get_checkpoint_dir(run_id))
+        checkpoint_dir = self.get_localized_path(self.get_checkpoint_path(run_id))
         filenames = self.fs.ls(checkpoint_dir)
         return sorted([name for name in filenames if name.endswith(suffix)])
 
@@ -273,9 +262,6 @@ class AbstractFilesystemStore(Store):
 
     def get_checkpoint_filename(self):
         return 'checkpoint'
-    
-    def get_checkpoint_dirname(self):
-        return 'checkpoints'
 
     def get_logs_subdir(self):
         return 'logs'
@@ -295,6 +281,7 @@ class AbstractFilesystemStore(Store):
                 yield tmpdir
         return local_run_path
 
+<<<<<<< HEAD
     def get_local_run_dir_fn(self, run_id):
         @contextlib.contextmanager
         def local_run_path():
@@ -309,6 +296,8 @@ class AbstractFilesystemStore(Store):
                     pass
         return local_run_path
 
+=======
+>>>>>>> 2dc2334a6627c9284b6dd6227072c23c1f534ff9
     def get_localized_path(self, path):
         raise NotImplementedError()
 

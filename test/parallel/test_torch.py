@@ -607,6 +607,7 @@ class TorchTests(unittest.TestCase):
         two concurrent operations with the same name."""
         hvd.init()
         size = hvd.size()
+        rank = hvd.rank()
 
         # This test does not apply if there is only one worker.
         if size == 1:
@@ -615,13 +616,22 @@ class TorchTests(unittest.TestCase):
         dims = [17] * 3
         tensor = torch.FloatTensor(*dims)
 
-        hvd.allreduce_async(tensor, name='duplicate_name')
-        try:
-            for i in range(10):
+        if rank == 0:
+            hvd.allreduce_async(tensor, name='duplicate_name')
+            try:
                 hvd.allreduce_async(tensor, name='duplicate_name')
-            assert False, 'hvd.allreduce_async did not throw error'
-        except (torch.FatalError, ValueError):
-            pass
+                assert False, 'hvd.allreduce_async did not throw error'
+            except (torch.FatalError, ValueError):
+                pass
+        hvd.barrier()
+        if rank > 0:
+            hvd.allreduce_async(tensor, name='duplicate_name')
+            try:
+                hvd.allreduce_async(tensor, name='duplicate_name')
+                assert False, 'hvd.allreduce_async did not throw error'
+            except (torch.FatalError, ValueError):
+                pass
+        hvd.barrier()
 
     def test_horovod_allreduce_grad(self):
         """Test the correctness of the allreduce gradient."""
@@ -1213,6 +1223,7 @@ class TorchTests(unittest.TestCase):
         two concurrent operations with the same name."""
         hvd.init()
         size = hvd.size()
+        rank = hvd.rank()
 
         # This test does not apply if there is only one worker.
         if size == 1:
@@ -1221,13 +1232,22 @@ class TorchTests(unittest.TestCase):
         dims = [17] * 3
         tensor = torch.FloatTensor(*dims)
 
-        hvd.allgather_async(tensor, name='duplicate_name')
-        try:
-            for i in range(10):
+        if rank == 0:
+            hvd.allgather_async(tensor, name='duplicate_name')
+            try:
                 hvd.allgather_async(tensor, name='duplicate_name')
-            assert False, 'hvd.allgather_async did not throw error'
-        except (torch.FatalError, ValueError):
-            pass
+                assert False, 'hvd.allgather_async did not throw error'
+            except (torch.FatalError, ValueError):
+                pass
+        hvd.barrier()
+        if rank > 0:
+            hvd.allgather_async(tensor, name='duplicate_name')
+            try:
+                hvd.allgather_async(tensor, name='duplicate_name')
+                assert False, 'hvd.allgather_async did not throw error'
+            except (torch.FatalError, ValueError):
+                pass
+        hvd.barrier()
 
     def test_horovod_allgather_grad(self):
         """Test the correctness of the allgather gradient."""
@@ -1523,6 +1543,7 @@ class TorchTests(unittest.TestCase):
         two concurrent operations with the same name."""
         hvd.init()
         size = hvd.size()
+        rank = hvd.rank()
 
         # This test does not apply if there is only one worker.
         if size == 1:
@@ -1531,13 +1552,22 @@ class TorchTests(unittest.TestCase):
         dims = [17] * 3
         tensor = torch.FloatTensor(*dims)
 
-        hvd.broadcast_async(tensor, root_rank=0, name='duplicate_name')
-        try:
-            for i in range(10):
-                hvd.broadcast_async(tensor, root_rank=0, name='duplicate_name')
-            assert False, 'hvd.broadcast_async did not throw error'
-        except (torch.FatalError, ValueError):
-            pass
+        if rank == 0:
+            hvd.broadcast_async(tensor, name='duplicate_name', root_rank=0)
+            try:
+                hvd.broadcast_async(tensor, name='duplicate_name', root_rank=0)
+                assert False, 'hvd.broadcast_async did not throw error'
+            except (torch.FatalError, ValueError):
+                pass
+        hvd.barrier()
+        if rank > 0:
+            hvd.broadcast_async(tensor, name='duplicate_name', root_rank=0)
+            try:
+                hvd.broadcast_async(tensor, name='duplicate_name', root_rank=0)
+                assert False, 'hvd.broadcast_async did not throw error'
+            except (torch.FatalError, ValueError):
+                pass
+        hvd.barrier()
 
     def test_horovod_broadcast_grad(self):
         """Test the correctness of the broadcast gradient."""
@@ -2509,10 +2539,17 @@ class TorchTests(unittest.TestCase):
 
     def test_delta_optimizer(self):
         """Test that delta optimizer."""
+        if _1_10_api:
+            # On PyTorch 1.10, if this test is not skipped and when tests are run in alphabetical order, the later
+            # test_dynamic_requires_grad can run into a deadlock.
+            # TODO: Understand and fix the root cause of these deadlocks.
+            self.skipTest("Deadlocks with PyTorch 1.10")
+
         hvd.init()
-        # TODO support non-MPI Adasum operation
-        # Only do this test if there are GPUs available.
-        if not hvd.mpi_enabled() or not torch.cuda.is_available():
+        if not hvd.mpi_enabled():
+            # TODO support non-MPI Adasum operation
+            self.skipTest("Adasum requires MPI")
+        if not torch.cuda.is_available():
             self.skipTest("No GPUs available")
 
         local_rank = hvd.local_rank()
@@ -2743,7 +2780,7 @@ class TorchTests(unittest.TestCase):
         integral_types = [torch.IntTensor, torch.LongTensor, torch.cuda.IntTensor, torch.cuda.LongTensor]
 
         dims = [1, 2, 3]
-        first_join_ranks = [0, 1]
+        first_join_ranks = list(range(size))
         cachings = [False, True]
         for dtype, dim, first_join_rank, caching in itertools.product(dtypes, dims, first_join_ranks, cachings):
             torch.manual_seed(1234)
@@ -2814,25 +2851,31 @@ class TorchTests(unittest.TestCase):
         dims = [17] * 3
         tensor = torch.FloatTensor(*dims)
 
-        if rank == 0:
-            if torch.cuda.is_available():
-                ret = hvd.join(hvd.local_rank())
+        first_join_ranks = list(range(size))
+
+        for first_join_rank in first_join_ranks:
+            if rank == first_join_rank:
+                if torch.cuda.is_available():
+                    ret = hvd.join(hvd.local_rank())
+                else:
+                    ret = hvd.join()
             else:
-                ret = hvd.join()
-        else:
-            try:
-                hvd.allgather(tensor)
-                assert False, 'hvd.allgather did not throw error'
-            except (torch.FatalError, RuntimeError):
-                pass
+                try:
+                    hvd.allgather(tensor)
+                    assert False, 'hvd.allgather did not throw error'
+                except (torch.FatalError, RuntimeError):
+                    pass
 
-            ret = hvd.join(hvd.local_rank())
+                if torch.cuda.is_available():
+                    ret = hvd.join(hvd.local_rank())
+                else:
+                    ret = hvd.join()
 
-        self.assertNotEqual(ret, 0,
-                            msg="The return value of hvd.join() may not be equal to 0 because that would be the first rank to join")
-        ret_values = hvd.allgather_object(ret)
-        self.assertSequenceEqual(ret_values, [ret] * size,
-                                 msg="hvd.join() did not return the same value on each rank")
+            self.assertNotEqual(ret, first_join_rank,
+                                msg="The return value of hvd.join() may not be equal to first_join_rank")
+            ret_values = hvd.allgather_object(ret)
+            self.assertSequenceEqual(ret_values, [ret] * size,
+                                     msg="hvd.join() did not return the same value on each rank")
 
     def test_horovod_join_broadcast(self):
         """Test Join op with broadcast."""
@@ -2847,25 +2890,28 @@ class TorchTests(unittest.TestCase):
         dims = [17] * 3
         tensor = torch.FloatTensor(*dims)
 
-        if rank == 0:
-            ret = hvd.join(hvd.local_rank())
-        else:
-            try:
-                broadcasted_tensor = hvd.broadcast(tensor, 1, name="test_horovod_join_broadcast")
-                assert False, 'hvd.broadcast did not throw error'
-            except (torch.FatalError, RuntimeError):
-                pass
+        first_join_ranks = list(range(size))
 
-            if torch.cuda.is_available():
+        for first_join_rank in first_join_ranks:
+            if rank == first_join_rank:
                 ret = hvd.join(hvd.local_rank())
             else:
-                ret = hvd.join()
+                try:
+                    broadcasted_tensor = hvd.broadcast(tensor, rank, name="test_horovod_join_broadcast")
+                    assert False, 'hvd.broadcast did not throw error'
+                except (torch.FatalError, RuntimeError):
+                    pass
 
-        self.assertNotEqual(ret, 0,
-                            msg="The return value of hvd.join() may not be equal to 0 because that would be the first rank to join")
-        ret_values = hvd.allgather_object(ret)
-        self.assertSequenceEqual(ret_values, [ret] * size,
-                                 msg="hvd.join() did not return the same value on each rank")
+                if torch.cuda.is_available():
+                    ret = hvd.join(hvd.local_rank())
+                else:
+                    ret = hvd.join()
+
+            self.assertNotEqual(ret, first_join_rank,
+                                msg="The return value of hvd.join() may not be equal to first_join_rank")
+            ret_values = hvd.allgather_object(ret)
+            self.assertSequenceEqual(ret_values, [ret] * size,
+                                     msg="hvd.join() did not return the same value on each rank")
 
     def test_horovod_sync_batch_norm(self):
         """Tests Horovod version of SyncBatchNorm."""
@@ -3248,6 +3294,27 @@ class TorchTests(unittest.TestCase):
         barrier_time = (barrier_time_end - barrier_time_start).total_seconds()
 
         self.assertTrue(barrier_time >= 5)
+
+    def test_barrier_with_multiple_collectives(self):
+        """Test barrier mixed with other collectives"""
+        hvd.init()
+        rank = hvd.rank()
+
+        bcast_tensor = torch.eye(3)
+        bcast_handle = hvd.broadcast_async(bcast_tensor, root_rank=0)
+
+        allgather_tensor_1 = torch.eye(5)
+        allgather_tensor_2 = torch.zeros([5, 5])
+        allgather1_handle = hvd.allgather_async(allgather_tensor_1)
+        allgather2_handle = hvd.allgather_async(allgather_tensor_2)
+
+        allreduce_tensor = torch.eye(5)
+        allreduce_handle = hvd.allreduce_async(allreduce_tensor)
+
+        hvd.barrier()
+
+        result = hvd.synchronize(allreduce_handle)
+        self.assertTrue(torch.equal(result, allreduce_tensor))
 
 if __name__ == "__main__":
    unittest.main()

@@ -198,7 +198,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
         else:
             steps_per_epoch = train_steps_per_epoch
 
-        with remote_store.get_local_run_dir() as run_output_dir:
+        with remote_store.get_local_output_dir() as run_output_dir:
             logs_dir = os.path.join(run_output_dir, remote_store.logs_subdir)
             log_writer = SummaryWriter(logs_dir) if hvd.rank() == 0 else None
             ckpt_file = os.path.join(run_output_dir, remote_store.checkpoint_filename)

@@ -111,7 +111,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
         _checkpoint_callback = None
         require_checkpoint = False
 
-        with remote_store.get_local_run_dir() as run_output_dir:
+        with remote_store.get_local_output_dir() as run_output_dir:
             logs_path = os.path.join(run_output_dir, remote_store.logs_subdir)
             os.makedirs(logs_path, exist_ok=True)
             print(f"Made directory {logs_path} for horovod rank {hvd.rank()}")

@@ -273,12 +273,6 @@ ResponseList Controller::ComputeResponseList(bool this_process_requested_shutdow
 
         bool reduce = IncrementTensorCount(message, process_set.joined_size);
 
-        // For barrier request, if not ready to reduce, we add it back to tensor queue
-        // to process in the next cycle.
-        if(!reduce && message.request_type() == Request::BARRIER) {
-          tensor_queue_.PushMessageToQueue(message);
-        }
-
         stall_inspector_.RecordUncachedTensorStart(
             message.tensor_name(), message.request_rank(), size_);
         if (reduce) {
@@ -899,6 +893,10 @@ void Controller::FuseResponses(std::deque<Response>& responses,
       while (!responses.empty()) {
 
         auto& new_response = responses.front();
+        if (new_response.response_type() == Response::ResponseType::BARRIER ||
+            new_response.response_type() == Response::ResponseType::JOIN) {
+          break;
+        }
         assert(new_response.tensor_names().size() == 1);
         const auto& new_entry =
             tensor_queue_.GetTensorEntry(new_response.tensor_names()[0]);
@@ -987,14 +985,7 @@ bool Controller::IncrementTensorCount(const Request& msg, int joined_size) {
     timeline_.NegotiateStart(name, msg.request_type());
   } else {
     std::vector<Request>& messages = table_iter->second;
-    if(msg.request_type() == Request::BARRIER) {
-      if(tensor_queue_.IsTensorPresentInTable(name)) {
-        messages.push_back(msg);
-      }
-    }
-    else {
-      messages.push_back(msg);
-    }
+    messages.push_back(msg);
   }
 
   timeline_.NegotiateRankReady(name, msg.request_rank());

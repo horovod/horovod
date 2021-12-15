@@ -217,6 +217,8 @@ class SparkLightningTests(unittest.TestCase):
 
     # TODO: Add this test back after checkpoint call back is supported
     def test_restore_from_checkpoint(self):
+        self.skipTest('There is a deadlock bug for checkpoint call back. ' +
+                      'Will add this test back when it is solved.')
 
         model = create_xor_model()
 
@@ -253,6 +255,8 @@ class SparkLightningTests(unittest.TestCase):
 
     # TODO: Add this test back after checkpoint call back is supported
     def test_legacy_restore_from_checkpoint(self):
+        self.skipTest('There is a deadlock bug for checkpoint call back. ' +
+                      'Will add this test back when it is solved.')
 
         model = create_legacy_xor_model()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
