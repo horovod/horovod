@@ -305,7 +305,7 @@ class AbstractFilesystemStore(Store):
         return local_run_path
 
     def remove_local_run_dir_fn(self):
-        dirpath = os.path.join(tempfile._get_default_tempdir(),self.get_checkpoint_dir)
+        dirpath = os.path.join(tempfile._get_default_tempdir(),self.get_checkpoint_dirname())
         try:
             shutil.rmtree(dirpath)
         except FileNotFoundError:
