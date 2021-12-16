@@ -169,7 +169,9 @@ class HostDiscoveryScript(HostDiscovery):
             if ':' in line:
                 host, slots = line.split(':')
                 host_slots[host] = int(slots)
-            else:
+            # Make sure the host is not empty. The discovery script might
+            # return empty string when all workers are not ready or available.
+            elif host:
                 host_slots[host] = self._default_slots
         return host_slots
 
