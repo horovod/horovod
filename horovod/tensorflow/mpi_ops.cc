@@ -139,6 +139,14 @@ int GetDeviceID(OpKernelContext* context);
 struct ReadyEventRegistry {
   std::unordered_map<int, std::queue<gpuEvent_t>> gpu_events;
   std::mutex mutex;
+  ~ReadyEventRegistry() {
+    for (auto iter=gpu_events.begin(); iter!=gpu_events.end(); ++iter) {
+      while (!iter->second.empty()) {
+        HVD_GPU_CHECK(gpuEventDestroy(iter->second.front()));
+        iter->second.pop();
+      }
+    }
+  }
 };
 
 static ReadyEventRegistry ready_event_registry;

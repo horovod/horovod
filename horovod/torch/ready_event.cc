@@ -34,6 +34,15 @@ namespace torch {
 struct ReadyEventRegistry {
   std::unordered_map<int, std::queue<cudaEvent_t>> cuda_events;
   std::mutex mutex;
+  ~ReadyEventRegistry() {
+    for (auto iter=cuda_events.begin(); iter!=cuda_events.end(); ++iter) {
+      while (!iter->second.empty()) {
+        C10_CUDA_CHECK(cudaEventDestroy(iter->second.front()));
+        iter->second.pop();
+      }
+    }
+  }
+
 };
 
 static ReadyEventRegistry ready_event_registry;

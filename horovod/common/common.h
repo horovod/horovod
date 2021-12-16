@@ -38,6 +38,7 @@ using gpuStream_t = cudaStream_t;
 #define gpuEventRecord cudaEventRecord
 #define gpuEventSynchronize cudaEventSynchronize
 #define gpuStreamWaitEvent cudaStreamWaitEvent
+#define gpuEventDestroy cudaEventDestroy
 #define HVD_GPU_CHECK(x)                                                                    \
   do {                                                                                      \
     cudaError_t cuda_result = x;                                                            \
@@ -56,6 +57,7 @@ using gpuStream_t = hipStream_t;
 #define gpuEventRecord hipEventRecord
 #define gpuEventSynchronize hipEventSynchronize
 #define gpuStreamWaitEvent hipStreamWaitEvent
+#define gpuDestroyEvent hipEventDestroy
 #define HVD_GPU_CHECK(x)                                                                  \
   do {                                                                                    \
     hipError_t hip_result = x;                                                            \
