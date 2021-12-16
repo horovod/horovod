@@ -236,22 +236,30 @@ class HostDiscoveryScript(HostDiscovery):
         super(HostDiscoveryScript, self).__init__()
 
     def find_available_hosts_and_slots(self):
-        stdout = io.StringIO()
-        exit_code = safe_shell_exec.execute(self._discovery_script, stdout=stdout)
-        if exit_code != 0:
-            raise RuntimeError('Failed to execute discovery script: {}. Exit code: {}'
-                               .format(self._discovery_script, exit_code))
+        result = self._execute_discovery_script()
 
         host_slots = {}
-        lines = set(stdout.getvalue().strip().split('\n'))
+        lines = set(result.strip().split('\n'))
         for line in lines:
             host = line
             if ':' in line:
                 host, slots = line.split(':')
                 host_slots[host] = int(slots)
-            else:
+            # Make sure the host is not empty. The discovery script might
+            # return empty string when all workers are not ready or available.
+            elif host:
                 host_slots[host] = self._default_slots
         return host_slots
+
+    def _execute_discovery_script(self):
+        stdout = io.StringIO()
+        exit_code = safe_shell_exec.execute(
+            self._discovery_script, stdout=stdout)
+        if exit_code != 0:
+            raise RuntimeError(
+                'Failed to execute discovery script: {}. Exit code: {}' .format(
+                    self._discovery_script, exit_code))
+        return stdout.getvalue()
 
 
 class FixedHosts(HostDiscovery):

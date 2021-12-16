@@ -167,7 +167,8 @@ class ElasticDriverTests(unittest.TestCase):
     @mock.patch('horovod.runner.elastic.driver.ElasticDriver.get_worker_client')
     def test_wait_for_available_slots(self, mock_get_worker_client, mock_get_coordinator_info):
         """Tests that driver blocks until the min number of slots are available."""
-        slots = [{'host-1': 4},
+        slots = [{},  # Simulate the situation that host-1, host-2, and host-3 are not ready yet.
+                 {'host-1': 4},
                  {'host-1': 4, 'host-2': 8},
                  {'host-1': 4, 'host-2': 8, 'host-3': 4}]
         mock_discovery = mock.Mock()
