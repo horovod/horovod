@@ -47,19 +47,6 @@ RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-
         openssh-server \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install recent CMake.
-RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor \
-    > /etc/apt/trusted.gpg.d/kitware.gpg \
- && . /etc/lsb-release \
- && apt-get update \
- && apt-get install -y --no-install-recommends software-properties-common \
- && apt-add-repository "deb https://apt.kitware.com/ubuntu/ $DISTRIB_CODENAME main" \
- && apt-get update \
- && apt-get install -y --no-install-recommends \
-    cmake=3.13.* \
-    cmake-data=3.13.* \
- && apt-get clean && rm -rf /var/lib/apt/lists/*
-
 # Install Open MPI
 RUN wget --progress=dot:mega -O /tmp/openmpi-3.0.0-bin.tar.gz https://github.com/horovod/horovod/files/1596799/openmpi-3.0.0-bin.tar.gz && \
     cd /usr/local && \
@@ -78,6 +65,9 @@ RUN ln -s /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
     python get-pip.py && \
     rm get-pip.py
+
+# Install recent CMake.
+RUN pip install --no-cache-dir -U cmake~=3.13.0
 
 # Install PyTorch, TensorFlow, Keras and MXNet
 RUN pip install --no-cache-dir \
