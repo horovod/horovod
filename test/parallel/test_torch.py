@@ -3554,6 +3554,7 @@ class TorchTests(unittest.TestCase):
         if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
             self.skipTest("ReducescatterGloo is not supported on macOS")
         hvd.init()
+        rank = hvd.rank()
         size = hvd.size()
 
         if size == 1:
@@ -3562,13 +3563,22 @@ class TorchTests(unittest.TestCase):
         dims = [17] * 3
         tensor = torch.FloatTensor(*dims)
 
-        hvd.reducescatter_async(tensor, name='duplicate_name')
-        try:
-            for i in range(10):
-                hvd.reducescatter_async(tensor, name=f'duplicate_name')
-            assert False, 'hvd.reducescatter_async did not throw error'
-        except (torch.FatalError, ValueError):
-            pass
+        if rank == 0:
+            hvd.reducescatter_async(tensor, name='duplicate_name')
+            try:
+                hvd.reducescatter_async(tensor, name='duplicate_name')
+                assert False, 'hvd.reducescatter_async did not throw error'
+            except (torch.FatalError, ValueError):
+                pass
+        hvd.barrier()
+        if rank > 0:
+            hvd.reducescatter_async(tensor, name='duplicate_name')
+            try:
+                hvd.reducescatter_async(tensor, name='duplicate_name')
+                assert False, 'hvd.reducescatter_async did not throw error'
+            except (torch.FatalError, ValueError):
+                pass
+        hvd.barrier()
 
 
     def test_horovod_reducescatter_grad(self):
