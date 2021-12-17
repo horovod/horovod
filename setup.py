@@ -124,8 +124,7 @@ pytorch_require_list = ['torch', 'pytorch_lightning']
 mxnet_require_list = ['mxnet>=1.4.1']
 pyspark_require_list = ['pyspark>=2.3.2;python_version<"3.8"',
                         'pyspark>=3.0.0;python_version>="3.8"']
-# Pin h5py: https://github.com/h5py/h5py/issues/1732
-spark_require_list = ['h5py<3', 'numpy', 'petastorm>=0.11.0', 'pyarrow>=0.15.0', 'fsspec']
+spark_require_list = ['numpy', 'petastorm>=0.11.0', 'pyarrow>=0.15.0', 'fsspec']
 # https://github.com/ray-project/ray/pull/17465
 ray_require_list = ['ray', 'aioredis<2']
 pytorch_spark_require_list = pytorch_require_list + \
@@ -154,8 +153,7 @@ dev_require_list = ['tensorflow-cpu==2.2.0',
 # torchvision 0.5.0 depends on torch==1.4.0
 
 # python packages required only to run tests
-# Pin h5py: https://github.com/h5py/h5py/issues/1732
-test_require_list = ['mock', 'pytest', 'pytest-forked', 'parameterized', 'h5py<3']
+test_require_list = ['mock', 'pytest', 'pytest-forked', 'parameterized']
 
 # Skip cffi if pytorch extension explicitly disabled
 if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):

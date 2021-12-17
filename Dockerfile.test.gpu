@@ -60,7 +60,7 @@ RUN pip install --no-cache-dir -U --force pip setuptools requests pytest mock py
 # Add launch helper scripts
 RUN echo "env SPARK_HOME=/spark SPARK_DRIVER_MEM=512m PYSPARK_PYTHON=/usr/bin/python${PYTHON_VERSION} PYSPARK_DRIVER_PYTHON=/usr/bin/python${PYTHON_VERSION} \"\$@\"" > /spark_env.sh
 RUN echo /spark_env.sh pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.\$1.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.\$2.xml \${@:2} > /pytest.sh
-RUN echo /spark_env.sh pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.\$1.standalone.\$2.xml \${@:2} > /pytest_standalone.sh
+RUN echo /spark_env.sh pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.\$1.standalone.\$2.xml --forked \${@:2} > /pytest_standalone.sh
 RUN chmod a+x /spark_env.sh
 RUN chmod a+x /pytest.sh
 RUN chmod a+x /pytest_standalone.sh
@@ -108,7 +108,7 @@ RUN if [[ ${MPI_KIND} != "None" ]]; then \
 RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly-gpu" ]]; then \
         pip install --no-cache-dir ${TENSORFLOW_PACKAGE}; \
         if [[ ${KERAS_PACKAGE} != "None" ]]; then \
-            if [[ ${TENSORFLOW_PACKAGE} == tensorflow*==1.* ]] || [[ ${TENSORFLOW_PACKAGE} == tensorflow*==2.[01234].* ]]; then \
+            if [[ ${TENSORFLOW_PACKAGE} == tensorflow*==1.* ]] || [[ ${TENSORFLOW_PACKAGE} == tensorflow*==2.[012345].* ]]; then \
                 h5py="h5py<3"; \
             fi; \
             pip uninstall -y keras-nightly; \
@@ -155,7 +155,6 @@ COPY . /horovod
 # Install nightly packages here so they do not get cached
 
 # Install TensorFlow and Keras (nightly).
-# Do not pin h5py since tf>=2.5 requires h5py~=3.1
 # Pin scipy!=1.4.0: https://github.com/scipy/scipy/issues/11237
 RUN if [[ ${TENSORFLOW_PACKAGE} == "tf-nightly-gpu" ]]; then \
         pip install --no-cache-dir ${TENSORFLOW_PACKAGE}; \

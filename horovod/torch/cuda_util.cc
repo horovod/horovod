@@ -16,7 +16,7 @@
 #if HAVE_GPU
 #include "cuda_runtime.h"
 #include <ATen/ATen.h>
-#include <THC/THC.h>
+#include <c10/cuda/CUDAGuard.h>
 #else
 #include <stdexcept>
 #endif

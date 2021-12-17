@@ -32,6 +32,17 @@ from torch.nn import functional as F
 from pyspark.ml.linalg import VectorUDT
 from pyspark.sql.types import FloatType, IntegerType
 
+# Spark PyTorch Lightning tests conflict with Tensorflow 2.6.x: https://github.com/horovod/horovod/pull/3263
+skip_lightning_tests = False
+try:
+    # tensorflow has to be imported BEFORE pytorch_lightning, otherwise we see the segfault right away
+    import tensorflow as tf
+    from distutils.version import LooseVersion
+    if LooseVersion('2.6.0') <= LooseVersion(tf.__version__) < LooseVersion('2.7.0'):
+        skip_lightning_tests = True
+except ImportError:
+    pass
+
 import pytorch_lightning as pl
 
 import horovod
@@ -119,6 +130,10 @@ class SparkLightningTests(unittest.TestCase):
         warnings.simplefilter('module')
 
     def test_fit_model(self):
+        if skip_lightning_tests:
+            self.skipTest('Spark PyTorch Lightning tests conflict with Tensorflow 2.5.x: '
+                          'https://github.com/horovod/horovod/pull/3263')
+
         model = create_xor_model()
 
         with spark_session('test_fit_model') as spark:
@@ -167,6 +182,10 @@ class SparkLightningTests(unittest.TestCase):
                 assert torch_estimator.getTerminateOnNan() == True
 
     def test_legacy_fit_model(self):
+        if skip_lightning_tests:
+            self.skipTest('Spark PyTorch Lightning tests conflict with Tensorflow 2.5.x: '
+                          'https://github.com/horovod/horovod/pull/3263')
+
         model = create_legacy_xor_model()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
         loss = F.binary_cross_entropy
@@ -374,6 +393,10 @@ class SparkLightningTests(unittest.TestCase):
         assert serialized_dummy_param is None
 
     def test_direct_parquet_train(self):
+        if skip_lightning_tests:
+            self.skipTest('Spark PyTorch Lightning tests conflict with Tensorflow 2.5.x: '
+                          'https://github.com/horovod/horovod/pull/3263')
+
         with spark_session('test_direct_parquet_train') as spark:
             df = create_noisy_xor_data_with_val(spark)
 
@@ -413,7 +436,11 @@ class SparkLightningTests(unittest.TestCase):
                                 assert predictions.count() == df.count()
 
     def test_direct_parquet_train_with_no_val_column(self):
-        with spark_session('test_direct_parquet_train') as spark:
+        if skip_lightning_tests:
+            self.skipTest('Spark PyTorch Lightning tests conflict with Tensorflow 2.5.x: '
+                          'https://github.com/horovod/horovod/pull/3263')
+
+        with spark_session('test_direct_parquet_train_with_no_val_column') as spark:
             df_train = create_noisy_xor_data(spark)
             df_val = create_noisy_xor_data(spark)
 
@@ -541,6 +568,10 @@ class SparkLightningTests(unittest.TestCase):
     Test that horovod.spark.run_elastic works properly in a simple setup.
     """
     def test_happy_run_elastic(self):
+        if skip_lightning_tests:
+            self.skipTest('Spark PyTorch Lightning tests conflict with Tensorflow 2.5.x: '
+                          'https://github.com/horovod/horovod/pull/3263')
+
         if not gloo_built():
             self.skipTest("Gloo is not available")
 
@@ -555,6 +586,10 @@ class SparkLightningTests(unittest.TestCase):
     Test that horovod.spark.run_elastic works properly in a fault-tolerant situation.
     """
     def test_happy_run_elastic_fault_tolerant(self):
+        if skip_lightning_tests:
+            self.skipTest('Spark PyTorch Lightning tests conflict with Tensorflow 2.5.x: '
+                          'https://github.com/horovod/horovod/pull/3263')
+
         if not gloo_built():
             self.skipTest("Gloo is not available")
 
@@ -601,6 +636,10 @@ class SparkLightningTests(unittest.TestCase):
     Test dummy callback function from pytorch lightning trainer.
     """
     def test_dummy_callback(self):
+        if skip_lightning_tests:
+            self.skipTest('Spark PyTorch Lightning tests conflict with Tensorflow 2.5.x: '
+                          'https://github.com/horovod/horovod/pull/3263')
+
         from pytorch_lightning.callbacks import Callback
         model = create_xor_model()
 
@@ -659,9 +698,13 @@ class SparkLightningTests(unittest.TestCase):
                         assert pred.dtype == torch.float32
 
     """
-    Test callback function for learning rate schedualer and monitor.
+    Test callback function for learning rate scheduler and monitor.
     """
-    def test_lr_schedualler_callback(self):
+    def test_lr_scheduler_callback(self):
+        if skip_lightning_tests:
+            self.skipTest('Spark PyTorch Lightning tests conflict with Tensorflow 2.5.x: '
+                          'https://github.com/horovod/horovod/pull/3263')
+
         from pytorch_lightning.callbacks import LearningRateMonitor
 
         class LRTestingModel(XOR):
@@ -711,6 +754,10 @@ class SparkLightningTests(unittest.TestCase):
     Test callback function for model checkpoint.
     """
     def test_model_checkpoint_callback(self):
+        if skip_lightning_tests:
+            self.skipTest('Spark PyTorch Lightning tests conflict with Tensorflow 2.5.x: '
+                          'https://github.com/horovod/horovod/pull/3263')
+
         from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 
         with spark_session('test_fit_model') as spark:
@@ -747,6 +794,10 @@ class SparkLightningTests(unittest.TestCase):
     Test callback function for early stop.
     """
     def test_early_stop_callback(self):
+        if skip_lightning_tests:
+            self.skipTest('Spark PyTorch Lightning tests conflict with Tensorflow 2.5.x: '
+                          'https://github.com/horovod/horovod/pull/3263')
+
         from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
         with spark_session('test_fit_model') as spark:
@@ -786,6 +837,10 @@ class SparkLightningTests(unittest.TestCase):
     Test train model with inmemory_cache_all
     """
     def test_train_with_inmemory_cache_all(self):
+        if skip_lightning_tests:
+            self.skipTest('Spark PyTorch Lightning tests conflict with Tensorflow 2.5.x: '
+                          'https://github.com/horovod/horovod/pull/3263')
+
         with spark_session('test_fit_model') as spark:
             df = create_noisy_xor_data(spark)
             model = create_xor_model()
@@ -816,6 +871,10 @@ class SparkLightningTests(unittest.TestCase):
     Test train model with custom data module (using PytorchAsyncDataLoader)
     """
     def test_train_with_custom_data_module(self):
+        if skip_lightning_tests:
+            self.skipTest('Spark PyTorch Lightning tests conflict with Tensorflow 2.5.x: '
+                          'https://github.com/horovod/horovod/pull/3263')
+
         from horovod.spark.data_loaders.pytorch_data_loaders import PytorchAsyncDataLoader
         class CustomDataModule(pl.LightningDataModule):
             """Custom DataModule for Lightning Estimator, using PytorchAsyncDataLoader"""
@@ -917,6 +976,10 @@ class SparkLightningTests(unittest.TestCase):
     Test override trainer args.
     """
     def test_model_override_trainer_args(self):
+        if skip_lightning_tests:
+            self.skipTest('Spark PyTorch Lightning tests conflict with Tensorflow 2.5.x: '
+                          'https://github.com/horovod/horovod/pull/3263')
+
         from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 
         with spark_session('test_fit_model') as spark:
