@@ -89,7 +89,7 @@ on `GitHub`_. ::
 
     dependencies:
     - bokeh=1.4
-    - cmake=3.18 # insures that Gloo library extensions will be built
+    - cmake=3.16 # insures that Gloo library extensions will be built
     - cudnn=7.6
     - cupti=10.1
     - cxx-compiler=1.0 # insures C and C++ compilers are available

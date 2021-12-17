@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
 if(POLICY CMP0074)
     # 1. Introduced with 3.12.4.
     # 2. *_ROOT variables will be checked
@@ -21,7 +21,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Configure path to modules (for find_package)
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/Modules/")
+set(CMAKE_MODULE_PATH
+        ${CMAKE_MODULE_PATH}
+        "${PROJECT_SOURCE_DIR}/cmake/Modules/"
+        "${PROJECT_SOURCE_DIR}/cmake/upstream/")
 include(cmake/Utilities.cmake)
 
 create_metadata()

@@ -56,8 +56,8 @@ RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/nul
  && apt-add-repository "deb https://apt.kitware.com/ubuntu/ $DISTRIB_CODENAME main" \
  && apt-get update \
  && apt-get install -y --no-install-recommends \
-    cmake=3.18.* \
-    cmake-data=3.18.* \
+    cmake=3.13.* \
+    cmake-data=3.13.* \
  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Open MPI

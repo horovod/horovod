@@ -8,7 +8,7 @@ Requirements
 
 - Python >= 3.6
 - `g++-5` or above, or another compiler supporting C++14
-- CMake 3.18 or newer
+- CMake 3.13 or newer
 - TensorFlow, PyTorch, or MXNet
 - (Optional) MPI
 
