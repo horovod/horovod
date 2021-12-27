@@ -13,7 +13,7 @@ services:
         KERAS_PACKAGE: keras==2.7.0
         PYTORCH_PACKAGE: torch==1.10.1+cpu
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.3.8
-        TORCHVISION_PACKAGE: torchvision==0.11.1+cpu
+        TORCHVISION_PACKAGE: torchvision==0.11.2+cpu
         MXNET_PACKAGE: mxnet==1.9.0
         PYSPARK_PACKAGE: pyspark==3.2.0
         SPARK_PACKAGE: spark-3.2.0/spark-3.2.0-bin-hadoop2.7.tgz
@@ -185,7 +185,7 @@ services:
         KERAS_PACKAGE: keras==2.7.0
         PYTORCH_PACKAGE: torch==1.10.1+cu111
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.3.8
-        TORCHVISION_PACKAGE: torchvision==0.11.1+cu111
+        TORCHVISION_PACKAGE: torchvision==0.11.2+cu111
         MXNET_PACKAGE: mxnet-cu112==1.9.0
   test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_0:
     extends: test-gpu-base
@@ -213,7 +213,7 @@ services:
         KERAS_PACKAGE: keras==2.7.0
         PYTORCH_PACKAGE: torch==1.10.1+cu111
         PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.3.8
-        TORCHVISION_PACKAGE: torchvision==0.11.1+cu111
+        TORCHVISION_PACKAGE: torchvision==0.11.2+cu111
         MXNET_PACKAGE: mxnet-cu112==1.9.0
         HOROVOD_BUILD_FLAGS: ""
         HOROVOD_MIXED_INSTALL: 1

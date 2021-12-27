@@ -469,7 +469,7 @@ def main():
                 f'            KERAS: 2.7.0\n'
                 f'            PYTORCH: 1.10.1\n'
                 f'            PYTORCH_LIGHTNING: 1.3.8\n'
-                f'            TORCHVISION: 0.11.0\n'
+                f'            TORCHVISION: 0.11.2\n'
                 f'            MXNET: 1.9.0\n'
                 f'\n'
                 f'    steps:\n'
