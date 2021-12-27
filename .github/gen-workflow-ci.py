@@ -452,10 +452,10 @@ def main():
                 f'            MXNET: 1.5.1.post0\n'
                 f'\n'
                 f''  # mxnet version 1.8.0.post0 does not compile for macos due to missing dnnl_config.h, hence we test 1.7.0.post2
-                f'          - image: test-cpu-gloo-py3_8-tf2_6_0-keras2_6_0-torch1_9_1-mxnet1_7_0_p2\n'
+                f'          - image: test-cpu-gloo-py3_8-tf2_6_2-keras2_6_0-torch1_9_1-mxnet1_7_0_p2\n'
                 f'            HOROVOD_WITHOUT_MPI: 1\n'
                 f'            HOROVOD_WITH_GLOO: 1\n'
-                f'            TENSORFLOW: 2.6.0\n'
+                f'            TENSORFLOW: 2.6.2\n'
                 f'            KERAS: 2.6.0\n'
                 f'            PYTORCH: 1.9.1\n'
                 f'            PYTORCH_LIGHTNING: 1.3.8\n'
