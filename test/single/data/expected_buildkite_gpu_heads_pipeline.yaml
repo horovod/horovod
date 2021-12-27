@@ -9,6 +9,10 @@ steps:
       cache-from: test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_0:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_0-latest
       config: docker-compose.test.yml
       push-retries: 5
+      env:
+        DOCKER_BUILDKIT: 1
+        COMPOSE_DOCKER_CLI_BUILD: 1
+        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 40
@@ -29,6 +33,10 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
+      env:
+        DOCKER_BUILDKIT: 1
+        COMPOSE_DOCKER_CLI_BUILD: 1
+        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -47,6 +55,10 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
+      env:
+        DOCKER_BUILDKIT: 1
+        COMPOSE_DOCKER_CLI_BUILD: 1
+        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 15
@@ -65,6 +77,10 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
+      env:
+        DOCKER_BUILDKIT: 1
+        COMPOSE_DOCKER_CLI_BUILD: 1
+        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -84,6 +100,10 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
+      env:
+        DOCKER_BUILDKIT: 1
+        COMPOSE_DOCKER_CLI_BUILD: 1
+        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -102,6 +122,10 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
+      env:
+        DOCKER_BUILDKIT: 1
+        COMPOSE_DOCKER_CLI_BUILD: 1
+        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -120,6 +144,10 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
+      env:
+        DOCKER_BUILDKIT: 1
+        COMPOSE_DOCKER_CLI_BUILD: 1
+        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -138,6 +166,10 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
+      env:
+        DOCKER_BUILDKIT: 1
+        COMPOSE_DOCKER_CLI_BUILD: 1
+        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -156,6 +188,10 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
+      env:
+        DOCKER_BUILDKIT: 1
+        COMPOSE_DOCKER_CLI_BUILD: 1
+        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -174,6 +210,10 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
+      env:
+        DOCKER_BUILDKIT: 1
+        COMPOSE_DOCKER_CLI_BUILD: 1
+        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -192,6 +232,10 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
+      env:
+        DOCKER_BUILDKIT: 1
+        COMPOSE_DOCKER_CLI_BUILD: 1
+        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
