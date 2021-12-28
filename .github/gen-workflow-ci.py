@@ -515,7 +515,7 @@ def main():
                 '\n'.join([f'      - name: Test [attempt {attempt} of {attempts}]\n'
                            f'        id: test-{attempt}\n'
                            f'        continue-on-error: {"true" if attempt < attempts else "false"}\n'
-                           f'        if: always() && {"true" if attempt == 1 else f"steps.test-{attempt-1}.outcome == {failure}"}\n'
+                           f'        if: always() && steps.build.outcome == \'success\' && {"true" if attempt == 1 else f"steps.test-{attempt-1}.outcome == {failure}"}\n'
                            f'\n'
                            f'        run: |\n'
                            f'          export PATH=$(pyenv root)/shims:$PATH\n'

@@ -3437,7 +3437,7 @@ jobs:
       - name: Test [attempt 1 of 3]
         id: test-1
         continue-on-error: true
-        if: always() && true
+        if: always() && steps.build.outcome == 'success' && true
 
         run: |
           export PATH=$(pyenv root)/shims:$PATH
@@ -3456,7 +3456,7 @@ jobs:
       - name: Test [attempt 2 of 3]
         id: test-2
         continue-on-error: true
-        if: always() && steps.test-1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && steps.test-1.outcome == 'failure'
 
         run: |
           export PATH=$(pyenv root)/shims:$PATH
@@ -3475,7 +3475,7 @@ jobs:
       - name: Test [attempt 3 of 3]
         id: test-3
         continue-on-error: false
-        if: always() && steps.test-2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && steps.test-2.outcome == 'failure'
 
         run: |
           export PATH=$(pyenv root)/shims:$PATH
