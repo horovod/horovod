@@ -23,7 +23,7 @@ ARG CCL_PACKAGE=master
 ARG HOROVOD_BUILD_FLAGS=""
 
 # Set default shell to /bin/bash
-SHELL ["/bin/bash", "-cu"]
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 # Prepare to install specific g++ versions
 RUN apt-get update -qq && apt-get install -y --no-install-recommends software-properties-common
