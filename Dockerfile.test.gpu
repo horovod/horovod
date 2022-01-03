@@ -24,7 +24,7 @@ ARG HOROVOD_BUILD_FLAGS="HOROVOD_GPU_OPERATIONS=NCCL"
 ARG HOROVOD_MIXED_INSTALL=0
 
 # Set default shell to /bin/bash
-SHELL ["/bin/bash", "-cu"]
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 # Prepare to install specific g++ versions
 RUN apt-get update -qq && apt-get install -y --no-install-recommends software-properties-common
