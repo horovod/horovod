@@ -2159,14 +2159,14 @@ class TorchTests(unittest.TestCase):
 
             model_param_values = get_model_param_values(model)
             for name, model_param_value in model_param_values:
-                hvd.broadcast_(model_param_value, root_rank=0)
+                hvd.broadcast_(model_param_value, root_rank=0, name=name)
 
             opt_param_values_updated = []
             opt_param_values = get_optimizer_param_values(optimizer)
             for name, opt_param_value in opt_param_values:
                 is_tensor = torch.is_tensor(opt_param_value)
                 if is_tensor:
-                    hvd.broadcast_(opt_param_value, root_rank=0)
+                    hvd.broadcast_(opt_param_value, root_rank=0, name=f"{name}_tensor")
                 else:
                     opt_param_value = hvd.broadcast_object(opt_param_value, name=name)
                 opt_param_values_updated.append((name, opt_param_value))
