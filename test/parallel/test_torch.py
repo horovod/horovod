@@ -71,6 +71,7 @@ class TorchTests(unittest.TestCase):
     def tearDown(self):
         gloo_rank = int(os.getenv('HOROVOD_RANK', -1))
         if hvd.is_initialized() and not _is_mac and gloo_rank != -1:
+            hvd.barrier()
             hvd.shutdown()
 
     def convert_cpu_fp16_to_fp32(self, *values):
