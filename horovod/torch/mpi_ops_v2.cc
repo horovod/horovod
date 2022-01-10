@@ -606,7 +606,10 @@ int PollHandle(int handle) { return handle_manager.PollHandle(handle) ? 1 : 0; }
 void WaitAndClear(int handle) {
   while (true) {
     if (handle_manager.PollHandle(handle)) break;
-    std::this_thread::yield();
+    {
+      py::gil_scoped_release release_python_gil;
+      std::this_thread::yield();
+    }
   }
   auto status = handle_manager.ReleaseHandle(handle);
   ThrowIfError(*status);
