@@ -265,6 +265,11 @@ void ProcessSetTable::Finalize_(const Context& context, const Status& status) {
   LOG(TRACE, Get(0).controller->GetRank())
       << "Finalizing ProcessSetTable, global process set id 0";
   id_to_process_set_[0].Finalize(status);
+
+  next_id_ = 1;
+  while (!free_ids_.empty()) free_ids_.pop();  // Clear queue to be sure.
+  assert(ids_.size() == 1);
+  assert(id_to_process_set_.size() == 1);
 }
 
 #if HAVE_MPI
