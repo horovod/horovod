@@ -364,6 +364,12 @@ class SparkLightningTests(unittest.TestCase):
         expected = int(constants.TOTAL_BUFFER_MEMORY_CAP_GIB * constants.BYTES_PER_GIB / avg_row_size / 5)
         assert actual == expected
 
+        calculate_shuffle_buffer_size = remote._calculate_shuffle_buffer_size_fn(
+            train_row_count_per_worker, avg_row_size, 0)
+        shuffle_size = calculate_shuffle_buffer_size()
+        # Set 0 for non-shuffle
+        assert int(shuffle_size) == 0
+
     def test_prepare_data(self):
         with spark_session('test_prepare_data') as spark:
             df = create_xor_data(spark)
