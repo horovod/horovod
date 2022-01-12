@@ -86,7 +86,7 @@ jobs:
         pip install docker-compose
         image=$(grep mixed docker-compose.test.yml | sed -e "s/[ :]//g")
         docker-compose -f docker-compose.test.yml build ${image}
-        package=$(docker run -name horovod horovod_${image} find /usr/local/lib -name "horovod" | grep "dist-packages/horovod")
+        package=$(docker run --name horovod horovod_${image} find /usr/local/lib -name "horovod" | grep "dist-packages/horovod")
         mkdir dist-packages
         docker cp horovod:${package} dist-packages/
 
