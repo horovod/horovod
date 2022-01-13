@@ -84,11 +84,11 @@ jobs:
 
     - name: Add CodeQL to Dockerfile.test.?pu
       run: |
-        cp -rl "${{ env.CODEQL_DIST }}" codeql
+        cp -rl "${{ env.CODEQL_DIST }}" .codeql
 
         command=$(cat <<EOF
         # Setup CodeQL
-        COPY codeql ${{ env.CODEQL_DIST }}
+        COPY .codeql ${{ env.CODEQL_DIST }}
         RUN ${{ env.CODEQL_DIST }}/codeql version --format=terse
         RUN ${{ env.CODEQL_DIST }}/codeql version --format=json
         RUN ${{ env.CODEQL_DIST }}/codeql resolve queries cpp-code-scanning.qls --format=bylanguage
@@ -106,7 +106,7 @@ jobs:
         RUN ${{ env.CODEQL_DIST }}/codeql database init --db-cluster /home/runner/work/_temp/codeql_databases --source-root=/home/runner/work/horovod/horovod --language=cpp --begin-tracing --trace-process-name=Runner.Worker.exe
         RUN ls -lah /home/runner/work/_temp/codeql_databases
         RUN mkdir -p build/temp
-        RUN cd build/temp; source /home/runner/work/_temp/codeql_databases/temp/tracingEnvironment/start-tracing.sh; cmake /home/runner/work/horovod/horovod -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO=/home/runner/work/horovod/horovod/build/temp
+        RUN cd build/temp; source /home/runner/work/_temp/codeql_databases/temp/tracingEnvironment/start-tracing.sh; cmake /home/runner/work/horovod/horovod -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO=/home/runner/work/horovod/horovod/build/temp/lib.linux-x86_64-3.8 -DPYTHON_EXECUTABLE:FILEPATH=/usr/bin/python
         RUN cd build/temp; source /home/runner/work/_temp/codeql_databases/temp/tracingEnvironment/start-tracing.sh; cmake --build . --config RelWithDebInfo -- VERBOSE=1
         EOF
         )
