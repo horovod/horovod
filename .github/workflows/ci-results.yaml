@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Debug Action
-        uses: hmarr/debug-action@v1.0.0
+        uses: hmarr/debug-action@v2.0.1
 
   ci-workflow:
     name: "Check CI workflow outcome"
@@ -229,7 +229,7 @@ jobs:
 
     steps:
       - name: Debug Action
-        uses: hmarr/debug-action@v2.0.0
+        uses: hmarr/debug-action@v2.0.1
 
       - name: Download and Extract Artifacts
         env:

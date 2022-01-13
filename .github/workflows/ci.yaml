@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Debug Action
-      uses: hmarr/debug-action@v1.0.0
+      uses: hmarr/debug-action@v2.0.1
     - name: Debug Concurrency
       run: echo "ci-${{ github.event_name }}-${{ github.ref }}-${{ github.head_ref || github.sha }}"
 
