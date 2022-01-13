@@ -116,16 +116,21 @@ jobs:
       with:
         python-version: 3.8
 
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v1
+      with:
+        languages: cpp
+
     - name: Build Horovod
       shell: bash
       run: |
-        mkdir -p /home/runner/work/_temp
         pip install docker-compose
         image=$(grep mixed docker-compose.test.yml | sed -e "s/[ :]//g")
         docker-compose -f docker-compose.test.yml build ${image}
-        docker run --name horovod horovod_${image} find /codeql /home/runner/work/_temp/codeql_databases
+        docker run --name horovod horovod_${image} ls -lah /home/runner/work/_temp/codeql_databases
+        rm -rf /home/runner/work/_temp/codeql_databases
         docker cp horovod:/home/runner/work/_temp/codeql_databases /home/runner/work/_temp/
-        find /home/runner/work/_temp/codeql_databases
+        ls -lah /home/runner/work/_temp/codeql_databases
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v1
