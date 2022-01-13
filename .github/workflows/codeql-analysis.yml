@@ -22,10 +22,17 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
 
+    - name: Install Python dependencies
+      # install all `install_requires` dependencies but no `extras_require` dependencies
+      run: |
+        python setup.py egg_info
+        pip install $(head -n $(( $(grep -m 1 -n -e "^\[" horovod.egg-info/requires.txt | cut -d : -f 1) - 1 )) horovod.egg-info/requires.txt)
+
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v1
       with:
         languages: python
+        setup-python-dependencies: false
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v1
