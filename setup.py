@@ -95,12 +95,21 @@ class custom_build_ext(build_ext):
         if not os.path.exists(cmake_build_dir):
             os.makedirs(cmake_build_dir)
 
+        config_and_build_commands = [
+            [cmake_bin, self.extensions[0].cmake_lists_dir] + cmake_args,
+            [cmake_bin, '--build', '.'] + cmake_build_args
+        ]
+
+        if self.verbose:
+            print(f"Running CMake in {cmake_build_dir}:")
+            for command in config_and_build_commands:
+	            print(" ".join(command))
+            sys.stdout.flush()
+
         # Config and build the extension
         try:
-            subprocess.check_call([cmake_bin, self.extensions[0].cmake_lists_dir] + cmake_args,
-                                  cwd=cmake_build_dir)
-            subprocess.check_call([cmake_bin, '--build', '.'] + cmake_build_args,
-                                  cwd=cmake_build_dir)
+            for command in config_and_build_commands:
+                subprocess.check_call(command, cwd=cmake_build_dir)
         except OSError as e:
             raise RuntimeError('CMake failed: {}'.format(str(e)))
 
