@@ -316,12 +316,12 @@ class FilesystemStore(AbstractFilesystemStore):
         def fn(local_run_path):
             print(f"Syncing dir {local_run_path} to dir {run_path}")
             if self.fs.exists(run_path):
-                local_run_path = os.path.join(local_run_path,self.get_wildcard())
+                local_run_path = os.path.join(local_run_path, self.get_wildcard())
             self.copy(local_run_path, run_path, recursive=True, overwrite=True)
 
         return fn
 
-    def copy(self,lpath,rpath,recursive=False,callback=_DEFAULT_CALLBACK,**kwargs):
+    def copy(self, lpath, rpath, recursive=False, callback=_DEFAULT_CALLBACK,**kwargs):
         from fsspec.implementations.local import LocalFileSystem, make_path_posix
         from fsspec.utils import other_paths
 
@@ -334,8 +334,9 @@ class FilesystemStore(AbstractFilesystemStore):
             lpath = make_path_posix(lpath)
         fs = LocalFileSystem()
         lpaths = fs.expand_path(lpath, recursive=recursive)
+        is_wildcard = True if lpath.endswith('/*') else False
         rpaths = other_paths(
-            lpaths, rpath, exists=isinstance(rpath, str) and self.fs.isdir(rpath)
+            lpaths, rpath, exists=isinstance(rpath, str) and self.fs.isdir(rpath) and not is_wildcard
         )
 
         callback.set_size(len(rpaths))
