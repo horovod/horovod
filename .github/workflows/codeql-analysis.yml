@@ -38,7 +38,7 @@ jobs:
       uses: github/codeql-action/analyze@v1
 
   analyze-cpp:
-    name: Analyze CPP
+    name: Analyze C++
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -84,10 +84,11 @@ jobs:
 
     - name: Add CodeQL to Dockerfile.test.?pu
       run: |
+        # copy CodeQL distribution into docker context
         cp -rl "${{ env.CODEQL_DIST }}" .codeql
 
         command=$(cat <<EOF
-        # Setup CodeQL
+        # Install CodeQL
         COPY .codeql ${{ env.CODEQL_DIST }}
         RUN ${{ env.CODEQL_DIST }}/codeql version --format=terse
         RUN ${{ env.CODEQL_DIST }}/codeql version --format=json
@@ -104,7 +105,8 @@ jobs:
         RUN ln -s /horovod /home/runner/work/horovod/horovod
         RUN mkdir -p /home/runner/work/_temp
         RUN ${{ env.CODEQL_DIST }}/codeql database init --db-cluster /home/runner/work/_temp/codeql_databases --source-root=/home/runner/work/horovod/horovod --language=cpp --begin-tracing --trace-process-name=Runner.Worker.exe
-        RUN ls -lah /home/runner/work/_temp/codeql_databases
+
+        # Build Horovod (C++)
         RUN mkdir -p build/temp
         RUN cd build/temp; source /home/runner/work/_temp/codeql_databases/temp/tracingEnvironment/start-tracing.sh; cmake /home/runner/work/horovod/horovod -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO=/home/runner/work/horovod/horovod/build/temp/lib.linux-x86_64-3.8 -DPYTHON_EXECUTABLE:FILEPATH=/usr/bin/python
         RUN cd build/temp; source /home/runner/work/_temp/codeql_databases/temp/tracingEnvironment/start-tracing.sh; cmake --build . --config RelWithDebInfo -- VERBOSE=1
@@ -112,7 +114,7 @@ jobs:
         )
         sed -i -e "s%^# Install Horovod.$%${command//$'\n'/\\n}\n\n# Install Horovod.%" Dockerfile.test.?pu
 
-        # Truncate Dockerfile.test.?pu
+        # Truncate Dockerfile.test.?pu, after CMake we are done here
         for file in Dockerfile.test.?pu
         do
           head -n $(( $(grep -m 1 -n "# Install Horovod." $file | cut -d : -f 1) - 1 )) $file > tmp
@@ -136,7 +138,6 @@ jobs:
         docker run --name horovod horovod_${image} ls -lah /home/runner/work/_temp/codeql_databases
         rm -rf /home/runner/work/_temp/codeql_databases
         docker cp horovod:/home/runner/work/_temp/codeql_databases /home/runner/work/_temp/
-        ls -lah /home/runner/work/_temp/codeql_databases
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v1
