@@ -30,6 +30,7 @@ import pyarrow.parquet as pq
 import fsspec
 from fsspec.core import split_protocol
 from fsspec.utils import update_storage_options
+from fsspec.callbacks import _DEFAULT_CALLBACK
 
 from horovod.spark.common.util import is_databricks, host_hash
 
@@ -248,7 +249,7 @@ class AbstractFilesystemStore(Store):
         return os.path.join(self.get_runs_path(), run_id)
 
     def get_checkpoint_path(self, run_id):
-        return os.path.join(self.get_run_path(run_id), self.get_checkpoint_filename()) \
+        return self.get_run_path(run_id) \
             if self._save_runs else None
 
     def get_checkpoints(self, run_id, suffix='.ckpt'):
@@ -265,6 +266,9 @@ class AbstractFilesystemStore(Store):
 
     def get_logs_subdir(self):
         return 'logs'
+
+    def get_wildcard(self):
+        return '*'
 
     def _get_full_path_or_default(self, path, default_key):
         if path is not None:
@@ -311,9 +315,33 @@ class FilesystemStore(AbstractFilesystemStore):
 
         def fn(local_run_path):
             print(f"Syncing dir {local_run_path} to dir {run_path}")
-            self.fs.put(local_run_path, run_path, recursive=True, overwrite=True)
+            if self.fs.exists(run_path):
+                local_run_path = os.path.join(local_run_path,self.get_wildcard())
+            self.copy(local_run_path, run_path, recursive=True, overwrite=True)
 
         return fn
+
+    def copy(self,lpath,rpath,recursive=False,callback=_DEFAULT_CALLBACK,**kwargs):
+        from fsspec.implementations.local import LocalFileSystem, make_path_posix
+        from fsspec.utils import other_paths
+
+        rpath = (
+            self.fs._strip_protocol(rpath)
+            if isinstance(rpath, str)
+            else [self.fs._strip_protocol(p) for p in rpath]
+        )
+        if isinstance(lpath, str):
+            lpath = make_path_posix(lpath)
+        fs = LocalFileSystem()
+        lpaths = fs.expand_path(lpath, recursive=recursive)
+        rpaths = other_paths(
+            lpaths, rpath, exists=isinstance(rpath, str) and self.fs.isdir(rpath)
+        )
+
+        callback.set_size(len(rpaths))
+        for lpath, rpath in callback.wrap(zip(lpaths, rpaths)):
+            callback.branch(lpath, rpath, kwargs)
+            self.fs.put_file(lpath, rpath, **kwargs)
 
     def get_filesystem(self):
         return self.fs

@@ -463,6 +463,10 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     def _read_checkpoint(self, run_id):
         store = self.getStore()
         checkpoints = store.get_checkpoints(run_id, suffix='.ckpt')
+        
+        if not checkpoints:
+            return None
+        
         last_ckpt_path = checkpoints[-1]
 
         if self.getVerbose():
