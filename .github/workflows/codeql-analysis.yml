@@ -84,9 +84,11 @@ jobs:
 
     - name: Add CodeQL to Dockerfile.test.?pu
       run: |
+        cp -rl "${{ env.CODEQL_DIST }}" codeql
+
         command=$(cat <<EOF
         # Setup CodeQL
-        COPY ${{ env.CODEQL_DIST }} ${{ env.CODEQL_DIST }}
+        COPY codeql ${{ env.CODEQL_DIST }}
         RUN ${{ env.CODEQL_DIST }}/codeql version --format=terse
         RUN ${{ env.CODEQL_DIST }}/codeql version --format=json
         RUN ${{ env.CODEQL_DIST }}/codeql resolve queries cpp-code-scanning.qls --format=bylanguage
@@ -100,7 +102,8 @@ jobs:
         # Setup CodeQL tracing
         RUN mkdir -p /home/runner/work/horovod
         RUN ln -s /horovod /home/runner/work/horovod/horovod
-        RUN ${{ env.CODEQL_DIST }}/codeql database init --db-cluster /home/runner/work/_temp/codeql_databases --source-root=/horovod /home/runner/work/horovod/horovod --language=cpp --begin-tracing --trace-process-name=Runner.Worker.exe
+        RUN mkdir -p /home/runner/work/_temp
+        RUN ${{ env.CODEQL_DIST }}/codeql database init --db-cluster /home/runner/work/_temp/codeql_databases --source-root=/home/runner/work/horovod/horovod --language=cpp --begin-tracing --trace-process-name=Runner.Worker.exe
         RUN ls -lah /home/runner/work/_temp/codeql_databases
         EOF
         )
