@@ -77,29 +77,30 @@ jobs:
       with:
         submodules: recursive
 
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v1
+      with:
+        languages: cpp
+
     - name: Add CodeQL to Dockerfile.test.?pu
       run: |
-        # install unzip
-        sed -i -e "s/moreutils/moreutils unzip/" Dockerfile.test.?pu
-
         command=$(cat <<EOF
         # Setup CodeQL
-        RUN wget --progress=dot:giga https://github.com/github/codeql-cli-binaries/releases/download/v2.7.3/codeql-linux64.zip -O /codeql-linux64.zip
-        RUN unzip /codeql-linux64.zip -d /
-        RUN git clone --depth=1 https://github.com/github/codeql.git /codeql-repo
-        RUN /codeql/codeql version --format=terse
-        RUN /codeql/codeql version --format=json
-        RUN /codeql/codeql resolve queries cpp-code-scanning.qls --format=bylanguage
-        RUN /codeql/codeql resolve languages
-        RUN /codeql/codeql resolve qlpacks
+        COPY ${{ env.CODEQL_DIST }} ${{ env.CODEQL_DIST }}
+        RUN ${{ env.CODEQL_DIST }}/codeql version --format=terse
+        RUN ${{ env.CODEQL_DIST }}/codeql version --format=json
+        RUN ${{ env.CODEQL_DIST }}/codeql resolve queries cpp-code-scanning.qls --format=bylanguage
+        RUN ${{ env.CODEQL_DIST }}/codeql resolve languages
+        RUN ${{ env.CODEQL_DIST }}/codeql resolve qlpacks
         EOF
         )
         sed -i -e "s%^# setup ssh service$%${command//$'\n'/\\n}\n\n# setup ssh service%" Dockerfile.test.?pu
 
         command=$(cat <<EOF
         # Setup CodeQL tracing
-        RUN mkdir -p /home/runner/work/_temp/codeql_databases
-        RUN /codeql/codeql database init --db-cluster /home/runner/work/_temp/codeql_databases --source-root=/horovod --language=cpp --begin-tracing --trace-process-name=Runner.Worker.exe
+        RUN mkdir -p /home/runner/work/horovod
+        RUN ln -s /horovod /home/runner/work/horovod/horovod
+        RUN ${{ env.CODEQL_DIST }}/codeql database init --db-cluster /home/runner/work/_temp/codeql_databases --source-root=/horovod /home/runner/work/horovod/horovod --language=cpp --begin-tracing --trace-process-name=Runner.Worker.exe
         RUN ls -lah /home/runner/work/_temp/codeql_databases
         EOF
         )
@@ -115,11 +116,6 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: 3.8
-
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v1
-      with:
-        languages: cpp
 
     - name: Build Horovod
       shell: bash
