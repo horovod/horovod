@@ -105,12 +105,19 @@ jobs:
         RUN mkdir -p /home/runner/work/_temp
         RUN ${{ env.CODEQL_DIST }}/codeql database init --db-cluster /home/runner/work/_temp/codeql_databases --source-root=/home/runner/work/horovod/horovod --language=cpp --begin-tracing --trace-process-name=Runner.Worker.exe
         RUN ls -lah /home/runner/work/_temp/codeql_databases
+        RUN mkdir -p build/temp
+        RUN cd build/temp; source /home/runner/work/_temp/codeql_databases/temp/tracingEnvironment/start-tracing.sh; cmake /home/runner/work/horovod/horovod -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO=/home/runner/work/horovod/horovod/build/temp
+        RUN cd build/temp; source /home/runner/work/_temp/codeql_databases/temp/tracingEnvironment/start-tracing.sh; cmake --build . --config RelWithDebInfo -- VERBOSE=1
         EOF
         )
         sed -i -e "s%^# Install Horovod.$%${command//$'\n'/\\n}\n\n# Install Horovod.%" Dockerfile.test.?pu
 
-        # Start CodeQL tracing
-        sed -i -e "s%    python setup.py sdist%    source /home/runner/work/_temp/codeql_databases/temp/tracingEnvironment/start-tracing.sh \&\& python setup.py sdist%" Dockerfile.test.?pu
+        # Truncate Dockerfile.test.?pu
+        for file in Dockerfile.test.?pu
+        do
+          head -n $(( $(grep -m 1 -n "# Install Horovod." $file | cut -d : -f 1) - 1 )) $file > tmp
+          mv tmp $file
+        done
 
         # Print out changes
         git diff
