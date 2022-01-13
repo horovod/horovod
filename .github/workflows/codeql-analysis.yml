@@ -108,6 +108,9 @@ jobs:
         # Start CodeQL tracing
         sed -i -e "s%    python setup.py sdist%    source /home/runner/work/_temp/codeql_databases/temp/tracingEnvironment/start-tracing.sh \&\& python setup.py sdist%" Dockerfile.test.?pu
 
+        # Print out changes
+        git diff
+
     - name: Setup Python
       uses: actions/setup-python@v2
       with:
