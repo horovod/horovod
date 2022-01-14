@@ -179,6 +179,7 @@ class ElasticRayExecutor:
             settings, use_gpu=True, cpus_per_slot=2)
         executor.start()
         executor.run(train_fn)
+
     warning:: .. deprecated:: 0.25.0
     """
 
