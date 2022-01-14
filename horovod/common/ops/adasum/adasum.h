@@ -298,8 +298,8 @@ private:
       nghrCountVec_index++;
 
       this->PointToPointSendRecv(
-          (char*)(&grad_buffer[sendOffset]), nghrCount * per_element_size,
-          (char*)(&recv_buffer[recvOffset]), myCount * per_element_size,
+          (char*)(&grad_buffer[sendOffset]), (int64_t)nghrCount * (int64_t)per_element_size,
+          (char*)(&recv_buffer[recvOffset]), (int64_t)myCount * (int64_t)per_element_size,
           horovod_datatype, neighbor_rank, tag, communicator, global_state);
       if ((rank & level) != 0) {
         grad_buffer = &grad_buffer[nghrCount];
@@ -329,8 +329,8 @@ private:
       } else {
         recv_buffer = &grad_buffer[-nghrCount];
       }
-      this->PointToPointSendRecv(grad_buffer, myCount * per_element_size,
-                                 recv_buffer, nghrCount * per_element_size,
+      this->PointToPointSendRecv(grad_buffer, (int64_t)myCount * (int64_t)per_element_size,
+                                 recv_buffer, (int64_t)nghrCount * (int64_t)per_element_size,
                                  horovod_datatype, neighbor_rank, tag,
                                  communicator, global_state);
       if ((rank & level) != 0) {
