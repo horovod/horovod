@@ -126,7 +126,12 @@ def generate_jsrun_rankfile(settings, path=None):
             slots=settings.num_proc))
 
     # Generate rankfile
-    path = tempfile.mktemp() if path is None else path
+    # using mkstemp here instead of insecure mktemp.
+    # note that the caller is responsible for cleaning up this file
+    if path is None:
+        fd, path = tempfile.mkstemp()
+        fd.close()
+
     with open(path, 'w') as tmp:
         tmp.write('overlapping_rs: allow\n')
         tmp.write('cpu_index_using: logical\n')
