@@ -17,7 +17,6 @@ RUN sudo apt-get update && DEBIAN_FRONTEND="noninteractive" sudo apt-get install
         build-essential \
         wget \
         git \
-        gpg \
         curl \
         rsync \
         vim \
