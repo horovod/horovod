@@ -15,14 +15,19 @@
 # limitations under the License.
 # ==============================================================================
 
+import atexit
+import io
 import os
+import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import textwrap
 
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
+from distutils.version import LooseVersion
 
 from horovod import __version__
 
@@ -60,7 +65,34 @@ def is_build_action():
         return True
 
 def get_cmake_bin():
-    return os.environ.get('HOROVOD_CMAKE', 'cmake')
+    if 'HOROVOD_CMAKE' in os.environ:
+        return os.environ['HOROVOD_CMAKE']
+
+    cmake_bin = 'cmake'
+    try:
+        out = subprocess.check_output([cmake_bin, '--version'])
+    except OSError:
+        cmake_installed_version = LooseVersion("0.0")
+    else:
+        cmake_installed_version = LooseVersion(re.search(r'version\s*([\d.]+)', out.decode()).group(1))
+
+    if cmake_installed_version < LooseVersion("3.13.0"):
+        print("Could not find a recent CMake to build Horovod. "
+              "Attempting to install CMake 3.13 to a temporary location via pip.")
+        cmake_temp_dir = tempfile.TemporaryDirectory(prefix="horovod-cmake-tmp")
+        atexit.register(cmake_temp_dir.cleanup)
+        try:
+            _ = subprocess.check_output(["pip", "install", "--target", cmake_temp_dir.name, "cmake~=3.13.0"])
+        except OSError:
+            raise RuntimeError("Failed to install temporary CMake. "
+                               "Please update your CMake to 3.13+ or set HOROVOD_CMAKE appropriately.")
+        cmake_bin = os.path.join(cmake_temp_dir.name, "bin", "run_cmake")
+        with io.open(cmake_bin, "w") as f_run_cmake:
+            f_run_cmake.write(
+                f"#!/bin/sh\nPYTHONPATH={cmake_temp_dir.name} {os.path.join(cmake_temp_dir.name, 'bin', 'cmake')} \"$@\"")
+        os.chmod(cmake_bin, 0o755)
+
+    return cmake_bin
 
 
 class custom_build_ext(build_ext):
@@ -103,7 +135,7 @@ class custom_build_ext(build_ext):
         if self.verbose:
             print(f"Running CMake in {cmake_build_dir}:")
             for command in config_and_build_commands:
-	            print(" ".join(command))
+                print(" ".join(command))
             sys.stdout.flush()
 
         # Config and build the extension
