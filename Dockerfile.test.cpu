@@ -36,6 +36,7 @@ RUN add-apt-repository ppa:ubuntu-toolchain-r/test
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
         wget \
         ca-certificates \
+        cmake \
         openssh-client \
         openssh-server \
         git \
@@ -56,9 +57,6 @@ RUN wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py && python get-
 # pinning pip to 21.0.0 as 22.0.0 cannot fetch pytorch packages from html linl
 # https://github.com/pytorch/pytorch/issues/72045
 RUN pip install --no-cache-dir -U --force pip~=21.0.0 setuptools requests pytest mock pytest-forked parameterized
-
-# Install recent CMake.
-RUN pip install --no-cache-dir -U cmake~=3.13.0
 
 # Add launch helper scripts
 RUN echo "env SPARK_HOME=/spark SPARK_DRIVER_MEM=512m PYSPARK_PYTHON=/usr/bin/python${PYTHON_VERSION} PYSPARK_DRIVER_PYTHON=/usr/bin/python${PYTHON_VERSION} \"\$@\"" > /spark_env.sh
