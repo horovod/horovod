@@ -17,11 +17,14 @@ RUN sudo apt-get update && DEBIAN_FRONTEND="noninteractive" sudo apt-get install
         build-essential \
         wget \
         git \
+        gpg \
         curl \
-        cmake \
         rsync \
         vim \
     && sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/*
+
+# Install recent CMake.
+RUN pip install --no-cache-dir -U cmake~=3.13.0
 
 # Install PyTorch
 RUN pip install --no-cache-dir \

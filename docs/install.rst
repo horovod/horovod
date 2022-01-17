@@ -8,7 +8,7 @@ Requirements
 
 - Python >= 3.6
 - `g++-5` or above, or another compiler supporting C++14
-- CMake
+- CMake 3.13 or newer
 - TensorFlow, PyTorch, or MXNet
 - (Optional) MPI
 
@@ -213,7 +213,7 @@ diagnose failures:
 Installing Horovod with Conda (+pip)
 ------------------------------------
 
-To use Conda to install PyTorch, TensorFlow, MXNet, Horovod, as well as GPU depdencies such as 
+To use Conda to install PyTorch, TensorFlow, MXNet, Horovod, as well as GPU dependencies such as
 NVIDIA CUDA Toolkit, cuDNN, NCCL, etc., see `Build a Conda Environment with GPU Support for Horovod <conda.rst>`_.
 
 Environment Variables
