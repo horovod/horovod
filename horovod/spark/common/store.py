@@ -267,9 +267,6 @@ class AbstractFilesystemStore(Store):
     def get_logs_subdir(self):
         return 'logs'
 
-    def get_wildcard(self):
-        return '*'
-
     def _get_full_path_or_default(self, path, default_key):
         if path is not None:
             return self.get_full_path(path)
@@ -315,13 +312,17 @@ class FilesystemStore(AbstractFilesystemStore):
 
         def fn(local_run_path):
             print(f"Syncing dir {local_run_path} to dir {run_path}")
-            if self.fs.exists(run_path):
-                local_run_path = os.path.join(local_run_path, self.get_wildcard())
             self.copy(local_run_path, run_path, recursive=True, overwrite=True)
 
         return fn
 
     def copy(self, lpath, rpath, recursive=False, callback=_DEFAULT_CALLBACK,**kwargs):
+        """ 
+        This method copies the contents of the local source directory to the target directory.
+        This is different from the fsspec's put() because it does not copy the source folder 
+        to the target directory in the case when target directory already exists.
+        """
+
         from fsspec.implementations.local import LocalFileSystem, make_path_posix
         from fsspec.utils import other_paths
 
@@ -334,9 +335,8 @@ class FilesystemStore(AbstractFilesystemStore):
             lpath = make_path_posix(lpath)
         fs = LocalFileSystem()
         lpaths = fs.expand_path(lpath, recursive=recursive)
-        is_wildcard = True if lpath.endswith('/*') else False
         rpaths = other_paths(
-            lpaths, rpath, exists=isinstance(rpath, str) and self.fs.isdir(rpath) and not is_wildcard
+            lpaths, rpath
         )
 
         callback.set_size(len(rpaths))
