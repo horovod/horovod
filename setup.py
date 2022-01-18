@@ -78,12 +78,12 @@ def get_cmake_bin():
 
     if cmake_installed_version < LooseVersion("3.13.0"):
         print("Could not find a recent CMake to build Horovod. "
-              "Attempting to install CMake 3.13 to a temporary location via pip.")
+              "Attempting to install CMake 3.13 to a temporary location via pip.", flush=True)
         cmake_temp_dir = tempfile.TemporaryDirectory(prefix="horovod-cmake-tmp")
         atexit.register(cmake_temp_dir.cleanup)
         try:
             _ = subprocess.check_output(["pip", "install", "--target", cmake_temp_dir.name, "cmake~=3.13.0"])
-        except OSError:
+        except Exception:
             raise RuntimeError("Failed to install temporary CMake. "
                                "Please update your CMake to 3.13+ or set HOROVOD_CMAKE appropriately.")
         cmake_bin = os.path.join(cmake_temp_dir.name, "bin", "run_cmake")
