@@ -107,7 +107,7 @@ scale.
 
 Install
 -------
-To install Horovod:
+To install Horovod on Linux or macOS:
 
 1. Install `CMake <https://cmake.org/install/>`__
 

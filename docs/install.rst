@@ -6,6 +6,7 @@ Horovod Installation Guide
 Requirements
 ------------
 
+- GNU Linux or macOS
 - Python >= 3.6
 - `g++-5` or above, or another compiler supporting C++14
 - CMake 3.13 or newer
@@ -18,6 +19,8 @@ For best performance on GPU:
 
 If Horovod in unable to find the CMake binary, you may need to set ``HOROVOD_CMAKE`` in your environment before
 installing.
+
+Horovod does not support Windows.
 
 Frameworks
 ----------
