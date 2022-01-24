@@ -1,4 +1,4 @@
-from typing import Callable, List, Any, Dict, Optional
+from typing import Callable, List, Any, Dict, Optional, Tuple
 import logging
 import ray.exceptions
 import socket
@@ -162,6 +162,11 @@ class ElasticParams(BaseParams):
         reset_limit (int): Maximum number of times that the training
             job can scale up or down the number of workers after
             which the job is terminated.
+        cooldown_range(Tuple[int, int]): Range(in seconds) a failing
+            host will remain in blacklist.
+            Example: cooldown_range=(10, 100)
+            This sets the minimum cooldown period to 10 seconds,
+            and the maximum cooldown period to 100 seconds.
         elastic_timeout (int): Timeout for elastic initialisation after
             re-scaling the cluster. The default value is 600 seconds.
             Alternatively, the environment variable
@@ -177,6 +182,7 @@ class ElasticParams(BaseParams):
     min_workers: int = 1
     max_workers: int = None
     reset_limit: int = None
+    cooldown_range: Optional[Tuple[int, int]] = None
     elastic_timeout: int = 600
     override_discovery: bool = True
 
@@ -205,6 +211,11 @@ class ElasticAdapter(Adapter):
         reset_limit (int): Maximum number of times that the training
             job can scale up or down the number of workers after
             which the job is terminated.
+        cooldown_range (Tuple[int, int]): Range(in seconds) a failing
+            host will remain in blacklist.
+            Example: cooldown_range=(10, 100)
+            This sets the minimum cooldown period to 10 seconds,
+            and the maximum cooldown period to 100 seconds.
         elastic_timeout (int): Timeout for elastic initialisation after
             re-scaling the cluster. The default value is 600 seconds.
             Alternatively, the environment variable
@@ -228,6 +239,7 @@ class ElasticAdapter(Adapter):
                 gpus_per_worker: Optional[int] = None,
                 override_discovery: bool=True,
                 reset_limit: int = None,
+                cooldown_range: Optional[Tuple[int, int]] = None,
                 elastic_timeout: int = 600):
         self.settings = settings
         if override_discovery:
@@ -243,6 +255,7 @@ class ElasticAdapter(Adapter):
         self.max_workers = max_workers
         self.num_workers = min_workers
         self.reset_limit = reset_limit
+        self.cooldown_range = cooldown_range
         self.elastic_timeout = elastic_timeout
         self.driver = None
         self.rendezvous = None
@@ -275,6 +288,7 @@ class ElasticAdapter(Adapter):
             max_np=self.max_workers,
             timeout=self.elastic_timeout,
             reset_limit=self.reset_limit,
+            cooldown_range=self.cooldown_range,
             verbose=self.settings.verbose)
         handler = create_rendezvous_handler(self.driver)
         logger.debug("[ray] starting rendezvous")

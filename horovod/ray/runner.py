@@ -253,6 +253,7 @@ class RayExecutor:
             min_workers: int = None,
             max_workers: int = None,
             reset_limit: int = None,
+            cooldown_range: List[int] = None,
             elastic_timeout: int = 600,
             override_discovery: bool = True
             ):
@@ -268,6 +269,7 @@ class RayExecutor:
                 min_workers=min_workers,
                 max_workers=max_workers,
                 reset_limit=reset_limit,
+                cooldown_range=cooldown_range,
                 elastic_timeout=elastic_timeout,
                 override_discovery=override_discovery,
                 cpus_per_worker=cpus_per_worker,

@@ -392,6 +392,8 @@ def parse_args():
     group_elastic.add_argument('--reset-limit', action='store', dest='reset_limit', type=int,
                                help='Maximum number of times that the training job can scale up or down '
                                     'the number of workers after which the job is terminated. (default: None)')
+    group_elastic.add_argument('--blacklist-cooldown-range', action='store', dest='cooldown_range', type=int, nargs=2,
+                               help='Range of seconds(min, max) a failing host will remain in blacklist. (default: None)')
 
     group_timeline = parser.add_argument_group('timeline arguments')
     group_timeline.add_argument('--timeline-filename', action=make_override_action(override_args),
@@ -456,23 +458,23 @@ def parse_args():
                                choices=config_parser.LOG_LEVELS,
                                help='Minimum level to log to stderr from the Horovod backend. (default: WARNING).')
     group_logging_timestamp = group_logging.add_mutually_exclusive_group()
-    group_logging_timestamp.add_argument('--log-with-timestamp', 
+    group_logging_timestamp.add_argument('--log-with-timestamp',
                                          action=make_override_true_action(override_args),
                                          help=argparse.SUPPRESS)
     group_logging_timestamp.add_argument('--log-without-timestamp', dest='log_with_timestamp',
-                                         action=make_override_false_action(override_args), 
+                                         action=make_override_false_action(override_args),
                                          help='Hide the timestamp from Horovod internal log messages.')
     group_logging_timestamp.add_argument('-prefix-timestamp', '--prefix-output-with-timestamp', action='store_true',
                                          dest='prefix_output_with_timestamp',
                                          help='Timestamp each line of output to stdout, stderr, and stddiag.')
-    group_logging_timestamp.add_argument('--log-hide-timestamp', 
+    group_logging_timestamp.add_argument('--log-hide-timestamp',
                                          dest='log_with_timestamp',
                                          action=make_deprecated_bool_action(override_args, False, '--log-without-timestamp'),
                                          help=argparse.SUPPRESS)
-    group_logging_timestamp.add_argument('--no-log-hide-timestamp', 
+    group_logging_timestamp.add_argument('--no-log-hide-timestamp',
                                          dest='log_with_timestamp',
                                          action=make_deprecated_bool_action(override_args, True, '--log-with-timestamp'),
-                                         help=argparse.SUPPRESS)                                     
+                                         help=argparse.SUPPRESS)
 
     group_hosts_parent = parser.add_argument_group('host arguments')
     group_hosts = group_hosts_parent.add_mutually_exclusive_group()
@@ -647,6 +649,7 @@ def _run_elastic(args):
                                                 max_np=args.max_np,
                                                 elastic_timeout=args.elastic_timeout,
                                                 reset_limit=args.reset_limit,
+                                                cooldown_range=args.cooldown_range,
                                                 num_proc=args.np,
                                                 verbose=2 if args.verbose else 0,
                                                 ssh_port=args.ssh_port,
