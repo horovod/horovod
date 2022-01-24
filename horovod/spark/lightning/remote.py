@@ -123,15 +123,26 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                 train_logger = TensorBoardLogger(logs_path)
                 print(f"Setup logger: Using TensorBoardLogger: {train_logger}")
 
-            elif isinstance(logger, CometLogger) and logger._experiment_key is None:
-                # Resume logger experiment key if passed correctly from CPU.
-                train_logger = CometLogger(
-                    save_dir=logs_path,
-                    api_key=logger.api_key,
-                    experiment_key=logger_experiment_key,
-                )
+            elif isinstance(logger, CometLogger):
+                if logger._experiment_key:
+                    # use logger passed in.
+                    train_logger = logger
+                    train_logger._save_dir = logs_path
+                    print(f"Setup logger: change save_dir of the logger to {logs_path}")
 
-                print(f"Setup logger: Resume comet logger: {vars(train_logger)}")
+                elif logger_experiment_key:
+                    # Resume logger experiment with new log path if key passed correctly from CPU.
+                    train_logger = CometLogger(
+                        save_dir=logs_path,
+                        api_key=logger.api_key,
+                        experiment_key=logger_experiment_key,
+                    )
+
+                    print(f"Setup logger: Resume comet logger: {vars(train_logger)}")
+
+                else:
+                    print(f"Failed to setup or resume comet logger. origin logger: {vars(logger)}")
+
             else:
                 # use logger passed in.
                 train_logger = logger
