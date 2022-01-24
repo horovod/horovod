@@ -28,8 +28,8 @@ AdasumMPI::~AdasumMPI() {
 
 void AdasumMPI::InitializeVHDDReductionComms() {
   int rank, size;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  MPI_Comm_rank(mpi_context_->mpi_comm, &rank);
+  MPI_Comm_size(mpi_context_->mpi_comm, &size);
 
   // Initialize communication groups for the vector halving, distance doubling
   // (VHDD) Adasum reduction. These are used in computing dot products and
@@ -38,10 +38,10 @@ void AdasumMPI::InitializeVHDDReductionComms() {
   // includes two elements: this rank and it's first VHDD neighbor. The
   // subsequent groups grow to include any ranks the previous group
   // communicates with. Thus the sizes of the groups are 2,4,8... up to the
-  // size of MPI_COMM_WORLD. In essence, a reduction group includes all nodes
+  // size of mpi_context->mpi_comm. In essence, a reduction group includes all nodes
   // that a tensor may be split across.
   MPI_Group world_group;
-  MPI_Comm_group(MPI_COMM_WORLD, &world_group);
+  MPI_Comm_group(mpi_context_->mpi_comm, &world_group);
   int nearest_power_2 = 1;
   int log_size;
   for (nearest_power_2 = 1, log_size = 0; (nearest_power_2 << 1) <= size;
@@ -59,7 +59,7 @@ void AdasumMPI::InitializeVHDDReductionComms() {
     }
     MPI_Group red_group;
     MPI_Group_incl(world_group, (level << 1), node_rank, &red_group);
-    MPI_Comm_create_group(MPI_COMM_WORLD, red_group, 0,
+    MPI_Comm_create_group(mpi_context_->mpi_comm, red_group, 0,
                           &reduction_comms_[shift_val - 1]);
     MPI_Group_free(&red_group);
   }

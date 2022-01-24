@@ -43,7 +43,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 from common import mpi_env_rank_and_size, skip_or_fail_gpu_test, temppath
 
 _1_5_api = LooseVersion(torch.__version__) >= LooseVersion('1.5.0')
-_1_10_api = LooseVersion(torch.__version__) >= LooseVersion('1.10.0')
 _is_mac = platform.system() == 'Darwin'
 
 ccl_supported_types = set([torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
@@ -2540,12 +2539,6 @@ class TorchTests(unittest.TestCase):
 
     def test_delta_optimizer(self):
         """Test that delta optimizer."""
-        if _1_10_api:
-            # On PyTorch 1.10, if this test is not skipped and when tests are run in alphabetical order, the later
-            # test_dynamic_requires_grad can run into a deadlock.
-            # TODO: Understand and fix the root cause of these deadlocks.
-            self.skipTest("Deadlocks with PyTorch 1.10")
-
         hvd.init()
         if not hvd.mpi_enabled():
             # TODO support non-MPI Adasum operation
@@ -2583,6 +2576,7 @@ class TorchTests(unittest.TestCase):
         opt.zero_grad()
         loss.backward()
         opt.step()
+        hvd.barrier()
 
     def test_duplicate_names(self):
         """Test that passing duplicate names to optimizer will fail."""
