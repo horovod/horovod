@@ -23,7 +23,7 @@ ARG CCL_PACKAGE=master
 ARG HOROVOD_BUILD_FLAGS=""
 
 # Set default shell to /bin/bash
-SHELL ["/bin/bash", "-cu"]
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 # Prepare to install specific g++ versions
 RUN apt-get update -qq && apt-get install -y --no-install-recommends software-properties-common
@@ -33,7 +33,6 @@ RUN add-apt-repository ppa:ubuntu-toolchain-r/test
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
         wget \
         ca-certificates \
-        cmake \
         openssh-client \
         openssh-server \
         git \
@@ -51,6 +50,9 @@ RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python${PYTHON_VERSION/%.*/}
 RUN wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
 RUN pip install --no-cache-dir -U --force pip setuptools requests pytest mock pytest-forked parameterized
+
+# Install recent CMake.
+RUN pip install --no-cache-dir -U cmake~=3.13.0
 
 # Add launch helper scripts
 RUN echo "env SPARK_HOME=/spark SPARK_DRIVER_MEM=512m PYSPARK_PYTHON=/usr/bin/python${PYTHON_VERSION} PYSPARK_DRIVER_PYTHON=/usr/bin/python${PYTHON_VERSION} \"\$@\"" > /spark_env.sh
@@ -126,12 +128,14 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
     fi
 
 # Install mpi4py.
+# This requires SETUPTOOLS_USE_DISTUTILS=stdlib as with setuptools>=60.1.0 installing mpi4py broke
+# https://github.com/mpi4py/mpi4py/issues/157#issuecomment-1001022274
 RUN if [[ ${MPI_KIND} != "None" ]]; then \
         if [[ ${MPI_KIND} == "ONECCL" ]]; then \
             export I_MPI_ROOT=/usr/local/oneccl; \
             export MPICC=/usr/local/oneccl/bin/mpicc; \
         fi; \
-        pip install --no-cache-dir mpi4py; \
+        SETUPTOOLS_USE_DISTUTILS=stdlib pip install --no-cache-dir mpi4py; \
     fi
 
 # Install TensorFlow and Keras (releases).
@@ -140,7 +144,7 @@ RUN if [[ ${MPI_KIND} != "None" ]]; then \
 RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly" ]]; then \
         pip install --no-cache-dir ${TENSORFLOW_PACKAGE}; \
         if [[ ${KERAS_PACKAGE} != "None" ]]; then \
-            if [[ ${TENSORFLOW_PACKAGE} == tensorflow*==1.* ]] || [[ ${TENSORFLOW_PACKAGE} == tensorflow*==2.[01234].* ]]; then \
+            if [[ ${TENSORFLOW_PACKAGE} == tensorflow*==1.* ]] || [[ ${TENSORFLOW_PACKAGE} == tensorflow*==2.[012345].* ]]; then \
                 h5py="h5py<3"; \
             fi; \
             pip uninstall -y keras-nightly; \
@@ -186,7 +190,6 @@ COPY . /horovod
 # Install nightly packages here so they do not get cached
 
 # Install TensorFlow and Keras (nightly).
-# Do not pin h5py since tf>=2.5 requires h5py~=3.1
 # Pin scipy!=1.4.0: https://github.com/scipy/scipy/issues/11237
 RUN if [[ ${TENSORFLOW_PACKAGE} == "tf-nightly" ]]; then \
         pip install --no-cache-dir ${TENSORFLOW_PACKAGE}; \

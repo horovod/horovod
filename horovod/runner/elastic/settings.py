@@ -17,7 +17,7 @@ from horovod.runner.common.util.settings import BaseSettings
 
 
 class ElasticSettings(BaseSettings):
-    def __init__(self, discovery, min_np, max_np, elastic_timeout, reset_limit, **kwargs):
+    def __init__(self, discovery, min_np, max_np, elastic_timeout, reset_limit, cooldown_range=None, **kwargs):
         """
         :param discovery: object used to detect and manage available hosts
         :type discovery: horovod.runner.elastic.discovery.HostDiscovery
@@ -29,6 +29,8 @@ class ElasticSettings(BaseSettings):
         :type elastic_timeout: int
         :param reset_limit: maximum number of resets after which the job is terminated
         :type reset_limit: int
+        :param cooldown_range: maximum number of resets after which the job is terminated
+        :type cooldown_range: int
         """
         super(ElasticSettings, self).__init__(elastic=True, **kwargs)
         self.discovery = discovery
@@ -36,6 +38,7 @@ class ElasticSettings(BaseSettings):
         self.max_np = max_np
         self.elastic_timeout = elastic_timeout
         self.reset_limit = reset_limit
+        self.cooldown_range=cooldown_range
 
     # we do not serialize the discovery instance
     # it is not needed on the worker and might not be serializable

@@ -486,7 +486,7 @@ int64_t Controller::TensorFusionThresholdBytes() {
     // Ensuring that fusion buffer can hold a number of elements divisible by
     // FUSION_BUFFER_ATOMIC_UNIT for performance
     int double_size = GetTypeSize(HOROVOD_FLOAT64);
-    int64_t div = local_size_ * double_size * FUSION_BUFFER_ATOMIC_UNIT;
+    int64_t div = (int64_t)local_size_ * (int64_t)double_size * FUSION_BUFFER_ATOMIC_UNIT;
     return ((proposed_fusion_threshold + div - 1) / div) * div;
   }
   return proposed_fusion_threshold;

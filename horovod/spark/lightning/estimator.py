@@ -141,9 +141,10 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         run_id:     (Optional) unique ID for this run for organization in the Store. Will be
                     automatically assigned if not provided.
         sample_weight_col:  (Optional) column indicating the weight of each sample.
-        shuffle_buffer_size: Optional size of in-memory shuffle buffer in rows. Allocating a larger
-                             buffer size increases randomness of shuffling at the cost of more host memory. Defaults to estimating with an assumption of 4GB of memory per
-                             host.
+        shuffle_buffer_size: Optional size of in-memory shuffle buffer in rows (on training data).
+                             Allocating a larger buffer size increases randomness of shuffling at
+                             the cost of more host memory. Defaults to estimating with an assumption
+                             of 4GB of memory per host. Set shuffle_buffer_size=0 would turn off shuffle.
         store:      Store object that abstracts reading and writing of intermediate data and
                     run results.
         terminate_on_nan : (Optinoal) terminate the training process on seeing NaN output.
@@ -463,6 +464,10 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     def _read_checkpoint(self, run_id):
         store = self.getStore()
         checkpoints = store.get_checkpoints(run_id, suffix='.ckpt')
+        
+        if not checkpoints:
+            return None
+        
         last_ckpt_path = checkpoints[-1]
 
         if self.getVerbose():

@@ -38,6 +38,7 @@ MOCK_MODULES = [
     'psutil',
 
     'fsspec',
+    'fsspec.callbacks',
     'fsspec.core',
     'fsspec.utils',
 

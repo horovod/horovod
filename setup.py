@@ -82,7 +82,7 @@ class custom_build_ext(build_ext):
                       '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}'.format(config.upper(), build_dir),
                       '-DPYTHON_EXECUTABLE:FILEPATH=' + sys.executable]
 
-        make_args = []
+        make_args = ['-j8'] if not os.environ.get('MAKEFLAGS') else []
         if self.verbose:
             make_args.append('VERBOSE=1')
 
@@ -95,12 +95,21 @@ class custom_build_ext(build_ext):
         if not os.path.exists(cmake_build_dir):
             os.makedirs(cmake_build_dir)
 
+        config_and_build_commands = [
+            [cmake_bin, self.extensions[0].cmake_lists_dir] + cmake_args,
+            [cmake_bin, '--build', '.'] + cmake_build_args
+        ]
+
+        if self.verbose:
+            print(f"Running CMake in {cmake_build_dir}:")
+            for command in config_and_build_commands:
+	            print(" ".join(command))
+            sys.stdout.flush()
+
         # Config and build the extension
         try:
-            subprocess.check_call([cmake_bin, self.extensions[0].cmake_lists_dir] + cmake_args,
-                                  cwd=cmake_build_dir)
-            subprocess.check_call([cmake_bin, '--build', '.'] + cmake_build_args,
-                                  cwd=cmake_build_dir)
+            for command in config_and_build_commands:
+                subprocess.check_call(command, cwd=cmake_build_dir)
         except OSError as e:
             raise RuntimeError('CMake failed: {}'.format(str(e)))
 
@@ -124,8 +133,7 @@ pytorch_require_list = ['torch', 'pytorch_lightning']
 mxnet_require_list = ['mxnet>=1.4.1']
 pyspark_require_list = ['pyspark>=2.3.2;python_version<"3.8"',
                         'pyspark>=3.0.0;python_version>="3.8"']
-# Pin h5py: https://github.com/h5py/h5py/issues/1732
-spark_require_list = ['h5py<3', 'numpy', 'petastorm>=0.11.0', 'pyarrow>=0.15.0', 'fsspec']
+spark_require_list = ['numpy', 'petastorm>=0.11.0', 'pyarrow>=0.15.0', 'fsspec']
 # https://github.com/ray-project/ray/pull/17465
 ray_require_list = ['ray', 'aioredis<2']
 pytorch_spark_require_list = pytorch_require_list + \
@@ -154,8 +162,7 @@ dev_require_list = ['tensorflow-cpu==2.2.0',
 # torchvision 0.5.0 depends on torch==1.4.0
 
 # python packages required only to run tests
-# Pin h5py: https://github.com/h5py/h5py/issues/1732
-test_require_list = ['mock', 'pytest', 'pytest-forked', 'parameterized', 'h5py<3']
+test_require_list = ['mock', 'pytest', 'pytest-forked', 'parameterized']
 
 # Skip cffi if pytorch extension explicitly disabled
 if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):

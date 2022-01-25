@@ -10,13 +10,13 @@
 
 set(HOROVOD_NVTX_INCLUDE $ENV{HOROVOD_NVTX_INCLUDE} CACHE PATH "Folder containing NVIDIA NVTX3 headers")
 
-list(APPEND NVTX_ROOT ${CUDA_TOOLKIT_ROOT_DIR})
+list(APPEND NVTX_ROOT ${CUDAToolkit_LIBRARY_ROOT})
 # Compatible layer for CMake <3.12:
 list(APPEND CMAKE_PREFIX_PATH ${NVTX_ROOT})
 
 find_path(NVTX_INCLUDE_DIR
-        NAMES nvtx3/nvToolsExt.h
-        HINTS ${HOROVOD_NVTX_INCLUDE})
+          NAMES nvtx3/nvToolsExt.h
+          HINTS ${HOROVOD_NVTX_INCLUDE})
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(NVTX DEFAULT_MSG NVTX_INCLUDE_DIR)

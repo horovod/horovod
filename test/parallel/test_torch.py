@@ -43,7 +43,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 from common import mpi_env_rank_and_size, skip_or_fail_gpu_test, temppath
 
 _1_5_api = LooseVersion(torch.__version__) >= LooseVersion('1.5.0')
-_1_10_api = LooseVersion(torch.__version__) >= LooseVersion('1.10.0')
 _is_mac = platform.system() == 'Darwin'
 
 ccl_supported_types = set([torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
@@ -71,6 +70,7 @@ class TorchTests(unittest.TestCase):
     def tearDown(self):
         gloo_rank = int(os.getenv('HOROVOD_RANK', -1))
         if hvd.is_initialized() and not _is_mac and gloo_rank != -1:
+            hvd.barrier()
             hvd.shutdown()
 
     def convert_cpu_fp16_to_fp32(self, *values):
@@ -2158,14 +2158,14 @@ class TorchTests(unittest.TestCase):
 
             model_param_values = get_model_param_values(model)
             for name, model_param_value in model_param_values:
-                hvd.broadcast_(model_param_value, root_rank=0)
+                hvd.broadcast_(model_param_value, root_rank=0, name=name)
 
             opt_param_values_updated = []
             opt_param_values = get_optimizer_param_values(optimizer)
             for name, opt_param_value in opt_param_values:
                 is_tensor = torch.is_tensor(opt_param_value)
                 if is_tensor:
-                    hvd.broadcast_(opt_param_value, root_rank=0)
+                    hvd.broadcast_(opt_param_value, root_rank=0, name=f"{name}_tensor")
                 else:
                     opt_param_value = hvd.broadcast_object(opt_param_value, name=name)
                 opt_param_values_updated.append((name, opt_param_value))
@@ -2539,12 +2539,6 @@ class TorchTests(unittest.TestCase):
 
     def test_delta_optimizer(self):
         """Test that delta optimizer."""
-        if _1_10_api:
-            # On PyTorch 1.10, if this test is not skipped and when tests are run in alphabetical order, the later
-            # test_dynamic_requires_grad can run into a deadlock.
-            # TODO: Understand and fix the root cause of these deadlocks.
-            self.skipTest("Deadlocks with PyTorch 1.10")
-
         hvd.init()
         if not hvd.mpi_enabled():
             # TODO support non-MPI Adasum operation
@@ -2582,6 +2576,7 @@ class TorchTests(unittest.TestCase):
         opt.zero_grad()
         loss.backward()
         opt.step()
+        hvd.barrier()
 
     def test_duplicate_names(self):
         """Test that passing duplicate names to optimizer will fail."""

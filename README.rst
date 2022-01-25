@@ -115,7 +115,7 @@ scale.
 
 Install
 -------
-To install Horovod:
+To install Horovod on Linux or macOS:
 
 1. Install `CMake <https://cmake.org/install/>`__
 
@@ -449,6 +449,7 @@ Getting Involved
 - `Community Slack <https://forms.gle/cPGvty5hp31tGfg79>`_ for collaboration and discussion
 - `Horovod Announce <https://lists.lfai.foundation/g/horovod-announce>`_ for updates on the project
 - `Horovod Technical-Discuss <https://lists.lfai.foundation/g/horovod-technical-discuss>`_ for public discussion
+- `Horovod Security <https://lists.lfai.foundation/g/horovod-security>`_ to report security vulnerabilities
 
 
 .. inclusion-marker-end-do-not-remove

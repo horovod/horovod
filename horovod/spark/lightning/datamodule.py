@@ -63,13 +63,16 @@ class PetastormDataModule(pl.LightningDataModule):
                                                cur_shard=self.cur_shard, shard_count=self.shard_count,
                                                hdfs_driver=PETASTORM_HDFS_DRIVER,
                                                schema_fields=self.schema_fields,
-                                               storage_options=self.storage_options)
+                                               storage_options=self.storage_options,
+                                               # Don't shuffle row groups without shuffling.
+                                               shuffle_row_groups=True if self.shuffle_size > 0 else False)
             if self.has_val:
                 self.val_reader = reader_factory(self.val_dir, num_epochs=self.num_reader_epochs,
                                                  cur_shard=self.cur_shard, shard_count=self.shard_count,
                                                  hdfs_driver=PETASTORM_HDFS_DRIVER,
                                                  schema_fields=self.schema_fields,
-                                                 storage_options=self.storage_options)
+                                                 storage_options=self.storage_options,
+                                                 shuffle_row_groups=False)
 
     def teardown(self, stage=None):
         if stage == "fit" or stage is None:

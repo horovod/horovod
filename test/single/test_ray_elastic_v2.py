@@ -272,6 +272,32 @@ def test_fault_tolerance_hosts_remove_and_add(ray_8_cpus):
         assert sum(int("started" in e) for e in events) == 7, events
         assert sum(int("finished" in e) for e in events) == 4, events
 
+@pytest.mark.skipif(
+    not gloo_built(), reason='Gloo is required for Ray integration')
+@pytest.mark.skip(reason='https://github.com/horovod/horovod/issues/3197')
+def test_fault_tolerance_hosts_remove_and_add_cooldown(ray_8_cpus):
+    with fault_tolerance_patches():
+        discovery_schedule = [
+            (10, ['host-1:2', 'host-2:1', 'host-3:2']),
+            (10, ['host-1:2']),
+            (None, ['host-1:2', 'host-2:1', 'host-3:2']),
+        ]
+        nics = list(psutil.net_if_addrs().keys())[0]
+
+        settings = RayExecutor.create_settings(nics={nics})
+        settings.discovery = SimpleTestDiscovery(discovery_schedule)
+        executor = RayExecutor(settings,
+            min_workers=1, cpus_per_worker=1, override_discovery=False, cooldown_range=[1,1])
+
+        training_fn = _create_training_function(iterations=30)
+        executor.start()
+        trace = StatusCallback()
+        results = executor.run(training_fn, callbacks=[trace])
+        assert len(results) == 5
+
+        events = trace.fetch()
+        assert sum(int("started" in e) for e in events) == 5, events
+        assert sum(int("finished" in e) for e in events) == 5, events
 
 @pytest.mark.skipif(
     not gloo_built(), reason='Gloo is required for Ray integration')

@@ -73,7 +73,7 @@ class BaseElasticTests:
         super(BaseElasticTests, self).__init__(*args, **kwargs)
 
     def _run(self, discovery_schedule=None, exit_schedule=None, exit_mode='exception',
-             np=2, min_np=2, max_np=4, hosts=None, reset_limit=None):
+             np=2, min_np=2, max_np=4, hosts=None, reset_limit=None, cooldown_range=None, epoch_wait=None, epochs=None):
         if not discovery_schedule and not hosts:
             raise ValueError('at least one of discovery schedule or hosts must be given')
 
@@ -93,9 +93,16 @@ class BaseElasticTests:
                 if reset_limit is not None:
                     command_args += ['--reset-limit', str(reset_limit)]
 
+                if cooldown_range is not None:
+                    command_args += ['--blacklist-cooldown-range', str(cooldown_range[0]), str(cooldown_range[1])]
+
                 command_args += ['python', self._training_script, '--logfile', logfile]
                 if discovery_schedule:
                     command_args += ['--discovery-schedule', json.dumps(discovery_schedule)]
+                if epoch_wait:
+                    command_args += ['--epoch-wait', json.dumps(epoch_wait)]
+                if epochs:
+                    command_args += ['--epochs', json.dumps(epochs)]
                 if exit_schedule:
                     command_args += ['--exit-schedule', json.dumps(exit_schedule),
                                      '--exit-mode', exit_mode]
@@ -261,3 +268,38 @@ class BaseElasticTests:
         # Job should succeed with reset_limit=2
         results = self._run(discovery_schedule, np=2, min_np=2, max_np=4, reset_limit=2)
         self.assertEqual(len(results), 3)
+
+    @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    @mock.patch('horovod.runner.gloo_run._get_min_start_hosts', return_value=1)
+    def test_resurrecting_blacklisted_hosts_exponential_backoff(self, mock_get_min_start_hosts):
+        """Ensure that delay times are longer for multiple failures"""
+        exit_mode = 'exception'
+        num_epochs = 5
+        discovery_schedule = [
+            (None, ['localhost:2', '127.0.0.1:2']),
+        ]
+        exit_schedule = {
+            str((1, 0)): [3],
+            str((3, 0)): [3],
+        }
+
+        results = self._run(discovery_schedule=discovery_schedule,
+                            exit_schedule=exit_schedule, exit_mode=exit_mode,
+                            epoch_wait=0.25, epochs=num_epochs, cooldown_range=[1, 2])
+
+        self.assertEqual(len(results), num_epochs)
+        self.assertEqual(results[0]['start_rank'], 0)
+        self.assertEqual(results[0]['size'], 4)
+        self.assertEqual(results[0]['rendezvous'], 1)
+
+        self.assertEqual(results[1]['start_rank'], 0)
+        self.assertEqual(results[1]['size'], 2)
+        self.assertEqual(results[1]['rendezvous'], 2)
+
+        self.assertEqual(results[2]['start_rank'], 0)
+        self.assertEqual(results[2]['size'], 2)
+        self.assertEqual(results[2]['rendezvous'], 2)
+
+        self.assertEqual(results[4]['start_rank'], 0)
+        self.assertEqual(results[4]['size'], 2)
+        self.assertEqual(results[4]['rendezvous'], 2)
