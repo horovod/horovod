@@ -792,19 +792,24 @@ def main():
     with open(path.joinpath('workflows', 'ci.yaml').absolute(), 'wt') as w:
         mins = ['tfmin', 'torchmin', 'mxnetmin']
         heads = ['tfhead', 'torchhead', 'mxnethead']
+        rcs = ['tf', 'torch', 'mxnet']
+        rc_images = [image for image in images if any(re.match(f'.*{rc}[0-9]+_[0-9]+_[0-9]+rc[^-]+-.*', image) for rc in rcs)]
+        non_rc_images = [image for image in images if image not in rc_images]
         allmin_images = [image for image in images if all(min in image for min in mins)]
-        allhead_images = [image for image in images if all(head in image for head in heads)]
-        release_images = [image for image in images if image not in allhead_images + allmin_images]
+        allhead_images = [image for image in non_rc_images if all(head in image for head in heads)]
+        release_images = [image for image in non_rc_images if not any(head in image for head in heads)]
         cpu_release_images = [image for image in release_images if '-cpu-' in image]
         gpu_release_images = [image for image in release_images if '-gpu-' in image or '-mixed-' in image]
         workflow = workflow_header() + jobs(
             init_workflow_job(),
             # changing these names require changes in the workflow-conclusion step in ci-results.yaml
             build_and_test_images(id='build-and-test', name='Build and Test', needs=['init-workflow'], images=release_images, parallel_images=len(cpu_release_images), tests_per_image=tests_per_image, tests=tests),
+            build_and_test_images(id='build-and-test-rcs', name='Build and Test RCs', needs=['build-and-test'], images=rc_images, tests_per_image=tests_per_image, tests=tests),
             build_and_test_images(id='build-and-test-heads', name='Build and Test heads', needs=['build-and-test'], images=allhead_images, tests_per_image=tests_per_image, tests=tests),
             build_and_test_images(id='build-mins', name='Build mins', needs=['build-and-test'], images=allmin_images, tests_per_image=tests_per_image, tests={}),
             build_and_test_macos(id='build-and-test-macos', name='Build and Test macOS', needs=['build-and-test']),
             trigger_buildkite_job(id='buildkite', name='Build and Test GPU (on Builtkite)', needs=['build-and-test'], mode='GPU NON HEADS'),
+            trigger_buildkite_job(id='buildkite-rcs', name='Build and Test GPU RCs (on Builtkite)', needs=['build-and-test'], mode='GPU RCS'),
             trigger_buildkite_job(id='buildkite-heads', name='Build and Test GPU heads (on Builtkite)', needs=['build-and-test'], mode='GPU HEADS'),
             publish_docker_images(needs=['build-and-test', 'buildkite'], images=['horovod', 'horovod-cpu', 'horovod-ray']),
             sync_files(needs=['init-workflow'])
