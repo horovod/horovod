@@ -87,6 +87,16 @@ services:
         TORCHVISION_PACKAGE: torchvision==0.13.1+cpu
         MXNET_PACKAGE: mxnet==1.8.0.post0
   # then our baseline again, omitted ...
+  test-cpu-gloo-py3_8-tf2_11_0rc2-keras2_11_0rc3-torch1_12_1-mxnet2_0_0a0-pyspark3_3_1:
+    extends: test-cpu-base
+    build:
+      args:
+        TENSORFLOW_PACKAGE: tensorflow-cpu==2.11.0rc2
+        KERAS_PACKAGE: keras==2.11.0rc3
+        PYTORCH_PACKAGE: torch==1.12.1+cpu
+        TORCHVISION_PACKAGE: torchvision==0.13.1+cpu
+        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
+        MXNET_PACKAGE: mxnet==2.0.0a0
   test-cpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1:
     extends: test-cpu-base
     build:
@@ -221,6 +231,19 @@ services:
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision==0.14.0+cu116
         MXNET_PACKAGE: mxnet-cu112==1.9.0
+  test-gpu-gloo-py3_8-tf2_11_0rc2-keras2_11_0rc3-torch1_12_1-mxnet2_0_0a0-pyspark3_3_1:
+    extends: test-gpu-base
+    build:
+      args:
+        CUDA_DOCKER_VERSION: 11.6.1-devel-ubuntu20.04
+        CUDNN_VERSION: 8.4.1.50-1+cuda11.6
+        NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
+        TENSORFLOW_PACKAGE: tensorflow-gpu==2.11.0rc2
+        KERAS_PACKAGE: keras==2.11.0rc3
+        PYTORCH_PACKAGE: torch==1.12.1+cu116
+        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
+        TORCHVISION_PACKAGE: torchvision==0.13.1+cu116
+        MXNET_PACKAGE: mxnet-cu110==2.0.0a0
   test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1:
     extends: test-gpu-base
     build:
