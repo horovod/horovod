@@ -8,8 +8,8 @@ repository=823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
 
 # our queues
 cpu_queue="cpu-v572"
-gpux2_queue="2x-gpu-v510"
-gpux4_queue="4x-gpu-v510"
+gpux2_queue="2x-gpu-v572"
+gpux4_queue="4x-gpu-v572"
 
 # our baseline test is
 baseline="test-cpu-gloo-py3_8-tf2_7_0-keras2_7_0-torch1_10_1-mxnet1_9_0-pyspark3_2_0"
