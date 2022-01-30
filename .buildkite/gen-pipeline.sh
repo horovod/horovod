@@ -7,7 +7,7 @@ set -eu
 repository=823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
 
 # our queues
-cpu_queue="cpu"
+cpu_queue="cpu-v572"
 gpux2_queue="2x-gpu-v510"
 gpux4_queue="4x-gpu-v510"
 

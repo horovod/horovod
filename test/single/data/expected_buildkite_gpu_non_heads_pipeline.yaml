@@ -13,7 +13,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: cpu
+    queue: cpu-v572
 - label: ':docker: Build test-gpu-gloo-py3_8-tf2_5_2-keras2_5_0rc0-torch1_8_1-mxnet1_7_0_p1-pyspark3_2_0'
   plugins:
   - docker-compose#v3.5.0:
@@ -28,7 +28,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: cpu
+    queue: cpu-v572
 - label: ':docker: Build test-gpu-gloo-py3_8-tf2_6_2-keras2_6_0-torch1_9_1-mxnet1_8_0_p0-pyspark3_2_0'
   plugins:
   - docker-compose#v3.5.0:
@@ -43,7 +43,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: cpu
+    queue: cpu-v572
 - label: ':docker: Build test-gpu-openmpi-gloo-py3_8-tf2_7_0-keras2_7_0-torch1_10_1-mxnet1_9_0-pyspark3_2_0'
   plugins:
   - docker-compose#v3.5.0:
@@ -58,7 +58,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: cpu
+    queue: cpu-v572
 - label: ':docker: Build test-mixed-openmpi-gloo-py3_8-tf2_7_0-keras2_7_0-torch1_10_1-mxnet1_9_0-pyspark3_2_0'
   plugins:
   - docker-compose#v3.5.0:
@@ -73,7 +73,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: cpu
+    queue: cpu-v572
 - wait
 - wait
 - label: ':pytest: Gloo Parallel PyTests (test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_7_1-mxnet1_5_1_p0-pyspark3_2_0)'

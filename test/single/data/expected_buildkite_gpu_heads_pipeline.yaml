@@ -13,7 +13,7 @@ steps:
   retry:
     automatic: true
   agents:
-    queue: cpu
+    queue: cpu-v572
 - wait
 - wait
 - label: ':pytest: Gloo Parallel PyTests (test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_0)'
