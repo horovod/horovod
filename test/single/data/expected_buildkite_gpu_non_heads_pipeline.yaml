@@ -1,6 +1,9 @@
 steps:
 - label: ':docker: Build test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_7_1-mxnet1_5_1_p0-pyspark3_2_0'
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -9,10 +12,6 @@ steps:
       cache-from: test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_7_1-mxnet1_5_1_p0-pyspark3_2_0:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_7_1-mxnet1_5_1_p0-pyspark3_2_0-latest
       config: docker-compose.test.yml
       push-retries: 5
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 40
@@ -22,6 +21,9 @@ steps:
     queue: cpu-v572
 - label: ':docker: Build test-gpu-gloo-py3_8-tf2_5_2-keras2_5_0rc0-torch1_8_1-mxnet1_7_0_p1-pyspark3_2_0'
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -30,10 +32,6 @@ steps:
       cache-from: test-gpu-gloo-py3_8-tf2_5_2-keras2_5_0rc0-torch1_8_1-mxnet1_7_0_p1-pyspark3_2_0:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-gpu-gloo-py3_8-tf2_5_2-keras2_5_0rc0-torch1_8_1-mxnet1_7_0_p1-pyspark3_2_0-latest
       config: docker-compose.test.yml
       push-retries: 5
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 40
@@ -43,6 +41,9 @@ steps:
     queue: cpu-v572
 - label: ':docker: Build test-gpu-gloo-py3_8-tf2_6_2-keras2_6_0-torch1_9_1-mxnet1_8_0_p0-pyspark3_2_0'
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -51,10 +52,6 @@ steps:
       cache-from: test-gpu-gloo-py3_8-tf2_6_2-keras2_6_0-torch1_9_1-mxnet1_8_0_p0-pyspark3_2_0:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-gpu-gloo-py3_8-tf2_6_2-keras2_6_0-torch1_9_1-mxnet1_8_0_p0-pyspark3_2_0-latest
       config: docker-compose.test.yml
       push-retries: 5
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 40
@@ -64,6 +61,9 @@ steps:
     queue: cpu-v572
 - label: ':docker: Build test-gpu-openmpi-gloo-py3_8-tf2_7_0-keras2_7_0-torch1_10_1-mxnet1_9_0-pyspark3_2_0'
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -72,10 +72,6 @@ steps:
       cache-from: test-gpu-openmpi-gloo-py3_8-tf2_7_0-keras2_7_0-torch1_10_1-mxnet1_9_0-pyspark3_2_0:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-gpu-openmpi-gloo-py3_8-tf2_7_0-keras2_7_0-torch1_10_1-mxnet1_9_0-pyspark3_2_0-latest
       config: docker-compose.test.yml
       push-retries: 5
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 40
@@ -85,6 +81,9 @@ steps:
     queue: cpu-v572
 - label: ':docker: Build test-mixed-openmpi-gloo-py3_8-tf2_7_0-keras2_7_0-torch1_10_1-mxnet1_9_0-pyspark3_2_0'
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -93,10 +92,6 @@ steps:
       cache-from: test-mixed-openmpi-gloo-py3_8-tf2_7_0-keras2_7_0-torch1_10_1-mxnet1_9_0-pyspark3_2_0:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-mixed-openmpi-gloo-py3_8-tf2_7_0-keras2_7_0-torch1_10_1-mxnet1_9_0-pyspark3_2_0-latest
       config: docker-compose.test.yml
       push-retries: 5
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 40
@@ -110,6 +105,9 @@ steps:
   command: bash -c "HOROVOD_TEST_GPU=1 cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -117,10 +115,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -132,6 +126,9 @@ steps:
   command: bash -c "HOROVOD_TEST_GPU=1 cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh gloo)"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -139,10 +136,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 15
@@ -154,6 +147,9 @@ steps:
   command: bash -c "HOROVOD_TEST_GPU=1 /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -161,10 +157,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -176,6 +168,9 @@ steps:
   command: bash -c "HOROVOD_TEST_GPU=1 cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -183,10 +178,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -198,6 +189,9 @@ steps:
   command: bash -c "HOROVOD_TEST_GPU=1 cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh gloo)"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -205,10 +199,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 15
@@ -220,6 +210,9 @@ steps:
   command: bash -c "HOROVOD_TEST_GPU=1 /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -227,10 +220,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -242,6 +231,9 @@ steps:
   command: bash -c "HOROVOD_TEST_GPU=1 cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -249,10 +241,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -264,6 +252,9 @@ steps:
   command: bash -c "HOROVOD_TEST_GPU=1 cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh gloo)"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -271,10 +262,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 15
@@ -286,6 +273,9 @@ steps:
   command: bash -c "HOROVOD_TEST_GPU=1 /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -293,10 +283,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -308,6 +294,9 @@ steps:
   command: bash -c "HOROVOD_TEST_GPU=1 cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -315,10 +304,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -330,6 +315,9 @@ steps:
   command: bash -c "HOROVOD_TEST_GPU=1 cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh gloo)"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -337,10 +325,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 15
@@ -352,6 +336,9 @@ steps:
   command: bash -c "HOROVOD_TEST_GPU=1 /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -359,10 +346,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -374,6 +357,9 @@ steps:
   command: bash -c " HOROVOD_TEST_GPU=1 cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -381,10 +367,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -396,6 +378,9 @@ steps:
   command: bash -c " HOROVOD_TEST_GPU=1 cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh mpi)"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -403,10 +388,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -418,6 +399,9 @@ steps:
   command: bash -c " HOROVOD_TEST_GPU=1 /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -425,10 +409,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -440,6 +420,9 @@ steps:
   command: bash -c "HOROVOD_TEST_GPU=1 cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -447,10 +430,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -462,6 +441,9 @@ steps:
   command: bash -c "HOROVOD_TEST_GPU=1 cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh gloo)"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -469,10 +451,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 15
@@ -484,6 +462,9 @@ steps:
   command: bash -c "HOROVOD_TEST_GPU=1 /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -491,10 +472,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -506,6 +483,9 @@ steps:
   command: bash -c " HOROVOD_TEST_GPU=1 cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -513,10 +493,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -528,6 +504,9 @@ steps:
   command: bash -c " HOROVOD_TEST_GPU=1 cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh mpi)"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -535,10 +514,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -550,6 +525,9 @@ steps:
   command: bash -c " HOROVOD_TEST_GPU=1 /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -557,10 +535,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -573,6 +547,9 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow/tensorflow_mnist.py
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -580,10 +557,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -595,6 +568,9 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/keras/keras_mnist_advanced.py
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -602,10 +578,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -617,6 +589,9 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -624,10 +599,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -639,6 +610,9 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet_mnist.py
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -646,10 +620,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -661,6 +631,9 @@ steps:
   command: bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow.py test_elastic_tensorflow_keras.py"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -668,10 +641,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -683,6 +652,9 @@ steps:
   command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.1"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -690,10 +662,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -705,6 +673,9 @@ steps:
   command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.1"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -712,10 +683,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -727,6 +694,9 @@ steps:
   command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -734,10 +704,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -749,6 +715,9 @@ steps:
   command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -756,10 +725,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -771,6 +736,9 @@ steps:
   command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -778,10 +746,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -793,6 +757,9 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -800,10 +767,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -815,6 +778,9 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -822,10 +788,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -837,6 +799,9 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -844,10 +809,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -859,6 +820,9 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet_mnist.py
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -866,10 +830,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -881,6 +841,9 @@ steps:
   command: bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow2.py"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -888,10 +851,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -903,6 +862,9 @@ steps:
   command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -910,10 +872,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -925,6 +883,9 @@ steps:
   command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -932,10 +893,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -947,6 +904,9 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -954,10 +914,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -969,6 +925,9 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -976,10 +935,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -991,6 +946,9 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -998,10 +956,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1013,6 +967,9 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet_mnist.py
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1020,10 +977,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1035,6 +988,9 @@ steps:
   command: bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow2.py"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1042,10 +998,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1057,6 +1009,9 @@ steps:
   command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1064,10 +1019,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1079,6 +1030,9 @@ steps:
   command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1086,10 +1040,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1101,6 +1051,9 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1108,10 +1061,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1123,6 +1072,9 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1130,10 +1082,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1145,6 +1093,9 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1152,10 +1103,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1167,6 +1114,9 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet_mnist.py
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1174,10 +1124,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1189,6 +1135,9 @@ steps:
   command: bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow2.py"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1196,10 +1145,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1211,6 +1156,9 @@ steps:
   command: bash -c "cd /horovod/test && pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.integration.xml integration/test_interactiverun.py"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1218,10 +1166,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1233,6 +1177,9 @@ steps:
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1240,10 +1187,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1255,6 +1198,9 @@ steps:
   command: bash -c " OMP_NUM_THREADS=1 \$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet_mnist.py"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1262,10 +1208,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1277,6 +1219,9 @@ steps:
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1284,10 +1229,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1299,6 +1240,9 @@ steps:
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1306,10 +1250,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1321,6 +1261,9 @@ steps:
   command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1328,10 +1271,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1343,6 +1282,9 @@ steps:
   command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1350,10 +1292,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1365,6 +1303,9 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1372,10 +1313,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1387,6 +1324,9 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1394,10 +1334,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1409,6 +1345,9 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1416,10 +1355,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1431,6 +1366,9 @@ steps:
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet_mnist.py
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1438,10 +1376,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1453,6 +1387,9 @@ steps:
   command: bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow2.py"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1460,10 +1397,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1475,6 +1408,9 @@ steps:
   command: bash -c "cd /horovod/test && pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.integration.xml integration/test_interactiverun.py"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1482,10 +1418,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1497,6 +1429,9 @@ steps:
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1504,10 +1439,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1519,6 +1450,9 @@ steps:
   command: bash -c " OMP_NUM_THREADS=1 \$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet_mnist.py"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1526,10 +1460,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1541,6 +1471,9 @@ steps:
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1548,10 +1481,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1563,6 +1492,9 @@ steps:
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1570,10 +1502,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1585,6 +1513,9 @@ steps:
   command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1592,10 +1523,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
@@ -1607,6 +1534,9 @@ steps:
   command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   env:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    BUILDKIT_PROGRESS: plain
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.5.0:
@@ -1614,10 +1544,6 @@ steps:
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-      env:
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-        BUILDKIT_PROGRESS: plain
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 10
