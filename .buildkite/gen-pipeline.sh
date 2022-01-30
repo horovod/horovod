@@ -84,6 +84,8 @@ build_test() {
   echo "      cache-from: ${test}:${repository}:${BUILDKITE_PIPELINE_SLUG}-${test}-latest"
   echo "      config: docker-compose.test.yml"
   echo "      push-retries: 5"
+  echo "      args:"
+  echo "      - BUILDKIT_INLINE_CACHE=1"
   echo "  - ecr#v1.2.0:"
   echo "      login: true"
   echo "  timeout_in_minutes: 40"

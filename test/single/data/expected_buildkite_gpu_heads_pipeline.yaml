@@ -12,6 +12,8 @@ steps:
       cache-from: test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_0:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_0-latest
       config: docker-compose.test.yml
       push-retries: 5
+      args:
+      - BUILDKIT_INLINE_CACHE=1
   - ecr#v1.2.0:
       login: true
   timeout_in_minutes: 40
