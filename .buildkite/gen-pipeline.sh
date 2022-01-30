@@ -6,6 +6,11 @@ set -eu
 # our repository in AWS
 repository=823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
 
+# our queues
+cpu_queue="cpu"
+gpux2_queue="2x-gpu-v510"
+gpux4_queue="4x-gpu-v510"
+
 # our baseline test is
 baseline="test-cpu-gloo-py3_8-tf2_7_0-keras2_7_0-torch1_10_1-mxnet1_9_0-pyspark3_2_0"
 # in run_gloo_integration we run 'Elastic Spark * Tests' for this baseline
@@ -80,7 +85,7 @@ build_test() {
   echo "  retry:"
   echo "    automatic: true"
   echo "  agents:"
-  echo "    queue: cpu"
+  echo "    queue: ${cpu_queue}"
 }
 
 run_test() {
@@ -407,33 +412,33 @@ for test in ${tests[@]-}; do
   if [[ ${test} == *-cpu-* ]]; then
     # if gloo is specified, run gloo cpu unit tests and integration tests
     if [[ ${test} == *-gloo* ]]; then
-      run_gloo ${test} "cpu"
+      run_gloo ${test} ${cpu_queue}
     fi
 
     # if oneCCL is specified, run some tests twice,
     # once with mpirun_command_ofi, and once with mpirun_command_mpi
     if [[ ${test} == *oneccl* ]]; then
       # run mpi cpu unit tests and integration tests
-      run_mpi ${test} "cpu" ${oneccl_cmd_mpi}
-      run_mpi ${test} "cpu" ${oneccl_cmd_ofi}
+      run_mpi ${test} ${cpu_queue} ${oneccl_cmd_mpi}
+      run_mpi ${test} ${cpu_queue} ${oneccl_cmd_ofi}
 
       # always run spark tests which use MPI and Gloo
-      run_spark_integration ${test} "cpu"
+      run_spark_integration ${test} ${cpu_queue}
 
       # no runner application, world size = 1
-      run_single_integration ${test} "cpu" ${oneccl_cmd_mpi}
-      run_single_integration ${test} "cpu" ${oneccl_cmd_ofi}
+      run_single_integration ${test} ${cpu_queue} ${oneccl_cmd_mpi}
+      run_single_integration ${test} ${cpu_queue} ${oneccl_cmd_ofi}
     else
       # run mpi cpu unit tests and integration tests
       if [[ ${test} == *mpi* ]]; then
-        run_mpi ${test} "cpu"
+        run_mpi ${test} ${cpu_queue}
       fi
 
       # always run spark tests which use MPI and Gloo
-      run_spark_integration ${test} "cpu"
+      run_spark_integration ${test} ${cpu_queue}
 
       # no runner application, world size = 1
-      run_single_integration ${test} "cpu"
+      run_single_integration ${test} ${cpu_queue}
     fi
   fi
 done
@@ -446,12 +451,12 @@ for test in ${tests[@]-}; do
   if [[ ${test} == *-gpu-* ]] || [[ ${test} == *-mixed-* ]]; then
     # if gloo is specified, run gloo gpu unit tests
     if [[ ${test} == *-gloo* ]]; then
-      run_gloo_pytest ${test} "4x-gpu-v510"
+      run_gloo_pytest ${test} ${gpux4_queue}
     fi
 
     # if mpi is specified, run mpi gpu unit tests
     if [[ ${test} == *mpi* ]]; then
-      run_mpi_pytest ${test} "4x-gpu-v510"
+      run_mpi_pytest ${test} ${gpux4_queue}
     fi
   fi
 done
@@ -464,14 +469,14 @@ for test in ${tests[@]-}; do
   if [[ ${test} == *-gpu-* ]] || [[ ${test} == *-mixed-* ]]; then
     # if gloo is specified, run gloo gpu integration tests
     if [[ ${test} == *-gloo* ]]; then
-      run_gloo_integration ${test} "2x-gpu-v510"
+      run_gloo_integration ${test} ${gpux2_queue}
     fi
 
     # if mpi is specified, run mpi gpu integration tests
     if [[ ${test} == *mpi* ]]; then
-      run_mpi_integration ${test} "2x-gpu-v510"
+      run_mpi_integration ${test} ${gpux2_queue}
     fi
 
-    run_spark_integration ${test} "2x-gpu-v510"
+    run_spark_integration ${test} ${gpux2_queue}
   fi
 done
