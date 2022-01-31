@@ -597,7 +597,7 @@ def main():
     def publish_docker_images(needs: List[str], images: List[str]) -> str:
         if 'init-workflow' not in needs:
             needs.insert(0, 'init-workflow')
-        if needs != ['init-workflow', 'build-and-test', 'buildkite']:
+        if needs != ['init-workflow']:
             raise RuntimeError('This job has hard-coded needs, which you may want to adjust')
         return (f'  docker-config:\n'
                 f'    name: Configure docker build\n'
@@ -606,11 +606,7 @@ def main():
                 f'    # buildkite might have been skipped (workflow runs for a fork PR),\n'
                 f'    # we still want to build docker images (though we might not want to push them)\n'
                 f'    if: >\n'
-                f'      always() &&\n'
-                f"      needs.init-workflow.outputs.run-at-all == 'true' &&\n"
-                f"      needs.init-workflow.outputs.run-builds-and-tests == 'true' &&\n"
-                f"      needs.build-and-test.result == 'success' &&\n"
-                f"      ( needs.buildkite.result == 'success' || needs.buildkite.result == 'skipped' )\n"
+                f'      always()\n'
                 f'    runs-on: ubuntu-latest\n'
                 f'    outputs:\n'
                 f'      run: ${{{{ steps.config.outputs.run }}}}\n'
@@ -827,7 +823,7 @@ def main():
             build_and_test_macos(id='build-and-test-macos', name='Build and Test macOS', needs=['build-and-test']),
             trigger_buildkite_job(id='buildkite', name='Build and Test GPU (on Builtkite)', needs=['build-and-test'], mode='GPU NON HEADS'),
             trigger_buildkite_job(id='buildkite-heads', name='Build and Test GPU heads (on Builtkite)', needs=['build-and-test'], mode='GPU HEADS'),
-            publish_docker_images(needs=['build-and-test', 'buildkite'], images=['horovod', 'horovod-cpu', 'horovod-ray']),
+            publish_docker_images(needs=['init-workflow'], images=['horovod', 'horovod-cpu', 'horovod-ray']),
             sync_files(needs=['init-workflow'])
         )
         print(workflow, file=w, end='')
