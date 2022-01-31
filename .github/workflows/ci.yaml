@@ -3688,13 +3688,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
 
-      - name: Login to DockerHub
-        if: needs.docker-config.outputs.push == 'true'
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Clean up disk space
         # deleting these paths frees 38 GB disk space:
         #   sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
@@ -3728,19 +3721,25 @@ jobs:
           file: ./docker/${{ matrix.docker-image }}/Dockerfile
           load: true
           push: false
-          tags: ${{ matrix.docker-image }}
-
+          tags: horovod/${{ matrix.docker-image }}:latest
       - name: Scan for vulnerabilities
         id: scan
         uses: crazy-max/ghaction-container-scan@v1
         with:
-          image: ${{ matrix.docker-image }}
+          image: horovod/${{ matrix.docker-image }}:latest
           dockerfile: ./docker/${{ matrix.docker-image }}/Dockerfile
       - name: Upload SARIF file
         if: steps.scan.outputs.sarif != ''
         uses: github/codeql-action/upload-sarif@v1
         with:
           sarif_file: ${ steps.scan.outputs.sarif }
+
+      - name: Login to DockerHub
+        if: needs.docker-config.outputs.push == 'true'
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push
         uses: docker/build-push-action@v2
