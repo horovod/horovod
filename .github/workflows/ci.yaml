@@ -3721,6 +3721,27 @@ jobs:
           df -h
           echo ::endgroup::
 
+      - name: Build and load
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./docker/${{ matrix.docker-image }}/Dockerfile
+          load: true
+          push: false
+          tags: ${{ matrix.docker-image }}
+
+      - name: Scan for vulnerabilities
+        id: scan
+        uses: crazy-max/ghaction-container-scan@v1
+        with:
+          image: ${{ matrix.docker-image }}
+          dockerfile: ./docker/${{ matrix.docker-image }}/Dockerfile
+      - name: Upload SARIF file
+        if: steps.scan.outputs.sarif != ''
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: ${ steps.scan.outputs.sarif }
+
       - name: Build and push
         uses: docker/build-push-action@v2
         timeout-minutes: 60
