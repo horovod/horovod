@@ -54,7 +54,10 @@ RUN apt-get update -qq && apt-get install -y python${PYTHON_VERSION} python${PYT
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python${PYTHON_VERSION/%.*/}
 RUN wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
-RUN pip install --no-cache-dir -U --force pip "setuptools<60.1.0" requests pytest mock pytest-forked parameterized
+
+# pinning pip to 21.0.0 as 22.0.0 cannot fetch pytorch packages from html linl
+# https://github.com/pytorch/pytorch/issues/72045
+RUN pip install --no-cache-dir -U --force pip~=21.0.0 "setuptools<60.1.0" requests pytest mock pytest-forked parameterized
 
 # Install recent CMake.
 RUN pip install --no-cache-dir -U cmake~=3.13.0
