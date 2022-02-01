@@ -14,7 +14,7 @@ ARG SPARK_PACKAGE=spark-3.1.1/spark-3.1.1-bin-hadoop2.7.tgz
 ARG PYTHON_VERSION=3.7
 
 # Set default shell to /bin/bash
-SHELL ["/bin/bash", "-cu"]
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
         build-essential \

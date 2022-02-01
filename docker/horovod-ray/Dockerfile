@@ -11,7 +11,7 @@ ARG PYTORCH_LIGHTNING_VERSION=1.2.9
 ARG TORCHVISION_VERSION=0.9.1+cu111
 
 # Set default shell to /bin/bash
-SHELL ["/bin/bash", "-cu"]
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 RUN sudo apt-get update && DEBIAN_FRONTEND="noninteractive" sudo apt-get install -y \
         build-essential \
