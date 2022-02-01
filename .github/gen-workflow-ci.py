@@ -123,6 +123,7 @@ def main():
                 f'  pull_request:\n'
                 f'    # only consider pull requests into master\n'
                 f'    branches: [ master ]\n'
+                f'  workflow_dispatch:\n'
                 f'\n'
                 f'concurrency:\n'
                 f'  # This controls which concurrent builds to cancel:\n'
