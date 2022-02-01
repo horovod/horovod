@@ -3737,7 +3737,7 @@ jobs:
         id: scan
         uses: crazy-max/ghaction-container-scan@v1
         with:
-          image: horovod/${{ matrix.docker-image }}:latest
+          image: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
           dockerfile: ./docker/${{ matrix.docker-image }}/Dockerfile
         env:
           TRIVY_TIMEOUT: 15m

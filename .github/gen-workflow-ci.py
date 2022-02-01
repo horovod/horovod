@@ -735,7 +735,7 @@ def main():
                 f'        id: scan\n'
                 f'        uses: crazy-max/ghaction-container-scan@v1\n'
                 f'        with:\n'
-                f'          image: horovod/${{{{ matrix.docker-image }}}}:latest\n'
+                f'          image: ${{{{ fromJSON(steps.meta.outputs.json).tags[0] }}}}\n'
                 f'          dockerfile: ./docker/${{{{ matrix.docker-image }}}}/Dockerfile\n'
                 f'        env:\n'
                 f'          TRIVY_TIMEOUT: 15m\n'
