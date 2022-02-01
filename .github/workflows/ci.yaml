@@ -3692,10 +3692,18 @@ jobs:
         run: |
           echo ::group::Disk space before clean up
           df -h
+
           echo ::endgroup::
-          for dir in /usr/share/dotnet \
+          for dir in /home/runner/runners/*.tgz \
+                     /usr/lib/google-cloud-sdk \
+                     /usr/lib/mono \
                      /usr/local/lib/android \
-                     /opt/ghc
+                     /usr/local/share/chromium \
+                     /usr/share/dotnet \
+                     /opt/ghc \
+                     /opt/google/chrome \
+                     /opt/hostedtoolcache/go \
+                     /opt/hostedtoolcache/CodeQL
           do
             echo ::group::Deleting "$dir"
             sudo du -hsc $dir | tail -n1 || true
