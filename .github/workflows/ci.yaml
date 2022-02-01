@@ -3719,6 +3719,20 @@ jobs:
           push: false
           tags: horovod/${{ matrix.docker-image }}:latest
 
+      - name: Docker prune
+        run: |
+          echo ::group::Disk space before
+          df -h
+          echo ::endgroup::
+
+          echo ::group::Docker prune
+          docker system prune --force
+          echo ::endgroup::
+
+          echo ::group::Disk space after
+          df -h
+          echo ::endgroup::
+
       - name: Scan for vulnerabilities
         id: scan
         uses: crazy-max/ghaction-container-scan@v1
