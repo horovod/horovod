@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: Dockerfile.test.cpu
       args:
-        UBUNTU_VERSION: 18.04
+        UBUNTU_VERSION: 20.04
         GPP_VERSION: 7
         MPI_KIND: None
         PYTHON_VERSION: 3.8
@@ -136,7 +136,7 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 10.0-devel-ubuntu18.04
+        CUDA_DOCKER_VERSION: 10.0-devel-ubuntu20.04
         CUDNN_VERSION: 7.6.5.32-1+cuda10.1
         NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda10.1
         PYTHON_VERSION: 3.7
@@ -151,7 +151,7 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 10.1-devel-ubuntu18.04
+        CUDA_DOCKER_VERSION: 10.1-devel-ubuntu20.04
         CUDNN_VERSION: 7.6.5.32-1+cuda10.1
         NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda10.1
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.5.2
@@ -164,7 +164,7 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.2.2-devel-ubuntu18.04
+        CUDA_DOCKER_VERSION: 11.2.2-devel-ubuntu20.04
         CUDNN_VERSION: 8.1.1.33-1+cuda11.2
         NCCL_VERSION_OVERRIDE: 2.8.4-1+cuda11.2
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.6.2
@@ -177,7 +177,7 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.2.2-devel-ubuntu18.04
+        CUDA_DOCKER_VERSION: 11.2.2-devel-ubuntu20.04
         CUDNN_VERSION: 8.1.1.33-1+cuda11.2
         NCCL_VERSION_OVERRIDE: 2.8.4-1+cuda11.2
         MPI_KIND: OpenMPI
@@ -191,7 +191,7 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.2.2-devel-ubuntu18.04
+        CUDA_DOCKER_VERSION: 11.2.2-devel-ubuntu20.04
         CUDNN_VERSION: 8.1.1.33-1+cuda11.2
         NCCL_VERSION_OVERRIDE: 2.8.4-1+cuda11.2
         TENSORFLOW_PACKAGE: tf-nightly-gpu
@@ -205,7 +205,7 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.2.2-devel-ubuntu18.04
+        CUDA_DOCKER_VERSION: 11.2.2-devel-ubuntu20.04
         CUDNN_VERSION: 8.1.1.33-1+cuda11.2
         NCCL_VERSION_OVERRIDE: 2.8.4-1+cuda11.2
         MPI_KIND: OpenMPI
