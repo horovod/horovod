@@ -720,6 +720,8 @@ def main():
                 f'        with:\n'
                 f'          image: horovod/${{{{ matrix.docker-image }}}}:latest\n'
                 f'          dockerfile: ./docker/${{{{ matrix.docker-image }}}}/Dockerfile\n'
+                f'        env:\n'
+                f'          TRIVY_TIMEOUT: 30m\n'
                 f'      - name: Upload SARIF file\n'
                 f"        if: steps.scan.outputs.sarif != ''\n"
                 f'        uses: github/codeql-action/upload-sarif@v1\n'
