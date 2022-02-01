@@ -24,6 +24,8 @@ services:
   # our baseline first
   test-cpu-gloo-py3_8-tf2_7_0-keras2_7_0-torch1_10_1-mxnet1_9_0-pyspark3_2_0:
     extends: test-cpu-base
+
+  # permute MPI kinds
   test-cpu-mpich-py3_8-tf2_7_0-keras2_7_0-torch1_10_1-mxnet1_9_0-pyspark3_2_0:
     extends: test-cpu-base
     build:
@@ -55,6 +57,9 @@ services:
     extends: test-cpu-base
     build:
       args:
+        # Tensorflow 1.15.5 is only available for Python 3.7
+        # Python 3.7 is only available on Ubuntu 18.04
+        UBUNTU_VERSION: 18.04
         PYTHON_VERSION: 3.7
         # there is no tensorflow-cpu>1.15.0, so we use tensorflow==1.15.5
         TENSORFLOW_PACKAGE: tensorflow==1.15.5
@@ -97,6 +102,9 @@ services:
     extends: test-cpu-base
     build:
       args:
+        # Tensorflow 1.15.5 is only available for Python 3.7
+        # Python 3.7 is only available on Ubuntu 18.04
+        UBUNTU_VERSION: 18.04
         PYTHON_VERSION: 3.7
         PYSPARK_PACKAGE: pyspark==2.4.8
         SPARK_PACKAGE: spark-2.4.8/spark-2.4.8-bin-hadoop2.7.tgz
@@ -136,7 +144,9 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 10.0-devel-ubuntu20.04
+        # Tensorflow 1.15.5 is only available for Python 3.7
+        # Python 3.7 is only available on Ubuntu 18.04
+        CUDA_DOCKER_VERSION: 10.0-devel-ubuntu18.04
         CUDNN_VERSION: 7.6.5.32-1+cuda10.1
         NCCL_VERSION_OVERRIDE: 2.7.8-1+cuda10.1
         PYTHON_VERSION: 3.7
