@@ -22,7 +22,9 @@ ARG PYTHON_VERSION=3.7
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-cu"]
 
-RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
+RUN apt-get update; \
+    apt-get upgrade; \
+    apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
         build-essential \
         g++-7 \
         git \
@@ -45,7 +47,9 @@ RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-
         openjdk-8-jdk-headless \
         openssh-client \
         openssh-server \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+        ; \
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/*
 
 # Install Open MPI
 RUN wget --progress=dot:mega -O /tmp/openmpi-3.0.0-bin.tar.gz https://github.com/horovod/horovod/files/1596799/openmpi-3.0.0-bin.tar.gz && \

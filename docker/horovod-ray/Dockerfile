@@ -13,7 +13,9 @@ ARG TORCHVISION_VERSION=0.9.1+cu111
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-cu"]
 
-RUN sudo apt-get update && DEBIAN_FRONTEND="noninteractive" sudo apt-get install -y \
+RUN sudo apt-get update; \
+    sudo apt-get upgrade; \
+    DEBIAN_FRONTEND="noninteractive" sudo apt-get install -y \
         build-essential \
         wget \
         git \
@@ -21,7 +23,9 @@ RUN sudo apt-get update && DEBIAN_FRONTEND="noninteractive" sudo apt-get install
         curl \
         rsync \
         vim \
-    && sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/*
+        ; \
+    sudo apt-get clean; \
+    sudo rm -rf /var/lib/apt/lists/*
 
 # Install recent CMake.
 RUN pip install --no-cache-dir -U cmake~=3.13.0
