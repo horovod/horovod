@@ -3735,10 +3735,12 @@ jobs:
 
       - name: Scan for vulnerabilities
         id: scan
-        uses: enricomi/ghaction-container-scan@master
+        uses: crazy-max/ghaction-container-scan@v1
         with:
           image: horovod/${{ matrix.docker-image }}:latest
           dockerfile: ./docker/${{ matrix.docker-image }}/Dockerfile
+        env:
+          TRIVY_TIMEOUT: 15m
       - name: Upload SARIF file
         if: steps.scan.outputs.sarif != ''
         uses: github/codeql-action/upload-sarif@v1

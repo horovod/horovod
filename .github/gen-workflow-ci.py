@@ -733,10 +733,12 @@ def main():
                 f'\n'
                 f'      - name: Scan for vulnerabilities\n'
                 f'        id: scan\n'
-                f'        uses: enricomi/ghaction-container-scan@master\n'
+                f'        uses: crazy-max/ghaction-container-scan@v1\n'
                 f'        with:\n'
                 f'          image: horovod/${{{{ matrix.docker-image }}}}:latest\n'
                 f'          dockerfile: ./docker/${{{{ matrix.docker-image }}}}/Dockerfile\n'
+                f'        env:\n'
+                f'          TRIVY_TIMEOUT: 15m\n'
                 f'      - name: Upload SARIF file\n'
                 f"        if: steps.scan.outputs.sarif != ''\n"
                 f'        uses: github/codeql-action/upload-sarif@v1\n'
