@@ -666,7 +666,7 @@ def main():
                 f'\n'
                 f'      - name: Docker meta\n'
                 f'        id: meta\n'
-                f'        uses: crazy-max/ghaction-docker-meta@v2\n'
+                f'        uses: docker/metadata-action@v3\n'
                 f'        with:\n'
                 f'          # list of Docker images to use as base name for tags\n'
                 f'          images: |\n'
