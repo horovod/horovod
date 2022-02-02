@@ -121,6 +121,7 @@ def main():
                 f'    tags: [ \'v*.*.*\' ]\n'
                 f'  pull_request:\n'
                 f'    branches: [ master ]\n'
+                f'  workflow_dispatch:\n'
                 f'\n'
                 f'concurrency:\n'
                 f'  # github.ref means something like refs/heads/master or refs/tags/v0.22.1 or the branch.\n'

@@ -12,6 +12,7 @@ on:
     tags: [ 'v*.*.*' ]
   pull_request:
     branches: [ master ]
+  workflow_dispatch:
 
 concurrency:
   # github.ref means something like refs/heads/master or refs/tags/v0.22.1 or the branch.
