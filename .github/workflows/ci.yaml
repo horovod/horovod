@@ -14,6 +14,7 @@ on:
   pull_request:
     # only consider pull requests into master
     branches: [ master ]
+  workflow_dispatch:
 
 concurrency:
   # This controls which concurrent builds to cancel:
