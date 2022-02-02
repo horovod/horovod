@@ -22,6 +22,9 @@ ARG SPARK_PACKAGE=spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
 ARG CCL_PACKAGE=master
 ARG HOROVOD_BUILD_FLAGS=""
 
+# to avoid interaction with apt-get
+ENV DEBIAN_FRONTEND=noninteractive
+
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
