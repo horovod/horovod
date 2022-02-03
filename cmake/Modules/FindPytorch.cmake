@@ -15,7 +15,7 @@
 list(APPEND CMAKE_PREFIX_PATH ${Pytorch_ROOT})
 
 execute_process(COMMAND ${PY_EXE} -c "import torch; print(torch.__version__)"
-                OUTPUT_VARIABLE Pytorch_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+                OUTPUT_VARIABLE Pytorch_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(Pytorch REQUIRED_VARS Pytorch_VERSION VERSION_VAR Pytorch_VERSION)
 if(NOT PYTORCH_FOUND)
@@ -23,12 +23,12 @@ if(NOT PYTORCH_FOUND)
 endif()
 
 execute_process(COMMAND ${PY_EXE} -c "import torch; from torch.utils.cpp_extension import CUDA_HOME; print(True if ((torch.version.cuda is not None) and (CUDA_HOME is not None)) else False)"
-                OUTPUT_VARIABLE Pytorch_CUDA OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+                OUTPUT_VARIABLE Pytorch_CUDA OUTPUT_STRIP_TRAILING_WHITESPACE)
 string(REGEX REPLACE "No CUDA runtime[^\n]*\n?" "" Pytorch_CUDA "${Pytorch_CUDA}")
 string(TOUPPER "${Pytorch_CUDA}" Pytorch_CUDA)
 
 execute_process(COMMAND ${PY_EXE} -c "import torch; from torch.utils.cpp_extension import ROCM_HOME; print(True if ((torch.version.hip is not None) and (ROCM_HOME is not None)) else False)"
-                OUTPUT_VARIABLE Pytorch_ROCM OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+                OUTPUT_VARIABLE Pytorch_ROCM OUTPUT_STRIP_TRAILING_WHITESPACE)
 string(REGEX REPLACE "No CUDA runtime[^\n]*\n?" "" Pytorch_ROCM "${Pytorch_ROCM}")
 string(TOUPPER "${Pytorch_ROCM}" Pytorch_ROCM)
 
