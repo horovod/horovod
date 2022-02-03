@@ -72,6 +72,8 @@ build_test() {
   local test=$1
 
   echo "- label: ':docker: Build ${test}'"
+  echo "  env:"
+  echo "    COMPOSE_HTTP_TIMEOUT: 300"
   echo "  plugins:"
   echo "  - docker-compose#v3.5.0:"
   echo "      build: ${test}"
@@ -98,6 +100,8 @@ run_test() {
   echo "- label: '${label}'"
   echo "  command: ${command}"
   echo "  artifact_paths: \"artifacts/**\""
+  echo "  env:"
+  echo "    COMPOSE_HTTP_TIMEOUT: 300"
   echo "  plugins:"
   echo "  - docker-compose#v3.5.0:"
   echo "      run: ${test}"
