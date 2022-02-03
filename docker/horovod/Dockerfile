@@ -1,4 +1,4 @@
-ARG CUDA_DOCKER_VERSION=11.2.2-devel-ubuntu18.04
+ARG CUDA_DOCKER_VERSION=11.2.2-devel-ubuntu20.04
 FROM nvidia/cuda:${CUDA_DOCKER_VERSION}
 
 # Arguments for the build. CUDA_DOCKER_VERSION needs to be repeated because
@@ -16,8 +16,7 @@ ARG MXNET_VERSION=1.8.0.post0
 ARG PYSPARK_PACKAGE=pyspark==3.1.1
 ARG SPARK_PACKAGE=spark-3.1.1/spark-3.1.1-bin-hadoop2.7.tgz
 
-# Python 3.7 is supported by Ubuntu Bionic out of the box
-ARG PYTHON_VERSION=3.7
+ARG PYTHON_VERSION=3.8
 
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]

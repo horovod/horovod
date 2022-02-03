@@ -1,9 +1,9 @@
-ARG UBUNTU_VERSION=18.04
+ARG UBUNTU_VERSION=20.04
 FROM ubuntu:${UBUNTU_VERSION}
 
 # Arguments for the build. UBUNTU_VERSION needs to be repeated because
 # the first usage only applies to the FROM tag.
-ARG UBUNTU_VERSION=18.04
+ARG UBUNTU_VERSION=20.04
 ARG MPI_KIND=OpenMPI
 ARG PYTHON_VERSION=3.6
 ARG GPP_VERSION=7
@@ -21,6 +21,9 @@ ARG PYSPARK_PACKAGE=pyspark==2.4.7
 ARG SPARK_PACKAGE=spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
 ARG CCL_PACKAGE=master
 ARG HOROVOD_BUILD_FLAGS=""
+
+# to avoid interaction with apt-get
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
