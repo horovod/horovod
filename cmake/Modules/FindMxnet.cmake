@@ -17,7 +17,7 @@ set(Mxnet_COMPILE_FLAGS "")
 
 set(ENV{PYTHONPATH} "${PROJECT_SOURCE_DIR}/cmake:$ENV{PYTHONPATH}")
 execute_process(COMMAND ${PY_EXE} -c "import os; import mxnet as mx; import build_utils; print(mx.__version__); print(mx.libinfo.find_include_path()); print(' '.join(mx.libinfo.find_lib_path())); print(build_utils.is_mx_mkldnn()); print(build_utils.is_mx_onednn()); print(build_utils.is_mx_cuda())"
-                OUTPUT_VARIABLE Mxnet_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+                OUTPUT_VARIABLE Mxnet_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE)
 string(REGEX REPLACE "\n" ";" Mxnet_OUTPUT "${Mxnet_OUTPUT}")
 list(LENGTH Mxnet_OUTPUT LEN)
 if (LEN EQUAL "6")
