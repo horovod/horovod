@@ -380,7 +380,7 @@ class BaseElasticSparkTests(unittest.TestCase):
 
                 cmd = ' '.join(command)
                 run_elastic(self._exec, (cmd,), env={'HOROVOD_LOG_LEVEL': 'DEBUG'},
-                            num_proc=np, min_num_proc=min_num_proc, max_num_proc=max_num_proc,
+                            num_proc=num_proc, min_num_proc=min_num_proc, max_num_proc=max_num_proc,
                             stdout=sys.stdout, stderr=sys.stderr,
                             start_timeout=10, elastic_timeout=10, verbose=2,
                             prefix_output_with_timestamp=True)
