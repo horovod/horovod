@@ -407,10 +407,10 @@ def parse_args():
     group_elastic.add_argument('--max-num-proc', action='store', dest='max_num_proc', type=int,
                                help='Maximum number of training processes, beyond which no additional '
                                     'processes will be created. If not specified, then will be unbounded.')
-    group_elastic.add_argument('--min-np', dest='min_num_proc', type=int,
+    group_elastic.add_argument('--min-np', dest='min_num_proc',
                                action=make_deprecated_int_action(override_args, False, '--min-num-proc', 'v1.0.0'),
                                help=argparse.SUPPRESS)
-    group_elastic.add_argument('--max-np', dest='max_num_proc', type=int,
+    group_elastic.add_argument('--max-np', dest='max_num_proc',
                                action=make_deprecated_int_action(override_args, False, '--max-num-proc', 'v1.0.0'),
                                help=argparse.SUPPRESS)
     group_elastic.add_argument('--slots-per-host', action='store', dest='slots', type=int,
