@@ -652,8 +652,8 @@ def _run_elastic(args):
                                     'may need to increase the --start-timeout '
                                     'parameter if you have too many servers.')
     settings = elastic_settings.ElasticSettings(discovery=discover_hosts,
-                                                min_np=args.min_num_proc or args.num_proc,
-                                                max_np=args.max_num_proc,
+                                                min_num_proc=args.min_num_proc or args.num_proc,
+                                                max_num_proc=args.max_num_proc,
                                                 elastic_timeout=args.elastic_timeout,
                                                 reset_limit=args.reset_limit,
                                                 cooldown_range=args.cooldown_range,

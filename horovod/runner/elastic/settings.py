@@ -13,8 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-import warnings
-
 from horovod.runner.common.util.settings import BaseSettings
 
 
@@ -26,10 +24,6 @@ class ElasticSettings(BaseSettings):
                  elastic_timeout,
                  reset_limit,
                  cooldown_range=None,
-                 # min_np is deprecated, use min_num_proc instead
-                 min_np=None,
-                 # max_np is deprecated, use max_num_proc instead
-                 max_np=None,
                  **kwargs):
         """
         :param discovery: object used to detect and manage available hosts
@@ -45,13 +39,6 @@ class ElasticSettings(BaseSettings):
         :param cooldown_range: maximum number of resets after which the job is terminated
         :type cooldown_range: int
         """
-        if min_np is not None:
-            min_num_proc = min_np
-            warnings.warn('min_np is deprecated, use min_num_proc instead', DeprecationWarning)
-        if max_np is not None:
-            max_num_proc = max_np
-            warnings.warn('max_np is deprecated, use max_num_proc instead', DeprecationWarning)
-
         super(ElasticSettings, self).__init__(elastic=True, **kwargs)
         self.discovery = discovery
         self.min_num_proc = min_num_proc
