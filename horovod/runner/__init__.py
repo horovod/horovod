@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # =============================================================================
+import warnings
 
 
 class _HorovodArgs(object):
     def __init__(self):
-        self.np = 1
+        self.num_proc = 1
         self.check_build = None
         self.ssh_port = None
         self.ssh_identity_file = None
@@ -49,8 +50,8 @@ class _HorovodArgs(object):
         self.autotune_gaussian_process_noise = None
 
         # elastic arguments
-        self.min_np = None
-        self.max_np = None
+        self.min_num_proc = None
+        self.max_num_proc = None
         self.slots = None
         self.elastic_timeout = None
         self.reset_limit = None
@@ -94,9 +95,9 @@ def run(
         func,
         args=(),
         kwargs=None,
-        np=1,
-        min_np=None,
-        max_np=None,
+        num_proc=1,
+        min_num_proc=None,
+        max_num_proc=None,
         slots=None,
         reset_limit=None,
         cooldown_range=None,
@@ -112,7 +113,13 @@ def run(
         use_mpi=None,
         mpi_args=None,
         network_interface=None,
-        executable=None):
+        executable=None,
+        # np is deprecated, use num_proc instead
+        np=None,
+        # min_np is deprecated, use min_num_proc instead
+        min_np=None,
+        # max_np is deprecated, use max_num_proc instead
+        max_np=None):
     """
     Launch a Horovod job to run the specified process function and get the return value.
 
@@ -121,11 +128,11 @@ def run(
                  This function must be compatible with pickle.
     :param args: Arguments to pass to `func`.
     :param kwargs: Keyword arguments to pass to `func`.
-    :param np: Number of Horovod processes.
-    :param min_np: Minimum number of processes running for training to continue. If number of
+    :param num_proc: Number of Horovod processes.
+    :param min_num_proc: Minimum number of processes running for training to continue. If number of
                    available processes dips below this threshold, then training will wait for
-                   more instances to become available. Defaults to np
-    :param max_np: Maximum number of training processes, beyond which no additional processes
+                   more instances to become available. Defaults to num_proc
+    :param max_num_proc: Maximum number of training processes, beyond which no additional processes
                    will be created. If not specified, then will be unbounded.
     :param slots: Number of slots for processes per host. Normally 1 slot per GPU per host.
                   If slots are provided by the output of the host discovery script, then that
@@ -140,7 +147,7 @@ def run(
     :param hosts: List of host names and the number of available slots
                   for running processes on each, of the form: <hostname>:<slots>
                   (e.g.: host1:2,host2:4,host3:1 indicating 2 processes can run on host1,
-                  4 on host2, and 1 on host3). If not specified, defaults to using localhost:<np>
+                  4 on host2, and 1 on host3). If not specified, defaults to using localhost:<num_proc>
     :param hostfile: Path to a host file containing the list of host names and the number of
                      available slots. Each line of the file must be of the form:
                      <hostname> slots=<slots>
@@ -174,6 +181,20 @@ def run(
     :return: Return a list which contains values return by all Horovod processes.
              The index of the list corresponds to the rank of each Horovod process.
     """
+    if np is not None:
+        # only overrides num_proc if num_proc is not the default value
+        if num_proc == 1:
+            num_proc = np
+        warnings.warn('np is deprecated, use num_proc instead', DeprecationWarning)
+    if min_np is not None:
+        if min_num_proc is None:
+            min_num_proc = min_np
+        warnings.warn('min_np is deprecated, use min_num_proc instead', DeprecationWarning)
+    if max_np is not None:
+        if max_num_proc is None:
+            max_num_proc = max_np
+        warnings.warn('max_np is deprecated, use max_num_proc instead', DeprecationWarning)
+
     from .launch import _run
 
     if kwargs is None:
@@ -190,9 +211,9 @@ def run(
 
     hargs = _HorovodArgs()
 
-    hargs.np = np
-    hargs.min_np = min_np
-    hargs.max_np = max_np
+    hargs.num_proc = num_proc
+    hargs.min_num_proc = min_num_proc
+    hargs.max_num_proc = max_num_proc
     hargs.slots = slots
     hargs.reset_limit = reset_limit
     hargs.cooldown_range = cooldown_range

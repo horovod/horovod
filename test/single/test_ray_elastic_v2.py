@@ -301,7 +301,7 @@ def test_fault_tolerance_hosts_remove_and_add_cooldown(ray_8_cpus):
 
 @pytest.mark.skipif(
     not gloo_built(), reason='Gloo is required for Ray integration')
-def test_max_np(ray_8_cpus):
+def test_max_num_proc(ray_8_cpus):
     with fault_tolerance_patches():
         discovery_schedule = [
             (10, ['host-1:2']),
@@ -327,7 +327,7 @@ def test_max_np(ray_8_cpus):
 
 @pytest.mark.skipif(
     not gloo_built(), reason='Gloo is required for Ray integration')
-def test_min_np(ray_8_cpus):
+def test_min_num_proc(ray_8_cpus):
     with fault_tolerance_patches():
         discovery_schedule = [
             (10, ['host-1:1']),

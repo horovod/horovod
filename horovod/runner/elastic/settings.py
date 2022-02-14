@@ -13,18 +13,31 @@
 # limitations under the License.
 # ==============================================================================
 
+import warnings
+
 from horovod.runner.common.util.settings import BaseSettings
 
 
 class ElasticSettings(BaseSettings):
-    def __init__(self, discovery, min_np, max_np, elastic_timeout, reset_limit, cooldown_range=None, **kwargs):
+    def __init__(self,
+                 discovery,
+                 min_num_proc,
+                 max_num_proc,
+                 elastic_timeout,
+                 reset_limit,
+                 cooldown_range=None,
+                 # min_np is deprecated, use min_num_proc instead
+                 min_np=None,
+                 # max_np is deprecated, use max_num_proc instead
+                 max_np=None,
+                 **kwargs):
         """
         :param discovery: object used to detect and manage available hosts
         :type discovery: horovod.runner.elastic.discovery.HostDiscovery
-        :param min_np: minimum number of processes
-        :type min_np: int
-        :param max_np: maximum number of processes
-        :type max_np: int
+        :param min_num_proc: minimum number of processes
+        :type min_num_proc: int
+        :param max_num_proc: maximum number of processes
+        :type max_num_proc: int
         :param elastic_timeout: timeout for elastic initialisation after re-scaling in seconds
         :type elastic_timeout: int
         :param reset_limit: maximum number of resets after which the job is terminated
@@ -32,10 +45,17 @@ class ElasticSettings(BaseSettings):
         :param cooldown_range: maximum number of resets after which the job is terminated
         :type cooldown_range: int
         """
+        if min_np is not None:
+            min_num_proc = min_np
+            warnings.warn('min_np is deprecated, use min_num_proc instead', DeprecationWarning)
+        if max_np is not None:
+            max_num_proc = max_np
+            warnings.warn('max_np is deprecated, use max_num_proc instead', DeprecationWarning)
+
         super(ElasticSettings, self).__init__(elastic=True, **kwargs)
         self.discovery = discovery
-        self.min_np = min_np
-        self.max_np = max_np
+        self.min_num_proc = min_num_proc
+        self.max_num_proc = max_num_proc
         self.elastic_timeout = elastic_timeout
         self.reset_limit = reset_limit
         self.cooldown_range=cooldown_range

@@ -57,8 +57,8 @@ class ElasticDriverTests(unittest.TestCase):
         slots = {'host-1': 2, 'host-2': 2}
         discovery = FixedHosts(slots)
 
-        driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=4)
-        driver.wait_for_available_slots(min_np=2)
+        driver = ElasticDriver(mock.Mock(), discovery, min_num_proc=2, max_num_proc=4)
+        driver.wait_for_available_slots(min_num_proc=2)
 
         rank_results = {}
 
@@ -85,8 +85,8 @@ class ElasticDriverTests(unittest.TestCase):
         slots = {'host-1': 2, 'host-2': 2}
         discovery = FixedHosts(slots)
 
-        driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=4)
-        driver.wait_for_available_slots(min_np=2)
+        driver = ElasticDriver(mock.Mock(), discovery, min_num_proc=2, max_num_proc=4)
+        driver.wait_for_available_slots(min_num_proc=2)
 
         rank_results = {}
 
@@ -126,8 +126,8 @@ class ElasticDriverTests(unittest.TestCase):
             slots = {'host-1': 2, 'host-2': 2}
             discovery.set(slots)
 
-        driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=4)
-        driver.wait_for_available_slots(min_np=2)
+        driver = ElasticDriver(mock.Mock(), discovery, min_num_proc=2, max_num_proc=4)
+        driver.wait_for_available_slots(min_num_proc=2)
 
         rank_results = {}
 
@@ -173,12 +173,12 @@ class ElasticDriverTests(unittest.TestCase):
         mock_discovery = mock.Mock()
         mock_discovery.find_available_hosts_and_slots.side_effect = sequence(slots)
 
-        driver = ElasticDriver(mock.Mock(), mock_discovery, min_np=8, max_np=20)
-        driver.wait_for_available_slots(min_np=16)
+        driver = ElasticDriver(mock.Mock(), mock_discovery, min_num_proc=8, max_num_proc=20)
+        driver.wait_for_available_slots(min_num_proc=16)
         assert driver._host_manager.current_hosts.count_available_slots() >= 16
         driver.stop()
 
-        # Notify coordinator 2 times, as the first time we are below min_np and the existing host assignments
+        # Notify coordinator 2 times, as the first time we are below min_num_proc and the existing host assignments
         # are empty
         assert mock_get_worker_client.call_count == 2
         assert mock_get_coordinator_info.call_count == 2
@@ -192,8 +192,8 @@ class ElasticDriverTests(unittest.TestCase):
         mock_discovery = mock.Mock()
         mock_discovery.find_available_hosts_and_slots.side_effect = sequence(slots)
 
-        driver = ElasticDriver(mock.Mock(), mock_discovery, min_np=2, max_np=12)
-        driver.wait_for_available_slots(min_np=2, min_hosts=2)
+        driver = ElasticDriver(mock.Mock(), mock_discovery, min_num_proc=2, max_num_proc=12)
+        driver.wait_for_available_slots(min_num_proc=2, min_hosts=2)
 
         # Even though we only needed 2 slots, because we also needed 2 hosts, we will at least 12 slots total
         assert driver._host_manager.current_hosts.count_available_slots() >= 12
@@ -204,8 +204,8 @@ class ElasticDriverTests(unittest.TestCase):
         slots = {'host-1': 2, 'host-2': 2}
         discovery = FixedHosts(slots)
 
-        driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=4)
-        driver.wait_for_available_slots(min_np=2)
+        driver = ElasticDriver(mock.Mock(), discovery, min_num_proc=2, max_num_proc=4)
+        driver.wait_for_available_slots(min_num_proc=2)
 
         def exec_command(slot_info, events):
             driver.record_ready(slot_info.hostname, slot_info.local_rank)
@@ -224,8 +224,8 @@ class ElasticDriverTests(unittest.TestCase):
         slots = {'host-1': 2, 'host-2': 2}
         discovery = FixedHosts(slots)
 
-        driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=4)
-        driver.wait_for_available_slots(min_np=2)
+        driver = ElasticDriver(mock.Mock(), discovery, min_num_proc=2, max_num_proc=4)
+        driver.wait_for_available_slots(min_num_proc=2)
 
         def exec_command(slot_info, events):
             if slot_info.rank == 0:
@@ -251,8 +251,8 @@ class ElasticDriverTests(unittest.TestCase):
         slots = {'host-1': 2, 'host-2': 2}
         discovery = FixedHosts(slots)
 
-        driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=4)
-        driver.wait_for_available_slots(min_np=2)
+        driver = ElasticDriver(mock.Mock(), discovery, min_num_proc=2, max_num_proc=4)
+        driver.wait_for_available_slots(min_num_proc=2)
 
         rank_results = {}
 
@@ -294,8 +294,8 @@ class ElasticDriverTests(unittest.TestCase):
         discovery = FixedHosts(slots)
 
         rendezvous = RendezvousServer()
-        driver = ElasticDriver(rendezvous, discovery, min_np=2, max_np=4)
-        driver.wait_for_available_slots(min_np=2)
+        driver = ElasticDriver(rendezvous, discovery, min_num_proc=2, max_num_proc=4)
+        driver.wait_for_available_slots(min_num_proc=2)
         handler = create_rendezvous_handler(driver)
 
         common_intfs = network.get_local_intfs()
@@ -382,8 +382,8 @@ class ElasticDriverTests(unittest.TestCase):
         discovery = mock.Mock()
         discovery.find_available_hosts_and_slots.side_effect = sequence(slots)
 
-        driver = ElasticDriver(mock.Mock(), discovery, min_np=8, max_np=12)
-        driver.wait_for_available_slots(min_np=16)
+        driver = ElasticDriver(mock.Mock(), discovery, min_num_proc=8, max_num_proc=12)
+        driver.wait_for_available_slots(min_num_proc=16)
         driver.stop()
 
         # On the second call, we should see the number of slots dip below the minimum, but we still want to ensure
@@ -500,9 +500,9 @@ class ElasticDriverTests(unittest.TestCase):
 
         try:
             ElasticDriver._discover_hosts = wrapped_discover_hosts
-            driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=4)
+            driver = ElasticDriver(mock.Mock(), discovery, min_num_proc=2, max_num_proc=4)
             with pytest.raises(RuntimeError):
-                driver.wait_for_available_slots(min_np=2)
+                driver.wait_for_available_slots(min_num_proc=2)
             assert driver.finished()
         finally:
             ElasticDriver._discover_hosts = discover_hosts

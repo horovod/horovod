@@ -73,7 +73,7 @@ class BaseElasticTests:
         super(BaseElasticTests, self).__init__(*args, **kwargs)
 
     def _run(self, discovery_schedule=None, exit_schedule=None, exit_mode='exception',
-             np=2, min_np=2, max_np=4, hosts=None, reset_limit=None, cooldown_range=None, epoch_wait=None, epochs=None):
+             num_proc=2, min_num_proc=2, max_num_proc=4, hosts=None, reset_limit=None, cooldown_range=None, epoch_wait=None, epochs=None):
         if not discovery_schedule and not hosts:
             raise ValueError('at least one of discovery schedule or hosts must be given')
 
@@ -81,14 +81,14 @@ class BaseElasticTests:
             with _temp_discovery_script(logfile, discovery_schedule or [(None, hosts.split(','))]) \
                     as discovery_script:
                 command_args = ['horovodrun',
-                                '-np', str(np),
-                                '--min-np', str(min_np),
+                                '-np', str(num_proc),
+                                '--min-num-proc', str(min_num_proc),
                                 '--log-level', 'DEBUG']
                 if hosts is not None:
                     command_args += ['-H', hosts]
                 else:
                     command_args += ['--host-discovery-script', discovery_script,
-                                     '--max-np', str(max_np)]
+                                     '--max-num-proc', str(max_num_proc)]
 
                 if reset_limit is not None:
                     command_args += ['--reset-limit', str(reset_limit)]
@@ -126,14 +126,14 @@ class BaseElasticTests:
     @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     @mock.patch('horovod.runner.gloo_run._get_min_start_hosts', return_value=1)
     def test_hosts_added_and_removed(self, mock_get_min_start_hosts):
-        for slots, np, min_np, max_np in [(2, 2, 2, 4), (1, 1, 1, 2)]:
+        for slots, num_proc, min_num_proc, max_num_proc in [(2, 2, 2, 4), (1, 1, 1, 2)]:
             discovery_schedule = [
                 (0, ['localhost:{}'.format(slots)]),
                 (1, ['localhost:{}'.format(slots), '127.0.0.1:{}'.format(slots)]),
                 (None, ['127.0.0.1:{}'.format(slots)]),
             ]
 
-            results = self._run(discovery_schedule, np=np, min_np=min_np, max_np=max_np)
+            results = self._run(discovery_schedule, num_proc=num_proc, min_num_proc=min_num_proc, max_num_proc=max_num_proc)
 
             self.assertEqual(len(results), 3)
 
@@ -248,7 +248,7 @@ class BaseElasticTests:
 
         message = 'Horovod detected that one or more processes exited with non-zero status'
         with pytest.raises(RuntimeError, match=message):
-            self._run(discovery_schedule, exit_schedule=exit_schedule, np=4, min_np=4)
+            self._run(discovery_schedule, exit_schedule=exit_schedule, np=4, min_num_proc=4)
 
     @mock.patch('horovod.runner.elastic.driver.ELASTIC_TIMEOUT_SECS', 1)
     @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
@@ -263,10 +263,10 @@ class BaseElasticTests:
         # Job should fail with reset_limit=1
         message = constants.RESET_LIMIT_EXCEEDED_MESSAGE.format(1)
         with pytest.raises(RuntimeError, match=message):
-            self._run(discovery_schedule, np=2, min_np=2, max_np=4, reset_limit=1)
+            self._run(discovery_schedule, np=2, min_num_proc=2, max_num_proc=4, reset_limit=1)
 
         # Job should succeed with reset_limit=2
-        results = self._run(discovery_schedule, np=2, min_np=2, max_np=4, reset_limit=2)
+        results = self._run(discovery_schedule, np=2, min_num_proc=2, max_num_proc=4, reset_limit=2)
         self.assertEqual(len(results), 3)
 
     @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)

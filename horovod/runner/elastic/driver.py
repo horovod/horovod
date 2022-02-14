@@ -18,6 +18,7 @@ import os
 import queue
 import threading
 import time
+import warnings
 
 from collections import defaultdict
 
@@ -66,11 +67,30 @@ class ResultsRecorder(object):
 
 
 class ElasticDriver(object):
-    def __init__(self, rendezvous, discovery, min_np, max_np, timeout=None, reset_limit=None, cooldown_range=None, verbose=0):
+    def __init__(self,
+                 rendezvous,
+                 discovery,
+                 min_num_proc,
+                 max_num_proc,
+                 timeout=None,
+                 reset_limit=None,
+                 cooldown_range=None,
+                 verbose=0,
+                 # min_np is deprecated, use min_num_proc instead
+                 min_np=None,
+                 # max_np is deprecated, use max_num_proc instead
+                 max_np=None):
+        if min_np is not None:
+            min_num_proc = min_np
+            warnings.warn('min_np is deprecated, use min_num_proc instead', DeprecationWarning)
+        if max_np is not None:
+            max_num_proc = max_np
+            warnings.warn('max_np is deprecated, use max_num_proc instead', DeprecationWarning)
+
         self._rendezvous = rendezvous
         self._host_manager = HostManager(discovery, cooldown_range)
-        self._min_np = min_np
-        self._max_np = max_np
+        self._min_num_proc = min_num_proc
+        self._max_num_proc = max_num_proc
         self._verbose = verbose
 
         self._host_assignments = {}
@@ -91,12 +111,12 @@ class ElasticDriver(object):
         self._discovery_thread.daemon = True
         self._discovery_thread.start()
 
-    def start(self, np, create_worker_fn):
+    def start(self, num_proc, create_worker_fn):
         self._create_worker_fn = create_worker_fn
-        self._activate_workers(np)
+        self._activate_workers(num_proc)
 
     def resume(self):
-        self._activate_workers(self._min_np)
+        self._activate_workers(self._min_num_proc)
 
     def stop(self, error_message=None):
         self._results.set_error_message(error_message)
@@ -142,7 +162,7 @@ class ElasticDriver(object):
     def host_assignments(self):
         return self._host_assignments
 
-    def wait_for_available_slots(self, min_np, min_hosts=1):
+    def wait_for_available_slots(self, min_num_proc, min_hosts=1):
         extra_message = ' An elastic job also requires that at least two hosts ' \
                         'are available to resolve compatible network interfaces. If you know which interfaces ' \
                         'are compatible in your network, set `--network-interface` to skip this check.' \
@@ -151,8 +171,7 @@ class ElasticDriver(object):
         tmout = timeout.Timeout(
             self._timeout,
             message='Timed out waiting for {{activity}}. Please check that you have '
-                    'enough resources to run at least {min_np} Horovod processes.{extra_message}'
-                    .format(min_np=min_np, extra_message=extra_message))
+                    f'enough resources to run at least {min_num_proc} Horovod processes.{extra_message}')
 
         self._wait_hosts_cond.acquire()
         try:
@@ -162,7 +181,7 @@ class ElasticDriver(object):
                 logging.debug(f"current available slots: {avail_slots}")
                 avail_hosts = len(current_hosts.available_hosts)
                 logging.debug(f"current available hosts: {avail_hosts}.")
-                if avail_slots >= min_np and avail_hosts >= min_hosts:
+                if avail_slots >= min_num_proc and avail_hosts >= min_hosts:
                     return current_hosts
                 if self._shutdown.is_set():
                     raise RuntimeError('Job has been shutdown, see above error messages for details.')
@@ -171,9 +190,9 @@ class ElasticDriver(object):
         finally:
             self._wait_hosts_cond.release()
 
-    def _activate_workers(self, min_np):
-        logging.info('wait for available slots: {}'.format(min_np))
-        current_hosts = self.wait_for_available_slots(min_np)
+    def _activate_workers(self, min_num_proc):
+        logging.info('wait for available slots: {}'.format(min_num_proc))
+        current_hosts = self.wait_for_available_slots(min_num_proc)
         pending_slots = self._update_host_assignments(current_hosts)
         self._worker_registry.reset(self.world_size())
         self._start_worker_processes(pending_slots)
@@ -202,7 +221,7 @@ class ElasticDriver(object):
 
     def _notify_workers_host_changes(self, current_hosts, update_res):
         next_host_assignments = {}
-        if current_hosts.count_available_slots() >= self._min_np:
+        if current_hosts.count_available_slots() >= self._min_num_proc:
             # Assignments are required to be stable via contract
             next_host_assignments, _ = self._get_host_assignments(current_hosts)
 
@@ -268,7 +287,7 @@ class ElasticDriver(object):
         # Adjust the host assignments to account for added / removed hosts
         host_list = [hosts.HostInfo(host, current_hosts.get_slots(host))
                      for host in current_hosts.host_assignment_order]
-        host_assignments_list = hosts.get_host_assignments(host_list, self._min_np, self._max_np)
+        host_assignments_list = hosts.get_host_assignments(host_list, self._min_num_proc, self._max_num_proc)
         host_assignments = defaultdict(list)
         for slot_info in host_assignments_list:
             host_assignments[slot_info.hostname].append(slot_info)

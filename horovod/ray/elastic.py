@@ -6,6 +6,7 @@ import os
 import random
 import math
 import threading
+import warnings
 
 from horovod.runner.common.util import timeout, secret
 
@@ -184,24 +185,28 @@ class ElasticRayExecutor:
     """
 
     @staticmethod
-    def create_settings(min_np: int = 1,
-                        max_np: int = None,
+    def create_settings(min_num_proc: int = 1,
+                        max_num_proc: int = None,
                         reset_limit: int = None,
                         elastic_timeout: int = 600,
                         timeout_s: int = 30,
                         ssh_identity_file: str = None,
                         nics: str = None,
+                        # min_np is deprecated, use min_num_proc instead
+                        min_np=None,
+                        # max_np is deprecated, use max_num_proc instead
+                        max_np=None,
                         **kwargs):
         """Returns a Settings object for ElasticRayExecutor.
 
         Note that the `discovery` property will be set at runtime.
 
         Args:
-            min_np (int): Minimum number of processes running for
+            min_num_proc (int): Minimum number of processes running for
                 training to continue. If number of available processes dips
                 below this threshold, then training will wait for
                 more instances to become available.
-            max_np (int): Maximum number of training processes,
+            max_num_proc (int): Maximum number of training processes,
                 beyond which no additional processes will be created.
                 If not specified, then will be unbounded.
             reset_limit (int): Maximum number of times that the training
@@ -218,6 +223,15 @@ class ElasticRayExecutor:
                 the identity (private key) is read.
             nics (set): Network interfaces that can be used for communication.
         """
+        if min_np is not None:
+            if min_num_proc != 1:
+                min_num_proc = min_np
+            warnings.warn('min_np is deprecated, use min_num_proc instead', DeprecationWarning)
+        if max_np is not None:
+            if max_num_proc is None:
+                max_num_proc = max_np
+            warnings.warn('max_np is deprecated, use max_num_proc instead', DeprecationWarning)
+
         start_timeout = timeout.Timeout(
             timeout_s,
             message="Timed out waiting for {activity}. Please "
@@ -228,11 +242,11 @@ class ElasticRayExecutor:
             "~/ray_bootstrap_key.pem")
         settings = ElasticSettings(
             discovery=None,
-            min_np=min_np,
-            max_np=max_np,
+            min_num_proc=min_num_proc,
+            max_num_proc=max_num_proc,
             elastic_timeout=elastic_timeout,
             reset_limit=reset_limit,
-            num_proc=min_np,
+            num_proc=min_num_proc,
             ssh_identity_file=ssh_identity_file,
             nics=nics,
             start_timeout=start_timeout,
@@ -276,8 +290,8 @@ class ElasticRayExecutor:
         self.driver = ElasticDriver(
             rendezvous=self.rendezvous,
             discovery=self.settings.discovery,
-            min_np=self.settings.min_np,
-            max_np=self.settings.max_np,
+            min_num_proc=self.settings.min_num_proc,
+            max_num_proc=self.settings.max_num_proc,
             timeout=self.settings.elastic_timeout,
             reset_limit=self.settings.reset_limit,
             verbose=self.settings.verbose)

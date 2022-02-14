@@ -71,8 +71,8 @@ class InteractiveRunTests(unittest.TestCase):
         # we need two different hosts here, otherwise would need to give args.nics
         args.hosts = 'localhost:2,127.0.0.1:2'
         args.command = [sys.executable, '-V']
-        args.np = 2
-        args.min_np = 2
+        args.num_proc = 2
+        args.min_num_proc = 2
         args.verbose = True
 
         # no assertions, we are happy when there are no exceptions
