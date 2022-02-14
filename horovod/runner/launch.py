@@ -213,17 +213,17 @@ def make_override_false_action(override_args):
     return make_override_bool_action(override_args, False)
 
 
-def make_deprecated_int_action(override_args, int_value, replacement_option, remove_version):
-    class StoreOverrideIntAction(argparse.Action):
+def make_deprecated_action(override_args, value, replacement_option, remove_version):
+    class StoreOverrideAction(argparse.Action):
         def __init__(self,
                      option_strings,
                      dest,
                      required=False,
                      help=None):
-            super(StoreOverrideIntAction, self).__init__(
+            super(StoreOverrideAction, self).__init__(
                 option_strings=option_strings,
                 dest=dest,
-                const=int_value,
+                const=value,
                 nargs=0,
                 default=None,
                 required=required,
@@ -237,33 +237,7 @@ def make_deprecated_int_action(override_args, int_value, replacement_option, rem
             override_args.add(self.dest)
             setattr(args, self.dest, self.const)
 
-    return StoreOverrideIntAction
-
-
-def make_deprecated_bool_action(override_args, bool_value, replacement_option):
-    class StoreOverrideBoolAction(argparse.Action):
-        def __init__(self,
-                     option_strings,
-                     dest,
-                     required=False,
-                     help=None):
-            super(StoreOverrideBoolAction, self).__init__(
-                option_strings=option_strings,
-                dest=dest,
-                const=bool_value,
-                nargs=0,
-                default=None,
-                required=required,
-                help=help)
-
-        def __call__(self, parser, args, values, option_string=None):
-            deprecated_option = '|'.join(self.option_strings)
-            warnings.warn(f'Argument {deprecated_option} has been replaced by {replacement_option} and will be removed in v0.21.0',
-                          DeprecationWarning)
-            override_args.add(self.dest)
-            setattr(args, self.dest, self.const)
-
-    return StoreOverrideBoolAction
+    return StoreOverrideAction
 
 
 def parse_args():
@@ -408,10 +382,10 @@ def parse_args():
                                help='Maximum number of training processes, beyond which no additional '
                                     'processes will be created. If not specified, then will be unbounded.')
     group_elastic.add_argument('--min-np', dest='min_num_proc',
-                               action=make_deprecated_int_action(override_args, False, '--min-num-proc', 'v1.0.0'),
+                               action=make_deprecated_action(override_args, False, '--min-num-proc', 'v1.0.0'),
                                help=argparse.SUPPRESS)
     group_elastic.add_argument('--max-np', dest='max_num_proc',
-                               action=make_deprecated_int_action(override_args, False, '--max-num-proc', 'v1.0.0'),
+                               action=make_deprecated_action(override_args, False, '--max-num-proc', 'v1.0.0'),
                                help=argparse.SUPPRESS)
     group_elastic.add_argument('--slots-per-host', action='store', dest='slots', type=int,
                                help='Number of slots for processes per host. Normally 1 slot per GPU per host. '
@@ -502,11 +476,11 @@ def parse_args():
                                          help='Timestamp each line of output to stdout, stderr, and stddiag.')
     group_logging_timestamp.add_argument('--log-hide-timestamp',
                                          dest='log_with_timestamp',
-                                         action=make_deprecated_bool_action(override_args, False, '--log-without-timestamp'),
+                                         action=make_deprecated_action(override_args, False, '--log-without-timestamp', 'v0.21.0'),
                                          help=argparse.SUPPRESS)
     group_logging_timestamp.add_argument('--no-log-hide-timestamp',
                                          dest='log_with_timestamp',
-                                         action=make_deprecated_bool_action(override_args, True, '--log-with-timestamp'),
+                                         action=make_deprecated_action(override_args, True, '--log-with-timestamp', 'v0.21.0'),
                                          help=argparse.SUPPRESS)
 
     group_hosts_parent = parser.add_argument_group('host arguments')
