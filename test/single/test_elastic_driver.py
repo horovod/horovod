@@ -68,7 +68,7 @@ class ElasticDriverTests(unittest.TestCase):
             rank_results[slot_info.rank] = (slot_info, updated_slot_info)
             return 0, time.time()
 
-        driver.start(np=2, create_worker_fn=exec_command)
+        driver.start(num_proc=2, create_worker_fn=exec_command)
         res = driver.get_results().worker_results
         driver.stop()
 
@@ -99,7 +99,7 @@ class ElasticDriverTests(unittest.TestCase):
             rank_results[slot_info.rank] = (slot_info, updated_slot_info)
             return 0, time.time()
 
-        driver.start(np=2, create_worker_fn=exec_command)
+        driver.start(num_proc=2, create_worker_fn=exec_command)
         res = driver.get_results().worker_results
         driver.stop()
 
@@ -145,7 +145,7 @@ class ElasticDriverTests(unittest.TestCase):
             rank_results[slot_info.rank] = (slot_info, updated_slot_info)
             return 0, time.time()
 
-        driver.start(np=2, create_worker_fn=exec_command)
+        driver.start(num_proc=2, create_worker_fn=exec_command)
         res = driver.get_results().worker_results
         driver.stop()
 
@@ -211,7 +211,7 @@ class ElasticDriverTests(unittest.TestCase):
             driver.record_ready(slot_info.hostname, slot_info.local_rank)
             return 1, time.time()
 
-        driver.start(np=2, create_worker_fn=exec_command)
+        driver.start(num_proc=2, create_worker_fn=exec_command)
         res = driver.get_results().worker_results
         driver.stop()
 
@@ -235,7 +235,7 @@ class ElasticDriverTests(unittest.TestCase):
             wait_for_one(events)
             return 1, time.time()
 
-        driver.start(np=2, create_worker_fn=exec_command)
+        driver.start(num_proc=2, create_worker_fn=exec_command)
         res = driver.get_results().worker_results
         driver.stop()
 
@@ -270,7 +270,7 @@ class ElasticDriverTests(unittest.TestCase):
             rank_results[slot_info.rank] = (slot_info, updated_slot_info)
             return 0, time.time()
 
-        driver.start(np=2, create_worker_fn=exec_command)
+        driver.start(num_proc=2, create_worker_fn=exec_command)
         res = driver.get_results().worker_results
         driver.stop()
 
@@ -347,7 +347,7 @@ class ElasticDriverTests(unittest.TestCase):
             rank_results[slot_info.rank] = notification_receiver.events
             return 0, time.time()
 
-        driver.start(np=2, create_worker_fn=exec_command)
+        driver.start(num_proc=2, create_worker_fn=exec_command)
         res = driver.get_results().worker_results
         driver.stop()
 

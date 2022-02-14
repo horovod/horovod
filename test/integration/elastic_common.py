@@ -263,10 +263,10 @@ class BaseElasticTests:
         # Job should fail with reset_limit=1
         message = constants.RESET_LIMIT_EXCEEDED_MESSAGE.format(1)
         with pytest.raises(RuntimeError, match=message):
-            self._run(discovery_schedule, np=2, min_num_proc=2, max_num_proc=4, reset_limit=1)
+            self._run(discovery_schedule, num_proc=2, min_num_proc=2, max_num_proc=4, reset_limit=1)
 
         # Job should succeed with reset_limit=2
-        results = self._run(discovery_schedule, np=2, min_num_proc=2, max_num_proc=4, reset_limit=2)
+        results = self._run(discovery_schedule, num_proc=2, min_num_proc=2, max_num_proc=4, reset_limit=2)
         self.assertEqual(len(results), 3)
 
     @mock.patch('horovod.runner.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)

@@ -224,12 +224,10 @@ class ElasticRayExecutor:
             nics (set): Network interfaces that can be used for communication.
         """
         if min_np is not None:
-            if min_num_proc != 1:
-                min_num_proc = min_np
+            min_num_proc = min_np
             warnings.warn('min_np is deprecated, use min_num_proc instead', DeprecationWarning)
         if max_np is not None:
-            if max_num_proc is None:
-                max_num_proc = max_np
+            max_num_proc = max_np
             warnings.warn('max_np is deprecated, use max_num_proc instead', DeprecationWarning)
 
         start_timeout = timeout.Timeout(

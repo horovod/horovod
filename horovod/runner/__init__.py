@@ -182,17 +182,13 @@ def run(
              The index of the list corresponds to the rank of each Horovod process.
     """
     if np is not None:
-        # only overrides num_proc if num_proc is not the default value
-        if num_proc == 1:
-            num_proc = np
+        num_proc = np
         warnings.warn('np is deprecated, use num_proc instead', DeprecationWarning)
     if min_np is not None:
-        if min_num_proc is None:
-            min_num_proc = min_np
+        min_num_proc = min_np
         warnings.warn('min_np is deprecated, use min_num_proc instead', DeprecationWarning)
     if max_np is not None:
-        if max_num_proc is None:
-            max_num_proc = max_np
+        max_num_proc = max_np
         warnings.warn('max_np is deprecated, use max_num_proc instead', DeprecationWarning)
 
     from .launch import _run

@@ -67,26 +67,14 @@ class ResultsRecorder(object):
 
 
 class ElasticDriver(object):
-    def __init__(self,
-                 rendezvous,
+    def __init__(self, rendezvous,
                  discovery,
                  min_num_proc,
                  max_num_proc,
                  timeout=None,
                  reset_limit=None,
                  cooldown_range=None,
-                 verbose=0,
-                 # min_np is deprecated, use min_num_proc instead
-                 min_np=None,
-                 # max_np is deprecated, use max_num_proc instead
-                 max_np=None):
-        if min_np is not None:
-            min_num_proc = min_np
-            warnings.warn('min_np is deprecated, use min_num_proc instead', DeprecationWarning)
-        if max_np is not None:
-            max_num_proc = max_np
-            warnings.warn('max_np is deprecated, use max_num_proc instead', DeprecationWarning)
-
+                 verbose=0):
         self._rendezvous = rendezvous
         self._host_manager = HostManager(discovery, cooldown_range)
         self._min_num_proc = min_num_proc
