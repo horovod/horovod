@@ -262,7 +262,8 @@ class AbstractFilesystemStore(Store):
             if self._save_runs else None
 
     def get_checkpoint_filename(self):
-        return 'checkpoint'
+        # default the store checkpoint name to use h5 format
+        return 'checkpoint.h5'
 
     def get_logs_subdir(self):
         return 'logs'
@@ -303,7 +304,7 @@ class FilesystemStore(AbstractFilesystemStore):
         self.storage_options = kwargs['storage_options'] if 'storage_options' in kwargs else {}
         self.prefix_path = prefix_path
         self._fs, self.protocol = self._get_fs_and_protocol()
-        std_params = ['train_path', 'val_path', 'test_path', 'runs_path', 'save_runs', 'storage_options'] 
+        std_params = ['train_path', 'val_path', 'test_path', 'runs_path', 'save_runs', 'storage_options']
         params = dict((k, kwargs[k]) for k in std_params if k in kwargs)
         super().__init__(prefix_path, *args, **params)
 
@@ -317,9 +318,9 @@ class FilesystemStore(AbstractFilesystemStore):
         return fn
 
     def copy(self, lpath, rpath, recursive=False, callback=_DEFAULT_CALLBACK,**kwargs):
-        """ 
+        """
         This method copies the contents of the local source directory to the target directory.
-        This is different from the fsspec's put() because it does not copy the source folder 
+        This is different from the fsspec's put() because it does not copy the source folder
         to the target directory in the case when target directory already exists.
         """
 
@@ -519,7 +520,7 @@ class HDFSStore(AbstractFilesystemStore):
 
         if not path:
             raise ValueError('Failed to parse path from URL: {}'.format(url))
-    
+
     def get_localized_path(self, path):
         if self.matches(path):
             return path[len(self._url_prefix):]
