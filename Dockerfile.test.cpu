@@ -84,6 +84,13 @@ RUN if [[ ${SPARK_PACKAGE} != *"-preview"* ]]; then \
         (cd /spark/python && python setup.py sdist && pip install --no-cache-dir dist/pyspark-*.tar.gz && rm dist/pyspark-*); \
     fi
 
+# Pin cloudpickle to 1.3.0
+# Dill breaks clouldpickle > 1.3.0 when using Spark2
+# https://github.com/cloudpipe/cloudpickle/issues/393
+RUN if [[ ${PYSPARK_PACKAGE} == "pyspark==2."* ]]; then \
+        pip install --no-cache-dir cloudpickle==1.3.0; \
+    fi
+
 # Install Ray.
 # Updating to 1.7.0 to pass ray tests
 RUN pip install --no-cache-dir ray==1.7.0

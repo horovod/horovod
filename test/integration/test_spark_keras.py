@@ -23,7 +23,6 @@ from distutils.version import LooseVersion
 
 import mock
 import numpy as np
-import pyspark
 import pytest
 import tensorflow as tf
 
@@ -79,9 +78,6 @@ class SparkKerasTests(tf.test.TestCase):
         logging.getLogger('py4j.java_gateway').setLevel(logging.INFO)
         warnings.simplefilter('module')
 
-    @pytest.mark.skipif(LooseVersion(tf.__version__) >= LooseVersion('2.6.0') and
-                        LooseVersion(pyspark.__version__) < LooseVersion('3.0.0'),
-                        reason="https://github.com/horovod/horovod/issues/3417")
     def test_fit_model(self):
         model = create_xor_model()
         optimizer = tf.keras.optimizers.SGD(lr=0.1)
@@ -110,9 +106,6 @@ class SparkKerasTests(tf.test.TestCase):
                 assert len(pred) == 1
                 assert pred.dtype == np.float32
 
-    @pytest.mark.skipif(LooseVersion(tf.__version__) >= LooseVersion('2.6.0') and
-                        LooseVersion(pyspark.__version__) < LooseVersion('3.0.0'),
-                        reason="https://github.com/horovod/horovod/issues/3417")
     def test_fit_model_multiclass(self):
         model = create_mnist_model()
         optimizer = tf.keras.optimizers.Adadelta(1.0)
