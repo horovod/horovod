@@ -269,7 +269,7 @@ def is_iterable(x):
 
 @_cache
 def is_version_greater_equal_than(ver, target):
-    from distutils.version import LooseVersion, StrictVersion
+    from distutils.version import LooseVersion
     if any([not isinstance(_str, str) for _str in (ver, target)]):
         raise ValueError("This function only accepts string arguments. \n"
                          "Received:\n"
