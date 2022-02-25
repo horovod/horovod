@@ -4444,7 +4444,9 @@ class TensorFlowTests(tf.test.TestCase):
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [tf.int32, tf.int64]:
+            if dtype == tf.float16:
+                threshold = .5
+            elif dtype in [tf.int32, tf.int64]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -4480,7 +4482,9 @@ class TensorFlowTests(tf.test.TestCase):
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [tf.int32, tf.int64]:
+            if dtype == tf.float16:
+                threshold = .5
+            elif dtype in [tf.int32, tf.int64]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -4522,7 +4526,9 @@ class TensorFlowTests(tf.test.TestCase):
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [tf.int32, tf.int64]:
+            if dtype == tf.float16:
+                threshold = .5
+            elif dtype in [tf.int32, tf.int64]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -4572,7 +4578,9 @@ class TensorFlowTests(tf.test.TestCase):
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [tf.int32, tf.int64]:
+            if dtype == tf.float16:
+                threshold = .5
+            elif dtype in [tf.int32, tf.int64]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -4632,7 +4640,9 @@ class TensorFlowTests(tf.test.TestCase):
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if process_set_size <= 3 or dtype in [tf.int32, tf.int64]:
+            if dtype == tf.float16:
+                threshold = .5
+            elif dtype in [tf.int32, tf.int64]:
                 threshold = 0
             elif process_set_size < 10:
                 threshold = 1e-4
@@ -4677,7 +4687,9 @@ class TensorFlowTests(tf.test.TestCase):
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [tf.int32, tf.int64]:
+            if dtype == tf.float16:
+                threshold = .5
+            elif dtype in [tf.int32, tf.int64]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -4721,7 +4733,9 @@ class TensorFlowTests(tf.test.TestCase):
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [tf.int32, tf.int64]:
+            if dtype == tf.float16:
+                threshold = .5
+            elif dtype in [tf.int32, tf.int64]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -4767,7 +4781,9 @@ class TensorFlowTests(tf.test.TestCase):
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [tf.int32, tf.int64]:
+            if dtype == tf.float16:
+                threshold = .5
+            elif dtype in [tf.int32, tf.int64]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -4820,7 +4836,9 @@ class TensorFlowTests(tf.test.TestCase):
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [tf.int32, tf.int64]:
+            if dtype == tf.float16:
+                threshold = .5
+            elif dtype in [tf.int32, tf.int64]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -4883,7 +4901,9 @@ class TensorFlowTests(tf.test.TestCase):
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if process_set_size <= 3 or dtype in [tf.int32, tf.int64]:
+            if dtype == tf.float16:
+                threshold = .5
+            elif dtype in [tf.int32, tf.int64]:
                 threshold = 0
             elif process_set_size < 10:
                 threshold = 1e-4
