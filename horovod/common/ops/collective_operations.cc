@@ -334,7 +334,7 @@ std::vector<int> ReducescatterOp::ComputeReceiveCounts(
   for (size_t rank = 0; rank < output_shapes.size(); ++rank) {
     const auto& rank_shapes = output_shapes[rank];
     for (const TensorShape& shape : rank_shapes) {
-      recvcounts[rank] += shape.num_elements();
+      recvcounts[rank] += static_cast<int>(shape.num_elements());
     }
   }
 
