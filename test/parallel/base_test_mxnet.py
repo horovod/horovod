@@ -91,7 +91,7 @@ class MXTests:
             tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim],
                                           ctx=ctx)
             tensor = tensor.astype(dtype)
-            summed = hvd.allreduce(tensor, average=False, name=str(count))
+            summed = hvd.allreduce(tensor, op=hvd.Sum, name=str(count))
             multiplied = tensor * size
             count += 1
 
@@ -124,7 +124,7 @@ class MXTests:
             tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim],
                                           ctx=ctx)
             tensor = tensor.astype(dtype)
-            averaged = hvd.allreduce(tensor, average=True, name=str(count))
+            averaged = hvd.allreduce(tensor, op=hvd.Average, name=str(count))
             tensor *= size
             tensor /= size
             count += 1
@@ -159,7 +159,7 @@ class MXTests:
                                           ctx=ctx)
             tensor = tensor.astype(dtype)
             multiplied = tensor * size
-            hvd.allreduce_(tensor, average=False, name=str(count))
+            hvd.allreduce_(tensor, op=hvd.Sum, name=str(count))
             count += 1
 
             # Threshold for floating point equality depends on number of
@@ -194,7 +194,7 @@ class MXTests:
                                           ctx=ctx)
             tensor = tensor.astype(dtype)
             factor = np.random.uniform()
-            scaled = hvd.allreduce(tensor, average=False, name=str(count),
+            scaled = hvd.allreduce(tensor, op=hvd.Sum, name=str(count),
                                    prescale_factor=factor)
 
             factor = mx.nd.array([factor], dtype='float64', ctx=ctx)
@@ -246,7 +246,7 @@ class MXTests:
                                           ctx=ctx)
             tensor = tensor.astype(dtype)
             factor = np.random.uniform()
-            scaled = hvd.allreduce(tensor, average=False, name=str(count),
+            scaled = hvd.allreduce(tensor, op=hvd.Sum, name=str(count),
                                    postscale_factor=factor)
 
             factor = mx.nd.array([factor], dtype='float64', ctx=ctx)
@@ -346,11 +346,11 @@ class MXTests:
                                                    ctx=ctx)
             if rank in even_ranks:
                 tensor = even_rank_tensor.astype(dtype)
-                summed = hvd.allreduce(tensor, average=False, name=str(count), process_set=even_set)
+                summed = hvd.allreduce(tensor, op=hvd.Sum, name=str(count), process_set=even_set)
                 multiplied = tensor * len(even_ranks)
             elif rank in odd_ranks:
                 tensor = odd_rank_tensor.astype(dtype)
-                summed = hvd.allreduce(tensor, average=False, name=str(count), process_set=odd_set)
+                summed = hvd.allreduce(tensor, op=hvd.Sum, name=str(count), process_set=odd_set)
                 multiplied = tensor * len(odd_ranks)
             count += 1
 
@@ -442,7 +442,7 @@ class MXTests:
             tensor = mx.nd.ones(shape=shapes[dim], ctx=ctx)
             # tensor*(i+1) result will be destroyed immediately after this call
             # See https://github.com/horovod/horovod/issues/1533
-            sum = hvd.allreduce(tensor * (i + 1), average=False)
+            sum = hvd.allreduce(tensor * (i + 1), op=hvd.Sum)
             expected = tensor * (i + 1) * size
             assert same(sum.asnumpy(), expected.asnumpy())
 
@@ -466,7 +466,7 @@ class MXTests:
 
             multiplied = [tensor * size for tensor in tensors]
 
-            summed = hvd.grouped_allreduce(tensors, average=False, name=str(count))
+            summed = hvd.grouped_allreduce(tensors, op=hvd.Sum, name=str(count))
 
             count += 1
 
@@ -505,7 +505,7 @@ class MXTests:
             tensors = [tensor * size for tensor in tensors]
             tensors = [tensor / size for tensor in tensors]
 
-            averaged = hvd.grouped_allreduce(tensors, average=True, name=str(count))
+            averaged = hvd.grouped_allreduce(tensors, op=hvd.Average, name=str(count))
 
             count += 1
 
@@ -544,7 +544,7 @@ class MXTests:
 
             multiplied = [tensor * size for tensor in tensors]
 
-            hvd.grouped_allreduce_(tensors, average=False, name=str(count))
+            hvd.grouped_allreduce_(tensors, op=hvd.Sum, name=str(count))
 
             count += 1
 
@@ -594,12 +594,12 @@ class MXTests:
             if rank in even_ranks:
                 tensors = [tensor.astype(dtype) for tensor in even_rank_tensors]
                 multiplied = [tensor * len(even_ranks) for tensor in tensors]
-                summed = hvd.grouped_allreduce(tensors, average=False, name=str(count),
+                summed = hvd.grouped_allreduce(tensors, op=hvd.Sum, name=str(count),
                                                process_set=even_set)
             elif rank in odd_ranks:
                 tensors = [tensor.astype(dtype) for tensor in odd_rank_tensors]
                 multiplied = [tensor * len(odd_ranks) for tensor in tensors]
-                summed = hvd.grouped_allreduce(tensors, average=False, name=str(count),
+                summed = hvd.grouped_allreduce(tensors, op=hvd.Sum, name=str(count),
                                                process_set=odd_set)
             count += 1
 
