@@ -69,7 +69,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
         average:
             .. warning:: .. deprecated:: 0.19.0
 
-                Use `op` instead. Will be removed in v0.21.0.
+                Use `op` instead. Will be removed in v1.0.
 
         device_dense: Device to be used for dense tensors. Uses GPU by default
                       if Horovod was built with HOROVOD_GPU_OPERATIONS.

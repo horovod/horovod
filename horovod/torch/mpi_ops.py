@@ -168,7 +168,7 @@ def allreduce_async(tensor, average=None, name=None, op=None,
         average:
             .. warning:: .. deprecated:: 0.19.0
 
-                Use `op` instead. Will be removed in v0.21.0.
+                Use `op` instead. Will be removed in v1.0.
 
         name: A name of the reduction operation.
         op: The reduction operation to combine tensors across different
@@ -228,7 +228,7 @@ def allreduce(tensor, average=None, name=None, compression=Compression.none, op=
         average:
             .. warning:: .. deprecated:: 0.19.0
 
-                Use `op` instead. Will be removed in v0.21.0.
+                Use `op` instead. Will be removed in v1.0.
 
         name: A name of the reduction operation.
         compression: Compression algorithm used during allreduce to reduce the amount
@@ -269,7 +269,7 @@ def allreduce_async_(tensor, average=None, name=None, op=None,
         average:
             .. warning:: .. deprecated:: 0.19.0
 
-                Use `op` instead. Will be removed in v0.21.0.
+                Use `op` instead. Will be removed in v1.0.
 
         name: A name of the reduction operation.
         op: The reduction operation to combine tensors across different ranks. Defaults to
@@ -304,7 +304,7 @@ def allreduce_(tensor, average=None, name=None, op=None,
         average:
             .. warning:: .. deprecated:: 0.19.0
 
-                Use `op` instead. Will be removed in v0.21.0.
+                Use `op` instead. Will be removed in v1.0.
 
         name: A name of the reduction operation.
         op: The reduction operation to combine tensors across different ranks. Defaults to
@@ -391,7 +391,7 @@ def grouped_allreduce_async(tensors, average=None, name=None, op=None,
         average:
             .. warning:: .. deprecated:: 0.19.0
 
-                Use `op` instead. Will be removed in v0.21.0.
+                Use `op` instead. Will be removed in v1.0.
 
         name: A base name to use for the group reduction operation.
         op: The reduction operation to combine tensors across different
@@ -455,7 +455,7 @@ def grouped_allreduce(tensors, average=None, name=None, compression=Compression.
         average:
             .. warning:: .. deprecated:: 0.19.0
 
-                Use `op` instead. Will be removed in v0.21.0.
+                Use `op` instead. Will be removed in v1.0.
 
         name: A base name to use for the group reduction operation.
         compression: Compression algorithm used during allreduce to reduce the amount
@@ -498,7 +498,7 @@ def grouped_allreduce_async_(tensors, average=None, name=None, op=None,
         average:
             .. warning:: .. deprecated:: 0.19.0
 
-                Use `op` instead. Will be removed in v0.21.0.
+                Use `op` instead. Will be removed in v1.0.
 
         name: A base name to use for the group reduction operation.
         op: The reduction operation to combine tensors across different ranks. Defaults to
@@ -535,7 +535,7 @@ def grouped_allreduce_(tensors, average=None, name=None, op=None,
         average:
             .. warning:: .. deprecated:: 0.19.0
 
-                Use `op` instead. Will be removed in v0.21.0.
+                Use `op` instead. Will be removed in v1.0.
 
         name: A base name to use for the group reduction operation.
         op: The reduction operation to combine tensors across different ranks. Defaults to
