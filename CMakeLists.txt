@@ -229,7 +229,7 @@ endif()
 if(HOROVOD_GPU_ALLREDUCE STREQUAL "D")
     message(DEPRECATION "DDL backend has been deprecated. Please, start using the NCCL backend by building Horovod with "
                         "'HOROVOD_GPU_OPERATIONS=NCCL'. Will be removed in v0.21.0.")
-    list(APPEND LINKER_LIBS "${CUDAToolkit_LIBRARY_ROOT}/lib/libddl.so" "${CUDAToolkit_LIBRARY_ROOT}/lib/libddl_pack.so")
+    list(APPEND LINKER_LIBS "${CUDAToolkit_LIBRARY_DIR}/libddl.so" "${CUDAToolkit_LIBRARY_DIR}/libddl_pack.so")
     list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/mpi/ddl_mpi_context_manager.cc"
                         "${PROJECT_SOURCE_DIR}/horovod/common/ops/ddl_operations.cc")
     add_definitions(-DHAVE_DDL=1)
