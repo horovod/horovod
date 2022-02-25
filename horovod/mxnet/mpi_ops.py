@@ -97,7 +97,7 @@ def allreduce(tensor, average=None, name=None, priority=0, prescale_factor=1.0,
     Arguments:
         tensor: A tensor to average or sum.
         average:
-            .. warning:: .. deprecated::
+            .. warning:: .. deprecated:: 0.24.0
 
                 Use `op` instead. Will be removed in v1.0.
 
@@ -151,7 +151,7 @@ def allreduce_(tensor, average=None, name=None, priority=0, prescale_factor=1.0,
     Arguments:
         tensor: A tensor to average or sum.
         average:
-            .. warning:: .. deprecated::
+            .. warning:: .. deprecated:: 0.24.0
 
                 Use `op` instead. Will be removed in v1.0.
 
@@ -203,7 +203,7 @@ def grouped_allreduce(tensors, average=None, name=None, priority=0, prescale_fac
     Arguments:
         tensors: A list of tensors to average or sum.
         average:
-            .. warning:: .. deprecated::
+            .. warning:: .. deprecated:: 0.24.0
 
                 Use `op` instead. Will be removed in v1.0.
 
@@ -261,7 +261,7 @@ def grouped_allreduce_(tensors, average=None, name=None, priority=0, prescale_fa
     Arguments:
         tensors: A list of tensors to average or sum.
         average:
-            .. warning:: .. deprecated::
+            .. warning:: .. deprecated:: 0.24.0
 
                 Use `op` instead. Will be removed in v1.0.
 
