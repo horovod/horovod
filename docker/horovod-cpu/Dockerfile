@@ -6,9 +6,6 @@ ARG PYTORCH_LIGHTNING_VERSION=1.5.9
 ARG TORCHVISION_VERSION=0.11.3
 ARG MXNET_VERSION=1.9.0
 
-ARG PYSPARK_PACKAGE=pyspark==3.2.1
-ARG SPARK_PACKAGE=spark-3.2.1/spark-3.2.1-bin-hadoop2.7.tgz
-
 ARG PYTHON_VERSION=3.8
 
 # to avoid interaction with apt-get
@@ -70,18 +67,11 @@ RUN pip install --no-cache-dir \
 
 RUN pip install --no-cache-dir mxnet==${MXNET_VERSION}
 
-# Install Spark stand-alone cluster.
-RUN wget --progress=dot:giga "https://www.apache.org/dyn/closer.lua/spark/${SPARK_PACKAGE}?action=download" -O - | tar -xzC /tmp; \
-    archive=$(basename "${SPARK_PACKAGE}") bash -c "mv -v /tmp/\${archive/%.tgz/} /spark"
-
-# Install PySpark.
-RUN pip install --no-cache-dir ${PYSPARK_PACKAGE}
-
 # Install Horovod
 WORKDIR /horovod
 COPY . .
 RUN python setup.py sdist && \
-    bash -c "HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]" && \
+    bash -c "HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[ray]" && \
     horovodrun --check-build
 
 # Check all frameworks are working correctly
