@@ -5,7 +5,7 @@ FROM nvidia/cuda:${CUDA_DOCKER_VERSION}
 # the first usage only applies to the FROM tag.
 # TensorFlow version is tightly coupled to CUDA and cuDNN so it should be selected carefully
 ARG CUDA_DOCKER_VERSION=11.2.2-devel-ubuntu20.04
-ARG TENSORFLOW_VERSION=2.7.1
+ARG TENSORFLOW_VERSION=2.8.0
 ARG PYTORCH_VERSION=1.10.2+cu111
 ARG PYTORCH_LIGHTNING_VERSION=1.5.9
 ARG TORCHVISION_VERSION=0.11.3+cu111
