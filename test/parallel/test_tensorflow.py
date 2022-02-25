@@ -4052,7 +4052,7 @@ class TensorFlowTests(tf.test.TestCase):
                                          msg="hvd.join() did not return the same value on each rank")
 
     @pytest.mark.skipif(LooseVersion(tf.__version__) >=
-                        LooseVersion('2.9.0'), reason='BatchNormalization object has no attribute apply')
+                        LooseVersion('2.9.0'), reason='https://github.com/horovod/horovod/issues/3422')
     def test_horovod_syncbn_gpu(self):
         """Test that the SyncBatchNormalization implementation is correct on GPU."""
         # Only do this test if there are GPUs available.
@@ -4101,7 +4101,7 @@ class TensorFlowTests(tf.test.TestCase):
                 self.assertAllClose(self.evaluate(sync_bn.moving_variance), self.evaluate(bn.moving_variance))
 
     @pytest.mark.skipif(LooseVersion(tf.__version__) >=
-                        LooseVersion('2.9.0'), reason='BatchNormalization object has no attribute apply')
+                        LooseVersion('2.9.0'), reason='https://github.com/horovod/horovod/issues/3422')
     def test_horovod_syncbn_cpu(self):
         """Test that the SyncBatchNormalization implementation is correct on CPU."""
 
