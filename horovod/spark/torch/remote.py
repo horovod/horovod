@@ -121,10 +121,13 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
             import horovod as _horovod
             print(f"Shared lib path is pointing to: {_horovod.common.process_sets._basics.MPI_LIB_CTYPES}")
 
-        if not user_shuffle_buffer_size:
+        # If user specifies any user_shuffle_buffer_size (even 0), we should honor it.
+        if user_shuffle_buffer_size is None:
             shuffle_buffer_size = \
                 calculate_shuffle_buffer_size(hvd, avg_row_size, train_rows / hvd.size())
         else:
+            if user_shuffle_buffer_size < 0:
+                raise ValueError("user_shuffle_buffer_size cannot be negative!")
             shuffle_buffer_size = user_shuffle_buffer_size
 
         cuda_available = torch.cuda.is_available()
@@ -218,6 +221,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
             if hvd.rank() == 0 and user_verbose:
                 print(f"Training parameters: Epochs: {epochs}\n"
                       f"Train rows: {train_rows}, Train batch size: {batch_size}, Train_steps_per_epoch: {steps_per_epoch}\n"
+                      f"Shuffle buffer size: {shuffle_buffer_size}\n"
                       f"Checkpoint file: {ckpt_file}, Logs dir: {logs_dir}\n")
             # In general, make_batch_reader is faster than make_reader for reading the dataset.
             # However, we found out that make_reader performs data transformations much faster than
@@ -245,6 +249,8 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                                 schema_fields=schema_fields,
                                 transform_spec=transform_spec,
                                 storage_options=storage_options,
+                                # Don't shuffle row groups without shuffling.
+                                shuffle_row_groups=True if shuffle_buffer_size > 0 else False
                                 **reader_factory_kwargs) as train_reader:
                 with reader_factory(remote_store.val_data_path,
                                     num_epochs=None,
@@ -256,6 +262,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                                     schema_fields=schema_fields,
                                     transform_spec=transform_spec,
                                     storage_options=storage_options,
+                                    shuffle_row_groups=False,
                                     **reader_factory_kwargs) \
                     if should_validate else empty_batch_reader() as val_reader:
 

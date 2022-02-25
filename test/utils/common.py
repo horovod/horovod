@@ -112,15 +112,12 @@ def tempdir():
 
 @contextlib.contextmanager
 def temppath():
-    path = tempfile.mktemp()
+    dir_path = tempfile.TemporaryDirectory()
+    path = os.path.join(dir_path.name,'temp_test_file')
     try:
         yield path
     finally:
-        if os.path.exists(path):
-            if os.path.isfile(path):
-                os.remove(path)
-            else:
-                shutil.rmtree(path)
+        dir_path.cleanup()
 
 
 @contextlib.contextmanager

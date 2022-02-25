@@ -123,15 +123,26 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                 train_logger = TensorBoardLogger(logs_path)
                 print(f"Setup logger: Using TensorBoardLogger: {train_logger}")
 
-            elif isinstance(logger, CometLogger) and logger._experiment_key is None:
-                # Resume logger experiment key if passed correctly from CPU.
-                train_logger = CometLogger(
-                    save_dir=logs_path,
-                    api_key=logger.api_key,
-                    experiment_key=logger_experiment_key,
-                )
+            elif isinstance(logger, CometLogger):
+                if logger._experiment_key:
+                    # use logger passed in.
+                    train_logger = logger
+                    train_logger._save_dir = logs_path
+                    print(f"Setup logger: change save_dir of the logger to {logs_path}")
 
-                print(f"Setup logger: Resume comet logger: {vars(train_logger)}")
+                elif logger_experiment_key:
+                    # Resume logger experiment with new log path if key passed correctly from CPU.
+                    train_logger = CometLogger(
+                        save_dir=logs_path,
+                        api_key=logger.api_key,
+                        experiment_key=logger_experiment_key,
+                    )
+
+                    print(f"Setup logger: Resume comet logger: {vars(train_logger)}")
+
+                else:
+                    print(f"Failed to setup or resume comet logger. origin logger: {vars(logger)}")
+
             else:
                 # use logger passed in.
                 train_logger = logger
@@ -171,8 +182,9 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             _val_steps_per_epoch = val_steps_per_epoch if val_steps_per_epoch else \
                 int(math.floor(float(val_rows) / val_batch_size / hvd.size()))
 
+            shuffle_size = calculate_shuffle_buffer_size()
             if verbose:
-                print(f"Training data of rank[{hvd.local_rank()}]: Epochs: {epochs}\n"
+                print(f"Training data of rank[{hvd.local_rank()}]: Epochs: {epochs}, shuffle_size: {shuffle_size}\n"
                       f"Train rows: {train_rows}, Train batch size: {batch_size}, Train_steps_per_epoch: {_train_steps_per_epoch}\n"
                       f"Val rows: {val_rows}, Val batch size: {val_batch_size}, Val_steps_per_epoch: {_val_steps_per_epoch}\n"
                       f"Checkpoint file: {remote_store.checkpoint_path}, Logs dir: {remote_store.logs_path}\n")
@@ -235,7 +247,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                 'has_val': should_validate is not None,
                 'train_batch_size': batch_size,
                 'val_batch_size': val_batch_size,
-                'shuffle_size': calculate_shuffle_buffer_size(),
+                'shuffle_size': shuffle_size,
                 'num_reader_epochs': loader_num_epochs,
                 'reader_pool_type': reader_pool_type,
                 'reader_worker_count': train_reader_worker_count,
@@ -312,7 +324,10 @@ def _calculate_shuffle_buffer_size_fn(train_rows, avg_row_size, user_shuffle_buf
         """
         import horovod.torch as hvd
 
-        if user_shuffle_buffer_size:
+        # If user specifies any user_shuffle_buffer_size (even 0), we should honor it.
+        if user_shuffle_buffer_size is not None:
+            if user_shuffle_buffer_size < 0:
+                raise ValueError("user_shuffle_buffer_size cannot be negative!")
             return user_shuffle_buffer_size
 
         local_size = hvd.local_size()

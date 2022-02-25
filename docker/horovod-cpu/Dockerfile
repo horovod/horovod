@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
 # TensorFlow version is tightly coupled to CUDA and cuDNN so it should be selected carefully
 ARG TENSORFLOW_VERSION=2.5.0
@@ -10,17 +10,16 @@ ARG MXNET_VERSION=1.8.0.post0
 ARG PYSPARK_PACKAGE=pyspark==3.1.1
 ARG SPARK_PACKAGE=spark-3.1.1/spark-3.1.1-bin-hadoop2.7.tgz
 
-# Python 3.7 is supported by Ubuntu Bionic out of the box
-ARG PYTHON_VERSION=3.7
+ARG PYTHON_VERSION=3.8
 
 # Set default shell to /bin/bash
-SHELL ["/bin/bash", "-cu"]
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
         build-essential \
-        cmake \
         g++-7 \
         git \
+        gpg \
         curl \
         vim \
         wget \
@@ -56,6 +55,9 @@ RUN ln -s /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
     python get-pip.py && \
     rm get-pip.py
+
+# Install recent CMake.
+RUN pip install --no-cache-dir -U cmake~=3.13.0
 
 # Install PyTorch, TensorFlow, Keras and MXNet
 RUN pip install --no-cache-dir torch==${PYTORCH_VERSION} torchvision==${TORCHVISION_VERSION}

@@ -243,7 +243,7 @@ void AllgatherOp::MemcpyInFusionBuffer(
 
   auto& process_set =
       global_state_->process_set_table.Get(first_entry.process_set_id);
-  int64_t offset = displcmnts[process_set.controller->GetRank()] * element_size;
+  int64_t offset = (int64_t)displcmnts[process_set.controller->GetRank()] * (int64_t)element_size;
   for (auto& e : entries) {
     void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
     MemcpyEntryInFusionBuffer(entries, e, buffer_data_at_offset);

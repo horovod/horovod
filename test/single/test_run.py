@@ -640,7 +640,7 @@ class RunTests(unittest.TestCase):
         test(("HYDRA build details:\n"
               "    Version:           3.3a2\n"
               "    Configure options: 'MPICHLIB_CFLAGS=-g -O2'\n"), _MPICH_IMPL)
-        
+
         test("Intel(R) MPI", _IMPI_IMPL)
 
         test("Unknown MPI v1.00", _UNKNOWN_IMPL)

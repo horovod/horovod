@@ -332,8 +332,23 @@ The maximum np can be used to cap the number of processes (to prevent over-utili
 as a reference point for learning rate scales and data partitions (in cases where these need to be held constant
 regardless of the current number of workers).  If unspecified, maximum np also defaults to ``-np``.
 
-Instances that fail will be added to a blacklist, as they may have faulty hardware.  Ranks that fail repeatedly
-will result in job failure, as it may be the case that the training process cannot make progress.
+Instances that fail will be added to a blacklist, as they may have faulty hardware. Hosts will remain in blacklist for a configured cooldown period.
+After the cooldown period ends, the hosts will be whitelisted back. This is to account for transient failures, and cases where the same host
+is added back to a job.
+Cooldown periods can be configured with the ``--blacklist-cooldown-range`` parameter like this:
+
+.. code-block:: bash
+
+    $ horovodrun -np 8 --blacklist-cooldown-range 10 100 --min-np 4 --max-np 12 --host-discovery-script discover_hosts.py python train.py
+
+The above example configures the minimum cooldown period to 10 seconds and the maximum cooldown period to 100 seconds.
+The intial cooldown period would be 10 seconds. For repeat failures the cooldown period would grow with an exponential
+backoff delay (with a constant exponent of 2): 10s, 20s, 40s, and so on. However, the maximum cooldown period would be
+capped at 100 seconds, regardless of failure count. A random backoff fraction of the cooldown lower limit is added
+to the cooldown delay.
+The default behavior is to have no cooldown period, and blacklisted hosts would remain in blacklist.
+
+Ranks that fail repeatedly will result in job failure, as it may be the case that the training process cannot make progress.
 
 
 Running on Ray

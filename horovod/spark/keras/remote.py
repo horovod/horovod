@@ -112,10 +112,13 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
 
         pin_gpu(hvd, tf, k)
 
-        if not user_shuffle_buffer_size:
+        # If user specifies any user_shuffle_buffer_size (even 0), we should honor it.
+        if user_shuffle_buffer_size is None:
             shuffle_buffer_size = calculate_shuffle_buffer_size(
                 hvd, avg_row_size, train_rows / hvd.size())
         else:
+            if user_shuffle_buffer_size < 0:
+                raise ValueError("user_shuffle_buffer_size cannot be negative!")
             shuffle_buffer_size = user_shuffle_buffer_size
 
         # needs to be deserialized in the with scope
@@ -214,7 +217,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 schema_fields.append(sample_weight_col)
 
             if verbose:
-                print(f"Training parameters: Epochs: {epochs}, Scaled lr: {scaled_lr}\n"
+                print(f"Training parameters: Epochs: {epochs}, Scaled lr: {scaled_lr}, Shuffle size: {shuffle_buffer_size}\n"
                       f"Train rows: {train_rows}, Train batch size: {batch_size}, Train_steps_per_epoch: {steps_per_epoch}\n"
                       f"Val rows: {val_rows}, Val batch size: {val_batch_size}, Val_steps_per_epoch: {validation_steps}\n"
                       f"Checkpoint file: {remote_store.checkpoint_path}, Logs dir: {remote_store.logs_path}\n")
@@ -241,6 +244,8 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                                 schema_fields=schema_fields,
                                 transform_spec=transform_spec,
                                 storage_options=storage_options,
+                                # Don't shuffle row groups if shuffle_buffer_size is 0 (non-shuffle case).
+                                shuffle_row_groups=True if shuffle_buffer_size > 0 else False,
                                 **reader_factory_kwargs) as train_reader:
                 with reader_factory(remote_store.val_data_path,
                                     num_epochs=1,
@@ -252,11 +257,13 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                                     schema_fields=schema_fields,
                                     transform_spec=transform_spec,
                                     storage_options=storage_options,
+                                    shuffle_row_groups=False,
                                     **reader_factory_kwargs) \
                     if should_validate else empty_batch_reader() as val_reader:
 
                     train_data = make_dataset(train_reader, batch_size, shuffle_buffer_size,
-                                              is_batch_reader, shuffle=True, cache=inmemory_cache_all)
+                                              is_batch_reader, shuffle=True if shuffle_buffer_size > 0 else False,
+                                              cache=inmemory_cache_all)
                     val_data = make_dataset(val_reader, val_batch_size, shuffle_buffer_size,
                                             is_batch_reader, shuffle=False, cache=inmemory_cache_all) \
                         if val_reader else None

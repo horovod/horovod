@@ -1,19 +1,17 @@
-cmake_minimum_required(VERSION 2.8.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
 if(POLICY CMP0074)
     # 1. Introduced with 3.12.4.
     # 2. *_ROOT variables will be checked
     cmake_policy(SET CMP0074 NEW)
 endif()
 
-if(${CMAKE_VERSION} VERSION_GREATER "3.4.0") 
-  find_program(CCACHE_PROGRAM ccache)
-  if(CCACHE_PROGRAM)
+find_program(CCACHE_PROGRAM ccache)
+if(CCACHE_PROGRAM)
     set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
     set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
     set(CMAKE_CUDA_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
-  else()
+else()
     message(STATUS "Could not find CCache. Consider installing CCache to speed up compilation.")
-  endif()
 endif()
 
 project(horovod CXX)
@@ -23,7 +21,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Configure path to modules (for find_package)
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/Modules/")
+set(CMAKE_MODULE_PATH
+        ${CMAKE_MODULE_PATH}
+        "${PROJECT_SOURCE_DIR}/cmake/Modules/"
+        "${PROJECT_SOURCE_DIR}/cmake/upstream/")
 include(cmake/Utilities.cmake)
 
 create_metadata()
@@ -149,14 +150,33 @@ if (NOT "$ENV{HOROVOD_WITHOUT_MPI}" STREQUAL "1")
 endif()
 
 # CUDA and ROCM
+set(CMAKE_CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
+if(NOT DEFINED CMAKE_CUDA_RUNTIME_LIBRARY)
+    set(CMAKE_CUDA_RUNTIME_LIBRARY "Shared")  # Set to "Static" or "Shared"
+endif()
+if (DEFINED ENV{HOROVOD_CUDA_HOME})
+    set(CMAKE_CUDA_COMPILER $ENV{HOROVOD_CUDA_HOME}/bin/nvcc)
+endif()
+include(CheckLanguage)
+check_language(CUDA)
+if (CMAKE_CUDA_COMPILER)
+    if ((CMAKE_CXX_COMPILER_ID MATCHES GNU) AND (CMAKE_SYSTEM_PROCESSOR MATCHES ppc64le))
+        if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 8.0)
+            set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -std=c++11")
+        endif ()
+    endif ()
+    enable_language(CUDA)
+endif ()
+
 macro(ADD_CUDA)
-    if (DEFINED ENV{HOROVOD_CUDA_HOME})
-        set(CUDA_TOOLKIT_ROOT_DIR $ENV{HOROVOD_CUDA_HOME})
+    find_package(CUDAToolkit REQUIRED)
+    include_directories(SYSTEM ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+    string(TOLOWER "${CMAKE_CUDA_RUNTIME_LIBRARY}" lowercase_CMAKE_CUDA_RUNTIME_LIBRARY)
+    if (lowercase_CMAKE_CUDA_RUNTIME_LIBRARY STREQUAL "static")
+        list(APPEND LINKER_LIBS CUDA::cudart_static)
+    elseif (lowercase_CMAKE_CUDA_RUNTIME_LIBRARY STREQUAL "shared")
+        list(APPEND LINKER_LIBS CUDA::cudart)
     endif()
-    option(CUDA_USE_STATIC_CUDA_RUNTIME "Use the static version of the CUDA runtime library if available" OFF)
-    find_package(CUDA REQUIRED)
-    include_directories(SYSTEM ${CUDA_INCLUDE_DIRS})
-    list(APPEND LINKER_LIBS ${CUDA_LIBRARIES})
     list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/cuda_operations.cc"
                         "${PROJECT_SOURCE_DIR}/horovod/common/ops/gpu_operations.cc")
     # CUDA + MPI
@@ -210,7 +230,7 @@ endif()
 if(HOROVOD_GPU_ALLREDUCE STREQUAL "D")
     message(DEPRECATION "DDL backend has been deprecated. Please, start using the NCCL backend by building Horovod with "
                         "'HOROVOD_GPU_OPERATIONS=NCCL'. Will be removed in v0.21.0.")
-    list(APPEND LINKER_LIBS "${CUDA_TOOLKIT_ROOT_DIR}/lib/libddl.so" "${CUDA_TOOLKIT_ROOT_DIR}/lib/libddl_pack.so")
+    list(APPEND LINKER_LIBS "${CUDAToolkit_LIBRARY_ROOT}/lib/libddl.so" "${CUDAToolkit_LIBRARY_ROOT}/lib/libddl_pack.so")
     list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/mpi/ddl_mpi_context_manager.cc"
                         "${PROJECT_SOURCE_DIR}/horovod/common/ops/ddl_operations.cc")
     add_definitions(-DHAVE_DDL=1)

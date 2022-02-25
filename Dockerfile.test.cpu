@@ -1,9 +1,9 @@
-ARG UBUNTU_VERSION=18.04
+ARG UBUNTU_VERSION=20.04
 FROM ubuntu:${UBUNTU_VERSION}
 
 # Arguments for the build. UBUNTU_VERSION needs to be repeated because
 # the first usage only applies to the FROM tag.
-ARG UBUNTU_VERSION=18.04
+ARG UBUNTU_VERSION=20.04
 ARG MPI_KIND=OpenMPI
 ARG PYTHON_VERSION=3.6
 ARG GPP_VERSION=7
@@ -22,6 +22,9 @@ ARG SPARK_PACKAGE=spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
 ARG CCL_PACKAGE=master
 ARG HOROVOD_BUILD_FLAGS=""
 
+# to avoid interaction with apt-get
+ENV DEBIAN_FRONTEND=noninteractive
+
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
@@ -33,7 +36,6 @@ RUN add-apt-repository ppa:ubuntu-toolchain-r/test
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
         wget \
         ca-certificates \
-        cmake \
         openssh-client \
         openssh-server \
         git \
@@ -50,7 +52,13 @@ RUN apt-get update -qq && apt-get install -y python${PYTHON_VERSION} python${PYT
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python${PYTHON_VERSION/%.*/}
 RUN wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
-RUN pip install --no-cache-dir -U --force pip setuptools requests pytest mock pytest-forked parameterized
+
+# pinning pip to 21.0.0 as 22.0.0 cannot fetch pytorch packages from html linl
+# https://github.com/pytorch/pytorch/issues/72045
+RUN pip install --no-cache-dir -U --force pip~=21.0.0 setuptools requests pytest mock pytest-forked parameterized
+
+# Install recent CMake.
+RUN pip install --no-cache-dir -U cmake~=3.13.0
 
 # Add launch helper scripts
 RUN echo "env SPARK_HOME=/spark SPARK_DRIVER_MEM=512m PYSPARK_PYTHON=/usr/bin/python${PYTHON_VERSION} PYSPARK_DRIVER_PYTHON=/usr/bin/python${PYTHON_VERSION} \"\$@\"" > /spark_env.sh

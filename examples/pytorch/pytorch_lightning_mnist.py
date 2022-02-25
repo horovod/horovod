@@ -110,8 +110,12 @@ def test():
 
 if __name__ == '__main__':
     args = parser.parse_args()
-    args.cuda = not args.no_cuda and torch.cuda.is_available()
+    torch.manual_seed(args.seed)
     hvd.init()
+    args.cuda = not args.no_cuda and torch.cuda.is_available()
+    if args.cuda:
+        torch.cuda.set_device(hvd.local_rank())
+        torch.cuda.manual_seed(args.seed)
 
     kwargs = {'num_workers': 2}
     # When supported, use 'forkserver' to spawn dataloader workers instead of 'fork' to prevent
@@ -205,4 +209,3 @@ if __name__ == '__main__':
         if args.cuda:
             model = model.cuda()
         test()
-

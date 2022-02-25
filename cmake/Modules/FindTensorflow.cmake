@@ -12,7 +12,7 @@
 list(APPEND CMAKE_PREFIX_PATH ${Tensorflow_ROOT})
 
 execute_process(COMMAND ${PY_EXE} -c "import tensorflow as tf; print(tf.__version__); print(tf.sysconfig.get_include()); print(' '.join(tf.sysconfig.get_link_flags())); print(' '.join(tf.sysconfig.get_compile_flags()))"
-                OUTPUT_VARIABLE Tensorflow_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+                OUTPUT_VARIABLE Tensorflow_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE)
 string(REGEX REPLACE "\n" ";" Tensorflow_OUTPUT "${Tensorflow_OUTPUT}")
 list(LENGTH Tensorflow_OUTPUT LEN)
 if (LEN EQUAL "4")
@@ -22,7 +22,7 @@ if (LEN EQUAL "4")
     string(REPLACE " " ";" Tensorflow_LIBRARIES_LIST "${Tensorflow_LIBRARIES}")
     list(GET Tensorflow_LIBRARIES_LIST 0 Tensorflow_LIB_PATH_ARGUMENT)
     string(REGEX REPLACE "^-L" "" Tensorflow_LIB_PATH ${Tensorflow_LIB_PATH_ARGUMENT})
-    if (Tensorflow_VERSION VERSION_GREATER "2.6" OR Tensorflow_VERSION VERSION_EQUAL "2.6")
+    if (Tensorflow_VERSION VERSION_GREATER_EQUAL "2.6")
         # XLA implementations and helpers for resource variables are in _pywrap_tensorflow_internal.so
         set(Tensorflow_LIBRARIES "${Tensorflow_LIBRARIES} ${Tensorflow_LIB_PATH}/python/_pywrap_tensorflow_internal.so")
     endif()

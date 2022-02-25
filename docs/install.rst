@@ -6,9 +6,10 @@ Horovod Installation Guide
 Requirements
 ------------
 
+- GNU Linux or macOS
 - Python >= 3.6
 - `g++-5` or above, or another compiler supporting C++14
-- CMake
+- CMake 3.13 or newer
 - TensorFlow, PyTorch, or MXNet
 - (Optional) MPI
 
@@ -18,6 +19,8 @@ For best performance on GPU:
 
 If Horovod in unable to find the CMake binary, you may need to set ``HOROVOD_CMAKE`` in your environment before
 installing.
+
+Horovod does not support Windows.
 
 Frameworks
 ----------
@@ -213,7 +216,7 @@ diagnose failures:
 Installing Horovod with Conda (+pip)
 ------------------------------------
 
-To use Conda to install PyTorch, TensorFlow, MXNet, Horovod, as well as GPU depdencies such as 
+To use Conda to install PyTorch, TensorFlow, MXNet, Horovod, as well as GPU dependencies such as
 NVIDIA CUDA Toolkit, cuDNN, NCCL, etc., see `Build a Conda Environment with GPU Support for Horovod <conda.rst>`_.
 
 Environment Variables

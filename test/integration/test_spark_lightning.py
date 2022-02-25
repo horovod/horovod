@@ -215,11 +215,8 @@ class SparkLightningTests(unittest.TestCase):
                 assert len(pred) == 1
                 assert pred.dtype == torch.float32
 
-    # TODO: Add this test back after checkpoint call back is supported
     def test_restore_from_checkpoint(self):
-        self.skipTest('There is a deadlock bug for checkpoint call back. ' +
-                      'Will add this test back when it is solved.')
-
+        
         model = create_xor_model()
 
         with spark_session('test_restore_from_checkpoint') as spark:
@@ -253,10 +250,7 @@ class SparkLightningTests(unittest.TestCase):
                 torch_estimator.fit(df)
                 torch_estimator._read_checkpoint.assert_called()
 
-    # TODO: Add this test back after checkpoint call back is supported
     def test_legacy_restore_from_checkpoint(self):
-        self.skipTest('There is a deadlock bug for checkpoint call back. ' +
-                      'Will add this test back when it is solved.')
 
         model = create_legacy_xor_model()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
@@ -363,6 +357,12 @@ class SparkLightningTests(unittest.TestCase):
         actual = int(shuffle_size)
         expected = int(constants.TOTAL_BUFFER_MEMORY_CAP_GIB * constants.BYTES_PER_GIB / avg_row_size / 5)
         assert actual == expected
+
+        calculate_shuffle_buffer_size = remote._calculate_shuffle_buffer_size_fn(
+            train_row_count_per_worker, avg_row_size, 0)
+        shuffle_size = calculate_shuffle_buffer_size()
+        # Set 0 for non-shuffle
+        assert int(shuffle_size) == 0
 
     def test_prepare_data(self):
         with spark_session('test_prepare_data') as spark:

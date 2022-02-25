@@ -19,6 +19,7 @@ import copy
 import io
 import numbers
 import time
+import os
 
 from pyspark import keyword_only
 from pyspark.ml.param.shared import Param, Params, TypeConverters
@@ -115,9 +116,10 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         val_batch_size: Number of rows from the DataFrame per batch for validation, if not set, will use batch_size.
         epochs: Number of epochs to train.
         verbose: Verbosity level [0, 2] (default: 1).
-        shuffle_buffer_size: Optional size of in-memory shuffle buffer in rows. Allocating a larger buffer size
-                             increases randomness of shuffling at the cost of more host memory. Defaults to estimating
-                             with an assumption of 4GB of memory per host.
+        shuffle_buffer_size: Optional size of in-memory shuffle buffer in rows (on training data).
+                             Allocating a larger buffer size increases randomness of shuffling at
+                             the cost of more host memory. Defaults to estimating with an assumption
+                             of 4GB of memory per host. Set shuffle_buffer_size=0 would turn off shuffle.
         partitions_per_process: Number of Parquet partitions to assign per worker process from `num_proc` (default: 10).
         run_id: Optional unique ID for this run for organization in the Store. Will be automatically assigned if not
                 provided.
@@ -287,7 +289,10 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def _load_checkpoint(self, run_id):
         store = self.getStore()
-        last_ckpt_path = store.get_checkpoint_path(run_id)
+        last_ckpt_path = os.path.join(store.get_checkpoint_path(run_id),store.get_checkpoint_filename())
+        
+        if not store.fs.exists(last_ckpt_path):
+            return None
 
         if self.getVerbose():
             print('Resuming training from last checkpoint: {}'.format(last_ckpt_path))

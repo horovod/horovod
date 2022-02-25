@@ -1,4 +1,4 @@
-ARG CUDA_DOCKER_VERSION=11.2.2-devel-ubuntu18.04
+ARG CUDA_DOCKER_VERSION=11.2.2-devel-ubuntu20.04
 FROM nvidia/cuda:${CUDA_DOCKER_VERSION}
 
 # Arguments for the build. CUDA_DOCKER_VERSION needs to be repeated because
@@ -16,17 +16,16 @@ ARG MXNET_VERSION=1.8.0.post0
 ARG PYSPARK_PACKAGE=pyspark==3.1.1
 ARG SPARK_PACKAGE=spark-3.1.1/spark-3.1.1-bin-hadoop2.7.tgz
 
-# Python 3.7 is supported by Ubuntu Bionic out of the box
-ARG PYTHON_VERSION=3.7
+ARG PYTHON_VERSION=3.8
 
 # Set default shell to /bin/bash
-SHELL ["/bin/bash", "-cu"]
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
         build-essential \
-        cmake \
         g++-7 \
         git \
+        gpg \
         curl \
         vim \
         wget \
@@ -62,9 +61,15 @@ RUN cat /etc/ssh/ssh_config | grep -v StrictHostKeyChecking > /etc/ssh/ssh_confi
 
 RUN ln -s /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 
+# pinning pip to 21.0.0 as 22.0.0 cannot fetch pytorch packages from html linl
+# https://github.com/pytorch/pytorch/issues/72045
 RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
     python get-pip.py && \
-    rm get-pip.py
+    rm get-pip.py && \
+    pip install --no-cache-dir -U --force pip~=21.0.0
+
+# Install recent CMake.
+RUN pip install --no-cache-dir -U cmake~=3.13.0
 
 # Install PyTorch, TensorFlow, Keras and MXNet
 RUN pip install --no-cache-dir \
