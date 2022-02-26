@@ -95,7 +95,7 @@ services:
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: torchvision
-        PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning
+        PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.3.8
         MXNET_PACKAGE: mxnet-nightly
 
   test-cpu-gloo-py3_7-tf2_7_0-keras2_7_0-torch1_10_1-mxnet1_9_0-pyspark2_4_8:
@@ -208,7 +208,7 @@ services:
         TENSORFLOW_PACKAGE: tf-nightly-gpu
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch-nightly-cu111
-        PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning
+        PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.3.8
         TORCHVISION_PACKAGE: torchvision
         MXNET_PACKAGE: mxnet-nightly-cu112
 

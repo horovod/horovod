@@ -27,6 +27,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - fix the example of pytorch_lightning_mnist.py ([#3245](https://github.com/horovod/horovod/pull/3245))
 
 - Call _setup in remote trainers to point to the correct shared lib path ([#3258](https://github.com/horovod/horovod/pull/3258))
+
+- Fix imports from tensorflow.python.keras with tensorflow 2.6.0+ ([#3403](https://github.com/horovod/horovod/pull/3403))
+
 ## [v0.23.0] - 2021-10-06
 
 ### Added

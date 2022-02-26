@@ -265,3 +265,24 @@ def is_iterable(x):
     except TypeError:
         return False
     return True
+
+
+@_cache
+def is_version_greater_equal_than(ver, target):
+    from distutils.version import LooseVersion
+    if any([not isinstance(_str, str) for _str in (ver, target)]):
+        raise ValueError("This function only accepts string arguments. \n"
+                         "Received:\n"
+                         "\t- ver (type {type_ver}: {val_ver})"
+                         "\t- target (type {type_target}: {val_target})".format(
+                            type_ver=(type(ver)),
+                            val_ver=ver,
+                            type_target=(type(target)),
+                            val_target=target,
+                         ))
+
+    if len(target.split(".")) != 3:
+        raise ValueError("We only accepts target version values in the form "
+                         "of: major.minor.patch. Received: {}".format(target))
+
+    return LooseVersion(ver) >= LooseVersion(target)

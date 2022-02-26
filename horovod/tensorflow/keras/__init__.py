@@ -19,7 +19,13 @@ import warnings
 import tensorflow as tf
 
 from tensorflow import keras
-from tensorflow.python.keras import backend as K
+
+from horovod.common.util  import is_version_greater_equal_than
+
+if is_version_greater_equal_than(tf.__version__, "2.6.0"):
+    from keras import backend as K
+else:
+    from tensorflow.python.keras import backend as K
 
 from horovod.tensorflow import init
 from horovod.tensorflow import shutdown
@@ -247,4 +253,3 @@ def load_model(filepath, custom_optimizers=None, custom_objects=None, compressio
     def wrap_optimizer(cls):
         return lambda **kwargs: DistributedOptimizer(cls(**kwargs), compression=compression)
     return _impl.load_model(keras, wrap_optimizer, _OPTIMIZER_MODULES, filepath, custom_optimizers, custom_objects)
-

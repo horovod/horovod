@@ -1665,7 +1665,7 @@ class SparkTests(unittest.TestCase):
                 file = os.path.sep.join([d, 'command_executed'])
                 self.do_test_spark_task_service_executes_command(client, file)
 
-    @mock.patch('horovod.runner.common.util.safe_shell_exec.GRACEFUL_TERMINATION_TIME_S', 0.5)
+    @mock.patch('horovod.runner.common.util.safe_shell_exec.GRACEFUL_TERMINATION_TIME_S', 30)
     def test_spark_task_service_abort_command(self):
         with spark_task_service(index=0) as (service, client, _):
             with tempdir() as d:
