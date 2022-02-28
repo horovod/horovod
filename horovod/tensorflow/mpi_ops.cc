@@ -1137,13 +1137,14 @@ public:
   }
 };
 
-REGISTER_KERNEL_BUILDER(Name("HorovodJoin")
-                            .Device(DEVICE_CPU)
-                            .HostMemory("output"),
-                        HorovodJoinOp);
 #if HOROVOD_GPU_ALLREDUCE
 REGISTER_KERNEL_BUILDER(Name("HorovodJoin")
                             .Device(DEVICE_GPU)
+                            .HostMemory("output"),
+                        HorovodJoinOp);
+#else
+REGISTER_KERNEL_BUILDER(Name("HorovodJoin")
+                            .Device(DEVICE_CPU)
                             .HostMemory("output"),
                         HorovodJoinOp);
 #endif
