@@ -437,7 +437,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_TensorFlow_Tests_1 && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_1_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_1_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow2.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_1_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow2.py"
         shell: bash
 
       - name: "Elastic Spark TensorFlow Tests 1 [attempt 2 of 3]"
@@ -446,7 +446,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_TensorFlow_Tests_1 && steps.Elastic_Spark_TensorFlow_Tests_1_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_1_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_1_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow2.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_1_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow2.py"
         shell: bash
 
       - name: "Elastic Spark TensorFlow Tests 1 [attempt 3 of 3]"
@@ -455,7 +455,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_TensorFlow_Tests_1 && steps.Elastic_Spark_TensorFlow_Tests_1_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_1_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_1_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow2.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_1_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow2.py"
         shell: bash
 
       - name: "Elastic Spark TensorFlow Tests 2 [attempt 1 of 3]"
@@ -464,7 +464,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_TensorFlow_Tests_2 && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_2_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_2_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_2_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow.py"
         shell: bash
 
       - name: "Elastic Spark TensorFlow Tests 2 [attempt 2 of 3]"
@@ -473,7 +473,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_TensorFlow_Tests_2 && steps.Elastic_Spark_TensorFlow_Tests_2_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_2_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_2_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_2_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow.py"
         shell: bash
 
       - name: "Elastic Spark TensorFlow Tests 2 [attempt 3 of 3]"
@@ -482,7 +482,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_TensorFlow_Tests_2 && steps.Elastic_Spark_TensorFlow_Tests_2_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_2_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_2_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_2_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow.py"
         shell: bash
 
       - name: "Elastic Spark Torch Tests [attempt 1 of 3]"
@@ -491,7 +491,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_Torch_Tests && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Spark_Torch_Tests_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_Torch_Tests_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_Torch_Tests_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py"
         shell: bash
 
       - name: "Elastic Spark Torch Tests [attempt 2 of 3]"
@@ -500,7 +500,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_Torch_Tests && steps.Elastic_Spark_Torch_Tests_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Spark_Torch_Tests_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_Torch_Tests_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_Torch_Tests_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py"
         shell: bash
 
       - name: "Elastic Spark Torch Tests [attempt 3 of 3]"
@@ -509,7 +509,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_Torch_Tests && steps.Elastic_Spark_Torch_Tests_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Spark_Torch_Tests_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_Torch_Tests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_Torch_Tests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py"
         shell: bash
 
       - name: "Elastic Tests 1 [attempt 1 of 3]"
@@ -518,7 +518,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Tests_1 && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Tests_1_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_1_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow2.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_1_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow2.py"
         shell: bash
 
       - name: "Elastic Tests 1 [attempt 2 of 3]"
@@ -527,7 +527,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Tests_1 && steps.Elastic_Tests_1_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Tests_1_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_1_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow2.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_1_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow2.py"
         shell: bash
 
       - name: "Elastic Tests 1 [attempt 3 of 3]"
@@ -536,7 +536,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Tests_1 && steps.Elastic_Tests_1_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Tests_1_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_1_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow2.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_1_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow2.py"
         shell: bash
 
       - name: "Elastic Tests 2 [attempt 1 of 3]"
@@ -545,7 +545,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Tests_2 && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Tests_2_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_2_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow.py test_elastic_tensorflow_keras.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_2_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow.py test_elastic_tensorflow_keras.py"
         shell: bash
 
       - name: "Elastic Tests 2 [attempt 2 of 3]"
@@ -554,7 +554,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Tests_2 && steps.Elastic_Tests_2_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Tests_2_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_2_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow.py test_elastic_tensorflow_keras.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_2_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow.py test_elastic_tensorflow_keras.py"
         shell: bash
 
       - name: "Elastic Tests 2 [attempt 3 of 3]"
@@ -563,7 +563,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Tests_2 && steps.Elastic_Tests_2_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Tests_2_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_2_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow.py test_elastic_tensorflow_keras.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_2_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow.py test_elastic_tensorflow_keras.py"
         shell: bash
 
       - name: "Gloo Cluster PyTests [attempt 1 of 3]"
@@ -572,7 +572,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Gloo_Cluster_PyTests && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Gloo_Cluster_PyTests_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Cluster_PyTests_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Cluster_PyTests_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
         shell: bash
 
       - name: "Gloo Cluster PyTests [attempt 2 of 3]"
@@ -581,7 +581,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Gloo_Cluster_PyTests && steps.Gloo_Cluster_PyTests_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Gloo_Cluster_PyTests_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Cluster_PyTests_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Cluster_PyTests_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
         shell: bash
 
       - name: "Gloo Cluster PyTests [attempt 3 of 3]"
@@ -590,7 +590,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Gloo_Cluster_PyTests && steps.Gloo_Cluster_PyTests_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Gloo_Cluster_PyTests_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Cluster_PyTests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Cluster_PyTests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
         shell: bash
 
       - name: "Gloo Keras MNIST [attempt 1 of 3]"
@@ -842,7 +842,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Cluster_PyTests && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "  /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "  /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
         shell: bash
 
       - name: "MPI Cluster PyTests [attempt 2 of 3]"
@@ -851,7 +851,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Cluster_PyTests && steps.MPI_Cluster_PyTests_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "  /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "  /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
         shell: bash
 
       - name: "MPI Cluster PyTests [attempt 3 of 3]"
@@ -860,7 +860,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Cluster_PyTests && steps.MPI_Cluster_PyTests_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "  /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "  /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
         shell: bash
 
       - name: "MPI Cluster PyTests [ONECCL MPI] [attempt 1 of 3]"
@@ -869,7 +869,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Cluster_PyTests_ONECCL_MPI && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_MPI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
         shell: bash
 
       - name: "MPI Cluster PyTests [ONECCL MPI] [attempt 2 of 3]"
@@ -878,7 +878,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Cluster_PyTests_ONECCL_MPI && steps.MPI_Cluster_PyTests_ONECCL_MPI_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_MPI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
         shell: bash
 
       - name: "MPI Cluster PyTests [ONECCL MPI] [attempt 3 of 3]"
@@ -887,7 +887,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Cluster_PyTests_ONECCL_MPI && steps.MPI_Cluster_PyTests_ONECCL_MPI_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_MPI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
         shell: bash
 
       - name: "MPI Cluster PyTests [ONECCL OFI] [attempt 1 of 3]"
@@ -896,7 +896,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Cluster_PyTests_ONECCL_OFI && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_OFI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
         shell: bash
 
       - name: "MPI Cluster PyTests [ONECCL OFI] [attempt 2 of 3]"
@@ -905,7 +905,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Cluster_PyTests_ONECCL_OFI && steps.MPI_Cluster_PyTests_ONECCL_OFI_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_OFI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
         shell: bash
 
       - name: "MPI Cluster PyTests [ONECCL OFI] [attempt 3 of 3]"
@@ -914,7 +914,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Cluster_PyTests_ONECCL_OFI && steps.MPI_Cluster_PyTests_ONECCL_OFI_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_OFI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
         shell: bash
 
       - name: "MPI MXNet MNIST [attempt 1 of 3]"
@@ -1960,7 +1960,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_TensorFlow_Tests_1 && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_1_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_1_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow2.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_1_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow2.py"
         shell: bash
 
       - name: "Elastic Spark TensorFlow Tests 1 [attempt 2 of 3]"
@@ -1969,7 +1969,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_TensorFlow_Tests_1 && steps.Elastic_Spark_TensorFlow_Tests_1_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_1_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_1_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow2.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_1_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow2.py"
         shell: bash
 
       - name: "Elastic Spark TensorFlow Tests 1 [attempt 3 of 3]"
@@ -1978,7 +1978,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_TensorFlow_Tests_1 && steps.Elastic_Spark_TensorFlow_Tests_1_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_1_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_1_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow2.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_1_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow2.py"
         shell: bash
 
       - name: "Elastic Spark TensorFlow Tests 2 [attempt 1 of 3]"
@@ -1987,7 +1987,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_TensorFlow_Tests_2 && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_2_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_2_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_2_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow.py"
         shell: bash
 
       - name: "Elastic Spark TensorFlow Tests 2 [attempt 2 of 3]"
@@ -1996,7 +1996,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_TensorFlow_Tests_2 && steps.Elastic_Spark_TensorFlow_Tests_2_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_2_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_2_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_2_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow.py"
         shell: bash
 
       - name: "Elastic Spark TensorFlow Tests 2 [attempt 3 of 3]"
@@ -2005,7 +2005,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_TensorFlow_Tests_2 && steps.Elastic_Spark_TensorFlow_Tests_2_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_2_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_2_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_TensorFlow_Tests_2_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml test_elastic_spark_tensorflow.py"
         shell: bash
 
       - name: "Elastic Spark Torch Tests [attempt 1 of 3]"
@@ -2014,7 +2014,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_Torch_Tests && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Spark_Torch_Tests_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_Torch_Tests_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_Torch_Tests_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py"
         shell: bash
 
       - name: "Elastic Spark Torch Tests [attempt 2 of 3]"
@@ -2023,7 +2023,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_Torch_Tests && steps.Elastic_Spark_Torch_Tests_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Spark_Torch_Tests_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_Torch_Tests_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_Torch_Tests_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py"
         shell: bash
 
       - name: "Elastic Spark Torch Tests [attempt 3 of 3]"
@@ -2032,7 +2032,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Spark_Torch_Tests && steps.Elastic_Spark_Torch_Tests_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Spark_Torch_Tests_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_Torch_Tests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Spark_Torch_Tests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 30m bash -c "cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py"
         shell: bash
 
       - name: "Elastic Tests 1 [attempt 1 of 3]"
@@ -2041,7 +2041,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Tests_1 && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Tests_1_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_1_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow2.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_1_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow2.py"
         shell: bash
 
       - name: "Elastic Tests 1 [attempt 2 of 3]"
@@ -2050,7 +2050,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Tests_1 && steps.Elastic_Tests_1_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Tests_1_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_1_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow2.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_1_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow2.py"
         shell: bash
 
       - name: "Elastic Tests 1 [attempt 3 of 3]"
@@ -2059,7 +2059,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Tests_1 && steps.Elastic_Tests_1_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Tests_1_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_1_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow2.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_1_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow2.py"
         shell: bash
 
       - name: "Elastic Tests 2 [attempt 1 of 3]"
@@ -2068,7 +2068,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Tests_2 && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Tests_2_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_2_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow.py test_elastic_tensorflow_keras.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_2_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow.py test_elastic_tensorflow_keras.py"
         shell: bash
 
       - name: "Elastic Tests 2 [attempt 2 of 3]"
@@ -2077,7 +2077,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Tests_2 && steps.Elastic_Tests_2_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Tests_2_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_2_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow.py test_elastic_tensorflow_keras.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_2_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow.py test_elastic_tensorflow_keras.py"
         shell: bash
 
       - name: "Elastic Tests 2 [attempt 3 of 3]"
@@ -2086,7 +2086,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Elastic_Tests_2 && steps.Elastic_Tests_2_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Elastic_Tests_2_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_2_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow.py test_elastic_tensorflow_keras.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Elastic_Tests_2_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest -n auto -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow.py test_elastic_tensorflow_keras.py"
         shell: bash
 
       - name: "Gloo Cluster PyTests [attempt 1 of 3]"
@@ -2095,7 +2095,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Gloo_Cluster_PyTests && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Gloo_Cluster_PyTests_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Cluster_PyTests_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Cluster_PyTests_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
         shell: bash
 
       - name: "Gloo Cluster PyTests [attempt 2 of 3]"
@@ -2104,7 +2104,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Gloo_Cluster_PyTests && steps.Gloo_Cluster_PyTests_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Gloo_Cluster_PyTests_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Cluster_PyTests_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Cluster_PyTests_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
         shell: bash
 
       - name: "Gloo Cluster PyTests [attempt 3 of 3]"
@@ -2113,7 +2113,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Gloo_Cluster_PyTests && steps.Gloo_Cluster_PyTests_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Gloo_Cluster_PyTests_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Cluster_PyTests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Cluster_PyTests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
         shell: bash
 
       - name: "Gloo Keras MNIST [attempt 1 of 3]"
@@ -2365,7 +2365,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Cluster_PyTests && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "  /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "  /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
         shell: bash
 
       - name: "MPI Cluster PyTests [attempt 2 of 3]"
@@ -2374,7 +2374,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Cluster_PyTests && steps.MPI_Cluster_PyTests_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "  /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "  /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
         shell: bash
 
       - name: "MPI Cluster PyTests [attempt 3 of 3]"
@@ -2383,7 +2383,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Cluster_PyTests && steps.MPI_Cluster_PyTests_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "  /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "  /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
         shell: bash
 
       - name: "MPI Cluster PyTests [ONECCL MPI] [attempt 1 of 3]"
@@ -2392,7 +2392,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Cluster_PyTests_ONECCL_MPI && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_MPI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
         shell: bash
 
       - name: "MPI Cluster PyTests [ONECCL MPI] [attempt 2 of 3]"
@@ -2401,7 +2401,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Cluster_PyTests_ONECCL_MPI && steps.MPI_Cluster_PyTests_ONECCL_MPI_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_MPI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
         shell: bash
 
       - name: "MPI Cluster PyTests [ONECCL MPI] [attempt 3 of 3]"
@@ -2410,7 +2410,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Cluster_PyTests_ONECCL_MPI && steps.MPI_Cluster_PyTests_ONECCL_MPI_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_MPI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
         shell: bash
 
       - name: "MPI Cluster PyTests [ONECCL OFI] [attempt 1 of 3]"
@@ -2419,7 +2419,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Cluster_PyTests_ONECCL_OFI && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_OFI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
         shell: bash
 
       - name: "MPI Cluster PyTests [ONECCL OFI] [attempt 2 of 3]"
@@ -2428,7 +2428,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Cluster_PyTests_ONECCL_OFI && steps.MPI_Cluster_PyTests_ONECCL_OFI_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_OFI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
         shell: bash
 
       - name: "MPI Cluster PyTests [ONECCL OFI] [attempt 3 of 3]"
@@ -2437,7 +2437,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_Cluster_PyTests_ONECCL_OFI && steps.MPI_Cluster_PyTests_ONECCL_OFI_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_OFI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Cluster_PyTests_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  /etc/init.d/ssh start && cd /horovod/test/integration && pytest -n auto -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
         shell: bash
 
       - name: "MPI MXNet MNIST [attempt 1 of 3]"
