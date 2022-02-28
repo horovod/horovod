@@ -4051,8 +4051,6 @@ class TensorFlowTests(tf.test.TestCase):
                 self.assertSequenceEqual(ret_values, [ret] * size,
                                          msg="hvd.join() did not return the same value on each rank")
 
-    @pytest.mark.skipif(LooseVersion(tf.__version__) >=
-                        LooseVersion('2.9.0'), reason='https://github.com/horovod/horovod/issues/3422')
     def test_horovod_syncbn_gpu(self):
         """Test that the SyncBatchNormalization implementation is correct on GPU."""
         # Only do this test if there are GPUs available.
@@ -4085,8 +4083,8 @@ class TensorFlowTests(tf.test.TestCase):
             for x in x_list:
                 bn = tf.keras.layers.BatchNormalization(axis=1, fused=False)
                 sync_bn = hvd.SyncBatchNormalization(axis=1)
-                bn_func = bn.apply(x, training=True)
-                sync_bn_func = sync_bn.apply(tf.expand_dims(x[hvd.rank()], 0), training=True)
+                bn_func = bn(x, training=True)
+                sync_bn_func = sync_bn(tf.expand_dims(x[hvd.rank()], 0), training=True)
 
                 try:
                   init = tf.global_variables_initializer()
@@ -4100,8 +4098,6 @@ class TensorFlowTests(tf.test.TestCase):
                 self.assertAllClose(self.evaluate(sync_bn.moving_mean), self.evaluate(bn.moving_mean))
                 self.assertAllClose(self.evaluate(sync_bn.moving_variance), self.evaluate(bn.moving_variance))
 
-    @pytest.mark.skipif(LooseVersion(tf.__version__) >=
-                        LooseVersion('2.9.0'), reason='https://github.com/horovod/horovod/issues/3422')
     def test_horovod_syncbn_cpu(self):
         """Test that the SyncBatchNormalization implementation is correct on CPU."""
 
@@ -4131,8 +4127,8 @@ class TensorFlowTests(tf.test.TestCase):
             for x in x_list:
                 bn = tf.keras.layers.BatchNormalization(axis=1, fused=False)
                 sync_bn = hvd.SyncBatchNormalization(axis=1)
-                bn_func = bn.apply(x, training=True)
-                sync_bn_func = sync_bn.apply(tf.expand_dims(x[hvd.rank()], 0), training=True)
+                bn_func = bn(x, training=True)
+                sync_bn_func = sync_bn(tf.expand_dims(x[hvd.rank()], 0), training=True)
 
                 try:
                   init = tf.global_variables_initializer()
