@@ -11,7 +11,7 @@
 #  NCCL_LIBRARIES
 #  NCCL_MAJOR_VERSION
 #
-# The path hints include CUDAToolkit_LIBRARY_ROOT seeing as some folks
+# The path hints include CUDAToolkit_* seeing as some folks
 # install NCCL in the same location as the CUDA toolkit.
 
 set(HOROVOD_NCCL_HOME $ENV{HOROVOD_NCCL_HOME} CACHE PATH "Folder contains NVIDIA NCCL")
@@ -24,7 +24,7 @@ list(APPEND CMAKE_PREFIX_PATH ${NCCL_ROOT})
 
 find_path(NCCL_INCLUDE_DIR
         NAMES nccl.h
-        HINTS ${HOROVOD_NCCL_INCLUDE})
+        HINTS ${HOROVOD_NCCL_INCLUDE} ${CUDAToolkit_INCLUDE_DIRS})
 
 set(HOROVOD_NCCL_LINK $ENV{HOROVOD_NCCL_LINK})
 if (HOROVOD_NCCL_LINK STREQUAL "SHARED")
@@ -36,7 +36,7 @@ endif()
 
 find_library(NCCL_LIBRARY
         NAMES ${NCCL_LIBNAME}
-        HINTS ${HOROVOD_NCCL_LIB})
+        HINTS ${HOROVOD_NCCL_LIB} ${CUDAToolkit_LIBRARY_DIR})
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(NCCL DEFAULT_MSG NCCL_INCLUDE_DIR NCCL_LIBRARY)
