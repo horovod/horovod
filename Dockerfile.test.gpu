@@ -194,6 +194,11 @@ RUN cd /horovod && \
     bash -c "${HOROVOD_BUILD_FLAGS} HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]" && \
     ldconfig
 
+# Tensorflow requires protobuf compatible with 3.9.2 but ray and other dependencies pull in the latest version which is incompatible
+#   This program was compiled against version 3.9.2 of the Protocol Buffer runtime library,
+#   which is not compatible with the installed version (3.19.4).
+RUN pip install --no-cache-dir protobuf==3.9.2
+
 # Show the effective python package version to easily spot version differences
 RUN pip freeze | sort
 
