@@ -54,6 +54,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Elastic Spark: Fixed indices in initial task-to-task registration. ([#3410](https://github.com/horovod/horovod/pull/3410))
+
 - PyTorch: Fixed GIL-related deadlock with PyTorch 1.10.1. ([#3352](https://github.com/horovod/horovod/issues/3352))
 
 - PyTorch: Fixed finalization of ProcessSetTable. ([#3351](https://github.com/horovod/horovod/pull/3351))
