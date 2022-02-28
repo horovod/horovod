@@ -7,28 +7,90 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased] - YYYY-MM-DD
 
 ### Added
-- Added Elastic keyword parameters to RayExecutor API: This API supports both static(non-elastic) and elastic horovod jobs. This resolves issue:
-[#3190](https://github.com/horovod/horovod/issues/3190).
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+## [v0.24.0] - 2022-03-01
+
+### Added
+
+- Elastic Ray: Added elastic keyword parameters to RayExecutor API: This API supports both static (non-elastic) and elastic Horovod jobs. ([#3190](https://github.com/horovod/horovod/issues/3190))
 
 - TensorFlow: Added in-place broadcasting of variables. ([#3128](https://github.com/horovod/horovod/pull/3128))
 
-- Added support for resurrecting blacklisted hosts. ([#3319](https://github.com/horovod/horovod/pull/3319))
+- Elastic: Added support for resurrecting blacklisted hosts. ([#3319](https://github.com/horovod/horovod/pull/3319))
+
+- MXNet: Added support for MXNet async dependency engine. ([#3242](https://github.com/horovod/horovod/pull/3242), [#2963](https://github.com/horovod/horovod/pull/2963))
+
+- Spark/Lightning: Add history to lightning estimator. ([#3214](https://github.com/horovod/horovod/pull/3214))
 
 ### Changed
 
 - Moved to CMake version 3.13 with first-class CUDA language support and re-enabled parallelized builds. ([#3261](https://github.com/horovod/horovod/pull/3261))
 
+- Moved released Docker image `horovod` and `horovod-cpu` to Ubuntu 20.04 and Python 3.8. ([#3393](https://github.com/horovod/horovod/pull/3393))
+
+- Spark Estimator: Don't shuffle row groups if training data requires non-shuffle ([#3369](https://github.com/horovod/horovod/pull/3369))
+
+- Spark/Lightning: Reduced memory footprint of async dataloader. ([#3239](https://github.com/horovod/horovod/pull/3239))
+
+- Elastic: Improved handling NCCL errors under elastic scenario. ([#3112](https://github.com/horovod/horovod/pull/3112))
+
+- Spark/Lightning: Do not overwrite model with checkpoint by default. ([#3201](https://github.com/horovod/horovod/pull/3201))
+
 ### Deprecated
-- Deprecated ElasticRayExecutor APIs in favor of the new RayExecutor API for issue: [#3190](https://github.com/horovod/horovod/issues/3190).
+
+- Deprecated ElasticRayExecutor APIs in favor of the new RayExecutor API. ([#3190](https://github.com/horovod/horovod/issues/3190))
+
 ### Removed
+
+- Spark: Removed `h5py<3` constraint as this is not needed anymore for Tensorflow >2.5.0. ([#3301](https://github.com/horovod/horovod/pull/3301))
 
 ### Fixed
 
-- fix the example of pytorch_lightning_mnist.py ([#3245](https://github.com/horovod/horovod/pull/3245))
+- PyTorch: Fixed GIL-related deadlock with PyTorch 1.10.1. ([#3352](https://github.com/horovod/horovod/issues/3352))
 
-- Call _setup in remote trainers to point to the correct shared lib path ([#3258](https://github.com/horovod/horovod/pull/3258))
+- PyTorch: Fixed finalization of ProcessSetTable. ([#3351](https://github.com/horovod/horovod/pull/3351))
 
-- Fix imports from tensorflow.python.keras with tensorflow 2.6.0+ ([#3403](https://github.com/horovod/horovod/pull/3403))
+- Fixed remote trainers to point to the correct shared lib path. ([#3258](https://github.com/horovod/horovod/pull/3258))
+
+- Fixed imports from `tensorflow.python.keras` with tensorflow 2.6.0+. ([#3403](https://github.com/horovod/horovod/pull/3403))
+
+- Fixed `FindNVTX.cmake` where NVTX would not be found when building with `HOROVOD_CUDA_HOME`. ([#3421](https://github.com/horovod/horovod/pull/3421))
+
+- Fixed Adasum communicator init logic. ([#3379](https://github.com/horovod/horovod/pull/3379))
+
+- Lightning: Fixed resume logger. ([#3375](https://github.com/horovod/horovod/pull/3375))
+
+- Fixed the checkpoint directory structure for pytorch and pytorch lightning. ([#3362](https://github.com/horovod/horovod/pull/3362))
+
+- Fixed possible integer overflow in multiplication. ([#3368](https://github.com/horovod/horovod/pull/3368))
+
+- Fixed the `pytorch_lightning_mnist.py` example. ([#3245](https://github.com/horovod/horovod/pull/3245), [#3290](https://github.com/horovod/horovod/pull/3290))
+
+- Fixed barrier segmentation fault. ([#3313](https://github.com/horovod/horovod/pull/3313))
+
+- Fixed `hvd.barrier()` tensor queue management. ([#3300](https://github.com/horovod/horovod/pull/3300))
+
+- Fixed Horovod PyArrow "list index out of range" IndexError. ([#3274](https://github.com/horovod/horovod/pull/3274))
+
+- Elastic: Fixed all workers sometimes failing on Elastic Horovod failure. ([#3264](https://github.com/horovod/horovod/issues/3264))
+
+- Spark/Lightning: Fixed setting `limit_train_batches` and `limit_val_batches`. ([#3237](https://github.com/horovod/horovod/pull/3237))
+
+- Elastic: Fixed ElasticSampler and `hvd.elastic.state` losing some indices of processed samples when nodes dropped. ([#3144](https://github.com/horovod/horovod/issues/3143))
+
+- Spark/Lightning: Fixed history metrics for estimator serialization. ([#3216](https://github.com/horovod/horovod/pull/3216))
+
+- Ray: Fixed RayExecutor to fail when `num_workers=0` and `num_hosts=None`. ([#3210](https://github.com/horovod/horovod/pull/3210))
+
+- Spark/Lightning: Fixed checkpoint callback `dirpath` typo. ([#3204](https://github.com/horovod/horovod/pull/3204))
 
 ## [v0.23.0] - 2021-10-06
 
@@ -65,6 +127,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Ray: RayExecutor will use the current placement group if one exists. ([#3134](https://github.com/horovod/horovod/pull/3134))
 
 - Extended `hvd.join()` to return the last rank that joined. ([#3097](https://github.com/horovod/horovod/pull/3097)
+
 ### Deprecated
 
 ### Removed
