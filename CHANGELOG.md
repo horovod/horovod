@@ -20,7 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- Elastic Ray: Added elastic keyword parameters to RayExecutor API: This API supports both static (non-elastic) and elastic Horovod jobs. ([#3190](https://github.com/horovod/horovod/issues/3190))
+- Ray: Added elastic keyword parameters to RayExecutor API: This API supports both static (non-elastic) and elastic Horovod jobs. ([#3190](https://github.com/horovod/horovod/issues/3190))
 
 - TensorFlow: Added in-place broadcasting of variables. ([#3128](https://github.com/horovod/horovod/pull/3128))
 
@@ -28,7 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - MXNet: Added support for MXNet async dependency engine. ([#3242](https://github.com/horovod/horovod/pull/3242), [#2963](https://github.com/horovod/horovod/pull/2963))
 
-- Spark/Lightning: Add history to lightning estimator. ([#3214](https://github.com/horovod/horovod/pull/3214))
+- Spark/Lightning: Added history to lightning estimator. ([#3214](https://github.com/horovod/horovod/pull/3214))
 
 ### Changed
 
@@ -78,13 +78,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Fixed `hvd.barrier()` tensor queue management. ([#3300](https://github.com/horovod/horovod/pull/3300))
 
-- Fixed Horovod PyArrow "list index out of range" IndexError. ([#3274](https://github.com/horovod/horovod/pull/3274))
+- Fixed PyArrow "list index out of range" IndexError. ([#3274](https://github.com/horovod/horovod/pull/3274))
 
-- Elastic: Fixed all workers sometimes failing on Elastic Horovod failure. ([#3264](https://github.com/horovod/horovod/issues/3264))
+- Elastic: Fixed all workers sometimes failing on elastic Horovod failure. ([#3264](https://github.com/horovod/horovod/issues/3264))
 
 - Spark/Lightning: Fixed setting `limit_train_batches` and `limit_val_batches`. ([#3237](https://github.com/horovod/horovod/pull/3237))
 
-- Elastic: Fixed ElasticSampler and `hvd.elastic.state` losing some indices of processed samples when nodes dropped. ([#3144](https://github.com/horovod/horovod/issues/3143))
+- Elastic: Fixed ElasticSampler and `hvd.elastic.state` losing some indices of processed samples when nodes dropped. ([#3143](https://github.com/horovod/horovod/issues/3143))
 
 - Spark/Lightning: Fixed history metrics for estimator serialization. ([#3216](https://github.com/horovod/horovod/pull/3216))
 
