@@ -3,18 +3,19 @@
 This is currently not run on the Ray CI.
 """
 import os
-import sys
-
 import socket
+import sys
+import time
+
 import pytest
 import ray
-from ray.util.client.ray_client_helpers import ray_start_client_server
 import torch
+from ray.util.client.ray_client_helpers import ray_start_client_server
 
 from horovod.common.util import gloo_built
 from horovod.ray.runner import (Coordinator, MiniSettings, RayExecutor)
-from horovod.ray.worker import BaseHorovodWorker
 from horovod.ray.strategy import create_placement_group
+from horovod.ray.worker import BaseHorovodWorker
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -68,15 +69,17 @@ def ray_start_client():
         yield
 
 
-def check_resources(original_resources):
-    for i in reversed(range(10)):
+def get_resources(original_resources):
+    """
+    Waits until ray.available_resources() settles backon original_resources.
+    Returns once this happens or on timeout, returns current ray.available_resources() for assertion.
+    This improves test fail message as it includes expected and actual resources in assertion.
+    """
+    for _ in range(10):
         if original_resources == ray.available_resources():
-            return True
-        else:
-            print(ray.available_resources())
-            import time
-            time.sleep(0.5)
-    return False
+            return original_resources
+        time.sleep(0.5)
+    return ray.available_resources()
 
 
 def test_coordinator_registration():
@@ -181,7 +184,7 @@ def test_gpu_ids(ray_start_4_cpus_4_gpus):
     assert len(all_cudas) == 1, all_cudas
     assert len(all_envs[0]["CUDA_VISIBLE_DEVICES"].split(",")) == 4
     hjob.shutdown()
-    assert check_resources(original_resources)
+    assert get_resources(original_resources) == original_resources
 
 
 @pytest.mark.skipif(
@@ -208,7 +211,7 @@ def test_gpu_ids_num_workers(ray_start_4_cpus_4_gpus):
     all_valid_local_rank = hjob.execute(_test)
     assert all(all_valid_local_rank)
     hjob.shutdown()
-    assert check_resources(original_resources)
+    assert get_resources(original_resources) == original_resources
 
 
 def test_horovod_mixin(ray_start_2_cpus):
@@ -235,7 +238,7 @@ def test_local(ray_start_4_cpus, num_workers, num_hosts, num_workers_per_host):
     hostnames = hjob.execute(lambda _: socket.gethostname())
     assert len(set(hostnames)) == 1, hostnames
     hjob.shutdown()
-    assert check_resources(original_resources)
+    assert get_resources(original_resources) == original_resources
 
 
 @pytest.mark.skipif(
@@ -261,7 +264,7 @@ def test_ray_init(ray_start_4_cpus, num_workers, num_hosts,
     result = hjob.execute(simple_fn)
     assert len(set(result)) == 4
     hjob.shutdown()
-    assert check_resources(original_resources)
+    assert get_resources(original_resources) == original_resources
 
 
 @pytest.mark.skipif(
