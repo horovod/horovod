@@ -30,6 +30,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Fix imports from tensorflow.python.keras with tensorflow 2.6.0+ ([#3403](https://github.com/horovod/horovod/pull/3403))
 
+- Fix apply() API change in TF 2.9 for unit tests ([#3427](https://github.com/horovod/horovod/pull/3427))
+
 ## [v0.23.0] - 2021-10-06
 
 ### Added
