@@ -20,7 +20,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Install Python dependencies
       # install all `install_requires` dependencies but no `extras_require` dependencies
@@ -73,7 +73,7 @@ jobs:
         echo ::endgroup::
 
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         submodules: recursive
 
