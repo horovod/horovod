@@ -44,6 +44,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Spark/Lightning: Do not overwrite model with checkpoint by default. ([#3201](https://github.com/horovod/horovod/pull/3201))
 
+- Make checkpoint name optional so that user can save to h5 format. ([#3411](https://github.com/horovod/horovod/pull/3411))
+
 ### Deprecated
 
 - Deprecated ElasticRayExecutor APIs in favor of the new RayExecutor API. ([#3190](https://github.com/horovod/horovod/issues/3190))
