@@ -71,8 +71,8 @@ def ray_start_client():
 
 def get_resources(original_resources):
     """
-    Waits until ray.available_resources() settles backon original_resources.
-    Returns once this happens or on timeout, returns current ray.available_resources() for assertion.
+    Waits until ray.available_resources() settles back on original_resources.
+    Returns once this happens or after timeout of 5 seconds, always returns current ray.available_resources() for assertion.
     This improves test fail message as it includes expected and actual resources in assertion.
     """
     for _ in range(10):
