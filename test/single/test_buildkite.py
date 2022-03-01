@@ -148,6 +148,7 @@ class BuildKiteTests(unittest.TestCase):
             self.assertEqual('', gen_pipeline_log)
             self.assertEqual('steps:\n'
                              '- wait\n'
+                             '- wait\n'
                              '- wait\n', actual_pipeline)
 
     """
@@ -207,6 +208,7 @@ class BuildKiteTests(unittest.TestCase):
 
     def test_empty_pipeline(self):
         expected_pipeline = ('steps:\n'
+                             '- wait\n'
                              '- wait\n'
                              '- wait\n')
 
