@@ -64,8 +64,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Fixed imports from `tensorflow.python.keras` with tensorflow 2.6.0+. ([#3403](https://github.com/horovod/horovod/pull/3403))
 
-- Fixed `FindNVTX.cmake` where NVTX would not be found when building with `HOROVOD_CUDA_HOME`. ([#3421](https://github.com/horovod/horovod/pull/3421))
-
 - Fixed Adasum communicator init logic. ([#3379](https://github.com/horovod/horovod/pull/3379))
 
 - Lightning: Fixed resume logger. ([#3375](https://github.com/horovod/horovod/pull/3375))
