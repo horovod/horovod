@@ -9,6 +9,15 @@ directory.
 
 Pre-built Docker containers with Horovod are available on `DockerHub <https://hub.docker.com/r/horovod/horovod>`__ for GPU, CPU, and `Ray <https://ray.io>`__.
 
+Vulnerabilities
+~~~~~~~~~~~~~~~
+The ``horovod`` and ``horovod-cpu`` images are scanned for vulnerabilities using `Trivy <https://aquasecurity.github.io/trivy/v0.17.0/>`__.
+Tagged release versions are published only if they contain no known HIGH or CRITICAL vulnerabilities.
+Nonetheless, it is your responsibility to always consider security implications and vulnerability issues when using these Docker images.
+
+The ``horovod-ray`` image is based on Docker images provided by `Ray <https://ray.io>`__.
+Please refer to the Ray project for informations and fixes for vulnerabilities in their images.
+Spark is not included in our images as this would introduce known HIGH or CRITICAL vulnerabilities.
 
 Running on a single machine
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
