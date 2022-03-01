@@ -69,19 +69,6 @@ def ray_start_client():
         yield
 
 
-def get_resources(original_resources):
-    """
-    Waits until ray.available_resources() settles back on original_resources.
-    Returns once this happens or after timeout of 5 seconds, always returns current ray.available_resources() for assertion.
-    This improves test fail message as it includes expected and actual resources in assertion.
-    """
-    for _ in range(10):
-        if original_resources == ray.available_resources():
-            return original_resources
-        time.sleep(0.5)
-    return ray.available_resources()
-
-
 def test_coordinator_registration():
     settings = MiniSettings()
     coord = Coordinator(settings)
@@ -174,7 +161,6 @@ def test_infeasible_placement(ray_start_2_cpus, num_workers, num_hosts,
 @pytest.mark.skipif(
     not torch.cuda.is_available(), reason="GPU test requires CUDA.")
 def test_gpu_ids(ray_start_4_cpus_4_gpus):
-    original_resources = ray.available_resources()
     setting = RayExecutor.create_settings(timeout_s=30)
     hjob = RayExecutor(
         setting, num_hosts=1, num_workers_per_host=4, use_gpu=True)
@@ -184,7 +170,6 @@ def test_gpu_ids(ray_start_4_cpus_4_gpus):
     assert len(all_cudas) == 1, all_cudas
     assert len(all_envs[0]["CUDA_VISIBLE_DEVICES"].split(",")) == 4
     hjob.shutdown()
-    assert get_resources(original_resources) == original_resources
 
 
 @pytest.mark.skipif(
@@ -192,7 +177,6 @@ def test_gpu_ids(ray_start_4_cpus_4_gpus):
 @pytest.mark.skipif(
     not torch.cuda.is_available(), reason="GPU test requires CUDA.")
 def test_gpu_ids_num_workers(ray_start_4_cpus_4_gpus):
-    original_resources = ray.available_resources()
     setting = RayExecutor.create_settings(timeout_s=30)
     hjob = RayExecutor(setting, num_workers=4, use_gpu=True)
     hjob.start()
@@ -211,7 +195,6 @@ def test_gpu_ids_num_workers(ray_start_4_cpus_4_gpus):
     all_valid_local_rank = hjob.execute(_test)
     assert all(all_valid_local_rank)
     hjob.shutdown()
-    assert get_resources(original_resources) == original_resources
 
 
 def test_horovod_mixin(ray_start_2_cpus):
@@ -227,7 +210,6 @@ def test_horovod_mixin(ray_start_2_cpus):
 
 @pytest.mark.parametrize(parameter_str, ray_executor_parametrized)
 def test_local(ray_start_4_cpus, num_workers, num_hosts, num_workers_per_host):
-    original_resources = ray.available_resources()
     setting = RayExecutor.create_settings(timeout_s=30)
     hjob = RayExecutor(
         setting,
@@ -238,7 +220,6 @@ def test_local(ray_start_4_cpus, num_workers, num_hosts, num_workers_per_host):
     hostnames = hjob.execute(lambda _: socket.gethostname())
     assert len(set(hostnames)) == 1, hostnames
     hjob.shutdown()
-    assert get_resources(original_resources) == original_resources
 
 
 @pytest.mark.skipif(
@@ -246,8 +227,6 @@ def test_local(ray_start_4_cpus, num_workers, num_hosts, num_workers_per_host):
 @pytest.mark.parametrize(parameter_str, ray_executor_parametrized)
 def test_ray_init(ray_start_4_cpus, num_workers, num_hosts,
                   num_workers_per_host):
-    original_resources = ray.available_resources()
-
     def simple_fn(worker):
         import horovod.torch as hvd
         hvd.init()
@@ -264,7 +243,6 @@ def test_ray_init(ray_start_4_cpus, num_workers, num_hosts,
     result = hjob.execute(simple_fn)
     assert len(set(result)) == 4
     hjob.shutdown()
-    assert get_resources(original_resources) == original_resources
 
 
 @pytest.mark.skipif(
