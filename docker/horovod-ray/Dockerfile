@@ -15,16 +15,13 @@ SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 RUN sudo apt-get update && DEBIAN_FRONTEND="noninteractive" sudo apt-get install -y \
         build-essential \
+        cmake \
         wget \
         git \
-        gpg \
         curl \
         rsync \
         vim \
     && sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/*
-
-# Install recent CMake.
-RUN pip install --no-cache-dir -U cmake~=3.13.0
 
 # Install PyTorch
 RUN pip install --no-cache-dir \
