@@ -3735,6 +3735,7 @@ jobs:
 
       - name: Scan for vulnerabilities
         id: scan
+        if: matrix.docker-image != 'horovod-ray'
         uses: crazy-max/ghaction-container-scan@v1
         with:
           image: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}

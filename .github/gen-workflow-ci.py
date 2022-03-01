@@ -733,6 +733,7 @@ def main():
                 f'\n'
                 f'      - name: Scan for vulnerabilities\n'
                 f'        id: scan\n'
+                f"        if: matrix.docker-image != 'horovod-ray'\n"
                 f'        uses: crazy-max/ghaction-container-scan@v1\n'
                 f'        with:\n'
                 f'          image: ${{{{ fromJSON(steps.meta.outputs.json).tags[0] }}}}\n'
