@@ -55,7 +55,7 @@ def ray_start_4_cpus_4_gpus():
         # The code after the yield will run as teardown code.
         ray.shutdown()
     finally:
-        if orig_devices:
+        if orig_devices is not None:
             os.environ["CUDA_VISIBLE_DEVICES"] = orig_devices
         else:
             del os.environ["CUDA_VISIBLE_DEVICES"]
