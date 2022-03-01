@@ -187,7 +187,7 @@ class ElasticDriver(object):
                 if update_res != HostUpdateResult.no_update:
                     self._notify_workers_host_changes(self._host_manager.current_hosts, update_res)
                     self._wait_hosts_cond.notify_all()
-            except RuntimeError as e:
+            except BaseException as e:
                 if first_update:
                     # Misconfiguration, fail the job immediately
                     self._shutdown.set()
