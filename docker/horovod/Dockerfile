@@ -21,6 +21,12 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
+# Upgrade some vulnerable packages (high and critical only)
+RUN apt-get update && apt-get upgrade -y --no-install-recommends \
+        libsasl2-2 \
+        libsasl2-modules-db \
+        linux-libc-dev
+
 RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
         build-essential \
         cmake \
