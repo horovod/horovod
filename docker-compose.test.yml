@@ -76,7 +76,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-cpu==2.6.3
         KERAS_PACKAGE: keras==2.6.0
         PYTORCH_PACKAGE: torch==1.8.1+cpu
-        TORCHVISION_PACKAGE: torchvision==0.9.1
+        TORCHVISION_PACKAGE: torchvision==0.9.1+cpu
         MXNET_PACKAGE: mxnet==1.7.0.post2
   test-cpu-gloo-py3_8-tf2_7_1-keras2_7_0-torch1_9_1-mxnet1_8_0_p0-pyspark3_2_1:
     extends: test-cpu-base
@@ -85,7 +85,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-cpu==2.7.1
         KERAS_PACKAGE: keras==2.7.0
         PYTORCH_PACKAGE: torch==1.9.1+cpu
-        TORCHVISION_PACKAGE: torchvision==0.10.1
+        TORCHVISION_PACKAGE: torchvision==0.10.1+cpu
         MXNET_PACKAGE: mxnet==1.8.0.post0
   # then our baseline again, omitted ...
   test-cpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1:
