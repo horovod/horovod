@@ -23,6 +23,7 @@ SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
         build-essential \
+        cmake \
         g++-7 \
         git \
         curl \
@@ -66,9 +67,6 @@ RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
     python get-pip.py && \
     rm get-pip.py && \
     pip install --no-cache-dir -U --force pip~=21.0.0
-
-# Install recent CMake.
-RUN pip install --no-cache-dir -U cmake~=3.13.0
 
 # Install PyTorch, TensorFlow, Keras and MXNet
 RUN pip install --no-cache-dir \

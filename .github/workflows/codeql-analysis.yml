@@ -100,9 +100,6 @@ jobs:
         sed -i -e "s%^# setup ssh service$%${command//$'\n'/\\n}\n\n# setup ssh service%" Dockerfile.test.?pu
 
         command=$(cat <<EOF
-        # Install recent CMake
-        RUN pip install --no-cache-dir -U cmake~=3.13.0
-
         # Setup CodeQL tracing
         RUN mkdir -p /home/runner/work/horovod
         RUN ln -s /horovod /home/runner/work/horovod/horovod
