@@ -106,6 +106,7 @@ class ElasticSampler(torch.utils.data.Sampler):
         self.total_size = self.num_samples * self.num_replicas
 
     def __iter__(self):
+        self.reset()
         self.indices = self.remaining_indices[:]
 
         # add extra samples to make it evenly divisible
