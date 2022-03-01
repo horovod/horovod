@@ -5,7 +5,6 @@ This is currently not run on the Ray CI.
 import os
 import socket
 import sys
-import time
 
 import pytest
 import ray
@@ -39,19 +38,27 @@ def ray_start_4_cpus():
 @pytest.fixture
 def ray_start_6_cpus():
     address_info = ray.init(num_cpus=6)
-    yield address_info
-    # The code after the yield will run as teardown code.
-    ray.shutdown()
+    try:
+        yield address_info
+    finally:
+        # The code after the yield will run as teardown code.
+        ray.shutdown()
 
 
 @pytest.fixture
 def ray_start_4_cpus_4_gpus():
+    orig_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
     os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
     address_info = ray.init(num_cpus=4, num_gpus=4)
-    yield address_info
-    # The code after the yield will run as teardown code.
-    ray.shutdown()
-    del os.environ["CUDA_VISIBLE_DEVICES"]
+    try:
+        yield address_info
+        # The code after the yield will run as teardown code.
+        ray.shutdown()
+    finally:
+        if orig_devices:
+            os.environ["CUDA_VISIBLE_DEVICES"] = orig_devices
+        else:
+            del os.environ["CUDA_VISIBLE_DEVICES"]
 
 
 @pytest.fixture
@@ -168,7 +175,7 @@ def test_gpu_ids(ray_start_4_cpus_4_gpus):
     all_envs = hjob.execute(lambda _: os.environ.copy())
     all_cudas = {ev["CUDA_VISIBLE_DEVICES"] for ev in all_envs}
     assert len(all_cudas) == 1, all_cudas
-    assert len(all_envs[0]["CUDA_VISIBLE_DEVICES"].split(",")) == 4
+    assert len(all_envs[0]["CUDA_VISIBLE_DEVICES"].split(",")) == 4, all_envs[0]["CUDA_VISIBLE_DEVICES"]
     hjob.shutdown()
 
 
@@ -184,7 +191,7 @@ def test_gpu_ids_num_workers(ray_start_4_cpus_4_gpus):
     all_cudas = {ev["CUDA_VISIBLE_DEVICES"] for ev in all_envs}
 
     assert len(all_cudas) == 1, all_cudas
-    assert len(all_envs[0]["CUDA_VISIBLE_DEVICES"].split(",")) == 4
+    assert len(all_envs[0]["CUDA_VISIBLE_DEVICES"].split(",")) == 4, all_envs[0]["CUDA_VISIBLE_DEVICES"]
 
     def _test(worker):
         import horovod.torch as hvd
