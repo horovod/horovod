@@ -84,11 +84,9 @@ services:
       args:
         TENSORFLOW_PACKAGE: tensorflow-cpu==2.7.1
         KERAS_PACKAGE: keras==2.7.0
-        PYTORCH_PACKAGE: torch==1.10.1+cpu
-        TORCHVISION_PACKAGE: torchvision==0.11.2+cpu
-        MXNET_PACKAGE: mxnet==1.9.0
-        PYSPARK_PACKAGE: pyspark==3.2.0
-        SPARK_PACKAGE: spark-3.2.0/spark-3.2.0-bin-hadoop2.7.tgz
+        PYTORCH_PACKAGE: torch==1.9.1+cpu
+        TORCHVISION_PACKAGE: torchvision==0.10.1
+        MXNET_PACKAGE: mxnet==1.8.0.post0
   # then our baseline again, omitted ...
   test-cpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1:
     extends: test-cpu-base
