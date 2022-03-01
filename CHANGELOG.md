@@ -32,7 +32,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- Moved to CMake version 3.13 with first-class CUDA language support and re-enabled parallelized builds. ([#3261](https://github.com/horovod/horovod/pull/3261))
+- Moved to CMake version 3.13 with first-class CUDA language support and re-enabled parallelized builds. Uses a temporary installation of CMake if CMake 3.13 is not found. ([#3261](https://github.com/horovod/horovod/pull/3261), [#3371](https://github.com/horovod/horovod/pull/3371))
 
 - Moved released Docker image `horovod` and `horovod-cpu` to Ubuntu 20.04 and Python 3.8. ([#3393](https://github.com/horovod/horovod/pull/3393))
 
