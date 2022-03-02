@@ -10,21 +10,21 @@ ARG PYTORCH_VERSION=1.8.1+cu111
 ARG PYTORCH_LIGHTNING_VERSION=1.2.9
 ARG TORCHVISION_VERSION=0.9.1+cu111
 
+# to avoid interaction with apt-get
+ENV DEBIAN_FRONTEND=noninteractive
+
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 RUN sudo apt-get update && DEBIAN_FRONTEND="noninteractive" sudo apt-get install -y \
         build-essential \
+        cmake \
         wget \
         git \
-        gpg \
         curl \
         rsync \
         vim \
     && sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/*
-
-# Install recent CMake.
-RUN pip install --no-cache-dir -U cmake~=3.13.0
 
 # Install PyTorch
 RUN pip install --no-cache-dir \

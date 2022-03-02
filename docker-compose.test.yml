@@ -59,6 +59,7 @@ services:
       args:
         # Tensorflow 1.15.5 is only available for Python 3.7
         # Python 3.7 is only available on Ubuntu 18.04
+        # On Ubuntu 18.04 our setup.py will pull in a recent CMake and use that only to build Horovod
         UBUNTU_VERSION: 18.04
         PYTHON_VERSION: 3.7
         # there is no tensorflow-cpu>1.15.0, so we use tensorflow==1.15.5
@@ -95,7 +96,7 @@ services:
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: torchvision
-        PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning
+        PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.3.8
         MXNET_PACKAGE: mxnet-nightly
 
   test-cpu-gloo-py3_7-tf2_7_0-keras2_7_0-torch1_10_1-mxnet1_9_0-pyspark2_4_8:
@@ -208,7 +209,7 @@ services:
         TENSORFLOW_PACKAGE: tf-nightly-gpu
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch-nightly-cu111
-        PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning
+        PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.3.8
         TORCHVISION_PACKAGE: torchvision
         MXNET_PACKAGE: mxnet-nightly-cu112
 

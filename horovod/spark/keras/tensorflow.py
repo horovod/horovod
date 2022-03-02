@@ -15,8 +15,17 @@
 
 import json
 
-from tensorflow.python.keras import backend as K
-from tensorflow.python.keras import optimizers
+import tensorflow as tf
+
+from horovod.common.util  import is_version_greater_equal_than
+
+if is_version_greater_equal_than(tf.__version__, "2.6.0"):
+    from keras import backend as K
+    from keras import optimizers
+else:
+    from tensorflow.python.keras import backend as K
+    from tensorflow.python.keras import optimizers
+
 from tensorflow.python.platform import tf_logging as logging
 from tensorflow.python.util import serialization
 

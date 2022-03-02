@@ -4085,8 +4085,8 @@ class TensorFlowTests(tf.test.TestCase):
             for x in x_list:
                 bn = tf.keras.layers.BatchNormalization(axis=1, fused=False)
                 sync_bn = hvd.SyncBatchNormalization(axis=1)
-                bn_func = bn.apply(x, training=True)
-                sync_bn_func = sync_bn.apply(tf.expand_dims(x[hvd.rank()], 0), training=True)
+                bn_func = bn(x, training=True)
+                sync_bn_func = sync_bn(tf.expand_dims(x[hvd.rank()], 0), training=True)
 
                 try:
                   init = tf.global_variables_initializer()
@@ -4129,8 +4129,8 @@ class TensorFlowTests(tf.test.TestCase):
             for x in x_list:
                 bn = tf.keras.layers.BatchNormalization(axis=1, fused=False)
                 sync_bn = hvd.SyncBatchNormalization(axis=1)
-                bn_func = bn.apply(x, training=True)
-                sync_bn_func = sync_bn.apply(tf.expand_dims(x[hvd.rank()], 0), training=True)
+                bn_func = bn(x, training=True)
+                sync_bn_func = sync_bn(tf.expand_dims(x[hvd.rank()], 0), training=True)
 
                 try:
                   init = tf.global_variables_initializer()

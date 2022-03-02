@@ -3,18 +3,18 @@
 This is currently not run on the Ray CI.
 """
 import os
+import socket
 import sys
 
-import socket
 import pytest
 import ray
-from ray.util.client.ray_client_helpers import ray_start_client_server
 import torch
+from ray.util.client.ray_client_helpers import ray_start_client_server
 
 from horovod.common.util import gloo_built
 from horovod.ray.runner import (Coordinator, MiniSettings, RayExecutor)
-from horovod.ray.worker import BaseHorovodWorker
 from horovod.ray.strategy import create_placement_group
+from horovod.ray.worker import BaseHorovodWorker
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -38,19 +38,27 @@ def ray_start_4_cpus():
 @pytest.fixture
 def ray_start_6_cpus():
     address_info = ray.init(num_cpus=6)
-    yield address_info
-    # The code after the yield will run as teardown code.
-    ray.shutdown()
+    try:
+        yield address_info
+    finally:
+        # The code after the yield will run as teardown code.
+        ray.shutdown()
 
 
 @pytest.fixture
 def ray_start_4_cpus_4_gpus():
+    orig_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
     os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
     address_info = ray.init(num_cpus=4, num_gpus=4)
-    yield address_info
-    # The code after the yield will run as teardown code.
-    ray.shutdown()
-    del os.environ["CUDA_VISIBLE_DEVICES"]
+    try:
+        yield address_info
+        # The code after the yield will run as teardown code.
+        ray.shutdown()
+    finally:
+        if orig_devices is not None:
+            os.environ["CUDA_VISIBLE_DEVICES"] = orig_devices
+        else:
+            del os.environ["CUDA_VISIBLE_DEVICES"]
 
 
 @pytest.fixture
@@ -66,17 +74,6 @@ def ray_start_client():
     assert not ray.util.client.ray.is_connected()
     with ray_start_client_server(ray_connect_handler=ray_connect_handler):
         yield
-
-
-def check_resources(original_resources):
-    for i in reversed(range(10)):
-        if original_resources == ray.available_resources():
-            return True
-        else:
-            print(ray.available_resources())
-            import time
-            time.sleep(0.5)
-    return False
 
 
 def test_coordinator_registration():
@@ -171,7 +168,6 @@ def test_infeasible_placement(ray_start_2_cpus, num_workers, num_hosts,
 @pytest.mark.skipif(
     not torch.cuda.is_available(), reason="GPU test requires CUDA.")
 def test_gpu_ids(ray_start_4_cpus_4_gpus):
-    original_resources = ray.available_resources()
     setting = RayExecutor.create_settings(timeout_s=30)
     hjob = RayExecutor(
         setting, num_hosts=1, num_workers_per_host=4, use_gpu=True)
@@ -179,9 +175,8 @@ def test_gpu_ids(ray_start_4_cpus_4_gpus):
     all_envs = hjob.execute(lambda _: os.environ.copy())
     all_cudas = {ev["CUDA_VISIBLE_DEVICES"] for ev in all_envs}
     assert len(all_cudas) == 1, all_cudas
-    assert len(all_envs[0]["CUDA_VISIBLE_DEVICES"].split(",")) == 4
+    assert len(all_envs[0]["CUDA_VISIBLE_DEVICES"].split(",")) == 4, all_envs[0]["CUDA_VISIBLE_DEVICES"]
     hjob.shutdown()
-    assert check_resources(original_resources)
 
 
 @pytest.mark.skipif(
@@ -189,7 +184,6 @@ def test_gpu_ids(ray_start_4_cpus_4_gpus):
 @pytest.mark.skipif(
     not torch.cuda.is_available(), reason="GPU test requires CUDA.")
 def test_gpu_ids_num_workers(ray_start_4_cpus_4_gpus):
-    original_resources = ray.available_resources()
     setting = RayExecutor.create_settings(timeout_s=30)
     hjob = RayExecutor(setting, num_workers=4, use_gpu=True)
     hjob.start()
@@ -197,7 +191,7 @@ def test_gpu_ids_num_workers(ray_start_4_cpus_4_gpus):
     all_cudas = {ev["CUDA_VISIBLE_DEVICES"] for ev in all_envs}
 
     assert len(all_cudas) == 1, all_cudas
-    assert len(all_envs[0]["CUDA_VISIBLE_DEVICES"].split(",")) == 4
+    assert len(all_envs[0]["CUDA_VISIBLE_DEVICES"].split(",")) == 4, all_envs[0]["CUDA_VISIBLE_DEVICES"]
 
     def _test(worker):
         import horovod.torch as hvd
@@ -208,7 +202,6 @@ def test_gpu_ids_num_workers(ray_start_4_cpus_4_gpus):
     all_valid_local_rank = hjob.execute(_test)
     assert all(all_valid_local_rank)
     hjob.shutdown()
-    assert check_resources(original_resources)
 
 
 def test_horovod_mixin(ray_start_2_cpus):
@@ -224,7 +217,6 @@ def test_horovod_mixin(ray_start_2_cpus):
 
 @pytest.mark.parametrize(parameter_str, ray_executor_parametrized)
 def test_local(ray_start_4_cpus, num_workers, num_hosts, num_workers_per_host):
-    original_resources = ray.available_resources()
     setting = RayExecutor.create_settings(timeout_s=30)
     hjob = RayExecutor(
         setting,
@@ -235,7 +227,6 @@ def test_local(ray_start_4_cpus, num_workers, num_hosts, num_workers_per_host):
     hostnames = hjob.execute(lambda _: socket.gethostname())
     assert len(set(hostnames)) == 1, hostnames
     hjob.shutdown()
-    assert check_resources(original_resources)
 
 
 @pytest.mark.skipif(
@@ -243,8 +234,6 @@ def test_local(ray_start_4_cpus, num_workers, num_hosts, num_workers_per_host):
 @pytest.mark.parametrize(parameter_str, ray_executor_parametrized)
 def test_ray_init(ray_start_4_cpus, num_workers, num_hosts,
                   num_workers_per_host):
-    original_resources = ray.available_resources()
-
     def simple_fn(worker):
         import horovod.torch as hvd
         hvd.init()
@@ -261,7 +250,6 @@ def test_ray_init(ray_start_4_cpus, num_workers, num_hosts,
     result = hjob.execute(simple_fn)
     assert len(set(result)) == 4
     hjob.shutdown()
-    assert check_resources(original_resources)
 
 
 @pytest.mark.skipif(

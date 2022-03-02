@@ -36,6 +36,7 @@ RUN add-apt-repository ppa:ubuntu-toolchain-r/test
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
         wget \
         ca-certificates \
+        cmake \
         openssh-client \
         openssh-server \
         git \
@@ -56,9 +57,6 @@ RUN wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py && python get-
 # pinning pip to 21.0.0 as 22.0.0 cannot fetch pytorch packages from html linl
 # https://github.com/pytorch/pytorch/issues/72045
 RUN pip install --no-cache-dir -U --force pip~=21.0.0 setuptools requests pytest mock pytest-forked parameterized
-
-# Install recent CMake.
-RUN pip install --no-cache-dir -U cmake~=3.13.0
 
 # Add launch helper scripts
 RUN echo "env SPARK_HOME=/spark SPARK_DRIVER_MEM=512m PYSPARK_PYTHON=/usr/bin/python${PYTHON_VERSION} PYSPARK_DRIVER_PYTHON=/usr/bin/python${PYTHON_VERSION} \"\$@\"" > /spark_env.sh
@@ -82,6 +80,13 @@ RUN if [[ ${SPARK_PACKAGE} != *"-preview"* ]]; then \
         apt-get update -qq && apt-get install pandoc; \
         pip install --no-cache-dir pypandoc; \
         (cd /spark/python && python setup.py sdist && pip install --no-cache-dir dist/pyspark-*.tar.gz && rm dist/pyspark-*); \
+    fi
+
+# Pin cloudpickle to 1.3.0
+# Dill breaks clouldpickle > 1.3.0 when using Spark2
+# https://github.com/cloudpipe/cloudpickle/issues/393
+RUN if [[ ${PYSPARK_PACKAGE} == "pyspark==2."* ]]; then \
+        pip install --no-cache-dir cloudpickle==1.3.0; \
     fi
 
 # Install Ray.
@@ -145,20 +150,19 @@ RUN if [[ ${MPI_KIND} != "None" ]]; then \
     fi
 
 # Install TensorFlow and Keras (releases).
-# Pin h5py only for tensorflow<2.5: https://github.com/h5py/h5py/issues/1732
 # Pin scipy!=1.4.0: https://github.com/scipy/scipy/issues/11237
 RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly" ]]; then \
         pip install --no-cache-dir ${TENSORFLOW_PACKAGE}; \
         if [[ ${KERAS_PACKAGE} != "None" ]]; then \
-            if [[ ${TENSORFLOW_PACKAGE} == tensorflow*==1.* ]] || [[ ${TENSORFLOW_PACKAGE} == tensorflow*==2.[012345].* ]]; then \
-                h5py="h5py<3"; \
-            fi; \
             pip uninstall -y keras-nightly; \
-            pip install --no-cache-dir ${KERAS_PACKAGE} ${h5py:-} "scipy!=1.4.0" "pandas<1.1.0"; \
+            pip install --no-cache-dir ${KERAS_PACKAGE} "scipy!=1.4.0" "pandas<1.1.0"; \
         fi; \
         mkdir -p ~/.keras; \
         python -c "import tensorflow as tf; tf.keras.datasets.mnist.load_data()"; \
     fi
+
+# Pin h5py < 3 for tensorflow: https://github.com/tensorflow/tensorflow/issues/44467
+RUN pip install 'h5py<3.0' --force-reinstall
 
 # Install PyTorch (releases).
 # Pin Pillow<7.0 for torchvision < 0.5.0: https://github.com/pytorch/vision/issues/1718

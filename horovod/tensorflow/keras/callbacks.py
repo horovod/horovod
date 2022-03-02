@@ -13,8 +13,16 @@
 # limitations under the License.
 # ==============================================================================
 
+
+import tensorflow as tf
 from tensorflow import keras
-from tensorflow.python.keras import backend as K
+
+from horovod.common.util  import is_version_greater_equal_than
+
+if is_version_greater_equal_than(tf.__version__, "2.6.0"):
+    from keras import backend as K
+else:
+    from tensorflow.python.keras import backend as K
 
 from horovod._keras import callbacks as _impl
 
