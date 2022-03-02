@@ -12,6 +12,9 @@ ARG SPARK_PACKAGE=spark-3.1.1/spark-3.1.1-bin-hadoop2.7.tgz
 
 ARG PYTHON_VERSION=3.8
 
+# to avoid interaction with apt-get
+ENV DEBIAN_FRONTEND=noninteractive
+
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 

@@ -10,6 +10,9 @@ ARG PYTORCH_VERSION=1.8.1+cu111
 ARG PYTORCH_LIGHTNING_VERSION=1.2.9
 ARG TORCHVISION_VERSION=0.9.1+cu111
 
+# to avoid interaction with apt-get
+ENV DEBIAN_FRONTEND=noninteractive
+
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
