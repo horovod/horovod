@@ -3723,6 +3723,7 @@ jobs:
 
       - name: Build and push
         uses: docker/build-push-action@v2
+        timeout-minutes: 60
         with:
           context: .
           file: ./docker/${{ matrix.docker-image }}/Dockerfile
