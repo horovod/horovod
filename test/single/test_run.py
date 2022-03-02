@@ -76,6 +76,37 @@ class RunTests(unittest.TestCase):
             self.assertEqual(env.get(config_parser.HOROVOD_HIERARCHICAL_ALLREDUCE), '1')
             self.assertEqual(env.get(config_parser.HOROVOD_HIERARCHICAL_ALLGATHER), '1')
 
+    def test_elastic_args(self):
+        with override_args('horovodrun', '-np', '4',
+                           '--min-np', '2',
+                           '--max-np', '8'):
+            args = parse_args()
+            env = {}
+            config_parser.set_env_from_args(env, args)
+
+            self.assertEqual(args.num_proc, 4)
+            self.assertEqual(args.min_num_proc, 2)
+            self.assertEqual(args.max_num_proc, 8)
+
+        with override_args('horovodrun', '--num-proc', '4',
+                           '--min-num-proc', '2',
+                           '--max-num-proc', '8',
+                           '--slots-per-host', '1',
+                           '--elastic-timeout', '60',
+                           '--reset-limit', '10',
+                           '--blacklist-cooldown-range', '120', '600'):
+            args = parse_args()
+            env = {}
+            config_parser.set_env_from_args(env, args)
+
+            self.assertEqual(args.num_proc, 4)
+            self.assertEqual(args.min_num_proc, 2)
+            self.assertEqual(args.max_num_proc, 8)
+            self.assertEqual(args.slots, 1)
+            self.assertEqual(args.elastic_timeout, 60)
+            self.assertEqual(args.reset_limit, 10)
+            self.assertEqual(args.cooldown_range, [120, 600])
+
     def test_autotune_args(self):
         with override_args('horovodrun', '-np', '2',
                            '--autotune',
