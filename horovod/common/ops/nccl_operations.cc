@@ -880,12 +880,12 @@ Status NCCLReducescatter::Execute(std::vector<TensorTableEntry>& entries,
     recv_pointer = buffer_data;
   }
 
-  // If the reduced data cannot be scattered evenly over the participating processes, only the last rank will receive
-  // more data than the other ranks (see ReducescatterOp::ComputeOutputShapeForRank). In Debug builds we verify that
-  // recvcounts follows this expectation.
+  // If a reduced tensor cannot be scattered evenly over the participating processes, the first ranks 0, ...,
+  // (tensor_shape.dim_size(0) % process_set_size - 1) will receive more data than the last ranks.
+  // [See ReducescatterOp::ComputeOutputShapeForRank()]
   bool same_output_shape = (recvcounts.front() == recvcounts.back());
-  assert(recvcounts.size() < 2 ||
-         std::all_of(recvcounts.begin() + 1, recvcounts.end() - 1,
+  assert(!same_output_shape || recvcounts.size() < 2 ||
+         std::all_of(recvcounts.begin() + 1, recvcounts.end(),
                      [rc0 = recvcounts[0]](int rc) { return rc == rc0; }));
 
   if (same_output_shape) {

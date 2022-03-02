@@ -4516,12 +4516,17 @@ class TensorFlowTests(tf.test.TestCase):
         for dtype in dtypes:
             with tf.device("/cpu:0"):
                 tensor = self.random_uniform(
-                    [size * 4 + 1], -100, 100, dtype=dtype)
+                    [size * 4 + size // 2], -100, 100, dtype=dtype)
                 summed = hvd.reducescatter(tensor, op=hvd.Sum)
-            if rank < size - 1:
-                expected = tensor[rank * 4:(rank + 1) * 4] * size
+
+            if rank < size // 2:
+                low = rank * (4 + 1)
+                high = low + (4 + 1)
             else:
-                expected = tensor[rank * 4:] * size
+                low = (size // 2) * (4 + 1) + (rank - size // 2) * 4
+                high = low + 4
+            expected = tensor[low:high] * size
+
             max_difference = tf.reduce_max(tf.abs(summed - expected))
 
             # Threshold for floating point equality depends on number of
@@ -4537,13 +4542,11 @@ class TensorFlowTests(tf.test.TestCase):
             else:
                 break
 
-            diff, expected_shape, summed_shape = self.evaluate([max_difference, tf.shape(expected),
-                                                                tf.shape(summed)])
+            diff, expected_shape, summed_shape = self.evaluate([max_difference, tf.shape(expected), tf.shape(summed)])
             self.assertSequenceEqual(expected_shape, summed_shape,
                                      "hvd.reducescatter produces incorrect shapes")
             self.assertTrue(diff <= threshold,
                             "hvd.reducescatter produces incorrect results")
-
 
     def test_horovod_reducescatter_cpu_uneven_fused(self):
         """Test on CPU that the reducescatter correctly sums and scatters tensors that cannot
@@ -4566,14 +4569,19 @@ class TensorFlowTests(tf.test.TestCase):
         for dtype, index in itertools.product(dtypes, indices):
             with tf.device("/cpu:0"):
                 tensor = self.random_uniform(
-                    [size * 4 + 1], -100, 100,
+                    [size * 4 + size // 2], -100, 100,
                     seed=1234 + index,
                     dtype=dtype)
                 summed = hvd.reducescatter(tensor, op=hvd.Sum)
-            if rank < size - 1:
-                expected = tensor[rank * 4:(rank + 1) * 4] * size
+            
+            if rank < size // 2:
+                low = rank * (4 + 1)
+                high = low + (4 + 1)
             else:
-                expected = tensor[rank * 4:] * size
+                low = (size // 2) * (4 + 1) + (rank - size // 2) * 4
+                high = low + 4
+            expected = tensor[low:high] * size
+
             max_difference = tf.reduce_max(tf.abs(summed - expected))
 
             # Threshold for floating point equality depends on number of
@@ -4591,11 +4599,12 @@ class TensorFlowTests(tf.test.TestCase):
 
             test = max_difference <= threshold
             tests.append(test)
-            infos.append({"0_t": tensor, "1_e": expected, "2_s": summed, "3_ok": tf.reduce_all(test)})
+            # infos.append({"0_t": tensor, "1_e": expected, "2_s": summed, "3_ok": tf.reduce_all(test)})
         i = self.evaluate([tf.reduce_all(tests)] + infos)
-        succesful = i.pop(0)
+        successful = i.pop(0)
+        # from pprint import pprint
         # pprint(i)
-        self.assertTrue(succesful,
+        self.assertTrue(successful,
                         "hvd.reducescatter produces incorrect results")
 
     def test_horovod_reducescatter_cpu_process_sets(self):
@@ -4771,12 +4780,17 @@ class TensorFlowTests(tf.test.TestCase):
         for dtype in dtypes:
             with tf.device("/gpu:%d" % local_rank):
                 tensor = self.random_uniform(
-                    [size * 4 + 1], -100, 100, dtype=dtype)
+                    [size * 4 + size // 2], -100, 100, dtype=dtype)
                 summed = hvd.reducescatter(tensor, op=hvd.Sum)
-            if rank < size - 1:
-                expected = tensor[rank * 4:(rank + 1) * 4] * size
+
+            if rank < size // 2:
+                low = rank * (4 + 1)
+                high = low + (4 + 1)
             else:
-                expected = tensor[rank * 4:] * size
+                low = (size // 2) * (4 + 1) + (rank - size // 2) * 4
+                high = low + 4
+            expected = tensor[low:high] * size
+
             max_difference = tf.reduce_max(tf.abs(summed - expected))
 
             # Threshold for floating point equality depends on number of
@@ -4824,14 +4838,19 @@ class TensorFlowTests(tf.test.TestCase):
         for dtype, index in itertools.product(dtypes, indices):
             with tf.device("/gpu:%d" % local_rank):
                 tensor = self.random_uniform(
-                    [size * 4 + 1], -100, 100,
+                    [size * 4 + size // 2], -100, 100,
                     seed=1234 + index,
                     dtype=dtype)
                 summed = hvd.reducescatter(tensor, op=hvd.Sum)
-            if rank < size - 1:
-                expected = tensor[rank * 4:(rank + 1) * 4] * size
+
+            if rank < size // 2:
+                low = rank * (4 + 1)
+                high = low + (4 + 1)
             else:
-                expected = tensor[rank * 4:] * size
+                low = (size // 2) * (4 + 1) + (rank - size // 2) * 4
+                high = low + 4
+            expected = tensor[low:high] * size
+
             max_difference = tf.reduce_max(tf.abs(summed - expected))
 
             # Threshold for floating point equality depends on number of
@@ -4849,7 +4868,7 @@ class TensorFlowTests(tf.test.TestCase):
 
             test = max_difference <= threshold
             tests.append(test)
-            infos.append({"0_t": tensor, "1_e": expected, "2_s": summed, "3_ok": tf.reduce_all(test)})
+            # infos.append({"0_t": tensor, "1_e": expected, "2_s": summed, "3_ok": tf.reduce_all(test)})
         i = self.evaluate([tf.reduce_all(tests)] + infos)
         succesful = i.pop(0)
         # pprint(i)

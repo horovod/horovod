@@ -299,10 +299,11 @@ ReducescatterOp::ReducescatterOp(HorovodGlobalState* global_state)
 
 TensorShape ReducescatterOp::ComputeOutputShapeForRank(
     const TensorShape& tensor_shape, int rank, int global_size) const {
-  // The last rank may receive a larger tensor.
+  // If tensor_shape.dim_size(0) % global_size != 0, the first ranks 0, ..., tensor_shape.dim_size(0) % global_size - 1
+  // may receive a slightly larger tensor.
   int64_t min_size = tensor_shape.dim_size(0) / global_size;
-  int64_t max_size = tensor_shape.dim_size(0) / global_size + tensor_shape.dim_size(0) % global_size;
-  int64_t component_size = rank == global_size - 1 ? max_size : min_size;
+  int64_t max_size = tensor_shape.dim_size(0) / global_size + 1;
+  int64_t component_size = rank < tensor_shape.dim_size(0) % global_size ? max_size : min_size;
 
   TensorShape output_shape;
   output_shape.AddDim(component_size);
