@@ -721,6 +721,7 @@ def main():
                 f'\n'
                 f'      - name: Build and push\n'
                 f'        uses: docker/build-push-action@v2\n'
+                f'        timeout-minutes: 60\n'
                 f'        with:\n'
                 f'          context: .\n'
                 f'          file: ./docker/${{{{ matrix.docker-image }}}}/Dockerfile\n'
