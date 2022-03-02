@@ -1,9 +1,9 @@
 FROM ubuntu:20.04
 
 ARG TENSORFLOW_VERSION=2.8.0
-ARG PYTORCH_VERSION=1.10.2
-ARG PYTORCH_LIGHTNING_VERSION=1.5.9
-ARG TORCHVISION_VERSION=0.11.3
+ARG PYTORCH_VERSION=1.10.2+cpu
+ARG PYTORCH_LIGHTNING_VERSION=1.3.8
+ARG TORCHVISION_VERSION=0.11.3+cpu
 ARG MXNET_VERSION=1.9.0
 
 ARG PYTHON_VERSION=3.8
@@ -56,7 +56,7 @@ RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
     rm get-pip.py
 
 # Install PyTorch, TensorFlow, Keras and MXNet
-RUN pip install --no-cache-dir torch==${PYTORCH_VERSION} torchvision==${TORCHVISION_VERSION}
+RUN pip install --no-cache-dir torch==${PYTORCH_VERSION} torchvision==${TORCHVISION_VERSION} -f https://download.pytorch.org/whl/torch_stable.html
 RUN pip install --no-cache-dir pytorch_lightning==${PYTORCH_LIGHTNING_VERSION}
 
 RUN pip install --no-cache-dir future typing packaging
