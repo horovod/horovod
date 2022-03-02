@@ -394,7 +394,8 @@ def parse_args():
                                help='Maximum number of times that the training job can scale up or down '
                                     'the number of workers after which the job is terminated. (default: None)')
     group_elastic.add_argument('--blacklist-cooldown-range', action='store', dest='cooldown_range', type=int, nargs=2,
-                               help='Range of seconds(min, max) a failing host will remain in blacklist. (default: None)')
+                               help='Range of seconds (min, max) a failing host will remain in blacklist.'
+                                    'Example: --blacklist-cooldown-range 60 300 (default: None)')
 
     group_timeline = parser.add_argument_group('timeline arguments')
     group_timeline.add_argument('--timeline-filename', action=make_override_action(override_args),
