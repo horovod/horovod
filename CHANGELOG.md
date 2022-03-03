@@ -16,6 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Extended CMake build script to often find CUDA even if `nvcc` is not in `$PATH`. ([#3444](https://github.com/horovod/horovod/pull/3444))
+
 ## [v0.24.0] - 2022-03-01
 
 ### Added
