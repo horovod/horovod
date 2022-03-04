@@ -13,7 +13,7 @@ using gpuStream_t = cudaStream_t;
 using gpuPointerAttributes = cudaPointerAttributes;
 #define gpuStreamNonBlocking  cudaStreamNonBlocking
 #define gpuEventCreateWithFlags cudaEventCreateWithFlags
-#define gpuEventCreate hipEventCreate
+#define gpuEventCreate cudaEventCreate
 #define gpuEventDisableTiming cudaEventDisableTiming
 #define gpuEventRecord cudaEventRecord
 #define gpuEventSynchronize cudaEventSynchronize
