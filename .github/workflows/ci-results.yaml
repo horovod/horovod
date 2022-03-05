@@ -37,7 +37,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        conclusion=$(gh api "${{ github.event.workflow_run.jobs_url }}" -q '.jobs[] | select(.name | startswith("Build and Test CPU (") or startswith("Build GPU (")) | .conclusion' | sort | uniq | paste -sd "," -)
+        conclusion=$(gh api "${{ github.event.workflow_run.jobs_url }}" -q '.jobs[] | select(.name | startswith("Build and Test (")) | .conclusion' | sort | uniq | paste -sd "," -)
         echo "build-and-test conclusion: ${conclusion}"
         echo "::set-output name=build-and-test::${conclusion}"
       shell: bash

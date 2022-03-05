@@ -270,12 +270,14 @@ def main():
                               name: str,
                               needs: List[str],
                               images: List[str],
-                              parallel_images: int,
                               tests_per_image: Dict[str, Set[str]],
                               tests: Dict[str, Dict],
+                              parallel_images: int = None,
                               attempts: int = 3) -> str:
         if 'init-workflow' not in needs:
             needs.insert(0, 'init-workflow')
+        if parallel_images is None:
+          parallel_images = len(images)
         failure = "'failure'"
         return (f'  {id}:\n'
                 f'    name: "{name} (${{{{ matrix.image }}}})"\n'
@@ -598,20 +600,19 @@ def main():
     def publish_docker_images(needs: List[str], images: List[str]) -> str:
         if 'init-workflow' not in needs:
             needs.insert(0, 'init-workflow')
-        if needs != ['init-workflow', 'build-and-test-cpu', 'build-gpu', 'buildkite']:
+        if needs != ['init-workflow', 'build-and-test', 'buildkite']:
             raise RuntimeError('This job has hard-coded needs, which you may want to adjust')
         return (f'  docker-config:\n'
                 f'    name: Configure docker build\n'
                 f'    needs: [{", ".join(needs)}]\n'
-                f"    # build-and-test-cpu, build-gpu and buildkite might have been skipped (! needs.init-workflow.outputs.run-builds-and-tests)\n"
+                f"    # build-and-test and buildkite might have been skipped (! needs.init-workflow.outputs.run-builds-and-tests)\n"
                 f'    # buildkite might have been skipped (workflow runs for a fork PR),\n'
                 f'    # we still want to build docker images (though we might not want to push them)\n'
                 f'    if: >\n'
                 f'      always() &&\n'
                 f"      needs.init-workflow.outputs.run-at-all == 'true' &&\n"
                 f"      needs.init-workflow.outputs.run-builds-and-tests == 'true' &&\n"
-                f"      needs.build-and-test-cpu.result == 'success' &&\n"
-                f"      needs.build-gpu.result == 'success' &&\n"
+                f"      needs.build-and-test.result == 'success' &&\n"
                 f"      ( needs.buildkite.result == 'success' || needs.buildkite.result == 'skipped' )\n"
                 f'    runs-on: ubuntu-latest\n'
                 f'    outputs:\n'
@@ -806,14 +807,13 @@ def main():
         workflow = workflow_header() + jobs(
             init_workflow_job(),
             # changing these names require changes in the workflow-conclusion step in ci-results.yaml
-            build_and_test_images(id='build-and-test-cpu', name='Build and Test CPU', needs=['init-workflow'], images=cpu_release_images, parallel_images=len(cpu_release_images), tests_per_image=tests_per_image, tests=tests),
-            build_and_test_images(id='build-gpu', name='Build GPU', needs=['init-workflow'], images=gpu_release_images, parallel_images=0, tests_per_image=tests_per_image, tests=tests),
-            build_and_test_images(id='build-and-test-heads', name='Build and Test heads', needs=['build-and-test-cpu', 'build-gpu'], images=allhead_images, parallel_images=0, tests_per_image=tests_per_image, tests=tests),
-            build_and_test_images(id='build-mins', name='Build mins', needs=['build-and-test-cpu', 'build-gpu'], images=allmin_images, parallel_images=0, tests_per_image=tests_per_image, tests=tests),
-            build_and_test_macos(id='build-and-test-macos', name='Build and Test macOS', needs=['build-and-test-cpu', 'build-gpu']),
-            trigger_buildkite_job(id='buildkite', name='Build and Test GPU (on Builtkite)', needs=['build-and-test-cpu', 'build-gpu'], mode='GPU NON HEADS'),
-            trigger_buildkite_job(id='buildkite-heads', name='Build and Test GPU heads (on Builtkite)', needs=['build-and-test-cpu', 'build-gpu'], mode='GPU HEADS'),
-            publish_docker_images(needs=['build-and-test-cpu', 'build-gpu', 'buildkite'], images=['horovod', 'horovod-cpu', 'horovod-ray']),
+            build_and_test_images(id='build-and-test', name='Build and Test', needs=['init-workflow'], images=release_images, parallel_images=len(cpu_release_images), tests_per_image=tests_per_image, tests=tests),
+            build_and_test_images(id='build-and-test-heads', name='Build and Test heads', needs=['build-and-test'], images=allhead_images, tests_per_image=tests_per_image, tests=tests),
+            build_and_test_images(id='build-mins', name='Build mins', needs=['build-and-test'], images=allmin_images, tests_per_image=tests_per_image, tests={}),
+            build_and_test_macos(id='build-and-test-macos', name='Build and Test macOS', needs=['build-and-test']),
+            trigger_buildkite_job(id='buildkite', name='Build and Test GPU (on Builtkite)', needs=['build-and-test'], mode='GPU NON HEADS'),
+            trigger_buildkite_job(id='buildkite-heads', name='Build and Test GPU heads (on Builtkite)', needs=['build-and-test'], mode='GPU HEADS'),
+            publish_docker_images(needs=['build-and-test', 'buildkite'], images=['horovod', 'horovod-cpu', 'horovod-ray']),
             sync_files(needs=['init-workflow'])
         )
         print(workflow, file=w, end='')
