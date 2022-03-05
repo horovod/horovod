@@ -106,10 +106,10 @@ services:
         PYTHON_VERSION: 3.7
         TENSORFLOW_PACKAGE: tensorflow-cpu==1.15.0
         KERAS_PACKAGE: keras==2.2.4
-        PYTORCH_PACKAGE: torch==1.2.0+cpu
-        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==0.4.2
-        TORCHVISION_PACKAGE: torchvision==0.4.0+cpu
-        MXNET_PACKAGE: mxnet==1.4.0
+        PYTORCH_PACKAGE: torch==1.5.0+cpu
+        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==0.7.3
+        TORCHVISION_PACKAGE: torchvision==0.6.0+cpu
+        MXNET_PACKAGE: mxnet==1.4.1
         PYSPARK_PACKAGE: pyspark==2.4.0
         SPARK_PACKAGE: spark-2.4.0/spark-2.4.0-bin-hadoop2.7.tgz
 
