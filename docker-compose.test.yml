@@ -97,6 +97,21 @@ services:
         TORCHVISION_PACKAGE: torchvision
         PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.3.8
         MXNET_PACKAGE: mxnet-nightly
+  # these are the lowest framework versions that Horovod compiles with, but they are not tested
+  test-cpu-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin:
+    extends: test-cpu-base
+    build:
+      args:
+        UBUNTU_VERSION: 18.04
+        PYTHON_VERSION: 3.7
+        TENSORFLOW_PACKAGE: tensorflow-cpu==1.15.0
+        KERAS_PACKAGE: keras==2.2.4
+        PYTORCH_PACKAGE: torch==1.2.0+cpu
+        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==0.4.2
+        TORCHVISION_PACKAGE: torchvision==0.4.0+cpu
+        MXNET_PACKAGE: mxnet==1.4.0
+        PYSPARK_PACKAGE: pyspark==2.4.0
+        SPARK_PACKAGE: spark-2.4.0/spark-2.4.0-bin-hadoop2.7.tgz
 
   test-cpu-gloo-py3_7-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark2_4_8:
     extends: test-cpu-base

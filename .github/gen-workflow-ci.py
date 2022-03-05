@@ -270,7 +270,7 @@ def main():
                               name: str,
                               needs: List[str],
                               images: List[str],
-                              parallel_images: str,
+                              parallel_images: int,
                               tests_per_image: Dict[str, Set[str]],
                               tests: Dict[str, Dict],
                               attempts: int = 3) -> str:
@@ -286,13 +286,13 @@ def main():
                 f'    runs-on: ubuntu-latest\n'
                 f'\n'
                 f'    strategy:\n'
-                f'      max-parallel: {len([image for image in images if parallel_images in image])}\n'
+                f'      max-parallel: {parallel_images}\n'
                 f'      fail-fast: false\n'
                 f'      matrix:\n'
                 f'        include:\n' +
                 '\n'.join([f'          - image: {image}\n' +
                            f''.join([f'            {test}: true\n'
-                                     for test in sorted(list(tests_per_image[image]))]) +
+                                     for test in sorted(list(tests_per_image.get(image, [])))]) +
                            f'            build_timeout: {30 if "-cpu-" in image else 40}\n'
                            for image in sorted(images)
                            # oneccl does not compile on GitHub Workflows:
@@ -598,7 +598,7 @@ def main():
     def publish_docker_images(needs: List[str], images: List[str]) -> str:
         if 'init-workflow' not in needs:
             needs.insert(0, 'init-workflow')
-        if needs != ['init-workflow', 'build-and-test', 'buildkite']:
+        if needs != ['init-workflow', 'build-and-test-cpu', 'build-gpu', 'buildkite']:
             raise RuntimeError('This job has hard-coded needs, which you may want to adjust')
         return (f'  docker-config:\n'
                 f'    name: Configure docker build\n'
@@ -610,7 +610,8 @@ def main():
                 f'      always() &&\n'
                 f"      needs.init-workflow.outputs.run-at-all == 'true' &&\n"
                 f"      needs.init-workflow.outputs.run-builds-and-tests == 'true' &&\n"
-                f"      needs.build-and-test.result == 'success' &&\n"
+                f"      needs.build-and-test-cpu.result == 'success' &&\n"
+                f"      needs.build-gpu.result == 'success' &&\n"
                 f"      ( needs.buildkite.result == 'success' || needs.buildkite.result == 'skipped' )\n"
                 f'    runs-on: ubuntu-latest\n'
                 f'    outputs:\n'
@@ -795,20 +796,24 @@ def main():
                 f'          fi\n')
 
     with open(path.joinpath('workflows', 'ci.yaml').absolute(), 'wt') as w:
+        mins = ['tfmin', 'torchmin', 'mxnetmin']
         heads = ['tfhead', 'torchhead', 'mxnethead']
-        release_images = [image for image in images if not all(head in image for head in heads)]
+        allmin_images = [image for image in images if all(min in image for min in mins)]
+        allhead_images = [image for image in images if all(head in image for head in heads)]
+        release_images = [image for image in images if image not in allhead_images + allmin_images]
         cpu_release_images = [image for image in release_images if '-cpu-' in image]
         gpu_release_images = [image for image in release_images if '-gpu-' in image or '-mixed-' in image]
-        allhead_images = [image for image in images if all(head in image for head in heads)]
         workflow = workflow_header() + jobs(
             init_workflow_job(),
-            # changing these names require changes in the workflow-conclusion step in ci-fork.yaml
-            build_and_test_images(id='build-and-test', name='Build and Test', needs=['init-workflow'], images=release_images, parallel_images='-cpu-', tests_per_image=tests_per_image, tests=tests),
-            build_and_test_images(id='build-and-test-heads', name='Build and Test heads', needs=['build-and-test'], images=allhead_images, parallel_images='', tests_per_image=tests_per_image, tests=tests),
-            build_and_test_macos(id='build-and-test-macos', name='Build and Test macOS', needs=['build-and-test']),
-            trigger_buildkite_job(id='buildkite', name='Build and Test GPU (on Builtkite)', needs=['build-and-test'], mode='GPU NON HEADS'),
-            trigger_buildkite_job(id='buildkite-heads', name='Build and Test GPU heads (on Builtkite)', needs=['build-and-test'], mode='GPU HEADS'),
-            publish_docker_images(needs=['build-and-test', 'buildkite'], images=['horovod', 'horovod-cpu', 'horovod-ray']),
+            # changing these names require changes in the workflow-conclusion step in ci-results.yaml
+            build_and_test_images(id='build-and-test-cpu', name='Build and Test CPU', needs=['init-workflow'], images=cpu_release_images, parallel_images=len(cpu_release_images), tests_per_image=tests_per_image, tests=tests),
+            build_and_test_images(id='build-gpu', name='Build GPU', needs=['init-workflow'], images=gpu_release_images, parallel_images=0, tests_per_image=tests_per_image, tests=tests),
+            build_and_test_images(id='build-and-test-heads', name='Build and Test heads', needs=['build-and-test-cpu', 'build-gpu'], images=allhead_images, parallel_images=0, tests_per_image=tests_per_image, tests=tests),
+            build_and_test_images(id='build-mins', name='Build mins', needs=['build-and-test-cpu', 'build-gpu'], images=allmin_images, parallel_images=0, tests_per_image=tests_per_image, tests=tests),
+            build_and_test_macos(id='build-and-test-macos', name='Build and Test macOS', needs=['build-and-test-cpu', 'build-gpu']),
+            trigger_buildkite_job(id='buildkite', name='Build and Test GPU (on Builtkite)', needs=['build-and-test-cpu', 'build-gpu'], mode='GPU NON HEADS'),
+            trigger_buildkite_job(id='buildkite-heads', name='Build and Test GPU heads (on Builtkite)', needs=['build-and-test-cpu', 'build-gpu'], mode='GPU HEADS'),
+            publish_docker_images(needs=['build-and-test-cpu', 'build-gpu', 'buildkite'], images=['horovod', 'horovod-cpu', 'horovod-ray']),
             sync_files(needs=['init-workflow'])
         )
         print(workflow, file=w, end='')
