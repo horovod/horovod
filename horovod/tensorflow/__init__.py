@@ -464,6 +464,7 @@ if _LegacyOptimizer is not None:
             super(_DistributedOptimizer, self).__init__(name=name, use_locking=use_locking)
 
             self._optimizer = optimizer
+            self._groups = groups
             self._allreduce_grads = _make_allreduce_grads_fn(
                 name, device_dense, device_sparse, compression, sparse_as_dense, op,
                 gradient_predivide_factor, groups, process_set=process_set)
@@ -495,6 +496,8 @@ if _LegacyOptimizer is not None:
             """
             gradients = self._optimizer.compute_gradients(*args, **kwargs)
             grads, vars = zip(*gradients)
+            if self._groups is not None and not isinstance(self._groups, list) and self._groups > 0:
+                vars = [var for grad, var in zip(grads, vars) if grad is not None]
             if self._agg_helper:
                 avg_grads = self._agg_helper.compute_gradients(grads, vars)
             else:
