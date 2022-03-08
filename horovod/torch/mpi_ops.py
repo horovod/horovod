@@ -168,7 +168,7 @@ def allreduce_async(tensor, average=None, name=None, op=None,
         average:
             .. warning:: .. deprecated:: 0.19.0
 
-                Use `op` instead. Will be removed in v0.21.0.
+                Use `op` instead. Will be removed in v1.0.
 
         name: A name of the reduction operation.
         op: The reduction operation to combine tensors across different
@@ -228,7 +228,7 @@ def allreduce(tensor, average=None, name=None, compression=Compression.none, op=
         average:
             .. warning:: .. deprecated:: 0.19.0
 
-                Use `op` instead. Will be removed in v0.21.0.
+                Use `op` instead. Will be removed in v1.0.
 
         name: A name of the reduction operation.
         compression: Compression algorithm used during allreduce to reduce the amount
@@ -269,7 +269,7 @@ def allreduce_async_(tensor, average=None, name=None, op=None,
         average:
             .. warning:: .. deprecated:: 0.19.0
 
-                Use `op` instead. Will be removed in v0.21.0.
+                Use `op` instead. Will be removed in v1.0.
 
         name: A name of the reduction operation.
         op: The reduction operation to combine tensors across different ranks. Defaults to
@@ -304,7 +304,7 @@ def allreduce_(tensor, average=None, name=None, op=None,
         average:
             .. warning:: .. deprecated:: 0.19.0
 
-                Use `op` instead. Will be removed in v0.21.0.
+                Use `op` instead. Will be removed in v1.0.
 
         name: A name of the reduction operation.
         op: The reduction operation to combine tensors across different ranks. Defaults to
@@ -391,7 +391,7 @@ def grouped_allreduce_async(tensors, average=None, name=None, op=None,
         average:
             .. warning:: .. deprecated:: 0.19.0
 
-                Use `op` instead. Will be removed in v0.21.0.
+                Use `op` instead. Will be removed in v1.0.
 
         name: A base name to use for the group reduction operation.
         op: The reduction operation to combine tensors across different
@@ -455,7 +455,7 @@ def grouped_allreduce(tensors, average=None, name=None, compression=Compression.
         average:
             .. warning:: .. deprecated:: 0.19.0
 
-                Use `op` instead. Will be removed in v0.21.0.
+                Use `op` instead. Will be removed in v1.0.
 
         name: A base name to use for the group reduction operation.
         compression: Compression algorithm used during allreduce to reduce the amount
@@ -498,7 +498,7 @@ def grouped_allreduce_async_(tensors, average=None, name=None, op=None,
         average:
             .. warning:: .. deprecated:: 0.19.0
 
-                Use `op` instead. Will be removed in v0.21.0.
+                Use `op` instead. Will be removed in v1.0.
 
         name: A base name to use for the group reduction operation.
         op: The reduction operation to combine tensors across different ranks. Defaults to
@@ -535,7 +535,7 @@ def grouped_allreduce_(tensors, average=None, name=None, op=None,
         average:
             .. warning:: .. deprecated:: 0.19.0
 
-                Use `op` instead. Will be removed in v0.21.0.
+                Use `op` instead. Will be removed in v1.0.
 
         name: A base name to use for the group reduction operation.
         op: The reduction operation to combine tensors across different ranks. Defaults to
@@ -911,15 +911,111 @@ def alltoall(tensor, splits=None, name=None, process_set=global_process_set):
     return HorovodAlltoall.apply(tensor, splits, name, process_set)
 
 
-def poll(handle):
+def _reducescatter_function_factory(tensor):
+    return 'horovod_torch_reducescatter_async_' + tensor.type().replace('.', '_')
+
+
+def _reducescatter_async(tensor, output, name, op, process_set: ProcessSet):
+    function = _check_function(_reducescatter_function_factory, tensor)
+    handle = getattr(mpi_lib, function)(tensor, output,
+                                        name.encode() if name is not None else _NULL,
+                                        op, process_set.process_set_id)
+    _handle_map[handle] = (tensor, output)
+    return handle
+
+
+def reducescatter_async(tensor, name=None, op=Average, process_set=global_process_set):
     """
-    Polls an allreduce, allgather or broadcast handle to determine whether underlying
-    asynchronous operation has completed. After `poll()` returns `True`, `synchronize()`
-    will return without blocking.
+    A function that performs asynchronous reduction of the input tensor over all the
+    Horovod processes, then scatters the results across all Horovod processes. The
+    input tensor is not modified.
+
+    The reduction operation is keyed by the name. If name is not provided, an incremented
+    auto-generated name is used. The tensor type and shape must be the same on all
+    Horovod processes for a given name. The reduction will not start until all processes
+    are ready to send and receive the tensor.
+
+    The input tensors on the different processes must have the same rank and shape. The
+    output tensor will be the same rank on all processes, but the first dimension may
+    be different.
 
     Arguments:
-        handle: A handle returned by an allreduce, allgather or broadcast asynchronous
-                operation.
+        tensor: A tensor to average and sum.
+        name: A name of the reduction operation.
+        op: The reduction operation to combine tensors across different ranks.
+            Defaults to Average.
+        process_set: Process set object to limit this operation to a subset of
+                     Horovod processes. Default is the global process set.
+
+    Returns:
+        A handle to the reducescatter operation that can be used with `poll()` or
+        `synchronize()`.
+    """
+    output = tensor.new()
+    return _reducescatter_async(tensor, output, name, op, process_set)
+
+
+class HorovodReducescatter(torch.autograd.Function):
+    """An autograd function that performs reducescatter on a tensor."""
+
+    @staticmethod
+    def forward(ctx, tensor, name, op, process_set):
+        ctx.op = op
+        ctx.process_set = process_set
+        handle = reducescatter_async(tensor, name, op, process_set)
+        return synchronize(handle)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        if ctx.op == Sum:
+            grad_output *= ctx.process_set.size()
+
+        return allgather(grad_output, process_set=ctx.process_set), None, None, None
+
+
+def reducescatter(tensor, name=None, compression=Compression.none, op=Average,
+                  process_set=global_process_set):
+    """
+    A function that performs reduction of the input tensor over all the Horovod
+    processes, then scatters the results across all Horovod processes. The input tensor
+    is not modified.
+
+    The reduction operation is keyed by the name. If name is not provided, an incremented
+    auto-generated name is used. The tensor type and shape must be the same on all
+    Horovod processes for a given name. The reduction will not start until all processes
+    are ready to send and receive the tensor.
+
+    Arguments:
+        tensor: A tensor to average/sum and scatter.
+        name: A name of the reduction operation.
+        compression: Compression algorithm used during reducescatter to reduce the amount
+                     of data sent during the each parameter update step.  Defaults to
+                     not using compression.
+        op: The reduction operation to combine tensors across different ranks.
+            Defaults to Average.
+        process_set: Process set object to limit this operation to a subset of
+                     Horovod processes. Default is the global process set.
+
+
+    Returns:
+        A tensor of the same rank and type as `tensor` across all processes. The shape
+        is identical to the input shape, except for the first dimension, which will be
+        divided across the different Horovod processes.
+    """
+    tensor_compressed, ctx = compression.compress(tensor)
+    reduced_tensor_compressed = HorovodReducescatter.apply(tensor_compressed, name, op, process_set)
+    return compression.decompress(reduced_tensor_compressed, ctx)
+
+
+def poll(handle):
+    """
+    Polls an allreduce, allgather, alltoall, broadcast, or reducescatter handle to determine whether
+    underlying asynchronous operation has completed. After `poll()` returns `True`,
+    `synchronize()` will return without blocking.
+
+    Arguments:
+        handle: A handle returned by an allreduce, allgather, alltoall, broadcast, or reducescatter
+                asynchronous operation.
 
     Returns:
         A flag indicating whether the operation has completed.
@@ -929,12 +1025,12 @@ def poll(handle):
 
 def synchronize(handle):
     """
-    Synchronizes an asynchronous allreduce, allgather, alltoall or broadcast operation until
-    it's completed. Returns the result of the operation.
+    Synchronizes an asynchronous allreduce, allgather, alltoall, broadcast, or reducescatter operation
+    until  it's completed. Returns the result of the operation.
 
     Arguments:
-        handle: A handle returned by an allreduce, allgather, alltoall or broadcast asynchronous
-                operation.
+        handle: A handle returned by an allreduce, allgather, alltoall, broadcast, or reducescatter
+                asynchronous operation.
 
     Returns:
         A single output tensor of the operation or a tuple of multiple output tensors.

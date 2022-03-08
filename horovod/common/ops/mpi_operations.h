@@ -90,6 +90,20 @@ public:
                const Response& response) const override;
 };
 
+class MPIReducescatter : public ReducescatterOp {
+public:
+  MPIReducescatter(HorovodGlobalState* global_state);
+
+  ~MPIReducescatter() override = default;
+
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
+
+  bool Enabled(const ParameterManager& param_manager,
+               const std::vector<TensorTableEntry>& entries,
+               const Response& response) const override;
+};
+
 } // namespace common
 } // namespace horovod
 

@@ -102,6 +102,9 @@ const std::string& Request::RequestType_Name(RequestType value) {
     case RequestType::BROADCAST:
       static const std::string broadcast("BROADCAST");
       return broadcast;
+    case RequestType::REDUCESCATTER:
+      static const std::string reducescatter("REDUCESCATTER");
+      return reducescatter;
     case RequestType::JOIN:
       static const std::string join("JOIN");
       return join;
@@ -294,6 +297,9 @@ const std::string& Response::ResponseType_Name(ResponseType value) {
     case ResponseType::BROADCAST:
       static const std::string broadcast("BROADCAST");
       return broadcast;
+    case ResponseType::REDUCESCATTER:
+      static const std::string reducescatter("REDUCESCATTER");
+      return reducescatter;
     case ResponseType::JOIN:
       static const std::string join("JOIN");
       return join;

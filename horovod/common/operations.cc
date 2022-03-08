@@ -148,6 +148,7 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   std::vector<std::shared_ptr<AllreduceOp>> allreduce_ops;
   std::vector<std::shared_ptr<AllgatherOp>> allgather_ops;
   std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops;
+  std::vector<std::shared_ptr<ReducescatterOp>> reducescatter_ops;
   std::vector<std::shared_ptr<AllreduceOp>> adasum_ops;
   std::vector<std::shared_ptr<AlltoallOp>> alltoall_ops;
 
@@ -180,6 +181,11 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
     alltoall_ops.push_back(
         std::shared_ptr<AlltoallOp>(new MPI_GPUAlltoall(&gpu_context, &state)));
 #endif
+
+#if HOROVOD_GPU_REDUCESCATTER == 'M'
+    reducescatter_ops.push_back(std::shared_ptr<ReducescatterOp>(
+        new MPI_GPUReduceScatter(&gpu_context, &state)));
+#endif
   }
 #endif
 
@@ -198,6 +204,11 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
       new NCCLAllgather(&nccl_context, &gpu_context, &state)));
 #endif
 
+#if HAVE_NCCL && HOROVOD_GPU_REDUCESCATTER == 'N'
+    reducescatter_ops.push_back(std::shared_ptr<ReducescatterOp>(
+        new NCCLReducescatter(&nccl_context, &gpu_context, &state)));
+#endif
+
 #if HAVE_NCCL && HOROVOD_GPU_ALLTOALL == 'N'
   alltoall_ops.push_back(std::shared_ptr<AlltoallOp>(
       new NCCLAlltoall(&nccl_context, &gpu_context, &state)));
@@ -213,6 +224,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
         std::shared_ptr<BroadcastOp>(new GlooBroadcast(&state)));
     alltoall_ops.push_back(
         std::shared_ptr<AlltoallOp>(new GlooAlltoall(&state)));
+    reducescatter_ops.push_back(
+        std::shared_ptr<ReducescatterOp>(new GlooReducescatter(&state)));
   }
 #endif
 
@@ -240,6 +253,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
         std::shared_ptr<BroadcastOp>(new MPIBroadcast(&state)));
     alltoall_ops.push_back(
         std::shared_ptr<AlltoallOp>(new MPIAlltoall(&state)));
+    reducescatter_ops.push_back(
+        std::shared_ptr<ReducescatterOp>(new MPIReducescatter(&state)));
   }
 #endif
 
@@ -249,7 +264,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 
   return new OperationManager(&state.parameter_manager, allreduce_ops,
                               allgather_ops, broadcast_ops, alltoall_ops,
-                              join_op, adasum_ops, barrier_op, error_op);
+                              reducescatter_ops, join_op, adasum_ops,
+                              barrier_op, error_op);
 }
 
 // Process a Response by doing a reduction, a gather, a broadcast, or
@@ -1628,6 +1644,71 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
         std::to_string(horovod_global.global_controller->GetRank()) +
         " is not a member of the provided process set.");
   }
+
+  Status status = process_set.tensor_queue.AddToTensorQueue(e, message);
+  if (status.ok()) {
+    LOG(TRACE, horovod_global.global_controller->GetRank())
+        << "Enqueued " << name;
+  }
+  return status;
+}
+
+// Contexts and controller must be initialized and the background thread
+// must be running before this function is called.
+Status EnqueueTensorReducescatter(std::shared_ptr<OpContext> context,
+                                  std::shared_ptr<Tensor> tensor,
+                                  ReadyEventList ready_event_list,
+                                  const std::string& name, const int device,
+                                  StatusCallback callback, ReduceOp reduce_op,
+                                  int32_t process_set_id) {
+  if (horovod_global.cpu_operation == LibType::CCL && device == CPU_DEVICE_ID) {
+    return Status::InvalidArgument(
+        "Reducescatter is not supported yet with oneCCL operations.");
+  }
+  if (!horovod_global.process_set_table.Contains(process_set_id)) {
+    return Status::InvalidArgument(
+        "Reducescatter: Process set provided does not "
+        "exist, or has not been registered.");
+  }
+  if (reduce_op != ReduceOp::SUM) {
+    // Note: AVERAGE is supported by enqueuing SUM and performing divide at the
+    // framework level.
+    LOG(ERROR, horovod_global.global_controller->GetRank())
+        << "Reducescatter currently only supports SUM.";
+    return Status::Aborted("Reducescatter currently only supports SUM.");
+  }
+  if (horovod_global.shut_down) {
+    return SHUT_DOWN_ERROR;
+  }
+  auto& process_set = horovod_global.process_set_table.Get(process_set_id);
+
+  if (!process_set.IsCurrentProcessIncluded()) {
+    return Status::InvalidArgument(
+        "Reducescatter: Rank " +
+        std::to_string(horovod_global.global_controller->GetRank()) +
+        " is not a member of the provided process set.");
+  }
+
+  Request message;
+  message.set_request_rank(process_set.controller->GetRank());
+  message.set_tensor_name(name);
+  message.set_tensor_type(tensor->dtype());
+  message.set_device(device);
+  message.set_request_type(Request::REDUCESCATTER);
+  for (int i = 0; i < tensor->shape().dims(); ++i) {
+    message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
+  }
+
+  TensorTableEntry e;
+  e.tensor_name = name;
+  e.context = context;
+  e.tensor = tensor;
+  e.process_set_id = process_set_id;
+  e.ready_event_list = ready_event_list;
+  e.device = device;
+  e.callback = callback;
+  e.nvtx_op_range.Start(RegisteredNvtxOp::HorovodReducescatter,
+                        e.tensor->size());
 
   Status status = process_set.tensor_queue.AddToTensorQueue(e, message);
   if (status.ok()) {

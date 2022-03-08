@@ -47,6 +47,7 @@ static const char* ALLREDUCE_OP_TYPE_NAME = "horovod_allreduce";
 static const char* ALLGATHER_OP_TYPE_NAME = "horovod_allgather";
 static const char* BROADCAST_OP_TYPE_NAME = "horovod_broadcast";
 static const char* ALLTOALL_OP_TYPE_NAME = "horovod_alltoall";
+static const char* REDUCESCATTER_OP_TYPE_NAME = "horovod_reducescatter";
 
 inline void InvokeCompleteCallback(CallbackOnComplete on_complete, const Status& status) {
   if (status.ok()) {
@@ -67,6 +68,8 @@ inline const char* GetOpTypeName(OperationType op_type) {
       return BROADCAST_OP_TYPE_NAME;
     case OperationType::ALLTOALL:
       return ALLTOALL_OP_TYPE_NAME;
+    case OperationType::REDUCESCATTER:
+      return REDUCESCATTER_OP_TYPE_NAME;
     default:
       throw std::logic_error("Unsupported Horovod operation type.");
   }
@@ -158,7 +161,7 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
   callbacks.reserve(num_tensors);
 
   auto callback_mutex = std::make_shared<std::mutex>();
-  for (int i = 0; i < num_tensors; ++i) {
+  for (std::size_t i = 0; i < num_tensors; ++i) {
     auto input_tensor = ops_param->input_tensors[i].get();
     auto output_tensor = ops_param->output_tensors[i].get();
     auto output = ops_param->outputs[i];
@@ -234,7 +237,7 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
       // pairing up the engine op completion callback with DeleteMpiOpsParam.
       std::lock_guard<std::mutex> guard(*callback_mutex);
       ops_param->del_count++;
-      if (ops_param->del_count == ops_param->input_tensors.size()) {
+      if (ops_param->del_count == (int)ops_param->input_tensors.size()) {
         InvokeCompleteCallback(on_complete, status);
       }
     });
@@ -246,7 +249,7 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
   hvd_outputs.reserve(num_tensors);
   switch (ops_param->op_type) {
     case OperationType::ALLREDUCE:
-      for (int i = 0; i < num_tensors; ++i) {
+      for (std::size_t i = 0; i < num_tensors; ++i) {
         hvd_outputs.emplace_back(std::make_shared<MXTensor>(ops_param->output_tensors[i].get()));
       }
 
@@ -284,6 +287,12 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
           ops_param->op_names[0], device, callbacks[0], process_set_id);
       break;
     }
+    case OperationType::REDUCESCATTER:
+      enqueue_result = EnqueueTensorReducescatter(
+          hvd_contexts[0], hvd_tensors[0], ready_event_lists[0],
+          ops_param->op_names[0], device, callbacks[0],
+          ReduceOp::SUM, process_set_id);
+      break;
     default:
       throw std::logic_error("Unsupported Horovod operation type.");
   }
@@ -423,7 +432,7 @@ void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
   callbacks.reserve(num_tensors);
 
   auto callback_mutex = std::make_shared<std::mutex>();
-  for (int i = 0; i < num_tensors; ++i) {
+  for (std::size_t i = 0; i < num_tensors; ++i) {
     auto input = ops_param->cpu_input_tensors[i].get();
     auto output = ops_param->cpu_output_tensors[i].get();
 
@@ -445,7 +454,7 @@ void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
       // pairing up the engine op completion callback with DeleteMpiOpsParam.
       std::lock_guard<std::mutex> guard(*callback_mutex);
       ops_param->del_count++;
-      if (ops_param->del_count == ops_param->cpu_input_tensors.size()) {
+      if (ops_param->del_count == (int)ops_param->cpu_input_tensors.size()) {
         InvokeCompleteCallback(on_complete, status);
       }
     });
@@ -480,6 +489,12 @@ void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
         ops_param->op_names[0], device, callbacks[0], process_set_id);
     break;
   }
+  case OperationType::REDUCESCATTER:
+    enqueue_result = EnqueueTensorReducescatter(
+        hvd_contexts[0], hvd_cpu_buffers[0], ready_event_lists[0],
+        ops_param->op_names[0], device, callbacks[0],
+        ReduceOp::SUM, process_set_id);
+    break;
   default:
     throw std::logic_error("Unsupported Horovod operation type.");
   }
@@ -562,13 +577,14 @@ inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* const 
   }
 
   if (op_type == OperationType::ALLGATHER ||
-      op_type == OperationType::ALLTOALL) {
+      op_type == OperationType::ALLTOALL ||
+      op_type == OperationType::REDUCESCATTER) {
     if (splits) {
       // Add splits tensor to input list to enforce dependency on possible async D2H copy
       cpu_input_vars.push_back(splits_tensor->var());
       cpu_output_vars.push_back(received_splits_tensor->var());
     }
-    // Use out-of-place path for operations that have unknown output size (allgather)
+    // Use out-of-place path for operations that have unknown output size (allgather, alltoall, reducescatter)
     MXEnginePushAsync(DoHorovodOperationCudaOnCPU, ops_param, DeleteMpiOpsParam,
                       &MX_EXEC_CTX, cpu_input_vars.data(), cpu_input_vars.size(), cpu_output_vars.data(), cpu_output_vars.size(),
                       &MX_FUNC_PROP, priority, op_type_name);
@@ -711,6 +727,28 @@ extern "C" int horovod_mxnet_alltoall_async(NDArray* input,
   PushHorovodOperation(OperationType::ALLTOALL, &input, &output, name, priority,
                        1, process_set_id, -1, false, splits,
                        output_received_splits);
+#endif
+
+  MX_API_END();
+}
+
+extern "C" int
+horovod_mxnet_reducescatter_async(NDArray* input, NDArray* output,
+                                  const char* name, int priority,
+                                  int process_set_id) {
+  MX_API_BEGIN();
+
+#if HAVE_CUDA && !HOROVOD_GPU_REDUCESCATTER
+  if (IsTensorOnCPU(input) && IsTensorOnCPU(output)) {
+    PushHorovodOperation(OperationType::REDUCESCATTER, &input, &output, name,
+                         priority, 1, process_set_id, -1, false);
+  } else {
+    PushHorovodOperationCudaOnCPU(OperationType::REDUCESCATTER, &input, &output,
+                                  name, priority, 1, process_set_id, -1, false);
+  }
+#else
+  PushHorovodOperation(OperationType::REDUCESCATTER, &input, &output, name,
+                       priority, 1, process_set_id, -1, false);
 #endif
 
   MX_API_END();

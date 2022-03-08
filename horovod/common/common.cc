@@ -101,7 +101,7 @@ int TensorShape::dims() const {
 
 int64_t TensorShape::dim_size(int idx) const {
   assert(idx >= 0);
-  assert(idx < shape_.size());
+  assert(idx < (int)shape_.size());
   return shape_[idx];
 }
 
@@ -165,7 +165,7 @@ void parse_and_set_affinity(const char* affinity, int local_size, int local_rank
     auto core_id_str = strsep(&tmp, ",");
     errno = 0;
     auto core_id = std::strtol(core_id_str, &endptr, 10);
-    if (errno == ERANGE && (core_id == LONG_MAX || core_id == LONG_MIN)
+    if ((errno == ERANGE && (core_id == LONG_MAX || core_id == LONG_MIN))
         || (errno != 0 && core_id == 0)){
         LOG(ERROR) << "Core ID value is invalid in " << HOROVOD_THREAD_AFFINITY
                    << "=" << affinity;

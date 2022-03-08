@@ -49,6 +49,16 @@ public:
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 };
 
+class MPI_GPUReduceScatter : public GPUReduceScatter {
+public:
+  MPI_GPUReduceScatter(GPUContext* cuda_context,
+                       HorovodGlobalState* global_state);
+  ~MPI_GPUReduceScatter() override = default;
+
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
+};
+
 } // namespace common
 } // namespace horovod
 

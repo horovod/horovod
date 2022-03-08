@@ -160,9 +160,6 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
   int root_rank = process_set.controller->IsHomogeneous() ? local_size - 1 : 0;
   bool is_root_rank = local_rank == root_rank;
 
-  int64_t total_num_elements =
-      is_root_rank ? num_elements_per_rank + num_elements_remaining
-                   : num_elements_per_rank;
   int64_t total_buffer_len = is_root_rank
                                  ? buffer_len_per_rank + buffer_len_remaining
                                  : buffer_len_per_rank;

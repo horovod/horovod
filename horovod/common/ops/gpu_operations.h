@@ -241,6 +241,26 @@ protected:
   GPUOpContext gpu_op_context_;
 };
 
+class GPUReduceScatter : public ReducescatterOp {
+public:
+  GPUReduceScatter(GPUContext* context, HorovodGlobalState* global_state);
+
+  bool Enabled(const ParameterManager& param_manager,
+               const std::vector<TensorTableEntry>& entries,
+               const Response& response) const override;
+
+protected:
+  void MemcpyEntryInFusionBuffer(const TensorTableEntry& e, size_t entry_offset,
+                                 size_t entry_size,
+                                 void* buffer_data_at_offset) override;
+
+  void MemcpyEntryOutFusionBuffer(const void* buffer_data_at_offset,
+                                  TensorTableEntry& e) override;
+
+  GPUContext* gpu_context_;
+  GPUOpContext gpu_op_context_;
+};
+
 } // namespace common
 } // namespace horovod
 

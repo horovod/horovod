@@ -15,6 +15,7 @@ enum class RegisteredNvtxOp {
   HorovodAllgather,
   HorovodBroadcast,
   HorovodAlltoall,
+  HorovodReducescatter,
   // Insert new enum values above this line
   END,
 };

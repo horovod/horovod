@@ -8,9 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Added `hvd.reducescatter()` operation with implementations in NCCL, MPI, and Gloo. ([#3299](https://github.com/horovod/horovod/pull/3299)) 
+
 ### Changed
 
+- MXNet: Updated allreduce functions to newer `op` API. ([#3299](https://github.com/horovod/horovod/pull/3299))
+
 ### Deprecated
+
+- MXNet: Deprecated `average` argument of allreduce functions. ([#3299](https://github.com/horovod/horovod/pull/3299))
 
 ### Removed
 

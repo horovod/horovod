@@ -836,5 +836,131 @@ Status NCCLAlltoall::Execute(std::vector<TensorTableEntry>& entries,
 #endif
 }
 
+Status NCCLReducescatter::Execute(std::vector<TensorTableEntry>& entries,
+                                  const Response& response) {
+  assert(!entries.empty());
+  auto& first_entry = entries[0];
+  auto& process_set =
+      global_state_->process_set_table.Get(first_entry.process_set_id);
+
+  gpu_op_context_.InitGPU(entries);
+  nccl_op_context_.InitNCCLComm(entries, response.devices());
+  gpu_op_context_.InitGPUQueue(entries, response);
+
+  WaitForData(entries);
+
+  int process_set_rank = process_set.controller->GetRank();
+  int process_set_size = process_set.controller->GetSize();
+  auto output_shapes = ComputeOutputShapes(entries, process_set_size);
+  std::vector<int> recvcounts = ComputeReceiveCounts(output_shapes);
+
+  global_state_->timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
+  Status status = AllocateOutput(entries, output_shapes[process_set_rank]);
+  if (!status.ok()) {
+    return status;
+  }
+  global_state_->timeline.ActivityEndAll(entries);
+
+  size_t element_size = DataType_Size(first_entry.tensor->dtype());
+  void* buffer_data = nullptr;
+  void* recv_pointer = nullptr;
+  const void* fused_input_data = nullptr;
+
+  // Copy memory into the fusion buffer.
+  if (entries.size() > 1) {
+    MemcpyInFusionBuffer(entries, output_shapes, element_size, buffer_data);
+    fused_input_data = buffer_data;
+    recv_pointer = reinterpret_cast<int8_t*>(buffer_data) +
+                   process_set_rank * recvcounts[0] * element_size;
+    // ncclReduceScatter() will be performed in place on the fusion buffer, cf.:
+    // https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/inplace.html
+  } else {
+    fused_input_data = first_entry.tensor->data();
+    buffer_data = (void*)first_entry.output->data();
+    recv_pointer = buffer_data;
+  }
+
+  // If a reduced tensor cannot be scattered evenly over the participating processes, the first ranks 0, ...,
+  // (tensor_shape.dim_size(0) % process_set_size - 1) will receive more data than the last ranks.
+  // [See ReducescatterOp::ComputeOutputShapeForRank()]
+  bool same_output_shape = (recvcounts.front() == recvcounts.back());
+  assert(!same_output_shape || recvcounts.size() < 2 ||
+         std::all_of(recvcounts.begin() + 1, recvcounts.end(),
+                     [rc0 = recvcounts[0]](int rc) { return rc == rc0; }));
+
+  if (same_output_shape) {
+    // Do reducescatter.
+    auto nccl_result = ncclReduceScatter(
+        fused_input_data, recv_pointer, recvcounts[0],
+        GetNCCLDataType(first_entry.tensor), ncclSum,
+        *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
+    nccl_context_->ErrorCheck("ncclReduceScatter", nccl_result,
+                              *nccl_op_context_.nccl_comm_);
+
+    if (global_state_->timeline.Initialized()) {
+      gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_REDUCESCATTER,
+                                *gpu_op_context_.stream);
+    }
+  } else {
+    // Simulate "ReduceScatterV" by an equivalent group of reduces.
+    nccl_context_->ErrorCheck("ncclGroupStart", ncclGroupStart(),
+                              *nccl_op_context_.nccl_comm_);
+    std::size_t offset_bytes = 0;
+    for (int recv_rank = 0; recv_rank < process_set_size; ++recv_rank) {
+      const void* send_pointer =
+          reinterpret_cast<const int8_t*>(fused_input_data) + offset_bytes;
+      auto nccl_result =
+          ncclReduce(send_pointer, recv_pointer, recvcounts[recv_rank],
+                     GetNCCLDataType(first_entry.tensor), ncclSum, recv_rank,
+                     *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
+      nccl_context_->ErrorCheck("ncclReduce", nccl_result,
+                                *nccl_op_context_.nccl_comm_);
+      offset_bytes += recvcounts[recv_rank] * element_size;
+    }
+    nccl_context_->ErrorCheck("ncclGroupEnd", ncclGroupEnd(),
+                              *nccl_op_context_.nccl_comm_);
+    if (global_state_->timeline.Initialized()) {
+      gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_REDUCE,
+                                *gpu_op_context_.stream);
+    }
+  }
+
+  // Copy memory out of the fusion buffer.
+  if (entries.size() > 1) {
+    MemcpyOutFusionBuffer(recv_pointer, entries);
+
+    if (global_state_->timeline.Initialized()) {
+      gpu_context_->RecordEvent(gpu_op_context_.event_queue,
+                                MEMCPY_OUT_FUSION_BUFFER,
+                                *gpu_op_context_.stream);
+    }
+  }
+
+  return gpu_op_context_.FinalizeGPUQueue(
+      entries, true, nccl_op_context_.error_check_callback_);
+}
+
+bool NCCLReducescatter::Enabled(const ParameterManager& param_manager,
+                                const std::vector<TensorTableEntry>& entries,
+                                const Response& response) const {
+  return entries[0].device != CPU_DEVICE_ID;
+}
+
+void NCCLReducescatter::WaitForData(std::vector<TensorTableEntry>& entries) {
+  if (global_state_->timeline.Initialized()) {
+    // If timeline is initialized, need to use normal CPU syncing path
+    HorovodOp::WaitForData(entries);
+  } else {
+    // Push events to set to deduplicate entries
+    std::unordered_set<gpuEvent_t> event_set;
+    for (auto& e : entries) {
+      e.ready_event_list.PushEventsToSet(event_set);
+    }
+    for (auto& ev : event_set) {
+      HVD_GPU_CHECK(gpuStreamWaitEvent(*gpu_op_context_.stream, ev, 0));
+    }
+  }
+}
+
 } // namespace common
 } // namespace horovod
