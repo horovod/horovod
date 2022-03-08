@@ -31,7 +31,6 @@ using gpuPointerAttributes = cudaPointerAttributes;
 #define gpuMemcpyHostToDevice cudaMemcpyHostToDevice
 #define gpuMemcpyDeviceToHost cudaMemcpyDeviceToHost
 #define gpuMemcpyAsync cudaMemcpyAsync
-#define GPU CUDA
 #define gpuPointerGetAttributes cudaPointerGetAttributes
 #define gpuMalloc cudaMalloc
 #define gpuEventDestroy cudaEventDestroy
@@ -70,7 +69,6 @@ using gpuPointerAttributes = hipPointerAttribute_t;
 #define gpuMemcpyHostToDevice hipMemcpyHostToDevice
 #define gpuMemcpyDeviceToHost hipMemcpyDeviceToHost
 #define gpuMemcpyAsync hipMemcpyAsync
-#define GPU ROCM
 #define gpuPointerGetAttributes hipPointerGetAttributes
 #define gpuMalloc hipMalloc
 #define gpuEventDestroy hipEventDestroy

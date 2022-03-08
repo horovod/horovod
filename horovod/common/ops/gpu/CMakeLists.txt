@@ -8,6 +8,7 @@ if (HAVE_CUDA)
   
   list(APPEND CUDA_NVCC_FLAGS "${HVD_NVCC_COMPILE_FLAGS}")
   
+  # find_package(CUDA)
   cuda_add_library(horovod_gpu_kernels gpu_kernels.cu OPTIONS -D_GLIBCXX_USE_CXX11_ABI=1)
   
   # if we need compatible c++ abi, build a compatible version
