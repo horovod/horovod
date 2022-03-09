@@ -337,13 +337,13 @@ add_subdirectory(horovod/torch)
 #MXNet
 add_subdirectory(horovod/mxnet)
 
-# GPU (CUDA + HIP) kernels
-if(HAVE_GPU OR HAVE_SUB_PROJECT_CUDA)
-    add_subdirectory(horovod/common/ops/gpu)
-endif()
-
 # Correctly wrap up json format
 file(APPEND "${CMAKE_LIBRARY_OUTPUT_DIRECTORY_ROOT}/metadata.json" "\"dummy\": \"none\"\n}")
+
+# GPU (CUDA + HIP) kernels
+if(HAVE_CUDA OR HAVE_SUB_PROJECT_CUDA OR HAVE_ROCM)
+    add_subdirectory(horovod/common/ops/gpu)
+endif()
 
 # if we need compatible c++ abi
 # Duplicate gloo folder and add it as a new sub-project
