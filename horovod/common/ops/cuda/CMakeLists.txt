@@ -14,7 +14,6 @@ target_compile_options(horovod_cuda_kernels PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
                        SHELL:${HVD_NVCC_COMPILE_FLAGS}
                        -D_GLIBCXX_USE_CXX11_ABI=1
                        >)
-set_property(TARGET horovod_cuda_kernels PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
 # if we need compatible c++ abi, build a compatible version
 add_library(compatible_horovod_cuda_kernels cuda_kernels.cu)
@@ -22,4 +21,3 @@ target_compile_options(compatible_horovod_cuda_kernels PRIVATE $<$<COMPILE_LANGU
                        SHELL:${HVD_NVCC_COMPILE_FLAGS}
                        -D_GLIBCXX_USE_CXX11_ABI=0
                        >)
-set_property(TARGET compatible_horovod_cuda_kernels PROPERTY CUDA_SEPARABLE_COMPILATION ON)
