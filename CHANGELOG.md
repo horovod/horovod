@@ -16,8 +16,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
-- [Setup] Require fsspec >= 2010.07.0 ([#3451](https://github.com/horovod/horovod/pull/3451))
+## [v0.24.2] - 2022-03-10
 
+### Fixed
+
+- [Setup] Require fsspec >= 2010.07.0 ([#3451](https://github.com/horovod/horovod/pull/3451))
 - Fix ignored cuda arch flags ([#3462]((https://github.com/horovod/horovod/pull/3462))
 
 ## [v0.24.1] - 2022-03-03
