@@ -325,9 +325,11 @@ public:
   AllocatePersistent(int64_t size,
                      std::shared_ptr<PersistentBuffer>* tensor) = 0;
   virtual Status AllocateOutput(TensorShape shape,
-                                std::shared_ptr<Tensor>* tensor) = 0;
+                                std::shared_ptr<Tensor>* tensor,
+                                std::shared_ptr<ReadyEvent>* event = nullptr) = 0;
   virtual Status AllocateOutput(int output_index, TensorShape shape,
-                                std::shared_ptr<Tensor>* tensor) {
+                                std::shared_ptr<Tensor>* tensor,
+                                std::shared_ptr<ReadyEvent>* event = nullptr) {
     if (output_index == 0) {
       return AllocateOutput(std::move(shape), tensor);
     } else {

@@ -59,9 +59,11 @@ public:
   AllocatePersistent(int64_t size,
                      std::shared_ptr<PersistentBuffer>* tensor) override;
   virtual Status AllocateOutput(TensorShape shape,
-                                std::shared_ptr<Tensor>* tensor) override;
+                                std::shared_ptr<Tensor>* tensor,
+                                std::shared_ptr<ReadyEvent>* event) override;
   virtual Status AllocateOutput(int output_index, TensorShape shape,
-                                std::shared_ptr<Tensor>* tensor) override;
+                                std::shared_ptr<Tensor>* tensor,
+                                std::shared_ptr<ReadyEvent>* event) override;
   virtual Status AllocateZeros(int64_t num_elements, DataType dtype,
                                std::shared_ptr<Tensor>* tensor) override;
   virtual Framework framework() const override;

@@ -582,6 +582,62 @@ Status NCCLBroadcast::Execute(std::vector<TensorTableEntry>& entries,
       entries, true, nccl_op_context_.error_check_callback_);
 }
 
+Status NCCLAllgather::AllocateOutput(std::vector<TensorTableEntry>& entries,
+                                   const Response& response,
+                                   int64_t**& entry_component_sizes,
+                                   int*& recvcounts) {
+  for (size_t ec = 0; ec < entries.size(); ++ec) {
+    auto& e = entries[ec];
+    auto& process_set = global_state_->process_set_table.Get(e.process_set_id);
+    int global_size = process_set.controller->GetSize();
+    // Every tensor participating in Allgather operation may have different
+    // first dimension size, but the rest of dimensions are same for all
+    // tensors.  Here we get shape of tensor sliced by first dimension.
+    TensorShape single_slice_shape;
+    for (int i = 1; i < e.tensor->shape().dims(); ++i) {
+      single_slice_shape.AddDim(e.tensor->shape().dim_size(i));
+    }
+
+    // Copy tensor sizes from the response into a vector of int64_t
+    // and compute total size.  This is size of first dimension.
+    int64_t total_entry_dimension_size = 0;
+    const auto& tensor_sizes = response.tensor_sizes();
+    for (int rc = 0; rc < global_size; ++rc) {
+      auto component_size = tensor_sizes[ec * global_size + rc];
+      total_entry_dimension_size += component_size;
+
+      if (recvcounts) {
+        recvcounts[rc] += component_size * single_slice_shape.num_elements();
+      }
+
+      if (entry_component_sizes) {
+        entry_component_sizes[ec][rc] =
+                          component_size * single_slice_shape.num_elements();
+      }
+    }
+
+    // Allgather output will have shape of:
+    // (sum of first dimension of every tensor) x (tensor slice shape).
+    TensorShape output_shape;
+    output_shape.AddDim((int64_t)total_entry_dimension_size);
+    output_shape.AppendShape(single_slice_shape);
+
+    std::shared_ptr<ReadyEvent> event;
+    Status status = e.context->AllocateOutput(output_shape, &e.output, &event);
+    if (!status.ok()) {
+      return status;
+    }
+
+    // Add event dependency for output allocation to stream
+    if (event) {
+      HVD_GPU_CHECK(gpuStreamWaitEvent(*gpu_op_context_.stream, event->event(), 0));
+    }
+
+  }
+
+  return Status::OK();
+}
+
 void NCCLAllgather::WaitForData(std::vector<TensorTableEntry>& entries) {
   if (global_state_->timeline.Initialized()) {
     // If timeline is initialized, need to use normal CPU syncing path
@@ -944,6 +1000,28 @@ bool NCCLReducescatter::Enabled(const ParameterManager& param_manager,
                                 const std::vector<TensorTableEntry>& entries,
                                 const Response& response) const {
   return entries[0].device != CPU_DEVICE_ID;
+}
+
+Status NCCLReducescatter::AllocateOutput(
+    std::vector<TensorTableEntry>& entries, const std::vector<TensorShape>& output_shapes) {
+  for (size_t ec = 0; ec < entries.size(); ++ec) {
+    auto& e = entries[ec];
+    const auto& output_shape = output_shapes[ec];
+
+    std::shared_ptr<ReadyEvent> event;
+    Status status = e.context->AllocateOutput(output_shape, &e.output, &event);
+    if (!status.ok()) {
+      return status;
+    }
+
+    // Add event dependency for output allocation to stream
+    if (event) {
+      HVD_GPU_CHECK(gpuStreamWaitEvent(*gpu_op_context_.stream, event->event(), 0));
+    }
+
+  }
+
+  return Status::OK();
 }
 
 void NCCLReducescatter::WaitForData(std::vector<TensorTableEntry>& entries) {

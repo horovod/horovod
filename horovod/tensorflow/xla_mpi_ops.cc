@@ -447,7 +447,8 @@ public:
 
   virtual common::Status
   AllocateOutput(common::TensorShape shape,
-                 std::shared_ptr<common::Tensor>* tensor) override;
+                 std::shared_ptr<common::Tensor>* tensor,
+                 std::shared_ptr<common::ReadyEvent>* event = nullptr) override;
 
   virtual common::Status
   AllocateZeros(int64_t num_elements, common::DataType dtype,
@@ -495,7 +496,8 @@ common::Status XLAOpContext::AllocatePersistent(
 
 common::Status
 XLAOpContext::AllocateOutput(common::TensorShape shape,
-                             std::shared_ptr<common::Tensor>* tensor) {
+                             std::shared_ptr<common::Tensor>* tensor,
+                             std::shared_ptr<common::ReadyEvent>* event) {
   // XLA must manage I/O buffers.
   return common::Status::PreconditionError(
       "AllocateOutput is not supported for XLA.");

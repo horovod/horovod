@@ -95,12 +95,14 @@ MXOpContext::AllocatePersistent(int64_t size,
 }
 
 Status MXOpContext::AllocateOutput(TensorShape shape,
-                                   std::shared_ptr<Tensor>* tensor) {
+                                   std::shared_ptr<Tensor>* tensor,
+                                   std::shared_ptr<ReadyEvent>* event) {
   return MXOpContext::AllocateOutput(0, shape, tensor);
 }
 
 Status MXOpContext::AllocateOutput(int output_index, TensorShape shape,
-                                   std::shared_ptr<Tensor>* tensor) {
+                                   std::shared_ptr<Tensor>* tensor,
+                                   std::shared_ptr<ReadyEvent>* event) {
   int64_t* shape_array = new int64_t[shape.dims()];
   for (int idx = 0; idx < shape.dims(); idx++) {
     shape_array[idx] = shape.dim_size(idx);

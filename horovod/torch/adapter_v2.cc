@@ -113,12 +113,14 @@ TorchOpContext::AllocatePersistent(int64_t size,
 }
 
 Status TorchOpContext::AllocateOutput(TensorShape shape,
-                                      std::shared_ptr<Tensor>* tensor) {
+                                      std::shared_ptr<Tensor>* tensor,
+                                      std::shared_ptr<ReadyEvent>* event) {
   return TorchOpContext::AllocateOutput(0, shape, tensor);
 }
 
 Status TorchOpContext::AllocateOutput(int output_index, TensorShape shape,
-                                      std::shared_ptr<Tensor>* tensor) {
+                                      std::shared_ptr<Tensor>* tensor,
+                                      std::shared_ptr<ReadyEvent>* event) {
   std::vector<int64_t> shape_vector;
   shape_vector.reserve(shape.dims());
   for (int idx = 0; idx < shape.dims(); ++idx) {
