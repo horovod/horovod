@@ -195,9 +195,9 @@ services:
         MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.8.0
         KERAS_PACKAGE: keras==2.8.0
-        PYTORCH_PACKAGE: torch==1.11.0+cu111
+        PYTORCH_PACKAGE: torch==1.11.0+cu113
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.3.8
-        TORCHVISION_PACKAGE: torchvision==0.12.0+cu111
+        TORCHVISION_PACKAGE: torchvision==0.12.0+cu113
         MXNET_PACKAGE: mxnet-cu112==1.9.0
   test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1:
     extends: test-gpu-base
@@ -223,9 +223,9 @@ services:
         MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.8.0
         KERAS_PACKAGE: keras==2.8.0
-        PYTORCH_PACKAGE: torch==1.11.0+cu111
+        PYTORCH_PACKAGE: torch==1.11.0+cu113
         PYTORCH_LIGHTNING_PACKAGE: pytorch_lightning==1.3.8
-        TORCHVISION_PACKAGE: torchvision==0.12.0+cu111
+        TORCHVISION_PACKAGE: torchvision==0.12.0+cu113
         MXNET_PACKAGE: mxnet-cu112==1.9.0
         HOROVOD_BUILD_FLAGS: ""
         HOROVOD_MIXED_INSTALL: 1
