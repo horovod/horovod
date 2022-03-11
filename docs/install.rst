@@ -10,7 +10,7 @@ Requirements
 - Python >= 3.6
 - `g++-5` or above, or another compiler supporting C++14
 - CMake 3.13 or newer
-- TensorFlow, PyTorch, or MXNet
+- TensorFlow (>=1.15.0), PyTorch (>=1.5.0), or MXNet (>=1.4.1)
 - (Optional) MPI
 
 For best performance on GPU:

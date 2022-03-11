@@ -47,6 +47,8 @@ tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${B
   # our baseline again
 # printf "test-cpu-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1 "
   printf "test-cpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1 "
+  # these are the lowest framework versions that Horovod compiles with, but they are not tested
+  printf "test-cpu-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin "
 
   # then we vary the frameworks for gpu
   # we need CUDA 10.0 as tensorflow-gpu==1.15.5 is compiled against and linked to CUDA 10.0
@@ -60,6 +62,8 @@ tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${B
   printf "test-gpu-gloo-py3_8-tf2_7_1-keras2_7_0-torch1_10_2-mxnet1_8_0_p0-pyspark3_2_1 "
   printf "test-gpu-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1 "
   printf "test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1 "
+  # these are the lowest framework versions that Horovod compiles with, but they are not tested
+  printf "test-gpu-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin "
 
   # and one final test with mixed cpu+gpu
   printf "test-mixed-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1 "
@@ -414,7 +418,7 @@ oneccl_cmd_mpi="${oneccl_env}:echo:'/mpirun_command_mpi':>:/mpirun_command:&&"
 
 # run all the cpu unit tests and integration tests
 for test in ${tests[@]-}; do
-  if [[ ${test} == *-cpu-* ]]; then
+  if [[ ${test} == *-cpu-* && ${test} != *min-* ]]; then
     # if gloo is specified, run gloo cpu unit tests and integration tests
     if [[ ${test} == *-gloo* ]]; then
       run_gloo ${test} ${cpu_queue}
@@ -453,7 +457,7 @@ echo "- wait"
 
 # run 4x gpu unit tests
 for test in ${tests[@]-}; do
-  if [[ ${test} == *-gpu-* ]] || [[ ${test} == *-mixed-* ]]; then
+  if ( [[ ${test} == *-gpu-* ]] || [[ ${test} == *-mixed-* ]] ) && [[ ${test} != *min-* ]]; then
     # if gloo is specified, run gloo gpu unit tests
     if [[ ${test} == *-gloo* ]]; then
       run_gloo_pytest ${test} ${gpux4_queue}
@@ -471,7 +475,7 @@ echo "- wait"
 
 # run 2x gpu integration tests
 for test in ${tests[@]-}; do
-  if [[ ${test} == *-gpu-* ]] || [[ ${test} == *-mixed-* ]]; then
+  if ( [[ ${test} == *-gpu-* ]] || [[ ${test} == *-mixed-* ]] ) && [[ ${test} != *min-* ]]; then
     # if gloo is specified, run gloo gpu integration tests
     if [[ ${test} == *-gloo* ]]; then
       run_gloo_integration ${test} ${gpux2_queue}

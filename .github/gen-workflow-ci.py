@@ -270,12 +270,14 @@ def main():
                               name: str,
                               needs: List[str],
                               images: List[str],
-                              parallel_images: str,
                               tests_per_image: Dict[str, Set[str]],
                               tests: Dict[str, Dict],
+                              parallel_images: int = None,
                               attempts: int = 3) -> str:
         if 'init-workflow' not in needs:
             needs.insert(0, 'init-workflow')
+        if parallel_images is None:
+          parallel_images = len(images)
         failure = "'failure'"
         return (f'  {id}:\n'
                 f'    name: "{name} (${{{{ matrix.image }}}})"\n'
@@ -286,13 +288,13 @@ def main():
                 f'    runs-on: ubuntu-latest\n'
                 f'\n'
                 f'    strategy:\n'
-                f'      max-parallel: {len([image for image in images if parallel_images in image])}\n'
+                f'      max-parallel: {parallel_images}\n'
                 f'      fail-fast: false\n'
                 f'      matrix:\n'
                 f'        include:\n' +
                 '\n'.join([f'          - image: {image}\n' +
                            f''.join([f'            {test}: true\n'
-                                     for test in sorted(list(tests_per_image[image]))]) +
+                                     for test in sorted(list(tests_per_image.get(image, [])))]) +
                            f'            build_timeout: {30 if "-cpu-" in image else 40}\n'
                            for image in sorted(images)
                            # oneccl does not compile on GitHub Workflows:
@@ -603,7 +605,7 @@ def main():
         return (f'  docker-config:\n'
                 f'    name: Configure docker build\n'
                 f'    needs: [{", ".join(needs)}]\n'
-                f"    # build-and-test-cpu, build-gpu and buildkite might have been skipped (! needs.init-workflow.outputs.run-builds-and-tests)\n"
+                f"    # build-and-test and buildkite might have been skipped (! needs.init-workflow.outputs.run-builds-and-tests)\n"
                 f'    # buildkite might have been skipped (workflow runs for a fork PR),\n'
                 f'    # we still want to build docker images (though we might not want to push them)\n'
                 f'    if: >\n'
@@ -795,16 +797,19 @@ def main():
                 f'          fi\n')
 
     with open(path.joinpath('workflows', 'ci.yaml').absolute(), 'wt') as w:
+        mins = ['tfmin', 'torchmin', 'mxnetmin']
         heads = ['tfhead', 'torchhead', 'mxnethead']
-        release_images = [image for image in images if not all(head in image for head in heads)]
+        allmin_images = [image for image in images if all(min in image for min in mins)]
+        allhead_images = [image for image in images if all(head in image for head in heads)]
+        release_images = [image for image in images if image not in allhead_images + allmin_images]
         cpu_release_images = [image for image in release_images if '-cpu-' in image]
         gpu_release_images = [image for image in release_images if '-gpu-' in image or '-mixed-' in image]
-        allhead_images = [image for image in images if all(head in image for head in heads)]
         workflow = workflow_header() + jobs(
             init_workflow_job(),
-            # changing these names require changes in the workflow-conclusion step in ci-fork.yaml
-            build_and_test_images(id='build-and-test', name='Build and Test', needs=['init-workflow'], images=release_images, parallel_images='-cpu-', tests_per_image=tests_per_image, tests=tests),
-            build_and_test_images(id='build-and-test-heads', name='Build and Test heads', needs=['build-and-test'], images=allhead_images, parallel_images='', tests_per_image=tests_per_image, tests=tests),
+            # changing these names require changes in the workflow-conclusion step in ci-results.yaml
+            build_and_test_images(id='build-and-test', name='Build and Test', needs=['init-workflow'], images=release_images, parallel_images=len(cpu_release_images), tests_per_image=tests_per_image, tests=tests),
+            build_and_test_images(id='build-and-test-heads', name='Build and Test heads', needs=['build-and-test'], images=allhead_images, tests_per_image=tests_per_image, tests=tests),
+            build_and_test_images(id='build-mins', name='Build mins', needs=['build-and-test'], images=allmin_images, tests_per_image=tests_per_image, tests={}),
             build_and_test_macos(id='build-and-test-macos', name='Build and Test macOS', needs=['build-and-test']),
             trigger_buildkite_job(id='buildkite', name='Build and Test GPU (on Builtkite)', needs=['build-and-test'], mode='GPU NON HEADS'),
             trigger_buildkite_job(id='buildkite-heads', name='Build and Test GPU heads (on Builtkite)', needs=['build-and-test'], mode='GPU HEADS'),

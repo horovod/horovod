@@ -31,6 +31,8 @@ jobs:
 
     steps:
     - name: Fetch workflow conclusion
+      # fetch conclusion of steps building and testing CPU and building GPU
+      # ignores steps building heads and mins, building and testing macOS, building and testing GPU via Buildkite
       id: workflow-conclusion
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
