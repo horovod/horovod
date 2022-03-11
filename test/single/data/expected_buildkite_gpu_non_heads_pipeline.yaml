@@ -67,6 +67,23 @@ steps:
     automatic: true
   agents:
     queue: cpu-v572
+- label: ':docker: Build test-gpu-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin'
+  env:
+    COMPOSE_HTTP_TIMEOUT: 300
+  plugins:
+  - docker-compose#v3.5.0:
+      build: test-gpu-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin
+      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
+      cache-from: test-gpu-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-gpu-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin-latest
+      config: docker-compose.test.yml
+      push-retries: 5
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 40
+  retry:
+    automatic: true
+  agents:
+    queue: cpu-v572
 - label: ':docker: Build test-mixed-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1'
   env:
     COMPOSE_HTTP_TIMEOUT: 300

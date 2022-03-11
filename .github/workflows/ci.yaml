@@ -3362,12 +3362,15 @@ jobs:
     runs-on: ubuntu-latest
 
     strategy:
-      max-parallel: 1
+      max-parallel: 2
       fail-fast: false
       matrix:
         include:
           - image: test-cpu-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin
             build_timeout: 30
+
+          - image: test-gpu-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin
+            build_timeout: 40
 
     steps:
       - name: Clean up disk space

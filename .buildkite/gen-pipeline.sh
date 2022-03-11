@@ -62,6 +62,8 @@ tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${B
   printf "test-gpu-gloo-py3_8-tf2_7_1-keras2_7_0-torch1_10_2-mxnet1_8_0_p0-pyspark3_2_1 "
   printf "test-gpu-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1 "
   printf "test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1 "
+  # these are the lowest framework versions that Horovod compiles with, but they are not tested
+  printf "test-gpu-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin "
 
   # and one final test with mixed cpu+gpu
   printf "test-mixed-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1 "
