@@ -40,10 +40,7 @@ tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${B
   # run_gloo_integration expects tf1 to have Gloo mpi kind to run 'Elastic Spark * Tests'
   # Tensorflow 1.15.5 is only available for Python 3.7
   # Python 3.7 is only available on Ubuntu 18.04
-  # see test-gpu-gloo-py3_7-tf1_15_5-... below why we do not test with mxnet==1.7.* here
-  # there is no mxnet-1.6.0.post0 and mxnet-1.6.0 does not work with horovod
-  # https://github.com/apache/incubator-mxnet/issues/16193
-  # so we test with mxnet 1.5.1
+  # see test-gpu-gloo-py3_7-tf1_15_5-... below why we have to test with mxnet 1.5.1 here
   printf "test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_2_1 "
   printf "test-cpu-gloo-py3_8-tf2_6_3-keras2_6_0-torch1_9_1-mxnet1_7_0_p2-pyspark3_2_1 "
   printf "test-cpu-gloo-py3_8-tf2_7_1-keras2_7_0-torch1_10_2-mxnet1_8_0_p0-pyspark3_2_1 "
