@@ -447,7 +447,7 @@ class SparkTorchTests(unittest.TestCase):
 
         with spark_session('test_happy_run_elastic'):
             res = horovod.spark.run_elastic(fn, args=(2, 5, 4),
-                                            num_proc=2, min_np=2, max_np=2,
+                                            num_proc=2, min_num_proc=2, max_num_proc=2,
                                             start_timeout=10, verbose=2)
             self.assertListEqual([([0, 3, 0, 1, 1, 3, 0, 1], 0),
                                   ([0, 3, 0, 1, 1, 3, 0, 1], 1)], res)
@@ -468,7 +468,7 @@ class SparkTorchTests(unittest.TestCase):
                     pass
                 res = horovod.spark.run_elastic(fn, args=(2, 5, 5, dir),
                                                 env={'HOROVOD_LOG_LEVEL': 'DEBUG'},
-                                                num_proc=2, min_np=2, max_np=2,
+                                                num_proc=2, min_num_proc=2, max_num_proc=2,
                                                 start_timeout=5, verbose=2)
                 self.assertListEqual([([0, 4, 0, 4, 1, 4, 0, 4], 0),
                                       ([0, 4, 0, 4, 1, 4, 0, 4], 1)], res)
@@ -492,7 +492,7 @@ class SparkTorchTests(unittest.TestCase):
                     pass
                 res = horovod.spark.run_elastic(fn, args=(2, 5, 5, dir),
                                                 env={'HOROVOD_LOG_LEVEL': 'DEBUG'},
-                                                num_proc=2, min_np=2, max_np=2,
+                                                num_proc=2, min_num_proc=2, max_num_proc=2,
                                                 start_timeout=5, verbose=2)
                 self.assertListEqual([([0, 4, 0, 4, 1, 4, 0, 4], 0),
                                       ([0, 4, 0, 4, 1, 4, 0, 4], 1)], res)

@@ -78,7 +78,7 @@ class StaticRunTests(unittest.TestCase):
                               .format(' and '.join(remote_hosts)))
 
         hargs = _HorovodArgs()
-        hargs.np = 4
+        hargs.num_proc = 4
         hargs.hosts = ','.join(['{}:2'.format(host) for host in hosts])
         hargs.use_gloo = controller == 'gloo'
         hargs.use_mpi = controller == 'mpi'
@@ -179,7 +179,7 @@ class StaticRunTests(unittest.TestCase):
                 self.assertEqual(0, exit_code)
             else:
                 actual = _run(hargs)
-                expected = list([(rank, hargs.np) for rank in range(hargs.np)]) if run == 'func' else None
+                expected = list([(rank, hargs.num_proc) for rank in range(hargs.num_proc)]) if run == 'func' else None
                 self.assertEqual(expected, actual)
 
     def do_test_run_with_controller_failure(self, controller, mode, run):

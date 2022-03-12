@@ -284,8 +284,8 @@ class ElasticAdapter(Adapter):
         self.driver = ElasticDriver(
             rendezvous=self.rendezvous,
             discovery=self.settings.discovery,
-            min_np=self.min_workers,
-            max_np=self.max_workers,
+            min_num_proc=self.min_workers,
+            max_num_proc=self.max_workers,
             timeout=self.elastic_timeout,
             reset_limit=self.reset_limit,
             cooldown_range=self.cooldown_range,

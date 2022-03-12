@@ -76,6 +76,37 @@ class RunTests(unittest.TestCase):
             self.assertEqual(env.get(config_parser.HOROVOD_HIERARCHICAL_ALLREDUCE), '1')
             self.assertEqual(env.get(config_parser.HOROVOD_HIERARCHICAL_ALLGATHER), '1')
 
+    def test_elastic_args(self):
+        with override_args('horovodrun', '-np', '4',
+                           '--min-np', '2',
+                           '--max-np', '8'):
+            args = parse_args()
+            env = {}
+            config_parser.set_env_from_args(env, args)
+
+            self.assertEqual(args.num_proc, 4)
+            self.assertEqual(args.min_num_proc, 2)
+            self.assertEqual(args.max_num_proc, 8)
+
+        with override_args('horovodrun', '--num-proc', '4',
+                           '--min-num-proc', '2',
+                           '--max-num-proc', '8',
+                           '--slots-per-host', '1',
+                           '--elastic-timeout', '60',
+                           '--reset-limit', '10',
+                           '--blacklist-cooldown-range', '120', '600'):
+            args = parse_args()
+            env = {}
+            config_parser.set_env_from_args(env, args)
+
+            self.assertEqual(args.num_proc, 4)
+            self.assertEqual(args.min_num_proc, 2)
+            self.assertEqual(args.max_num_proc, 8)
+            self.assertEqual(args.slots, 1)
+            self.assertEqual(args.elastic_timeout, 60)
+            self.assertEqual(args.reset_limit, 10)
+            self.assertEqual(args.cooldown_range, [120, 600])
+
     def test_autotune_args(self):
         with override_args('horovodrun', '-np', '2',
                            '--autotune',
@@ -1133,8 +1164,8 @@ rank: 4: { hostname: host2; cpu: {0-3} ; gpu: * ; mem: * }
 
     def test_get_host_assignments(self):
         hosts = parse_hosts('worker-0:2,worker-1:2')
-        np = 4
-        assignments = get_host_assignments(hosts, np)
+        num_proc = 4
+        assignments = get_host_assignments(hosts, num_proc)
 
         sizes = dict(size=4, local_size=2, cross_size=2)
         expected = [SlotInfo(hostname='worker-0', rank=0, local_rank=0, cross_rank=0, **sizes),
@@ -1145,9 +1176,9 @@ rank: 4: { hostname: host2; cpu: {0-3} ; gpu: * ; mem: * }
 
     def test_get_host_assignments_elastic(self):
         hosts = parse_hosts('worker-0:2,worker-1:2')
-        min_np = 1
-        max_np = 2
-        assignments = get_host_assignments(hosts, min_np=min_np, max_np=max_np)
+        min_num_proc = 1
+        max_num_proc = 2
+        assignments = get_host_assignments(hosts, min_num_proc=min_num_proc, max_num_proc=max_num_proc)
 
         sizes = dict(size=2, local_size=2, cross_size=1)
         expected = [SlotInfo(hostname='worker-0', rank=0, local_rank=0, cross_rank=0, **sizes),
@@ -1156,8 +1187,8 @@ rank: 4: { hostname: host2; cpu: {0-3} ; gpu: * ; mem: * }
 
     def test_get_host_assignments_heterogeneous(self):
         hosts = parse_hosts('worker-0:1,worker-1:2')
-        np = 3
-        assignments = get_host_assignments(hosts, np)
+        num_proc = 3
+        assignments = get_host_assignments(hosts, num_proc)
 
         expected = [SlotInfo(hostname='worker-0', rank=0, local_rank=0, cross_rank=0,
                              size=3, local_size=1, cross_size=2),

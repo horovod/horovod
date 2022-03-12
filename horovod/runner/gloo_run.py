@@ -304,7 +304,7 @@ def launch_gloo_elastic(command, exec_command, settings, env, get_common_interfa
         _mkdir_p(settings.output_filename)
 
     driver = ElasticDriver(rendezvous, settings.discovery,
-                           settings.min_np, settings.max_np,
+                           settings.min_num_proc, settings.max_num_proc,
                            timeout=settings.elastic_timeout,
                            reset_limit=settings.reset_limit,
                            cooldown_range=settings.cooldown_range,

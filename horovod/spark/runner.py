@@ -19,6 +19,7 @@ import platform
 import queue
 import sys
 import time
+import warnings
 
 import pyspark
 
@@ -134,7 +135,7 @@ def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
         """Creates `settings.num_proc` Spark tasks, each executing `_task_fn` and waits for them to terminate."""
         try:
             spark_context.setJobGroup(spark_job_group, "Horovod Spark Run", interruptOnCancel=True)
-            procs = spark_context.range(0, numSlices=settings.max_np if settings.elastic else settings.num_proc)
+            procs = spark_context.range(0, numSlices=settings.max_num_proc if settings.elastic else settings.num_proc)
             # We assume that folks caring about security will enable Spark RPC encryption,
             # thus ensuring that key that is passed here remains secret.
             mapper = _make_mapper(driver.addresses(), settings, use_gloo, is_elastic)
@@ -308,10 +309,14 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
     return [results[index] for index in indices_in_rank_order]
 
 
-def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
+def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_num_proc=None, max_num_proc=None,
                 start_timeout=None, elastic_timeout=None, reset_limit=None, env=None,
                 stdout=None, stderr=None, verbose=1, nics=None,
-                prefix_output_with_timestamp=False):
+                prefix_output_with_timestamp=False,
+                # np is deprecated, use min_num_proc instead
+                min_np=None,
+                # max_num_proc is deprecated, use max_num_proc instead
+                max_np=None):
     """
     Runs Elastic Horovod on Spark.  Runs `num_proc` processes executing `fn` using the same amount of Spark tasks.
 
@@ -320,6 +325,12 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
         args: Arguments to pass to `fn`.
         kwargs: Keyword arguments to pass to `fn`.
         num_proc: Number of Horovod processes.  Defaults to `spark.default.parallelism`.
+        min_num_proc: Minimum number of processes running for training to continue.
+                      If number of available processes dips below this threshold,
+                      then training will wait for more instances to become available.
+        max_num_proc: Maximum number of training processes,
+                      beyond which no additional processes will be created.
+                      If not specified, then will be unbounded.
         start_timeout: Timeout for Spark tasks to spawn, register and start running the code, in seconds.
                        If not set, falls back to `HOROVOD_SPARK_START_TIMEOUT` environment variable value.
                        If it is not set as well, defaults to 600 seconds.
@@ -337,6 +348,12 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
     Returns:
         List of results returned by running `fn` on each rank.
     """
+    if min_np is not None:
+        min_num_proc = min_np
+        warnings.warn('min_np is deprecated, use min_num_proc instead', DeprecationWarning)
+    if max_np is not None:
+        max_num_proc = max_np
+        warnings.warn('max_np is deprecated, use max_num_proc instead', DeprecationWarning)
 
     if not gloo_built(verbose=(verbose >= 2)):
         raise ValueError('Gloo support is required to use elastic training, but has not been built.  Ensure CMake is '
@@ -364,17 +381,17 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
         if verbose >= 1:
             logging.info('Running %d processes...', num_proc)
 
-    if min_np is None:
+    if min_num_proc is None:
         # TODO: #2023 try spark.dynamicAllocation.minExecutors
-        min_np = num_proc
-    if max_np is None:
+        min_num_proc = num_proc
+    if max_num_proc is None:
         # TODO: #2023 try spark.dynamicAllocation.maxExecutors
-        max_np = num_proc
+        max_num_proc = num_proc
 
     # start Spark driver service and launch settings.num_proc Spark tasks
     key = secret.make_secret_key()
     spark_job_group = 'horovod.spark.run.%d' % job_id.next_job_id()
-    driver = driver_service.SparkDriverService(num_proc, max_np,
+    driver = driver_service.SparkDriverService(num_proc, max_num_proc,
                                                fn, args, kwargs,
                                                key, nics)
 
@@ -387,8 +404,8 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
                                     'start_timeout parameter to a larger value if your Spark resources '
                                     'are allocated on-demand.')
     settings = hvd_elastic_settings.ElasticSettings(discovery=discovery,
-                                                    min_np=min_np,
-                                                    max_np=max_np,
+                                                    min_num_proc=min_num_proc,
+                                                    max_num_proc=max_num_proc,
                                                     elastic_timeout=elastic_timeout,
                                                     reset_limit=reset_limit,
                                                     num_proc=num_proc,
@@ -401,7 +418,7 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
 
     result_queue = queue.Queue(1)
 
-    # launch settings.num_proc / settings.max_np Spark tasks
+    # launch settings.num_proc / settings.max_num_proc Spark tasks
     spark_thread = _make_spark_thread(spark_context, spark_job_group, driver,
                                       result_queue, settings, use_gloo=True, is_elastic=True)
     try:

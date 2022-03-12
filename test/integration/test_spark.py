@@ -414,7 +414,7 @@ class SparkTests(unittest.TestCase):
         stdout = io.StringIO()
         stderr = io.StringIO()
         with spark_session('test_happy_run_elastic'):
-            res = horovod.spark.run_elastic(fn, num_proc=2, min_np=2, max_np=2,
+            res = horovod.spark.run_elastic(fn, num_proc=2, min_num_proc=2, max_num_proc=2,
                                             env={'HOROVOD_LOG_LEVEL': 'WARNING'},
                                             stdout=stdout, stderr=stderr,
                                             start_timeout=10, verbose=2)
@@ -493,7 +493,7 @@ class SparkTests(unittest.TestCase):
             self._do_test_spark_run(num_proc=2, use_mpi=use_mpi, use_gloo=use_gloo,
                                     extra_mpi_args=extra_mpi_args,
                                     env=env, stdout='<stdout>', stderr='<stderr>',
-                                    cores=2, expected_np=2, expected_env=expected_env)
+                                    cores=2, expected_num_proc=2, expected_env=expected_env)
 
     """
     Test that horovod.spark.run does not default to spark parallelism given num_proc using MPI.
@@ -512,7 +512,7 @@ class SparkTests(unittest.TestCase):
     Actually tests that horovod.spark.run does not default to spark parallelism given num_proc.
     """
     def do_test_spark_run_num_proc_precedes_spark_cores(self, use_mpi, use_gloo):
-        self._do_test_spark_run(num_proc=1, cores=2, expected_np=1,
+        self._do_test_spark_run(num_proc=1, cores=2, expected_num_proc=1,
                                 use_mpi=use_mpi, use_gloo=use_gloo)
 
     """
@@ -526,7 +526,7 @@ class SparkTests(unittest.TestCase):
             self._do_test_spark_run(num_proc=2, use_mpi=True, use_gloo=False,
                                     extra_mpi_args=extra_mpi_args,
                                     env=env, stdout='<stdout>', stderr='<stderr>',
-                                    cores=4, expected_np=2, expected_env=expected_env)
+                                    cores=4, expected_num_proc=2, expected_env=expected_env)
 
     """
     Test that horovod.spark.run defaults num_proc to spark parallelism using MPI.
@@ -545,7 +545,7 @@ class SparkTests(unittest.TestCase):
     Actually tests that horovod.spark.run defaults num_proc to spark parallelism.
     """
     def do_test_spark_run_defaults_num_proc_to_spark_cores(self, use_mpi, use_gloo):
-        self._do_test_spark_run(num_proc=None, cores=2, expected_np=2,
+        self._do_test_spark_run(num_proc=None, cores=2, expected_num_proc=2,
                                 use_mpi=use_mpi, use_gloo=use_gloo)
 
     """
@@ -634,22 +634,22 @@ class SparkTests(unittest.TestCase):
     def _do_test_spark_run(self, args=(), kwargs={}, num_proc=1, extra_mpi_args=None,
                            env=None, use_mpi=None, use_gloo=None,
                            stdout=None, stderr=None, verbose=2,
-                           cores=2, expected_np=1, expected_env=''):
+                           cores=2, expected_num_proc=1, expected_env=''):
         if use_mpi:
             self._do_test_spark_run_with_mpi(args, kwargs, num_proc, extra_mpi_args, env,
                                              stdout, stderr, verbose, cores,
-                                             expected_np, expected_env)
+                                             expected_num_proc, expected_env)
         if use_gloo:
             self._do_test_spark_run_with_gloo(args, kwargs, num_proc, extra_mpi_args, env,
                                               stdout, stderr, verbose, cores,
-                                              expected_np)
+                                              expected_num_proc)
 
     """
     Performs an actual horovod.spark.run test using MPI.
     """
     def _do_test_spark_run_with_mpi(self, args=(), kwargs={}, num_proc=1, extra_mpi_args=None,
                                     env=None, stdout=None, stderr=None, verbose=2,
-                                    cores=2, expected_np=1, expected_env=''):
+                                    cores=2, expected_num_proc=1, expected_env=''):
         if env is None:
             env = {}
 
@@ -683,7 +683,7 @@ class SparkTests(unittest.TestCase):
                 self.assertIsNotNone(mpi_flags)
                 expected_command = ('mpirun '
                                     '--allow-run-as-root --tag-output '
-                                    '-np {expected_np} -H [^ ]+ '
+                                    '-np {expected_num_proc} -H [^ ]+ '
                                     '{binding_args} '
                                     '{mpi_flags}  '
                                     '-mca btl_tcp_if_include [^ ]+ -x NCCL_SOCKET_IFNAME=[^ ]+  '
@@ -692,7 +692,7 @@ class SparkTests(unittest.TestCase):
                                     '-x NCCL_DEBUG=INFO '
                                     r'-mca plm_rsh_agent "[^"]+python[0-9.]* -m horovod.spark.driver.mpirun_rsh [^ ]+ [^ ]+" '
                                     r'[^"]+python[0-9.]* -m horovod.spark.task.mpirun_exec_fn [^ ]+ [^ ]+'.format(
-                    expected_np=expected_np,
+                    expected_num_proc=expected_num_proc,
                     binding_args=' '.join(binding_args),
                     expected_env=expected_env if expected_env else '',
                     mpi_flags=' '.join(mpi_flags),
@@ -752,7 +752,7 @@ class SparkTests(unittest.TestCase):
     """
     def _do_test_spark_run_with_gloo(self, args=(), kwargs={}, num_proc=1, extra_mpi_args=None,
                                      env=None, stdout=None, stderr=None, verbose=2,
-                                     cores=2, expected_np=1):
+                                     cores=2, expected_num_proc=1):
         if env is None:
             env = {}
 
@@ -786,7 +786,7 @@ class SparkTests(unittest.TestCase):
                          'Exit code: 1\n', str(e.value))
 
         num_proc = cores if num_proc is None else num_proc
-        self.assertEqual(expected_np, num_proc)
+        self.assertEqual(expected_num_proc, num_proc)
         self.assertEqual(1, gloo_exec_command_fn.call_count)
         _, _, _, call_env, _, _, _ = gloo_exec_command_fn.call_args[0]
         self.assertEqual(env or {}, call_env)

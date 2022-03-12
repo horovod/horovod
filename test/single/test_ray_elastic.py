@@ -271,7 +271,7 @@ def test_fault_tolerance_hosts_added_and_removed(ray_8_cpus):
         ]
         nics = list(psutil.net_if_addrs().keys())[0]
 
-        settings = ElasticRayExecutor.create_settings(min_np=1, nics={nics})
+        settings = ElasticRayExecutor.create_settings(min_num_proc=1, nics={nics})
         settings.discovery = SimpleTestDiscovery(discovery_schedule)
         executor = ElasticRayExecutor(
             settings, cpus_per_slot=1, override_discovery=False)
@@ -299,7 +299,7 @@ def test_fault_tolerance_hosts_remove_and_add(ray_8_cpus):
         ]
         nics = list(psutil.net_if_addrs().keys())[0]
 
-        settings = ElasticRayExecutor.create_settings(min_np=1, nics={nics})
+        settings = ElasticRayExecutor.create_settings(min_num_proc=1, nics={nics})
         settings.discovery = SimpleTestDiscovery(discovery_schedule)
         executor = ElasticRayExecutor(
             settings, cpus_per_slot=1, override_discovery=False)
@@ -317,7 +317,7 @@ def test_fault_tolerance_hosts_remove_and_add(ray_8_cpus):
 
 @pytest.mark.skipif(
     not gloo_built(), reason='Gloo is required for Ray integration')
-def test_max_np(ray_8_cpus):
+def test_max_num_proc(ray_8_cpus):
     with fault_tolerance_patches():
         discovery_schedule = [
             (10, ['host-1:2']),
@@ -326,7 +326,7 @@ def test_max_np(ray_8_cpus):
         nics = list(psutil.net_if_addrs().keys())[0]
 
         settings = ElasticRayExecutor.create_settings(
-            min_np=1, max_np=2, nics={nics})
+            min_num_proc=1, max_num_proc=2, nics={nics})
         settings.discovery = SimpleTestDiscovery(discovery_schedule)
         executor = ElasticRayExecutor(
             settings, cpus_per_slot=1, override_discovery=False)
@@ -344,7 +344,7 @@ def test_max_np(ray_8_cpus):
 
 @pytest.mark.skipif(
     not gloo_built(), reason='Gloo is required for Ray integration')
-def test_min_np(ray_8_cpus):
+def test_min_num_proc(ray_8_cpus):
     with fault_tolerance_patches():
         discovery_schedule = [
             (10, ['host-1:1']),
@@ -354,7 +354,7 @@ def test_min_np(ray_8_cpus):
         nics = list(psutil.net_if_addrs().keys())[0]
 
         settings = ElasticRayExecutor.create_settings(
-            min_np=4, max_np=4, nics={nics})
+            min_num_proc=4, max_num_proc=4, nics={nics})
         settings.discovery = SimpleTestDiscovery(discovery_schedule)
         executor = ElasticRayExecutor(
             settings, cpus_per_slot=1, override_discovery=False)
@@ -382,7 +382,7 @@ def test_gpu_e2e(ray_8_cpus_gpus):
         nics = list(psutil.net_if_addrs().keys())[0]
 
         settings = ElasticRayExecutor.create_settings(
-            min_np=4, max_np=4, nics={nics})
+            min_num_proc=4, max_num_proc=4, nics={nics})
         settings.discovery = SimpleTestDiscovery(discovery_schedule)
         executor = ElasticRayExecutor(
             settings, gpus_per_slot=1, use_gpu=True, override_discovery=False)

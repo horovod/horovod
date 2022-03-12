@@ -97,7 +97,7 @@ def parse_hosts(hosts_string):
     return [HostInfo.from_string(host_string) for host_string in hosts_string.split(',')]
 
 
-def get_host_assignments(hosts, min_np, max_np=None):
+def get_host_assignments(hosts, min_num_proc, max_num_proc=None):
     """Assign hosts with process capacities (slots) to ranks in the Horovod process.
 
     This function will try to allocate as many as possible processes on the same host to leverage
@@ -105,10 +105,10 @@ def get_host_assignments(hosts, min_np, max_np=None):
 
     :param hosts: list of HostInfo objects describing host and slot capacity
     :type hosts: list[HostInfo]
-    :param min_np: minimum number of processes to be allocated
-    :type min_np: int
-    :param max_np: (optional) maximum number of processes to be allocated
-    :type max_np: int
+    :param min_num_proc: minimum number of processes to be allocated
+    :type min_num_proc: int
+    :param max_num_proc: (optional) maximum number of processes to be allocated
+    :type max_num_proc: int
     :return: a list of the allocation of process on hosts in a `SlotInfo` object.
     :rtype: list[SlotInfo]
     """
@@ -118,7 +118,7 @@ def get_host_assignments(hosts, min_np, max_np=None):
     for host_info in hosts:
         ranks = []
         for local_rank in range(host_info.slots):
-            if rank == max_np:
+            if rank == max_num_proc:
                 break
 
             ranks.append(rank)
@@ -130,9 +130,9 @@ def get_host_assignments(hosts, min_np, max_np=None):
         host_ranks.append((host_info, ranks))
 
     world_size = rank
-    if world_size < min_np:
+    if world_size < min_num_proc:
         raise ValueError('Requested more processes ({}) than there are available slots ({})'
-                         .format(min_np, world_size))
+                         .format(min_num_proc, world_size))
 
     alloc_list = []
     for host_info, ranks in host_ranks:
