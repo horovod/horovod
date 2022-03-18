@@ -176,6 +176,22 @@ protected:
                                   double scale_factor,
                                   std::vector<TensorTableEntry>& entries);
 #endif
+#if HAVE_ROCM
+  void MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                            const void*& fused_input_data, void*& buffer_data,
+                            size_t& buffer_len) override;
+
+  void MemcpyOutFusionBuffer(const void* buffer_data,
+                             std::vector<TensorTableEntry>& entries) override;
+
+  void ScaleMemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                 const void*& fused_input_data,
+                                 void*& buffer_data, size_t& buffer_len,
+                                 double scale_factor);
+  void ScaleMemcpyOutFusionBuffer(void* buffer_data, size_t buffer_len,
+                                  double scale_factor,
+                                  std::vector<TensorTableEntry>& entries);
+#endif
 
   void MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
                                  const TensorTableEntry& e,
