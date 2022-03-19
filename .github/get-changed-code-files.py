@@ -13,8 +13,9 @@ import requests
 # files that match any of these regexps are considered non-code files
 # even though those files have changed, they will not be in the output of this script
 non_code_file_patterns = [
-    r'^.buildkite/get_changed_code_files.py$',
-    r'^.github/',
+    r'^\.buildkite/get_changed_code_files.py$',
+    r'^\.github/[^/]*\.[^/]*',
+    r'^\.github/ISSUE_TEMPLATE',
     r'^docs/',
     r'^docker/helm/',
     r'^.*\.md',
