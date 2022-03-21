@@ -12,7 +12,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-cpu==2.8.0
         KERAS_PACKAGE: keras==2.8.0
         PYTORCH_PACKAGE: torch==1.11.0+cpu
-        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.10
+        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision==0.12.0+cpu
         MXNET_PACKAGE: mxnet==1.9.0
         PYSPARK_PACKAGE: pyspark==3.2.1
@@ -169,7 +169,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-gpu==1.15.5
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: torch==1.8.1+cu101
-        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.10
+        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision==0.9.1+cu101
         MXNET_PACKAGE: mxnet-cu100==1.5.1.post0
   # here we deviate from mxnet==1.7.0.post2 as there is none for cu101, only post1
@@ -184,7 +184,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.6.3
         KERAS_PACKAGE: keras==2.6.0
         PYTORCH_PACKAGE: torch==1.9.1+cu102
-        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.10
+        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision==0.10.1+cu102
         MXNET_PACKAGE: mxnet-cu101==1.7.0.post1
   test-gpu-gloo-py3_8-tf2_7_1-keras2_7_0-torch1_10_2-mxnet1_8_0_p0-pyspark3_2_1:
@@ -197,7 +197,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.7.1
         KERAS_PACKAGE: keras==2.7.0
         PYTORCH_PACKAGE: torch==1.10.2+cu111
-        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.10
+        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision==0.11.3+cu111
         MXNET_PACKAGE: mxnet-cu112==1.8.0.post0
   test-gpu-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1:
@@ -211,7 +211,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.8.0
         KERAS_PACKAGE: keras==2.8.0
         PYTORCH_PACKAGE: torch==1.11.0+cu113
-        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.10
+        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision==0.12.0+cu113
         MXNET_PACKAGE: mxnet-cu112==1.9.0
   test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1:
@@ -256,7 +256,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.8.0
         KERAS_PACKAGE: keras==2.8.0
         PYTORCH_PACKAGE: torch==1.11.0+cu113
-        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.10
+        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision==0.12.0+cu113
         MXNET_PACKAGE: mxnet-cu112==1.9.0
         HOROVOD_BUILD_FLAGS: ""
