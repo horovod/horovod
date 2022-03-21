@@ -33,13 +33,13 @@ struct BatchedD2DParams {
 };
 
 // Performs a batched d2d memcopy
-void BatchedD2DMemcpyCudaImpl(BatchedD2DParams& params, int num_copies, hipStream_t stream);
+void BatchedD2DMemcpyROCmImpl(BatchedD2DParams& params, int num_copies, hipStream_t stream);
 
 // Scales buffer by scalar
-void ScaleBufferCudaImpl(const void* fused_input_data, void* buffer_data, const int64_t num_elements,
+void ScaleBufferROCmImpl(const void* fused_input_data, void* buffer_data, const int64_t num_elements,
                          double scale_factor, DataType dtype, hipStream_t stream);
 
-void BatchedScaledD2DMemcpyCudaImpl(BatchedD2DParams& params, int num_copies, double scale_factor,
+void BatchedScaledD2DMemcpyROCmImpl(BatchedD2DParams& params, int num_copies, double scale_factor,
                                     DataType dtype, hipStream_t stream);
 
 } // namespace common

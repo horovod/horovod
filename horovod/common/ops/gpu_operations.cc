@@ -18,6 +18,9 @@
 #if HAVE_CUDA
 #include "cuda/cuda_kernels.h"
 #endif
+#if HAVE_ROCM
+#include "rocm/hip_kernels.h"
+#endif
 
 #include <thread>
 
@@ -213,6 +216,68 @@ void GPUAllreduce::MemcpyInFusionBuffer(
 }
 #endif
 
+#if HAVE_ROCM
+void GPUAllreduce::MemcpyInFusionBuffer(
+    const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
+    void*& buffer_data, size_t& buffer_len) {
+  // Access the fusion buffer.
+  auto& first_entry = entries[0];
+  auto buffer = global_state_->fusion_buffer.GetBuffer(
+      first_entry.device, first_entry.context->framework(),
+      global_state_->current_nccl_stream);
+  buffer_data = const_cast<void*>(buffer->AccessData(first_entry.context));
+
+  if (global_state_->batch_d2d_memcopies) {
+    int64_t offset = 0;
+    int idx = 0;
+    int count = 0;
+
+    BatchedD2DParams d2d_params;
+    auto& first_entry = entries[0];
+    for (auto& e : entries) {
+      void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
+
+      // Set input/output pointers and sizes
+      d2d_params.out[idx % BATCHED_D2D_CAPACITY] = buffer_data_at_offset;
+      d2d_params.in[idx % BATCHED_D2D_CAPACITY] = (void*)e.tensor->data();
+      d2d_params.sizes[idx % BATCHED_D2D_CAPACITY] = e.tensor->size();
+
+      offset +=
+          BATCHED_D2D_PADDING *
+          ((e.tensor->size() + BATCHED_D2D_PADDING - 1) / BATCHED_D2D_PADDING);
+      idx++;
+      count++;
+
+      if (idx % BATCHED_D2D_CAPACITY == 0 || idx == (int)entries.size()) {
+        // Perform batched d2d memcpy
+        BatchedD2DMemcpyROCmImpl(
+            d2d_params, count,
+            gpu_context_->streams[global_state_->current_nccl_stream]
+                                 [first_entry.device]);
+        // TODO: https://github.com/horovod/horovod/issues/2230
+        // gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl",
+        // cudaGetLastError());
+        count = 0;
+      }
+    }
+    buffer_len = (size_t)offset;
+
+  } else {
+    int64_t offset = 0;
+    for (auto& e : entries) {
+      void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
+      MemcpyEntryInFusionBuffer(entries, e, buffer_data_at_offset);
+      offset += e.tensor->size();
+    }
+
+    buffer_len = (size_t)offset;
+  }
+
+  // Set the input data to originate from the buffer.
+  fused_input_data = buffer_data;
+}
+#endif
+
 #if HAVE_CUDA
 void GPUAllreduce::ScaleMemcpyInFusionBuffer(
     const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
@@ -247,6 +312,73 @@ void GPUAllreduce::ScaleMemcpyInFusionBuffer(
       if (idx % BATCHED_D2D_CAPACITY == 0 || idx == (int)entries.size()) {
         // Perform batched d2d memcpy
         BatchedScaledD2DMemcpyCudaImpl(
+            d2d_params, count, scale_factor, first_entry.tensor->dtype(),
+            gpu_context_->streams[global_state_->current_nccl_stream]
+                                 [first_entry.device]);
+        // TODO: https://github.com/horovod/horovod/issues/2230
+        // gpu_context_->ErrorCheck("BatchedScaledD2DMemcpyCudaImpl",
+        // cudaGetLastError());
+        count = 0;
+      }
+    }
+    buffer_len = (size_t)offset;
+
+  } else {
+    int64_t offset = 0;
+    for (auto& e : entries) {
+      void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
+      MemcpyEntryInFusionBuffer(entries, e, buffer_data_at_offset);
+      offset += e.tensor->size();
+    }
+
+    buffer_len = (size_t)offset;
+    int64_t num_elements =
+        buffer_len / DataType_Size(first_entry.tensor->dtype());
+    if (scale_factor != 1.0) {
+      ScaleBuffer(scale_factor, entries, buffer_data, buffer_data,
+                  num_elements);
+    }
+  }
+
+  // Set the input data to originate from the buffer.
+  fused_input_data = buffer_data;
+}
+#endif
+
+#if HAVE_ROCM
+void GPUAllreduce::ScaleMemcpyInFusionBuffer(
+    const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
+    void*& buffer_data, size_t& buffer_len, double scale_factor) {
+  auto& first_entry = entries[0];
+  // Access the fusion buffer.
+  auto buffer = global_state_->fusion_buffer.GetBuffer(
+      first_entry.device, first_entry.context->framework(),
+      global_state_->current_nccl_stream);
+  buffer_data = const_cast<void*>(buffer->AccessData(first_entry.context));
+
+  if (global_state_->batch_d2d_memcopies) {
+    int64_t offset = 0;
+    int idx = 0;
+    int count = 0;
+
+    BatchedD2DParams d2d_params;
+    for (auto& e : entries) {
+      void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
+
+      // Set input/output pointers and sizes
+      d2d_params.out[idx % BATCHED_D2D_CAPACITY] = buffer_data_at_offset;
+      d2d_params.in[idx % BATCHED_D2D_CAPACITY] = (void*)e.tensor->data();
+      d2d_params.sizes[idx % BATCHED_D2D_CAPACITY] = e.tensor->size();
+
+      offset +=
+          BATCHED_D2D_PADDING *
+          ((e.tensor->size() + BATCHED_D2D_PADDING - 1) / BATCHED_D2D_PADDING);
+      idx++;
+      count++;
+
+      if (idx % BATCHED_D2D_CAPACITY == 0 || idx == (int)entries.size()) {
+        // Perform batched d2d memcpy
+        BatchedScaledD2DMemcpyROCmImpl(
             d2d_params, count, scale_factor, first_entry.tensor->dtype(),
             gpu_context_->streams[global_state_->current_nccl_stream]
                                  [first_entry.device]);
@@ -338,6 +470,54 @@ void GPUAllreduce::MemcpyOutFusionBuffer(
 }
 #endif
 
+#if HAVE_ROCM
+void GPUAllreduce::MemcpyOutFusionBuffer(
+    const void* buffer_data, std::vector<TensorTableEntry>& entries) {
+  if (global_state_->batch_d2d_memcopies) {
+    int64_t offset = 0;
+    int idx = 0;
+    int count = 0;
+
+    BatchedD2DParams d2d_params;
+    auto& first_entry = entries[0];
+    for (auto& e : entries) {
+      void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
+
+      // Set input/output pointers and sizes
+      d2d_params.out[idx % BATCHED_D2D_CAPACITY] = (void*)(e.output->data());
+      d2d_params.in[idx % BATCHED_D2D_CAPACITY] = buffer_data_at_offset;
+      d2d_params.sizes[idx % BATCHED_D2D_CAPACITY] = e.tensor->size();
+
+      offset +=
+          BATCHED_D2D_PADDING *
+          ((e.tensor->size() + BATCHED_D2D_PADDING - 1) / BATCHED_D2D_PADDING);
+      idx++;
+      count++;
+
+      if (idx % BATCHED_D2D_CAPACITY == 0 || idx == (int)entries.size()) {
+        // Perform batched d2d memcpy
+        BatchedD2DMemcpyROCmImpl(
+            d2d_params, count,
+            gpu_context_->streams[global_state_->current_nccl_stream]
+                                 [first_entry.device]);
+        // TODO: https://github.com/horovod/horovod/issues/2230
+        // gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl",
+        // cudaGetLastError());
+        count = 0;
+      }
+    }
+
+  } else {
+    int64_t offset = 0;
+    for (auto& e : entries) {
+      void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
+      MemcpyEntryOutFusionBuffer(entries, buffer_data_at_offset, e);
+      offset += e.tensor->size();
+    }
+  }
+}
+#endif
+
 #if HAVE_CUDA
 void GPUAllreduce::ScaleMemcpyOutFusionBuffer(
     void* buffer_data, size_t buffer_len, double scale_factor,
@@ -367,6 +547,63 @@ void GPUAllreduce::ScaleMemcpyOutFusionBuffer(
       if (idx % BATCHED_D2D_CAPACITY == 0 || idx == (int)entries.size()) {
         // Perform batched d2d memcpy
         BatchedScaledD2DMemcpyCudaImpl(
+            d2d_params, count, scale_factor, first_entry.tensor->dtype(),
+            gpu_context_->streams[global_state_->current_nccl_stream]
+                                 [first_entry.device]);
+        // TODO: https://github.com/horovod/horovod/issues/2230
+        // gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl",
+        // cudaGetLastError());
+        count = 0;
+      }
+    }
+
+  } else {
+    int64_t num_elements =
+        buffer_len / DataType_Size(first_entry.tensor->dtype());
+    if (scale_factor != 1.0) {
+      ScaleBuffer(scale_factor, entries, buffer_data, buffer_data,
+                  num_elements);
+    }
+
+    int64_t offset = 0;
+    for (auto& e : entries) {
+      void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
+      MemcpyEntryOutFusionBuffer(entries, buffer_data_at_offset, e);
+      offset += e.tensor->size();
+    }
+  }
+}
+#endif
+
+#if HAVE_ROCM
+void GPUAllreduce::ScaleMemcpyOutFusionBuffer(
+    void* buffer_data, size_t buffer_len, double scale_factor,
+    std::vector<TensorTableEntry>& entries) {
+  auto& first_entry = entries[0];
+
+  if (global_state_->batch_d2d_memcopies) {
+    int64_t offset = 0;
+    int idx = 0;
+    int count = 0;
+
+    BatchedD2DParams d2d_params;
+    for (auto& e : entries) {
+      void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
+
+      // Set input/output pointers and sizes
+      d2d_params.out[idx % BATCHED_D2D_CAPACITY] = (void*)(e.output->data());
+      d2d_params.in[idx % BATCHED_D2D_CAPACITY] = buffer_data_at_offset;
+      d2d_params.sizes[idx % BATCHED_D2D_CAPACITY] = e.tensor->size();
+
+      offset +=
+          BATCHED_D2D_PADDING *
+          ((e.tensor->size() + BATCHED_D2D_PADDING - 1) / BATCHED_D2D_PADDING);
+      idx++;
+      count++;
+
+      if (idx % BATCHED_D2D_CAPACITY == 0 || idx == (int)entries.size()) {
+        // Perform batched d2d memcpy
+        BatchedScaledD2DMemcpyROCmImpl(
             d2d_params, count, scale_factor, first_entry.tensor->dtype(),
             gpu_context_->streams[global_state_->current_nccl_stream]
                                  [first_entry.device]);
