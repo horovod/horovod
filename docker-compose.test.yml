@@ -94,7 +94,7 @@ services:
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: torchvision
-        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning
+        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         MXNET_PACKAGE: mxnet-nightly
   # these are the lowest framework versions that Horovod compiles with, but they are not tested
   test-cpu-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin:
@@ -224,7 +224,7 @@ services:
         TENSORFLOW_PACKAGE: tf-nightly-gpu
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch-nightly-cu111
-        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning
+        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision
         MXNET_PACKAGE: mxnet-nightly-cu112
   # these are the lowest framework versions that Horovod compiles with, but they are not tested
