@@ -92,7 +92,8 @@ def _slot_info_to_command_fn(run_command, env):
         horovod_rendez_env = " ".join(
             [f"{k}={str(v)}" for k, v in env_vars.items()])
 
-        return '{horovod_env} {env} {run_command}' .format(
+        return '{shell} {horovod_env} {env} {run_command}' .format(
+            shell='env',
             horovod_env=horovod_rendez_env,
             env=' '.join(['%s=%s' % (key, quote(value)) for key, value in env.items()
                           if env_util.is_exportable(key)]),
