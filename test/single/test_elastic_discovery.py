@@ -37,6 +37,9 @@ class HostDiscoveryScriptTests(unittest.TestCase):
         ["host-1:2", {"host-1": 2}],
         ["host-1\nhost-5", {"host-1": DEFAULT_SLOTS, "host-5": DEFAULT_SLOTS}],
         ["host-1:2\nhost-4:3", {"host-1": 2, "host-4": 3}],
+        ["\nhost-1:2\nhost-4:3", {"host-1": 2, "host-4": 3}],
+        ["host-1:2\n\nhost-4:3", {"host-1": 2, "host-4": 3}],
+        ["host-1:2\nhost-4:3\n", {"host-1": 2, "host-4": 3}],
     ])
     def test_find_available_hosts_and_slots(
             self, script_result, expected_hosts_and_slots):
