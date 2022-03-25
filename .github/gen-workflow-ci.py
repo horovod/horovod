@@ -296,10 +296,7 @@ def main():
                            f''.join([f'            {test}: true\n'
                                      for test in sorted(list(tests_per_image.get(image, [])))]) +
                            f'            build_timeout: {30 if "-cpu-" in image else 40}\n'
-                           for image in sorted(images)
-                           # oneccl does not compile on GitHub Workflows:
-                           # https://github.com/horovod/horovod/issues/2846
-                           if '-oneccl-' not in image]) +
+                           for image in sorted(images)]) +
                 f'\n'
                 f'    steps:\n'
                 f'      - name: Clean up disk space\n'

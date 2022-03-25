@@ -284,6 +284,27 @@ jobs:
             Single_PyTorch_MNIST: true
             build_timeout: 30
 
+          - image: test-cpu-oneccl-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1
+            MPI_Cluster_PyTests_ONECCL_MPI: true
+            MPI_Cluster_PyTests_ONECCL_OFI: true
+            MPI_MXNet_MNIST_ONECCL_MPI: true
+            MPI_MXNet_MNIST_ONECCL_OFI: true
+            MPI_Parallel_PyTests_ONECCL_MPI: true
+            MPI_Parallel_PyTests_ONECCL_OFI: true
+            MPI_PyTorch_MNIST_ONECCL_MPI: true
+            MPI_PyTorch_MNIST_ONECCL_OFI: true
+            MPI_Single_PyTests_ONECCL_MPI: true
+            MPI_Single_PyTests_ONECCL_OFI: true
+            MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI: true
+            MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI: true
+            MPI_TensorFlow_2_0_MNIST_ONECCL_MPI: true
+            MPI_TensorFlow_2_0_MNIST_ONECCL_OFI: true
+            Single_MXNet_MNIST_ONECCL_MPI: true
+            Single_MXNet_MNIST_ONECCL_OFI: true
+            Single_PyTorch_MNIST_ONECCL_MPI: true
+            Single_PyTorch_MNIST_ONECCL_OFI: true
+            build_timeout: 30
+
           - image: test-cpu-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1
             Elastic_Tests_1: true
             Gloo_Cluster_PyTests: true
