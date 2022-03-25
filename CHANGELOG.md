@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - MXNet: Updated allreduce functions to newer `op` API. ([#3299](https://github.com/horovod/horovod/pull/3299))
+- Replace '+' with '.' to get more consistent package version when the environment HOROVOD_LOCAL_VERSION is set. ([#3495](https://github.com/horovod/horovod/pull/3495))
 
 ### Deprecated
 
