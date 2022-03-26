@@ -268,7 +268,11 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                 # Horovod: pin GPU to local rank or the assigned GPU from spark.
                 torch.cuda.set_device(_get_assigned_gpu_or_default(default=hvd.local_rank()))
                 # Move model to GPU.
-                model.cuda()
+                try:
+                    model.cuda()
+                except:
+                    import time
+                    time.sleep(36000)
 
             if profiler != 'simple' and trainer.profiler:
                 print(f"Set profiler's logs_path for {hvd.rank()} to {logs_path}")
