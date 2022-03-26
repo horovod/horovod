@@ -20,7 +20,7 @@ import tempfile
 import math
 import warnings
 from distutils.version import LooseVersion
-
+import subprocess
 import torch
 import pytorch_lightning as pl
 from pytorch_lightning import Trainer, Callback
@@ -258,9 +258,9 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             )
 
             stats = result.stdout.strip().split(os.linesep)
-            print("##########stats: {}",format(stats))
-            print("##########memory summary:: {}",format(torch.cuda.memory_summary()))
-            print("##########memory allocated:: {}",format(torch.cuda.memory_allocated()))
+            print("##########stats: {}".format(stats))
+            print("##########memory summary:: {}".format(torch.cuda.memory_summary()))
+            print("##########memory allocated:: {}".format(torch.cuda.memory_allocated()))
 
             trainer = Trainer(**kwargs)
 
