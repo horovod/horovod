@@ -101,7 +101,7 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
     elif [[ ${MPI_KIND} == "ONECCL" ]]; then \
         wget --progress=dot:mega -O /tmp/oneccl.tar.gz https://github.com/oneapi-src/oneCCL/archive/${CCL_PACKAGE}.tar.gz && \
             cd /tmp && tar -zxf oneccl.tar.gz && \
-            mkdir oneCCL-${CCL_PACKAGE}/build && cd oneCCL-${CCL_PACKAGE}/build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local/oneccl -DCMAKE_BUILD_TYPE=Release && make -j install && \
+            mkdir oneCCL-${CCL_PACKAGE}/build && cd oneCCL-${CCL_PACKAGE}/build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local/oneccl -DCMAKE_BUILD_TYPE=Release && make -j 4 install && \
             rm /tmp/oneccl.tar.gz && rm -Rf /tmp/oneCCL-${CCL_PACKAGE} && \
             sed -i 's/if \[ -z \"\${I_MPI_ROOT}\" \]/if [ -z \"${I_MPI_ROOT:-}\" ]/g' /usr/local/oneccl/env/setvars.sh && \
             sed -i 's/ \$1/ \${1:-}/g' /usr/local/oneccl/env/setvars.sh && \
