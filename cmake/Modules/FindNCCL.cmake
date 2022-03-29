@@ -29,14 +29,23 @@ find_path(NCCL_INCLUDE_DIR
 set(HOROVOD_NCCL_LINK $ENV{HOROVOD_NCCL_LINK})
 if (HOROVOD_NCCL_LINK STREQUAL "SHARED")
     set(NCCL_LIBNAME "nccl")
+    message(STATUS "Linking against shared NCCL library")
 else()
-    message(STATUS "Linking against static NCCL library")
     set(NCCL_LIBNAME "libnccl_static.a")
+    message(STATUS "Linking against static NCCL library")
 endif()
 
 find_library(NCCL_LIBRARY
         NAMES ${NCCL_LIBNAME}
         HINTS ${HOROVOD_NCCL_LIB} ${CUDAToolkit_LIBRARY_DIR})
+
+if (NCCL_LIBRARY STREQUAL "NCCL_LIBRARY-NOTFOUND" AND NCCL_LIBNAME MATCHES "static" AND
+    NOT HOROVOD_NCCL_LINK STREQUAL "STATIC")
+    message(STATUS "Could not find static NCCL library. Trying to find shared lib instead.")
+    find_library(NCCL_LIBRARY
+            NAMES "nccl"
+            HINTS ${HOROVOD_NCCL_LIB} ${CUDAToolkit_LIBRARY_DIR})
+endif()
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(NCCL DEFAULT_MSG NCCL_INCLUDE_DIR NCCL_LIBRARY)
