@@ -41,7 +41,6 @@ class LocalGradientAggregationHelperEager:
         # is equal to 0.
         self.counter = tf.Variable(initial_value=0)
 
-    @tf.function
     def compute_gradients(self, grads, vars):
         # On steps where allreduce happens, resulting_grads returns the allreduced
         # gradients, on other steps it returns the locally aggregated

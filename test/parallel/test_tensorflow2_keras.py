@@ -27,7 +27,7 @@ import pytest
 
 from tensorflow import keras
 
-from horovod.common.util  import is_version_greater_equal_than
+from horovod.common.util import is_version_greater_equal_than
 
 if is_version_greater_equal_than(tf.__version__, "2.6.0"):
     if LooseVersion(keras.__version__) < LooseVersion("2.9.0"):
@@ -70,6 +70,7 @@ class Tf2KerasTests(tf.test.TestCase):
         initial_lr = 0.1 * hvd.size()
         opt = tf.keras.optimizers.Adam()
         opt = hvd.DistributedOptimizer(opt)
+
         def linear_multiplier(epoch):
             return epoch
 
@@ -154,6 +155,31 @@ class Tf2KerasTests(tf.test.TestCase):
         y = np.random.random((32, 10, 64))
         # No assertions, we just need to verify that it doesn't hang
         model.train_on_batch(x, y)
+
+    def test_sparse_as_dense_with_grad_aggregation(self):
+        backward_passes_per_step = 2
+        opt = keras.optimizers.RMSprop(lr=0.0001)
+        opt = hvd.DistributedOptimizer(
+            opt,
+            sparse_as_dense=True,
+            backward_passes_per_step=backward_passes_per_step
+        )
+
+        model = keras.models.Sequential()
+        model.add(keras.layers.Embedding(1000, 64, input_length=10))
+        model.compile(loss=keras.losses.mean_squared_error,
+                      optimizer=opt,
+                      experimental_run_tf_function=False)
+
+        x = np.random.randint(1000, size=(32, 10))
+        y = np.random.random((32, 10, 64))
+
+        training_steps = 3
+        for _ in range(training_steps):
+            model.train_on_batch(x, y)
+
+        aggregation_counter = opt._agg_helper.counter.numpy()
+        assert aggregation_counter == training_steps % backward_passes_per_step
 
     def test_from_config(self):
         opt = keras.optimizers.Adam()
@@ -277,6 +303,7 @@ class Tf2KerasTests(tf.test.TestCase):
 
         var = tf.Variable([0.0])
         variables = [var]
+
         def loss():
             return (var - var)
         for idx in range(10):
