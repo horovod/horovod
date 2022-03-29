@@ -102,19 +102,7 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
         wget --progress=dot:mega -O /tmp/oneccl.tar.gz https://github.com/oneapi-src/oneCCL/archive/${CCL_PACKAGE}.tar.gz && \
             cd /tmp && tar -zxf oneccl.tar.gz && \
             mkdir oneCCL-${CCL_PACKAGE}/build && cd oneCCL-${CCL_PACKAGE}/build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local/oneccl -DCMAKE_BUILD_TYPE=Release && make -j install && \
-            cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/include/*.h /usr/local/oneccl/include && \
-            cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/bin/mpicc /usr/local/oneccl/bin && \
-            chmod +x /usr/local/oneccl/bin/mpicc && \
-            cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/bin/mpicxx /usr/local/oneccl/bin && \
-            chmod +x /usr/local/oneccl/bin/mpicxx && \
-            cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/bin/mpigcc /usr/local/oneccl/bin && \
-            chmod +x /usr/local/oneccl/bin/mpigcc && \
-            cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/bin/mpigxx /usr/local/oneccl/bin && \
-            chmod +x /usr/local/oneccl/bin/mpigxx && \
-            cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/lib/libmpicxx.so /usr/local/oneccl/lib && \
-            chmod +x /usr/local/oneccl/lib/libmpicxx.so && \
-            cp /tmp/oneCCL-${CCL_PACKAGE}/mpi/lib/libmpifort.so /usr/local/oneccl/lib && \
-            chmod +x /usr/local/oneccl/lib/libmpifort.so && \
+            rm /tmp/oneccl.tar.gz && rm -Rf /tmp/oneCCL-${CCL_PACKAGE} && \
             sed -i 's/if \[ -z \"\${I_MPI_ROOT}\" \]/if [ -z \"${I_MPI_ROOT:-}\" ]/g' /usr/local/oneccl/env/setvars.sh && \
             sed -i 's/ \$1/ \${1:-}/g' /usr/local/oneccl/env/setvars.sh && \
             echo ". /usr/local/oneccl/env/setvars.sh" > /oneccl_env && \
