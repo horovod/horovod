@@ -142,7 +142,7 @@ def check_build(verbose):
                ccl_ops=get_check(ccl_built(verbose=verbose)),
                gloo_ops=get_check(gloo_built(verbose=verbose)))
     print(textwrap.dedent(output))
-    os._exit(0)
+    sys.exit(0)
 
 
 def make_check_build_action(np_arg):
