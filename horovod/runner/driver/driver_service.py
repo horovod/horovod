@@ -80,9 +80,11 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
                                                 stdout=host_output,
                                                 stderr=host_output)
             if exit_code != 0:
-                print('Launching horovod task function was not '
-                      'successful:\n{host_output}'.format(host_output=host_output.getvalue()))
-                sys.exit(exit_code)
+                print(
+                    'Launching horovod task function was not '
+                    'successful:\n{host_output}'
+                    .format(host_output=host_output.getvalue()))
+                os._exit(exit_code)
         finally:
             host_output.close()
         return exit_code
