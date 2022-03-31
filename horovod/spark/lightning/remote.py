@@ -242,8 +242,10 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                 # Move model to GPU.
                 try:
                     model.cuda()
-                except:
+                except Exception as ex:
                     import time
+                    print("##############exception: {}".format(ex))
+                    print("##############sleeping")
                     time.sleep(36000)
 
             _num_gpus = num_gpus
