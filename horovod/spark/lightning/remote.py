@@ -250,7 +250,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             format = 'csv,nounits,noheader'
             result = subprocess.run(
-                [shutil.which('nvidia-smi'), f'--format={format}'],
+                [shutil.which('nvidia-smi')],
                 encoding="utf-8",
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,  # for backward compatibility with python version 3.6
