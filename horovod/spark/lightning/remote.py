@@ -220,6 +220,32 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             if cuda_avail_list.count(cuda_available) != hvd.size():
                 raise RuntimeError("All ranks don't have same device type!")
 
+            if cuda_available:
+                # Horovod: pin GPU to local rank or the assigned GPU from spark.
+                torch.cuda.set_device(_get_assigned_gpu_or_default(default=hvd.local_rank()))
+                import shutil
+
+                format = 'csv,nounits,noheader'
+                result = subprocess.run(
+                    [shutil.which('nvidia-smi')],
+                    encoding="utf-8",
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,  # for backward compatibility with python version 3.6
+                    check=True
+                )
+
+                stats = result.stdout.strip().split(os.linesep)
+                print("##########stats: {}".format(stats))
+                print("##########memory summary:: {}".format(torch.cuda.memory_summary()))
+                print("##########memory allocated:: {}".format(torch.cuda.memory_allocated()))
+
+                # Move model to GPU.
+                try:
+                    model.cuda()
+                except:
+                    import time
+                    time.sleep(36000)
+
             _num_gpus = num_gpus
             if _num_gpus is None:
                 _num_gpus = 1 if cuda_available else 0
@@ -246,33 +272,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             if verbose and hvd.rank() == 0:
                 print("Creating trainer with: \n ", kwargs)
 
-            import shutil
-
-            format = 'csv,nounits,noheader'
-            result = subprocess.run(
-                [shutil.which('nvidia-smi')],
-                encoding="utf-8",
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,  # for backward compatibility with python version 3.6
-                check=True
-            )
-
-            stats = result.stdout.strip().split(os.linesep)
-            print("##########stats: {}".format(stats))
-            print("##########memory summary:: {}".format(torch.cuda.memory_summary()))
-            print("##########memory allocated:: {}".format(torch.cuda.memory_allocated()))
-
             trainer = Trainer(**kwargs)
-
-            if cuda_available:
-                # Horovod: pin GPU to local rank or the assigned GPU from spark.
-                torch.cuda.set_device(_get_assigned_gpu_or_default(default=hvd.local_rank()))
-                # Move model to GPU.
-                try:
-                    model.cuda()
-                except:
-                    import time
-                    time.sleep(36000)
 
             if profiler != 'simple' and trainer.profiler:
                 print(f"Set profiler's logs_path for {hvd.rank()} to {logs_path}")
