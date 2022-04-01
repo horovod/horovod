@@ -157,6 +157,31 @@ class Tf2KerasTests(tf.test.TestCase):
         # No assertions, we just need to verify that it doesn't hang
         model.train_on_batch(x, y)
 
+    def test_sparse_as_dense_with_grad_aggregation(self):
+        backward_passes_per_step = 2
+        opt = keras.optimizers.RMSprop(lr=0.0001)
+        opt = hvd.DistributedOptimizer(
+            opt,
+            sparse_as_dense=True,
+            backward_passes_per_step=backward_passes_per_step
+        )
+
+        model = keras.models.Sequential()
+        model.add(keras.layers.Embedding(1000, 64, input_length=10))
+        model.compile(loss=keras.losses.mean_squared_error,
+                      optimizer=opt,
+                      experimental_run_tf_function=False)
+
+        x = np.random.randint(1000, size=(32, 10))
+        y = np.random.random((32, 10, 64))
+
+        training_steps = 3
+        for _ in range(training_steps):
+            model.train_on_batch(x, y)
+
+        aggregation_counter = opt._agg_helper.counter.numpy()
+        assert aggregation_counter == training_steps % backward_passes_per_step
+
     def test_from_config(self):
         opt = keras.optimizers.Adam()
         hopt = hvd.DistributedOptimizer(opt)
