@@ -140,11 +140,6 @@ class LocalGradientAggregationHelperEager:
             return increment_optimizer_iteration()
 
         def is_aggregation_step():
-            if _POST_TF_2_4_0:
-                # In TF 2.4+ we evaluate whether it's time to aggregated gradients before
-                # calling `_aggregate_gradients()`.
-                return tf.equal(tf.add(self.counter, 1), self.backward_passes_per_step)
-
             return tf.equal(self.counter, 0)
 
         return tf.cond(

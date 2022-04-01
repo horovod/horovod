@@ -22,6 +22,7 @@ import os
 import warnings
 
 from distutils.version import LooseVersion
+from parameterized import parameterized
 
 import pytest
 
@@ -255,7 +256,11 @@ class Tf2KerasTests(tf.test.TestCase):
         assert state.batch == 21
         assert state.epoch == 11
 
-    def test_gradient_aggregation(self):
+    @parameterized.expand([
+        [True],
+        [False]
+    ])
+    def test_gradient_aggregation(self, average_aggregated_gradients):
         class TestingOptimizer(optimizer_v2.OptimizerV2):
             """
             Custom optimizer we use for testing gradient aggregation.
@@ -276,56 +281,83 @@ class Tf2KerasTests(tf.test.TestCase):
         hvd_optimizer = hvd.DistributedOptimizer(
             optimizer=TestingOptimizer("test"),
             backward_passes_per_step=backward_passes_per_step,
-            average_aggregated_gradients=True,
+            average_aggregated_gradients=average_aggregated_gradients,
+            sparse_as_dense=True,
         )
         _ = hvd_optimizer.iterations
 
-        def compute_expected_value(batch_id):
-            sum_per_aggregation = 0.0
-            for _ in range(backward_passes_per_step):
-                grads_for_batch = 0.0
-
-                # Apply `average_aggregated_gradients`.
-                grads_for_batch /= float(backward_passes_per_step)
-
-                # Averages across workers.
-                sum_per_aggregation += grads_for_batch / float(hvd.size())
-
-            aggregations_completed = math.floor(
-                (batch_id + 1) / backward_passes_per_step)
-            return aggregations_completed * sum_per_aggregation
-
-        @tf.function
-        def apply_gradients_in_tf_function(grads_and_vars, **kwargs):
-            # Apply gradient updates in tf.function to reproduce how it is
-            # done inside `model.fit()`.
-            hvd_optimizer.apply_gradients(grads_and_vars, **kwargs)
-
-        var = tf.Variable([0.0])
-        variables = [var]
+        x_0 = 0.0
+        y_0, y_1 = 1.0, 2.0
+        x = tf.Variable([x_0])
+        y = tf.Variable([y_0, y_1])
+        variables = [x, y]
 
         def loss():
-            return (var - var)
-        for idx in range(10):
+            """
+            loss = x - y * e1 where e1 = [1.0, 0.0]
+            """
+            # Gather the first row of y. It is equivalent to y * e1.
+            # Use tf.gather to produce tf.IndexedSlices gradient to improve test coverage.
+            gathered_y_1 = tf.gather(y, [0])
+            return x - gathered_y_1
+
+        def compute_expected_value(batch_id):
+            """
+            Given the loss function above, the gradient of x and y can be derived.
+              dloss/dx = 1.0
+              dloss/dy = [-1.0, 0.0]
+            Therefore, for each step, the value of x increases by 1 and
+            the value of y increases by [-1.0, 0.0].
+            """
+            num_of_steps = (batch_id + 1) // backward_passes_per_step
+
+            gradient_of_x = num_of_steps * 1.0
+            gradient_of_y_0 = num_of_steps * -1.0
+
+            if not average_aggregated_gradients:
+                gradient_of_x *= backward_passes_per_step
+                gradient_of_y_0 *= backward_passes_per_step
+
+            # Add gradient with its initial values because the TestingOptimizer optimize
+            # variable by assign_add.
+            expected_x = x_0 + gradient_of_x
+            expected_y_0 = y_0 + gradient_of_y_0
+            # It should remain constant as gradient is always 0.
+            expected_y_1 = y_1
+
+            return np.array(expected_x), np.array([expected_y_0, expected_y_1])
+
+        @tf.function
+        def compute_and_apply_gradients_in_tf_function(var_list, **kwargs):
+            # Compute and apply gradient updates in tf.function to reproduce
+            # how it is done inside `model.fit()`.
+            grads_and_vars = hvd_optimizer._compute_gradients(
+                loss, var_list=var_list)
+            hvd_optimizer.apply_gradients(grads_and_vars, **kwargs)
+
+        total_num_of_steps = 10
+        for idx in range(total_num_of_steps):
             if _PRE_TF_2_2_0:
-                grads_and_vars = hvd_optimizer._compute_gradients(
-                    loss, var_list=variables)
-                apply_gradients_in_tf_function(grads_and_vars, variables)
+                compute_and_apply_gradients_in_tf_function(var_list=variables)
             else:
                 # In 2.2 and 2.3 the horovod optimizer sets `_HAS_AGGREGATE_GRAD = True`.
                 # This configures tf.keras to call `_aggregate_gradients()` outside of
                 # `apply_gradients()` and to set `experimental_aggregate_gradients` to
                 # False when calling `apply_gradients()` to prevent it from calling
                 # `_aggregate_gradients()` again.
+                compute_and_apply_gradients_in_tf_function(
+                    var_list=variables,
+                    experimental_aggregate_gradients=False)
 
-                grads_and_vars = hvd_optimizer._compute_gradients(
-                    loss, var_list=variables)
-                apply_gradients_in_tf_function(
-                    grads_and_vars, experimental_aggregate_gradients=False)
-
-            updated_variable_value = variables[0][0].numpy()
-            assert updated_variable_value == compute_expected_value(idx)
+            expected_x, expected_y = compute_expected_value(idx)
+            updated_x = variables[0].numpy()
+            updated_y = variables[1].numpy()
+            assert np.isclose(updated_x, expected_x)
+            assert np.isclose(updated_y, expected_y).all()
             assert idx + 1 == hvd_optimizer.iterations.numpy()
+
+        aggregation_counter = hvd_optimizer._agg_helper.counter.numpy()
+        assert aggregation_counter == total_num_of_steps % backward_passes_per_step
 
     def test_process_set_optimizer(self):
         """ Note that this test makes the most sense when running with > 2 processes. """

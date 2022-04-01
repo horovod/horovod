@@ -815,7 +815,8 @@ class SparkTests(unittest.TestCase):
             self.assertEqual(alloc_info.local_rank, alloc_info.rank)
 
             # command fully derived from alloc_info
-            expected_command = ('HOROVOD_HOSTNAME=[^ ]+ '
+            expected_command = ('env '
+                                'HOROVOD_HOSTNAME=[^ ]+ '
                                 'HOROVOD_RANK={rank} '
                                 'HOROVOD_SIZE={size} '
                                 'HOROVOD_LOCAL_RANK={local_rank} '
