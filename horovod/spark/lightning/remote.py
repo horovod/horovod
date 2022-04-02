@@ -245,6 +245,16 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                 except Exception as ex:
                     import time
                     print("##############exception: {}".format(ex))
+                    new_result = subprocess.run(
+                        [shutil.which('nvidia-smi')],
+                        encoding="utf-8",
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,  # for backward compatibility with python version 3.6
+                        check=True
+                    )
+                    new_stats = new_result.stdout.strip().split(os.linesep)
+                    print("##########new_stats: {}".format(new_stats))
+
                     print("##############sleeping")
                     time.sleep(36000)
 
