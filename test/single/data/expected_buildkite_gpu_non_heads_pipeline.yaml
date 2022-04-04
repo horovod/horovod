@@ -537,7 +537,7 @@ steps:
   agents:
     queue: 2x-gpu-v572
 - label: ':fire: Gloo PyTorch MNIST api (test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_2_1)'
-  command: python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --gloo
+  command: python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
@@ -771,7 +771,7 @@ steps:
   agents:
     queue: 2x-gpu-v572
 - label: ':fire: Gloo PyTorch MNIST api (test-gpu-gloo-py3_8-tf2_6_3-keras2_6_0-torch1_9_1-mxnet1_7_0_p1-pyspark3_2_1)'
-  command: python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --gloo
+  command: python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
@@ -951,7 +951,7 @@ steps:
   agents:
     queue: 2x-gpu-v572
 - label: ':fire: Gloo PyTorch MNIST api (test-gpu-gloo-py3_8-tf2_7_1-keras2_7_0-torch1_10_2-mxnet1_8_0_p0-pyspark3_2_1)'
-  command: python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --gloo
+  command: python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
@@ -1131,7 +1131,7 @@ steps:
   agents:
     queue: 2x-gpu-v572
 - label: ':fire: Gloo PyTorch MNIST api (test-gpu-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1)'
-  command: python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --gloo
+  command: python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
@@ -1221,7 +1221,7 @@ steps:
   agents:
     queue: 2x-gpu-v572
 - label: ':fire: MPI PyTorch MNIST api (test-gpu-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1)'
-  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --mpi"
+  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
@@ -1455,7 +1455,7 @@ steps:
   agents:
     queue: 2x-gpu-v572
 - label: ':fire: Gloo PyTorch MNIST api (test-mixed-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1)'
-  command: python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --gloo
+  command: python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
@@ -1545,7 +1545,7 @@ steps:
   agents:
     queue: 2x-gpu-v572
 - label: ':fire: MPI PyTorch MNIST api (test-mixed-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1)'
-  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --mpi"
+  command: bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300

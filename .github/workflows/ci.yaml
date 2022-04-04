@@ -762,7 +762,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST_api && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --gloo
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo
         shell: bash
 
       - name: "Gloo PyTorch MNIST api [attempt 2 of 3]"
@@ -771,7 +771,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST_api && steps.Gloo_PyTorch_MNIST_api_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --gloo
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo
         shell: bash
 
       - name: "Gloo PyTorch MNIST api [attempt 3 of 3]"
@@ -780,7 +780,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST_api && steps.Gloo_PyTorch_MNIST_api_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --gloo
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo
         shell: bash
 
       - name: "Gloo PyTorch MNIST horovodrun [attempt 1 of 3]"
@@ -1221,7 +1221,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --mpi"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
       - name: "MPI PyTorch MNIST api [attempt 2 of 3]"
@@ -1230,7 +1230,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api && steps.MPI_PyTorch_MNIST_api_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --mpi"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
       - name: "MPI PyTorch MNIST api [attempt 3 of 3]"
@@ -1239,7 +1239,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api && steps.MPI_PyTorch_MNIST_api_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --mpi"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
       - name: "MPI PyTorch MNIST api [ONECCL MPI] [attempt 1 of 3]"
@@ -1248,7 +1248,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_MPI && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --mpi"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
       - name: "MPI PyTorch MNIST api [ONECCL MPI] [attempt 2 of 3]"
@@ -1257,7 +1257,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_MPI && steps.MPI_PyTorch_MNIST_api_ONECCL_MPI_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --mpi"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
       - name: "MPI PyTorch MNIST api [ONECCL MPI] [attempt 3 of 3]"
@@ -1266,7 +1266,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_MPI && steps.MPI_PyTorch_MNIST_api_ONECCL_MPI_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --mpi"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
       - name: "MPI PyTorch MNIST api [ONECCL OFI] [attempt 1 of 3]"
@@ -1275,7 +1275,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_OFI && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --mpi"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
       - name: "MPI PyTorch MNIST api [ONECCL OFI] [attempt 2 of 3]"
@@ -1284,7 +1284,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_OFI && steps.MPI_PyTorch_MNIST_api_ONECCL_OFI_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --mpi"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
       - name: "MPI PyTorch MNIST api [ONECCL OFI] [attempt 3 of 3]"
@@ -1293,7 +1293,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_OFI && steps.MPI_PyTorch_MNIST_api_ONECCL_OFI_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --mpi"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
       - name: "MPI PyTorch MNIST horovodrun [attempt 1 of 3]"
@@ -2640,7 +2640,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST_api && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --gloo
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo
         shell: bash
 
       - name: "Gloo PyTorch MNIST api [attempt 2 of 3]"
@@ -2649,7 +2649,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST_api && steps.Gloo_PyTorch_MNIST_api_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --gloo
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo
         shell: bash
 
       - name: "Gloo PyTorch MNIST api [attempt 3 of 3]"
@@ -2658,7 +2658,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST_api && steps.Gloo_PyTorch_MNIST_api_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --gloo
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo
         shell: bash
 
       - name: "Gloo PyTorch MNIST horovodrun [attempt 1 of 3]"
@@ -3099,7 +3099,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --mpi"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
       - name: "MPI PyTorch MNIST api [attempt 2 of 3]"
@@ -3108,7 +3108,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api && steps.MPI_PyTorch_MNIST_api_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --mpi"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
       - name: "MPI PyTorch MNIST api [attempt 3 of 3]"
@@ -3117,7 +3117,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api && steps.MPI_PyTorch_MNIST_api_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --mpi"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
       - name: "MPI PyTorch MNIST api [ONECCL MPI] [attempt 1 of 3]"
@@ -3126,7 +3126,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_MPI && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --mpi"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
       - name: "MPI PyTorch MNIST api [ONECCL MPI] [attempt 2 of 3]"
@@ -3135,7 +3135,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_MPI && steps.MPI_PyTorch_MNIST_api_ONECCL_MPI_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --mpi"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
       - name: "MPI PyTorch MNIST api [ONECCL MPI] [attempt 3 of 3]"
@@ -3144,7 +3144,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_MPI && steps.MPI_PyTorch_MNIST_api_ONECCL_MPI_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --mpi"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
       - name: "MPI PyTorch MNIST api [ONECCL OFI] [attempt 1 of 3]"
@@ -3153,7 +3153,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_OFI && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --mpi"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
       - name: "MPI PyTorch MNIST api [ONECCL OFI] [attempt 2 of 3]"
@@ -3162,7 +3162,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_OFI && steps.MPI_PyTorch_MNIST_api_ONECCL_OFI_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --mpi"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
       - name: "MPI PyTorch MNIST api [ONECCL OFI] [attempt 3 of 3]"
@@ -3171,7 +3171,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_OFI && steps.MPI_PyTorch_MNIST_api_ONECCL_OFI_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --mpi"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
       - name: "MPI PyTorch MNIST horovodrun [attempt 1 of 3]"

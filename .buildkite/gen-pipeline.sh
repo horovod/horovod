@@ -183,7 +183,7 @@ run_mpi_integration() {
       "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets\""
     run_test "${test}" "${queue}" \
       ":fire: MPI PyTorch MNIST api (${test})" \
-      "bash -c \"${oneccl_env} python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --mpi\""
+      "bash -c \"${oneccl_env} python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi\""
   fi
 
   if [[ ${test} == *"mxnet2_"* ]] || [[ ${test} == *"mxnethead"* ]]; then
@@ -301,7 +301,7 @@ run_gloo_integration() {
       "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
     run_test "${test}" "${queue}" \
       ":fire: Gloo PyTorch MNIST api (${test})" \
-      "python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --gloo"
+      "python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo"
   fi
 
   if [[ ${test} == *"mxnet2_"* ]] || [[ ${test} == *"mxnethead"* ]]; then
