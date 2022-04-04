@@ -580,34 +580,7 @@ def parse_args():
     return args
 
 
-def _run_static(args):
-    # horovodrun has to finish all the checks before this timeout runs out.
-    if args.start_timeout:
-        start_timeout = args.start_timeout
-    else:
-        # Lookup default timeout from the environment variable.
-        start_timeout = int(os.getenv('HOROVOD_START_TIMEOUT', '30'))
-
-    tmout = timeout.Timeout(start_timeout,
-                            message='Timed out waiting for {activity}. Please '
-                                    'check connectivity between servers. You '
-                                    'may need to increase the --start-timeout '
-                                    'parameter if you have too many servers.')
-    settings = hvd_settings.Settings(verbose=2 if args.verbose else 0,
-                                     ssh_port=args.ssh_port,
-                                     ssh_identity_file=args.ssh_identity_file,
-                                     extra_mpi_args=args.mpi_args,
-                                     tcp_flag=args.tcp_flag,
-                                     binding_args=args.binding_args,
-                                     key=secret.make_secret_key(),
-                                     start_timeout=tmout,
-                                     num_proc=args.num_proc,
-                                     hosts=args.hosts,
-                                     output_filename=args.output_filename,
-                                     run_func_mode=args.run_func is not None,
-                                     nics=args.nics,
-                                     prefix_output_with_timestamp=args.prefix_output_with_timestamp)
-
+def _get_nics(args, settings):
     # This cache stores the results of checks performed by horovod
     # during the initialization step. It can be disabled by setting
     # --disable-cache flag.
@@ -643,9 +616,39 @@ def _run_static(args):
         if settings.verbose >= 2:
             print('SSH was successful into all the remote hosts.')
 
-    nics = driver_service.get_common_interfaces(settings, all_host_names,
+    return driver_service.get_common_interfaces(settings, all_host_names,
                                                 remote_host_names, fn_cache)
 
+
+def _run_static(args):
+    # horovodrun has to finish all the checks before this timeout runs out.
+    if args.start_timeout:
+        start_timeout = args.start_timeout
+    else:
+        # Lookup default timeout from the environment variable.
+        start_timeout = int(os.getenv('HOROVOD_START_TIMEOUT', '30'))
+
+    tmout = timeout.Timeout(start_timeout,
+                            message='Timed out waiting for {activity}. Please '
+                                    'check connectivity between servers. You '
+                                    'may need to increase the --start-timeout '
+                                    'parameter if you have too many servers.')
+    settings = hvd_settings.Settings(verbose=2 if args.verbose else 0,
+                                     ssh_port=args.ssh_port,
+                                     ssh_identity_file=args.ssh_identity_file,
+                                     extra_mpi_args=args.mpi_args,
+                                     tcp_flag=args.tcp_flag,
+                                     binding_args=args.binding_args,
+                                     key=secret.make_secret_key(),
+                                     start_timeout=tmout,
+                                     num_proc=args.num_proc,
+                                     hosts=args.hosts,
+                                     output_filename=args.output_filename,
+                                     run_func_mode=args.run_func is not None,
+                                     nics=args.nics,
+                                     prefix_output_with_timestamp=args.prefix_output_with_timestamp)
+
+    nics = _get_nics(args, settings)
     if args.run_func:
         # get the driver IPv4 address
         driver_ip = network.get_driver_ip(nics)
@@ -721,7 +724,32 @@ def _run_elastic(args):
 
     env = os.environ.copy()
     config_parser.set_env_from_args(env, args)
-    gloo_run_elastic(settings, env, args.command)
+
+    nics = _get_nics(args, settings)
+    if args.run_func:
+        # get the driver IPv4 address
+        driver_ip = network.get_driver_ip(nics)
+        run_func_server = KVStoreServer(verbose=settings.verbose)
+        run_func_server_port = run_func_server.start_server()
+        put_data_into_kvstore(driver_ip, run_func_server_port,
+                              'runfunc', 'func', args.run_func)
+
+        executable = args.executable or sys.executable
+        command = [executable, '-m', 'horovod.runner.run_task', str(driver_ip), str(run_func_server_port)]
+
+        try:
+            gloo_run_elastic(settings, env, command)
+            results = [None] * args.min_num_proc
+            # TODO: make it parallel to improve performance
+            for i in range(args.min_num_proc):
+                results[i] = read_data_from_kvstore(driver_ip, run_func_server_port,
+                                                    'runfunc_result', str(i))
+            return results
+        finally:
+            run_func_server.shutdown_server()
+    else:
+        gloo_run_elastic(settings, env, args.command)
+        return None
 
 
 def is_gloo_used(use_gloo=None, use_mpi=None, use_jsrun=None):

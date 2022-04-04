@@ -298,6 +298,13 @@ run_gloo_integration() {
         ":tensorflow: Gloo TensorFlow 2.0 Keras MNIST api (${test})" \
         "python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 gloo"
     fi
+
+    run_test "${test}" "${queue}" \
+      ":tensorflow: Gloo TensorFlow 2.0 MNIST Elastic horovodrun (${test})" \
+      "horovodrun -np 2 --min-np 2 --max-np 2 -H localhost:2,127.0.0.1:2 --gloo python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py"
+    run_test "${test}" "${queue}" \
+      ":tensorflow: Gloo TensorFlow 2.0 MNIST Elastic api (${test})" \
+      "python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py 2 2 2 localhost:2,127.0.0.1:2"
   else
     run_test "${test}" "${queue}" \
       ":tensorflow: Gloo TensorFlow MNIST (${test})" \

@@ -109,6 +109,42 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v572
+- label: ':tensorflow: Gloo TensorFlow 2.0 MNIST Elastic horovodrun (test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1)'
+  command: horovodrun -np 2 --min-np 2 --max-np 2 -H localhost:2,127.0.0.1:2 --gloo python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py
+  artifact_paths: "artifacts/**"
+  env:
+    COMPOSE_HTTP_TIMEOUT: 300
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: 2x-gpu-v572
+- label: ':tensorflow: Gloo TensorFlow 2.0 MNIST Elastic api (test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1)'
+  command: python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py 2 2 2 localhost:2,127.0.0.1:2
+  artifact_paths: "artifacts/**"
+  env:
+    COMPOSE_HTTP_TIMEOUT: 300
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: 2x-gpu-v572
 - label: ':fire: Gloo PyTorch MNIST horovodrun (test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
