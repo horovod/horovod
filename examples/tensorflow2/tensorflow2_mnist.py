@@ -20,7 +20,7 @@ import horovod
 import horovod.tensorflow as hvd
 
 
-def train():
+def main():
     # Horovod: initialize Horovod.
     hvd.init()
 
@@ -58,7 +58,6 @@ def train():
     checkpoint_dir = './checkpoints'
     checkpoint = tf.train.Checkpoint(model=mnist_model, optimizer=opt)
 
-
     @tf.function
     def training_step(images, labels, first_batch):
         with tf.GradientTape() as tape:
@@ -83,7 +82,6 @@ def train():
 
         return loss_value
 
-
     # Horovod: adjust number of steps based on number of GPUs.
     for batch, (images, labels) in enumerate(dataset.take(10000 // hvd.size())):
         loss_value = training_step(images, labels, batch == 0)
@@ -95,7 +93,6 @@ def train():
     # corrupting it.
     if hvd.rank() == 0:
         checkpoint.save(checkpoint_dir)
-        return mnist_model
 
 
 if __name__ == '__main__':
@@ -105,7 +102,7 @@ if __name__ == '__main__':
         hosts = sys.argv[2]
         comm = sys.argv[3]
         print('Running training through horovod.run')
-        models = horovod.run(train, np=np, hosts=hosts, use_gloo=comm == 'gloo', use_mpi=comm == 'mpi', verbose=2)
+        horovod.run(main, np=np, hosts=hosts, use_gloo=comm == 'gloo', use_mpi=comm == 'mpi')
     else:
         # this is running via horovodrun
-        train()
+        main()

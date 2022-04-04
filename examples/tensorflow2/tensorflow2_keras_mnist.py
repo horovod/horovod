@@ -21,7 +21,7 @@ import horovod
 import horovod.tensorflow.keras as hvd
 
 
-def train():
+def main():
     # Horovod: initialize Horovod.
     hvd.init()
 
@@ -96,9 +96,6 @@ def train():
     # Horovod: adjust number of steps based on number of GPUs.
     mnist_model.fit(dataset, steps_per_epoch=500 // hvd.size(), callbacks=callbacks, epochs=24, verbose=verbose)
 
-    # Return the model
-    return mnist_model
-
 
 if __name__ == '__main__':
     if len(sys.argv) == 4:
@@ -107,7 +104,7 @@ if __name__ == '__main__':
         hosts = sys.argv[2]
         comm = sys.argv[3]
         print('Running training through horovod.run')
-        models = horovod.run(train, np=np, hosts=hosts, use_gloo=comm == 'gloo', use_mpi=comm == 'mpi', verbose=2)
+        horovod.run(main, np=np, hosts=hosts, use_gloo=comm == 'gloo', use_mpi=comm == 'mpi')
     else:
         # this is running via horovodrun
-        train()
+        main()

@@ -67,7 +67,7 @@ class Net(nn.Module):
         return F.log_softmax(x)
 
 
-def train(args):
+def main(args):
     def train_mixed_precision(epoch, scaler):
         model.train()
         # Horovod: set epoch to sampler for shuffling.
@@ -148,6 +148,7 @@ def train(args):
         if hvd.rank() == 0:
             print('\nTest set: Average loss: {:.4f}, Accuracy: {:.2f}%\n'.format(
                 test_loss, 100. * test_accuracy))
+
     # Horovod: initialize library.
     hvd.init()
     torch.manual_seed(args.seed)
@@ -251,13 +252,12 @@ if __name__ == '__main__':
     if args.num_proc:
         # run training through horovod.run
         print('Running training through horovod.run')
-        models = horovod.run(train,
-                             args=(args,),
-                             np=args.num_proc,
-                             hosts=args.hosts,
-                             use_gloo=args.communication == 'gloo',
-                             use_mpi=args.communication == 'mpi',
-                             verbose=2)
+        horovod.run(main,
+                    args=(args,),
+                    np=args.num_proc,
+                    hosts=args.hosts,
+                    use_gloo=args.communication == 'gloo',
+                    use_mpi=args.communication == 'mpi')
     else:
         # this is running via horovodrun
-        train(args)
+        main(args)

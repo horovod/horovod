@@ -33,7 +33,7 @@ parser.add_argument('--hosts', help='hosts to run on in notation: hostname:slots
 parser.add_argument('--communication', help='collaborative communication to use: gloo, mpi')
 
 
-def train(args):
+def main(args):
     # Function to get mnist iterator given a rank
     def get_mnist_iterator(rank):
         data_dir = "data-%d" % rank
@@ -166,8 +166,6 @@ def train(args):
             assert val_acc > 0.96, "Achieved accuracy (%f) is lower than expected\
                                     (0.96)" % val_acc
 
-        return model
-
 
 if __name__ == '__main__':
     args = parser.parse_args()
@@ -183,13 +181,12 @@ if __name__ == '__main__':
     if args.num_proc:
         # run training through horovod.run
         print(f'Running training through horovod.run')
-        models = horovod.run(train,
-                             args=(args,),
-                             np=args.num_proc,
-                             hosts=args.hosts,
-                             use_gloo=args.communication == 'gloo',
-                             use_mpi=args.communication == 'mpi',
-                             verbose=2)
+        horovod.run(main,
+                    args=(args,),
+                    np=args.num_proc,
+                    hosts=args.hosts,
+                    use_gloo=args.communication == 'gloo',
+                    use_mpi=args.communication == 'mpi')
     else:
         # this is running via horovodrun
-        train(args)
+        main(args)
