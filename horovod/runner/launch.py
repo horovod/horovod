@@ -580,6 +580,34 @@ def parse_args():
     return args
 
 
+def _get_ips(nics):
+    import psutil
+    import socket
+
+    ips = set()
+    for intf, intf_addresses in psutil.net_if_addrs().items():
+        if nics and intf not in nics:
+            continue
+        for addr in intf_addresses:
+            if addr.family == socket.AF_INET:
+                ips.add(str(addr.address))
+
+    if len(ips) == 0:
+        if nics:
+            raise ValueError(f'No IP found for NICs {nics}')
+        else:
+            raise ValueError('No IPv4 IP found found')
+
+    # sort ips, move localhost IP to the front
+    localhost = '127.0.0.1'
+    ips = sorted(list(ips))
+    if localhost in ips:
+        pos = ips.index(localhost)
+        ips = [ips[pos]] + ips[:pos] + ips[pos+1:]
+
+    return list(ips)
+
+
 def _get_nics(args, settings):
     # This cache stores the results of checks performed by horovod
     # during the initialization step. It can be disabled by setting
@@ -725,24 +753,23 @@ def _run_elastic(args):
     env = os.environ.copy()
     config_parser.set_env_from_args(env, args)
 
-    nics = _get_nics(args, settings)
+    driver_ips = _get_ips(settings.nics)
     if args.run_func:
         # get the driver IPv4 address
-        driver_ip = network.get_driver_ip(nics)
         run_func_server = KVStoreServer(verbose=settings.verbose)
         run_func_server_port = run_func_server.start_server()
-        put_data_into_kvstore(driver_ip, run_func_server_port,
+        put_data_into_kvstore(driver_ips[0], run_func_server_port,
                               'runfunc', 'func', args.run_func)
 
         executable = args.executable or sys.executable
-        command = [executable, '-m', 'horovod.runner.run_task', str(driver_ip), str(run_func_server_port)]
+        command = [executable, '-m', 'horovod.runner.run_task', ','.join(driver_ips), str(run_func_server_port)]
 
         try:
             gloo_run_elastic(settings, env, command)
             results = [None] * args.min_num_proc
             # TODO: make it parallel to improve performance
             for i in range(args.min_num_proc):
-                results[i] = read_data_from_kvstore(driver_ip, run_func_server_port,
+                results[i] = read_data_from_kvstore(driver_ips[0], run_func_server_port,
                                                     'runfunc_result', str(i))
             return results
         finally:
