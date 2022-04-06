@@ -29,15 +29,20 @@ def _get_func(addrs, port, timeout=5):
             func = read_data_from_kvstore(addr, port, 'runfunc', 'func', timeout=timeout)
             return addr, func
         except RuntimeError as e:
+            # when there is only one addr in addrs, raise this error as is
+            # that was the behaviour before introducing multiple addrs
+            if len(addrs) == 1:
+                raise
+
             # when the RuntimeError is caused by an URLError, the addr is probably not reachable for us
             if len(e.args) >= 2 and isinstance(e.args[1], URLError):
                 # provide a warning when multiple addrs are provided on how to improve this situation
-                if len(addrs) > 1:
-                    print(f'Driver is not reachable at {addr} within {timeout} seconds. '
-                          f'Consider restricting the driver to some NICs, '
-                          f'which reduces the number of IPs probed here.')
+                print(f'Driver is not reachable at {addr} within {timeout} seconds. '
+                      f'Consider restricting the driver to some NICs, '
+                      f'which reduces the number of IPs probed here: {e}')
                 continue
-    raise ValueError(f'None of the provided IPs could be used to connect to driver''s KV store: {", ".join(addrs)}')
+
+    raise ValueError(f"None of the provided IPs could be used to connect to driver's KV store: {', '.join(addrs)}")
 
 
 def main(addrs, port):
