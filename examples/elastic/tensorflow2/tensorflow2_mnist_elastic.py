@@ -105,7 +105,6 @@ def main():
     # corrupting it.
     if hvd.rank() == 0:
         checkpoint.save(checkpoint_dir)
-        return mnist_model
 
 
 if __name__ == '__main__':
@@ -116,8 +115,8 @@ if __name__ == '__main__':
         max_num_proc = int(sys.argv[3])
         hosts = sys.argv[4]
         print('Running training through horovod.run')
-        models = horovod.run(main, num_proc=num_proc, min_num_proc=min_num_proc, max_num_proc=max_num_proc,
-                             hosts=hosts, use_gloo=True, verbose=2)
+        horovod.run(main, num_proc=num_proc, min_num_proc=min_num_proc, max_num_proc=max_num_proc,
+                    hosts=hosts, use_gloo=True, verbose=2)
     else:
         # this is running via horovodrun
         main()
