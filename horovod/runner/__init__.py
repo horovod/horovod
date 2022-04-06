@@ -135,6 +135,7 @@ def run(
     :param min_num_proc: Minimum number of processes running for training to continue. If number of
                    available processes dips below this threshold, then training will wait for
                    more instances to become available. Defaults to num_proc
+                   Consider providing network_interface to speed up elastic tasks startup.
     :param max_num_proc: Maximum number of training processes, beyond which no additional processes
                    will be created. If not specified, then will be unbounded.
     :param slots: Number of slots for processes per host. Normally 1 slot per GPU per host.
@@ -161,6 +162,7 @@ def run(
                                   Providing a discovery script enables elastic training.
                                   The job will fail immediately if execution of the script returns a non-zero exit
                                   code on the first call. Subsequent calls will be retried until timeout.
+                                  Consider providing network_interface to speed up elastic tasks startup.
     :param start_timeout: Horovodrun has to perform all the checks and
                           start the processes before the specified
                           timeout. The default value is 30 seconds.
