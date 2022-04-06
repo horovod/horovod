@@ -42,7 +42,7 @@ class BaseSettings(object):
         :param run_func_mode: whether it is run function mode
         :type run_func_mode: boolean
         :param nics: specify the NICs to be used for tcp network communication.
-        :type nics: string
+        :type nics: Iterable[str]
         :param elastic: enable elastic auto-scaling and fault tolerance mode
         :type elastic: boolean
         :param prefix_output_with_timestamp: shows timestamp in stdout/stderr forwarding on the driver

@@ -240,6 +240,49 @@ def make_deprecated_bool_action(override_args, bool_value, replacement_option, r
     return StoreOverrideBoolAction
 
 
+def make_nic_action(deprecated):
+    # This is an append Action that splits the values on ','
+    # where that splitting can be marked deprecated, depending on the actual command line argument used
+    class NicAction(argparse.Action):
+        def __init__(self,
+                     option_strings,
+                     dest,
+                     default=None,
+                     type=None,
+                     choices=None,
+                     required=False,
+                     help=None):
+            super(NicAction, self).__init__(
+                option_strings=option_strings,
+                dest=dest,
+                nargs=1,
+                default=default,
+                type=type,
+                choices=choices,
+                required=required,
+                help=help)
+
+        def __call__(self, parser, args, values, option_string=None):
+            if ',' in values[0]:
+                if deprecated:
+                    # providing a list of interfaces is deprecated, so we warn but split it anyway
+                    warnings.warn(f'Providing multiple interfaces via --network-interface is deprecated. '
+                                  f'Please use --network-interfaces instead, or use '
+                                  f'multiple --network-interface arguments with a '
+                                  f'single network interface each.',
+                                  DeprecationWarning)
+                values = values[0].split(',')
+
+            # union the existing dest nics with the new ones
+            items = getattr(args, self.dest, None)
+            items = set() if items is None else items
+            items = items.union(values)
+
+            setattr(args, self.dest, items)
+
+    return NicAction
+
+
 def parse_args():
     override_args = set()
 
@@ -273,10 +316,18 @@ def parse_args():
                              'HOROVOD_START_TIMEOUT can also be used to '
                              'specify the initialization timeout.')
 
-    parser.add_argument('--network-interface', action='store', dest='nics',
+    parser.add_argument('--network-interfaces', action=make_nic_action(deprecated=False), dest='nics',
                         help='Network interfaces that can be used for communication separated by '
                              'comma. If not specified, Horovod will find the common NICs among all '
-                             'the workers and use it; example, --network-interface "eth0,eth1".')
+                             'the workers and use it. Also see --network-interface. '
+                             'Example: --network-interfaces "eth0,eth1".')
+
+    # once deprecated use of --network-interface is removed, replace action=NicAction with action='append'
+    parser.add_argument('--network-interface', action=make_nic_action(deprecated=True), dest='nics',
+                        help='Network interface that can be used for communication. Use multiple times '
+                             'to configure multiple interfaces. If not specified, Horovod will find the'
+                             'common NICs among all the workers and use it. Also see --network-interfaces. '
+                             'Example: --network-interface eth0 --network-interface eth1')
 
     parser.add_argument('--output-filename', action='store',
                         help='For Gloo, writes stdout / stderr of all processes to a filename of the form '
@@ -755,9 +806,6 @@ def _run(args):
         else:
             # Set hosts to localhost if not specified
             args.hosts = f'localhost:{args.num_proc}'
-
-    # Convert nics into set
-    args.nics = set(args.nics.split(',')) if args.nics else None
 
     if _is_elastic(args):
         return _run_elastic(args)
