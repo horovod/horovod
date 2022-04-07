@@ -186,10 +186,12 @@ public:
       int64_t size, std::shared_ptr<common::PersistentBuffer>* tensor) override;
   virtual common::Status
   AllocateOutput(common::TensorShape shape,
-                 std::shared_ptr<common::Tensor>* tensor) override;
+                 std::shared_ptr<common::Tensor>* tensor,
+                 std::shared_ptr<common::ReadyEvent>* event = nullptr) override;
   virtual common::Status
   AllocateOutput(int output_index, common::TensorShape shape,
-                 std::shared_ptr<common::Tensor>* tensor) override;
+                 std::shared_ptr<common::Tensor>* tensor,
+                 std::shared_ptr<common::ReadyEvent>* event = nullptr) override;
   virtual common::Status
   AllocateZeros(int64_t num_elements, common::DataType dtype,
                 std::shared_ptr<common::Tensor>* tensor) override;
@@ -303,6 +305,18 @@ int64_t TFTensor::size() const { return (int64_t)tensor_.tensor_data().size(); }
 
 const ::tensorflow::Tensor*  TFTensor::tensor() const { return &tensor_; }
 
+// On GPU this event will signal that data is ready, and tensors are
+// allocated.
+#if HAVE_GPU
+common::ReadyEvent* RecordReadyEvent(OpKernelContext* context) {
+  auto device_context = context->op_device_context();
+  if (device_context != nullptr) {
+    return new TFReadyEvent(context);
+  }
+  return nullptr;
+}
+#endif
+
 TFOpContext::TFOpContext(OpKernelContext* context) : context_(context) {}
 
 common::Status TFOpContext::AllocatePersistent(
@@ -317,13 +331,15 @@ common::Status TFOpContext::AllocatePersistent(
 
 common::Status
 TFOpContext::AllocateOutput(common::TensorShape shape,
-                            std::shared_ptr<common::Tensor>* tensor) {
-  return TFOpContext::AllocateOutput(0, shape, tensor);
+                            std::shared_ptr<common::Tensor>* tensor,
+                            std::shared_ptr<common::ReadyEvent>* event) {
+  return TFOpContext::AllocateOutput(0, shape, tensor, event);
 }
 
 common::Status
 TFOpContext::AllocateOutput(int output_index, common::TensorShape shape,
-                            std::shared_ptr<common::Tensor>* tensor) {
+                            std::shared_ptr<common::Tensor>* tensor,
+                            std::shared_ptr<common::ReadyEvent>* event) {
   TensorShape tf_shape;
   for (int idx = 0; idx < shape.dims(); ++idx) {
     tf_shape.AddDim(shape.dim_size(idx));
@@ -338,7 +354,11 @@ TFOpContext::AllocateOutput(int output_index, common::TensorShape shape,
   // complete.
   auto device_context = context_->op_device_context();
   if (device_context != nullptr) {
-    device_context->stream()->BlockHostUntilDone();
+    if (event == nullptr) {
+      device_context->stream()->BlockHostUntilDone();
+    } else {
+      *event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context_));
+    }
   }
 #endif
   return ConvertStatus(status);
@@ -402,18 +422,6 @@ int GetDeviceID(OpKernelContext* context) {
   }
   return device;
 }
-
-// On GPU this event will signal that data is ready, and tensors are
-// allocated.
-#if HAVE_GPU
-common::ReadyEvent* RecordReadyEvent(OpKernelContext* context) {
-  auto device_context = context->op_device_context();
-  if (device_context != nullptr) {
-    return new TFReadyEvent(context);
-  }
-  return nullptr;
-}
-#endif
 
 } // namespace
 

@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - MXNet: Updated allreduce functions to newer `op` API. ([#3299](https://github.com/horovod/horovod/pull/3299))
 
+- TF: Make TensorFlow output allocations asynchronous when using NCCL backend. ([#3464](https://github.com/horovod/horovod/pull/3464))
+
 ### Deprecated
 
 - MXNet: Deprecated `average` argument of allreduce functions. ([#3299](https://github.com/horovod/horovod/pull/3299))
