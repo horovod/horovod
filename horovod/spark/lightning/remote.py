@@ -116,12 +116,15 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
         if random_seed is not None:
             pl.utilities.seed.seed_everything(seed=random_seed)
 
+        import os
         # Horovod: initialize library.
         hvd.init()
 
         if verbose:
             import horovod as _horovod
             print(f"Shared lib path is pointing to: {_horovod.common.process_sets._basics.MPI_LIB_CTYPES}")
+        timeout = os.environ['RAY_kill_worker_timeout_milliseconds']
+        print(f"RAY_kill_worker_timeout_milliseconds: {timeout}")
 
         _checkpoint_callback = None
         require_checkpoint = False
