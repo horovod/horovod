@@ -119,8 +119,8 @@ class LocalGradientAggregationHelperEager:
     def _clear_vars(self):
         self.counter.assign(0)
         for idx in self.locally_aggregated_grads.keys():
-            self.locally_aggregated_grads[idx].assign_add(
-                -1 * self.locally_aggregated_grads[idx])
+            self.locally_aggregated_grads[idx].assign(
+                tf.zeros_like(self.locally_aggregated_grads[idx]))
 
     def apply_gradients(self, apply_grads_closure, optimizer, *args, **kwargs):
         def increment_optimizer_iteration():

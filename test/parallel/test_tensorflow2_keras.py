@@ -182,6 +182,33 @@ class Tf2KerasTests(tf.test.TestCase):
         aggregation_counter = opt._agg_helper.counter.numpy()
         assert aggregation_counter == training_steps % backward_passes_per_step
 
+    def test_grad_aggregation_with_inf_grad(self):
+        backward_passes_per_step = 2
+        step_count = tf.Variable(0, trainable=False, dtype=tf.int32)
+        opt = tf.optimizers.SGD()
+        opt = hvd.DistributedOptimizer(
+            opt, 
+            backward_passes_per_step=backward_passes_per_step,
+            sparse_as_dense=True
+        )
+        x = tf.Variable(0.)
+        var = [x]
+
+        def loss():
+            step_count.assign_add(1)
+            return tf.cond(
+                pred=tf.greater(step_count, 1),
+                true_fn=lambda: x,
+                false_fn=lambda: x * float('inf')
+            )
+        for _ in range(2 * backward_passes_per_step):
+            # in the first aggregation cycle the gradient is infinite,
+            # and it should be cleaned up to zero after apply_gradients
+            # and doesn't affect the 2nd aggregation cycle
+            grads_and_vars = opt._compute_gradients(loss=loss, var_list=var)
+            opt.apply_gradients(grads_and_vars)
+        assert tf.math.is_finite(grads_and_vars[0][0])
+
     def test_from_config(self):
         opt = keras.optimizers.Adam()
         hopt = hvd.DistributedOptimizer(opt)
