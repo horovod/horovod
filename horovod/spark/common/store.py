@@ -181,7 +181,8 @@ class AbstractFilesystemStore(Store):
         super().__init__()
 
     def exists(self, path):
-        return self.fs.exists(self.get_localized_path(path)) or self.fs.isdir(path)
+        localized_path = self.get_localized_path(path)
+        return self.fs.exists(localized_path) or self.fs.isdir(localized_path)
 
     def read(self, path):
         with self.fs.open(self.get_localized_path(path), 'rb') as f:
@@ -532,6 +533,11 @@ class HDFSStore(AbstractFilesystemStore):
         return path.startswith(cls.FS_PREFIX)
 
 
+# If `_DBFS_PATH_MAPPING_TO_PATH` is not None, map `/dbfs/...` path to `{_DBFS_PATH_MAPPING_TO_PATH}/...`
+# This is used in testing.
+_DBFS_PATH_MAPPING_TO_PATH = None
+
+
 class DBFSLocalStore(FilesystemStore):
     """Uses Databricks File System (DBFS) local file APIs as a store of intermediate data and
     training artifacts.
@@ -539,16 +545,25 @@ class DBFSLocalStore(FilesystemStore):
     Initialized from a `prefix_path` starts with `/dbfs/...`, `file:///dbfs/...` or `dbfs:/...`, see
     https://docs.databricks.com/data/databricks-file-system.html#local-file-apis.
     """
+
+    DBFS_PATH_FORMAT_ERROR = "The provided path is not a DBFS path: {}, Please provide a path " \
+                             "starting with `/dbfs/...` or `dbfs:/...` or `file:/dbfs/...` or " \
+                             "`file:///dbfs/...`."
+
     def __init__(self, prefix_path, *args, **kwargs):
         prefix_path = self.normalize_path(prefix_path)
-        if not prefix_path.startswith("/dbfs/"):
-            warnings.warn("The provided prefix_path might be ephemeral: {} Please provide a "
-                          "`prefix_path` starting with `/dbfs/...`".format(prefix_path))
+        if not DBFSLocalStore.matches_dbfs(prefix_path):
+            raise ValueError(DBFSLocalStore.DBFS_PATH_FORMAT_ERROR.format(prefix_path))
         super(DBFSLocalStore, self).__init__(prefix_path, *args, **kwargs)
+
+    @staticmethod
+    def _get_dbfs_path_format_error(path):
+        return
 
     @classmethod
     def matches_dbfs(cls, path):
-        return path.startswith("dbfs:/") or path.startswith("/dbfs/") or path.startswith("file:///dbfs/")
+        return path.startswith("dbfs:/") or path.startswith("/dbfs/") or path.startswith("file:///dbfs/") \
+                or path.startswith("file:/dbfs/")
 
     @staticmethod
     def normalize_path(path):
@@ -557,9 +572,24 @@ class DBFSLocalStore(FilesystemStore):
         """
         if path.startswith("dbfs:/"):
             return "/dbfs" + path[5:]
-        if path.startswith("file:///dbfs/"):
+        elif path.startswith("/dbfs/"):
+            return path
+        elif path.startswith("file:///dbfs/"):
             return path[7:]
-        return path
+        elif path.startswith("file:/dbfs/"):
+            return path[5:]
+        else:
+            raise ValueError(DBFSLocalStore.DBFS_PATH_FORMAT_ERROR.format(path))
+
+    def get_localized_path(self, path):
+        local_path = DBFSLocalStore.normalize_path(path)
+        if _DBFS_PATH_MAPPING_TO_PATH:
+            return os.path.join(_DBFS_PATH_MAPPING_TO_PATH, path[6:])
+        else:
+            return local_path
+
+    def get_full_path(self, path):
+        return "file://" + DBFSLocalStore.normalize_path(path)
 
     def get_checkpoint_filename(self):
         # Use the default Tensorflow SavedModel format in TF 2.x. In TF 1.x, the SavedModel format
