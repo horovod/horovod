@@ -416,10 +416,17 @@ OpKernelContext* TFOpContext::GetKernelContext() const { return context_; }
 
 int GetDeviceID(OpKernelContext* context) {
   int device = CPU_DEVICE_ID;
+#if TENSORFLOW_VERSION >= 2009000000
+  if (context->device() != nullptr &&
+      context->device()->tensorflow_accelerator_device_info() != nullptr) {
+    device = context->device()->tensorflow_accelerator_device_info()->gpu_id;
+  }
+#else
   if (context->device() != nullptr &&
       context->device()->tensorflow_gpu_device_info() != nullptr) {
     device = context->device()->tensorflow_gpu_device_info()->gpu_id;
   }
+#endif // TENSORFLOW_VERSION >= 2009000000
   return device;
 }
 
