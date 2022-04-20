@@ -17,9 +17,7 @@ import argparse
 import os
 import sys
 
-import tensorflow as tf
-
-from horovod import run
+from horovod.runner.common.util import env
 from horovod.tensorflow.data.compute_service import TfDataServiceConfig
 from tensorflow2_mnist_data_service_train_fn_compute_side_dispatcher import train_fn as train_fn_compute_side
 from tensorflow2_mnist_data_service_train_fn_training_side_dispatcher import train_fn as train_fn_training_side
@@ -33,9 +31,8 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--compute-service-config-file", required=True, type=str,
-                        help=f"The path to the compute service config file.",
-                        dest="compute_service_config_file")
+    parser.add_argument("configfile", type=str,
+                        help=f"The path to the compute service config file.")
 
     parser.add_argument("--training-tasks", required=False, type=int,
                         help=f"The number of training tasks when there is only one dispatcher. "
@@ -53,22 +50,15 @@ if __name__ == '__main__':
 
     parsed_args = parser.parse_args()
 
-    compute_config = TfDataServiceConfig.read(parsed_args.compute_service_config_file)
+    compute_config = TfDataServiceConfig.read(parsed_args.configfile, wait_for_file_creation=True)
 
-    if compute_config.dispatchers == 1:
-        if parsed_args.training_tasks is None:
-            print('Please provide the number of training tasks via --training-tasks since the data service '
-                  'is configured to have only one dispatcher for all tasks.\n'
-                  'Thus we cannot determine the number of training tasks from the dispatchers.', file=sys.stderr)
-            sys.exit(1)
-    else:
-        if parsed_args.training_tasks is not None and parsed_args.training_tasks != compute_config.dispatchers:
-            print(f'The provide number of training tasks ({parsed_args.training_tasks}) must match '
-                  f'the number of dispatchers ({compute_config.dispatchers}) configured in the '
-                  f'data service config file ({parsed_args.compute_service_config_file}).', file=sys.stderr)
-            sys.exit(1)
+    rank, size = env.get_env_rank_and_size()
 
-    training_tasks = parsed_args.training_tasks or compute_config.dispatchers
+    if compute_config.dispatchers > 1 and compute_config.dispatchers != size:
+        print(f'Unless there is only one dispatcher, the number of training tasks ({size}) must match '
+              f'the number of dispatchers ({compute_config.dispatchers}) configured in the '
+              f'data service config file ({parsed_args.compute_service_config_file}).', file=sys.stderr)
+        sys.exit(1)
 
     # pick the right train_fn depending on the dispatcher side
     if compute_config.dispatcher_side == 'training':
@@ -78,21 +68,9 @@ if __name__ == '__main__':
     else:
         raise ValueError(f'Unsupported dispatcher side: {compute_config.dispatcher_side}')
 
-    # before we start training, make sure the dataset exists,
-    # as it will be downloaded by each train_fn if it does not exist
-    dataset_dir = f'{os.getcwd()}/mnist'
-    os.makedirs(dataset_dir, exist_ok=True)
-    dataset_path = f'{dataset_dir}/mnist.npz'
-    tf.keras.datasets.mnist.load_data(path=dataset_path)
-
     # run the distributed training
-    run(train_fn,
-        args=(dataset_path, compute_config),
-        kwargs={
-            'reuse_dataset': parsed_args.reuse_dataset,
-            'round_robin': parsed_args.round_robin
-        },
-        np=training_tasks)
+    train_fn(compute_config, reuse_dataset=parsed_args.reuse_dataset, round_robin=parsed_args.round_robin)
 
-    compute = compute_config.compute_client(verbose=2)
-    compute.shutdown()
+    if rank == 0:
+        compute = compute_config.compute_client(verbose=2)
+        compute.shutdown()

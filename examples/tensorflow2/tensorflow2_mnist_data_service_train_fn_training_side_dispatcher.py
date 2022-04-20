@@ -16,20 +16,23 @@
 import os
 
 import tensorflow as tf
+from filelock import FileLock
 
 import horovod.tensorflow.keras as hvd
 from horovod.tensorflow.data.compute_service import TfDataServiceConfig, tf_data_service
 
 
 # arguments reuse_dataset and round_robin only used when single dispatcher is present
-def train_fn(dataset_path: str, compute_config: TfDataServiceConfig, reuse_dataset: bool = False, round_robin: bool = False):
+def train_fn(compute_config: TfDataServiceConfig, reuse_dataset: bool = False, round_robin: bool = False):
     # Horovod: initialize Horovod.
     hvd.init()
     rank = hvd.rank()
     size = hvd.size()
 
     with tf_data_service(compute_config, rank) as dispatcher_address:
-        (mnist_images, mnist_labels), _ = tf.keras.datasets.mnist.load_data(path=dataset_path)
+        # this lock guarantees only one training task downloads the dataset
+        with FileLock(os.path.expanduser("~/.horovod_lock")):
+            (mnist_images, mnist_labels), _ = tf.keras.datasets.mnist.load_data(path=f'{os.getcwd()}/mnist/mnist.npz')
 
         dataset = tf.data.Dataset.from_tensor_slices(
             (tf.cast(mnist_images[..., tf.newaxis] / 255.0, tf.float32),
@@ -41,11 +44,11 @@ def train_fn(dataset_path: str, compute_config: TfDataServiceConfig, reuse_datas
             .shuffle(10000) \
             .batch(128) \
             .apply(tf.data.experimental.service.distribute(
-            processing_mode="distributed_epoch",
-            service=dispatcher_address,
-            job_name='job' if reuse_dataset else None,
-            consumer_index=rank if round_robin else None,
-            num_consumers=size if round_robin else None)) \
+                processing_mode="distributed_epoch",
+                service=dispatcher_address,
+                job_name='job' if reuse_dataset else None,
+                consumer_index=rank if round_robin else None,
+                num_consumers=size if round_robin else None)) \
             .prefetch(tf.data.experimental.AUTOTUNE)
 
         mnist_model = tf.keras.Sequential([

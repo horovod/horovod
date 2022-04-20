@@ -58,7 +58,7 @@ if __name__ == '__main__':
 
     parsed_args = parser.parse_args()
 
-    compute_config = TfDataServiceConfig.read(parsed_args.compute_service_config_file)
+    compute_config = TfDataServiceConfig.read(parsed_args.compute_service_config_file, wait_for_file_creation=True)
 
     if compute_config.dispatchers == 1:
         if parsed_args.training_tasks is None:
