@@ -559,21 +559,23 @@ class DBFSLocalStore(FilesystemStore):
 
     @classmethod
     def matches_dbfs(cls, path):
-        return path.startswith("dbfs:/") or path.startswith("/dbfs/") or path.startswith("file:///dbfs/") \
-                or (path.startswith("file:/dbfs/") and not path.startswith("file://dbfs/"))
+        return (path.startswith("dbfs:/") and not path.startswith("dbfs://")) or \
+               path.startswith("/dbfs/") or \
+               path.startswith("file:///dbfs/") or \
+               path.startswith("file:/dbfs/")
 
     @staticmethod
     def normalize_path(path):
         """
         Normalize the path to the form `/dbfs/...`
         """
-        if path.startswith("dbfs:/"):
+        if path.startswith("dbfs:/") and not path.startswith("dbfs://"):
             return "/dbfs" + path[5:]
         elif path.startswith("/dbfs/"):
             return path
         elif path.startswith("file:///dbfs/"):
             return path[7:]
-        elif path.startswith("file:/dbfs/") and not path.startswith("file://dbfs/"):
+        elif path.startswith("file:/dbfs/"):
             return path[5:]
         else:
             raise ValueError(DBFSLocalStore.DBFS_PATH_FORMAT_ERROR.format(path))
