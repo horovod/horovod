@@ -580,6 +580,10 @@ class DBFSLocalStore(FilesystemStore):
         else:
             raise ValueError(DBFSLocalStore.DBFS_PATH_FORMAT_ERROR.format(path))
 
+    def exists(self, path):
+        localized_path = self.get_localized_path(path)
+        return self.fs.exists(localized_path)
+
     def get_localized_path(self, path):
         local_path = DBFSLocalStore.normalize_path(path)
         if _DBFS_PREFIX_MAPPING:
