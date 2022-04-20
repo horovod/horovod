@@ -8,7 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- Added `hvd.reducescatter()` operation with implementations in NCCL, MPI, and Gloo. ([#3299](https://github.com/horovod/horovod/pull/3299)) 
+- Added `hvd.reducescatter()` operation with implementations in NCCL, MPI, and Gloo. ([#3299](https://github.com/horovod/horovod/pull/3299))
+
+- Spark: expose random seed as an optional parameter. ([#3517](https://github.com/horovod/horovod/pull/3517))
 
 ### Changed
 

@@ -47,6 +47,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     sample_weight_col = estimator.getSampleWeightCol()
     custom_objects = estimator.getCustomObjects()
     should_validate = estimator.getValidation()
+    random_seed = estimator.getRandomSeed()
     user_shuffle_buffer_size = estimator.getShufflingBufferSize()
     user_verbose = estimator.getVerbose()
     checkpoint_callback = estimator.getCheckpointCallback()
@@ -111,6 +112,12 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
         hvd.init()
 
         pin_gpu(hvd, tf, k)
+
+        if random_seed is not None:
+            if LooseVersion(tf.__version__) < LooseVersion('2.0.0'):
+                tf.random.set_random_seed(random_seed)
+            else:
+                tf.random.set_seed(random_seed)
 
         # If user specifies any user_shuffle_buffer_size (even 0), we should honor it.
         if user_shuffle_buffer_size is None:
@@ -217,7 +224,8 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 schema_fields.append(sample_weight_col)
 
             if verbose:
-                print(f"Training parameters: Epochs: {epochs}, Scaled lr: {scaled_lr}, Shuffle size: {shuffle_buffer_size}\n"
+                print(f"Training parameters: Epochs: {epochs}, Scaled lr: {scaled_lr}, "
+                      f"Shuffle size: {shuffle_buffer_size}, random_seed: {random_seed}\n"
                       f"Train rows: {train_rows}, Train batch size: {batch_size}, Train_steps_per_epoch: {steps_per_epoch}\n"
                       f"Val rows: {val_rows}, Val batch size: {val_batch_size}, Val_steps_per_epoch: {validation_steps}\n"
                       f"Checkpoint file: {remote_store.checkpoint_path}, Logs dir: {remote_store.logs_path}\n")
@@ -263,7 +271,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
 
                     train_data = make_dataset(train_reader, batch_size, shuffle_buffer_size,
                                               is_batch_reader, shuffle=True if shuffle_buffer_size > 0 else False,
-                                              cache=inmemory_cache_all)
+                                              cache=inmemory_cache_all, seed=random_seed)
                     val_data = make_dataset(val_reader, val_batch_size, shuffle_buffer_size,
                                             is_batch_reader, shuffle=False, cache=inmemory_cache_all) \
                         if val_reader else None

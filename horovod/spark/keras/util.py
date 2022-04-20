@@ -60,7 +60,7 @@ class TFKerasUtil(object):
             has_sparse_col, sample_weight_col, feature_columns,
             label_columns, input_shapes, label_shapes, output_names)
 
-        def fn(reader, batch_size, shuffle_buffer_size, is_batch_reader, shuffle=False, cache=False):
+        def fn(reader, batch_size, shuffle_buffer_size, is_batch_reader, shuffle=False, cache=False, seed=None):
             from petastorm.tf_utils import make_petastorm_dataset
 
             dataset = make_petastorm_dataset(reader)
@@ -72,7 +72,7 @@ class TFKerasUtil(object):
                 dataset = dataset.cache()
 
             if shuffle:
-                dataset = dataset.shuffle(shuffle_buffer_size)
+                dataset = dataset.shuffle(shuffle_buffer_size, seed=seed)
 
             # Use tf.data.Dataset.repeat() to set up an infinite iterator
             # and to enable ranks to perform training and validation with

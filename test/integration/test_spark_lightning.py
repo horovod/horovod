@@ -150,6 +150,7 @@ class SparkLightningTests(unittest.TestCase):
                     validation=0.2,
                     batch_size=4,
                     epochs=2,
+                    random_seed=1,
                     verbose=2)
 
                 torch_model = torch_estimator.fit(df)

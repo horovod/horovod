@@ -141,6 +141,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         run_id:     (Optional) unique ID for this run for organization in the Store. Will be
                     automatically assigned if not provided.
         sample_weight_col:  (Optional) column indicating the weight of each sample.
+        random_seed: Optional random seed to use for PyTorch Lightning. Default: None.
         shuffle_buffer_size: Optional size of in-memory shuffle buffer in rows (on training data).
                              Allocating a larger buffer size increases randomness of shuffling at
                              the cost of more host memory. Defaults to estimating with an assumption
@@ -242,6 +243,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  val_batch_size=None,
                  epochs=None,
                  verbose=1,
+                 random_seed=None,
                  shuffle_buffer_size=None,
                  partitions_per_process=None,
                  run_id=None,

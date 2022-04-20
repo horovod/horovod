@@ -68,6 +68,10 @@ class EstimatorParams(Params):
                                        'number of steps (batches) for validation per epoch',
                                        typeConverter=TypeConverters.toInt)
 
+    random_seed = Param(Params._dummy(), 'random_seed',
+                        'random seed to use for DL frameworks',
+                        typeConverter=TypeConverters.toInt)
+
     shuffle_buffer_size = Param(Params._dummy(),
                                 'shuffle_buffer_size',
                                 'shuffling buffer size of data before training in number of samples',
@@ -115,6 +119,7 @@ class EstimatorParams(Params):
             epochs=1,
             verbose=1,
             callbacks=[],
+            random_seed=None,
             shuffle_buffer_size=None,
             partitions_per_process=10,
             run_id=None,
@@ -268,6 +273,12 @@ class EstimatorParams(Params):
 
     def getCompressSparseCols(self):
         return self.getOrDefault(self.compress_sparse_cols)
+
+    def setRandomSeed(self, value):
+        return self._set(random_seed=value)
+
+    def getRandomSeed(self):
+        return self.getOrDefault(self.random_seed)
 
     def setShufflingBufferSize(self, value):
         return self._set(shuffle_buffer_size=value)

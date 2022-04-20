@@ -96,6 +96,7 @@ class SparkKerasTests(tf.test.TestCase):
                     feature_cols=['features'],
                     label_cols=['y'],
                     batch_size=1,
+                    random_seed=1,
                     epochs=3,
                     verbose=2)
 
