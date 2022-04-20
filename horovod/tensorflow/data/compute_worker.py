@@ -15,7 +15,6 @@
 
 import argparse
 import sys
-from datetime import datetime
 
 from horovod import run
 from horovod.runner.common.service.compute_service import ComputeService
@@ -41,6 +40,11 @@ if __name__ == '__main__':
                         help=f"Where do the dispatcher run? On 'compute' side or 'training' side.",
                         dest="dispatcher_side")
 
+    parser.add_argument("--output-filename", required=False, default="compute-worker-log", type=str,
+                        help=f"For Gloo, writes stdout / stderr of all workers to a filename of the form "
+                             f"<output_filename>/rank.<rank>/<stdout | stderr>. The <rank> will be padded with 0 "
+                             f"characters to ensure lexicographical order. For MPI, delegates its behavior to mpirun")
+
     parsed_args = parser.parse_args()
     workers = parsed_args.dispatchers * parsed_args.workers_per_dispatcher
 
@@ -58,8 +62,7 @@ if __name__ == '__main__':
 
     ret = run(compute_worker_fn,
               args=(compute_config,),
-              # TODO: make this configurable
-              output_filename=f'compute-logs/{datetime.now().strftime("%Y%m%d-%H%M%S")}.log',
+              output_filename=parsed_args.output_filename,
               np=workers,
               start_timeout=30,
               disable_cache=True,
