@@ -20,7 +20,7 @@ from datetime import datetime
 from horovod import run
 from horovod.runner.common.service.compute_service import ComputeService
 from horovod.runner.common.util import secret
-from horovod.tensorflow.compute_service import TfDataServiceConfig, compute_worker_fn
+from horovod.tensorflow.data.compute_service import TfDataServiceConfig, compute_worker_fn
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
