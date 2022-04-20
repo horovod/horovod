@@ -16,13 +16,13 @@
 import argparse
 import os
 import sys
-from datetime import datetime
+
+import tensorflow as tf
 
 from horovod import run
-
+from horovod.tensorflow.data.compute_service import TfDataServiceConfig
 from tensorflow2_mnist_data_service_train_fn_compute_side_dispatcher import train_fn as train_fn_compute_side
 from tensorflow2_mnist_data_service_train_fn_training_side_dispatcher import train_fn as train_fn_training_side
-from horovod.tensorflow.compute_service import TfDataServiceConfig
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
@@ -43,7 +43,7 @@ if __name__ == '__main__':
                         dest="training_tasks")
 
     parser.add_argument("--reuse-dataset", required=False, action="store_true", default=False,
-                        help=f"Reusing the dataset allows the training tasks to reads from a single dataset "
+                        help=f"Reusing the dataset allows the training tasks to reads from a single dispatcher "
                              f"in a first-come-first-serve manner.",
                         dest="reuse_dataset")
 
@@ -78,16 +78,21 @@ if __name__ == '__main__':
     else:
         raise ValueError(f'Unsupported dispatcher side: {compute_config.dispatcher_side}')
 
+    # before we start training, make sure the dataset exists,
+    # as it will be downloaded by each train_fn if it does not exist
+    dataset_dir = f'{os.getcwd()}/mnist'
+    os.makedirs(dataset_dir, exist_ok=True)
+    dataset_path = f'{dataset_dir}/mnist.npz'
+    tf.keras.datasets.mnist.load_data(path=dataset_path)
+
     # run the distributed training
     run(train_fn,
-        args=(compute_config,),
+        args=(dataset_path, compute_config),
         kwargs={
             'reuse_dataset': parsed_args.reuse_dataset,
             'round_robin': parsed_args.round_robin
         },
-        np=training_tasks,
-        # TODO: make configurable
-        output_filename=f'training-logs/{datetime.now().strftime("%Y%m%d-%H%M%S")}.log')
+        np=training_tasks)
 
     compute = compute_config.compute_client(verbose=2)
     compute.shutdown()

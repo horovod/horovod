@@ -16,7 +16,6 @@
 import argparse
 import os
 import sys
-from datetime import datetime
 
 from pyspark import SparkConf
 from pyspark.sql import SparkSession
@@ -28,7 +27,7 @@ from tensorflow2_mnist_data_service_train_fn_compute_side_dispatcher import trai
 from tensorflow2_mnist_data_service_train_fn_training_side_dispatcher import train_fn as train_fn_training_side
 
 from horovod.spark import run
-from horovod.tensorflow.compute_service import TfDataServiceConfig
+from horovod.tensorflow.data.compute_service import TfDataServiceConfig
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
