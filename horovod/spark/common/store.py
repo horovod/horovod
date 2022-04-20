@@ -181,8 +181,7 @@ class AbstractFilesystemStore(Store):
         super().__init__()
 
     def exists(self, path):
-        localized_path = self.get_localized_path(path)
-        return self.fs.exists(localized_path) or self.fs.isdir(localized_path)
+        return self.fs.exists(self.get_localized_path(path)) or self.fs.isdir(path)
 
     def read(self, path):
         with self.fs.open(self.get_localized_path(path), 'rb') as f:
