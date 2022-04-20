@@ -240,6 +240,10 @@ run_mpi_integration() {
         ":tensorflow: MPI TensorFlow 2.0 Keras MNIST api (${test})" \
         "bash -c \"${oneccl_env} python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi\""
     fi
+
+    run_test "${test}" "${queue}" \
+      ":tensorflow: MPI TensorFlow 2.0 MNIST Data Service (${test})" \
+      "bash -c \"${oneccl_env} horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json\""
   fi
 }
 
@@ -307,6 +311,10 @@ run_gloo_integration() {
         ":tensorflow: Gloo TensorFlow 2.0 MNIST Elastic api (${test})" \
         "python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py 2 2 2 localhost:2,127.0.0.1:2"
     fi
+
+    run_test "${test}" "${queue}" \
+      ":tensorflow: Gloo TensorFlow 2.0 MNIST Data Service (${test})" \
+      "bash -c \"horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json\""
   else
     run_test "${test}" "${queue}" \
       ":tensorflow: Gloo TensorFlow MNIST (${test})" \
