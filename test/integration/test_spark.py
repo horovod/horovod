@@ -15,6 +15,9 @@
 
 import contextlib
 import copy
+import shutil
+import uuid
+
 from horovod.spark.common.store import FilesystemStore
 import io
 import itertools
@@ -1717,6 +1720,7 @@ class SparkTests(unittest.TestCase):
         with pytest.raises(ValueError):
             util.to_list(['item1', 'item2'], 4)
 
+    @mock.patch("horovod.spark.common.store._DBFS_PREFIX_MAPPING", "/tmp")
     def test_dbfs_local_store(self):
         import h5py
         import io
@@ -1738,13 +1742,22 @@ class SparkTests(unittest.TestCase):
             assert isinstance(dbfs_local_store, DBFSLocalStore)
             dbfs_local_store = Store.create("file:///dbfs/tmp/test_local_dir3")
             assert isinstance(dbfs_local_store, DBFSLocalStore)
+            dbfs_local_store = Store.create("file:/dbfs/tmp/test_local_dir3")
+            assert isinstance(dbfs_local_store, DBFSLocalStore)
+            assert not DBFSLocalStore.matches_dbfs("dbfs://tmp/test_local_dir3")
         finally:
             if "DATABRICKS_RUNTIME_VERSION" in os.environ:
                 del os.environ["DATABRICKS_RUNTIME_VERSION"]
 
+        assert DBFSLocalStore.normalize_path("file:/dbfs/tmp/a1") == "/dbfs/tmp/a1"
+        assert DBFSLocalStore.normalize_path("file:///dbfs/tmp/a1") == "/dbfs/tmp/a1"
+        assert DBFSLocalStore.normalize_path("/dbfs/tmp/a1") == "/dbfs/tmp/a1"
+        assert DBFSLocalStore.normalize_path("dbfs:/tmp/a1") == "/dbfs/tmp/a1"
+        with pytest.raises(ValueError):
+            DBFSLocalStore.normalize_path("dbfs://tmp/a1")
+
         # test get_checkpoint_filename suffix
-        # Use a tmp path for testing.
-        dbfs_store = DBFSLocalStore("/tmp/test_dbfs_dir")
+        dbfs_store = DBFSLocalStore("/dbfs/test_dbfs_dir")
         dbfs_ckpt_name = dbfs_store.get_checkpoint_filename()
         assert dbfs_ckpt_name.endswith(".tf")
 
@@ -1772,8 +1785,12 @@ class SparkTests(unittest.TestCase):
                 assert reconstructed_model_dbfs.get_config() == model.get_config()
 
         # test local_store.read_serialized_keras_model
-        with tempdir() as tmp:
-            local_store = Store.create(tmp)
+        tmp_dir = "tmp_" + uuid.uuid4().hex
+        # The dbfs_dir "/dbfs/tmp_xxx" will be mapped to "/tmp/tmp_xxx" in testing
+        dbfs_dir = os.path.join("/dbfs", tmp_dir)
+        actual_dbfs_dir = os.path.join("/tmp", tmp_dir)
+        try:
+            local_store = Store.create(dbfs_dir)
             get_local_output_dir = local_store.get_local_output_dir_fn("0")
             with get_local_output_dir() as run_output_dir:
                 local_ckpt_path = run_output_dir + "/" + local_store.get_checkpoint_filename()
@@ -1786,7 +1803,8 @@ class SparkTests(unittest.TestCase):
                 reconstructed_model_local = deserialize_keras_model(serialized_model_local)
                 if LooseVersion(tensorflow.__version__) >= LooseVersion("2.3.0"):
                     assert reconstructed_model_local.get_config() == model.get_config()
-
+        finally:
+            shutil.rmtree(actual_dbfs_dir, ignore_errors=True)
 
     def test_output_df_schema(self):
         label_cols = ['y1', 'y_embedding']
