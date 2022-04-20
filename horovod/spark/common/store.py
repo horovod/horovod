@@ -533,16 +533,17 @@ class HDFSStore(AbstractFilesystemStore):
         return path.startswith(cls.FS_PREFIX)
 
 
-# If `_DBFS_PATH_MAPPING_TO_PATH` is not None, map `/dbfs/...` path to `{_DBFS_PATH_MAPPING_TO_PATH}/...`
-# This is used in testing.
-_DBFS_PATH_MAPPING_TO_PATH = None
+# If `_DBFS_PREFIX_MAPPING` is not None, map `/dbfs/...` path to `{_DBFS_PREFIX_MAPPING}/...`
+# This is used in testing, and this mapping only applies to `DBFSLocalStore.get_localized_path`
+_DBFS_PREFIX_MAPPING = None
 
 
 class DBFSLocalStore(FilesystemStore):
     """Uses Databricks File System (DBFS) local file APIs as a store of intermediate data and
     training artifacts.
 
-    Initialized from a `prefix_path` starts with `/dbfs/...`, `file:///dbfs/...` or `dbfs:/...`, see
+    Initialized from a `prefix_path` starts with `/dbfs/...`, `file:///dbfs/...`, `file:/dbfs/...`
+    or `dbfs:/...`, see
     https://docs.databricks.com/data/databricks-file-system.html#local-file-apis.
     """
 
@@ -556,14 +557,10 @@ class DBFSLocalStore(FilesystemStore):
             raise ValueError(DBFSLocalStore.DBFS_PATH_FORMAT_ERROR.format(prefix_path))
         super(DBFSLocalStore, self).__init__(prefix_path, *args, **kwargs)
 
-    @staticmethod
-    def _get_dbfs_path_format_error(path):
-        return
-
     @classmethod
     def matches_dbfs(cls, path):
         return path.startswith("dbfs:/") or path.startswith("/dbfs/") or path.startswith("file:///dbfs/") \
-                or path.startswith("file:/dbfs/")
+                or (path.startswith("file:/dbfs/") and not path.startswith("file://dbfs/"))
 
     @staticmethod
     def normalize_path(path):
@@ -576,15 +573,16 @@ class DBFSLocalStore(FilesystemStore):
             return path
         elif path.startswith("file:///dbfs/"):
             return path[7:]
-        elif path.startswith("file:/dbfs/"):
+        elif path.startswith("file:/dbfs/") and not path.startswith("file://dbfs/"):
             return path[5:]
         else:
             raise ValueError(DBFSLocalStore.DBFS_PATH_FORMAT_ERROR.format(path))
 
     def get_localized_path(self, path):
         local_path = DBFSLocalStore.normalize_path(path)
-        if _DBFS_PATH_MAPPING_TO_PATH:
-            return os.path.join(_DBFS_PATH_MAPPING_TO_PATH, path[6:])
+        if _DBFS_PREFIX_MAPPING:
+            # this is for testing.
+            return os.path.join(_DBFS_PREFIX_MAPPING, path[6:])
         else:
             return local_path
 

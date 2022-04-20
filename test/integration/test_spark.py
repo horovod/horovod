@@ -1720,7 +1720,7 @@ class SparkTests(unittest.TestCase):
         with pytest.raises(ValueError):
             util.to_list(['item1', 'item2'], 4)
 
-    @mock.patch("horovod.spark.common.store._DBFS_PATH_MAPPING_TO_PATH", "/tmp")
+    @mock.patch("horovod.spark.common.store._DBFS_PREFIX_MAPPING", "/tmp")
     def test_dbfs_local_store(self):
         import h5py
         import io
@@ -1744,9 +1744,17 @@ class SparkTests(unittest.TestCase):
             assert isinstance(dbfs_local_store, DBFSLocalStore)
             dbfs_local_store = Store.create("file:/dbfs/tmp/test_local_dir3")
             assert isinstance(dbfs_local_store, DBFSLocalStore)
+            assert not DBFSLocalStore.matches_dbfs("file://dbfs/tmp/test_local_dir3")
         finally:
             if "DATABRICKS_RUNTIME_VERSION" in os.environ:
                 del os.environ["DATABRICKS_RUNTIME_VERSION"]
+
+        assert DBFSLocalStore.normalize_path("file:/dbfs/tmp/a1") == "/dbfs/tmp/a1"
+        assert DBFSLocalStore.normalize_path("file:///dbfs/tmp/a1") == "/dbfs/tmp/a1"
+        assert DBFSLocalStore.normalize_path("/dbfs/tmp/a1") == "/dbfs/tmp/a1"
+        assert DBFSLocalStore.normalize_path("dbfs:/tmp/a1") == "/dbfs/tmp/a1"
+        with pytest.raises(ValueError):
+            DBFSLocalStore.normalize_path("file://dbfs/tmp/a1")
 
         # test get_checkpoint_filename suffix
         dbfs_store = DBFSLocalStore("/dbfs/test_dbfs_dir")
