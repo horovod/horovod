@@ -177,7 +177,7 @@ def run(
                     be the default if Horovod was built with MPI support.
     :param mpi_args: Extra arguments for the MPI controller. This is only used when use_mpi is True.
     :param network_interfaces: List of network interfaces to use for communication. If not specified,
-                               Horovod will find the common NICs among all the workers and use those.
+                               Horovod will find the common NICs among all the workers.
                                Example: ["eth0", "eth1"].
     :param executable: Optional executable to run when launching the workers. Defaults to `sys.executable`.
     :return: Return a list which contains values return by all Horovod processes.

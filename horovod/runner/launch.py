@@ -319,14 +319,14 @@ def parse_args():
     parser.add_argument('--network-interfaces', action=make_nic_action(deprecated=False), dest='nics',
                         help='Network interfaces that can be used for communication separated by '
                              'comma. If not specified, Horovod will find the common NICs among all '
-                             'the workers and use it. Also see --network-interface. '
+                             'the workers. Also see --network-interface. '
                              'Example: --network-interfaces "eth0,eth1".')
 
     # once deprecated use of --network-interface is removed, replace action=NicAction with action='append'
     parser.add_argument('--network-interface', action=make_nic_action(deprecated=True), dest='nics',
                         help='Network interface that can be used for communication. Use multiple times '
                              'to configure multiple interfaces. If not specified, Horovod will find the'
-                             'common NICs among all the workers and use it. Also see --network-interfaces. '
+                             'common NICs among all the workers. Also see --network-interfaces. '
                              'Example: --network-interface eth0 --network-interface eth1')
 
     parser.add_argument('--output-filename', action='store',
