@@ -698,6 +698,24 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v572
+- label: ':tensorflow: Gloo TensorFlow 2.0 MNIST Data Service (test-gpu-gloo-py3_8-tf2_6_3-keras2_6_0-torch1_9_1-mxnet1_7_0_p1-pyspark3_2_1)'
+  command: bash -c "horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json"
+  artifact_paths: "artifacts/**"
+  env:
+    COMPOSE_HTTP_TIMEOUT: 300
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-gpu-gloo-py3_8-tf2_6_3-keras2_6_0-torch1_9_1-mxnet1_7_0_p1-pyspark3_2_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: 2x-gpu-v572
 - label: ':fire: Gloo PyTorch MNIST (test-gpu-gloo-py3_8-tf2_6_3-keras2_6_0-torch1_9_1-mxnet1_7_0_p1-pyspark3_2_1)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
@@ -824,6 +842,24 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v572
+- label: ':tensorflow: Gloo TensorFlow 2.0 MNIST Data Service (test-gpu-gloo-py3_8-tf2_7_1-keras2_7_0-torch1_10_2-mxnet1_8_0_p0-pyspark3_2_1)'
+  command: bash -c "horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json"
+  artifact_paths: "artifacts/**"
+  env:
+    COMPOSE_HTTP_TIMEOUT: 300
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-gpu-gloo-py3_8-tf2_7_1-keras2_7_0-torch1_10_2-mxnet1_8_0_p0-pyspark3_2_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: 2x-gpu-v572
 - label: ':fire: Gloo PyTorch MNIST (test-gpu-gloo-py3_8-tf2_7_1-keras2_7_0-torch1_10_2-mxnet1_8_0_p0-pyspark3_2_1)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
@@ -934,6 +970,24 @@ steps:
     queue: 2x-gpu-v572
 - label: ':tensorflow: Gloo TensorFlow 2.0 Keras MNIST (test-gpu-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
+  artifact_paths: "artifacts/**"
+  env:
+    COMPOSE_HTTP_TIMEOUT: 300
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-gpu-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: 2x-gpu-v572
+- label: ':tensorflow: Gloo TensorFlow 2.0 MNIST Data Service (test-gpu-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1)'
+  command: bash -c "horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json"
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
@@ -1094,6 +1148,24 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v572
+- label: ':tensorflow: MPI TensorFlow 2.0 MNIST Data Service (test-gpu-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1)'
+  command: bash -c " horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json"
+  artifact_paths: "artifacts/**"
+  env:
+    COMPOSE_HTTP_TIMEOUT: 300
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-gpu-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: 2x-gpu-v572
 - label: ':spark: Spark Torch MNIST (test-gpu-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1)'
   command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
@@ -1150,6 +1222,24 @@ steps:
     queue: 2x-gpu-v572
 - label: ':tensorflow: Gloo TensorFlow 2.0 Keras MNIST (test-mixed-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
+  artifact_paths: "artifacts/**"
+  env:
+    COMPOSE_HTTP_TIMEOUT: 300
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-mixed-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: 2x-gpu-v572
+- label: ':tensorflow: Gloo TensorFlow 2.0 MNIST Data Service (test-mixed-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1)'
+  command: bash -c "horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json"
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
@@ -1294,6 +1384,24 @@ steps:
     queue: 2x-gpu-v572
 - label: ':tensorflow: MPI TensorFlow 2.0 Keras MNIST (test-mixed-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1)'
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+  artifact_paths: "artifacts/**"
+  env:
+    COMPOSE_HTTP_TIMEOUT: 300
+  plugins:
+  - docker-compose#v3.5.0:
+      run: test-mixed-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1
+      volumes: "./artifacts:/artifacts"
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: 2x-gpu-v572
+- label: ':tensorflow: MPI TensorFlow 2.0 MNIST Data Service (test-mixed-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1)'
+  command: bash -c " horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json"
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
