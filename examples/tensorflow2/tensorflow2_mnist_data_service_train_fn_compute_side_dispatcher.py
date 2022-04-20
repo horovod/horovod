@@ -16,19 +16,22 @@
 import os
 
 import tensorflow as tf
+from filelock import FileLock
 
 import horovod.tensorflow.keras as hvd
 from horovod.tensorflow.data.compute_service import TfDataServiceConfig
 
 
 # arguments reuse_dataset and round_robin only used when single dispatcher is present
-def train_fn(dataset_path: str, compute_config: TfDataServiceConfig, reuse_dataset: bool = False, round_robin: bool = False):
+def train_fn(compute_config: TfDataServiceConfig, reuse_dataset: bool = False, round_robin: bool = False):
     # Horovod: initialize Horovod.
     hvd.init()
     rank = hvd.rank()
     size = hvd.size()
 
-    (mnist_images, mnist_labels), _ = tf.keras.datasets.mnist.load_data(path=dataset_path)
+    # this lock guarantees only one training task downloads the dataset
+    with FileLock(os.path.expanduser("~/.horovod_lock")):
+        (mnist_images, mnist_labels), _ = tf.keras.datasets.mnist.load_data(path=f'{os.getcwd()}/mnist/mnist.npz')
 
     dataset = tf.data.Dataset.from_tensor_slices(
         (tf.cast(mnist_images[..., tf.newaxis] / 255.0, tf.float32),

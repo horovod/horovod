@@ -17,14 +17,16 @@ import binascii
 import dataclasses
 import json
 import logging
+import os
 import socket
+import time
 from contextlib import closing, contextmanager
 from typing import Mapping, Sequence, Tuple, Any, Optional
 
 import tensorflow as tf
 
-from horovod.runner.common.util.env import get_env_rank_and_size
 from horovod.runner.common.service.compute_service import ComputeClient
+from horovod.runner.common.util.env import get_env_rank_and_size
 
 
 @dataclasses.dataclass(frozen=True)
@@ -63,7 +65,12 @@ class TfDataServiceConfig:
             w.write(json.dumps(self.to_dict()))
 
     @staticmethod
-    def read(filename: str) -> 'TfDataServiceConfig':
+    def read(filename: str, wait_for_file_creation: bool = False) -> 'TfDataServiceConfig':
+        while wait_for_file_creation:
+            if os.path.exists(filename):
+                break
+            time.sleep(1)
+
         with open(filename, 'r') as r:
             return TfDataServiceConfig.from_dict(json.load(r))
 
