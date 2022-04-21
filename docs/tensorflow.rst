@@ -317,4 +317,10 @@ The compute job can be started on a Spark cluster using ``spark-submit``:
     worker_py=$(python -c "import horovod.spark.tensorflow.compute_worker as worker; print(worker.__file__)")
     spark-submit --master "local[4]" "$worker_py" /tmp/compute.json
 
+
+While the compute job is running, start the training job:
+
+    cd examples/spark/tensorflow2
+    spark-submit --master "local[2]" --py-files tensorflow2_mnist_data_service_train_fn_compute_side_dispatcher.py,tensorflow2_mnist_data_service_train_fn_training_side_dispatcher.py tensorflow2_mnist_data_service.py /tmp/compute.json
+
 As usual, the config file has to be located on a path that is accessible to all nodes that run the compute job.
