@@ -20,14 +20,10 @@ import sys
 from pyspark import SparkConf
 from pyspark.sql import SparkSession
 
-# we want to reuse train_fn from tensorflow2_mnist_data_service_train_fn_*_side_dispatcher
-sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, 'tensorflow2'))
-
-from tensorflow2_mnist_data_service_train_fn_compute_side_dispatcher import train_fn as train_fn_compute_side
-from tensorflow2_mnist_data_service_train_fn_training_side_dispatcher import train_fn as train_fn_training_side
-
 from horovod.spark import run
 from horovod.tensorflow.data.compute_service import TfDataServiceConfig
+from tensorflow2_mnist_data_service_train_fn_compute_side_dispatcher import train_fn as train_fn_compute_side
+from tensorflow2_mnist_data_service_train_fn_training_side_dispatcher import train_fn as train_fn_training_side
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
@@ -38,14 +34,8 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--compute-service-config-file", required=True, type=str,
-                        help=f"The path to the compute service config file.",
-                        dest="compute_service_config_file")
-
-    parser.add_argument("--training-tasks", required=False, type=int,
-                        help=f"The number of training tasks when there is only one dispatcher. "
-                             f"Otherwise there are as many training tasks as there are dispatchers.",
-                        dest="training_tasks")
+    parser.add_argument("configfile", type=str,
+                        help=f"The path to the compute service config file.")
 
     parser.add_argument("--reuse-dataset", required=False, action="store_true", default=False,
                         help=f"Reusing the dataset allows the training tasks to reads from a single dataset "
@@ -58,26 +48,18 @@ if __name__ == '__main__':
 
     parsed_args = parser.parse_args()
 
-    compute_config = TfDataServiceConfig.read(parsed_args.compute_service_config_file, wait_for_file_creation=True)
-
-    if compute_config.dispatchers == 1:
-        if parsed_args.training_tasks is None:
-            print('Please provide the number of training tasks via --training-tasks since the data service '
-                  'is configured to have only one dispatcher for all tasks.\n'
-                  'Thus we cannot determine the number of training tasks from the dispatchers.', file=sys.stderr)
-            sys.exit(1)
-    else:
-        if parsed_args.training_tasks is not None and parsed_args.training_tasks != compute_config.dispatchers:
-            print(f'The provide number of training tasks ({parsed_args.training_tasks}) must match '
-                  f'the number of dispatchers ({compute_config.dispatchers}) configured in the '
-                  f'data service config file ({parsed_args.compute_service_config_file}).', file=sys.stderr)
-            sys.exit(1)
-
-    training_tasks = parsed_args.training_tasks or compute_config.dispatchers
+    compute_config = TfDataServiceConfig.read(parsed_args.configfile, wait_for_file_creation=True)
 
     conf = SparkConf()
-    conf.setMaster(f'local[{training_tasks}]').setAppName('train')
     spark = SparkSession.builder.config(conf=conf).getOrCreate()
+    spark_context = spark.sparkContext
+    training_tasks = spark_context.defaultParallelism
+
+    if compute_config.dispatchers > 1 and training_tasks != compute_config.dispatchers:
+        print(f'The number of training tasks ({training_tasks}) must match '
+              f'the number of dispatchers ({compute_config.dispatchers}) configured in the '
+              f'data service config file ({parsed_args.configfile}).', file=sys.stderr)
+        sys.exit(1)
 
     # pick the right train_fn depending on the dispatcher side
     if compute_config.dispatcher_side == 'training':
