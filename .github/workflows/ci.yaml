@@ -348,7 +348,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_Data_Service && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_Data_Service_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_Data_Service_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_Data_Service_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 -H localhost:2 --mpi python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json"
         shell: bash
 
       - name: "MPI TensorFlow 2.0 MNIST Data Service [attempt 2 of 3]"
@@ -357,7 +357,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_Data_Service && steps.MPI_TensorFlow_2_0_MNIST_Data_Service_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_Data_Service_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_Data_Service_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_Data_Service_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 -H localhost:2 --mpi python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json"
         shell: bash
 
       - name: "MPI TensorFlow 2.0 MNIST Data Service [attempt 3 of 3]"
@@ -366,7 +366,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_Data_Service && steps.MPI_TensorFlow_2_0_MNIST_Data_Service_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_Data_Service_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_Data_Service_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_Data_Service_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 -H localhost:2 --mpi python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json"
         shell: bash
 
       - name: "Spark TensorFlow 2.0 MNIST Data Service [attempt 1 of 3]"
@@ -564,7 +564,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_Data_Service && true
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_Data_Service_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_Data_Service_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_Data_Service_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 -H localhost:2 --mpi python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json"
         shell: bash
 
       - name: "MPI TensorFlow 2.0 MNIST Data Service [attempt 2 of 3]"
@@ -573,7 +573,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_Data_Service && steps.MPI_TensorFlow_2_0_MNIST_Data_Service_run_1.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_Data_Service_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_Data_Service_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_Data_Service_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 -H localhost:2 --mpi python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json"
         shell: bash
 
       - name: "MPI TensorFlow 2.0 MNIST Data Service [attempt 3 of 3]"
@@ -582,7 +582,7 @@ jobs:
         if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_Data_Service && steps.MPI_TensorFlow_2_0_MNIST_Data_Service_run_2.outcome == 'failure'
         run: |
           mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_Data_Service_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_Data_Service_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json"
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_Data_Service_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 -H localhost:2 --mpi python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json"
         shell: bash
 
       - name: "Spark TensorFlow 2.0 MNIST Data Service [attempt 1 of 3]"
