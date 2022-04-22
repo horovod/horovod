@@ -31,7 +31,7 @@ def train_fn(compute_config: TfDataServiceConfig, reuse_dataset: bool = False, r
 
     # this lock guarantees only one training task downloads the dataset
     with FileLock(os.path.expanduser("~/.horovod_lock")):
-        (mnist_images, mnist_labels), _ = tf.keras.datasets.mnist.load_data(path=f'{os.getcwd()}/mnist.npz')
+        (mnist_images, mnist_labels), _ = tf.keras.datasets.mnist.load_data()
 
     dataset = tf.data.Dataset.from_tensor_slices(
         (tf.cast(mnist_images[..., tf.newaxis] / 255.0, tf.float32),
