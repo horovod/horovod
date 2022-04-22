@@ -26,6 +26,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Fallback to NCCL shared lib if static one is not found. ([#3500]((https://github.com/horovod/horovod/pull/3500))
 
+## [v0.24.3] - 2022-04-21
+
+### Fixed
+
+- Make DBFSLocalStore support "file:/dbfs/...", implement get_localized_path. ([#3510](https://github.com/horovod/horovod/pull/3510))
+
 ## [v0.24.2] - 2022-03-10
 
 ### Fixed
