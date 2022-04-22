@@ -20,6 +20,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - MXNet: Deprecated `average` argument of allreduce functions. ([#3299](https://github.com/horovod/horovod/pull/3299))
 
+- Horovodrun: Providing multiple NICS as comma-separated string via `--network-interface` is deprecated,
+  use `--network-interface` multiple times or `--network-interfaces` instead. ([#3506](https://github.com/horovod/horovod/pull/3506))
+
+- horovod.run: Argument `network_interface` with comma-separated string is deprecated,
+  use `network_interfaces` with `Iterable[str]` instead. ([#3506](https://github.com/horovod/horovod/pull/3506))
+
 ### Removed
 
 ### Fixed
