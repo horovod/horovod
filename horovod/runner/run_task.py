@@ -20,7 +20,7 @@ from horovod.runner.common.util.env import get_env_rank_and_size
 from horovod.runner.http.http_client import read_data_from_kvstore, put_data_into_kvstore
 
 
-def _get_func(addrs, port, timeout=5):
+def _get_func(addrs, port, timeout=None):
     # we try all provided addresses to connect to the kvstore
     # the first addr that works will be returned, together with the run func
     # we give each IP 5 seconds timeout, if that is not enough, the driver is not really well reachable
@@ -46,7 +46,7 @@ def _get_func(addrs, port, timeout=5):
 
 
 def main(addrs, port):
-    addr, func = _get_func(addrs, port)
+    addr, func = _get_func(addrs, port, 10 if len(addrs) > 1 else None)
     try:
         ret_val = func()
     except BaseException as e:
