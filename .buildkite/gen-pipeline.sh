@@ -132,7 +132,7 @@ run_mpi_integration() {
   if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
     run_test "${test}" "${queue}" \
       ":tensorflow: MPI TensorFlow 2.0 MNIST Data Service (${test})" \
-      "bash -c \"${oneccl_env} horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 -H localhost:2 --mpi python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json\""
+      "bash -c \"${oneccl_env} horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 --mpi python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json\""
   fi
 }
 
@@ -152,7 +152,7 @@ run_gloo_integration() {
   if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
     run_test "${test}" "${queue}" \
       ":tensorflow: Gloo TensorFlow 2.0 MNIST Data Service (${test})" \
-      "bash -c \"horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json\""
+      "bash -c \"horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json\""
   fi
 }
 
@@ -172,7 +172,7 @@ run_spark_integration() {
     if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
       run_test "${test}" "${queue}" \
         ":spark: Spark TensorFlow 2.0 MNIST Data Service (${test})" \
-        "bash -c \"cd /horovod/examples/spark/tensorflow2; worker_py=\\\"\\\$(python -c \\\"import horovod.spark.tensorflow.compute_worker as worker; print(worker.__file__)\\\")\\\"; spark-submit --master \\\"local[4]\\\" \\\"\\\$worker_py\\\" /tmp/compute.json & OMP_NUM_THREADS=1 /spark_env.sh spark-submit --master \\\"local[2]\\\" --py-files tensorflow2_mnist_data_service_train_fn_compute_side_dispatcher.py,tensorflow2_mnist_data_service_train_fn_training_side_dispatcher.py tensorflow2_mnist_data_service.py /tmp/compute.json\""
+        "bash -c \"cd /horovod/examples/spark/tensorflow2; worker_py=\\\"\\\$(python -c \\\"import horovod.spark.tensorflow.compute_worker as worker; print(worker.__file__)\\\")\\\"; spark-submit --master \\\"local[2]\\\" \\\"\\\$worker_py\\\" /tmp/compute.json & OMP_NUM_THREADS=1 /spark_env.sh spark-submit --master \\\"local[2]\\\" --py-files tensorflow2_mnist_data_service_train_fn_compute_side_dispatcher.py,tensorflow2_mnist_data_service_train_fn_training_side_dispatcher.py tensorflow2_mnist_data_service.py /tmp/compute.json\""
     fi
   fi
 }
