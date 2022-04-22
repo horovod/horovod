@@ -114,6 +114,7 @@ if __name__ == '__main__':
                                          label_cols=['label_vec'],
                                          batch_size=args.batch_size,
                                          epochs=args.epochs,
+                                         random_seed=1,
                                          inmemory_cache_all=True,
                                          verbose=1,
                                          callbacks=[keras.callbacks.TensorBoard(profile_batch=5)])

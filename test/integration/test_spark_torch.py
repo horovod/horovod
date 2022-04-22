@@ -90,6 +90,7 @@ class SparkTorchTests(unittest.TestCase):
                     label_cols=['y'],
                     batch_size=1,
                     epochs=3,
+                    random_seed=1,
                     verbose=2,
                     sample_weight_col='weight')
 

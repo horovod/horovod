@@ -47,6 +47,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     batch_size = estimator.getBatchSize()
     val_batch_size = estimator.getValBatchSize() if estimator.getValBatchSize() else batch_size
     epochs = estimator.getEpochs()
+    random_seed = estimator.getRandomSeed()
     user_shuffle_buffer_size = estimator.getShufflingBufferSize()
     terminate_on_nan = estimator.getTerminateOnNan()
     transformation_fn = estimator.getTransformationFn()
@@ -100,6 +101,9 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
     def train(serialized_model):
         import horovod.torch as hvd
+
+        if random_seed is not None:
+            pl.utilities.seed.seed_everything(seed=random_seed)
 
         # Horovod: initialize library.
         hvd.init()
@@ -184,7 +188,8 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             shuffle_size = calculate_shuffle_buffer_size()
             if verbose:
-                print(f"Training data of rank[{hvd.local_rank()}]: Epochs: {epochs}, shuffle_size: {shuffle_size}\n"
+                print(f"Training data of rank[{hvd.local_rank()}]: Epochs: {epochs}, "
+                      f"Shuffle_size: {shuffle_size}, Random seed: {random_seed}\n"
                       f"Train rows: {train_rows}, Train batch size: {batch_size}, Train_steps_per_epoch: {_train_steps_per_epoch}\n"
                       f"Val rows: {val_rows}, Val batch size: {val_batch_size}, Val_steps_per_epoch: {_val_steps_per_epoch}\n"
                       f"Checkpoint file: {remote_store.checkpoint_path}, Logs dir: {remote_store.logs_path}\n")

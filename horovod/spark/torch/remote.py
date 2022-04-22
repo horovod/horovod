@@ -50,6 +50,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     validation_steps_per_epoch = estimator.getValidationStepsPerEpoch()
     sample_weight_col = estimator.getSampleWeightCol()
     metric_fn_groups = estimator.getMetrics()
+    random_seed = estimator.getRandomSeed()
     user_shuffle_buffer_size = estimator.getShufflingBufferSize()
     user_verbose = estimator.getVerbose()
     train_minibatch_fn = estimator.getTrainMinibatchFn()
@@ -103,6 +104,9 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
         from petastorm.pytorch import BatchedDataLoader, InMemBatchedDataLoader
         import torch
         import horovod.torch as hvd
+
+        if random_seed is not None:
+            torch.manual_seed(random_seed)
 
         # Deserializing objects
         model_opt_state = torch.load(model_opt_state_serialized)
@@ -221,7 +225,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
             if hvd.rank() == 0 and user_verbose:
                 print(f"Training parameters: Epochs: {epochs}\n"
                       f"Train rows: {train_rows}, Train batch size: {batch_size}, Train_steps_per_epoch: {steps_per_epoch}\n"
-                      f"Shuffle buffer size: {shuffle_buffer_size}\n"
+                      f"Shuffle buffer size: {shuffle_buffer_size}, Random seed: {random_seed}\n"
                       f"Checkpoint file: {ckpt_file}, Logs dir: {logs_dir}\n")
             # In general, make_batch_reader is faster than make_reader for reading the dataset.
             # However, we found out that make_reader performs data transformations much faster than
