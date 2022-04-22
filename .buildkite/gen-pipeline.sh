@@ -302,9 +302,11 @@ run_gloo_integration() {
     run_test "${test}" "${queue}" \
       ":tensorflow: Gloo TensorFlow 2.0 MNIST Elastic horovodrun (${test})" \
       "horovodrun -np 2 --min-np 2 --max-np 2 -H localhost:2,127.0.0.1:2 --gloo python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py"
-    run_test "${test}" "${queue}" \
-      ":tensorflow: Gloo TensorFlow 2.0 MNIST Elastic api (${test})" \
-      "python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py 2 2 2 localhost:2,127.0.0.1:2"
+    if [[ ${queue} != *gpu* ]]; then
+      run_test "${test}" "${queue}" \
+        ":tensorflow: Gloo TensorFlow 2.0 MNIST Elastic api (${test})" \
+        "python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py 2 2 2 localhost:2,127.0.0.1:2"
+    fi
   else
     run_test "${test}" "${queue}" \
       ":tensorflow: Gloo TensorFlow MNIST (${test})" \
