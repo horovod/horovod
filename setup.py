@@ -162,7 +162,7 @@ tensorflow_cpu_require_list = ['tensorflow-cpu']
 tensorflow_gpu_require_list = ['tensorflow-gpu']
 keras_require_list = ['keras>=2.0.8,!=2.0.9,!=2.1.0,!=2.1.1']
 # pytorch-lightning 1.3.8 is a stable version to work with horovod
-pytorch_require_list = ['torch', 'pytorch_lightning>=1.3.8,<1.5.10']
+pytorch_require_list = ['torch']
 mxnet_require_list = ['mxnet>=1.4.1']
 pyspark_require_list = ['pyspark>=2.3.2;python_version<"3.8"',
                         'pyspark>=3.0.0;python_version>="3.8"']
@@ -171,7 +171,8 @@ spark_require_list = ['numpy', 'petastorm>=0.11.0', 'pyarrow>=0.15.0', 'fsspec>=
 ray_require_list = ['ray', 'aioredis<2']
 pytorch_spark_require_list = pytorch_require_list + \
                              spark_require_list + \
-                             pyspark_require_list
+                             pyspark_require_list + \
+                             ['pytorch_lightning>=1.3.8,<1.5.10']
 
 # all frameworks' dependencies
 all_frameworks_require_list = tensorflow_require_list + \
