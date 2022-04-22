@@ -46,7 +46,7 @@ tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${B
   printf "test-cpu-gloo-py3_8-tf2_7_1-keras2_7_0-torch1_10_2-mxnet1_8_0_p0-pyspark3_2_1 "
   # our baseline again
 # printf "test-cpu-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1 "
-  printf "test-cpu-gloo-py3_8-tf2_9_0rc0-keras2_9_0rc1-torch1_11_0-mxnet2_0_0b1-pyspark3_2_1 "
+  printf "test-cpu-gloo-py3_8-tf2_9_0rc1-keras2_9_0rc1-torch1_11_0-mxnet2_0_0b1-pyspark3_2_1 "
   printf "test-cpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1 "
   # these are the lowest framework versions that Horovod compiles with, but they are not tested
   printf "test-cpu-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin "
@@ -62,7 +62,7 @@ tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${B
   printf "test-gpu-gloo-py3_8-tf2_6_3-keras2_6_0-torch1_9_1-mxnet1_7_0_p1-pyspark3_2_1 "
   printf "test-gpu-gloo-py3_8-tf2_7_1-keras2_7_0-torch1_10_2-mxnet1_8_0_p0-pyspark3_2_1 "
   printf "test-gpu-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1 "
-  printf "test-gpu-gloo-py3_8-tf2_9_0rc0-keras2_9_0rc1-torch1_11_0-mxnet2_0_0b1-pyspark3_2_1 "
+  printf "test-gpu-gloo-py3_8-tf2_9_0rc1-keras2_9_0rc1-torch1_11_0-mxnet2_0_0b1-pyspark3_2_1 "
   printf "test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1 "
   # these are the lowest framework versions that Horovod compiles with, but they are not tested
   printf "test-gpu-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin "
