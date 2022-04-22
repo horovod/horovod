@@ -181,18 +181,23 @@ run_mpi_integration() {
     run_test "${test}" "${queue}" \
       ":fire: MPI PyTorch MNIST horovodrun (${test})" \
       "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets\""
-    run_test "${test}" "${queue}" \
-      ":fire: MPI PyTorch MNIST api (${test})" \
-      "bash -c \"${oneccl_env} python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi\""
+
+    if [[ ${queue} != *gpu* ]]; then
+      run_test "${test}" "${queue}" \
+        ":fire: MPI PyTorch MNIST api (${test})" \
+        "bash -c \"${oneccl_env} python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi\""
+    fi
   fi
 
   if [[ ${test} == *"mxnet2_"* ]] || [[ ${test} == *"mxnethead"* ]]; then
       run_test "${test}" "${queue}" \
                ":muscle: MPI MXNet2 MNIST horovodrun (${test})" \
                "bash -c \"${oneccl_env} OMP_NUM_THREADS=1 \\\$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet2_mnist.py\""
+    if [[ ${queue} != *gpu* ]]; then
       run_test "${test}" "${queue}" \
                ":muscle: MPI MXNet2 MNIST api (${test})" \
                "bash -c \"${oneccl_env} python /horovod/examples/mxnet/mxnet2_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo\""
+    fi
   else
       run_test "${test}" "${queue}" \
                ":muscle: MPI MXNet MNIST (${test})" \
@@ -221,16 +226,20 @@ run_mpi_integration() {
     run_test "${test}" "${queue}" \
       ":tensorflow: MPI TensorFlow 2.0 MNIST horovodrun (${test})" \
       "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py\""
-    run_test "${test}" "${queue}" \
-      ":tensorflow: MPI TensorFlow 2.0 MNIST api (${test})" \
-      "bash -c \"${oneccl_env} python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 mpi\""
+    if [[ ${queue} != *gpu* ]]; then
+      run_test "${test}" "${queue}" \
+        ":tensorflow: MPI TensorFlow 2.0 MNIST api (${test})" \
+        "bash -c \"${oneccl_env} python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 mpi\""
+    fi
 
     run_test "${test}" "${queue}" \
       ":tensorflow: MPI TensorFlow 2.0 Keras MNIST horovodrun (${test})" \
       "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py\""
-    run_test "${test}" "${queue}" \
-      ":tensorflow: MPI TensorFlow 2.0 Keras MNIST api (${test})" \
-      "bash -c \"${oneccl_env} python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi\""
+    if [[ ${queue} != *gpu* ]]; then
+      run_test "${test}" "${queue}" \
+        ":tensorflow: MPI TensorFlow 2.0 Keras MNIST api (${test})" \
+        "bash -c \"${oneccl_env} python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi\""
+    fi
   fi
 }
 
@@ -275,16 +284,20 @@ run_gloo_integration() {
     run_test "${test}" "${queue}" \
       ":tensorflow: Gloo TensorFlow 2.0 MNIST horovodrun (${test})" \
       "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
-    run_test "${test}" "${queue}" \
-      ":tensorflow: Gloo TensorFlow 2.0 MNIST api (${test})" \
-      "python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 gloo"
+    if [[ ${queue} != *gpu* ]]; then
+      run_test "${test}" "${queue}" \
+        ":tensorflow: Gloo TensorFlow 2.0 MNIST api (${test})" \
+        "python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 gloo"
+    fi
 
     run_test "${test}" "${queue}" \
       ":tensorflow: Gloo TensorFlow 2.0 Keras MNIST horovodrun (${test})" \
       "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
-    run_test "${test}" "${queue}" \
-      ":tensorflow: Gloo TensorFlow 2.0 Keras MNIST api (${test})" \
-      "python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 gloo"
+    if [[ ${queue} != *gpu* ]]; then
+      run_test "${test}" "${queue}" \
+        ":tensorflow: Gloo TensorFlow 2.0 Keras MNIST api (${test})" \
+        "python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 gloo"
+    fi
   else
     run_test "${test}" "${queue}" \
       ":tensorflow: Gloo TensorFlow MNIST (${test})" \
@@ -299,18 +312,22 @@ run_gloo_integration() {
     run_test "${test}" "${queue}" \
       ":fire: Gloo PyTorch MNIST horovodrun (${test})" \
       "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
-    run_test "${test}" "${queue}" \
-      ":fire: Gloo PyTorch MNIST api (${test})" \
-      "python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo"
+    if [[ ${queue} != *gpu* ]]; then
+      run_test "${test}" "${queue}" \
+        ":fire: Gloo PyTorch MNIST api (${test})" \
+        "python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo"
+    fi
   fi
 
   if [[ ${test} == *"mxnet2_"* ]] || [[ ${test} == *"mxnethead"* ]]; then
       run_test "${test}" "${queue}" \
                ":muscle: Gloo MXNet2 MNIST horovodrun (${test})" \
                "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet2_mnist.py"
+    if [[ ${queue} != *gpu* ]]; then
       run_test "${test}" "${queue}" \
                ":muscle: Gloo MXNet2 MNIST api (${test})" \
                "python /horovod/examples/mxnet/mxnet2_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo"
+    fi
   else
       run_test "${test}" "${queue}" \
                ":muscle: Gloo MXNet MNIST (${test})" \

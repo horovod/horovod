@@ -91,44 +91,8 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v572
-- label: ':tensorflow: Gloo TensorFlow 2.0 MNIST api (test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1)'
-  command: python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 gloo
-  artifact_paths: "artifacts/**"
-  env:
-    COMPOSE_HTTP_TIMEOUT: 300
-  plugins:
-  - docker-compose#v3.5.0:
-      run: test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1
-      volumes: "./artifacts:/artifacts"
-      config: docker-compose.test.yml
-      pull-retries: 3
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 10
-  retry:
-    automatic: true
-  agents:
-    queue: 2x-gpu-v572
 - label: ':tensorflow: Gloo TensorFlow 2.0 Keras MNIST horovodrun (test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
-  artifact_paths: "artifacts/**"
-  env:
-    COMPOSE_HTTP_TIMEOUT: 300
-  plugins:
-  - docker-compose#v3.5.0:
-      run: test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1
-      volumes: "./artifacts:/artifacts"
-      config: docker-compose.test.yml
-      pull-retries: 3
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 10
-  retry:
-    automatic: true
-  agents:
-    queue: 2x-gpu-v572
-- label: ':tensorflow: Gloo TensorFlow 2.0 Keras MNIST api (test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1)'
-  command: python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 gloo
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
@@ -163,44 +127,8 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v572
-- label: ':fire: Gloo PyTorch MNIST api (test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1)'
-  command: python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo
-  artifact_paths: "artifacts/**"
-  env:
-    COMPOSE_HTTP_TIMEOUT: 300
-  plugins:
-  - docker-compose#v3.5.0:
-      run: test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1
-      volumes: "./artifacts:/artifacts"
-      config: docker-compose.test.yml
-      pull-retries: 3
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 10
-  retry:
-    automatic: true
-  agents:
-    queue: 2x-gpu-v572
 - label: ':muscle: Gloo MXNet2 MNIST horovodrun (test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet2_mnist.py
-  artifact_paths: "artifacts/**"
-  env:
-    COMPOSE_HTTP_TIMEOUT: 300
-  plugins:
-  - docker-compose#v3.5.0:
-      run: test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1
-      volumes: "./artifacts:/artifacts"
-      config: docker-compose.test.yml
-      pull-retries: 3
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 10
-  retry:
-    automatic: true
-  agents:
-    queue: 2x-gpu-v572
-- label: ':muscle: Gloo MXNet2 MNIST api (test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1)'
-  command: python /horovod/examples/mxnet/mxnet2_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
