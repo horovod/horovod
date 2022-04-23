@@ -39,6 +39,8 @@ concurrency:
 
 jobs:
   debug:
+    permissions:
+      contents: none
     runs-on: ubuntu-latest
     steps:
     - name: Debug Action
@@ -47,6 +49,8 @@ jobs:
       run: echo "ci-${{ github.event_name }}-${{ github.ref }}-${{ github.head_ref || github.sha }}"
 
   event_file:
+    permissions:
+      contents: none
     name: "Event File"
     runs-on: ubuntu-latest
     steps:
@@ -3736,6 +3740,8 @@ jobs:
           exit 1
 
   docker-config:
+    permissions:
+      contents: none
     name: Configure docker build
     needs: [init-workflow, build-and-test, buildkite]
     # build-and-test and buildkite might have been skipped (! needs.init-workflow.outputs.run-builds-and-tests)
