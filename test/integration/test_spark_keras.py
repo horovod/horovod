@@ -98,7 +98,10 @@ class SparkKerasTests(tf.test.TestCase):
                     batch_size=1,
                     random_seed=1,
                     epochs=3,
-                    verbose=2)
+                    verbose=2,
+                    pin_gpu=False)
+
+                assert not keras_estimator.getPinGpu()
 
                 keras_model = keras_estimator.fit(df)
 

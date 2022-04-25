@@ -153,14 +153,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
     custom_objects = Param(Params._dummy(), 'custom_objects', 'custom objects')
     checkpoint_callback = Param(Params._dummy(), 'checkpoint_callback',
                                 'model checkpointing callback')
-    inmemory_cache_all = Param(Params._dummy(), 'inmemory_cache_all',
-                               'Cache the data in memory for training and validation.',
-                               typeConverter=TypeConverters.toBoolean)
     backend_env = Param(Params._dummy(), "backend_env",
                         "dict to add to the environment of the command run on the environment")
-    pin_gpu = Param(Params._dummy(), 'pin_gpu',
-                               'Whether to pin the traininig process to the GPU.',
-                               typeConverter=TypeConverters.toBoolean)
 
     @keyword_only
     def __init__(self,
@@ -204,9 +198,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
         self._setDefault(optimizer=None,
                          custom_objects={},
                          checkpoint_callback=None,
-                         inmemory_cache_all=False,
-                         backend_env={'LIBHDFS_OPTS': '-Xms2048m -Xmx2048m'},
-                         pin_gpu=True)
+                         backend_env={'LIBHDFS_OPTS': '-Xms2048m -Xmx2048m'})
 
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
@@ -241,23 +233,11 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
     def getCheckpointCallback(self):
         return self.getOrDefault(self.checkpoint_callback)
 
-    def setInMemoryCacheAll(self, value):
-        return self._set(inmemory_cache_all=value)
-
-    def getInMemoryCacheAll(self):
-        return self.getOrDefault(self.inmemory_cache_all)
-
     def setBackendEnv(self, value):
         self._set(backend_env=value)
 
     def getBackendEnv(self):
         return self.getOrDefault(self.backend_env)
-
-    def setPinGpu(self, value):
-        self._set(pin_gpu=value)
-
-    def getPinGpu(self):
-        return self.getOrDefault(self.pin_gpu)
 
     def _check_metadata_compatibility(self, metadata):
         input_shapes, output_shapes = self.get_model_shapes()

@@ -147,6 +147,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         val_reader_num_workers: Similar to the train_reader_num_workers.
         reader_pool_type: Type of worker pool used to parallelize reading data from the dataset.
                           Should be one of ['thread', 'process']. Defaults to 'process'.
+        inmemory_cache_all: (Optional) Cache the data in memory for training and validation.
         pin_gpu: Whether to pin the traininig process to the GPU. Defaults to True.
     """
 
@@ -155,13 +156,6 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                               'functions that construct the loss')
     train_minibatch_fn = Param(Params._dummy(), 'train_minibatch_fn',
                                'functions that construct the minibatch train function for torch')
-
-    inmemory_cache_all = Param(Params._dummy(), 'inmemory_cache_all',
-                               'Cache the data in memory for training and validation.',
-                               typeConverter=TypeConverters.toBoolean)
-    pin_gpu = Param(Params._dummy(), 'pin_gpu',
-                               'Whether to pin the traininig process to the GPU.',
-                               typeConverter=TypeConverters.toBoolean)
 
     @keyword_only
     def __init__(self,
@@ -204,9 +198,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         self._setDefault(loss_constructors=None,
                          input_shapes=None,
                          train_minibatch_fn=None,
-                         transformation_fn=None,
-                         inmemory_cache_all=False,
-                         pin_gpu=True)
+                         transformation_fn=None)
 
         kwargs = self._input_kwargs
 
@@ -232,18 +224,6 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def getLossConstructors(self):
         return self.getOrDefault(self.loss_constructors)
-
-    def setInMemoryCacheAll(self, value):
-        return self._set(inmemory_cache_all=value)
-
-    def getInMemoryCacheAll(self):
-        return self.getOrDefault(self.inmemory_cache_all)
-
-    def setPinGpu(self, value):
-        return self._set(pin_gpu=value)
-
-    def getPinGpu(self):
-        return self.getOrDefault(self.pin_gpu)
 
     def _get_optimizer(self):
         return self.getOrDefault(self.optimizer)

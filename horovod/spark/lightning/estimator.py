@@ -190,10 +190,6 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     train_minibatch_fn = Param(Params._dummy(), 'train_minibatch_fn',
                                'functions that construct the minibatch train function for torch')
 
-    inmemory_cache_all = Param(Params._dummy(), 'inmemory_cache_all',
-                               'Cache the data in memory for training and validation.',
-                               typeConverter=TypeConverters.toBoolean)
-
     num_gpus = Param(Params._dummy(), 'num_gpus',
                      'Number of gpus per process, default to 1 when CUDA is available in the backend, otherwise 0.')
 
@@ -221,10 +217,6 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     train_async_data_loader_queue_size = Param(Params._dummy(), 'train_async_data_loader_queue_size', 'Size of train async data loader queue.')
 
     val_async_data_loader_queue_size = Param(Params._dummy(), 'val_async_data_loader_queue_size', 'Size of val async data loader queue.')
-
-    pin_gpu = Param(Params._dummy(), 'pin_gpu',
-                               'Whether to pin the traininig process to the GPU.',
-                               typeConverter=TypeConverters.toBoolean)
 
     @keyword_only
     def __init__(self,
@@ -279,7 +271,6 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                          input_shapes=None,
                          train_minibatch_fn=None,
                          transformation_fn=None,
-                         inmemory_cache_all=False,
                          num_gpus=None,
                          logger=None,
                          log_every_n_steps=50,
@@ -290,8 +281,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                          trainer_args=None,
                          debug_data_loader=False,
                          train_async_data_loader_queue_size=None,
-                         val_async_data_loader_queue_size=None,
-                         pin_gpu=True)
+                         val_async_data_loader_queue_size=None)
 
         kwargs = self._input_kwargs
 
@@ -321,12 +311,6 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def getLossConstructors(self):
         return self.getOrDefault(self.loss_constructors)
-
-    def setInMemoryCacheAll(self, value):
-        return self._set(inmemory_cache_all=value)
-
-    def getInMemoryCacheAll(self):
-        return self.getOrDefault(self.inmemory_cache_all)
 
     def setNumGPUs(self, value):
         return self._set(num_gpus=value)
@@ -393,12 +377,6 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def getValAsyncDataLoaderQueueSize(self):
         return self.getOrDefault(self.val_async_data_loader_queue_size)
-
-    def setPinGpu(self, value):
-        return self._set(pin_gpu=value)
-
-    def getPinGpu(self):
-        return self.getOrDefault(self.pin_gpu)
 
     # Overwrites Model's getOptimizer method
     def getOptimizer(self):
