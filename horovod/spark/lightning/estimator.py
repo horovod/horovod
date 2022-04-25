@@ -181,6 +181,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         debug_data_loader: (Optional)Debugging flag for data loader.
         train_async_data_loader_queue_size: (Optional) Size of train async data loader queue.
         val_async_data_loader_queue_size: (Optional) Size of val async data loader queue.
+        pin_gpu: Whether to pin the traininig process to the GPU. Defaults to True.
     """
 
     input_shapes = Param(Params._dummy(), 'input_shapes', 'input layer shapes')
@@ -220,6 +221,10 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     train_async_data_loader_queue_size = Param(Params._dummy(), 'train_async_data_loader_queue_size', 'Size of train async data loader queue.')
 
     val_async_data_loader_queue_size = Param(Params._dummy(), 'val_async_data_loader_queue_size', 'Size of val async data loader queue.')
+
+    pin_gpu = Param(Params._dummy(), 'pin_gpu',
+                               'Whether to pin the traininig process to the GPU.',
+                               typeConverter=TypeConverters.toBoolean)
 
     @keyword_only
     def __init__(self,
@@ -266,7 +271,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  profiler=None,
                  debug_data_loader=False,
                  train_async_data_loader_queue_size=None,
-                 val_async_data_loader_queue_size=None):
+                 val_async_data_loader_queue_size=None,
+                 pin_gpu=True):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
@@ -284,7 +290,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                          trainer_args=None,
                          debug_data_loader=False,
                          train_async_data_loader_queue_size=None,
-                         val_async_data_loader_queue_size=None)
+                         val_async_data_loader_queue_size=None,
+                         pin_gpu=True)
 
         kwargs = self._input_kwargs
 
@@ -386,6 +393,12 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def getValAsyncDataLoaderQueueSize(self):
         return self.getOrDefault(self.val_async_data_loader_queue_size)
+
+    def setPinGpu(self, value):
+        return self._set(pin_gpu=value)
+
+    def getPinGpu(self):
+        return self.getOrDefault(self.pin_gpu)
 
     # Overwrites Model's getOptimizer method
     def getOptimizer(self):

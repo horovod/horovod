@@ -147,6 +147,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
         inmemory_cache_all: boolean value. Cache the data in memory for training and validation. Default: False.
         backend_env: dict to add to the environment of the backend.  Defaults to setting the java heap size to
                      2G min and max for libhdfs through petastorm
+        pin_gpu: Whether to pin the traininig process to the GPU. Defaults to True.
     """
 
     custom_objects = Param(Params._dummy(), 'custom_objects', 'custom objects')
@@ -157,6 +158,9 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                                typeConverter=TypeConverters.toBoolean)
     backend_env = Param(Params._dummy(), "backend_env",
                         "dict to add to the environment of the command run on the environment")
+    pin_gpu = Param(Params._dummy(), 'pin_gpu',
+                               'Whether to pin the traininig process to the GPU.',
+                               typeConverter=TypeConverters.toBoolean)
 
     @keyword_only
     def __init__(self,
@@ -192,7 +196,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                  label_shapes=None,
                  checkpoint_callback=None,
                  inmemory_cache_all=False,
-                 backend_env=None):
+                 backend_env=None,
+                 pin_gpu=True):
 
         super(KerasEstimator, self).__init__()
 
@@ -200,7 +205,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                          custom_objects={},
                          checkpoint_callback=None,
                          inmemory_cache_all=False,
-                         backend_env={'LIBHDFS_OPTS': '-Xms2048m -Xmx2048m'})
+                         backend_env={'LIBHDFS_OPTS': '-Xms2048m -Xmx2048m'},
+                         pin_gpu=True)
 
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
@@ -246,6 +252,12 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
 
     def getBackendEnv(self):
         return self.getOrDefault(self.backend_env)
+
+    def setPinGpu(self, value):
+        self._set(pin_gpu=value)
+
+    def getPinGpu(self):
+        return self.getOrDefault(self.pin_gpu)
 
     def _check_metadata_compatibility(self, metadata):
         input_shapes, output_shapes = self.get_model_shapes()
