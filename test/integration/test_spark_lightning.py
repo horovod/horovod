@@ -66,6 +66,9 @@ from spark_common import CallbackBackend, create_noisy_xor_data, create_noisy_xo
 class XOR(pl.LightningModule):
     def __init__(self, input_dim=2, output_dim=1):
         super(XOR, self).__init__()
+        # The Lightning checkpoint also saves the arguments passed into the LightningModule init
+        # under the "hyper_parameters" key in the checkpoint.
+        self.save_hyperparameters()
         self.lin1 = nn.Linear(input_dim, 8)
         self.lin2 = nn.Linear(8, output_dim)
 
