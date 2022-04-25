@@ -47,12 +47,8 @@ def main():
                                 and step['label'].startswith(':docker: Build ')
               for plugin in step['plugins'] if 'docker-compose#v3.5.0' in plugin]
 
-    def treat_escapes_in_command(command):
-        # GitHub Actions treat some escapes in the command differently than Buildkite
-        return command.replace(r'\\$', r'\$')
-
     cpu_tests = [(re.sub(r' \(test-.*', '', re.sub(':[^:]*: ', '', step['label'])),
-                  treat_escapes_in_command(step['command']),
+                  step['command'],
                   step['timeout_in_minutes'],
                   plugin['docker-compose#v3.5.0']['run'])
                  for step in steps if isinstance(step, dict) and 'label' in step and 'command' in step
