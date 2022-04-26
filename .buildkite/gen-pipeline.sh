@@ -422,7 +422,7 @@ run_spark_integration() {
     if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
       run_test "${test}" "${queue}" \
         ":spark: Spark TensorFlow 2.0 MNIST Data Service (${test})" \
-        "bash -c \"cd /horovod/examples/spark/tensorflow2; worker_py=\\\"\\\$(python -c \\\"import horovod.spark.tensorflow.compute_worker as worker; print(worker.__file__)\\\")\\\"; spark-submit --master \\\"local[2]\\\" \\\"\\\$worker_py\\\" /tmp/compute.json & OMP_NUM_THREADS=1 /spark_env.sh spark-submit --master \\\"local[2]\\\" --py-files tensorflow2_mnist_data_service_train_fn_compute_side_dispatcher.py,tensorflow2_mnist_data_service_train_fn_training_side_dispatcher.py tensorflow2_mnist_data_service.py /tmp/compute.json\""
+        "bash -c \"cd /horovod/examples/spark/tensorflow2; spark-submit --master \\\"local[2]\\\" \\\"/horovod/horovod/spark/tensorflow/compute_worker.py\\\" /tmp/compute.json & OMP_NUM_THREADS=1 /spark_env.sh spark-submit --master \\\"local[2]\\\" --py-files tensorflow2_mnist_data_service_train_fn_compute_side_dispatcher.py,tensorflow2_mnist_data_service_train_fn_training_side_dispatcher.py tensorflow2_mnist_data_service.py /tmp/compute.json\""
     fi
 
     run_test "${test}" "${queue}" \
