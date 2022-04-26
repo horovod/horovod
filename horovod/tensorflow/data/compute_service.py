@@ -25,6 +25,7 @@ from typing import Mapping, Sequence, Tuple, Any, Optional
 
 import tensorflow as tf
 
+import horovod.tensorflow as hvd
 from horovod.runner.common.service.compute_service import ComputeClient
 from horovod.runner.common.util.env import get_env_rank_and_size
 
@@ -132,8 +133,8 @@ tf.data.Dataset.send_to_data_service = send_to_data_service
 
 def compute_worker_fn(compute_config: TfDataServiceConfig):
     """ Function run on the compute tasks providing tf dispatcher and worker server. """
-
-    index, size = get_env_rank_and_size()
+    hvd.init()
+    index, size = hvd.rank(), hvd.size()
     dispatcher_index = index // compute_config.workers_per_dispatcher
 
     compute = compute_config.compute_client(verbose=2)
