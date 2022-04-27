@@ -112,7 +112,9 @@ def run(
         use_gloo=None,
         use_mpi=None,
         mpi_args=None,
+        # network_interface is deprecated, use network_interfaces instead
         network_interface=None,
+        network_interfaces=None,
         executable=None,
         # np is deprecated, use num_proc instead
         np=None,
@@ -174,13 +176,16 @@ def run(
     :param use_mpi: Run Horovod using the MPI controller. This will
                     be the default if Horovod was built with MPI support.
     :param mpi_args: Extra arguments for the MPI controller. This is only used when use_mpi is True.
-    :param network_interface: Network interfaces to use for communication separated by comma. If
-                             not specified, Horovod will find the common NICs among all the
-                             workers and use those; example, eth0,eth1.
+    :param network_interfaces: List of network interfaces to use for communication. If not specified,
+                               Horovod will find the common NICs among all the workers.
+                               Example: ["eth0", "eth1"].
     :param executable: Optional executable to run when launching the workers. Defaults to `sys.executable`.
     :return: Return a list which contains values return by all Horovod processes.
              The index of the list corresponds to the rank of each Horovod process.
     """
+    if network_interface:
+        network_interfaces = network_interface.split(',')
+        warnings.warn('network_interface is deprecated, use network_interfaces instead', DeprecationWarning)
     if np is not None:
         num_proc = np
         warnings.warn('np is deprecated, use num_proc instead', DeprecationWarning)
@@ -224,7 +229,7 @@ def run(
     hargs.verbose = verbose
     hargs.use_gloo = use_gloo
     hargs.use_mpi = use_mpi
-    hargs.nics = network_interface
+    hargs.nics = set(network_interfaces) if network_interfaces else None
     hargs.run_func = wrapped_func
     hargs.executable = executable
 
