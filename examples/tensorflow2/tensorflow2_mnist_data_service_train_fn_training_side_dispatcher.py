@@ -26,8 +26,6 @@ from horovod.tensorflow.data.compute_service import TfDataServiceConfig, tf_data
 def train_fn(compute_config: TfDataServiceConfig, reuse_dataset: bool = False, round_robin: bool = False):
     # Horovod: initialize Horovod.
     hvd.init()
-    rank = hvd.rank()
-    size = hvd.size()
 
     # Horovod: pin GPU to be used to process local rank (one GPU per process)
     gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -36,7 +34,7 @@ def train_fn(compute_config: TfDataServiceConfig, reuse_dataset: bool = False, r
     if gpus:
         tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
 
-    with tf_data_service(compute_config, rank) as dispatcher_address:
+    with tf_data_service(compute_config, hvd.rank()) as dispatcher_address:
         # this lock guarantees only one training task downloads the dataset
         with FileLock(os.path.expanduser("~/.horovod_lock")):
             (mnist_images, mnist_labels), _ = tf.keras.datasets.mnist.load_data()
@@ -54,8 +52,8 @@ def train_fn(compute_config: TfDataServiceConfig, reuse_dataset: bool = False, r
                 processing_mode="distributed_epoch",
                 service=dispatcher_address,
                 job_name='job' if reuse_dataset else None,
-                consumer_index=rank if round_robin else None,
-                num_consumers=size if round_robin else None)) \
+                consumer_index=hvd.rank() if round_robin else None,
+                num_consumers=hvd.size() if round_robin else None)) \
             .prefetch(tf.data.experimental.AUTOTUNE)
 
         mnist_model = tf.keras.Sequential([

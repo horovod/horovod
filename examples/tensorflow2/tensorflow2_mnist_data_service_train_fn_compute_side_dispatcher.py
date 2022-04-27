@@ -26,8 +26,6 @@ from horovod.tensorflow.data.compute_service import TfDataServiceConfig
 def train_fn(compute_config: TfDataServiceConfig, reuse_dataset: bool = False, round_robin: bool = False):
     # Horovod: initialize Horovod.
     hvd.init()
-    rank = hvd.rank()
-    size = hvd.size()
 
     # Horovod: pin GPU to be used to process local rank (one GPU per process)
     gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -49,7 +47,8 @@ def train_fn(compute_config: TfDataServiceConfig, reuse_dataset: bool = False, r
     dataset = dataset.repeat() \
         .shuffle(10000) \
         .batch(128) \
-        .send_to_data_service(compute_config, rank, size, reuse_dataset=reuse_dataset, round_robin=round_robin) \
+        .send_to_data_service(compute_config, hvd.rank(), hvd.size(),
+                              reuse_dataset=reuse_dataset, round_robin=round_robin) \
         .prefetch(tf.data.experimental.AUTOTUNE)
 
     mnist_model = tf.keras.Sequential([
