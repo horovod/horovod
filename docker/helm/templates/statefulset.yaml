@@ -27,11 +27,6 @@ spec:
         heritage: {{ .Release.Service }}
         role: worker
     spec:
-      selector:
-        matchLabels:
-          app: {{ template "horovod.name" . }}
-          release: {{ .Release.Name }}
-          role: worker
       {{- if .Values.useHostNetwork }}
       hostNetwork: {{ .Values.useHostNetwork }}
       dnsPolicy: ClusterFirstWithHostNet

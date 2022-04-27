@@ -106,7 +106,7 @@ EOF
 To install the chart with the release name `mnist`:
 
 ```bash
-$ helm install --values ~/values.yaml --name mnist stable/horovod
+$ helm install --values ~/values.yaml mnist stable/horovod
 ```
 
 ## Uninstalling the Chart
