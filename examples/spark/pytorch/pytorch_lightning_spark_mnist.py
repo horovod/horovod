@@ -44,7 +44,7 @@ parser = argparse.ArgumentParser(description='PyTorch Spark MNIST Example',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--master',
                     help='spark master to connect to')
-parser.add_argument('--num-proc', type=int,
+parser.add_argument('--num-proc', type=int, default=2,
                     help='number of worker processes for training, default: `spark.default.parallelism`')
 parser.add_argument('--batch-size', type=int, default=64,
                     help='input batch size for training')
@@ -99,10 +99,13 @@ def train_model(args):
 
     # Define the PyTorch model without any Horovod-specific parameters
     class Net(LightningModule):
-        def __init__(self):
+        def __init__(self, kernel_size):
             super(Net, self).__init__()
-            self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
-            self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
+            # The Lightning checkpoint also saves the arguments passed into the LightningModule init
+            # under the "hyper_parameters" key in the checkpoint.
+            self.save_hyperparameters()
+            self.conv1 = nn.Conv2d(1, 10, kernel_size=kernel_size)
+            self.conv2 = nn.Conv2d(10, 20, kernel_size=kernel_size)
             self.conv2_drop = nn.Dropout2d()
             self.fc1 = nn.Linear(320, 50)
             self.fc2 = nn.Linear(50, 10)
@@ -141,7 +144,7 @@ def train_model(args):
             avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean() if len(outputs) > 0 else float('inf')
             self.log('avg_val_loss', avg_loss)
 
-    model = Net()
+    model = Net(5)
 
     # Train a Horovod Spark Estimator on the DataFrame
     backend = SparkBackend(num_proc=args.num_proc,
