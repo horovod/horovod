@@ -10,11 +10,11 @@ This chart bootstraps Horovod which is a Distributed TensorFlow Framework on a K
 
 ## Build Docker Image
 
-You can download [official Horovod Dockerfile](https://github.com/uber/horovod/blob/master/Dockerfile), then modify it according to your requirement, e.g. select a different CUDA, TensorFlow or Python version.
+You can download [official Horovod Dockerfile](https://github.com/horovod/horovod/blob/master/docker/horovod/Dockerfile), then modify it according to your requirement, e.g. select a different CUDA, TensorFlow or Python version.
 
 ```
 # mkdir horovod-docker
-# wget -O horovod-docker/Dockerfile https://raw.githubusercontent.com/uber/horovod/master/Dockerfile
+# wget -O horovod-docker/Dockerfile https://raw.githubusercontent.com/horovod/horovod/master/docker/horovod/Dockerfile
 # docker build -t horovod:latest horovod-docker
 ```
 
@@ -51,12 +51,12 @@ resources:
 worker:
   number: 2
   image:
-    repository: uber/horovod
-    tag: 0.12.1-tf1.8.0-py3.5
+    repository: horovod/horovod
+    tag: 0.24.3
 master:
   image:
-    repository: uber/horovod
-    tag: 0.12.1-tf1.8.0-py3.5
+    repository: horovod/horovod
+    tag: 0.24.3
   args:
     - "mpirun -np 3 --hostfile /horovod/generated/hostfile --mca orte_keep_fqdn_hostnames t --allow-run-as-root --display-map --tag-output --timestamp-output sh -c 'python /examples/tensorflow_mnist.py'"
 EOF
@@ -68,7 +68,7 @@ For most cases, the overlay network impacts the Horovod performance greatly, so 
 ```
 # cat << EOF > ~/values.yaml
 ---
-useHostNetwork: true
++useHostNetwork: true
 
 ssh:
   useSecrets: true
@@ -88,12 +88,12 @@ resources:
 worker:
   number: 2
   image:
-    repository: uber/horovod
-    tag: 0.12.1-tf1.8.0-py3.5
+    repository: horovod/horovod
+    tag: 0.24.3
 master:
   image:
-    repository: uber/horovod
-    tag: 0.12.1-tf1.8.0-py3.5
+    repository: horovod/horovod
+    tag: 0.24.3
   args:
     - "mpirun -np 3 --hostfile /horovod/generated/hostfile --mca orte_keep_fqdn_hostnames t --allow-run-as-root --display-map --tag-output --timestamp-output sh -c 'python /examples/tensorflow_mnist.py'"
 EOF
@@ -146,13 +146,13 @@ chart and their default values.
 | `ssh.port` | The ssh port | `22` |
 | `ssh.useSecrets` | Determine if using the secrets for ssh | `false` |
 | `worker.number`|  The worker's number | `5` |
-| `worker.image.repository` | horovod worker image | `uber/horovod` |
+| `worker.image.repository` | horovod worker image | `horovod/horovod` |
 | `worker.image.pullPolicy` | `pullPolicy` for the worker | `IfNotPresent` |
-| `worker.image.tag` | `tag` for the worker | `0.12.1-tf1.8.0-py3.5` |
+| `worker.image.tag` | `tag` for the worker | `0.24.3` |
 | `resources`| pod resource requests & limits| `{}`|
 | `worker.env` | worker's environment variables | `{}` |
-| `master.image.repository` | horovod master image | `uber/horovod` |
-| `master.image.tag` | `tag` for the master | `0.12.1-tf1.8.0-py3.5` |
+| `master.image.repository` | horovod master image | `horovod/horovod` |
+| `master.image.tag` | `tag` for the master | `0.24.3` |
 | `master.image.pullPolicy` | image pullPolicy for the master image| `IfNotPresent` |
 | `master.args` | master's args | `{}` |
 | `master.env` | master's environment variables | `{}` |
