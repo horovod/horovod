@@ -198,7 +198,13 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             if not should_pin_gpu and verbose:
                 print("Skip pinning current process to the GPU.")
 
-            cuda_available = torch.cuda.is_available() and should_pin_gpu
+            cuda_available = torch.cuda.is_available()
+
+            if cuda_available and not should_pin_gpu:
+                print("GPU is available but pin_gpu is set to False."
+                      "Training will proceed without GPU support.")
+                cuda_available = False
+
             # We need to check all ranks have same device type for traning.
             # Horovod doesn't support heterogeneous allreduce for gradients.
             cuda_avail_list = hvd.allgather_object(cuda_available, name='device type')

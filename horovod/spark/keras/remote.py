@@ -117,11 +117,11 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
 
         if should_pin_gpu:
             if verbose:
-                print(f"Pinning current process to the GPU.")
+                print("Pinning current process to the GPU.")
             pin_gpu(hvd, tf, k)
         else:
             if verbose:
-                print(f"Skip pinning current process to the GPU.")
+                print("Skip pinning current process to the GPU.")
 
         if random_seed is not None:
             if LooseVersion(tf.__version__) < LooseVersion('2.0.0'):

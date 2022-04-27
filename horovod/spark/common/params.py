@@ -101,8 +101,10 @@ class EstimatorParams(Params):
                                typeConverter=TypeConverters.toBoolean)
 
     pin_gpu = Param(Params._dummy(), 'pin_gpu',
-                               'Whether to pin the traininig process to the GPU. Defaults to True.',
-                               typeConverter=TypeConverters.toBoolean)
+                    'Whether to pin the traininig process to the GPU. '
+                    'Setting this to False will skipping binding to GPU even when GPU is available.'
+                    'Defaults to True.',
+                    typeConverter=TypeConverters.toBoolean)
 
     def __init__(self):
         super(EstimatorParams, self).__init__()
