@@ -53,3 +53,9 @@ docker build \
 
 See the [Horovod in Docker](../docs/docker.rst) documentation for guidance on running these Docker images, and
 [Horovod on Ray](../docs/ray.rst) for usage with Ray.
+
+## Running in Kubernetes
+
+See the [Horovod Helm Chart](helm/README.md), [Kubeflow MPI Operator](https://github.com/kubeflow/mpi-operator/),
+[FfDL]https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/(), and [Polyaxon](https://docs.polyaxon.com/integrations/horovod/)
+for guidance on running these Docker images in Kubernetes.

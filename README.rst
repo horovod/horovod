@@ -296,7 +296,7 @@ See `Run Horovod <docs/running.rst>`_ for more details, including RoCE/InfiniBan
 
 4. To run in Docker, see `Horovod in Docker <docs/docker.rst>`_.
 
-5. To run on Kubernetes, see `Kubeflow MPI Operator <https://github.com/kubeflow/mpi-operator/>`_, `Helm Chart <https://github.com/kubernetes/charts/tree/master/stable/horovod/>`_, `FfDL <https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/>`_, and `Polyaxon <https://docs.polyaxon.com/integrations/horovod/>`_.
+5. To run on Kubernetes, see `Helm Chart <https://github.com/horovod/horovod/tree/master/docker/helm/>`_, `Kubeflow MPI Operator <https://github.com/kubeflow/mpi-operator/>`_, `FfDL <https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/>`_, and `Polyaxon <https://docs.polyaxon.com/integrations/horovod/>`_.
 
 6. To run on Spark, see `Horovod on Spark <docs/spark.rst>`_.
 
