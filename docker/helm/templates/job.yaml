@@ -8,14 +8,14 @@ metadata:
     chart: {{ template "horovod.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
-    role: master
+    role: driver
 spec:
   template:
     metadata:
       labels:
         app: {{ template "horovod.name" . }}
         release: {{ .Release.Name }}
-        role: master
+        role: driver
     spec:
       {{- if .Values.useHostNetwork }}
       hostNetwork: {{ .Values.useHostNetwork }}
@@ -33,10 +33,10 @@ spec:
           - key: hostfile.config
             path: hostfile
             mode: 438
-          - key: master.waitWorkerReady
+          - key: driver.waitWorkerReady
             path: waitWorkersReady.sh
             mode: 365
-          - key: master.run
+          - key: driver.run
             path: run.sh
             mode: 365
       {{- if .Values.ssh.useSecrets }}
@@ -54,9 +54,9 @@ spec:
 {{ toYaml .Values.volumes | indent  6 }}
 {{- end }}
       containers:
-      - name: horovod-master
-        image: "{{ .Values.master.image.repository }}:{{ .Values.master.image.tag }}"
-        imagePullPolicy: {{ .Values.master.image.pullPolicy }}
+      - name: horovod-driver
+        image: "{{ .Values.driver.image.repository }}:{{ .Values.driver.image.tag }}"
+        imagePullPolicy: {{ .Values.driver.image.pullPolicy }}
         env:
          - name: SSHPORT
            value: "{{ .Values.ssh.port }}"
@@ -64,13 +64,13 @@ spec:
          - name: USESECRETS
            value: "{{ .Values.ssh.useSecrets }}"
        {{- end }}
-       {{- if .Values.master.env }}
-       {{- range $key, $value := .Values.master.env }}
+       {{- if .Values.driver.env }}
+       {{- range $key, $value := .Values.driver.env }}
          - name: "{{ $key }}"
            value: "{{ $value }}"
        {{- end }}
        {{- end }}
-{{- if .Values.master.privileged }}
+{{- if .Values.driver.privileged }}
         securityContext:
           privileged: true
 {{- end }}
@@ -90,14 +90,14 @@ spec:
         command:
         - /horovod/generated/run.sh
         args:
-{{ toYaml .Values.master.args | indent 10 }}
+{{ toYaml .Values.driver.args | indent 10 }}
         resources:
 {{ toYaml .Values.resources | indent 10 }}
 {{- if .Values.ssh.useSecrets }}
       initContainers:
       - name: wait-workers
-        image: "{{ .Values.master.image.repository }}:{{ .Values.master.image.tag }}"
-        imagePullPolicy: {{ .Values.master.image.pullPolicy }}
+        image: "{{ .Values.driver.image.repository }}:{{ .Values.driver.image.tag }}"
+        imagePullPolicy: {{ .Values.driver.image.pullPolicy }}
         env:
         - name: SSHPORT
           value: "{{ .Values.ssh.port }}"
@@ -105,8 +105,8 @@ spec:
         - name: USESECRETS
           value: "{{ .Values.ssh.useSecrets }}"
         {{- end }}
-        {{- if .Values.master.env }}
-        {{- range $key, $value := .Values.master.env }}
+        {{- if .Values.driver.env }}
+        {{- range $key, $value := .Values.driver.env }}
         - name: "{{ $key }}"
           value: "{{ $value }}"
         {{- end }}

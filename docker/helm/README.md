@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This chart bootstraps Horovod which is a Distributed TensorFlow Framework on a Kubernetes cluster using the Helm Package Manager. It deploys Horovod workers as statefulsets, and the Horovod master as a job, then discover the host list automatically.
+This chart bootstraps Horovod which is a Distributed TensorFlow Framework on a Kubernetes cluster using the Helm Package Manager. It deploys Horovod workers as statefulsets, and the Horovod driver as a job, then discover the host list automatically.
 
 ## Prerequisites
 
@@ -53,7 +53,7 @@ worker:
   image:
     repository: horovod/horovod
     tag: 0.24.3
-master:
+driver:
   image:
     repository: horovod/horovod
     tag: 0.24.3
@@ -90,7 +90,7 @@ worker:
   image:
     repository: horovod/horovod
     tag: 0.24.3
-master:
+driver:
   image:
     repository: horovod/horovod
     tag: 0.24.3
@@ -151,8 +151,8 @@ chart and their default values.
 | `worker.image.tag` | `tag` for the worker | `0.24.3` |
 | `resources`| pod resource requests & limits| `{}`|
 | `worker.env` | worker's environment variables | `{}` |
-| `master.image.repository` | horovod master image | `horovod/horovod` |
-| `master.image.tag` | `tag` for the master | `0.24.3` |
-| `master.image.pullPolicy` | image pullPolicy for the master image| `IfNotPresent` |
-| `master.args` | master's args | `{}` |
-| `master.env` | master's environment variables | `{}` |
+| `driver.image.repository` | horovod driver image | `horovod/horovod` |
+| `driver.image.tag` | `tag` for the driver | `0.24.3` |
+| `driver.image.pullPolicy` | image pullPolicy for the driver image| `IfNotPresent` |
+| `driver.args` | driver's args | `{}` |
+| `driver.env` | driver's environment variables | `{}` |

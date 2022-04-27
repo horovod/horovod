@@ -15,7 +15,7 @@ metadata:
     app: {{ template "horovod.fullname" . }}
 data:
   hostfile.config: |
-    {{ $name }}-master slots={{ $slots }}
+    {{ $name }}-driver slots={{ $slots }}
     {{- range $i, $none := until (int $workerNum) }}
     {{ $name }}-{{ $i }}.{{ $name }} slots={{ $slots }}
     {{- end }}
@@ -23,7 +23,7 @@ data:
     #!/bin/bash
     set -xev
     ssh localhost ls
-  master.run: |
+  driver.run: |
      #!/bin/bash
      set -x
      sleep 5
@@ -51,7 +51,7 @@ data:
         else
           bash -c "$*"
      fi
-  master.waitWorkerReady: |
+  driver.waitWorkerReady: |
     #!/bin/bash
     set -xev
     function updateSSHPort() {
@@ -74,7 +74,7 @@ data:
       fi
 
       for i in `cat $1 | awk '{print $(1)}'`;do
-        if [[ "$i" != *"master" ]];then
+        if [[ "$i" != *"driver" ]];then
           retry 30 ssh -o ConnectTimeout=2 -q $i exit
         fi
       done

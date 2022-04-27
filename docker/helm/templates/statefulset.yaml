@@ -78,8 +78,8 @@ spec:
         - name: USESECRETS
           value: "{{ .Values.ssh.useSecrets }}"
        {{- end }}
-       {{- if .Values.master.env }}
-       {{- range $key, $value := .Values.master.env }}
+       {{- if .Values.driver.env }}
+       {{- range $key, $value := .Values.driver.env }}
         - name: "{{ $key }}"
           value: "{{ $value }}"
        {{- end }}

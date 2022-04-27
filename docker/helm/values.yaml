@@ -29,7 +29,7 @@ worker:
     tag: 0.24.3
     pullPolicy: IfNotPresent
 
-master:
+driver:
   image:
     repository: horovod/horovod
     tag: 0.24.3
