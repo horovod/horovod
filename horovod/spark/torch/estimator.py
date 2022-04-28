@@ -148,7 +148,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         reader_pool_type: Type of worker pool used to parallelize reading data from the dataset.
                           Should be one of ['thread', 'process']. Defaults to 'process'.
         inmemory_cache_all: (Optional) Cache the data in memory for training and validation.
-        pin_gpu: Whether to pin the traininig process to the GPU. Defaults to True.
+        use_gpu: Whether to use the GPU for training. Defaults to True.
     """
 
     input_shapes = Param(Params._dummy(), 'input_shapes', 'input layer shapes')
@@ -192,7 +192,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  reader_pool_type=None,
                  label_shapes=None,
                  inmemory_cache_all=False,
-                 pin_gpu=True):
+                 use_gpu=True):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,

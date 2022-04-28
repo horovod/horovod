@@ -64,7 +64,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     debug_data_loader = estimator.getDebugDataLoader()
     train_async_data_loader_queue_size = estimator.getTrainAsyncDataLoaderQueueSize()
     val_async_data_loader_queue_size = estimator.getValAsyncDataLoaderQueueSize()
-    should_pin_gpu = estimator.getPinGpu()
+    should_use_gpu = estimator.getUseGpu()
 
     # get logger
     logger = estimator.getLogger()
@@ -195,13 +195,13 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                       f"Val rows: {val_rows}, Val batch size: {val_batch_size}, Val_steps_per_epoch: {_val_steps_per_epoch}\n"
                       f"Checkpoint file: {remote_store.checkpoint_path}, Logs dir: {remote_store.logs_path}\n")
 
-            if not should_pin_gpu and verbose:
+            if not should_use_gpu and verbose:
                 print("Skip pinning current process to the GPU.")
 
             cuda_available = torch.cuda.is_available()
 
-            if cuda_available and not should_pin_gpu:
-                print("GPU is available but pin_gpu is set to False."
+            if cuda_available and not should_use_gpu:
+                print("GPU is available but use_gpu is set to False."
                       "Training will proceed without GPU support.")
                 cuda_available = False
 

@@ -52,7 +52,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     user_verbose = estimator.getVerbose()
     checkpoint_callback = estimator.getCheckpointCallback()
     inmemory_cache_all = estimator.getInMemoryCacheAll()
-    should_pin_gpu = estimator.getPinGpu()
+    should_use_gpu = estimator.getUseGpu()
 
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
@@ -115,7 +115,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
         # Verbose mode 1 will print a progress bar
         verbose = user_verbose if hvd.rank() == 0 else 0
 
-        if should_pin_gpu:
+        if should_use_gpu:
             if verbose:
                 print("Pinning current process to the GPU.")
             pin_gpu(hvd, tf, k)

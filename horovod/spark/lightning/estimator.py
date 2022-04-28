@@ -181,7 +181,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         debug_data_loader: (Optional)Debugging flag for data loader.
         train_async_data_loader_queue_size: (Optional) Size of train async data loader queue.
         val_async_data_loader_queue_size: (Optional) Size of val async data loader queue.
-        pin_gpu: Whether to pin the traininig process to the GPU. Defaults to True.
+        use_gpu: Whether to use the GPU for training. Defaults to True.
     """
 
     input_shapes = Param(Params._dummy(), 'input_shapes', 'input layer shapes')
@@ -264,7 +264,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  debug_data_loader=False,
                  train_async_data_loader_queue_size=None,
                  val_async_data_loader_queue_size=None,
-                 pin_gpu=True):
+                 use_gpu=True):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
