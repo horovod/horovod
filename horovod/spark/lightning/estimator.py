@@ -181,6 +181,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         debug_data_loader: (Optional)Debugging flag for data loader.
         train_async_data_loader_queue_size: (Optional) Size of train async data loader queue.
         val_async_data_loader_queue_size: (Optional) Size of val async data loader queue.
+        use_gpu: Whether to use the GPU for training. Defaults to True.
     """
 
     input_shapes = Param(Params._dummy(), 'input_shapes', 'input layer shapes')
@@ -188,10 +189,6 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                               'functions that construct the loss')
     train_minibatch_fn = Param(Params._dummy(), 'train_minibatch_fn',
                                'functions that construct the minibatch train function for torch')
-
-    inmemory_cache_all = Param(Params._dummy(), 'inmemory_cache_all',
-                               'Cache the data in memory for training and validation.',
-                               typeConverter=TypeConverters.toBoolean)
 
     num_gpus = Param(Params._dummy(), 'num_gpus',
                      'Number of gpus per process, default to 1 when CUDA is available in the backend, otherwise 0.')
@@ -266,14 +263,14 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  profiler=None,
                  debug_data_loader=False,
                  train_async_data_loader_queue_size=None,
-                 val_async_data_loader_queue_size=None):
+                 val_async_data_loader_queue_size=None,
+                 use_gpu=True):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
                          input_shapes=None,
                          train_minibatch_fn=None,
                          transformation_fn=None,
-                         inmemory_cache_all=False,
                          num_gpus=None,
                          logger=None,
                          log_every_n_steps=50,
@@ -314,12 +311,6 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def getLossConstructors(self):
         return self.getOrDefault(self.loss_constructors)
-
-    def setInMemoryCacheAll(self, value):
-        return self._set(inmemory_cache_all=value)
-
-    def getInMemoryCacheAll(self):
-        return self.getOrDefault(self.inmemory_cache_all)
 
     def setNumGPUs(self, value):
         return self._set(num_gpus=value)

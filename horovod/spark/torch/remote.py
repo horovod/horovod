@@ -60,6 +60,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     transformation_fn = estimator.getTransformationFn()
     transformation = transformation_fn if transformation_fn else None
     inmemory_cache_all = estimator.getInMemoryCacheAll()
+    should_use_gpu = estimator.getUseGpu()
 
     # If loss weight is not provided, use equal loss for all the labels
     loss_weights = estimator.getLossWeights()
@@ -134,7 +135,16 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                 raise ValueError("user_shuffle_buffer_size cannot be negative!")
             shuffle_buffer_size = user_shuffle_buffer_size
 
+        if not should_use_gpu and user_verbose:
+            print("Skip pinning current process to the GPU.")
+
         cuda_available = torch.cuda.is_available()
+
+        if cuda_available and not should_use_gpu:
+            print("GPU is available but use_gpu is set to False."
+                  "Training will proceed without GPU support.")
+            cuda_available = False
+
         # We need to check all ranks have same device type for traning.
         # Horovod doesn't support heterogeneous allreduce for gradients.
         cuda_avail_list = hvd.allgather_object(cuda_available, name='device type')

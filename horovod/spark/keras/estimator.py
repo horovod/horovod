@@ -147,14 +147,12 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
         inmemory_cache_all: boolean value. Cache the data in memory for training and validation. Default: False.
         backend_env: dict to add to the environment of the backend.  Defaults to setting the java heap size to
                      2G min and max for libhdfs through petastorm
+        use_gpu: Whether to use the GPU for training. Defaults to True.
     """
 
     custom_objects = Param(Params._dummy(), 'custom_objects', 'custom objects')
     checkpoint_callback = Param(Params._dummy(), 'checkpoint_callback',
                                 'model checkpointing callback')
-    inmemory_cache_all = Param(Params._dummy(), 'inmemory_cache_all',
-                               'Cache the data in memory for training and validation.',
-                               typeConverter=TypeConverters.toBoolean)
     backend_env = Param(Params._dummy(), "backend_env",
                         "dict to add to the environment of the command run on the environment")
 
@@ -192,14 +190,14 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                  label_shapes=None,
                  checkpoint_callback=None,
                  inmemory_cache_all=False,
-                 backend_env=None):
+                 backend_env=None,
+                 use_gpu=True):
 
         super(KerasEstimator, self).__init__()
 
         self._setDefault(optimizer=None,
                          custom_objects={},
                          checkpoint_callback=None,
-                         inmemory_cache_all=False,
                          backend_env={'LIBHDFS_OPTS': '-Xms2048m -Xmx2048m'})
 
         kwargs = self._input_kwargs
@@ -234,12 +232,6 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
 
     def getCheckpointCallback(self):
         return self.getOrDefault(self.checkpoint_callback)
-
-    def setInMemoryCacheAll(self, value):
-        return self._set(inmemory_cache_all=value)
-
-    def getInMemoryCacheAll(self):
-        return self.getOrDefault(self.inmemory_cache_all)
 
     def setBackendEnv(self, value):
         self._set(backend_env=value)

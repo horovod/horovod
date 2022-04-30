@@ -52,6 +52,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     user_verbose = estimator.getVerbose()
     checkpoint_callback = estimator.getCheckpointCallback()
     inmemory_cache_all = estimator.getInMemoryCacheAll()
+    should_use_gpu = estimator.getUseGpu()
 
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
@@ -111,7 +112,16 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
         hvd = get_horovod()
         hvd.init()
 
-        pin_gpu(hvd, tf, k)
+        # Verbose mode 1 will print a progress bar
+        verbose = user_verbose if hvd.rank() == 0 else 0
+
+        if should_use_gpu:
+            if verbose:
+                print("Pinning current process to the GPU.")
+            pin_gpu(hvd, tf, k)
+        else:
+            if verbose:
+                print("Skip pinning current process to the GPU.")
 
         if random_seed is not None:
             if LooseVersion(tf.__version__) < LooseVersion('2.0.0'):
@@ -137,8 +147,6 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
         scaled_lr = k.backend.get_value(model.optimizer.lr) * hvd.size()
         k.backend.set_value(model.optimizer.lr, scaled_lr)
 
-        # Verbose mode 1 will print a progress bar
-        verbose = user_verbose if hvd.rank() == 0 else 0
 
         if verbose:
             print(f"Shared lib path is pointing to: {_horovod.common.process_sets._basics.MPI_LIB_CTYPES}")

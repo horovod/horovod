@@ -96,6 +96,16 @@ class EstimatorParams(Params):
 
     label_shapes = Param(Params._dummy(), 'label_shapes', 'specifies the shape (or shapes) of the label column (or columns)')
 
+    inmemory_cache_all = Param(Params._dummy(), 'inmemory_cache_all',
+                               'Cache the data in memory for training and validation.',
+                               typeConverter=TypeConverters.toBoolean)
+
+    use_gpu = Param(Params._dummy(), 'use_gpu',
+                    'Whether to use the GPU for training. '
+                    'Setting this to False will skipping binding to GPU even when GPU is available. '
+                    'Defaults to True.',
+                    typeConverter=TypeConverters.toBoolean)
+
     def __init__(self):
         super(EstimatorParams, self).__init__()
 
@@ -129,7 +139,9 @@ class EstimatorParams(Params):
             train_reader_num_workers=2,
             val_reader_num_workers=2,
             reader_pool_type='process',
-            label_shapes=None)
+            label_shapes=None,
+            inmemory_cache_all=False,
+            use_gpu=True)
 
     def _check_params(self, metadata):
         model = self.getModel()
@@ -334,6 +346,17 @@ class EstimatorParams(Params):
     def getLabelShapes(self):
         return self.getOrDefault(self.label_shapes)
 
+    def setInMemoryCacheAll(self, value):
+        return self._set(inmemory_cache_all=value)
+
+    def getInMemoryCacheAll(self):
+        return self.getOrDefault(self.inmemory_cache_all)
+
+    def setUseGpu(self, value):
+        self._set(use_gpu=value)
+
+    def getUseGpu(self):
+        return self.getOrDefault(self.use_gpu)
 
 class ModelParams(HasOutputCols):
     history = Param(Params._dummy(), 'history', 'history')
