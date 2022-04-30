@@ -172,7 +172,8 @@ jobs:
             Gloo_Keras_MNIST: true
             Gloo_MXNet_MNIST: true
             Gloo_Parallel_PyTests: true
-            Gloo_PyTorch_MNIST: true
+            Gloo_PyTorch_MNIST_api: true
+            Gloo_PyTorch_MNIST_horovodrun: true
             Gloo_Single_PyTests: true
             Gloo_TensorFlow_MNIST: true
             Single_Keras_MNIST: true
@@ -193,10 +194,13 @@ jobs:
             Gloo_Cluster_PyTests: true
             Gloo_MXNet_MNIST: true
             Gloo_Parallel_PyTests: true
-            Gloo_PyTorch_MNIST: true
+            Gloo_PyTorch_MNIST_api: true
+            Gloo_PyTorch_MNIST_horovodrun: true
             Gloo_Single_PyTests: true
-            Gloo_TensorFlow_2_0_Keras_MNIST: true
-            Gloo_TensorFlow_2_0_MNIST: true
+            Gloo_TensorFlow_2_0_Keras_MNIST_api: true
+            Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun: true
+            Gloo_TensorFlow_2_0_MNIST_api: true
+            Gloo_TensorFlow_2_0_MNIST_horovodrun: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
             Spark_Lightning_MNIST: true
@@ -209,10 +213,13 @@ jobs:
             Gloo_Cluster_PyTests: true
             Gloo_MXNet_MNIST: true
             Gloo_Parallel_PyTests: true
-            Gloo_PyTorch_MNIST: true
+            Gloo_PyTorch_MNIST_api: true
+            Gloo_PyTorch_MNIST_horovodrun: true
             Gloo_Single_PyTests: true
-            Gloo_TensorFlow_2_0_Keras_MNIST: true
-            Gloo_TensorFlow_2_0_MNIST: true
+            Gloo_TensorFlow_2_0_Keras_MNIST_api: true
+            Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun: true
+            Gloo_TensorFlow_2_0_MNIST_api: true
+            Gloo_TensorFlow_2_0_MNIST_horovodrun: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
             Spark_Lightning_MNIST: true
@@ -225,10 +232,13 @@ jobs:
             Gloo_Cluster_PyTests: true
             Gloo_MXNet_MNIST: true
             Gloo_Parallel_PyTests: true
-            Gloo_PyTorch_MNIST: true
+            Gloo_PyTorch_MNIST_api: true
+            Gloo_PyTorch_MNIST_horovodrun: true
             Gloo_Single_PyTests: true
-            Gloo_TensorFlow_2_0_Keras_MNIST: true
-            Gloo_TensorFlow_2_0_MNIST: true
+            Gloo_TensorFlow_2_0_Keras_MNIST_api: true
+            Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun: true
+            Gloo_TensorFlow_2_0_MNIST_api: true
+            Gloo_TensorFlow_2_0_MNIST_horovodrun: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
             Spark_Lightning_MNIST: true
@@ -243,10 +253,13 @@ jobs:
             Gloo_Cluster_PyTests: true
             Gloo_MXNet_MNIST: true
             Gloo_Parallel_PyTests: true
-            Gloo_PyTorch_MNIST: true
+            Gloo_PyTorch_MNIST_api: true
+            Gloo_PyTorch_MNIST_horovodrun: true
             Gloo_Single_PyTests: true
-            Gloo_TensorFlow_2_0_Keras_MNIST: true
-            Gloo_TensorFlow_2_0_MNIST: true
+            Gloo_TensorFlow_2_0_Keras_MNIST_api: true
+            Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun: true
+            Gloo_TensorFlow_2_0_MNIST_api: true
+            Gloo_TensorFlow_2_0_MNIST_horovodrun: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
             Spark_Lightning_MNIST: true
@@ -261,10 +274,13 @@ jobs:
             Gloo_Cluster_PyTests: true
             Gloo_MXNet_MNIST: true
             Gloo_Parallel_PyTests: true
-            Gloo_PyTorch_MNIST: true
+            Gloo_PyTorch_MNIST_api: true
+            Gloo_PyTorch_MNIST_horovodrun: true
             Gloo_Single_PyTests: true
-            Gloo_TensorFlow_2_0_Keras_MNIST: true
-            Gloo_TensorFlow_2_0_MNIST: true
+            Gloo_TensorFlow_2_0_Keras_MNIST_api: true
+            Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun: true
+            Gloo_TensorFlow_2_0_MNIST_api: true
+            Gloo_TensorFlow_2_0_MNIST_horovodrun: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
             Spark_Lightning_MNIST: true
@@ -276,10 +292,13 @@ jobs:
             MPI_Cluster_PyTests: true
             MPI_MXNet_MNIST: true
             MPI_Parallel_PyTests: true
-            MPI_PyTorch_MNIST: true
+            MPI_PyTorch_MNIST_api: true
+            MPI_PyTorch_MNIST_horovodrun: true
             MPI_Single_PyTests: true
-            MPI_TensorFlow_2_0_Keras_MNIST: true
-            MPI_TensorFlow_2_0_MNIST: true
+            MPI_TensorFlow_2_0_Keras_MNIST_api: true
+            MPI_TensorFlow_2_0_Keras_MNIST_horovodrun: true
+            MPI_TensorFlow_2_0_MNIST_api: true
+            MPI_TensorFlow_2_0_MNIST_horovodrun: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
             build_timeout: 30
@@ -289,17 +308,23 @@ jobs:
             Gloo_Cluster_PyTests: true
             Gloo_MXNet_MNIST: true
             Gloo_Parallel_PyTests: true
-            Gloo_PyTorch_MNIST: true
+            Gloo_PyTorch_MNIST_api: true
+            Gloo_PyTorch_MNIST_horovodrun: true
             Gloo_Single_PyTests: true
-            Gloo_TensorFlow_2_0_Keras_MNIST: true
-            Gloo_TensorFlow_2_0_MNIST: true
+            Gloo_TensorFlow_2_0_Keras_MNIST_api: true
+            Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun: true
+            Gloo_TensorFlow_2_0_MNIST_api: true
+            Gloo_TensorFlow_2_0_MNIST_horovodrun: true
             MPI_Cluster_PyTests: true
             MPI_MXNet_MNIST: true
             MPI_Parallel_PyTests: true
-            MPI_PyTorch_MNIST: true
+            MPI_PyTorch_MNIST_api: true
+            MPI_PyTorch_MNIST_horovodrun: true
             MPI_Single_PyTests: true
-            MPI_TensorFlow_2_0_Keras_MNIST: true
-            MPI_TensorFlow_2_0_MNIST: true
+            MPI_TensorFlow_2_0_Keras_MNIST_api: true
+            MPI_TensorFlow_2_0_Keras_MNIST_horovodrun: true
+            MPI_TensorFlow_2_0_MNIST_api: true
+            MPI_TensorFlow_2_0_MNIST_horovodrun: true
             Run_PyTests_test_interactiverun: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
@@ -312,10 +337,13 @@ jobs:
             MPI_Cluster_PyTests: true
             MPI_MXNet_MNIST: true
             MPI_Parallel_PyTests: true
-            MPI_PyTorch_MNIST: true
+            MPI_PyTorch_MNIST_api: true
+            MPI_PyTorch_MNIST_horovodrun: true
             MPI_Single_PyTests: true
-            MPI_TensorFlow_2_0_Keras_MNIST: true
-            MPI_TensorFlow_2_0_MNIST: true
+            MPI_TensorFlow_2_0_Keras_MNIST_api: true
+            MPI_TensorFlow_2_0_Keras_MNIST_horovodrun: true
+            MPI_TensorFlow_2_0_MNIST_api: true
+            MPI_TensorFlow_2_0_MNIST_horovodrun: true
             Run_PyTests_test_interactiverun: true
             Single_MXNet_MNIST: true
             Single_PyTorch_MNIST: true
@@ -620,31 +648,58 @@ jobs:
           docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Keras_MNIST_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/keras/keras_mnist_advanced.py
         shell: bash
 
-      - name: "Gloo MXNet2 MNIST [attempt 1 of 3]"
-        id: Gloo_MXNet2_MNIST_run_1
+      - name: "Gloo MXNet2 MNIST api [attempt 1 of 3]"
+        id: Gloo_MXNet2_MNIST_api_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_MXNet2_MNIST && true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_MXNet2_MNIST_api && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet2_mnist.py
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_api_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/mxnet/mxnet2_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo
         shell: bash
 
-      - name: "Gloo MXNet2 MNIST [attempt 2 of 3]"
-        id: Gloo_MXNet2_MNIST_run_2
+      - name: "Gloo MXNet2 MNIST api [attempt 2 of 3]"
+        id: Gloo_MXNet2_MNIST_api_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_MXNet2_MNIST && steps.Gloo_MXNet2_MNIST_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_MXNet2_MNIST_api && steps.Gloo_MXNet2_MNIST_api_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet2_mnist.py
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_api_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/mxnet/mxnet2_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo
         shell: bash
 
-      - name: "Gloo MXNet2 MNIST [attempt 3 of 3]"
-        id: Gloo_MXNet2_MNIST_run_3
+      - name: "Gloo MXNet2 MNIST api [attempt 3 of 3]"
+        id: Gloo_MXNet2_MNIST_api_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_MXNet2_MNIST && steps.Gloo_MXNet2_MNIST_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_MXNet2_MNIST_api && steps.Gloo_MXNet2_MNIST_api_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet2_mnist.py
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_api_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/mxnet/mxnet2_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo
+        shell: bash
+
+      - name: "Gloo MXNet2 MNIST horovodrun [attempt 1 of 3]"
+        id: Gloo_MXNet2_MNIST_horovodrun_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_MXNet2_MNIST_horovodrun && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_horovodrun_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_horovodrun_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet2_mnist.py
+        shell: bash
+
+      - name: "Gloo MXNet2 MNIST horovodrun [attempt 2 of 3]"
+        id: Gloo_MXNet2_MNIST_horovodrun_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_MXNet2_MNIST_horovodrun && steps.Gloo_MXNet2_MNIST_horovodrun_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_horovodrun_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_horovodrun_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet2_mnist.py
+        shell: bash
+
+      - name: "Gloo MXNet2 MNIST horovodrun [attempt 3 of 3]"
+        id: Gloo_MXNet2_MNIST_horovodrun_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_MXNet2_MNIST_horovodrun && steps.Gloo_MXNet2_MNIST_horovodrun_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_horovodrun_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_horovodrun_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet2_mnist.py
         shell: bash
 
       - name: "Gloo MXNet MNIST [attempt 1 of 3]"
@@ -701,31 +756,58 @@ jobs:
           docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Parallel_PyTests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
         shell: bash
 
-      - name: "Gloo PyTorch MNIST [attempt 1 of 3]"
-        id: Gloo_PyTorch_MNIST_run_1
+      - name: "Gloo PyTorch MNIST api [attempt 1 of 3]"
+        id: Gloo_PyTorch_MNIST_api_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST && true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST_api && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo
         shell: bash
 
-      - name: "Gloo PyTorch MNIST [attempt 2 of 3]"
-        id: Gloo_PyTorch_MNIST_run_2
+      - name: "Gloo PyTorch MNIST api [attempt 2 of 3]"
+        id: Gloo_PyTorch_MNIST_api_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST && steps.Gloo_PyTorch_MNIST_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST_api && steps.Gloo_PyTorch_MNIST_api_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo
         shell: bash
 
-      - name: "Gloo PyTorch MNIST [attempt 3 of 3]"
-        id: Gloo_PyTorch_MNIST_run_3
+      - name: "Gloo PyTorch MNIST api [attempt 3 of 3]"
+        id: Gloo_PyTorch_MNIST_api_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST && steps.Gloo_PyTorch_MNIST_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST_api && steps.Gloo_PyTorch_MNIST_api_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo
+        shell: bash
+
+      - name: "Gloo PyTorch MNIST horovodrun [attempt 1 of 3]"
+        id: Gloo_PyTorch_MNIST_horovodrun_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST_horovodrun && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_horovodrun_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_horovodrun_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
+        shell: bash
+
+      - name: "Gloo PyTorch MNIST horovodrun [attempt 2 of 3]"
+        id: Gloo_PyTorch_MNIST_horovodrun_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST_horovodrun && steps.Gloo_PyTorch_MNIST_horovodrun_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_horovodrun_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_horovodrun_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
+        shell: bash
+
+      - name: "Gloo PyTorch MNIST horovodrun [attempt 3 of 3]"
+        id: Gloo_PyTorch_MNIST_horovodrun_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST_horovodrun && steps.Gloo_PyTorch_MNIST_horovodrun_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_horovodrun_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_horovodrun_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
         shell: bash
 
       - name: "Gloo Single PyTests [attempt 1 of 3]"
@@ -755,58 +837,112 @@ jobs:
           docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Single_PyTests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 15m bash -c " cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh gloo)"
         shell: bash
 
-      - name: "Gloo TensorFlow 2.0 Keras MNIST [attempt 1 of 3]"
-        id: Gloo_TensorFlow_2_0_Keras_MNIST_run_1
+      - name: "Gloo TensorFlow 2.0 Keras MNIST api [attempt 1 of 3]"
+        id: Gloo_TensorFlow_2_0_Keras_MNIST_api_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_Keras_MNIST && true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_Keras_MNIST_api && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_api_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 gloo
         shell: bash
 
-      - name: "Gloo TensorFlow 2.0 Keras MNIST [attempt 2 of 3]"
-        id: Gloo_TensorFlow_2_0_Keras_MNIST_run_2
+      - name: "Gloo TensorFlow 2.0 Keras MNIST api [attempt 2 of 3]"
+        id: Gloo_TensorFlow_2_0_Keras_MNIST_api_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_Keras_MNIST && steps.Gloo_TensorFlow_2_0_Keras_MNIST_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_Keras_MNIST_api && steps.Gloo_TensorFlow_2_0_Keras_MNIST_api_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_api_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 gloo
         shell: bash
 
-      - name: "Gloo TensorFlow 2.0 Keras MNIST [attempt 3 of 3]"
-        id: Gloo_TensorFlow_2_0_Keras_MNIST_run_3
+      - name: "Gloo TensorFlow 2.0 Keras MNIST api [attempt 3 of 3]"
+        id: Gloo_TensorFlow_2_0_Keras_MNIST_api_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_Keras_MNIST && steps.Gloo_TensorFlow_2_0_Keras_MNIST_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_Keras_MNIST_api && steps.Gloo_TensorFlow_2_0_Keras_MNIST_api_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_api_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 gloo
         shell: bash
 
-      - name: "Gloo TensorFlow 2.0 MNIST [attempt 1 of 3]"
-        id: Gloo_TensorFlow_2_0_MNIST_run_1
+      - name: "Gloo TensorFlow 2.0 Keras MNIST horovodrun [attempt 1 of 3]"
+        id: Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST && true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
         shell: bash
 
-      - name: "Gloo TensorFlow 2.0 MNIST [attempt 2 of 3]"
-        id: Gloo_TensorFlow_2_0_MNIST_run_2
+      - name: "Gloo TensorFlow 2.0 Keras MNIST horovodrun [attempt 2 of 3]"
+        id: Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST && steps.Gloo_TensorFlow_2_0_MNIST_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun && steps.Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
         shell: bash
 
-      - name: "Gloo TensorFlow 2.0 MNIST [attempt 3 of 3]"
-        id: Gloo_TensorFlow_2_0_MNIST_run_3
+      - name: "Gloo TensorFlow 2.0 Keras MNIST horovodrun [attempt 3 of 3]"
+        id: Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST && steps.Gloo_TensorFlow_2_0_MNIST_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun && steps.Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST api [attempt 1 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_api_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_api && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_api_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 gloo
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST api [attempt 2 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_api_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_api && steps.Gloo_TensorFlow_2_0_MNIST_api_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_api_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 gloo
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST api [attempt 3 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_api_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_api && steps.Gloo_TensorFlow_2_0_MNIST_api_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_api_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 gloo
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST horovodrun [attempt 1 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_horovodrun_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_horovodrun && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_horovodrun_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_horovodrun_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST horovodrun [attempt 2 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_horovodrun_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_horovodrun && steps.Gloo_TensorFlow_2_0_MNIST_horovodrun_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_horovodrun_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_horovodrun_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST horovodrun [attempt 3 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_horovodrun_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_horovodrun && steps.Gloo_TensorFlow_2_0_MNIST_horovodrun_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_horovodrun_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_horovodrun_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
         shell: bash
 
       - name: "Gloo TensorFlow MNIST [attempt 1 of 3]"
@@ -1079,85 +1215,166 @@ jobs:
           docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
         shell: bash
 
-      - name: "MPI PyTorch MNIST [attempt 1 of 3]"
-        id: MPI_PyTorch_MNIST_run_1
+      - name: "MPI PyTorch MNIST api [attempt 1 of 3]"
+        id: MPI_PyTorch_MNIST_api_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST && true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
-      - name: "MPI PyTorch MNIST [attempt 2 of 3]"
-        id: MPI_PyTorch_MNIST_run_2
+      - name: "MPI PyTorch MNIST api [attempt 2 of 3]"
+        id: MPI_PyTorch_MNIST_api_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST && steps.MPI_PyTorch_MNIST_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api && steps.MPI_PyTorch_MNIST_api_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
-      - name: "MPI PyTorch MNIST [attempt 3 of 3]"
-        id: MPI_PyTorch_MNIST_run_3
+      - name: "MPI PyTorch MNIST api [attempt 3 of 3]"
+        id: MPI_PyTorch_MNIST_api_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST && steps.MPI_PyTorch_MNIST_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api && steps.MPI_PyTorch_MNIST_api_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
-      - name: "MPI PyTorch MNIST [ONECCL MPI] [attempt 1 of 3]"
-        id: MPI_PyTorch_MNIST_ONECCL_MPI_run_1
+      - name: "MPI PyTorch MNIST api [ONECCL MPI] [attempt 1 of 3]"
+        id: MPI_PyTorch_MNIST_api_ONECCL_MPI_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_ONECCL_MPI && true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_MPI && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_MPI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
-      - name: "MPI PyTorch MNIST [ONECCL MPI] [attempt 2 of 3]"
-        id: MPI_PyTorch_MNIST_ONECCL_MPI_run_2
+      - name: "MPI PyTorch MNIST api [ONECCL MPI] [attempt 2 of 3]"
+        id: MPI_PyTorch_MNIST_api_ONECCL_MPI_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_ONECCL_MPI && steps.MPI_PyTorch_MNIST_ONECCL_MPI_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_MPI && steps.MPI_PyTorch_MNIST_api_ONECCL_MPI_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_MPI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
-      - name: "MPI PyTorch MNIST [ONECCL MPI] [attempt 3 of 3]"
-        id: MPI_PyTorch_MNIST_ONECCL_MPI_run_3
+      - name: "MPI PyTorch MNIST api [ONECCL MPI] [attempt 3 of 3]"
+        id: MPI_PyTorch_MNIST_api_ONECCL_MPI_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_ONECCL_MPI && steps.MPI_PyTorch_MNIST_ONECCL_MPI_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_MPI && steps.MPI_PyTorch_MNIST_api_ONECCL_MPI_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_MPI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
-      - name: "MPI PyTorch MNIST [ONECCL OFI] [attempt 1 of 3]"
-        id: MPI_PyTorch_MNIST_ONECCL_OFI_run_1
+      - name: "MPI PyTorch MNIST api [ONECCL OFI] [attempt 1 of 3]"
+        id: MPI_PyTorch_MNIST_api_ONECCL_OFI_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_ONECCL_OFI && true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_OFI && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_OFI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
-      - name: "MPI PyTorch MNIST [ONECCL OFI] [attempt 2 of 3]"
-        id: MPI_PyTorch_MNIST_ONECCL_OFI_run_2
+      - name: "MPI PyTorch MNIST api [ONECCL OFI] [attempt 2 of 3]"
+        id: MPI_PyTorch_MNIST_api_ONECCL_OFI_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_ONECCL_OFI && steps.MPI_PyTorch_MNIST_ONECCL_OFI_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_OFI && steps.MPI_PyTorch_MNIST_api_ONECCL_OFI_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_OFI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
-      - name: "MPI PyTorch MNIST [ONECCL OFI] [attempt 3 of 3]"
-        id: MPI_PyTorch_MNIST_ONECCL_OFI_run_3
+      - name: "MPI PyTorch MNIST api [ONECCL OFI] [attempt 3 of 3]"
+        id: MPI_PyTorch_MNIST_api_ONECCL_OFI_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_ONECCL_OFI && steps.MPI_PyTorch_MNIST_ONECCL_OFI_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_OFI && steps.MPI_PyTorch_MNIST_api_ONECCL_OFI_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_OFI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
+        shell: bash
+
+      - name: "MPI PyTorch MNIST horovodrun [attempt 1 of 3]"
+        id: MPI_PyTorch_MNIST_horovodrun_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_horovodrun && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+        shell: bash
+
+      - name: "MPI PyTorch MNIST horovodrun [attempt 2 of 3]"
+        id: MPI_PyTorch_MNIST_horovodrun_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_horovodrun && steps.MPI_PyTorch_MNIST_horovodrun_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+        shell: bash
+
+      - name: "MPI PyTorch MNIST horovodrun [attempt 3 of 3]"
+        id: MPI_PyTorch_MNIST_horovodrun_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_horovodrun && steps.MPI_PyTorch_MNIST_horovodrun_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+        shell: bash
+
+      - name: "MPI PyTorch MNIST horovodrun [ONECCL MPI] [attempt 1 of 3]"
+        id: MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+        shell: bash
+
+      - name: "MPI PyTorch MNIST horovodrun [ONECCL MPI] [attempt 2 of 3]"
+        id: MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI && steps.MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+        shell: bash
+
+      - name: "MPI PyTorch MNIST horovodrun [ONECCL MPI] [attempt 3 of 3]"
+        id: MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI && steps.MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+        shell: bash
+
+      - name: "MPI PyTorch MNIST horovodrun [ONECCL OFI] [attempt 1 of 3]"
+        id: MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+        shell: bash
+
+      - name: "MPI PyTorch MNIST horovodrun [ONECCL OFI] [attempt 2 of 3]"
+        id: MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI && steps.MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+        shell: bash
+
+      - name: "MPI PyTorch MNIST horovodrun [ONECCL OFI] [attempt 3 of 3]"
+        id: MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI && steps.MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
         shell: bash
 
       - name: "MPI Single PyTests [attempt 1 of 3]"
@@ -1241,166 +1458,328 @@ jobs:
           docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Single_PyTests_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh mpi)"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 Keras MNIST [attempt 1 of 3]"
-        id: MPI_TensorFlow_2_0_Keras_MNIST_run_1
+      - name: "MPI TensorFlow 2.0 Keras MNIST api [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_api_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST && true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_api && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 Keras MNIST [attempt 2 of 3]"
-        id: MPI_TensorFlow_2_0_Keras_MNIST_run_2
+      - name: "MPI TensorFlow 2.0 Keras MNIST api [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_api_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST && steps.MPI_TensorFlow_2_0_Keras_MNIST_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_api && steps.MPI_TensorFlow_2_0_Keras_MNIST_api_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 Keras MNIST [attempt 3 of 3]"
-        id: MPI_TensorFlow_2_0_Keras_MNIST_run_3
+      - name: "MPI TensorFlow 2.0 Keras MNIST api [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_api_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST && steps.MPI_TensorFlow_2_0_Keras_MNIST_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_api && steps.MPI_TensorFlow_2_0_Keras_MNIST_api_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 Keras MNIST [ONECCL MPI] [attempt 1 of 3]"
-        id: MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI_run_1
+      - name: "MPI TensorFlow 2.0 Keras MNIST api [ONECCL MPI] [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI && true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 Keras MNIST [ONECCL MPI] [attempt 2 of 3]"
-        id: MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI_run_2
+      - name: "MPI TensorFlow 2.0 Keras MNIST api [ONECCL MPI] [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI && steps.MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI && steps.MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 Keras MNIST [ONECCL MPI] [attempt 3 of 3]"
-        id: MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI_run_3
+      - name: "MPI TensorFlow 2.0 Keras MNIST api [ONECCL MPI] [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI && steps.MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI && steps.MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 Keras MNIST [ONECCL OFI] [attempt 1 of 3]"
-        id: MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI_run_1
+      - name: "MPI TensorFlow 2.0 Keras MNIST api [ONECCL OFI] [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI && true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 Keras MNIST [ONECCL OFI] [attempt 2 of 3]"
-        id: MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI_run_2
+      - name: "MPI TensorFlow 2.0 Keras MNIST api [ONECCL OFI] [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI && steps.MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI && steps.MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 Keras MNIST [ONECCL OFI] [attempt 3 of 3]"
-        id: MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI_run_3
+      - name: "MPI TensorFlow 2.0 Keras MNIST api [ONECCL OFI] [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI && steps.MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI && steps.MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 MNIST [attempt 1 of 3]"
-        id: MPI_TensorFlow_2_0_MNIST_run_1
+      - name: "MPI TensorFlow 2.0 Keras MNIST horovodrun [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST && true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 MNIST [attempt 2 of 3]"
-        id: MPI_TensorFlow_2_0_MNIST_run_2
+      - name: "MPI TensorFlow 2.0 Keras MNIST horovodrun [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST && steps.MPI_TensorFlow_2_0_MNIST_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun && steps.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 MNIST [attempt 3 of 3]"
-        id: MPI_TensorFlow_2_0_MNIST_run_3
+      - name: "MPI TensorFlow 2.0 Keras MNIST horovodrun [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST && steps.MPI_TensorFlow_2_0_MNIST_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun && steps.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 MNIST [ONECCL MPI] [attempt 1 of 3]"
-        id: MPI_TensorFlow_2_0_MNIST_ONECCL_MPI_run_1
+      - name: "MPI TensorFlow 2.0 Keras MNIST horovodrun [ONECCL MPI] [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_ONECCL_MPI && true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_MPI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 MNIST [ONECCL MPI] [attempt 2 of 3]"
-        id: MPI_TensorFlow_2_0_MNIST_ONECCL_MPI_run_2
+      - name: "MPI TensorFlow 2.0 Keras MNIST horovodrun [ONECCL MPI] [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_ONECCL_MPI && steps.MPI_TensorFlow_2_0_MNIST_ONECCL_MPI_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI && steps.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_MPI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 MNIST [ONECCL MPI] [attempt 3 of 3]"
-        id: MPI_TensorFlow_2_0_MNIST_ONECCL_MPI_run_3
+      - name: "MPI TensorFlow 2.0 Keras MNIST horovodrun [ONECCL MPI] [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_ONECCL_MPI && steps.MPI_TensorFlow_2_0_MNIST_ONECCL_MPI_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI && steps.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_MPI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 MNIST [ONECCL OFI] [attempt 1 of 3]"
-        id: MPI_TensorFlow_2_0_MNIST_ONECCL_OFI_run_1
+      - name: "MPI TensorFlow 2.0 Keras MNIST horovodrun [ONECCL OFI] [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_ONECCL_OFI && true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_OFI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 MNIST [ONECCL OFI] [attempt 2 of 3]"
-        id: MPI_TensorFlow_2_0_MNIST_ONECCL_OFI_run_2
+      - name: "MPI TensorFlow 2.0 Keras MNIST horovodrun [ONECCL OFI] [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_ONECCL_OFI && steps.MPI_TensorFlow_2_0_MNIST_ONECCL_OFI_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI && steps.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_OFI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 MNIST [ONECCL OFI] [attempt 3 of 3]"
-        id: MPI_TensorFlow_2_0_MNIST_ONECCL_OFI_run_3
+      - name: "MPI TensorFlow 2.0 Keras MNIST horovodrun [ONECCL OFI] [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_ONECCL_OFI && steps.MPI_TensorFlow_2_0_MNIST_ONECCL_OFI_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI && steps.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_OFI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST api [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_api_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_api && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 mpi"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST api [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_api_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_api && steps.MPI_TensorFlow_2_0_MNIST_api_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 mpi"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST api [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_api_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_api && steps.MPI_TensorFlow_2_0_MNIST_api_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 mpi"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST api [ONECCL MPI] [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 mpi"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST api [ONECCL MPI] [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI && steps.MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 mpi"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST api [ONECCL MPI] [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI && steps.MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 mpi"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST api [ONECCL OFI] [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 mpi"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST api [ONECCL OFI] [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI && steps.MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 mpi"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST api [ONECCL OFI] [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI && steps.MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 mpi"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST horovodrun [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_horovodrun_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_horovodrun && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST horovodrun [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_horovodrun_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_horovodrun && steps.MPI_TensorFlow_2_0_MNIST_horovodrun_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST horovodrun [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_horovodrun_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_horovodrun && steps.MPI_TensorFlow_2_0_MNIST_horovodrun_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST horovodrun [ONECCL MPI] [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST horovodrun [ONECCL MPI] [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI && steps.MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST horovodrun [ONECCL MPI] [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI && steps.MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST horovodrun [ONECCL OFI] [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST horovodrun [ONECCL OFI] [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI && steps.MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST horovodrun [ONECCL OFI] [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI && steps.MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
         shell: bash
 
       - name: "Run PyTests test_interactiverun [attempt 1 of 3]"
@@ -1846,12 +2225,16 @@ jobs:
           - image: test-cpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1
             Elastic_Tests_1: true
             Gloo_Cluster_PyTests: true
-            Gloo_MXNet2_MNIST: true
+            Gloo_MXNet2_MNIST_api: true
+            Gloo_MXNet2_MNIST_horovodrun: true
             Gloo_Parallel_PyTests: true
-            Gloo_PyTorch_MNIST: true
+            Gloo_PyTorch_MNIST_api: true
+            Gloo_PyTorch_MNIST_horovodrun: true
             Gloo_Single_PyTests: true
-            Gloo_TensorFlow_2_0_Keras_MNIST: true
-            Gloo_TensorFlow_2_0_MNIST: true
+            Gloo_TensorFlow_2_0_Keras_MNIST_api: true
+            Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun: true
+            Gloo_TensorFlow_2_0_MNIST_api: true
+            Gloo_TensorFlow_2_0_MNIST_horovodrun: true
             Single_MXNet2_MNIST: true
             Single_PyTorch_MNIST: true
             Spark_Lightning_MNIST: true
@@ -2143,31 +2526,58 @@ jobs:
           docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Keras_MNIST_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/keras/keras_mnist_advanced.py
         shell: bash
 
-      - name: "Gloo MXNet2 MNIST [attempt 1 of 3]"
-        id: Gloo_MXNet2_MNIST_run_1
+      - name: "Gloo MXNet2 MNIST api [attempt 1 of 3]"
+        id: Gloo_MXNet2_MNIST_api_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_MXNet2_MNIST && true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_MXNet2_MNIST_api && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet2_mnist.py
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_api_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/mxnet/mxnet2_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo
         shell: bash
 
-      - name: "Gloo MXNet2 MNIST [attempt 2 of 3]"
-        id: Gloo_MXNet2_MNIST_run_2
+      - name: "Gloo MXNet2 MNIST api [attempt 2 of 3]"
+        id: Gloo_MXNet2_MNIST_api_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_MXNet2_MNIST && steps.Gloo_MXNet2_MNIST_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_MXNet2_MNIST_api && steps.Gloo_MXNet2_MNIST_api_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet2_mnist.py
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_api_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/mxnet/mxnet2_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo
         shell: bash
 
-      - name: "Gloo MXNet2 MNIST [attempt 3 of 3]"
-        id: Gloo_MXNet2_MNIST_run_3
+      - name: "Gloo MXNet2 MNIST api [attempt 3 of 3]"
+        id: Gloo_MXNet2_MNIST_api_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_MXNet2_MNIST && steps.Gloo_MXNet2_MNIST_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_MXNet2_MNIST_api && steps.Gloo_MXNet2_MNIST_api_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet2_mnist.py
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_api_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/mxnet/mxnet2_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo
+        shell: bash
+
+      - name: "Gloo MXNet2 MNIST horovodrun [attempt 1 of 3]"
+        id: Gloo_MXNet2_MNIST_horovodrun_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_MXNet2_MNIST_horovodrun && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_horovodrun_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_horovodrun_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet2_mnist.py
+        shell: bash
+
+      - name: "Gloo MXNet2 MNIST horovodrun [attempt 2 of 3]"
+        id: Gloo_MXNet2_MNIST_horovodrun_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_MXNet2_MNIST_horovodrun && steps.Gloo_MXNet2_MNIST_horovodrun_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_horovodrun_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_horovodrun_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet2_mnist.py
+        shell: bash
+
+      - name: "Gloo MXNet2 MNIST horovodrun [attempt 3 of 3]"
+        id: Gloo_MXNet2_MNIST_horovodrun_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_MXNet2_MNIST_horovodrun && steps.Gloo_MXNet2_MNIST_horovodrun_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_horovodrun_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_MXNet2_MNIST_horovodrun_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet2_mnist.py
         shell: bash
 
       - name: "Gloo MXNet MNIST [attempt 1 of 3]"
@@ -2224,31 +2634,58 @@ jobs:
           docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Parallel_PyTests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
         shell: bash
 
-      - name: "Gloo PyTorch MNIST [attempt 1 of 3]"
-        id: Gloo_PyTorch_MNIST_run_1
+      - name: "Gloo PyTorch MNIST api [attempt 1 of 3]"
+        id: Gloo_PyTorch_MNIST_api_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST && true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST_api && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo
         shell: bash
 
-      - name: "Gloo PyTorch MNIST [attempt 2 of 3]"
-        id: Gloo_PyTorch_MNIST_run_2
+      - name: "Gloo PyTorch MNIST api [attempt 2 of 3]"
+        id: Gloo_PyTorch_MNIST_api_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST && steps.Gloo_PyTorch_MNIST_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST_api && steps.Gloo_PyTorch_MNIST_api_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo
         shell: bash
 
-      - name: "Gloo PyTorch MNIST [attempt 3 of 3]"
-        id: Gloo_PyTorch_MNIST_run_3
+      - name: "Gloo PyTorch MNIST api [attempt 3 of 3]"
+        id: Gloo_PyTorch_MNIST_api_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST && steps.Gloo_PyTorch_MNIST_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST_api && steps.Gloo_PyTorch_MNIST_api_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo
+        shell: bash
+
+      - name: "Gloo PyTorch MNIST horovodrun [attempt 1 of 3]"
+        id: Gloo_PyTorch_MNIST_horovodrun_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST_horovodrun && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_horovodrun_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_horovodrun_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
+        shell: bash
+
+      - name: "Gloo PyTorch MNIST horovodrun [attempt 2 of 3]"
+        id: Gloo_PyTorch_MNIST_horovodrun_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST_horovodrun && steps.Gloo_PyTorch_MNIST_horovodrun_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_horovodrun_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_horovodrun_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
+        shell: bash
+
+      - name: "Gloo PyTorch MNIST horovodrun [attempt 3 of 3]"
+        id: Gloo_PyTorch_MNIST_horovodrun_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_PyTorch_MNIST_horovodrun && steps.Gloo_PyTorch_MNIST_horovodrun_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_horovodrun_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_PyTorch_MNIST_horovodrun_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
         shell: bash
 
       - name: "Gloo Single PyTests [attempt 1 of 3]"
@@ -2278,58 +2715,112 @@ jobs:
           docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_Single_PyTests_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 15m bash -c " cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh gloo)"
         shell: bash
 
-      - name: "Gloo TensorFlow 2.0 Keras MNIST [attempt 1 of 3]"
-        id: Gloo_TensorFlow_2_0_Keras_MNIST_run_1
+      - name: "Gloo TensorFlow 2.0 Keras MNIST api [attempt 1 of 3]"
+        id: Gloo_TensorFlow_2_0_Keras_MNIST_api_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_Keras_MNIST && true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_Keras_MNIST_api && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_api_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 gloo
         shell: bash
 
-      - name: "Gloo TensorFlow 2.0 Keras MNIST [attempt 2 of 3]"
-        id: Gloo_TensorFlow_2_0_Keras_MNIST_run_2
+      - name: "Gloo TensorFlow 2.0 Keras MNIST api [attempt 2 of 3]"
+        id: Gloo_TensorFlow_2_0_Keras_MNIST_api_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_Keras_MNIST && steps.Gloo_TensorFlow_2_0_Keras_MNIST_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_Keras_MNIST_api && steps.Gloo_TensorFlow_2_0_Keras_MNIST_api_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_api_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 gloo
         shell: bash
 
-      - name: "Gloo TensorFlow 2.0 Keras MNIST [attempt 3 of 3]"
-        id: Gloo_TensorFlow_2_0_Keras_MNIST_run_3
+      - name: "Gloo TensorFlow 2.0 Keras MNIST api [attempt 3 of 3]"
+        id: Gloo_TensorFlow_2_0_Keras_MNIST_api_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_Keras_MNIST && steps.Gloo_TensorFlow_2_0_Keras_MNIST_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_Keras_MNIST_api && steps.Gloo_TensorFlow_2_0_Keras_MNIST_api_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_api_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 gloo
         shell: bash
 
-      - name: "Gloo TensorFlow 2.0 MNIST [attempt 1 of 3]"
-        id: Gloo_TensorFlow_2_0_MNIST_run_1
+      - name: "Gloo TensorFlow 2.0 Keras MNIST horovodrun [attempt 1 of 3]"
+        id: Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST && true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
         shell: bash
 
-      - name: "Gloo TensorFlow 2.0 MNIST [attempt 2 of 3]"
-        id: Gloo_TensorFlow_2_0_MNIST_run_2
+      - name: "Gloo TensorFlow 2.0 Keras MNIST horovodrun [attempt 2 of 3]"
+        id: Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST && steps.Gloo_TensorFlow_2_0_MNIST_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun && steps.Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
         shell: bash
 
-      - name: "Gloo TensorFlow 2.0 MNIST [attempt 3 of 3]"
-        id: Gloo_TensorFlow_2_0_MNIST_run_3
+      - name: "Gloo TensorFlow 2.0 Keras MNIST horovodrun [attempt 3 of 3]"
+        id: Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST && steps.Gloo_TensorFlow_2_0_MNIST_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun && steps.Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST api [attempt 1 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_api_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_api && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_api_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 gloo
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST api [attempt 2 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_api_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_api && steps.Gloo_TensorFlow_2_0_MNIST_api_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_api_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 gloo
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST api [attempt 3 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_api_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_api && steps.Gloo_TensorFlow_2_0_MNIST_api_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_api_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 gloo
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST horovodrun [attempt 1 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_horovodrun_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_horovodrun && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_horovodrun_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_horovodrun_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST horovodrun [attempt 2 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_horovodrun_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_horovodrun && steps.Gloo_TensorFlow_2_0_MNIST_horovodrun_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_horovodrun_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_horovodrun_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST horovodrun [attempt 3 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_horovodrun_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_horovodrun && steps.Gloo_TensorFlow_2_0_MNIST_horovodrun_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_horovodrun_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_horovodrun_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
         shell: bash
 
       - name: "Gloo TensorFlow MNIST [attempt 1 of 3]"
@@ -2602,85 +3093,166 @@ jobs:
           docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Parallel_PyTests_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
         shell: bash
 
-      - name: "MPI PyTorch MNIST [attempt 1 of 3]"
-        id: MPI_PyTorch_MNIST_run_1
+      - name: "MPI PyTorch MNIST api [attempt 1 of 3]"
+        id: MPI_PyTorch_MNIST_api_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST && true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
-      - name: "MPI PyTorch MNIST [attempt 2 of 3]"
-        id: MPI_PyTorch_MNIST_run_2
+      - name: "MPI PyTorch MNIST api [attempt 2 of 3]"
+        id: MPI_PyTorch_MNIST_api_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST && steps.MPI_PyTorch_MNIST_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api && steps.MPI_PyTorch_MNIST_api_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
-      - name: "MPI PyTorch MNIST [attempt 3 of 3]"
-        id: MPI_PyTorch_MNIST_run_3
+      - name: "MPI PyTorch MNIST api [attempt 3 of 3]"
+        id: MPI_PyTorch_MNIST_api_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST && steps.MPI_PyTorch_MNIST_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api && steps.MPI_PyTorch_MNIST_api_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
-      - name: "MPI PyTorch MNIST [ONECCL MPI] [attempt 1 of 3]"
-        id: MPI_PyTorch_MNIST_ONECCL_MPI_run_1
+      - name: "MPI PyTorch MNIST api [ONECCL MPI] [attempt 1 of 3]"
+        id: MPI_PyTorch_MNIST_api_ONECCL_MPI_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_ONECCL_MPI && true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_MPI && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_MPI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
-      - name: "MPI PyTorch MNIST [ONECCL MPI] [attempt 2 of 3]"
-        id: MPI_PyTorch_MNIST_ONECCL_MPI_run_2
+      - name: "MPI PyTorch MNIST api [ONECCL MPI] [attempt 2 of 3]"
+        id: MPI_PyTorch_MNIST_api_ONECCL_MPI_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_ONECCL_MPI && steps.MPI_PyTorch_MNIST_ONECCL_MPI_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_MPI && steps.MPI_PyTorch_MNIST_api_ONECCL_MPI_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_MPI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
-      - name: "MPI PyTorch MNIST [ONECCL MPI] [attempt 3 of 3]"
-        id: MPI_PyTorch_MNIST_ONECCL_MPI_run_3
+      - name: "MPI PyTorch MNIST api [ONECCL MPI] [attempt 3 of 3]"
+        id: MPI_PyTorch_MNIST_api_ONECCL_MPI_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_ONECCL_MPI && steps.MPI_PyTorch_MNIST_ONECCL_MPI_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_MPI && steps.MPI_PyTorch_MNIST_api_ONECCL_MPI_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_MPI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
-      - name: "MPI PyTorch MNIST [ONECCL OFI] [attempt 1 of 3]"
-        id: MPI_PyTorch_MNIST_ONECCL_OFI_run_1
+      - name: "MPI PyTorch MNIST api [ONECCL OFI] [attempt 1 of 3]"
+        id: MPI_PyTorch_MNIST_api_ONECCL_OFI_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_ONECCL_OFI && true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_OFI && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_OFI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
-      - name: "MPI PyTorch MNIST [ONECCL OFI] [attempt 2 of 3]"
-        id: MPI_PyTorch_MNIST_ONECCL_OFI_run_2
+      - name: "MPI PyTorch MNIST api [ONECCL OFI] [attempt 2 of 3]"
+        id: MPI_PyTorch_MNIST_api_ONECCL_OFI_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_ONECCL_OFI && steps.MPI_PyTorch_MNIST_ONECCL_OFI_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_OFI && steps.MPI_PyTorch_MNIST_api_ONECCL_OFI_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_OFI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
         shell: bash
 
-      - name: "MPI PyTorch MNIST [ONECCL OFI] [attempt 3 of 3]"
-        id: MPI_PyTorch_MNIST_ONECCL_OFI_run_3
+      - name: "MPI PyTorch MNIST api [ONECCL OFI] [attempt 3 of 3]"
+        id: MPI_PyTorch_MNIST_api_ONECCL_OFI_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_ONECCL_OFI && steps.MPI_PyTorch_MNIST_ONECCL_OFI_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_api_ONECCL_OFI && steps.MPI_PyTorch_MNIST_api_ONECCL_OFI_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_OFI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_api_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
+        shell: bash
+
+      - name: "MPI PyTorch MNIST horovodrun [attempt 1 of 3]"
+        id: MPI_PyTorch_MNIST_horovodrun_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_horovodrun && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+        shell: bash
+
+      - name: "MPI PyTorch MNIST horovodrun [attempt 2 of 3]"
+        id: MPI_PyTorch_MNIST_horovodrun_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_horovodrun && steps.MPI_PyTorch_MNIST_horovodrun_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+        shell: bash
+
+      - name: "MPI PyTorch MNIST horovodrun [attempt 3 of 3]"
+        id: MPI_PyTorch_MNIST_horovodrun_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_horovodrun && steps.MPI_PyTorch_MNIST_horovodrun_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+        shell: bash
+
+      - name: "MPI PyTorch MNIST horovodrun [ONECCL MPI] [attempt 1 of 3]"
+        id: MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+        shell: bash
+
+      - name: "MPI PyTorch MNIST horovodrun [ONECCL MPI] [attempt 2 of 3]"
+        id: MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI && steps.MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+        shell: bash
+
+      - name: "MPI PyTorch MNIST horovodrun [ONECCL MPI] [attempt 3 of 3]"
+        id: MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI && steps.MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+        shell: bash
+
+      - name: "MPI PyTorch MNIST horovodrun [ONECCL OFI] [attempt 1 of 3]"
+        id: MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+        shell: bash
+
+      - name: "MPI PyTorch MNIST horovodrun [ONECCL OFI] [attempt 2 of 3]"
+        id: MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI && steps.MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
+        shell: bash
+
+      - name: "MPI PyTorch MNIST horovodrun [ONECCL OFI] [attempt 3 of 3]"
+        id: MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI && steps.MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
         shell: bash
 
       - name: "MPI Single PyTests [attempt 1 of 3]"
@@ -2764,166 +3336,328 @@ jobs:
           docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_Single_PyTests_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command &&  cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh mpi)"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 Keras MNIST [attempt 1 of 3]"
-        id: MPI_TensorFlow_2_0_Keras_MNIST_run_1
+      - name: "MPI TensorFlow 2.0 Keras MNIST api [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_api_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST && true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_api && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 Keras MNIST [attempt 2 of 3]"
-        id: MPI_TensorFlow_2_0_Keras_MNIST_run_2
+      - name: "MPI TensorFlow 2.0 Keras MNIST api [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_api_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST && steps.MPI_TensorFlow_2_0_Keras_MNIST_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_api && steps.MPI_TensorFlow_2_0_Keras_MNIST_api_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 Keras MNIST [attempt 3 of 3]"
-        id: MPI_TensorFlow_2_0_Keras_MNIST_run_3
+      - name: "MPI TensorFlow 2.0 Keras MNIST api [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_api_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST && steps.MPI_TensorFlow_2_0_Keras_MNIST_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_api && steps.MPI_TensorFlow_2_0_Keras_MNIST_api_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 Keras MNIST [ONECCL MPI] [attempt 1 of 3]"
-        id: MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI_run_1
+      - name: "MPI TensorFlow 2.0 Keras MNIST api [ONECCL MPI] [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI && true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 Keras MNIST [ONECCL MPI] [attempt 2 of 3]"
-        id: MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI_run_2
+      - name: "MPI TensorFlow 2.0 Keras MNIST api [ONECCL MPI] [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI && steps.MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI && steps.MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 Keras MNIST [ONECCL MPI] [attempt 3 of 3]"
-        id: MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI_run_3
+      - name: "MPI TensorFlow 2.0 Keras MNIST api [ONECCL MPI] [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI && steps.MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI && steps.MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 Keras MNIST [ONECCL OFI] [attempt 1 of 3]"
-        id: MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI_run_1
+      - name: "MPI TensorFlow 2.0 Keras MNIST api [ONECCL OFI] [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI && true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 Keras MNIST [ONECCL OFI] [attempt 2 of 3]"
-        id: MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI_run_2
+      - name: "MPI TensorFlow 2.0 Keras MNIST api [ONECCL OFI] [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI && steps.MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI && steps.MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 Keras MNIST [ONECCL OFI] [attempt 3 of 3]"
-        id: MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI_run_3
+      - name: "MPI TensorFlow 2.0 Keras MNIST api [ONECCL OFI] [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI && steps.MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI && steps.MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 MNIST [attempt 1 of 3]"
-        id: MPI_TensorFlow_2_0_MNIST_run_1
+      - name: "MPI TensorFlow 2.0 Keras MNIST horovodrun [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST && true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 MNIST [attempt 2 of 3]"
-        id: MPI_TensorFlow_2_0_MNIST_run_2
+      - name: "MPI TensorFlow 2.0 Keras MNIST horovodrun [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST && steps.MPI_TensorFlow_2_0_MNIST_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun && steps.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 MNIST [attempt 3 of 3]"
-        id: MPI_TensorFlow_2_0_MNIST_run_3
+      - name: "MPI TensorFlow 2.0 Keras MNIST horovodrun [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST && steps.MPI_TensorFlow_2_0_MNIST_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun && steps.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 MNIST [ONECCL MPI] [attempt 1 of 3]"
-        id: MPI_TensorFlow_2_0_MNIST_ONECCL_MPI_run_1
+      - name: "MPI TensorFlow 2.0 Keras MNIST horovodrun [ONECCL MPI] [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_ONECCL_MPI && true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_MPI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 MNIST [ONECCL MPI] [attempt 2 of 3]"
-        id: MPI_TensorFlow_2_0_MNIST_ONECCL_MPI_run_2
+      - name: "MPI TensorFlow 2.0 Keras MNIST horovodrun [ONECCL MPI] [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_ONECCL_MPI && steps.MPI_TensorFlow_2_0_MNIST_ONECCL_MPI_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI && steps.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_MPI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 MNIST [ONECCL MPI] [attempt 3 of 3]"
-        id: MPI_TensorFlow_2_0_MNIST_ONECCL_MPI_run_3
+      - name: "MPI TensorFlow 2.0 Keras MNIST horovodrun [ONECCL MPI] [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_ONECCL_MPI && steps.MPI_TensorFlow_2_0_MNIST_ONECCL_MPI_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI && steps.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_MPI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 MNIST [ONECCL OFI] [attempt 1 of 3]"
-        id: MPI_TensorFlow_2_0_MNIST_ONECCL_OFI_run_1
+      - name: "MPI TensorFlow 2.0 Keras MNIST horovodrun [ONECCL OFI] [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI_run_1
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_ONECCL_OFI && true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI && true
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_OFI_run_1
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 MNIST [ONECCL OFI] [attempt 2 of 3]"
-        id: MPI_TensorFlow_2_0_MNIST_ONECCL_OFI_run_2
+      - name: "MPI TensorFlow 2.0 Keras MNIST horovodrun [ONECCL OFI] [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI_run_2
         continue-on-error: true
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_ONECCL_OFI && steps.MPI_TensorFlow_2_0_MNIST_ONECCL_OFI_run_1.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI && steps.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI_run_1.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_OFI_run_2
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
         shell: bash
 
-      - name: "MPI TensorFlow 2.0 MNIST [ONECCL OFI] [attempt 3 of 3]"
-        id: MPI_TensorFlow_2_0_MNIST_ONECCL_OFI_run_3
+      - name: "MPI TensorFlow 2.0 Keras MNIST horovodrun [ONECCL OFI] [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI_run_3
         continue-on-error: false
-        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_ONECCL_OFI && steps.MPI_TensorFlow_2_0_MNIST_ONECCL_OFI_run_2.outcome == 'failure'
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI && steps.MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI_run_2.outcome == 'failure'
         run: |
-          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_OFI_run_3
-          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST api [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_api_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_api && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 mpi"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST api [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_api_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_api && steps.MPI_TensorFlow_2_0_MNIST_api_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 mpi"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST api [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_api_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_api && steps.MPI_TensorFlow_2_0_MNIST_api_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 mpi"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST api [ONECCL MPI] [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 mpi"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST api [ONECCL MPI] [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI && steps.MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 mpi"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST api [ONECCL MPI] [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI && steps.MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 mpi"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST api [ONECCL OFI] [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 mpi"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST api [ONECCL OFI] [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI && steps.MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 mpi"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST api [ONECCL OFI] [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI && steps.MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 mpi"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST horovodrun [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_horovodrun_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_horovodrun && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST horovodrun [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_horovodrun_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_horovodrun && steps.MPI_TensorFlow_2_0_MNIST_horovodrun_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST horovodrun [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_horovodrun_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_horovodrun && steps.MPI_TensorFlow_2_0_MNIST_horovodrun_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST horovodrun [ONECCL MPI] [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST horovodrun [ONECCL MPI] [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI && steps.MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST horovodrun [ONECCL MPI] [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI && steps.MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_mpi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST horovodrun [ONECCL OFI] [attempt 1 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST horovodrun [ONECCL OFI] [attempt 2 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI && steps.MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+        shell: bash
+
+      - name: "MPI TensorFlow 2.0 MNIST horovodrun [ONECCL OFI] [attempt 3 of 3]"
+        id: MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI && steps.MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m bash -c "\$(cat /oneccl_env) && echo '/mpirun_command_ofi' > /mpirun_command && \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
         shell: bash
 
       - name: "Run PyTests test_interactiverun [attempt 1 of 3]"
