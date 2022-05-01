@@ -125,6 +125,8 @@ def main():
                 f'    branches: [ master ]\n'
                 f'  workflow_dispatch:\n'
                 f'\n'
+                 'permissions: {}\n'
+                f'\n'
                 f'concurrency:\n'
                 f'  # This controls which concurrent builds to cancel:\n'
                 f'  # - we do not want any concurrent builds on a branch (pull_request)\n'
@@ -149,14 +151,6 @@ def main():
 
     def jobs(*jobs: str) -> str:
         return 'jobs:\n' \
-               '  debug:\n' \
-               '    runs-on: ubuntu-latest\n' \
-               '    steps:\n' \
-               '    - name: Debug Action\n' \
-               '      uses: hmarr/debug-action@v1.0.0\n' \
-               '    - name: Debug Concurrency\n' \
-               '      run: echo "ci-${{ github.event_name }}-${{ github.ref }}-${{ github.head_ref || github.sha }}"\n' \
-               '\n' \
                '  event_file:\n' \
                '    name: "Event File"\n' \
                '    runs-on: ubuntu-latest\n' \
@@ -574,7 +568,6 @@ def main():
                 f'        id: download\n'
                 f'        uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1\n'
                 f'        with:\n'
-                f'          github_token: ${{{{ github.token }}}}\n'
                 f'          buildkite_token: ${{{{ secrets.BUILDKITE_TOKEN }}}}\n'
                 f'          buildkite_build_url: ${{{{ steps.build.outputs.url }}}}\n'
                 f'          ignore_build_states: blocked,canceled,skipped,not_run\n'

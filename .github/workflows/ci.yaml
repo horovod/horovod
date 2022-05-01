@@ -16,6 +16,8 @@ on:
     branches: [ master ]
   workflow_dispatch:
 
+permissions: {}
+
 concurrency:
   # This controls which concurrent builds to cancel:
   # - we do not want any concurrent builds on a branch (pull_request)
@@ -38,19 +40,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  debug:
-    permissions:
-      contents: none
-    runs-on: ubuntu-latest
-    steps:
-    - name: Debug Action
-      uses: hmarr/debug-action@v1.0.0
-    - name: Debug Concurrency
-      run: echo "ci-${{ github.event_name }}-${{ github.ref }}-${{ github.head_ref || github.sha }}"
-
   event_file:
-    permissions:
-      contents: none
     name: "Event File"
     runs-on: ubuntu-latest
     steps:
@@ -3666,7 +3656,6 @@ jobs:
         id: download
         uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1
         with:
-          github_token: ${{ github.token }}
           buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
           buildkite_build_url: ${{ steps.build.outputs.url }}
           ignore_build_states: blocked,canceled,skipped,not_run
@@ -3716,7 +3705,6 @@ jobs:
         id: download
         uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1
         with:
-          github_token: ${{ github.token }}
           buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
           buildkite_build_url: ${{ steps.build.outputs.url }}
           ignore_build_states: blocked,canceled,skipped,not_run
@@ -3740,8 +3728,6 @@ jobs:
           exit 1
 
   docker-config:
-    permissions:
-      contents: none
     name: Configure docker build
     needs: [init-workflow, build-and-test, buildkite]
     # build-and-test and buildkite might have been skipped (! needs.init-workflow.outputs.run-builds-and-tests)
