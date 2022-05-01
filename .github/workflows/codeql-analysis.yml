@@ -29,13 +29,13 @@ jobs:
         pip install $(head -n $(( $(grep -m 1 -n -e "^\[" horovod.egg-info/requires.txt | cut -d : -f 1) - 1 )) horovod.egg-info/requires.txt)
 
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v1
+      uses: github/codeql-action/init@v2
       with:
         languages: python
         setup-python-dependencies: false
 
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v1
+      uses: github/codeql-action/analyze@v2
 
   analyze-cpp:
     name: Analyze C++
@@ -78,7 +78,7 @@ jobs:
         submodules: recursive
 
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v1
+      uses: github/codeql-action/init@v2
       with:
         languages: cpp
 
@@ -140,4 +140,4 @@ jobs:
         docker cp horovod:/home/runner/work/_temp/codeql_databases /home/runner/work/_temp/
 
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v1
+      uses: github/codeql-action/analyze@v2
