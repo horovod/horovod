@@ -16,6 +16,8 @@
 import threading
 
 from horovod.runner.common.util import timeout, network
+from horovod.runner.common.util.network import AckResponse
+from horovod.runner.common.util.timeout import TimeoutException
 from horovod.runner.util.threads import in_thread
 
 """
@@ -64,7 +66,8 @@ class RegisterDispatcherWorkerRequest(object):
 
 
 class WaitForDispatcherWorkerRegistrationRequest(object):
-    """Wait for all workers of the given dispatcher to register. Blocks until all workers registers or the timeout occurs."""
+    """Wait for all workers of the given dispatcher to register.
+    Blocks until all workers registers or the timeout occurs."""
 
     def __init__(self, dispatcher_id, timeout):
         self.dispatcher_id = dispatcher_id
@@ -103,7 +106,7 @@ class ComputeService(network.BasicService):
         self._max_dispatcher_id = dispatchers - 1
         self._dispatcher_addresses = [None] * dispatchers
         self._workers_per_dispatcher = workers_per_dispatcher
-        self._dispatcher_worker_ids = [[set()] * workers_per_dispatcher] * dispatchers
+        self._dispatcher_worker_ids = [set()] * dispatchers
         self._shutdown = False
         self._wait_cond = threading.Condition()
 
@@ -113,7 +116,7 @@ class ComputeService(network.BasicService):
         if isinstance(req, RegisterDispatcherRequest):
             self._wait_cond.acquire()
             try:
-                if req.dispatcher_id > self._max_dispatcher_id:
+                if not 0 <= req.dispatcher_id <= self._max_dispatcher_id:
                     return IndexError(f'Dispatcher id must be within [0..{self._max_dispatcher_id}]: '
                                       f'{req.dispatcher_id}')
 
@@ -135,7 +138,7 @@ class ComputeService(network.BasicService):
 
             self._wait_cond.acquire()
             try:
-                if 0 < self._max_dispatcher_id < req.dispatcher_id:
+                if not 0 <= req.dispatcher_id <= self._max_dispatcher_id:
                     return IndexError(f'Dispatcher id must be within [0..{self._max_dispatcher_id}]: '
                                       f'{req.dispatcher_id}')
 
@@ -146,6 +149,8 @@ class ComputeService(network.BasicService):
                 while self._dispatcher_addresses[dispatcher_id] is None:
                     self._wait_cond.wait(tmout.remaining())
                     tmout.check_time_out_for(f'dispatcher {dispatcher_id} to register')
+            except TimeoutException as e:
+                return e
             finally:
                 self._wait_cond.release()
             return WaitForDispatcherRegistrationResponse(self._dispatcher_addresses[dispatcher_id])
@@ -153,11 +158,11 @@ class ComputeService(network.BasicService):
         if isinstance(req, RegisterDispatcherWorkerRequest):
             self._wait_cond.acquire()
             try:
-                if req.dispatcher_id > self._max_dispatcher_id:
+                if not 0 <= req.dispatcher_id <= self._max_dispatcher_id:
                     return IndexError(f'Dispatcher id must be within [0..{self._max_dispatcher_id}]: '
                                       f'{req.dispatcher_id}')
 
-                self._dispatcher_worker_ids[req.dispatcher_id].append(req.worker_id)
+                self._dispatcher_worker_ids[req.dispatcher_id].update({req.worker_id})
                 self._wait_cond.notify_all()
             finally:
                 self._wait_cond.release()
@@ -169,7 +174,7 @@ class ComputeService(network.BasicService):
 
             self._wait_cond.acquire()
             try:
-                if 0 < self._max_dispatcher_id < req.dispatcher_id:
+                if not 0 <= req.dispatcher_id <= self._max_dispatcher_id:
                     return IndexError(f'Dispatcher id must be within [0..{self._max_dispatcher_id}]: '
                                       f'{req.dispatcher_id}')
 
@@ -180,6 +185,8 @@ class ComputeService(network.BasicService):
                 while len(self._dispatcher_worker_ids[dispatcher_id]) < self._workers_per_dispatcher:
                     self._wait_cond.wait(tmout.remaining())
                     tmout.check_time_out_for(f'workers for dispatcher {dispatcher_id} to register')
+            except TimeoutException as e:
+                return e
             finally:
                 self._wait_cond.release()
             return network.AckResponse()
@@ -221,7 +228,8 @@ class ComputeClient(network.BasicClient):
         self._send(RegisterDispatcherRequest(dispatcher_id, dispatcher_address))
 
     def wait_for_dispatcher_registration(self, dispatcher_id, timeout) -> str:
-        return self._send(WaitForDispatcherRegistrationRequest(dispatcher_id, timeout)).dispatcher_address
+        resp = self._send(WaitForDispatcherRegistrationRequest(dispatcher_id, timeout))
+        return resp.dispatcher_address
 
     def register_worker_for_dispatcher(self, dispatcher_id, worker_id):
         self._send(RegisterDispatcherWorkerRequest(dispatcher_id, worker_id))
