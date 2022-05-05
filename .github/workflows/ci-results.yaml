@@ -104,7 +104,7 @@ jobs:
 
       - name: Download Buildkite Artifacts
         id: download
-        uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1
+        uses: EnricoMi/download-buildkite-artifact-action@v1
         with:
           github_token: ${{ github.token }}
           buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
@@ -183,7 +183,7 @@ jobs:
 
       - name: Download Buildkite Artifacts
         id: download
-        uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1
+        uses: EnricoMi/download-buildkite-artifact-action@v1
         with:
           github_token: ${{ github.token }}
           buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
