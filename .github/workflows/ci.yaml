@@ -4388,7 +4388,7 @@ jobs:
 
       - name: Download Buildkite Artifacts
         id: download
-        uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1
+        uses: EnricoMi/download-buildkite-artifact-action@v1
         with:
           buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
           buildkite_build_url: ${{ steps.build.outputs.url }}
@@ -4437,7 +4437,7 @@ jobs:
 
       - name: Download Buildkite Artifacts
         id: download
-        uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1
+        uses: EnricoMi/download-buildkite-artifact-action@v1
         with:
           buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
           buildkite_build_url: ${{ steps.build.outputs.url }}

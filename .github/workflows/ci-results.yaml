@@ -25,7 +25,7 @@ jobs:
       # steps "Fetch workflow conclusion" and "Fetch PR meta"
       actions: read
       # step "Fetch PR meta"
-      content: read
+      contents: read
     outputs:
       build-and-test: ${{ steps.workflow-conclusion.outputs.build-and-test }}
       pr-json: ${{ steps.pr.outputs.json }}
@@ -104,7 +104,7 @@ jobs:
 
       - name: Download Buildkite Artifacts
         id: download
-        uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1
+        uses: EnricoMi/download-buildkite-artifact-action@v1
         with:
           github_token: ${{ github.token }}
           buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
@@ -183,7 +183,7 @@ jobs:
 
       - name: Download Buildkite Artifacts
         id: download
-        uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1
+        uses: EnricoMi/download-buildkite-artifact-action@v1
         with:
           github_token: ${{ github.token }}
           buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
@@ -238,7 +238,7 @@ jobs:
     permissions:
       # step "Download and Extract Artifacts"
       actions: read
-      content: read
+      contents: read
 
       # steps "Publish Unit Test Results" and "Publish Unit Test Results (with flaky tests)"
       checks: write

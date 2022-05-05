@@ -566,7 +566,7 @@ def main():
                 f'\n'
                 f'      - name: Download Buildkite Artifacts\n'
                 f'        id: download\n'
-                f'        uses: docker://ghcr.io/enricomi/download-buildkite-artifact-action:v1\n'
+                f'        uses: EnricoMi/download-buildkite-artifact-action@v1\n'
                 f'        with:\n'
                 f'          buildkite_token: ${{{{ secrets.BUILDKITE_TOKEN }}}}\n'
                 f'          buildkite_build_url: ${{{{ steps.build.outputs.url }}}}\n'
