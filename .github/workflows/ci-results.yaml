@@ -9,13 +9,9 @@ on:
     types:
       - completed
 
-jobs:
-  debug:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Debug Action
-        uses: hmarr/debug-action@v1.0.0
+permissions: {}
 
+jobs:
   ci-workflow:
     name: "Check CI workflow outcome"
     runs-on: ubuntu-latest
@@ -25,6 +21,11 @@ jobs:
       github.event.workflow_run.conclusion != 'skipped' &&
       github.event.workflow_run.conclusion != 'cancelled' &&
       github.event.workflow_run.event != 'schedule'
+    permissions:
+      # steps "Fetch workflow conclusion" and "Fetch PR meta"
+      actions: read
+      # step "Fetch PR meta"
+      content: read
     outputs:
       build-and-test: ${{ steps.workflow-conclusion.outputs.build-and-test }}
       pr-json: ${{ steps.pr.outputs.json }}
@@ -72,6 +73,9 @@ jobs:
     if: >
       needs.ci-workflow.outputs.build-and-test == 'success' &&
       github.event.workflow_run.head_repository.fork
+    permissions:
+      # steps "Create check status" and "Update check status"
+      statuses: write
 
     steps:
       - name: Create check status
@@ -148,6 +152,9 @@ jobs:
     if: >
       needs.ci-workflow.outputs.build-and-test == 'success' &&
       github.event.workflow_run.head_repository.fork
+    permissions:
+      # steps "Create check status" and "Update check status"
+      statuses: write
 
     steps:
       - name: Create check status
@@ -228,11 +235,15 @@ jobs:
       always() &&
       needs.ci-workflow.result != 'skipped' &&
       needs.ci-workflow.outputs.build-and-test != 'skipped'
+    permissions:
+      # step "Download and Extract Artifacts"
+      actions: read
+      content: read
 
+      # steps "Publish Unit Test Results" and "Publish Unit Test Results (with flaky tests)"
+      checks: write
+      pull-requests: write
     steps:
-      - name: Debug Action
-        uses: hmarr/debug-action@v2.0.0
-
       - name: Download and Extract Artifacts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

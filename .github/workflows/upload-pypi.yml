@@ -7,6 +7,8 @@ on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
+permissions: {}
+
 jobs:
   upload:
     runs-on: ubuntu-latest
