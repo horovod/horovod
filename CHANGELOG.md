@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Spark: expose random seed as an optional parameter. ([#3517](https://github.com/horovod/horovod/pull/3517))
 
+- Added Horovod job to spin up distributed TensorFlow Data Service. ([#3525](https://github.com/horovod/horovod/pull/3525))
+
 ### Changed
 
 - MXNet: Updated allreduce functions to newer `op` API. ([#3299](https://github.com/horovod/horovod/pull/3299))
