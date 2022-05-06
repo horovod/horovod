@@ -37,6 +37,7 @@ class TfDataServiceConfig:
     dispatcher_side: str
     addresses: Mapping[str, Sequence[Tuple[str, int]]]
     key: bytes
+    timeout: int = 60
 
     def compute_client(self, verbose=1) -> ComputeClient:
         return ComputeClient(self.addresses, self.key, verbose=verbose)
@@ -58,7 +59,8 @@ class TfDataServiceConfig:
             workers_per_dispatcher=config.get('workers_per_dispatcher'),
             dispatcher_side=config.get('dispatcher_side'),
             addresses=config.get('addresses'),
-            key=config.get('key')
+            key=config.get('key'),
+            timeout=config.get('timeout')
         )
 
     def write(self, filename: str):
@@ -98,8 +100,8 @@ def tf_data_service(compute_config: TfDataServiceConfig, rank: int) -> str:
             logging.info(f"Registering Dispatcher {rank} at {dispatcher_server.target}")
             compute.register_dispatcher(rank, dispatcher_server.target)
 
-    dispatcher_address = compute.wait_for_dispatcher_registration(rank, 60)
-    compute.wait_for_dispatcher_worker_registration(rank, 60)
+    dispatcher_address = compute.wait_for_dispatcher_registration(rank, compute_config.timeout)
+    compute.wait_for_dispatcher_worker_registration(rank, compute_config.timeout)
 
     # let the caller use the dispatcher
     yield dispatcher_address
@@ -155,7 +157,7 @@ def compute_worker_fn(compute_config: TfDataServiceConfig):
 
     # Get dispatcher for the worker
     logging.info(f'Waiting for dispatcher {dispatcher_index} for worker {index}')
-    dispatcher_address = compute.wait_for_dispatcher_registration(dispatcher_index, 60)
+    dispatcher_address = compute.wait_for_dispatcher_registration(dispatcher_index, compute_config.timeout)
 
     # Find ports
     def find_free_port():
