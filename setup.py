@@ -196,7 +196,7 @@ dev_require_list = ['tensorflow-cpu==2.2.0',
 # torchvision 0.5.0 depends on torch==1.4.0
 
 # python packages required only to run tests
-test_require_list = ['mock', 'pytest', 'pytest-forked', 'parameterized']
+test_require_list = ['mock', 'pytest', 'pytest-forked', 'pytest-subtests', 'parameterized']
 
 # Skip cffi if pytorch extension explicitly disabled
 if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):

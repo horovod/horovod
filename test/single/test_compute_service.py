@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
 import unittest
 from queue import Queue
 
@@ -61,6 +60,10 @@ class ComputeServiceTest(unittest.TestCase):
                 try:
                     client = ComputeClient(service.addresses(), key, verbose=2)
 
+                    # create thread waiting for shutdown
+                    shutdown = Queue()
+                    shutdown_thread = self.wait_for_shutdown(client, shutdown)
+
                     # dispatcher registration
                     # start threads that wait for dispatchers
                     threads = []
@@ -100,14 +103,12 @@ class ComputeServiceTest(unittest.TestCase):
                     # check reported dispatcher success
                     self.assertEqual(sorted(range(dispatchers_num)), sorted(self.get_all(dispatchers)))
 
-                    # shutdown
-                    # start threads to wait for shutdown
-                    success = Queue()
-                    thread = self.wait_for_shutdown(client, success)
+                    # shutdown and wait for shutdown
+                    self.assertTrue(shutdown_thread.is_alive(), msg="thread waiting for shutdown, terminated early")
                     client.shutdown()
-                    thread.join(10)
-                    self.assertFalse(thread.is_alive(), msg="thread waiting for shutdown did not terminate")
-                    self.assertEqual([True], list(self.get_all(success)))
+                    shutdown_thread.join(10)
+                    self.assertFalse(shutdown_thread.is_alive(), msg="thread waiting for shutdown did not terminate")
+                    self.assertEqual([True], list(self.get_all(shutdown)))
                 finally:
                     service.shutdown()
 
