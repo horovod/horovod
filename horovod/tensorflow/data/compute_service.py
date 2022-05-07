@@ -100,8 +100,9 @@ def tf_data_service(compute_config: TfDataServiceConfig, rank: int) -> str:
             logging.info(f"Registering Dispatcher {rank} at {dispatcher_server.target}")
             compute.register_dispatcher(rank, dispatcher_server.target)
 
-    dispatcher_address = compute.wait_for_dispatcher_registration(rank, compute_config.timeout)
-    compute.wait_for_dispatcher_worker_registration(rank, compute_config.timeout)
+    dispatcher_id = rank if compute_config.dispatchers > 1 else 0
+    dispatcher_address = compute.wait_for_dispatcher_registration(dispatcher_id, compute_config.timeout)
+    compute.wait_for_dispatcher_worker_registration(dispatcher_id, compute_config.timeout)
 
     # let the caller use the dispatcher
     yield dispatcher_address
@@ -126,14 +127,14 @@ def send_to_data_service(dataset: tf.data.Dataset,
             processing_mode="distributed_epoch",
             service=dispatcher_address,
             job_name='job' if reuse_dataset else None,
-            consumer_index=rank if round_robin else None,
-            num_consumers=size if round_robin else None))
+            consumer_index=rank if reuse_dataset and round_robin else None,
+            num_consumers=size if reuse_dataset and round_robin else None))
 
 
 tf.data.Dataset.send_to_data_service = send_to_data_service
 
 
-def compute_worker_fn(compute_config: TfDataServiceConfig):
+def compute_worker_fn(compute_config: TfDataServiceConfig, timeout: Optional[int] = None):
     """ Function run on the compute tasks providing tf dispatcher and worker server. """
     hvd.init()
     index, size = hvd.rank(), hvd.size()
@@ -173,7 +174,8 @@ def compute_worker_fn(compute_config: TfDataServiceConfig):
         port=worker_port,
         dispatcher_address=dispatcher_address.split("://")[1],
         worker_address=f"{worker_ip}:{worker_port}",
-        heartbeat_interval_ms=1000)
+        heartbeat_interval_ms=1000,
+        dispatcher_timeout_ms=timeout * 1000 if timeout else None)
     worker_server = tf.data.experimental.service.WorkerServer(worker_config)
     worker_server.start()
 

@@ -133,9 +133,6 @@ class ComputeService(network.BasicService):
             return network.AckResponse()
 
         if isinstance(req, WaitForDispatcherRegistrationRequest):
-            # if there is only a single dispatcher, wait for that one instead of the requested one
-            dispatcher_id = req.dispatcher_id if self._max_dispatcher_id > 0 else 0
-
             self._wait_cond.acquire()
             try:
                 if not 0 <= req.dispatcher_id <= self._max_dispatcher_id:
@@ -146,14 +143,14 @@ class ComputeService(network.BasicService):
                                         message='Timed out waiting for {activity}. Try to find out what takes '
                                                 'the dispatcher so long to register or increase timeout.')
 
-                while self._dispatcher_addresses[dispatcher_id] is None:
+                while self._dispatcher_addresses[req.dispatcher_id] is None:
                     self._wait_cond.wait(tmout.remaining())
-                    tmout.check_time_out_for(f'dispatcher {dispatcher_id} to register')
+                    tmout.check_time_out_for(f'dispatcher {req.dispatcher_id} to register')
             except TimeoutException as e:
                 return e
             finally:
                 self._wait_cond.release()
-            return WaitForDispatcherRegistrationResponse(self._dispatcher_addresses[dispatcher_id])
+            return WaitForDispatcherRegistrationResponse(self._dispatcher_addresses[req.dispatcher_id])
 
         if isinstance(req, RegisterDispatcherWorkerRequest):
             self._wait_cond.acquire()
