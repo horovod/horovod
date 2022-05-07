@@ -159,7 +159,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - image: test-cpu-gloo-py3_8-tf2_9_0rc1-keras2_9_0rc1-torch1_11_0-mxnet2_0_0b1-pyspark3_2_1
+          - image: test-cpu-gloo-py3_8-tf2_9_0rc2-keras2_9_0rc2-torch1_11_0-mxnet2_0_0b1-pyspark3_2_1
             Elastic_Tests_1: true
             Gloo_Cluster_PyTests: true
             Gloo_MXNet2_MNIST_api: true
@@ -179,7 +179,7 @@ jobs:
             Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-gpu-gloo-py3_8-tf2_9_0rc1-keras2_9_0rc1-torch1_11_0-mxnet2_0_0b1-pyspark3_2_1
+          - image: test-gpu-gloo-py3_8-tf2_9_0rc2-keras2_9_0rc2-torch1_11_0-mxnet2_0_0b1-pyspark3_2_1
             build_timeout: 40
 
     steps:
