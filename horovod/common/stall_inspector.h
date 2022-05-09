@@ -29,7 +29,11 @@ class ResponseCache;
 
 class StallInspector {
 public:
-  StallInspector() = delete;
+  /* because of default constructor of 'StallInspector'
+   * is implicitly deleted because field 'response_cache_' of
+   * reference type 'horovod::common::ResponseCache &' would not be initialized
+  */
+  // StallInspector() = default;
   explicit StallInspector(ResponseCache& response_cache)
       : response_cache_(response_cache) {}
   StallInspector(const StallInspector&) = delete;
