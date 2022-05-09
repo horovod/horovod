@@ -23,7 +23,7 @@
 namespace horovod {
 namespace common {
 
-class GlooController : public Controller {
+class GlooController final : public Controller {
 public:
   GlooController(ResponseCache& response_cache, TensorQueue& tensor_queue,
                  Timeline& timeline, ParameterManager& parameter_manager,
