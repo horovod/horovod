@@ -264,7 +264,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                                 transform_spec=transform_spec,
                                 storage_options=storage_options,
                                 # Don't shuffle row groups without shuffling.
-                                shuffle_row_groups=True if shuffle_buffer_size > 0 else False
+                                shuffle_row_groups=True if shuffle_buffer_size > 0 else False,
                                 **reader_factory_kwargs) as train_reader:
                 with reader_factory(remote_store.val_data_path,
                                     num_epochs=None,
