@@ -48,7 +48,8 @@ class ComputeWorkerTest(unittest.TestCase):
     def test_single_dispatcher_reuse_dataset_fcfs(self):
         self.do_test_worker(1, reuse_dataset=True, round_robin=False)
 
-    @unittest.skip('In round robin mode the worker thread does not shutdown quickly, making this test idle for a minute.')
+    @unittest.skip('Not fully consuming the dataset upsets the dispatcher on termination, even without stopping them.'
+                   'Round robing requires an infinite dataset, so it cannotbe fully consumed and test would idle a long time.')
     def test_single_dispatcher_reuse_dataset_round_robin(self):
         self.do_test_worker(1, reuse_dataset=True, round_robin=True)
 
@@ -107,15 +108,12 @@ class ComputeWorkerTest(unittest.TestCase):
                                           round_robin=round_robin)
 
                 # fetch the batches
-                it = dataset.as_numpy_iterator()
-                if round_robin:
-                    it = islice(it, 8)
+                it = islice(dataset.as_numpy_iterator(), 8)
                 actual = list([batch.tolist() for batch in it])
 
                 # synchronize with all processes
                 logging.debug('waiting for all processes to finish')
                 actuals = hvd.allgather_object(actual)
-                logging.debug(actuals)
                 logging.debug('all processes finished')
 
                 # assert the provided batches
@@ -123,7 +121,13 @@ class ComputeWorkerTest(unittest.TestCase):
                 # that would test tf.data service anyway, all we assert here is that worker and send_to_data_service
                 # work together nicely and produce a consumable dataset
                 self.assertEqual(self.size, len(actuals), msg="one 'actual batches' from each process")
-                self.assertEqual([True] * self.size, [len(actual) > 0 for actual in actuals], msg='each process has at least one batch')
+
+                # in reuse_dataset and fcfs it might happen that one process gets all the data and one does not get any
+                if reuse_dataset and not round_robin:
+                    self.assertTrue(any([len(actual) > 0 for actual in actuals]), msg='at least one process has at least one batch')
+                else:
+                    self.assertEqual([True] * self.size, [len(actual) > 0 for actual in actuals], msg='each process has at least one batch')
+
                 for actual in actuals:
                     self.assertEqual([True] * len(actual), [0 < len(batch) <= 128 for batch in actual], msg=f'all batches are at most 128 in size: {[len(batch) for batch in actual]}')
                     for batch in actual:
@@ -137,14 +141,12 @@ class ComputeWorkerTest(unittest.TestCase):
                     compute.shutdown()
                     logging.debug('shutdown request sent')
 
-                # wait for the worker to terminate
-                logging.debug('waiting for worker to terminate')
-                worker.join(self.timeout)
-
                 # in round robin mode, the worker process does not terminate once stopped until some high timeout
-                if reuse_dataset and round_robin:
-                    logging.debug(f'worker still alive: {worker.is_alive()}')
-                else:
+                if not (reuse_dataset and round_robin):
+                    # wait for the worker to terminate
+                    logging.debug('waiting for worker to terminate')
+                    worker.join(self.timeout)
+
                     self.assertFalse(worker.is_alive())
                     logging.debug('worker terminated')
 
@@ -198,15 +200,12 @@ class ComputeWorkerTest(unittest.TestCase):
                             num_consumers=hvd.size() if round_robin else None))
 
                     # fetch the batches
-                    it = dataset.as_numpy_iterator()
-                    if round_robin:
-                        it = islice(it, 8)
+                    it = islice(dataset.as_numpy_iterator(), 8)
                     actual = list([batch.tolist() for batch in it])
 
                     # synchronize with all processes
                     logging.debug('waiting for all processes to finish')
                     actuals = hvd.allgather_object(actual)
-                    logging.debug(actuals)
                     logging.debug('all processes finished')
 
                     # assert the provided batches
@@ -214,7 +213,13 @@ class ComputeWorkerTest(unittest.TestCase):
                     # that would test tf.data service anyway, all we assert here is that worker and send_to_data_service
                     # work together nicely and produce a consumable dataset
                     self.assertEqual(self.size, len(actuals), msg="one 'actual batches' from each process")
-                    self.assertEqual([True] * self.size, [len(actual) > 0 for actual in actuals], msg='each process has at least one batch')
+
+                    # in reuse_dataset and fcfs it might happen that one process gets all the data and one does not get any
+                    if reuse_dataset and not round_robin:
+                        self.assertTrue(any([len(actual) > 0 for actual in actuals]), msg='at least one process has at least one batch')
+                    else:
+                        self.assertEqual([True] * self.size, [len(actual) > 0 for actual in actuals], msg='each process has at least one batch')
+
                     for actual in actuals:
                         self.assertEqual([True] * len(actual), [0 < len(batch) <= 128 for batch in actual], msg=f'all batches are at most 128 in size: {[len(batch) for batch in actual]}')
                         for batch in actual:
@@ -228,14 +233,12 @@ class ComputeWorkerTest(unittest.TestCase):
                     compute.shutdown()
                     logging.debug('shutdown request sent')
 
-                # wait for the worker to terminate
-                logging.debug('waiting for worker to terminate')
-                worker.join(self.timeout)
-
                 # in round robin mode, the worker process does not terminate once stopped until some high timeout
-                if reuse_dataset and round_robin:
-                    logging.debug(f'worker still alive: {worker.is_alive()}')
-                else:
+                if not (reuse_dataset and round_robin):
+                    # wait for the worker to terminate
+                    logging.debug('waiting for worker to terminate')
+                    worker.join(self.timeout)
+
                     self.assertFalse(worker.is_alive())
                     logging.debug('worker terminated')
 
