@@ -69,6 +69,7 @@ class ComputeWorkerTest(unittest.TestCase):
 
         self.do_test_worker(1, reuse_dataset=True, round_robin=False, assert_batches=assert_batches)
 
+    @unittest.skip('In round robin mode the worker thread does not shutdown quickly, making this test idle for a minute.')
     def test_single_dispatcher_reuse_dataset_round_robin(self):
         def assert_batches(actuals: List[List[List[int]]]):
             # batches are not deterministic, all we can say is the shape of the batches
