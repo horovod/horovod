@@ -97,8 +97,9 @@ def tf_data_service(compute_config: TfDataServiceConfig, rank: int) -> str:
                 logging.info(f"Setting up Dispatcher for task {rank}")
 
             dispatcher_server = tf.data.experimental.service.DispatchServer()
-            logging.info(f"Registering Dispatcher {rank} at {dispatcher_server.target}")
+            logging.debug(f"Registering Dispatcher {rank} at {dispatcher_server.target}")
             compute.register_dispatcher(rank, dispatcher_server.target)
+            logging.info(f"Registered Dispatcher {rank} at {dispatcher_server.target}")
 
     dispatcher_id = rank if compute_config.dispatchers > 1 else 0
     dispatcher_address = compute.wait_for_dispatcher_registration(dispatcher_id, compute_config.timeout)
@@ -109,14 +110,17 @@ def tf_data_service(compute_config: TfDataServiceConfig, rank: int) -> str:
 
     if dispatcher_server:
         # there is currently no other way to stop the dispatch server
-        dispatcher_server._server.stop()
+        logging.debug(f"Shuting down dispatcher")
+        dispatcher_server._stop()
         dispatcher_server.join()
+        logging.info(f"Dispatcher shut down")
 
 
 def send_to_data_service(dataset: tf.data.Dataset,
                          compute_config: TfDataServiceConfig,
                          rank: int,
                          size: Optional[int] = None,
+                         processing_mode: str = "distributed_epoch",
                          reuse_dataset: bool = False,
                          round_robin: bool = False) -> tf.data.Dataset:
     if compute_config.dispatcher_side == 'training':
@@ -124,7 +128,7 @@ def send_to_data_service(dataset: tf.data.Dataset,
 
     with tf_data_service(compute_config, rank) as dispatcher_address:
         return dataset.apply(tf.data.experimental.service.distribute(
-            processing_mode="distributed_epoch",
+            processing_mode=processing_mode,
             service=dispatcher_address,
             job_name='job' if reuse_dataset else None,
             consumer_index=rank if reuse_dataset and round_robin else None,
@@ -153,12 +157,14 @@ def compute_worker_fn(compute_config: TfDataServiceConfig, timeout: Optional[int
             logging.info(f"Setting up Dispatcher for task {dispatcher_index}")
 
         dispatcher_server = tf.data.experimental.service.DispatchServer()
-        logging.info(f"Registering Dispatcher {dispatcher_index} at {dispatcher_server.target}")
+        logging.debug(f"Registering Dispatcher {dispatcher_index} at {dispatcher_server.target}")
         compute.register_dispatcher(dispatcher_index, dispatcher_server.target)
+        logging.info(f"Registered Dispatcher {dispatcher_index} at {dispatcher_server.target}")
 
     # Get dispatcher for the worker
-    logging.info(f'Waiting for dispatcher {dispatcher_index} for worker {index}')
+    logging.debug(f'Waiting for dispatcher {dispatcher_index} for worker {index}')
     dispatcher_address = compute.wait_for_dispatcher_registration(dispatcher_index, compute_config.timeout)
+    logging.debug(f'Dispatcher {dispatcher_index} for worker {index} available')
 
     # Find ports
     def find_free_port():
@@ -167,7 +173,7 @@ def compute_worker_fn(compute_config: TfDataServiceConfig, timeout: Optional[int
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             return s.getsockname()[1]
 
-    logging.info(f"Setting up worker for dispatcher {dispatcher_index}")
+    logging.debug(f"Setting up worker for dispatcher {dispatcher_index}")
     worker_ip = socket.gethostbyname(socket.getfqdn())
     worker_port = find_free_port()
     worker_config = tf.data.experimental.service.WorkerConfig(
@@ -177,17 +183,29 @@ def compute_worker_fn(compute_config: TfDataServiceConfig, timeout: Optional[int
         heartbeat_interval_ms=1000,
         dispatcher_timeout_ms=timeout * 1000 if timeout else None)
     worker_server = tf.data.experimental.service.WorkerServer(worker_config)
+    logging.debug(f"Starting worker for dispatcher {dispatcher_index}")
     worker_server.start()
+    logging.debug(f"Started worker for dispatcher {dispatcher_index}")
 
     # Tell the compute service that we are ready
+    logging.debug(f"Registering worker for dispatcher {dispatcher_index}")
     compute.register_worker_for_dispatcher(dispatcher_index, index)
+    logging.info(f"Worker for dispatcher {dispatcher_index} registered")
 
     # Wait until the compute service shuts down
+    logging.debug(f"Waiting for shutdown request")
     compute.wait_for_shutdown()
+    logging.debug(f"Shutdown requested")
 
     # stop the servers
     # there is currently no other way to stop the worker server
-    worker_server._server.stop()
+    logging.debug(f"Shuting down worker")
+    worker_server._stop()
+    worker_server.join()
+    logging.info(f"Worker shut down")
     if dispatcher_server:
         # there is currently no other way to stop the dispatch server
-        dispatcher_server._server.stop()
+        logging.debug(f"Shuting down dispatcher")
+        dispatcher_server._stop()
+        dispatcher_server.join()
+        logging.info(f"Dispatcher shut down")
