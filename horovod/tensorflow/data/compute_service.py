@@ -120,7 +120,7 @@ def send_to_data_service(dataset: tf.data.Dataset,
                          compute_config: TfDataServiceConfig,
                          rank: int,
                          size: Optional[int] = None,
-                         processing_mode: str = "distributed_epoch",
+                         processing_mode: str = 'distributed_epoch',
                          reuse_dataset: bool = False,
                          round_robin: bool = False) -> tf.data.Dataset:
     if compute_config.dispatcher_side == 'training':

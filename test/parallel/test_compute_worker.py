@@ -95,14 +95,16 @@ class ComputeWorkerTest(unittest.TestCase):
                        reuse_dataset: bool,
                        round_robin: bool,
                        assert_batches: Callable[[List[List[List[int]]]], None]):
-        with self.subTest(msg='dispatcher on compute side'):
-            self.do_test_worker_compute_side(dispatchers, reuse_dataset=reuse_dataset, round_robin=round_robin, assert_batches=assert_batches)
-        with self.subTest(msg='dispatcher on training side'):
-            self.do_test_worker_training_side(dispatchers, reuse_dataset=reuse_dataset, round_robin=round_robin, assert_batches=assert_batches)
+        for processing_mode in ['distributed_epoch', 'parallel_epochs']:
+            with self.subTest(processing_mode=processing_mode, dispatcher_side='compute'):
+                self.do_test_worker_compute_side(dispatchers, processing_mode=processing_mode, reuse_dataset=reuse_dataset, round_robin=round_robin, assert_batches=assert_batches)
+            with self.subTest(processing_mode=processing_mode, dispatcher_side='training'):
+                self.do_test_worker_training_side(dispatchers, processing_mode=processing_mode, reuse_dataset=reuse_dataset, round_robin=round_robin, assert_batches=assert_batches)
 
     # keep this in-sync with do_test_worker_training_side
     def do_test_worker_compute_side(self,
                                     dispatchers: int,
+                                    processing_mode: str,
                                     reuse_dataset: bool,
                                     round_robin: bool,
                                     assert_batches: Callable[[List[List[List[int]]]], None]):
@@ -137,6 +139,7 @@ class ComputeWorkerTest(unittest.TestCase):
                     dataset = dataset.repeat()
                 dataset = dataset.batch(128) \
                     .send_to_data_service(compute_config, self.rank, self.size,
+                                          processing_mode=processing_mode,
                                           reuse_dataset=reuse_dataset,
                                           round_robin=round_robin)
 
@@ -190,6 +193,7 @@ class ComputeWorkerTest(unittest.TestCase):
     # keep this in-sync with do_test_worker_compute_side
     def do_test_worker_training_side(self,
                                      dispatchers: int,
+                                     processing_mode: str,
                                      reuse_dataset: bool,
                                      round_robin: bool,
                                      assert_batches: Callable[[List[List[List[int]]]], None]):
@@ -226,7 +230,7 @@ class ComputeWorkerTest(unittest.TestCase):
                     dataset = dataset.batch(128) \
                         .apply(tf.data.experimental.service.distribute(
                             service=dispatcher_address,
-                            processing_mode="distributed_epoch",
+                            processing_mode=processing_mode,
                             job_name='job' if reuse_dataset else None,
                             consumer_index=hvd.rank() if round_robin else None,
                             num_consumers=hvd.size() if round_robin else None))
