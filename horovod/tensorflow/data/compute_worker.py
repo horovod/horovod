@@ -22,7 +22,7 @@ from horovod.tensorflow.data.compute_service import TfDataServiceConfig, compute
 
 def main(dispatchers: int, dispatcher_side: str, configfile: str, timeout: int):
     rank, size = env.get_env_rank_and_size()
-    print(f'rank={rank} size={size} dispatchers={dispatchers}')
+
     if size % dispatchers:
         raise ValueError(f'Number of processes ({size}) must be a multiple of number of dispatchers ({dispatchers}).')
     workers_per_dispatcher = size // dispatchers
@@ -67,5 +67,9 @@ if __name__ == '__main__':
                         help=f"Where do the dispatcher run? On 'compute' side or 'training' side.",
                         dest="dispatcher_side")
 
+    parser.add_argument("--timeout", required=False, default=60, type=int,
+                        help=f"Timeout to setup worker and connect everything.",
+                        dest="timeout")
+
     parsed_args = parser.parse_args()
-    main(parsed_args.dispatchers, parsed_args.dispatcher_side, parsed_args.configfile)
+    main(parsed_args.dispatchers, parsed_args.dispatcher_side, parsed_args.configfile, parsed_args.timeout)
