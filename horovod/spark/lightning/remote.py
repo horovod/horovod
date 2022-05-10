@@ -266,7 +266,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                 'num_reader_epochs': loader_num_epochs,
                 'reader_pool_type': reader_pool_type,
                 'reader_worker_count': train_reader_worker_count,
-                'transform_spec': transformation,
+                'transformation': transformation,
                 'inmemory_cache_all': inmemory_cache_all,
                 'cur_shard': hvd.rank(),
                 'shard_count': hvd.size(),

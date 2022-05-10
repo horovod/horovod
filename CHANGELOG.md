@@ -34,6 +34,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Fallback to NCCL shared lib if static one is not found. ([#3500]((https://github.com/horovod/horovod/pull/3500))
 
+- Spark/Lightning: add missing tranform_spec for Petastorm datamodule. ([#3543](https://github.com/horovod/horovod/pull/3543))
+
 ## [v0.24.3] - 2022-04-21
 
 ### Fixed
