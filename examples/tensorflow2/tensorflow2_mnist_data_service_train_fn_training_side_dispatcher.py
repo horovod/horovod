@@ -49,8 +49,8 @@ def train_fn(compute_config: TfDataServiceConfig, reuse_dataset: bool = False, r
             .shuffle(10000) \
             .batch(128) \
             .apply(tf.data.experimental.service.distribute(
-                processing_mode="distributed_epoch",
                 service=dispatcher_address,
+                processing_mode="distributed_epoch",
                 job_name='job' if reuse_dataset else None,
                 consumer_index=hvd.rank() if round_robin else None,
                 num_consumers=hvd.size() if round_robin else None)) \
