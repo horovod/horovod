@@ -154,7 +154,7 @@ bool GPUAllreduce::Enabled(const ParameterManager& param_manager,
   return entries[0].device != CPU_DEVICE_ID;
 }
 
-#if HAVE_CUDA || HAVE_ROCM
+#if HAVE_GPU
 void GPUAllreduce::MemcpyInFusionBuffer(
     const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
     void*& buffer_data, size_t& buffer_len) {
@@ -223,7 +223,7 @@ void GPUAllreduce::MemcpyInFusionBuffer(
 }
 #endif
 
-#if HAVE_CUDA || HAVE_ROCM
+#if HAVE_GPU
 void GPUAllreduce::ScaleMemcpyInFusionBuffer(
     const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
     void*& buffer_data, size_t& buffer_len, double scale_factor) {
@@ -307,7 +307,7 @@ void GPUAllreduce::MemcpyEntryInFusionBuffer(
           ->streams[global_state_->current_nccl_stream][first_entry.device]);
 }
 
-#if HAVE_CUDA || HAVE_ROCM
+#if HAVE_GPU
 void GPUAllreduce::MemcpyOutFusionBuffer(
     const void* buffer_data, std::vector<TensorTableEntry>& entries) {
   if (global_state_->batch_d2d_memcopies) {
@@ -362,7 +362,7 @@ void GPUAllreduce::MemcpyOutFusionBuffer(
 }
 #endif
 
-#if HAVE_CUDA || HAVE_ROCM
+#if HAVE_GPU
 void GPUAllreduce::ScaleMemcpyOutFusionBuffer(
     void* buffer_data, size_t buffer_len, double scale_factor,
     std::vector<TensorTableEntry>& entries) {
