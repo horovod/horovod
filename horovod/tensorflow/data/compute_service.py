@@ -166,20 +166,10 @@ def compute_worker_fn(compute_config: TfDataServiceConfig, timeout: Optional[int
     dispatcher_address = compute.wait_for_dispatcher_registration(dispatcher_index, compute_config.timeout)
     logging.debug(f'Dispatcher {dispatcher_index} for worker {index} available')
 
-    # Find ports
-    def find_free_port():
-        with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-            s.bind(('', 0))
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            return s.getsockname()[1]
-
+    # Create worker
     logging.debug(f"Setting up worker for dispatcher {dispatcher_index}")
-    worker_ip = socket.gethostbyname(socket.getfqdn())
-    worker_port = find_free_port()
     worker_config = tf.data.experimental.service.WorkerConfig(
-        port=worker_port,
         dispatcher_address=dispatcher_address.split("://")[1],
-        worker_address=f"{worker_ip}:{worker_port}",
         heartbeat_interval_ms=1000,
         dispatcher_timeout_ms=timeout * 1000 if timeout else None)
     worker_server = tf.data.experimental.service.WorkerServer(worker_config)
