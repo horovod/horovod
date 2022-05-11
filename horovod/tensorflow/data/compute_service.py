@@ -81,9 +81,7 @@ class TfDataServiceConfig:
 @contextmanager
 def tf_data_service(compute_config: TfDataServiceConfig, rank: int) -> str:
     """
-    Provides the address of the TF Dispatcher to use by training task of the given rank.
-
-    This is used on the training side.
+    Provides the address of the TF Dispatcher.
     """
 
     compute = compute_config.compute_client(verbose=2)
