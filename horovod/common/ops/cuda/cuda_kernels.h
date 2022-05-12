@@ -16,6 +16,7 @@
 #ifndef CUDA_KERNELS_H
 #define CUDA_KERNELS_H
 
+#include <stdint.h>
 #include <cuda_runtime.h>
 
 #include "../../message.h"
@@ -41,6 +42,39 @@ void ScaleBufferCudaImpl(const void* fused_input_data, void* buffer_data, const 
 
 void BatchedScaledD2DMemcpyCudaImpl(BatchedD2DParams& params, int num_copies, double scale_factor,
                                     DataType dtype, cudaStream_t stream);
+
+// Performs adasum operator logic for double
+void CudaSingleAdasumImpl(int count, double* device_a, const double* device_b,
+						double* device_vals, cudaStream_t stream);
+
+// Performs adasum operator logic for float
+void CudaSingleAdasumImpl(int count, float* device_a, const float* device_b,
+						double* device_vals, cudaStream_t stream);
+
+// Performs adasum operator logic for uint16_t
+void CudaSingleAdasumImpl(int count, uint16_t* device_a, const uint16_t* device_b,
+						double* device_vals, cudaStream_t stream);
+
+// Performs a fused dot product kernel for double
+void CudaDotProductImpl(int count, const double* device_a, const double* device_b,
+						double* device_vals, double& host_normsq_a, double& host_normsq_b, double& host_dot);
+
+// Performs a fused dot product kernel for float
+void CudaDotProductImpl(int count, const float* device_a, const float* device_b,
+						double* device_vals, double& host_normsq_a, double& host_normsq_b, double& host_dot);
+
+// Performs a fused dot product kernel for uint16_t
+void CudaDotProductImpl(int count, const uint16_t* device_a, const uint16_t* device_b,
+						double* device_vals, double& host_normsq_a, double& host_normsq_b, double& host_dot);
+
+// Performs a fused scale and add kernel for double
+void CudaScaleAddImpl(int count, double* a_device, const double* b_device, double host_a_coeff, double host_b_coeff);
+
+// Performs a fused scale and add kernel for float
+void CudaScaleAddImpl(int count, float* a_device, const float* b_device, double host_a_coeff, double host_b_coeff);
+
+// Performs a fused scale and add kernel for uint16_t
+void CudaScaleAddImpl(int count, uint16_t* a_device, const uint16_t* b_device, double host_a_coeff, double host_b_coeff);
 
 } // namespace common
 } // namespace horovod
