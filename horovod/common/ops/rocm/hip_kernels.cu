@@ -13,6 +13,9 @@
 // limitations under the License.
 // =============================================================================
 
+// ATTENTION: Any change here might obsolete cuda_kernels.cu in cuda folder.
+//            Please keep this file synced with cuda_kernels.cu.
+
 #include "hip_kernels.h"
 
 #include <stdexcept>

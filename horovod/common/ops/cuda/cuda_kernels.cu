@@ -13,6 +13,9 @@
 // limitations under the License.
 // =============================================================================
 
+// ATTENTION: Any change here might obsolete hip_kernels.cu in rocm folder.
+//            Please keep this file synced with hip_kernels.cu.
+
 #include "cuda_kernels.h"
 
 #include <stdexcept>

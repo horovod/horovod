@@ -13,6 +13,9 @@
 // limitations under the License.
 // =============================================================================
 
+// ATTENTION: Any change here might obsolete cuda_kernels.h in cuda folder.
+//            Please keep this file synced with cuda_kernels.h.
+
 #ifndef HIP_KERNELS_H
 #define HIP_KERNELS_H
 
@@ -45,4 +48,4 @@ void BatchedScaledD2DMemcpyROCmImpl(BatchedD2DParams& params, int num_copies, do
 } // namespace common
 } // namespace horovod
 
-#endif // CUDA_KERNELS_H
+#endif // HIP_KERNELS_H
