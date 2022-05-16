@@ -1,4 +1,4 @@
-message(STATUS "Built Horovod for ROCm")
+message(STATUS "Build Horovod for ROCm")
 if (NOT DEFINED HCC_APTH)
   if (DEFINED ENV{HCC_PATH})
     set(HIP_PATH ${HCC_PATH} CACHE PATH "Path to which HCC has been installed")
