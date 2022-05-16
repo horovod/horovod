@@ -63,7 +63,6 @@ public:
     auto key2 = std::make_pair(device, stream);
     event->event_idx = ++hip_event_idx[key2];
 
-
     return status;
   }
 
