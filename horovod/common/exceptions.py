@@ -38,7 +38,7 @@ def get_version_mismatch_message(name, version, installed_version):
              Reinstall Horovod using `pip install --no-cache-dir` to build with the new version.'
 
 
-class HorovodVersionMismatchError(Exception):
+class HorovodVersionMismatchError(ImportError):
     """Internal error raised when the runtime version of a framework mismatches its version at
     Horovod installation time.
     """
