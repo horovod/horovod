@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - TF: Make TensorFlow output allocations asynchronous when using NCCL backend. ([#3464](https://github.com/horovod/horovod/pull/3464))
 
+- Make `HorovodVersionMismatchError` subclass `ImportError` instead of just a standard `Exception`. ([#3549](https://github.com/horovod/horovod/pull/3549))
+
 ### Deprecated
 
 - MXNet: Deprecated `average` argument of allreduce functions. ([#3299](https://github.com/horovod/horovod/pull/3299))
