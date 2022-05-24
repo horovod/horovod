@@ -12,7 +12,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-cpu==2.9.1
         KERAS_PACKAGE: keras==2.9.0
         PYTORCH_PACKAGE: torch==1.12.1+cpu
-        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
+        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.6.3
         TORCHVISION_PACKAGE: torchvision==0.13.1+cpu
         MXNET_PACKAGE: mxnet==1.9.1
         PYSPARK_PACKAGE: pyspark==3.3.0
@@ -96,7 +96,7 @@ services:
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: torchvision
-        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
+        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.6.3
         MXNET_PACKAGE: mxnet-nightly
   # these are the lowest framework versions that Horovod compiles with, but they are not tested
   test-cpu-openmpi-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin:
@@ -173,7 +173,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-gpu==1.15.5
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: torch==1.8.1+cu101
-        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
+        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.6.3
         TORCHVISION_PACKAGE: torchvision==0.9.1+cu101
         MXNET_PACKAGE: mxnet-cu100==1.5.1.post0
   # here we deviate from mxnet==1.7.0.post2 as there is none for cu101, only post1
@@ -188,7 +188,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.7.3
         KERAS_PACKAGE: keras==2.7.0
         PYTORCH_PACKAGE: torch==1.10.2+cu102
-        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
+        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.6.3
         TORCHVISION_PACKAGE: torchvision==0.11.3+cu102
         MXNET_PACKAGE: mxnet-cu101==1.7.0.post1
   test-gpu-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_8_0_p0-pyspark3_3_0:
@@ -201,7 +201,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.8.2
         KERAS_PACKAGE: keras==2.8.0
         PYTORCH_PACKAGE: torch==1.11.0+cu113
-        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
+        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.6.3
         TORCHVISION_PACKAGE: torchvision==0.12.0+cu113
         MXNET_PACKAGE: mxnet-cu112==1.8.0.post0
   test-gpu-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark3_3_0:
@@ -229,7 +229,7 @@ services:
         TENSORFLOW_PACKAGE: tf-nightly-gpu
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch-nightly-cu113
-        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
+        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.6.3
         TORCHVISION_PACKAGE: torchvision
         MXNET_PACKAGE: mxnet-nightly-cu112
   # these are the lowest framework versions that Horovod compiles with, but they are not tested
@@ -262,7 +262,7 @@ services:
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.9.1
         KERAS_PACKAGE: keras==2.9.0
         PYTORCH_PACKAGE: torch==1.12.1+cu113
-        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
+        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.6.3
         TORCHVISION_PACKAGE: torchvision==0.13.1+cu113
         MXNET_PACKAGE: mxnet-cu112==1.9.0
         HOROVOD_BUILD_FLAGS: ""

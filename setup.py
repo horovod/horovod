@@ -190,7 +190,8 @@ dev_require_list = ['tensorflow-cpu==2.2.0',
                     'keras==2.3.1',
                     'torch==1.4.0',
                     'torchvision==0.5.0',
-                    'pytorch_lightning>=1.3.8,<1.5.10',
+                    # PyTorch Lightning 1.5.10 is broken with Horovod
+                    'pytorch_lightning>=1.3.8,!=1.5.10,<=1.6.3',
                     'mxnet==1.5.0',
                     'pyspark==3.0.1'] + spark_require_list
 # torchvision 0.5.0 depends on torch==1.4.0

@@ -239,11 +239,18 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                       'logger': train_logger,
                       'log_every_n_steps': log_every_n_steps,
                       'num_sanity_val_steps': 0,
-                      'reload_dataloaders_every_epoch': False,
                       'progress_bar_refresh_rate': progress_bar_refresh_rate,
                       'terminate_on_nan': terminate_on_nan,
                       'profiler': profiler
                       }
+            # Default value 'reload_dataloaders_every_n_epochs'=0 breaks Petastorm
+            # async dataloader, we have to reload datalaoder in every epoch for
+            # pytorch_lightning >= 1.6.0
+            if LooseVersion(pl.__version__) >= LooseVersion("1.6.0"):
+                kwargs['reload_dataloaders_every_n_epochs'] = 1
+            else:
+                kwargs['reload_dataloaders_every_epoch'] = False
+
             if trainer_args:
                 kwargs.update(trainer_args)
 

@@ -64,6 +64,8 @@ class PetastormDataModule(pl.LightningDataModule):
         self.debug_data_loader = debug_data_loader
         self.train_async_data_loader_queue_size = train_async_data_loader_queue_size
         self.val_async_data_loader_queue_size = val_async_data_loader_queue_size
+        self.train_dl = None
+        self.val_dl = None
 
         if debug_data_loader:
             print("Creating data_module")
@@ -142,6 +144,13 @@ class PetastormDataModule(pl.LightningDataModule):
     def train_dataloader(self):
         if self.verbose:
             print("Setup train dataloader")
+        if self.train_dl is not None:
+            # Clear existing dataloader
+            if self.verbose:
+                print("Clear existing train dataloader in reloading")
+            self.train_dl.close_async_loader()
+            self.train_dl = None
+
         kwargs = dict(
             reader=self.train_reader,
             batch_size=self.train_batch_size,
@@ -179,6 +188,13 @@ class PetastormDataModule(pl.LightningDataModule):
             return None
         if self.verbose:
             print("setup val dataloader")
+        if self.val_dl is not None:
+            # Clear existing dataloader
+            if self.verbose:
+                print("Clear existing val dataloader in reloading")
+            self.val_dl.close_async_loader()
+            self.val_dl = None
+
         kwargs = dict(reader=self.val_reader, batch_size=self.val_batch_size,
                       name="val dataloader",
                       limit_step_per_epoch=self.steps_per_epoch_val,
