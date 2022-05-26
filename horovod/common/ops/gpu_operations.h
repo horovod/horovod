@@ -160,7 +160,7 @@ public:
                const Response& response) const override;
 
 protected:
-#if HAVE_CUDA
+#if HAVE_GPU
   void MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries,
                             const void*& fused_input_data, void*& buffer_data,
                             size_t& buffer_len) override;

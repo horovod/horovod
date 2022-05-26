@@ -13,13 +13,13 @@
 // limitations under the License.
 // =============================================================================
 
-// ATTENTION: Any change here might obsolete hip_kernels.h in rocm folder.
-//            Please keep this file synced with hip_kernels.h.
+// ATTENTION: Any change here might obsolete cuda_kernels.h in cuda folder.
+//            Please keep this file synced with cuda_kernels.h.
 
-#ifndef CUDA_KERNELS_H
-#define CUDA_KERNELS_H
+#ifndef HIP_KERNELS_H
+#define HIP_KERNELS_H
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 
 #include "../../message.h"
 
@@ -36,16 +36,16 @@ struct BatchedD2DParams {
 };
 
 // Performs a batched d2d memcopy
-void BatchedD2DMemcpyCudaImpl(BatchedD2DParams& params, int num_copies, cudaStream_t stream);
+void BatchedD2DMemcpyROCmImpl(BatchedD2DParams& params, int num_copies, hipStream_t stream);
 
 // Scales buffer by scalar
-void ScaleBufferCudaImpl(const void* fused_input_data, void* buffer_data, const int64_t num_elements,
-                         double scale_factor, DataType dtype, cudaStream_t stream);
+void ScaleBufferROCmImpl(const void* fused_input_data, void* buffer_data, const int64_t num_elements,
+                         double scale_factor, DataType dtype, hipStream_t stream);
 
-void BatchedScaledD2DMemcpyCudaImpl(BatchedD2DParams& params, int num_copies, double scale_factor,
-                                    DataType dtype, cudaStream_t stream);
+void BatchedScaledD2DMemcpyROCmImpl(BatchedD2DParams& params, int num_copies, double scale_factor,
+                                    DataType dtype, hipStream_t stream);
 
 } // namespace common
 } // namespace horovod
 
-#endif // CUDA_KERNELS_H
+#endif // HIP_KERNELS_H

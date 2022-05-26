@@ -27,6 +27,10 @@
 #define EIGEN_USE_GPU
 #endif  // HAVE_CUDA || HAVE_ROCM
 
+#if HAVE_ROCM
+#define EIGEN_USE_HIP
+#endif
+
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/shape_inference.h"

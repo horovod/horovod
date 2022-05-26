@@ -19,6 +19,7 @@
 #include <thread>
 #include <unordered_map>
 
+
 #if TENSORFLOW_VERSION >= 2006000000
 
 #include "tensorflow/compiler/tf2xla/xla_op_kernel.h"
@@ -33,6 +34,7 @@
 #include "tensorflow/core/platform/human_readable_json.h"
 
 #if HAVE_GPU
+#include "../common/common.h"
 #if HAVE_CUDA
 
 #include <cuda.h>
@@ -49,6 +51,15 @@
 #include "../common/operations.h"
 #include "../common/utils/env_parser.h"
 #include "./custom_call_config_generated.h"
+#elif HAVE_ROCM
+
+#include <hip/hip_runtime.h>
+
+#define OMPI_SKIP_MPICXX
+#include "../common/operations.h"
+#include "../common/utils/env_parser.h"
+#include "./custom_call_config_generated.h"
+#endif // HAVE_CUDA
 
 using namespace tensorflow;
 
@@ -335,7 +346,7 @@ public:
   // outstanding `Wait` call due to its blocking nature to simplify the
   // implementation. Consequently, this method always operates on the very
   // first item in the queue.
-  void Wait(string tensor_name, CUstream stream) {
+  void Wait(string tensor_name, gpuStream_t stream) {
     uint64 key_hash = GetRendezvousKeyHash(tensor_name);
 
     {
@@ -371,7 +382,11 @@ public:
       delete queue;
     }
     if (event) {
+#if HAVE_CUDA
       CUDA_CALL(cudaStreamWaitEvent(stream, *event, /*flags=*/0));
+#elif HAVE_ROCM
+      HVD_GPU_CHECK(hipStreamWaitEvent(stream, *event, /*flags=*/0));
+#endif
     }
     delete payload;
   }
@@ -403,21 +418,28 @@ private:
 
 class XLAReadyEvent : public common::ReadyEvent {
 public:
-  XLAReadyEvent(cudaStream_t stream) : stream_(stream) {
+  XLAReadyEvent(gpuStream_t stream) : stream_(stream) {
+#if HAVE_CUDA
     CUDA_CALL(cudaEventCreate(&event_));
     CUDA_CALL(cudaEventRecord(event_, stream));
   }
   ~XLAReadyEvent() { CUDA_CALL(cudaEventDestroy(event_)); }
+#elif HAVE_ROCM
+    HVD_GPU_CHECK(hipEventCreate(&event_));
+    HVD_GPU_CHECK(hipEventRecord(event_, stream));
+  }
+  ~XLAReadyEvent() { HVD_GPU_CHECK(hipEventDestroy(event_)); }
+#endif
 
   bool Ready() const override {
-    cudaError_t result = cudaEventQuery(event_);
-    return cudaErrorNotReady != result;
+    gpuError_t result = gpuEventQuery(event_);
+    return gpuErrorNotReady != result;
   }
   gpuEvent_t event() const override { return event_; }
 
 private:
-  cudaStream_t stream_; // Not Owned.
-  cudaEvent_t event_;   // Owned.
+  gpuStream_t stream_; // Not Owned.
+  gpuEvent_t event_;   // Owned.
 };
 
 class XLATensor : public common::Tensor {
@@ -476,11 +498,19 @@ private:
 XLAPersistentBuffer::XLAPersistentBuffer(int device, int64_t size)
     : device_(device) {
   int restore_device;
+#if HAVE_CUDA
   CUDA_CALL(cudaGetDevice(&restore_device));
   CUDA_CALL(cudaSetDevice(device));
   // Simply call cudaMalloc for persistent buffer.
   CUDA_CALL(cudaMalloc((void**)&buffer_, size));
   CUDA_CALL(cudaSetDevice(restore_device));
+#elif HAVE_ROCM
+  HVD_GPU_CHECK(hipGetDevice(&restore_device));
+  HVD_GPU_CHECK(hipSetDevice(device));
+  // Simply call hipMalloc for persistent buffer.
+  HVD_GPU_CHECK(hipMalloc((void**)&buffer_, size));
+  HVD_GPU_CHECK(hipSetDevice(restore_device));
+#endif
 }
 
 const void* XLAPersistentBuffer::AccessData(
@@ -511,18 +541,22 @@ XLAOpContext::AllocateZeros(int64_t num_elements, common::DataType dtype,
       "AllocateZeros is not supported for XLA.");
 }
 
-common::ReadyEvent* RecordReadyEvent(cudaStream_t stream) {
+common::ReadyEvent* RecordReadyEvent(gpuStream_t stream) {
   return new XLAReadyEvent(stream);
 }
 
 int GetDeviceOrdinal(void* ptr) {
-  cudaPointerAttributes attrs;
+  gpuPointerAttribute_t attrs;
+#if HAVE_CUDA
   CUDA_CALL(cudaPointerGetAttributes(&attrs, ptr));
+#elif HAVE_ROCM
+  HVD_GPU_CHECK(hipPointerGetAttributes(&attrs, ptr));
+#endif
   return attrs.device;
 }
 
 // Implements for the `HVDAllreduce` HLO CustomCall.
-void CallbackHVDAllreduce(CUstream stream, void** buffers, const char* opaque,
+void CallbackHVDAllreduce(gpuStream_t stream, void** buffers, const char* opaque,
                           size_t opaque_len) {
   CHECK(common::CheckInitialized().ok());
   CustomCallConfig config;
@@ -555,7 +589,7 @@ void CallbackHVDAllreduce(CUstream stream, void** buffers, const char* opaque,
 }
 
 // Implements for the `HVDAllreduceDone` HLO CustomCall.
-void CallbackHVDAllreduceDone(CUstream stream, void** /*buffers*/,
+void CallbackHVDAllreduceDone(gpuStream_t stream, void** /*buffers*/,
                               const char* opaque, size_t opaque_len) {
   // Blocking until the request is done processing by the Horovod runtime.
   VLOG(2) << "hvd-allreduce-done - Start";
@@ -565,13 +599,17 @@ void CallbackHVDAllreduceDone(CUstream stream, void** /*buffers*/,
   VLOG(2) << "hvd-allreduce-done - End";
 }
 
+#if HAVE_CUDA
 XLA_REGISTER_CUSTOM_CALL_TARGET(CallbackHVDAllreduce, "CUDA");
 XLA_REGISTER_CUSTOM_CALL_TARGET(CallbackHVDAllreduceDone, "CUDA");
+#elif HAVE_ROCM
+XLA_REGISTER_CUSTOM_CALL_TARGET(CallbackHVDAllreduce, "ROCM");
+XLA_REGISTER_CUSTOM_CALL_TARGET(CallbackHVDAllreduceDone, "ROCM");
+#endif
 
 } // namespace
 } // namespace tensorflow
 } // namespace horovod
 
-#endif // TENSORFLOW_VERSION >= 2006000000
-#endif // HAVE_CUDA
 #endif // HAVE_GPU
+#endif // TENSORFLOW_VERSION >= 2006000000

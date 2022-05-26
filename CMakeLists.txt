@@ -350,6 +350,10 @@ if(HAVE_CUDA OR HAVE_SUB_PROJECT_CUDA)
     add_subdirectory(horovod/common/ops/cuda)
 endif()
 
+if(HAVE_ROCM)
+    add_subdirectory(horovod/common/ops/rocm)
+endif()
+
 # if we need compatible c++ abi
 # Duplicate gloo folder and add it as a new sub-project
 if(HAVE_GLOO AND ((DEFINED Tensorflow_CXX11 AND NOT Tensorflow_CXX11) OR (DEFINED Pytorch_CXX11 AND NOT Pytorch_CXX11) OR (DEFINED Mxnet_CXX11 AND NOT Mxnet_CXX11)))

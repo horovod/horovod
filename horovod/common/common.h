@@ -33,9 +33,12 @@
 using gpuError_t = cudaError_t;
 using gpuEvent_t = cudaEvent_t;
 using gpuStream_t = cudaStream_t;
+using gpuPointerAttribute_t = cudaPointerAttributes;
 #define gpuEventCreateWithFlags cudaEventCreateWithFlags
 #define gpuEventDisableTiming cudaEventDisableTiming
 #define gpuEventRecord cudaEventRecord
+#define gpuEventQuery cudaEventQuery
+#define gpuErrorNotReady cudaErrorNotReady
 #define gpuEventSynchronize cudaEventSynchronize
 #define gpuStreamWaitEvent cudaStreamWaitEvent
 #define HVD_GPU_CHECK(x)                                                                    \
@@ -45,15 +48,17 @@ using gpuStream_t = cudaStream_t;
       throw std::logic_error(std::string("GPU Error:") + cudaGetErrorString(cuda_result));  \
     }                                                                                       \
   } while (0)
-#endif
 #elif HAVE_ROCM
 #include <hip/hip_runtime_api.h>
 using gpuError_t = hipError_t;
 using gpuEvent_t = hipEvent_t;
 using gpuStream_t = hipStream_t;
+using gpuPointerAttribute_t = hipPointerAttribute_t;
 #define gpuEventCreateWithFlags hipEventCreateWithFlags
 #define gpuEventDisableTiming hipEventDisableTiming
 #define gpuEventRecord hipEventRecord
+#define gpuEventQuery hipEventQuery
+#define gpuErrorNotReady hipErrorNotReady
 #define gpuEventSynchronize hipEventSynchronize
 #define gpuStreamWaitEvent hipStreamWaitEvent
 #define HVD_GPU_CHECK(x)                                                                  \
@@ -63,6 +68,7 @@ using gpuStream_t = hipStream_t;
       throw std::logic_error(std::string("GPU Error:") + hipGetErrorString(hip_result));  \
     }                                                                                     \
   } while (0)
+#endif
 #endif
 
 
