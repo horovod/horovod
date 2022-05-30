@@ -766,9 +766,10 @@ def _run_elastic(args):
 
         try:
             gloo_run_elastic(settings, env, command)
-            results = [None] * args.min_num_proc
+            np = (args.min_num_proc or args.num_proc)
+            results = [None] * np
             # TODO: make it parallel to improve performance
-            for i in range(args.min_num_proc):
+            for i in range(np):
                 results[i] = read_data_from_kvstore(driver_ips[0], run_func_server_port,
                                                     'runfunc_result', str(i))
             return results

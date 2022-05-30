@@ -192,8 +192,7 @@ def run(
     :param executable: Optional executable to run when launching the workers. Defaults to `sys.executable`.
     :return: Return a list which contains values return by all Horovod processes.
              The index of the list corresponds to the rank of each Horovod process.
-             Returns only the first min_num_proc results when running in elastic mode,
-             i.e. at least one of host_discovery_script and min_num_proc is set.
+             Returns only the first min_num_proc results, if set.
     """
     if network_interface:
         network_interfaces = network_interface.split(',')
