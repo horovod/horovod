@@ -18,16 +18,14 @@ import dataclasses
 import json
 import logging
 import os
-import socket
 import time
-from contextlib import closing, contextmanager
+from contextlib import contextmanager
 from typing import Mapping, Sequence, Tuple, Any, Optional
 
 import tensorflow as tf
 
 import horovod.tensorflow as hvd
 from horovod.runner.common.service.compute_service import ComputeClient
-from horovod.runner.common.util.env import get_env_rank_and_size
 
 
 @dataclasses.dataclass(frozen=True)

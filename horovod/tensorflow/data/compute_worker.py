@@ -15,13 +15,15 @@
 
 import argparse
 
+import horovod.tensorflow as hvd
 from horovod.runner.common.service.compute_service import ComputeService
-from horovod.runner.common.util import secret, env
+from horovod.runner.common.util import secret
 from horovod.tensorflow.data.compute_service import TfDataServiceConfig, compute_worker_fn
 
 
 def main(dispatchers: int, dispatcher_side: str, configfile: str, timeout: int):
-    rank, size = env.get_env_rank_and_size()
+    hvd.init()
+    rank, size = hvd.rank(), hvd.size()
 
     if size % dispatchers:
         raise ValueError(f'Number of processes ({size}) must be a multiple of number of dispatchers ({dispatchers}).')
@@ -30,6 +32,8 @@ def main(dispatchers: int, dispatcher_side: str, configfile: str, timeout: int):
     # start the compute service on rank 0
     compute = None
     try:
+        compute_config = None
+
         if rank == 0:
             key = secret.make_secret_key()
             compute = ComputeService(dispatchers, workers_per_dispatcher, key=key)
@@ -43,8 +47,9 @@ def main(dispatchers: int, dispatcher_side: str, configfile: str, timeout: int):
                 timeout=timeout
             )
             compute_config.write(configfile)
-        else:
-            compute_config = TfDataServiceConfig.read(configfile, wait_for_file_creation=True)
+
+        # broadcast this config to all ranks
+        compute_config = hvd.broadcast_object(compute_config, name='TfDataServiceConfig')
 
         # start all compute workers
         compute_worker_fn(compute_config, timeout)
