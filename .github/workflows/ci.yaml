@@ -181,7 +181,7 @@ jobs:
             Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-gloo-py3_7-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark2_4_8
+          - image: test-cpu-gloo-py3_7-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_9_1-pyspark2_4_8
             Elastic_Spark_TensorFlow_Tests_1: true
             Elastic_Spark_Torch_Tests: true
             Elastic_Tests_1: true
@@ -202,7 +202,7 @@ jobs:
             Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-gloo-py3_8-tf2_6_3-keras2_6_0-torch1_9_1-mxnet1_7_0_p2-pyspark3_2_1
+          - image: test-cpu-gloo-py3_8-tf2_6_5-keras2_6_0-torch1_9_1-mxnet1_7_0_p2-pyspark3_2_1
             Elastic_Tests_1: true
             Gloo_Cluster_PyTests: true
             Gloo_MXNet_MNIST: true
@@ -221,7 +221,7 @@ jobs:
             Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-gloo-py3_8-tf2_7_1-keras2_7_0-torch1_10_2-mxnet1_8_0_p0-pyspark3_2_1
+          - image: test-cpu-gloo-py3_8-tf2_7_3-keras2_7_0-torch1_10_2-mxnet1_8_0_p0-pyspark3_2_1
             Elastic_Tests_1: true
             Gloo_Cluster_PyTests: true
             Gloo_MXNet_MNIST: true
@@ -240,7 +240,7 @@ jobs:
             Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_1_3
+          - image: test-cpu-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_9_1-pyspark3_1_3
             Elastic_Spark_TensorFlow_Tests_1: true
             Elastic_Spark_Torch_Tests: true
             Elastic_Tests_1: true
@@ -261,7 +261,7 @@ jobs:
             Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1
+          - image: test-cpu-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1
             Elastic_Spark_TensorFlow_Tests_1: true
             Elastic_Spark_Torch_Tests: true
             Elastic_Tests_1: true
@@ -282,7 +282,7 @@ jobs:
             Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-mpich-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1
+          - image: test-cpu-mpich-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1
             MPI_Cluster_PyTests: true
             MPI_MXNet_MNIST: true
             MPI_Parallel_PyTests: true
@@ -297,7 +297,7 @@ jobs:
             Single_PyTorch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1
+          - image: test-cpu-openmpi-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1
             Elastic_Tests_1: true
             Gloo_Cluster_PyTests: true
             Gloo_MXNet_MNIST: true
@@ -327,7 +327,7 @@ jobs:
             Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-openmpi-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1
+          - image: test-cpu-openmpi-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1
             MPI_Cluster_PyTests: true
             MPI_MXNet_MNIST: true
             MPI_Parallel_PyTests: true
@@ -349,16 +349,16 @@ jobs:
           - image: test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_2_1
             build_timeout: 40
 
-          - image: test-gpu-gloo-py3_8-tf2_6_3-keras2_6_0-torch1_9_1-mxnet1_7_0_p1-pyspark3_2_1
+          - image: test-gpu-gloo-py3_8-tf2_6_5-keras2_6_0-torch1_9_1-mxnet1_7_0_p1-pyspark3_2_1
             build_timeout: 40
 
-          - image: test-gpu-gloo-py3_8-tf2_7_1-keras2_7_0-torch1_10_2-mxnet1_8_0_p0-pyspark3_2_1
+          - image: test-gpu-gloo-py3_8-tf2_7_3-keras2_7_0-torch1_10_2-mxnet1_8_0_p0-pyspark3_2_1
             build_timeout: 40
 
-          - image: test-gpu-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1
+          - image: test-gpu-openmpi-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1
             build_timeout: 40
 
-          - image: test-mixed-openmpi-gloo-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1
+          - image: test-mixed-openmpi-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1
             build_timeout: 40
 
     steps:
@@ -4241,7 +4241,7 @@ jobs:
           - image: test-cpu-gloo-py3_8-tf2_6_2-keras2_6_0-torch1_9_1-mxnet1_6_0
             HOROVOD_WITHOUT_MPI: 1
             HOROVOD_WITH_GLOO: 1
-            TENSORFLOW: 2.6.2
+            TENSORFLOW: 2.6.5
             KERAS: 2.6.0
             PYTORCH: 1.9.1
             PYTORCH_LIGHTNING: 1.3.8
@@ -4251,7 +4251,7 @@ jobs:
           - image: test-openmpi-cpu-gloo-py3_8-tf2_7_0-keras2_7_0-torch1_10_1-mxnet1_7_0_p2
             HOROVOD_WITH_MPI: 1
             HOROVOD_WITH_GLOO: 1
-            TENSORFLOW: 2.7.0
+            TENSORFLOW: 2.7.3
             KERAS: 2.7.0
             PYTORCH: 1.10.1
             PYTORCH_LIGHTNING: 1.3.8
@@ -4291,7 +4291,7 @@ jobs:
 
           python -m pip install -U pip
           pip install tensorflow==${TENSORFLOW} keras==${KERAS}
-          if [[ ${TENSORFLOW} == 1.* ]] || [[ ${TENSORFLOW} == 2.[012345].* ]]; then pip install "h5py<3"; fi
+          if [[ ${TENSORFLOW} == 1.* ]] || [[ ${TENSORFLOW} == 2.[012345].* ]]; then pip install "h5py<3" "protobuf~=3.20"; fi
           pip install torch==${PYTORCH} pytorch_lightning==${PYTORCH_LIGHTNING} torchvision==${TORCHVISION}
           pip install mxnet==${MXNET}
           HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir .[test]
