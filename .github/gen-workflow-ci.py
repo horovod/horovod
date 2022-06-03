@@ -541,8 +541,8 @@ def main():
     def trigger_buildkite_job(id: str, name: str, needs: List[str], mode: str) -> str:
         if 'init-workflow' not in needs:
             needs.insert(0, 'init-workflow')
-        return (f'  {id}:\n'
-                f'    name: "{name}"\n'
+        return (f'  {id}-trigger:\n'
+                f'    name: "{name} (trigger Builtkite)"\n'
                 f'    needs: [{", ".join(needs)}]\n'
                 f'    runs-on: ubuntu-latest\n'
                 f'    if: >\n'
@@ -550,6 +550,8 @@ def main():
                 f"      needs.init-workflow.outputs.run-at-all == 'true' &&\n"
                 f"      needs.init-workflow.outputs.run-builds-and-tests == 'true' &&\n"
                 f'      ( github.event_name != \'pull_request\' || github.event.pull_request.head.repo.full_name == github.repository )\n'
+                f'    outputs:\n'
+                f'      url: ${{{{ steps.build.outputs.url }}}}\n'
                 f'\n'
                 f'    steps:\n'
                 f'      - name: Trigger Buildkite Pipeline\n'
@@ -564,12 +566,18 @@ def main():
                 f'          BUILDKITE_API_ACCESS_TOKEN: ${{{{ secrets.BUILDKITE_TOKEN }}}}\n'
                 f'          BUILD_ENV_VARS: "{{\\"PIPELINE_MODE\\": \\"{mode}\\"}}"\n'
                 f'\n'
+                f'  {id}:\n'
+                f'    name: "{name} (download Builtkite)"\n'
+                f'    needs: [{id}-trigger]\n'
+                f'    runs-on: ubuntu-latest\n'
+                f'\n'
+                f'    steps:\n'
                 f'      - name: Download Buildkite Artifacts\n'
                 f'        id: download\n'
                 f'        uses: EnricoMi/download-buildkite-artifact-action@v1\n'
                 f'        with:\n'
                 f'          buildkite_token: ${{{{ secrets.BUILDKITE_TOKEN }}}}\n'
-                f'          buildkite_build_url: ${{{{ steps.build.outputs.url }}}}\n'
+                f'          buildkite_build_url: ${{{{ needs.{id}-trigger.outputs.url }}}}\n'
                 f'          ignore_build_states: blocked,canceled,skipped,not_run\n'
                 f'          ignore_job_states: timed_out\n'
                 f'          output_path: artifacts/Unit Test Results - {mode} on Builtkite\n'
@@ -587,7 +595,7 @@ def main():
                 f'          steps.download.conclusion == \'success\' &&\n'
                 f'          steps.download.outputs.build-state != \'passed\'\n'
                 f'        run: |\n'
-                f'          echo "::warning::Buildkite pipeline did not pass: ${{{{ steps.build.outputs.url }}}}"\n'
+                f'          echo "::warning::Buildkite pipeline did not pass: ${{{{ needs.{id}-trigger.outputs.url }}}}"\n'
                 f'          exit 1\n')
 
     def publish_docker_images(needs: List[str], images: List[str]) -> str:
@@ -804,8 +812,8 @@ def main():
             build_and_test_images(id='build-and-test-heads', name='Build and Test heads', needs=['build-and-test'], images=allhead_images, tests_per_image=tests_per_image, tests=tests),
             build_and_test_images(id='build-mins', name='Build mins', needs=['build-and-test'], images=allmin_images, tests_per_image=tests_per_image, tests={}),
             build_and_test_macos(id='build-and-test-macos', name='Build and Test macOS', needs=['build-and-test']),
-            trigger_buildkite_job(id='buildkite', name='Build and Test GPU (on Builtkite)', needs=['build-and-test'], mode='GPU NON HEADS'),
-            trigger_buildkite_job(id='buildkite-heads', name='Build and Test GPU heads (on Builtkite)', needs=['build-and-test'], mode='GPU HEADS'),
+            trigger_buildkite_job(id='buildkite', name='Build and Test GPU', needs=['build-and-test'], mode='GPU NON HEADS'),
+            trigger_buildkite_job(id='buildkite-heads', name='Build and Test GPU heads', needs=['build-and-test'], mode='GPU HEADS'),
             publish_docker_images(needs=['build-and-test', 'buildkite'], images=['horovod', 'horovod-cpu', 'horovod-ray']),
             sync_files(needs=['init-workflow'])
         )

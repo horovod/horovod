@@ -4363,8 +4363,8 @@ jobs:
             ${{ steps.test-1.outputs.artifacts-path }}
             ${{ steps.test-2.outputs.artifacts-path }}
             ${{ steps.test-3.outputs.artifacts-path }}
-  buildkite:
-    name: "Build and Test GPU (on Builtkite)"
+  buildkite-trigger:
+    name: "Build and Test GPU (trigger Builtkite)"
     needs: [init-workflow, build-and-test]
     runs-on: ubuntu-latest
     if: >
@@ -4372,6 +4372,8 @@ jobs:
       needs.init-workflow.outputs.run-at-all == 'true' &&
       needs.init-workflow.outputs.run-builds-and-tests == 'true' &&
       ( github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository )
+    outputs:
+      url: ${{ steps.build.outputs.url }}
 
     steps:
       - name: Trigger Buildkite Pipeline
@@ -4386,12 +4388,18 @@ jobs:
           BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
           BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU NON HEADS\"}"
 
+  buildkite:
+    name: "Build and Test GPU (download Builtkite)"
+    needs: [buildkite-trigger]
+    runs-on: ubuntu-latest
+
+    steps:
       - name: Download Buildkite Artifacts
         id: download
         uses: EnricoMi/download-buildkite-artifact-action@v1
         with:
           buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
-          buildkite_build_url: ${{ steps.build.outputs.url }}
+          buildkite_build_url: ${{ needs.buildkite-trigger.outputs.url }}
           ignore_build_states: blocked,canceled,skipped,not_run
           ignore_job_states: timed_out
           output_path: artifacts/Unit Test Results - GPU NON HEADS on Builtkite
@@ -4409,11 +4417,11 @@ jobs:
           steps.download.conclusion == 'success' &&
           steps.download.outputs.build-state != 'passed'
         run: |
-          echo "::warning::Buildkite pipeline did not pass: ${{ steps.build.outputs.url }}"
+          echo "::warning::Buildkite pipeline did not pass: ${{ needs.buildkite-trigger.outputs.url }}"
           exit 1
 
-  buildkite-heads:
-    name: "Build and Test GPU heads (on Builtkite)"
+  buildkite-heads-trigger:
+    name: "Build and Test GPU heads (trigger Builtkite)"
     needs: [init-workflow, build-and-test]
     runs-on: ubuntu-latest
     if: >
@@ -4421,6 +4429,8 @@ jobs:
       needs.init-workflow.outputs.run-at-all == 'true' &&
       needs.init-workflow.outputs.run-builds-and-tests == 'true' &&
       ( github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository )
+    outputs:
+      url: ${{ steps.build.outputs.url }}
 
     steps:
       - name: Trigger Buildkite Pipeline
@@ -4435,12 +4445,18 @@ jobs:
           BUILDKITE_API_ACCESS_TOKEN: ${{ secrets.BUILDKITE_TOKEN }}
           BUILD_ENV_VARS: "{\"PIPELINE_MODE\": \"GPU HEADS\"}"
 
+  buildkite-heads:
+    name: "Build and Test GPU heads (download Builtkite)"
+    needs: [buildkite-heads-trigger]
+    runs-on: ubuntu-latest
+
+    steps:
       - name: Download Buildkite Artifacts
         id: download
         uses: EnricoMi/download-buildkite-artifact-action@v1
         with:
           buildkite_token: ${{ secrets.BUILDKITE_TOKEN }}
-          buildkite_build_url: ${{ steps.build.outputs.url }}
+          buildkite_build_url: ${{ needs.buildkite-heads-trigger.outputs.url }}
           ignore_build_states: blocked,canceled,skipped,not_run
           ignore_job_states: timed_out
           output_path: artifacts/Unit Test Results - GPU HEADS on Builtkite
@@ -4458,7 +4474,7 @@ jobs:
           steps.download.conclusion == 'success' &&
           steps.download.outputs.build-state != 'passed'
         run: |
-          echo "::warning::Buildkite pipeline did not pass: ${{ steps.build.outputs.url }}"
+          echo "::warning::Buildkite pipeline did not pass: ${{ needs.buildkite-heads-trigger.outputs.url }}"
           exit 1
 
   docker-config:
