@@ -94,7 +94,7 @@ jobs:
           }"
 
       - name: Trigger Buildkite Pipeline
-        id: buildkite
+        id: build
         uses: EnricoMi/trigger-pipeline-action@master
         env:
           PIPELINE: "horovod/horovod"
@@ -181,7 +181,7 @@ jobs:
           }"
 
       - name: Trigger Buildkite Pipeline
-        id: buildkite
+        id: build
         uses: EnricoMi/trigger-pipeline-action@master
         env:
           PIPELINE: "horovod/horovod"
