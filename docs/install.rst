@@ -8,7 +8,7 @@ Requirements
 
 - GNU Linux or macOS
 - Python >= 3.6
-- `g++-5` or above, or another compiler supporting C++14
+- ``g++-5`` or above, or another compiler supporting C++14
 - CMake 3.13 or newer
 - TensorFlow (>=1.15.0), PyTorch (>=1.5.0), or MXNet (>=1.4.1)
 - (Optional) MPI
@@ -16,6 +16,8 @@ Requirements
 For best performance on GPU:
 
 - `NCCL 2 <https://developer.nvidia.com/nccl>`__
+
+To install Horovod with TensorFlow 2.10 or later you will need a compiler that supports C++17 like ``g++8`` or newer.
 
 If Horovod cannot find CMake 3.13 or newer, the build script will attempt to pull in a recent CMake binary and run it
 from a temporary location.  To select a specific binary you can also set ``HOROVOD_CMAKE`` in your environment before
