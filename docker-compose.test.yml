@@ -86,10 +86,11 @@ services:
         TORCHVISION_PACKAGE: torchvision==0.11.3+cpu
         MXNET_PACKAGE: mxnet==1.8.0.post0
   # then our baseline again, omitted ...
-  test-cpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1:
+  test-cpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1:
     extends: test-cpu-base
     build:
       args:
+        MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tf-nightly
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch-nightly
@@ -97,12 +98,13 @@ services:
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         MXNET_PACKAGE: mxnet-nightly
   # these are the lowest framework versions that Horovod compiles with, but they are not tested
-  test-cpu-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin:
+  test-cpu-openmpi-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin:
     extends: test-cpu-base
     build:
       args:
         UBUNTU_VERSION: 18.04
         PYTHON_VERSION: 3.7
+        MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tensorflow-cpu==1.15.0
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: torch==1.5.0+cpu
@@ -214,13 +216,14 @@ services:
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision==0.12.0+cu113
         MXNET_PACKAGE: mxnet-cu112==1.9.0
-  test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1:
+  test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1:
     extends: test-gpu-base
     build:
       args:
         CUDA_DOCKER_VERSION: 11.2.2-devel-ubuntu20.04
         CUDNN_VERSION: 8.1.1.33-1+cuda11.2
         NCCL_VERSION_OVERRIDE: 2.8.4-1+cuda11.2
+        MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tf-nightly-gpu
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch-nightly-cu111
@@ -228,13 +231,14 @@ services:
         TORCHVISION_PACKAGE: torchvision
         MXNET_PACKAGE: mxnet-nightly-cu112
   # these are the lowest framework versions that Horovod compiles with, but they are not tested
-  test-gpu-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin:
+  test-gpu-openmpi-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin:
     extends: test-gpu-base
     build:
       args:
         CUDA_DOCKER_VERSION: 10.0-devel-ubuntu18.04
         CUDNN_VERSION: 8.0.5.39-1+cuda10.1
         NCCL_VERSION_OVERRIDE: 2.8.4-1+cuda10.2
+        MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.7
         TENSORFLOW_PACKAGE: tensorflow-gpu==1.15.0
         KERAS_PACKAGE: keras==2.2.4
