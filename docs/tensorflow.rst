@@ -188,7 +188,14 @@ TensorFlow v2 Example (from the `MNIST <https://github.com/horovod/horovod/blob/
 Horovod with TensorFlow Data Service
 ------------------------------------
 
-Run the follow command to run a TensorFlow Data Service via Horovod:
+A `TensorFlow Data Service <https://www.tensorflow.org/api_docs/python/tf/data/experimental/service>`_
+allows to move CPU intensive processing of your dataset from your training process to a cluster of
+CPU-rich processes.
+
+With Horovod, it is easy to spin up a TensorFlow Data Service on your Horovod cluster and to connect
+your Horovod training job to it.
+
+Run the following command to run a TensorFlow Data Service via Horovod:
 
 .. code-block:: bash
 
