@@ -14,6 +14,13 @@ if(NOT TENSORFLOW_FOUND)
     return()
 endif()
 
+if (Tensorflow_VERSION VERSION_GREATER_EQUAL "2.10")
+    set(CMAKE_CXX_STANDARD 17)
+    set(Tensorflow_CXX17 TRUE)
+else()
+    set(Tensorflow_CXX17 FALSE)
+endif()
+
 # Append version number into metadata
 file(APPEND "${CMAKE_LIBRARY_OUTPUT_DIRECTORY_ROOT}/metadata.json" "\"tensorflow\": \"${Tensorflow_VERSION}\",\n")
 
@@ -39,7 +46,9 @@ set(FLATBUFFERS_INCLUDE_PATH "${TF_FLATBUFFERS_INCLUDE_PATH}")
 include_directories(SYSTEM ${Tensorflow_INCLUDE_DIRS})
 list(APPEND TF_LINKER_LIBS ${Tensorflow_LIBRARIES})
 if(HAVE_GLOO)
-    if (Tensorflow_CXX11)
+    if (Tensorflow_CXX17)
+       list(APPEND TF_LINKER_LIBS compatible17_gloo)
+    elseif (Tensorflow_CXX11)
         list(APPEND TF_LINKER_LIBS gloo)
     else()
         list(APPEND TF_LINKER_LIBS compatible_gloo)
@@ -63,6 +72,7 @@ set(CMAKE_CXX_FLAGS "${Tensorflow_COMPILE_FLAGS} ${CMAKE_CXX_FLAGS}")
 parse_version(${Tensorflow_VERSION} VERSION_DEC)
 add_definitions(-DTENSORFLOW_VERSION=${VERSION_DEC})
 set(Tensorflow_CXX11 ${Tensorflow_CXX11} PARENT_SCOPE)
+set(Tensorflow_CXX17 ${Tensorflow_CXX17} PARENT_SCOPE)
 
 # TF SOURCES
 list(APPEND TF_SOURCES "${PROJECT_SOURCE_DIR}/horovod/tensorflow/mpi_ops.cc")
