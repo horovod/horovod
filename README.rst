@@ -124,6 +124,7 @@ To install Horovod on Linux or macOS:
     <p/>
 
 2. If you've installed TensorFlow from `PyPI <https://pypi.org/project/tensorflow>`__, make sure that ``g++-5`` or above is installed.
+   Starting with TensorFlow 2.10 a C++17-compliant compiler like ``g++8`` or above will be required.
 
    If you've installed PyTorch from `PyPI <https://pypi.org/project/torch>`__, make sure that ``g++-5`` or above is installed.
 

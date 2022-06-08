@@ -17,6 +17,8 @@ For best performance on GPU:
 
 - `NCCL 2 <https://developer.nvidia.com/nccl>`__
 
+To install Horovod with TensorFlow 2.10 or later you will need a compiler that supports C++17 like `g++8` or newer.
+
 If Horovod cannot find CMake 3.13 or newer, the build script will attempt to pull in a recent CMake binary and run it
 from a temporary location.  To select a specific binary you can also set ``HOROVOD_CMAKE`` in your environment before
 installing Horovod.

@@ -38,6 +38,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Spark/Lightning: add missing tranform_spec for Petastorm datamodule. ([#3543](https://github.com/horovod/horovod/pull/3543))
 
+- TensorFlow 2.9: Fix build for API change related to `tensorflow_accelerator_device_info`. ([#3513](https://github.com/horovod/horovod/pull/3513))
+
+- TensorFlow 2.10: Bump build partially to C++17. ([#3558](https://github.com/horovod/horovod/pull/3558))
+
 ## [v0.24.3] - 2022-04-21
 
 ### Fixed
