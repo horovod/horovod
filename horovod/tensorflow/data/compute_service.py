@@ -102,14 +102,15 @@ def tf_data_service(compute_config: TfDataServiceConfig, rank: int) -> str:
     compute.wait_for_dispatcher_worker_registration(dispatcher_id, compute_config.timeout)
 
     # let the caller use the dispatcher
-    yield dispatcher_address
-
-    if dispatcher_server:
-        # there is currently no other way to stop the dispatch server
-        logging.debug(f"Shuting down dispatcher")
-        dispatcher_server._stop()
-        dispatcher_server.join()
-        logging.info(f"Dispatcher shut down")
+    try:
+        yield dispatcher_address
+    finally:
+        if dispatcher_server:
+            # there is currently no other way to stop the dispatch server
+            logging.debug(f"Shuting down dispatcher")
+            dispatcher_server._stop()
+            dispatcher_server.join()
+            logging.info(f"Dispatcher shut down")
 
 
 def send_to_data_service(dataset: tf.data.Dataset,
@@ -120,7 +121,7 @@ def send_to_data_service(dataset: tf.data.Dataset,
                          reuse_dataset: bool = False,
                          round_robin: bool = False) -> tf.data.Dataset:
     if compute_config.dispatcher_side == 'training':
-        raise RuntimeError('training side dispatcher not support, use tf_data_service context manager instead')
+        raise RuntimeError('training side dispatcher not supported, use tf_data_service context manager instead')
 
     with tf_data_service(compute_config, rank) as dispatcher_address:
         return dataset.apply(tf.data.experimental.service.distribute(
