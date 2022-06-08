@@ -20,6 +20,8 @@ import logging
 import os
 import time
 from contextlib import contextmanager
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Mapping, Sequence, Tuple, Any, Optional
 
 import tensorflow as tf
@@ -62,8 +64,15 @@ class TfDataServiceConfig:
         )
 
     def write(self, filename: str):
-        with open(filename, 'w') as w:
+        path = Path(filename)
+        with NamedTemporaryFile('w', dir=str(path.parent), prefix=str(path.name), delete=False) as w:
+            # write the complete config into a different file first
+            logging.info(f'Writing config to {w.name}')
             w.write(json.dumps(self.to_dict()))
+
+            # move the finished config file into place, this happens inside the same directory so it should be quick
+            logging.info(f'Renaming config from {w.name} to {filename}')
+            os.rename(w.name, filename)
 
     @staticmethod
     def read(filename: str, wait_for_file_creation: bool = False) -> 'TfDataServiceConfig':
