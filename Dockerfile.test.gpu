@@ -204,7 +204,7 @@ RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly-cu"* ]]; then \
 RUN cd /horovod && \
     python setup.py sdist && \
     ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
-    bash -c "${HOROVOD_BUILD_FLAGS} HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]" && \
+    bash -c "${HOROVOD_BUILD_FLAGS} HOROVOD_DEBUG=1 HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]" && \
     ldconfig
 
 # Show the effective python package version to easily spot version differences
