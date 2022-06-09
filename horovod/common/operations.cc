@@ -629,7 +629,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
       int id;
       GetProcessSetOrAddUnitialized(process_set_ranks, id);
     }
-    int32_t initialized_count;
+    int32_t initialized_count = 0;
 #if HAVE_MPI
     if (state.control_operation == LibType::MPI) {
       initialized_count =
