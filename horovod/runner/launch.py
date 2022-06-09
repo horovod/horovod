@@ -753,9 +753,9 @@ def _run_elastic(args):
     env = os.environ.copy()
     config_parser.set_env_from_args(env, args)
 
+    # get the driver IPv4 address
     driver_ips = _get_ips(settings.nics)
     if args.run_func:
-        # get the driver IPv4 address
         run_func_server = KVStoreServer(verbose=settings.verbose)
         run_func_server_port = run_func_server.start_server()
         put_data_into_kvstore(driver_ips[0], run_func_server_port,
