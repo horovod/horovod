@@ -1023,7 +1023,7 @@ void WaitAndClear(int handle) {
   while (true) {
     if (handle_manager.PollHandle(handle)) break;
     {
-      py::gil_scoped_release release_python_gil;
+      //py::gil_scoped_release release_python_gil;
       std::this_thread::yield();
     }
   }
