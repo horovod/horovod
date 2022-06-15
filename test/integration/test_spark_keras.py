@@ -99,9 +99,14 @@ class SparkKerasTests(tf.test.TestCase):
                     random_seed=1,
                     epochs=3,
                     verbose=2,
-                    use_gpu=False)
+                    use_gpu=False,
+                    mp_start_method='spawn')
 
                 assert not keras_estimator.getUseGpu()
+                assert 'spawn' == keras_estimator.getMpStartMethod()
+
+                keras_estimator.setMpStartMethod('forkserver')
+                assert 'forkserver' == keras_estimator.getMpStartMethod()
 
                 keras_model = keras_estimator.fit(df)
 

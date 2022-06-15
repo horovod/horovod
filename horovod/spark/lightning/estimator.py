@@ -182,6 +182,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         train_async_data_loader_queue_size: (Optional) Size of train async data loader queue.
         val_async_data_loader_queue_size: (Optional) Size of val async data loader queue.
         use_gpu: Whether to use the GPU for training. Defaults to True.
+        mp_start_method: The method to use to start multiprocessing. Defaults to None.
     """
 
     input_shapes = Param(Params._dummy(), 'input_shapes', 'input layer shapes')
@@ -264,7 +265,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  debug_data_loader=False,
                  train_async_data_loader_queue_size=None,
                  val_async_data_loader_queue_size=None,
-                 use_gpu=True):
+                 use_gpu=True,
+                 mp_start_method=None):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,

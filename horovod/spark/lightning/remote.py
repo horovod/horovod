@@ -27,7 +27,7 @@ from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger, CometLogger
 
 from horovod.spark.common import constants
-from horovod.spark.common.util import _get_assigned_gpu_or_default
+from horovod.spark.common.util import _get_assigned_gpu_or_default, _set_mp_start_method
 from horovod.spark.lightning.datamodule import PetastormDataModule
 from horovod.spark.lightning.util import deserialize_fn
 
@@ -65,6 +65,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     train_async_data_loader_queue_size = estimator.getTrainAsyncDataLoaderQueueSize()
     val_async_data_loader_queue_size = estimator.getValAsyncDataLoaderQueueSize()
     should_use_gpu = estimator.getUseGpu()
+    mp_start_method = estimator.getMpStartMethod()
 
     # get logger
     logger = estimator.getLogger()
@@ -101,6 +102,10 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     profiler = estimator.getProfiler()
 
     def train(serialized_model):
+        # If not empty, set it before everything else.
+        if mp_start_method:
+            _set_mp_start_method(mp_start_method)
+
         import horovod.torch as hvd
 
         if random_seed is not None:

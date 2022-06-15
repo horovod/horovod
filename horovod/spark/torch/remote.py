@@ -23,7 +23,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from horovod.spark.common import constants
-from horovod.spark.common.util import _get_assigned_gpu_or_default, to_list
+from horovod.spark.common.util import _get_assigned_gpu_or_default, to_list, _set_mp_start_method
 from horovod.spark.common.store import DBFSLocalStore
 from horovod.spark.torch.util import deserialize_fn
 
@@ -61,6 +61,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     transformation = transformation_fn if transformation_fn else None
     inmemory_cache_all = estimator.getInMemoryCacheAll()
     should_use_gpu = estimator.getUseGpu()
+    mp_start_method = estimator.getMpStartMethod()
 
     # If loss weight is not provided, use equal loss for all the labels
     loss_weights = estimator.getLossWeights()
@@ -101,6 +102,10 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
 
     def train(serialized_model, optimizer_cls, model_opt_state_serialized,
               train_rows, val_rows, avg_row_size):
+        # If not empty, set it before everything else.
+        if mp_start_method:
+            _set_mp_start_method(mp_start_method)
+
         from petastorm import TransformSpec, make_reader, make_batch_reader
         from petastorm.pytorch import BatchedDataLoader, InMemBatchedDataLoader
         import torch

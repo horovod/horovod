@@ -154,7 +154,12 @@ class SparkLightningTests(unittest.TestCase):
                     batch_size=4,
                     epochs=2,
                     random_seed=1,
-                    verbose=2)
+                    verbose=2,
+                    mp_start_method='spawn')
+
+                assert 'spawn' == torch_estimator.getMpStartMethod()
+                torch_estimator.setMpStartMethod('forkserver')
+                assert 'forkserver' == torch_estimator.getMpStartMethod()
 
                 torch_model = torch_estimator.fit(df)
 
