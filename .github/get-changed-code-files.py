@@ -16,6 +16,7 @@ non_code_file_patterns = [
     r'^.buildkite/get_changed_code_files.py$',
     r'^.github/',
     r'^docs/',
+    r'^docker/helm/',
     r'^.*\.md',
     r'^.*\.rst'
 ]
