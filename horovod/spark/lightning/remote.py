@@ -104,7 +104,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     def train(serialized_model):
         # If not empty, set it before everything else.
         if mp_start_method:
-            _set_mp_start_method(mp_start_method)
+            _set_mp_start_method(mp_start_method, verbose)
 
         import horovod.torch as hvd
 

@@ -107,7 +107,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     def train(serialized_model, train_rows, val_rows, avg_row_size):
         # If not empty, set it before everything else.
         if mp_start_method:
-            _set_mp_start_method(mp_start_method)
+            _set_mp_start_method(mp_start_method, user_verbose)
 
         from petastorm import TransformSpec, make_reader, make_batch_reader
         import horovod as _horovod
