@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # =============================================================================
-import socket
 from urllib.error import HTTPError, URLError
 from urllib.request import Request
 from urllib.request import urlopen
@@ -20,26 +19,26 @@ from urllib.request import urlopen
 from horovod.runner.common.util import codec
 
 
-def read_data_from_kvstore(addr, port, scope, key, timeout=None):
+def read_data_from_kvstore(addr, port, scope, key):
     try:
         url = "http://{addr}:{port}/{scope}/{key}".format(
             addr=addr, port=str(port), scope=scope, key=key
         )
         req = Request(url)
-        resp = urlopen(req, timeout=timeout if timeout else socket.getdefaulttimeout())
+        resp = urlopen(req)
         # TODO: remove base64 encoding because base64 is not efficient
         return codec.loads_base64(resp.read())
     except (HTTPError, URLError) as e:
         raise RuntimeError("Read data from KVStore server failed.", e)
 
 
-def put_data_into_kvstore(addr, port, scope, key, value, timeout=None):
+def put_data_into_kvstore(addr, port, scope, key, value):
     try:
         url = "http://{addr}:{port}/{scope}/{key}".format(
             addr=addr, port=str(port), scope=scope, key=key
         )
         req = Request(url, data=codec.dumps_base64(value, to_ascii=False))
         req.get_method = lambda: "PUT"  # for urllib2 compatibility
-        urlopen(req, timeout=timeout if timeout else socket.getdefaulttimeout())
+        urlopen(req)
     except (HTTPError, URLError) as e:
         raise RuntimeError("Put data input KVStore server failed.", e)

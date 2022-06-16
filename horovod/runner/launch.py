@@ -580,35 +580,34 @@ def parse_args():
     return args
 
 
-def _get_ips(nics):
-    import psutil
-    import socket
+def _run_static(args):
+    # horovodrun has to finish all the checks before this timeout runs out.
+    if args.start_timeout:
+        start_timeout = args.start_timeout
+    else:
+        # Lookup default timeout from the environment variable.
+        start_timeout = int(os.getenv('HOROVOD_START_TIMEOUT', '30'))
 
-    ips = set()
-    for intf, intf_addresses in psutil.net_if_addrs().items():
-        if nics and intf not in nics:
-            continue
-        for addr in intf_addresses:
-            if addr.family == socket.AF_INET:
-                ips.add(str(addr.address))
+    tmout = timeout.Timeout(start_timeout,
+                            message='Timed out waiting for {activity}. Please '
+                                    'check connectivity between servers. You '
+                                    'may need to increase the --start-timeout '
+                                    'parameter if you have too many servers.')
+    settings = hvd_settings.Settings(verbose=2 if args.verbose else 0,
+                                     ssh_port=args.ssh_port,
+                                     ssh_identity_file=args.ssh_identity_file,
+                                     extra_mpi_args=args.mpi_args,
+                                     tcp_flag=args.tcp_flag,
+                                     binding_args=args.binding_args,
+                                     key=secret.make_secret_key(),
+                                     start_timeout=tmout,
+                                     num_proc=args.num_proc,
+                                     hosts=args.hosts,
+                                     output_filename=args.output_filename,
+                                     run_func_mode=args.run_func is not None,
+                                     nics=args.nics,
+                                     prefix_output_with_timestamp=args.prefix_output_with_timestamp)
 
-    if len(ips) == 0:
-        if nics:
-            raise ValueError(f'No IP found for NICs {nics}')
-        else:
-            raise ValueError('No IPv4 IP found found')
-
-    # move localhost IP to the back
-    localhost = '127.0.0.1'
-    ips = list(ips)
-    if localhost in ips:
-        pos = ips.index(localhost)
-        ips = ips[:pos] + ips[pos+1:] + [ips[pos]]
-
-    return list(ips)
-
-
-def _get_nics(args, settings):
     # This cache stores the results of checks performed by horovod
     # during the initialization step. It can be disabled by setting
     # --disable-cache flag.
@@ -644,39 +643,8 @@ def _get_nics(args, settings):
         if settings.verbose >= 2:
             print('SSH was successful into all the remote hosts.')
 
-    return driver_service.get_common_interfaces(settings, all_host_names,
-                                                remote_host_names, fn_cache)
+    nics = driver_service.get_common_interfaces(settings, all_host_names, remote_host_names, fn_cache)
 
-
-def _run_static(args):
-    # horovodrun has to finish all the checks before this timeout runs out.
-    if args.start_timeout:
-        start_timeout = args.start_timeout
-    else:
-        # Lookup default timeout from the environment variable.
-        start_timeout = int(os.getenv('HOROVOD_START_TIMEOUT', '30'))
-
-    tmout = timeout.Timeout(start_timeout,
-                            message='Timed out waiting for {activity}. Please '
-                                    'check connectivity between servers. You '
-                                    'may need to increase the --start-timeout '
-                                    'parameter if you have too many servers.')
-    settings = hvd_settings.Settings(verbose=2 if args.verbose else 0,
-                                     ssh_port=args.ssh_port,
-                                     ssh_identity_file=args.ssh_identity_file,
-                                     extra_mpi_args=args.mpi_args,
-                                     tcp_flag=args.tcp_flag,
-                                     binding_args=args.binding_args,
-                                     key=secret.make_secret_key(),
-                                     start_timeout=tmout,
-                                     num_proc=args.num_proc,
-                                     hosts=args.hosts,
-                                     output_filename=args.output_filename,
-                                     run_func_mode=args.run_func is not None,
-                                     nics=args.nics,
-                                     prefix_output_with_timestamp=args.prefix_output_with_timestamp)
-
-    nics = _get_nics(args, settings)
     if args.run_func:
         # get the driver IPv4 address
         driver_ip = network.get_driver_ip(nics)
@@ -752,32 +720,8 @@ def _run_elastic(args):
 
     env = os.environ.copy()
     config_parser.set_env_from_args(env, args)
-
-    # get the driver IPv4 address
-    driver_ips = _get_ips(settings.nics)
-    if args.run_func:
-        run_func_server = KVStoreServer(verbose=settings.verbose)
-        run_func_server_port = run_func_server.start_server()
-        put_data_into_kvstore(driver_ips[0], run_func_server_port,
-                              'runfunc', 'func', args.run_func)
-
-        executable = args.executable or sys.executable
-        command = [executable, '-m', 'horovod.runner.run_task', ','.join(driver_ips), str(run_func_server_port)]
-
-        try:
-            gloo_run_elastic(settings, env, command)
-            np = (args.min_num_proc or args.num_proc)
-            results = [None] * np
-            # TODO: make it parallel to improve performance
-            for i in range(np):
-                results[i] = read_data_from_kvstore(driver_ips[0], run_func_server_port,
-                                                    'runfunc_result', str(i))
-            return results
-        finally:
-            run_func_server.shutdown_server()
-    else:
-        gloo_run_elastic(settings, env, args.command)
-        return None
+    executable = args.executable or sys.executable
+    return gloo_run_elastic(settings, env, args.run_func if args.run_func else args.command, executable)
 
 
 def is_gloo_used(use_gloo=None, use_mpi=None, use_jsrun=None):

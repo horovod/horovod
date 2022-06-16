@@ -14,39 +14,13 @@
 # =============================================================================
 
 import sys
-from urllib.error import URLError
 
 from horovod.runner.common.util.env import get_env_rank_and_size
 from horovod.runner.http.http_client import read_data_from_kvstore, put_data_into_kvstore
 
 
-def _get_func(addrs, port, timeout=None):
-    # we try all provided addresses to connect to the kvstore
-    # the first addr that works will be returned, together with the run func
-    # we give each IP 5 seconds timeout, if that is not enough, the driver is not really well reachable
-    for addr in addrs:
-        try:
-            func = read_data_from_kvstore(addr, port, 'runfunc', 'func', timeout=timeout)
-            return addr, func
-        except RuntimeError as e:
-            # when there is only one addr in addrs, raise this error as is
-            # that was the behaviour before introducing multiple addrs
-            if len(addrs) == 1:
-                raise
-
-            # when the RuntimeError is caused by an URLError, the addr is probably not reachable for us
-            if len(e.args) >= 2 and isinstance(e.args[1], URLError):
-                # provide a warning when multiple addrs are provided on how to improve this situation
-                print(f'Driver is not reachable at {addr} within {timeout} seconds. '
-                      f'Consider restricting the driver to some NICs, '
-                      f'which reduces the number of IPs probed here: {e}')
-                continue
-
-    raise ValueError(f"None of the provided IPs could be used to connect to driver's KV store: {', '.join(addrs)}")
-
-
-def main(addrs, port):
-    addr, func = _get_func(addrs, port, 10 if len(addrs) > 1 else None)
+def main(addr, port):
+    func = read_data_from_kvstore(addr, port, 'runfunc', 'func')
     try:
         ret_val = func()
     except BaseException as e:
@@ -58,6 +32,6 @@ def main(addrs, port):
 
 
 if __name__ == '__main__':
-    _, driver_addrs, run_func_server_port_str = sys.argv
+    _, driver_addr, run_func_server_port_str = sys.argv
     run_func_server_port = int(run_func_server_port_str)
-    main(driver_addrs.split(','), run_func_server_port)
+    main(driver_addr, run_func_server_port)
