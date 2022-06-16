@@ -15,6 +15,8 @@
 
 import argparse
 
+import tensorflow as tf
+
 import horovod.tensorflow as hvd
 from horovod.runner.common.service.compute_service import ComputeService
 from horovod.runner.common.util import secret
@@ -48,8 +50,9 @@ def main(dispatchers: int, dispatcher_side: str, configfile: str, timeout: int):
             )
             compute_config.write(configfile)
 
-        # broadcast this config to all ranks
-        compute_config = hvd.broadcast_object(compute_config, name='TfDataServiceConfig')
+        # broadcast this config to all ranks via CPU ops
+        with tf.device(f'/cpu:0'):
+            compute_config = hvd.broadcast_object(compute_config, name='TfDataServiceConfig')
 
         # start all compute workers
         compute_worker_fn(compute_config, timeout)
