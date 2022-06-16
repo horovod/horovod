@@ -110,8 +110,9 @@ class EstimatorParams(Params):
                     'The start method of multiprocessing. '
                     'This controls the start up method of python multiprocessing. On unix-based systems, acceptable values are '
                     '["fork", "spawn", "forkserver"]. Only "Spawn" is accepted on Windows. '
-                    'If not set, multiprocessing will by default use "fork" on unix or "spawn" on Windows.'
-                    'Defaults to None.',
+                    'If not set, default values will be internally set by python, please refer to: '
+                    'https://docs.python.org/3/library/multiprocessing.html#multiprocessing.get_start_method.'
+                    'This param defaults to None.',
                     typeConverter=TypeConverters.toString)
 
     def __init__(self):
