@@ -354,6 +354,7 @@ class BaseElasticSparkTests(unittest.TestCase):
         super(BaseElasticSparkTests, self).__init__(*args, **kwargs)
         warnings.simplefilter('module')
         logging.getLogger('py4j.java_gateway').setLevel(logging.INFO)
+        logging.getLogger('py4j.clientserver').setLevel(logging.INFO)
 
     @staticmethod
     def _exec(cmd):
