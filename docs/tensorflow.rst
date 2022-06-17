@@ -211,6 +211,8 @@ calling ``.send_to_data_service(…)`` on the TensorFlow dataset:
 
 .. code-block:: python
 
+    from horovod.tensorflow.data.compute_service import TfDataServiceConfig
+
     hvd.init()
     rank = hvd.rank()
     size = hvd.size()
@@ -237,10 +239,10 @@ First start the data service as shown above. While the data service is running, 
 
 The compute job normally runs on CPU nodes while the training job runs on GPU nodes. This allows to run CPU intensive
 dataset transformation on CPU nodes while running GPU intensive training on GPU nodes. There can be multiple CPUs
-dedicated to one GPU taks.
+dedicated to one GPU task.
 
-Use the ``--hosts`` argument to run compute and train job on CPU (here ``cpu-node-1:2`` and ``cpu-node-2``)
-and GPU nodes (here ``gpu-node-1:2`` and ``gpu-node-2``), respectively:
+Use the ``--hosts`` argument to run compute and train job on CPU (here ``cpu-node-1`` and ``cpu-node-2``)
+and GPU nodes (here ``gpu-node-1`` and ``gpu-node-2``), respectively:
 
 .. code-block:: bash
 
