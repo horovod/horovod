@@ -413,7 +413,7 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_num_proc=None, max_nu
                                                     key=key,
                                                     start_timeout=tmout,
                                                     nics=nics,
-                                                    run_func_mode=True,
+                                                    run_func_mode=False,
                                                     prefix_output_with_timestamp=prefix_output_with_timestamp)
 
     result_queue = queue.Queue(1)

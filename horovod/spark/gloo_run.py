@@ -99,4 +99,4 @@ def gloo_run_elastic(settings, driver, env, stdout=None, stderr=None):
     exec_command = _exec_command_fn(driver, settings.key, settings, env,
                                     stdout, stderr, settings.prefix_output_with_timestamp)
     rendezvous = SparkRendezvousServer(driver, settings.verbose)
-    launch_gloo_elastic(command, exec_command, settings, env, lambda _: nics, rendezvous)
+    launch_gloo_elastic(command, exec_command, settings, env, lambda _: nics, rendezvous, sys.executable)

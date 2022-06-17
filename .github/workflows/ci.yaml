@@ -193,6 +193,8 @@ jobs:
             Gloo_Single_PyTests: true
             Gloo_TensorFlow_2_0_Keras_MNIST_api: true
             Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun: true
+            Gloo_TensorFlow_2_0_MNIST_Elastic_api: true
+            Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun: true
             Gloo_TensorFlow_2_0_MNIST_api: true
             Gloo_TensorFlow_2_0_MNIST_horovodrun: true
             Single_MXNet_MNIST: true
@@ -212,6 +214,8 @@ jobs:
             Gloo_Single_PyTests: true
             Gloo_TensorFlow_2_0_Keras_MNIST_api: true
             Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun: true
+            Gloo_TensorFlow_2_0_MNIST_Elastic_api: true
+            Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun: true
             Gloo_TensorFlow_2_0_MNIST_api: true
             Gloo_TensorFlow_2_0_MNIST_horovodrun: true
             Single_MXNet_MNIST: true
@@ -231,6 +235,8 @@ jobs:
             Gloo_Single_PyTests: true
             Gloo_TensorFlow_2_0_Keras_MNIST_api: true
             Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun: true
+            Gloo_TensorFlow_2_0_MNIST_Elastic_api: true
+            Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun: true
             Gloo_TensorFlow_2_0_MNIST_api: true
             Gloo_TensorFlow_2_0_MNIST_horovodrun: true
             Single_MXNet_MNIST: true
@@ -252,6 +258,8 @@ jobs:
             Gloo_Single_PyTests: true
             Gloo_TensorFlow_2_0_Keras_MNIST_api: true
             Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun: true
+            Gloo_TensorFlow_2_0_MNIST_Elastic_api: true
+            Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun: true
             Gloo_TensorFlow_2_0_MNIST_api: true
             Gloo_TensorFlow_2_0_MNIST_horovodrun: true
             Single_MXNet_MNIST: true
@@ -273,6 +281,8 @@ jobs:
             Gloo_Single_PyTests: true
             Gloo_TensorFlow_2_0_Keras_MNIST_api: true
             Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun: true
+            Gloo_TensorFlow_2_0_MNIST_Elastic_api: true
+            Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun: true
             Gloo_TensorFlow_2_0_MNIST_api: true
             Gloo_TensorFlow_2_0_MNIST_horovodrun: true
             Single_MXNet_MNIST: true
@@ -307,6 +317,8 @@ jobs:
             Gloo_Single_PyTests: true
             Gloo_TensorFlow_2_0_Keras_MNIST_api: true
             Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun: true
+            Gloo_TensorFlow_2_0_MNIST_Elastic_api: true
+            Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun: true
             Gloo_TensorFlow_2_0_MNIST_api: true
             Gloo_TensorFlow_2_0_MNIST_horovodrun: true
             MPI_Cluster_PyTests: true
@@ -883,6 +895,60 @@ jobs:
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_3
           docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST Elastic api [attempt 1 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_Elastic_api_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_Elastic_api && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_api_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py 2 2 2 localhost:2,127.0.0.1:2
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST Elastic api [attempt 2 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_Elastic_api_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_Elastic_api && steps.Gloo_TensorFlow_2_0_MNIST_Elastic_api_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_api_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py 2 2 2 localhost:2,127.0.0.1:2
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST Elastic api [attempt 3 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_Elastic_api_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_Elastic_api && steps.Gloo_TensorFlow_2_0_MNIST_Elastic_api_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_api_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py 2 2 2 localhost:2,127.0.0.1:2
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST Elastic horovodrun [attempt 1 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 --min-np 2 --max-np 2 -H localhost:2,127.0.0.1:2 --gloo python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST Elastic horovodrun [attempt 2 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun && steps.Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 --min-np 2 --max-np 2 -H localhost:2,127.0.0.1:2 --gloo python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST Elastic horovodrun [attempt 3 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun && steps.Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 --min-np 2 --max-np 2 -H localhost:2,127.0.0.1:2 --gloo python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py
         shell: bash
 
       - name: "Gloo TensorFlow 2.0 MNIST api [attempt 1 of 3]"
@@ -2227,6 +2293,8 @@ jobs:
             Gloo_Single_PyTests: true
             Gloo_TensorFlow_2_0_Keras_MNIST_api: true
             Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun: true
+            Gloo_TensorFlow_2_0_MNIST_Elastic_api: true
+            Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun: true
             Gloo_TensorFlow_2_0_MNIST_api: true
             Gloo_TensorFlow_2_0_MNIST_horovodrun: true
             Single_MXNet2_MNIST: true
@@ -2761,6 +2829,60 @@ jobs:
         run: |
           mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_3
           docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST Elastic api [attempt 1 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_Elastic_api_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_Elastic_api && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_api_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_api_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py 2 2 2 localhost:2,127.0.0.1:2
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST Elastic api [attempt 2 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_Elastic_api_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_Elastic_api && steps.Gloo_TensorFlow_2_0_MNIST_Elastic_api_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_api_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_api_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py 2 2 2 localhost:2,127.0.0.1:2
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST Elastic api [attempt 3 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_Elastic_api_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_Elastic_api && steps.Gloo_TensorFlow_2_0_MNIST_Elastic_api_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_api_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_api_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py 2 2 2 localhost:2,127.0.0.1:2
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST Elastic horovodrun [attempt 1 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun_run_1
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun && true
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun_run_1
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun_run_1:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 --min-np 2 --max-np 2 -H localhost:2,127.0.0.1:2 --gloo python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST Elastic horovodrun [attempt 2 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun_run_2
+        continue-on-error: true
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun && steps.Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun_run_1.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun_run_2
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun_run_2:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 --min-np 2 --max-np 2 -H localhost:2,127.0.0.1:2 --gloo python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py
+        shell: bash
+
+      - name: "Gloo TensorFlow 2.0 MNIST Elastic horovodrun [attempt 3 of 3]"
+        id: Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun_run_3
+        continue-on-error: false
+        if: always() && steps.build.outcome == 'success' && matrix.Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun && steps.Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun_run_2.outcome == 'failure'
+        run: |
+          mkdir -p artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun_run_3
+          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{ matrix.image }}/Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun_run_3:/artifacts" ${{ matrix.image }} /usr/bin/timeout 10m horovodrun -np 2 --min-np 2 --max-np 2 -H localhost:2,127.0.0.1:2 --gloo python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py
         shell: bash
 
       - name: "Gloo TensorFlow 2.0 MNIST api [attempt 1 of 3]"

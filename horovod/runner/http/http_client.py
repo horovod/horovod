@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # =============================================================================
-
-from urllib.request import urlopen
-from urllib.request import Request
 from urllib.error import HTTPError, URLError
+from urllib.request import Request
+from urllib.request import urlopen
 
 from horovod.runner.common.util import codec
 

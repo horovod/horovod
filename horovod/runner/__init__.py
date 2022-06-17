@@ -103,6 +103,7 @@ def run(
         cooldown_range=None,
         hosts=None,
         hostfile=None,
+        host_discovery_script=None,
         start_timeout=None,
         ssh_port=None,
         ssh_identity_file=None,
@@ -153,6 +154,13 @@ def run(
     :param hostfile: Path to a host file containing the list of host names and the number of
                      available slots. Each line of the file must be of the form:
                      <hostname> slots=<slots>
+    :param host_discovery_script: Used for elastic training (autoscaling and fault tolerance).
+                                  An executable script that will print to stdout every available host (one per
+                                  newline character) that can be used to run worker processes. Optionally
+                                  specifies number of slots on the same line as the hostname as: "hostname:slots".
+                                  Providing a discovery script enables elastic training.
+                                  The job will fail immediately if execution of the script returns a non-zero exit
+                                  code on the first call. Subsequent calls will be retried until timeout.
     :param start_timeout: Horovodrun has to perform all the checks and
                           start the processes before the specified
                           timeout. The default value is 30 seconds.
@@ -182,6 +190,7 @@ def run(
     :param executable: Optional executable to run when launching the workers. Defaults to `sys.executable`.
     :return: Return a list which contains values return by all Horovod processes.
              The index of the list corresponds to the rank of each Horovod process.
+             Returns only the first min_num_proc results, if set.
     """
     if network_interface:
         network_interfaces = network_interface.split(',')
@@ -220,6 +229,7 @@ def run(
     hargs.cooldown_range = cooldown_range
     hargs.hosts = hosts
     hargs.hostfile = hostfile
+    hargs.host_discovery_script = host_discovery_script
     hargs.start_timeout = start_timeout
     hargs.ssh_port = ssh_port
     hargs.ssh_identity_file = ssh_identity_file

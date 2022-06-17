@@ -721,7 +721,8 @@ def _run_elastic(args):
 
     env = os.environ.copy()
     config_parser.set_env_from_args(env, args)
-    gloo_run_elastic(settings, env, args.command)
+    executable = args.executable or sys.executable
+    return gloo_run_elastic(settings, env, args.run_func if args.run_func else args.command, executable)
 
 
 def is_gloo_used(use_gloo=None, use_mpi=None, use_jsrun=None):

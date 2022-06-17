@@ -21,15 +21,16 @@ import signal
 import sys
 import threading
 import time
-
 from shlex import quote
+from typing import Optional, Any
 
 from horovod.runner.common.util import env as env_util, safe_shell_exec
 from horovod.runner.common.util.hosts import get_host_assignments, parse_hosts
 from horovod.runner.driver import driver_service
 from horovod.runner.elastic.driver import ElasticDriver
 from horovod.runner.elastic.rendezvous import create_rendezvous_handler
-from horovod.runner.http.http_server import RendezvousServer
+from horovod.runner.http.http_client import read_data_from_kvstore, put_data_into_kvstore
+from horovod.runner.http.http_server import KVStoreServer, RendezvousServer
 from horovod.runner.util import network, threads
 from horovod.runner.util.remote import get_remote_command
 
@@ -299,7 +300,7 @@ def gloo_run(settings, nics, env, server_ip, command):
     launch_gloo(command, exec_command, settings, nics, env, server_ip)
 
 
-def launch_gloo_elastic(command, exec_command, settings, env, get_common_interfaces, rendezvous):
+def launch_gloo_elastic(command_or_func, exec_command, settings, env, get_common_interfaces, rendezvous, executable):
     # Make the output directory if it does not exist
     if settings.output_filename:
         _mkdir_p(settings.output_filename)
@@ -317,29 +318,56 @@ def launch_gloo_elastic(command, exec_command, settings, env, get_common_interfa
 
     nics = get_common_interfaces(driver)
     server_ip = network.get_driver_ip(nics)
+    run_func_server = None
+    run_func_server_port = None
 
-    event = register_shutdown_event()
-    run_command = get_run_command(command, server_ip, nics, global_rendezv_port, elastic=True)
+    if settings.run_func_mode:
+        # when running a func, we have to spin up the KVStoreServer
+        # to get the func to the remote process and the result back
+        run_func_server = KVStoreServer(verbose=settings.verbose)
+        run_func_server_port = run_func_server.start_server()
+        put_data_into_kvstore(server_ip, run_func_server_port, 'runfunc', 'func', command_or_func)
 
-    create_worker = _create_elastic_worker_fn(exec_command, run_command, env, event)
+        command = [executable, '-m', 'horovod.runner.run_task', server_ip, str(run_func_server_port)]
+    else:
+        command = command_or_func
 
-    driver.start(settings.num_proc, create_worker)
-    res = driver.get_results()
-    driver.stop()
+    try:
+        event = register_shutdown_event()
+        run_command = get_run_command(command, server_ip, nics, global_rendezv_port, elastic=True)
 
-    if res.error_message is not None:
-        raise RuntimeError(res.error_message)
+        create_worker = _create_elastic_worker_fn(exec_command, run_command, env, event)
 
-    for name, value in sorted(res.worker_results.items(), key=lambda item: item[1][1]):
-        exit_code, timestamp = value
-        if exit_code != 0:
-            raise RuntimeError('Horovod detected that one or more processes exited with non-zero '
-                               'status, thus causing the job to be terminated. The first process '
-                               'to do so was:\nProcess name: {name}\nExit code: {code}\n'
-                               .format(name=name, code=exit_code))
+        driver.start(settings.num_proc, create_worker)
+        res = driver.get_results()
+        driver.stop()
+
+        if res.error_message is not None:
+            raise RuntimeError(res.error_message)
+
+        for name, value in sorted(res.worker_results.items(), key=lambda item: item[1][1]):
+            exit_code, timestamp = value
+            if exit_code != 0:
+                raise RuntimeError('Horovod detected that one or more processes exited with non-zero '
+                                   'status, thus causing the job to be terminated. The first process '
+                                   'to do so was:\nProcess name: {name}\nExit code: {code}\n'
+                                   .format(name=name, code=exit_code))
+
+        # fetch the result if running a func
+        if settings.run_func_mode:
+            results = [None] * settings.min_num_proc
+            # TODO: make it parallel to improve performance
+            for i in range(settings.min_num_proc):
+                results[i] = read_data_from_kvstore(server_ip, run_func_server_port, 'runfunc_result', str(i))
+            return results
+
+        return None
+    finally:
+        if run_func_server:
+            run_func_server.shutdown_server()
 
 
-def gloo_run_elastic(settings, env, command):
+def gloo_run_elastic(settings, env, command_or_func, executable) -> Optional[Any]:
 
     def get_common_interfaces(driver):
         # Host-to-host common interface detection requires at least 2 hosts in an elastic job.
@@ -349,4 +377,4 @@ def gloo_run_elastic(settings, env, command):
 
     exec_command = _exec_command_fn(settings)
     rendezvous = RendezvousServer(settings.verbose)
-    launch_gloo_elastic(command, exec_command, settings, env, get_common_interfaces, rendezvous)
+    return launch_gloo_elastic(command_or_func, exec_command, settings, env, get_common_interfaces, rendezvous, executable)
