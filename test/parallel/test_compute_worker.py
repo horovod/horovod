@@ -57,6 +57,7 @@ class ComputeWorkerTest(unittest.TestCase):
 
     @unittest.skip('Not fully consuming the dataset upsets the dispatcher on termination, even without stopping them.'
                    'Round robing requires an infinite dataset, so it cannotbe fully consumed and test would idle a long time.')
+    # https://github.com/tensorflow/tensorflow/issues/56490
     def test_single_dispatcher_reuse_dataset_round_robin(self):
         self.do_test_worker(1, reuse_dataset=True, round_robin=True)
 
