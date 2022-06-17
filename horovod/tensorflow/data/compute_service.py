@@ -144,7 +144,7 @@ def send_to_data_service(dataset: tf.data.Dataset,
 tf.data.Dataset.send_to_data_service = send_to_data_service
 
 
-def compute_worker_fn(compute_config: TfDataServiceConfig, timeout: Optional[int] = None):
+def compute_worker_fn(compute_config: TfDataServiceConfig):
     """ Function run on the compute tasks providing tf dispatcher and worker server. """
     hvd.init()
     index, size = hvd.rank(), hvd.size()
@@ -177,7 +177,7 @@ def compute_worker_fn(compute_config: TfDataServiceConfig, timeout: Optional[int
     worker_config = tf.data.experimental.service.WorkerConfig(
         dispatcher_address=dispatcher_address.split("://")[1],
         heartbeat_interval_ms=1000,
-        dispatcher_timeout_ms=timeout * 1000 if timeout else None)
+        dispatcher_timeout_ms=compute_config.timeout * 1000)
     worker_server = tf.data.experimental.service.WorkerServer(worker_config)
     logging.debug(f"Starting worker for dispatcher {dispatcher_index}")
     worker_server.start()

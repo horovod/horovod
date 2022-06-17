@@ -32,7 +32,7 @@ _PRE_TF_2_0_0 = LooseVersion(tf.__version__) < LooseVersion("2.0.0")
 @unittest.skipIf(_PRE_TF_2_0_0, 'Compute service not supported pre 2.0.0')
 class ComputeWorkerTest(unittest.TestCase):
     # general timeout in this test
-    timeout = 10
+    timeout = 3
 
     # rank and size of this test
     hvd.init()

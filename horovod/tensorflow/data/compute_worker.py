@@ -55,7 +55,7 @@ def main(dispatchers: int, dispatcher_side: str, configfile: str, timeout: int):
             compute_config = hvd.broadcast_object(compute_config, name='TfDataServiceConfig')
 
         # start all compute workers
-        compute_worker_fn(compute_config, timeout)
+        compute_worker_fn(compute_config)
     finally:
         if compute is not None:
             compute.shutdown()
