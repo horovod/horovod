@@ -240,6 +240,10 @@ run_mpi_integration() {
         ":tensorflow: MPI TensorFlow 2.0 Keras MNIST api (${test})" \
         "bash -c \"${oneccl_env} python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi\""
     fi
+
+    run_test "${test}" "${queue}" \
+      ":tensorflow: MPI TensorFlow 2.0 MNIST Data Service (${test})" \
+      "bash -c \"${oneccl_env} horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 --mpi python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json\""
   fi
 }
 
@@ -307,6 +311,10 @@ run_gloo_integration() {
         ":tensorflow: Gloo TensorFlow 2.0 MNIST Elastic api (${test})" \
         "python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py 2 2 2 localhost:2,127.0.0.1:2"
     fi
+
+    run_test "${test}" "${queue}" \
+      ":tensorflow: Gloo TensorFlow 2.0 MNIST Data Service (${test})" \
+      "bash -c \"horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json\""
   else
     run_test "${test}" "${queue}" \
       ":tensorflow: Gloo TensorFlow MNIST (${test})" \
@@ -409,6 +417,12 @@ run_spark_integration() {
       run_test "${test}" "${queue}" \
         ":spark: Spark Keras MNIST (${test})" \
         "bash -c \"OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
+    fi
+
+    if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
+      run_test "${test}" "${queue}" \
+        ":spark: Spark TensorFlow 2.0 MNIST Data Service (${test})" \
+        "bash -c \"cd /horovod/examples/spark/tensorflow2; spark-submit --master \\\"local[2]\\\" \\\"/horovod/horovod/spark/tensorflow/compute_worker.py\\\" /tmp/compute.json & OMP_NUM_THREADS=1 /spark_env.sh spark-submit --master \\\"local[2]\\\" --py-files tensorflow2_mnist_data_service_train_fn_compute_side_dispatcher.py,tensorflow2_mnist_data_service_train_fn_training_side_dispatcher.py tensorflow2_mnist_data_service.py /tmp/compute.json\""
     fi
 
     run_test "${test}" "${queue}" \

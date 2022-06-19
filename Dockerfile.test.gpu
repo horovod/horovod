@@ -224,6 +224,9 @@ RUN sed -i "s/dataset.take(20000/dataset.take(100/" /horovod/examples/tensorflow
 # Hack TensorFlow 2.0 example to be smaller.
 RUN sed -i "s/dataset.take(10000/dataset.take(100/" /horovod/examples/tensorflow2/tensorflow2_mnist.py
 
+# Hack TensorFlow 2.0 Data Service example to be smaller.
+RUN sed -i "s/ epochs=24/ epochs=4/" /horovod/examples/tensorflow2/tensorflow2_mnist_data_service_train_fn_*_side_dispatcher.py
+
 # Hack Keras MNIST advanced example to be smaller.
 RUN sed -i "s/'--epochs', type=int, default=24,/'--epochs', type=int, default=9,/" /horovod/examples/keras/keras_mnist_advanced.py
 

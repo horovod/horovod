@@ -184,3 +184,152 @@ TensorFlow v2 Example (from the `MNIST <https://github.com/horovod/horovod/blob/
     # corrupting it.
     if hvd.rank() == 0:
         checkpoint.save(checkpoint_dir)
+
+Horovod with TensorFlow Data Service
+------------------------------------
+
+A `TensorFlow Data Service <https://www.tensorflow.org/api_docs/python/tf/data/experimental/service>`_
+allows to move CPU intensive processing of your dataset from your training process to a cluster of
+CPU-rich processes.
+
+With Horovod, it is easy to spin up a TensorFlow Data Service on your Horovod cluster and to connect
+your Horovod training job to it.
+
+Run the following command to run a TensorFlow Data Service via Horovod:
+
+.. code-block:: bash
+
+    horovodrun -np 4 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json
+
+This starts a TensorFlow Data Service (here called compute job) with one dispatcher and four workers.
+
+.. note:: The config file is written by the compute job and has to be located on a path that is accessible
+    to all nodes that run the compute job, e.g. a distributed file system.
+
+Your training job can then move CPU intensive dataset operations to this data service by
+calling ``.send_to_data_service(…)`` on the TensorFlow dataset:
+
+.. code-block:: python
+
+    from horovod.tensorflow.data.compute_service import TfDataServiceConfig
+
+    hvd.init()
+    rank = hvd.rank()
+    size = hvd.size()
+
+    compute_config = TfDataServiceConfig.read('/tmp/compute.json', wait_for_file_creation=True)
+
+    dataset = dataset.repeat() \
+        .shuffle(10000) \
+        .batch(128) \
+        .send_to_data_service(compute_config, rank, size) \
+        .prefetch(tf.data.experimental.AUTOTUNE)
+
+All transformations before calling ``send_to_data_service`` will be executed by the data service,
+while all transformations after it are executed locally by the training script.
+
+You can find the `tensorflow2_mnist_data_service.py <https://github.com/horovod/horovod/blob/master/examples/tensorflow2/tensorflow2_mnist_data_service.py>`_
+example in the examples directory.
+
+First start the data service as shown above. While the data service is running, start the example training script:
+
+.. code-block:: bash
+
+    horovodrun -np 2 python tensorflow2_mnist_data_service.py /tmp/compute.json
+
+The compute job normally runs on CPU nodes while the training job runs on GPU nodes. This allows to run CPU intensive
+dataset transformation on CPU nodes while running GPU intensive training on GPU nodes. There can be multiple CPUs
+dedicated to one GPU task.
+
+Use the ``--hosts`` argument to run compute and train job on CPU (here ``cpu-node-1`` and ``cpu-node-2``)
+and GPU nodes (here ``gpu-node-1`` and ``gpu-node-2``), respectively:
+
+.. code-block:: bash
+
+    horovodrun -np 4 --hosts cpu-node-1:2,cpu-node-2:2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json
+    horovodrun -np 2 --hosts gpu-node-1:1,gpu-node-2:1 python tensorflow2_mnist_data_service.py /tmp/compute.json
+
+.. note::
+
+    Please make sure you understand how TensorFlow Data Service distributes dataset transformations:
+    See the `distribute <https://www.tensorflow.org/api_docs/python/tf/data/experimental/service/distribute>`_ transformation.
+
+Multiple Dispatchers
+~~~~~~~~~~~~~~~~~~~~
+
+The data service allows for multiple dispatchers, one per training task. Each dispatcher gets the same number of workers.
+As workers are dedicated to a single dispatcher, workers get dedicated to a single training task.
+The size of your compute job (``-np 4``) has to be a multiple of the number of dispatchers (``--dispatchers 2``):
+
+.. code-block:: bash
+
+    horovodrun -np 4 python -m horovod.tensorflow.data.compute_worker --dispatchers 2 /tmp/compute.json
+
+This requires the number of dispatchers (``--dispatchers 2``) to match the size of your training job (``-np 2``):
+
+.. code-block:: bash
+
+    horovodrun -np 2 python tensorflow2_mnist_data_service.py /tmp/compute.json
+
+Single Dispatchers
+~~~~~~~~~~~~~~~~~~
+
+With a single dispatcher, TensorFlow allows to reuse the dataset across all training tasks. This is done on a
+first-come-first-serve basis, or round robin. The only supported processing mode is ``"distributed_epoch"``.
+
+Training-side dispatchers
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The dispatchers by default run inside the compute job. You can, however, also run them inside the training job.
+Add ``--dispatcher-side training`` to tell the compute job that dispatchers are started by the training job.
+
+.. code-block:: bash
+
+    horovodrun -np 4 python -m horovod.tensorflow.data.compute_worker --dispatcher-side training /tmp/compute.json
+
+The training script then starts the dispatchers via ``with tf_data_service(…)`` and distributes the dataset itself:
+
+.. code-block:: python
+
+    hvd.init()
+    rank = hvd.rank()
+    size = hvd.size()
+
+    compute_config = TfDataServiceConfig.read('/tmp/compute.json', wait_for_file_creation=True)
+
+    with tf_data_service(compute_config, rank) as dispatcher_address:
+
+        dataset = dataset.repeat() \
+            .shuffle(10000) \
+            .batch(128) \
+            .apply(tf.data.experimental.service.distribute(
+                processing_mode="distributed_epoch",
+                service=dispatcher_address,
+                job_name='job' if reuse_dataset else None,
+                consumer_index=rank if round_robin else None,
+                num_consumers=size if round_robin else None)) \
+            .prefetch(tf.data.experimental.AUTOTUNE)
+
+To see the specific changes needed to make the training job run dispatchers,
+simply diff the training-side example with the compute-side example:
+
+.. code-block:: bash
+
+    diff -w examples/tensorflow2/tensorflow2_mnist_data_service_train_fn_*
+
+Compute job on Spark cluster
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The compute job can be started on a Spark cluster using ``spark-submit``:
+
+.. code-block:: bash
+
+    worker_py=$(python -c "import horovod.spark.tensorflow.compute_worker as worker; print(worker.__file__)")
+    spark-submit --master "local[4]" "$worker_py" /tmp/compute.json
+
+
+While the compute job is running, start the training job:
+
+    cd examples/spark/tensorflow2
+    spark-submit --master "local[2]" --py-files tensorflow2_mnist_data_service_train_fn_compute_side_dispatcher.py,tensorflow2_mnist_data_service_train_fn_training_side_dispatcher.py tensorflow2_mnist_data_service.py /tmp/compute.json
+
+As usual, the config file has to be located on a path that is accessible to all nodes that run the compute job.
