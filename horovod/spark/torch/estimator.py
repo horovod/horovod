@@ -149,6 +149,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                           Should be one of ['thread', 'process']. Defaults to 'process'.
         inmemory_cache_all: (Optional) Cache the data in memory for training and validation.
         use_gpu: Whether to use the GPU for training. Defaults to True.
+        mp_start_method: The method to use to start multiprocessing. Defaults to None.
     """
 
     input_shapes = Param(Params._dummy(), 'input_shapes', 'input layer shapes')
@@ -192,7 +193,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  reader_pool_type=None,
                  label_shapes=None,
                  inmemory_cache_all=False,
-                 use_gpu=True):
+                 use_gpu=True,
+                 mp_start_method=None):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,

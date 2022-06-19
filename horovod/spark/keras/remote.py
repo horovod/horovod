@@ -25,7 +25,7 @@ from distutils.version import LooseVersion
 
 from horovod.spark.common import constants
 from horovod.spark.common.store import DBFSLocalStore
-from horovod.spark.common.util import _get_assigned_gpu_or_default
+from horovod.spark.common.util import _get_assigned_gpu_or_default, _set_mp_start_method
 from horovod.runner.common.util import codec
 
 
@@ -53,6 +53,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     checkpoint_callback = estimator.getCheckpointCallback()
     inmemory_cache_all = estimator.getInMemoryCacheAll()
     should_use_gpu = estimator.getUseGpu()
+    mp_start_method = estimator.getMpStartMethod()
 
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
@@ -104,6 +105,10 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
         yield None
 
     def train(serialized_model, train_rows, val_rows, avg_row_size):
+        # If not empty, set it before everything else.
+        if mp_start_method:
+            _set_mp_start_method(mp_start_method, user_verbose)
+
         from petastorm import TransformSpec, make_reader, make_batch_reader
         import horovod as _horovod
         k = get_keras()

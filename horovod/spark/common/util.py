@@ -811,3 +811,13 @@ def get_spark_df_output_schema(input_df_schema, label_cols, output_cols, metadat
     output_schema = StructType(output_fields)
 
     return output_schema
+
+def _set_mp_start_method(method, verbose):
+    import multiprocessing as mp
+    supported_values = mp.get_all_start_methods()
+    if method not in supported_values:
+        raise ValueError(f"Multiprocessing start method {method} is not supported on this system. "
+                         f"Supported values are : {supported_values}")
+    mp.set_start_method(method)
+    if verbose:
+        print(f'Multiprocessing start method has been set to {mp.get_start_method()}')

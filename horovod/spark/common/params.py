@@ -102,9 +102,18 @@ class EstimatorParams(Params):
 
     use_gpu = Param(Params._dummy(), 'use_gpu',
                     'Whether to use the GPU for training. '
-                    'Setting this to False will skipping binding to GPU even when GPU is available. '
+                    'Setting this to False will skip binding to GPU even when GPU is available. '
                     'Defaults to True.',
                     typeConverter=TypeConverters.toBoolean)
+
+    mp_start_method = Param(Params._dummy(), 'mp_start_method',
+                    'The start method of multiprocessing. '
+                    'This controls the start up method of python multiprocessing. On unix-based systems, acceptable values are '
+                    '["fork", "spawn", "forkserver"]. Only "Spawn" is accepted on Windows. '
+                    'If not set, default values will be internally set by python, please refer to: '
+                    'https://docs.python.org/3/library/multiprocessing.html#multiprocessing.get_start_method.'
+                    'This param defaults to None.',
+                    typeConverter=TypeConverters.toString)
 
     def __init__(self):
         super(EstimatorParams, self).__init__()
@@ -141,7 +150,8 @@ class EstimatorParams(Params):
             reader_pool_type='process',
             label_shapes=None,
             inmemory_cache_all=False,
-            use_gpu=True)
+            use_gpu=True,
+            mp_start_method=None)
 
     def _check_params(self, metadata):
         model = self.getModel()
@@ -357,6 +367,12 @@ class EstimatorParams(Params):
 
     def getUseGpu(self):
         return self.getOrDefault(self.use_gpu)
+
+    def setMpStartMethod(self, value):
+        self._set(mp_start_method=value)
+
+    def getMpStartMethod(self):
+        return self.getOrDefault(self.mp_start_method)
 
 class ModelParams(HasOutputCols):
     history = Param(Params._dummy(), 'history', 'history')

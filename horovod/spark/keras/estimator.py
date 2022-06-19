@@ -148,6 +148,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
         backend_env: dict to add to the environment of the backend.  Defaults to setting the java heap size to
                      2G min and max for libhdfs through petastorm
         use_gpu: Whether to use the GPU for training. Defaults to True.
+        mp_start_method: The method to use to start multiprocessing. Defaults to None.
     """
 
     custom_objects = Param(Params._dummy(), 'custom_objects', 'custom objects')
@@ -191,7 +192,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                  checkpoint_callback=None,
                  inmemory_cache_all=False,
                  backend_env=None,
-                 use_gpu=True):
+                 use_gpu=True,
+                 mp_start_method=None):
 
         super(KerasEstimator, self).__init__()
 
