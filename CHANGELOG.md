@@ -8,41 +8,59 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- Added `hvd.reducescatter()` operation with implementations in NCCL, MPI, and Gloo. ([#3299](https://github.com/horovod/horovod/pull/3299), [#3574](https://github.com/horovod/horovod/pull/3574))
-
-- Spark: expose random seed as an optional parameter. ([#3517](https://github.com/horovod/horovod/pull/3517))
-
-- Added Horovod job to spin up distributed TensorFlow Data Service. ([#3525](https://github.com/horovod/horovod/pull/3525))
-
 ### Changed
 
-- MXNet: Updated allreduce functions to newer `op` API. ([#3299](https://github.com/horovod/horovod/pull/3299))
-
-- TF: Make TensorFlow output allocations asynchronous when using NCCL backend. ([#3464](https://github.com/horovod/horovod/pull/3464))
-
-- Make `HorovodVersionMismatchError` subclass `ImportError` instead of just a standard `Exception`. ([#3549](https://github.com/horovod/horovod/pull/3549))
-
 ### Deprecated
-
-- MXNet: Deprecated `average` argument of allreduce functions. ([#3299](https://github.com/horovod/horovod/pull/3299))
-
-- Horovodrun: Providing multiple NICS as comma-separated string via `--network-interface` is deprecated,
-  use `--network-interface` multiple times or `--network-interfaces` instead. ([#3506](https://github.com/horovod/horovod/pull/3506))
-
-- horovod.run: Argument `network_interface` with comma-separated string is deprecated,
-  use `network_interfaces` with `Iterable[str]` instead. ([#3506](https://github.com/horovod/horovod/pull/3506))
 
 ### Removed
 
 ### Fixed
 
+
+## [v0.25.0] - 2022-06-20
+
+### Added
+
+- Added `hvd.reducescatter()` operation with implementations in NCCL, MPI, and Gloo. ([#3299](https://github.com/horovod/horovod/pull/3299), [#3574](https://github.com/horovod/horovod/pull/3574))
+- Added AMD GPU XLA Op Implementation. ([#3486](https://github.com/horovod/horovod/pull/3486))
+- Added Horovod job to spin up distributed TensorFlow Data Service. ([#3525](https://github.com/horovod/horovod/pull/3525))
+- Spark: Expose random seed as an optional parameter. ([#3517](https://github.com/horovod/horovod/pull/3517))
+- Add Helm Chart. ([#3546](https://github.com/horovod/horovod/pull/3546))
+- Elastic: Add elastic run API. ([#3503](https://github.com/horovod/horovod/pull/3503))
+- Spark Estimator: Expose random seed for model training reproducibility. ([#3517](https://github.com/horovod/horovod/pull/3517))
+- Spark Estimator: Add option whether to use GPUs at all. ([#3526](https://github.com/horovod/horovod/pull/3526))
+- Spark Estimator: Expose parameter to set start method for `multiprocessing`. ([#3580](https://github.com/horovod/horovod/pull/3580))
+
+### Changed
+
+- MXNet: Updated allreduce functions to newer `op` API. ([#3299](https://github.com/horovod/horovod/pull/3299))
+- TensorFlow: Make TensorFlow output allocations asynchronous when using NCCL backend. ([#3464](https://github.com/horovod/horovod/pull/3464))
+- TensorFlow: Clear locally accumulated gradient by assigning with `zeros_like` to avoid infinite gradient not correctly cleared up. ([#3505](https://github.com/horovod/horovod/pull/3505))
+- Make `HorovodVersionMismatchError` subclass `ImportError` instead of just a standard `Exception`. ([#3549](https://github.com/horovod/horovod/pull/3549))
+- Elastic: Catch any exception to prevent the discovery thread from silently dying. ([#3436](https://github.com/horovod/horovod/pull/3436))
+- Horovodrun: Exit check_build (`--check-build`) via `sys.exit` to flush stdout. ([#3272](https://github.com/horovod/horovod/pull/3272))
+- Spark: Use `env` to set environment vars in remote shell. ([#3489](https://github.com/horovod/horovod/pull/3489))
+- Build: Avoid redundant ptx generation for maximum specified compute capability. ([#3509](https://github.com/horovod/horovod/pull/3509))
+
+### Deprecated
+
+- MXNet: Deprecated `average` argument of allreduce functions. ([#3299](https://github.com/horovod/horovod/pull/3299))
+- Public and internal APIs: deprecate use of np, min_np, max_np. Use num_proc, min_num_proc, and max_num_proc, respectively, instead. ([#3409](https://github.com/horovod/horovod/pull/3409))
+- Horovodrun: Providing multiple NICS as comma-separated string via `--network-interface` is deprecated,
+  use `--network-interface` multiple times or `--network-interfaces` instead. ([#3506](https://github.com/horovod/horovod/pull/3506))
+- horovod.run: Argument `network_interface` with comma-separated string is deprecated,
+  use `network_interfaces` with `Iterable[str]` instead. ([#3506](https://github.com/horovod/horovod/pull/3506))
+
+### Fixed
+
 - Fallback to NCCL shared lib if static one is not found. ([#3500]((https://github.com/horovod/horovod/pull/3500))
-
-- Spark/Lightning: add missing tranform_spec for Petastorm datamodule. ([#3543](https://github.com/horovod/horovod/pull/3543))
-
-- TensorFlow 2.9: Fix build for API change related to `tensorflow_accelerator_device_info`. ([#3513](https://github.com/horovod/horovod/pull/3513))
-
-- TensorFlow 2.10: Bump build partially to C++17. ([#3558](https://github.com/horovod/horovod/pull/3558))
+- Spark/Lightning: Added missing `tranform_spec` for Petastorm datamodule. ([#3543](https://github.com/horovod/horovod/pull/3543))
+- Spark/Lightning: Fixed PTL Spark example with checkpoint usage by calling `save_hyperparameters()`. ([#3527](https://github.com/horovod/horovod/pull/3527))
+- Elastic: Fixed empty hostname returned from `HostDiscoveryScript`. ([#3490](https://github.com/horovod/horovod/pull/3490))
+- TensorFlow 2.9: Fixed build for API change related to `tensorflow_accelerator_device_info`. ([#3513](https://github.com/horovod/horovod/pull/3513))
+- TensorFlow 2.10: Bumped build partially to C++17. ([#3558](https://github.com/horovod/horovod/pull/3558))
+- TensorFlow: Fixed gradient update timing in TF `AggregationHelperEager`. ([#3496](https://github.com/horovod/horovod/pull/3496))
+- TensorFlow: Fixed resource `NotFoundError` in TF `AggregationHelper`. ([#3499](https://github.com/horovod/horovod/pull/3499))
 
 ## [v0.24.3] - 2022-04-21
 
@@ -54,7 +72,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
-- [Setup] Require fsspec >= 2010.07.0 ([#3451](https://github.com/horovod/horovod/pull/3451))
+- Setup: Require fsspec >= 2010.07.0 ([#3451](https://github.com/horovod/horovod/pull/3451))
 - Fix ignored cuda arch flags ([#3462]((https://github.com/horovod/horovod/pull/3462))
 
 ## [v0.24.1] - 2022-03-03
