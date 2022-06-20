@@ -43,13 +43,13 @@ public:
                              std::vector<int>& recvcounts) = 0;
 
   virtual int ElementSize() const = 0;
+
+  virtual ~IGlooAlgorithms() = default;
 };
 
 template <typename T> class GlooAlgorithms : public IGlooAlgorithms {
 public:
   explicit GlooAlgorithms(GlooContext* gloo_context);
-
-  ~GlooAlgorithms() = default;
 
   void Allreduce(void* buffer_data, int num_elements) override;
 
@@ -73,8 +73,6 @@ private:
 class GlooAllreduce : public AllreduceOp {
 public:
   explicit GlooAllreduce(HorovodGlobalState* global_state);
-
-  virtual ~GlooAllreduce() = default;
 
   Status Execute(std::vector<TensorTableEntry>& entries,
                  const Response& response) override;

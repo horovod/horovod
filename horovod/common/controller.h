@@ -42,6 +42,8 @@ public:
 
   Controller(const Controller&) = delete;
 
+  virtual ~Controller() = default;
+
   void Initialize();
 
   virtual int GetTypeSize(DataType dtype) = 0;

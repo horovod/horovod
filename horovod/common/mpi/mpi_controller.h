@@ -36,8 +36,6 @@ public:
     LOG(DEBUG) << "MPI Controller constructed.";
   }
 
-  virtual ~MPIController()=default;
-
   int GetTypeSize(DataType dtype) override;
 
   void CrossRankBitwiseAnd(std::vector<long long>& bitvector,
