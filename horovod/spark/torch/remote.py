@@ -110,7 +110,10 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
         from petastorm.pytorch import BatchedDataLoader, InMemBatchedDataLoader
         import torch
         import horovod.torch as hvd
+        import pyarrow
 
+        # Reduce the delay of freeing memory from reading parquet files.
+        pyarrow.jemalloc_set_decay_ms(0)
         if random_seed is not None:
             torch.manual_seed(random_seed)
 

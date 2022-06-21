@@ -107,7 +107,10 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             _set_mp_start_method(mp_start_method, verbose)
 
         import horovod.torch as hvd
+        import pyarrow
 
+        # Reduce the delay of freeing memory from reading parquet files.
+        pyarrow.jemalloc_set_decay_ms(0)
         if random_seed is not None:
             pl.utilities.seed.seed_everything(seed=random_seed)
 

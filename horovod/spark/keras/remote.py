@@ -111,6 +111,10 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
 
         from petastorm import TransformSpec, make_reader, make_batch_reader
         import horovod as _horovod
+        import pyarrow
+
+        # Reduce the delay of freeing memory from reading parquet files.
+        pyarrow.jemalloc_set_decay_ms(0)
         k = get_keras()
         k.backend.set_floatx(floatx)
 
