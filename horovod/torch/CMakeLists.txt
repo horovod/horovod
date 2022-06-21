@@ -29,7 +29,7 @@ elseif (Pytorch_ROCM AND NOT HAVE_ROCM)
 endif()
 if (Pytorch_ROCM)
     # Hipify extension code
-    execute_process(COMMAND ${PY_EXE} -c "from torch.utils.hipify import hipify_python; hipify_python.hipify(project_directory='${PROJECT_SOURCE_DIR}/horovod', output_directory='${PROJECT_SOURCE_DIR}/horovod', includes=('torch/*.cc','torch/*.h'), show_detailed=True, is_pytorch_extension=True)")
+    execute_process(COMMAND ${PY_EXE} -c "from torch.utils.hipify import hipify_python; hipify_python.hipify(project_directory='${PROJECT_SOURCE_DIR}/horovod/torch', output_directory='${PROJECT_SOURCE_DIR}/horovod/torch', extensions=('.cc', '.h'), includes=('*'), show_detailed=True, is_pytorch_extension=True)")
     execute_process(COMMAND ${PY_EXE} -c "from torch.utils import hipify; print(True) if hasattr(hipify, '__version__') else print(False)" OUTPUT_VARIABLE HIPIFY_HAS_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
 
