@@ -95,9 +95,10 @@ class XOR(pl.LightningModule):
         y_hat = self(x)
         loss = F.binary_cross_entropy(y_hat, y.float())
         self.log('val_loss', loss)
+        return loss
 
     def validation_epoch_end(self, outputs):
-        avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean() if len(outputs) > 0 else float('inf')
+        avg_loss = torch.stack(outputs).mean()
         self.log('avg_val_loss', avg_loss)
 
 
@@ -155,7 +156,8 @@ class SparkLightningTests(unittest.TestCase):
                     epochs=2,
                     random_seed=1,
                     verbose=2,
-                    mp_start_method='spawn')
+                    mp_start_method='spawn',
+                    trainer_args={"num_sanity_val_steps": 0})
 
                 assert 'spawn' == torch_estimator.getMpStartMethod()
                 torch_estimator.setMpStartMethod('forkserver')
@@ -187,7 +189,8 @@ class SparkLightningTests(unittest.TestCase):
                     epochs=2,
                     verbose=2,
                     terminate_on_nan=True,
-                    profiler="pytorch")
+                    profiler="pytorch",
+                    trainer_args={"num_sanity_val_steps": 0})
                 assert torch_estimator.getTerminateOnNan() == True
 
     def test_legacy_fit_model(self):
@@ -246,7 +249,8 @@ class SparkLightningTests(unittest.TestCase):
                     batch_size=4,
                     epochs=2,
                     verbose=2,
-                    run_id=run_id)
+                    run_id=run_id,
+                    trainer_args={"num_sanity_val_steps": 0})
 
                 torch_estimator._read_checkpoint = Mock(side_effect=torch_estimator._read_checkpoint)
 
@@ -438,7 +442,8 @@ class SparkLightningTests(unittest.TestCase):
                                     epochs=3,
                                     verbose=2,
                                     inmemory_cache_all=inmemory_cache_all,
-                                    reader_pool_type=reader_pool_type)
+                                    reader_pool_type=reader_pool_type,
+                                    trainer_args={"num_sanity_val_steps": 0})
 
                                 transformer = est.fit_on_parquet()
                                 predictions = transformer.transform(df)
@@ -503,7 +508,8 @@ class SparkLightningTests(unittest.TestCase):
                     epochs=2,
                     verbose=2,
                     inmemory_cache_all=inmemory_cache_all,
-                    reader_pool_type=reader_pool_type)
+                    reader_pool_type=reader_pool_type,
+                    trainer_args={"num_sanity_val_steps": 0})
 
                 # set validation to any random strings would work.
                 est.setValidation("True")
@@ -696,7 +702,8 @@ class SparkLightningTests(unittest.TestCase):
                             batch_size=4,
                             epochs=epochs,
                             verbose=2,
-                            callbacks=callbacks)
+                            callbacks=callbacks,
+                            trainer_args={"num_sanity_val_steps": 0})
 
                         torch_model = torch_estimator.fit(df)
 
@@ -789,7 +796,8 @@ class SparkLightningTests(unittest.TestCase):
                         batch_size=4,
                         epochs=2,
                         verbose=2,
-                        callbacks=callbacks)
+                        callbacks=callbacks,
+                        trainer_args={"num_sanity_val_steps": 0})
 
                     torch_model = torch_estimator.fit(df)
 
@@ -832,7 +840,8 @@ class SparkLightningTests(unittest.TestCase):
                     batch_size=4,
                     epochs=2,
                     verbose=2,
-                    callbacks=callbacks)
+                    callbacks=callbacks,
+                    trainer_args={"num_sanity_val_steps": 0})
 
                 torch_model = torch_estimator.fit(df)
 
@@ -866,7 +875,8 @@ class SparkLightningTests(unittest.TestCase):
                     batch_size=4,
                     epochs=2,
                     verbose=2,
-                    inmemory_cache_all=True)
+                    inmemory_cache_all=True,
+                    trainer_args={"num_sanity_val_steps": 0})
 
                 torch_model = torch_estimator.fit(df)
 
@@ -971,7 +981,8 @@ class SparkLightningTests(unittest.TestCase):
                     batch_size=4,
                     epochs=2,
                     data_module=CustomDataModule,
-                    verbose=2)
+                    verbose=2,
+                    trainer_args={"num_sanity_val_steps": 0})
 
                 torch_model = torch_estimator.fit(df)
 
