@@ -74,14 +74,6 @@ class TFKerasUtil(object):
             if shuffle:
                 dataset = dataset.shuffle(shuffle_buffer_size, seed=seed)
 
-            # Use tf.data.Dataset.repeat() to set up an infinite iterator
-            # and to enable ranks to perform training and validation with
-            # unequal number of samples.
-            # FIXME(chongxiaoc): Use a very large number (10^9) for enough loops.
-            # None and -1 are not working with petastorm dataset for repeating.
-            # Verify this parameter again in future with new TF and Petastorm versions.
-            dataset = dataset.repeat(1000000000)
-
             # Decompress sparse data if necessary
             if has_sparse_col:
                 dataset = dataset.batch(1).map(reshape)
