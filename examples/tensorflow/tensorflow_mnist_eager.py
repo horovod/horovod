@@ -71,7 +71,7 @@ def main(_):
             hvd.broadcast_variables(mnist_model.variables, root_rank=0)
             hvd.broadcast_variables(opt.variables(), root_rank=0)
 
-        if batch % 10 == 0 and hvd.local_rank() == 0:
+        if batch % 10 == 0 and hvd.rank() == 0:
             print('Step #%d\tLoss: %.6f' % (batch, loss_value))
 
     # Horovod: save checkpoints only on worker 0 to prevent other workers from

@@ -86,7 +86,7 @@ def main():
     for batch, (images, labels) in enumerate(dataset.take(10000 // hvd.size())):
         loss_value = training_step(images, labels, batch == 0)
 
-        if batch % 10 == 0 and hvd.local_rank() == 0:
+        if batch % 10 == 0 and hvd.rank() == 0:
             print('Step #%d\tLoss: %.6f' % (batch, loss_value))
 
     # Horovod: save checkpoints only on worker 0 to prevent other workers from
