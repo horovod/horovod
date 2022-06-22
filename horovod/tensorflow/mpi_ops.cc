@@ -16,9 +16,9 @@
 // limitations under the License.
 // =============================================================================
 
+#include <algorithm>
 #include <memory>
 #include <queue>
-#include <regex>
 #include <thread>
 #include <unordered_map>
 
@@ -864,8 +864,9 @@ Output
 #if TENSORFLOW_VERSION >= 2006000000
 namespace {
 std::string NormalizeNameForTensorFlow(const std::string& name) {
-  static const std::regex normalize_re(R"regex([^a-zA-Z0-9_])regex");
-  return std::regex_replace(name, normalize_re, "_");
+  std::string result(name);
+  std::replace_if(result.begin(), result.end(), [](char c) { return !std::isalnum(c); }, '_');
+  return result;
 }
 
 Status GetInputDataTypeFromVariable(OpKernelContext* ctx, int input,
