@@ -240,12 +240,6 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
             if sample_weight_col:
                 schema_fields.append(sample_weight_col)
 
-            if verbose:
-                print(f"Training parameters: Epochs: {epochs}, Scaled lr: {scaled_lr}, "
-                      f"Shuffle size: {shuffle_buffer_size}, random_seed: {random_seed}\n"
-                      f"Train rows: {train_rows}, Train batch size: {batch_size}, Train_steps_per_epoch: {steps_per_epoch}\n"
-                      f"Val rows: {val_rows}, Val batch size: {val_batch_size}, Val_steps_per_epoch: {validation_steps}\n"
-                      f"Checkpoint file: {remote_store.checkpoint_path}, Logs dir: {remote_store.logs_path}\n")
             # In general, make_batch_reader is faster than make_reader for reading the dataset.
             # However, we found out that make_reader performs data transformations much faster than
             # make_batch_reader with parallel worker processes. Therefore, the default reader
@@ -272,6 +266,17 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                                 # Don't shuffle row groups if shuffle_buffer_size is 0 (non-shuffle case).
                                 shuffle_row_groups=True if shuffle_buffer_size > 0 else False,
                                 **reader_factory_kwargs) as train_reader:
+                local_row_cnt = 0
+                for piece in train_reader:
+                    piece = piece._asdict()
+                    local_row_cnt += len(list(piece.values())[0])
+
+                if verbose:
+                    print(f"rank {hvd.rank()} local training rows: {local_row_cnt}")
+                local_row_cnt_list = hvd.allgather([local_row_cnt], name="training_rows")
+                train_rows_per_rank = int(min(local_row_cnt_list))
+                train_reader.reset()
+
                 with reader_factory(remote_store.val_data_path,
                                     num_epochs=1,
                                     cur_shard=hvd.rank(),
@@ -285,11 +290,44 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                                     shuffle_row_groups=False,
                                     **reader_factory_kwargs) \
                     if should_validate else empty_batch_reader() as val_reader:
+                    val_rows_per_rank = 0
+                    if should_validate:
+                        local_row_cnt = 0
+                        for piece in val_reader:
+                            piece = piece._asdict()
+                            local_row_cnt += len(list(piece.values())[0])
 
-                    train_data = make_dataset(train_reader, batch_size, shuffle_buffer_size,
+                        if verbose:
+                            print(f"rank {hvd.rank()} local val rows: {local_row_cnt}")
+                        local_row_cnt_list = hvd.allgather([local_row_cnt], name="val_rows")
+                        val_rows_per_rank = int(min(local_row_cnt_list))
+                        val_reader.reset()
+
+                    if train_steps_per_epoch is None:
+                        steps_per_epoch = math.ceil(train_rows_per_rank / batch_size)
+                    else:
+                        steps_per_epoch = train_steps_per_epoch
+
+                    if validation_steps_per_epoch is None:
+                        # math.ceil because if val_rows is smaller than val_batch_size we still get the at least
+                        # one step. float(val_rows) because val_rows/val_batch_size evaluates to zero before
+                        # math.ceil
+                        validation_steps = math.ceil(float(val_rows_per_rank) / val_batch_size) if should_validate else None
+                    else:
+                        validation_steps = validation_steps_per_epoch
+
+                    if verbose and hvd.rank() == 0:
+                        print(f"Training parameters: Epochs: {epochs}, Scaled lr: {scaled_lr}, "
+                              f"Shuffle size: {shuffle_buffer_size}, random_seed: {random_seed}\n"
+                              f"Train rows: {train_rows}, Val rows: {val_rows}\n"
+                              f"Train_rows_per_rank: {train_rows_per_rank}, Train batch size: {batch_size}, Train_steps_per_epoch: {steps_per_epoch}\n"
+                              f"Val_rows_per_rank: {val_rows_per_rank}, Val batch size: {val_batch_size}, Val_steps_per_epoch: {validation_steps}\n"
+                              f"Checkpoint file: {remote_store.checkpoint_path}, Logs dir: {remote_store.logs_path}\n")
+
+                    train_data = make_dataset(train_reader, batch_size, epochs, shuffle_buffer_size,
                                               is_batch_reader, shuffle=True if shuffle_buffer_size > 0 else False,
                                               cache=inmemory_cache_all, seed=random_seed)
-                    val_data = make_dataset(val_reader, val_batch_size, shuffle_buffer_size,
+                    val_data = make_dataset(val_reader, val_batch_size, epochs, shuffle_buffer_size,
                                             is_batch_reader, shuffle=False, cache=inmemory_cache_all) \
                         if val_reader else None
 
