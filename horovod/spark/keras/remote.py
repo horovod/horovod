@@ -115,6 +115,8 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
 
         # Reduce the delay of freeing memory from reading parquet files.
         pyarrow.jemalloc_set_decay_ms(0)
+        os.environ["LD_PRELOAD"] = "/usr/lib/libtcmalloc_minimal.so.4"
+
         k = get_keras()
         k.backend.set_floatx(floatx)
 
