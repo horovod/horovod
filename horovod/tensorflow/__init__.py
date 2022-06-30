@@ -26,7 +26,8 @@ check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_
 from horovod.tensorflow import elastic
 from horovod.tensorflow.compression import Compression
 from horovod.tensorflow.functions import allgather_object, broadcast_object, broadcast_object_fn, broadcast_variables
-from horovod.tensorflow.mpi_ops import allgather, broadcast, broadcast_, _allreduce, _grouped_allreduce, alltoall, _reducescatter
+from horovod.tensorflow.mpi_ops import allgather, grouped_allgather, broadcast, broadcast_, _allreduce, \
+    _grouped_allreduce, alltoall, _reducescatter, _grouped_reducescatter
 from horovod.tensorflow.mpi_ops import init, shutdown
 from horovod.tensorflow.mpi_ops import is_initialized, start_timeline, stop_timeline
 from horovod.tensorflow.mpi_ops import size, local_size, cross_size, rank, local_rank, cross_rank, is_homogeneous
@@ -200,6 +201,7 @@ def reducescatter(tensor, device_dense='', compression=Compression.none, op=Aver
         new_tensor = (reduced_tensor / horovod_size) if op == Average else reduced_tensor
     return new_tensor
 
+
 def grouped_allreduce(tensors, average=None, device_dense='', device_sparse='',
                       compression=Compression.none, op=None,
                       prescale_factor=1.0, postscale_factor=1.0,
@@ -283,6 +285,7 @@ def grouped_allreduce(tensors, average=None, device_dense='', device_sparse='',
                     new_tensors = summed_tensors
         return new_tensors
 
+
 def _allreduce_cond(tensor, *args, process_set=global_process_set, **kwargs):
     def allreduce_fn():
         return allreduce(tensor, *args, process_set=process_set, **kwargs)
@@ -297,6 +300,7 @@ def _allreduce_cond(tensor, *args, process_set=global_process_set, **kwargs):
         tf.convert_to_tensor(process_set.included() and process_set.size() > 1)),
                    allreduce_fn, id_fn)
 
+
 def _grouped_allreduce_cond(tensors, *args, process_set=global_process_set, **kwargs):
     def allreduce_fn():
         return grouped_allreduce(tensors, *args, process_set=process_set, **kwargs)
@@ -310,6 +314,24 @@ def _grouped_allreduce_cond(tensors, *args, process_set=global_process_set, **kw
                    if int(os.environ.get("HOROVOD_ELASTIC", 0)) else (
         tf.convert_to_tensor(process_set.included() and process_set.size() > 1)),
                    allreduce_fn, id_fn)
+
+
+def grouped_reducescatter(tensors, device_dense='', compression=Compression.none, op=Average,
+                          process_set=global_process_set):
+    if not tensors:
+        return tensors
+    # Averaging happens in framework code, so translate that to Sum for the actual call
+    true_op = Sum if op == Average else op
+    dtype = tensors[0].dtype  # HorovodGroupedReducescatterOp requires all input tensors to have the same dtype
+    with tf.device(device_dense):
+        horovod_size = tf.cast(size_op(process_set_id=process_set.process_set_id)
+                               if int(os.environ.get("HOROVOD_ELASTIC", 0)) else process_set.size(),
+                               dtype=dtype)
+        tensors_compressed, ctxs = zip(*[compression.compress(tensor) for tensor in tensors])
+        reduced_tensors_compressed = _grouped_reducescatter(tensors_compressed, op=true_op, process_set=process_set)
+        reduced_tensors = [compression.decompress(t, ctx) for t, ctx in zip(reduced_tensors_compressed, ctxs)]
+        new_tensors = [(rt / horovod_size) for rt in reduced_tensors] if op == Average else reduced_tensors
+    return new_tensors
 
 
 try:

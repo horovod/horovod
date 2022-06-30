@@ -12,9 +12,11 @@ NvtxOpsHandle::NvtxOpsHandle() noexcept
   REGISTER_STRING(HorovodAllreduce);
   REGISTER_STRING(HorovodGroupedAllreduce);
   REGISTER_STRING(HorovodAllgather);
+  REGISTER_STRING(HorovodGroupedAllgather);
   REGISTER_STRING(HorovodBroadcast);
   REGISTER_STRING(HorovodAlltoall);
   REGISTER_STRING(HorovodReducescatter);
+  REGISTER_STRING(HorovodGroupedReducescatter);
 #undef REGISTER_STRING
 }
 

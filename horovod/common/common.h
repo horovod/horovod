@@ -364,6 +364,9 @@ struct TensorTableEntry {
   std::shared_ptr<Tensor> tensor;
   // Pre-allocated output tensor.
   std::shared_ptr<Tensor> output;
+  // Grouped Reducescatter or Allgather ops will need to allocate memory for
+  // a specific output_index >= 0.
+  int32_t output_index = 0;
   // Identifier for the subset of Horovod processes partaking in this operation.
   int32_t process_set_id = 0;
   // Root rank for broadcast operation (relative to process set).

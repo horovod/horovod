@@ -763,6 +763,133 @@ Output
     output:     A tensor with the same shape as `tensor` except for the first dimension.
 )doc");
 
+class HorovodGroupedAllgatherOp : public AsyncOpKernel {
+public:
+  explicit HorovodGroupedAllgatherOp(OpKernelConstruction* context)
+      : AsyncOpKernel(context) {
+    OP_REQUIRES_OK(context,
+                   context->GetAttr("ignore_name_scope", &ignore_name_scope_));
+    OP_REQUIRES_OK(context, context->GetAttr("num_tensors", &num_tensors_));
+    OP_REQUIRES_OK(context,
+                   context->GetAttr("process_set_id", &process_set_id_));
+  }
+
+  void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(common::CheckInitialized()),
+                         done);
+
+    auto node_name = name();
+    if (ignore_name_scope_) {
+      auto pos = node_name.find_last_of('/');
+      if (pos != std::string::npos) {
+        node_name = node_name.substr(pos + 1);
+      }
+    }
+    auto device = GetDeviceID(context);
+
+    std::vector<common::ReadyEventList> ready_event_lists;
+    std::vector<std::shared_ptr<common::OpContext>> hvd_contexts;
+    std::vector<std::shared_ptr<common::Tensor>> hvd_tensors;
+    std::vector<common::StatusCallback> callbacks;
+    std::vector<std::string> names;
+    ready_event_lists.reserve(num_tensors_);
+    hvd_contexts.reserve(num_tensors_);
+    hvd_tensors.reserve(num_tensors_);
+    callbacks.reserve(num_tensors_);
+    names.reserve(num_tensors_);
+    auto callback_mutex = std::make_shared<std::mutex>();
+    auto callback_count = std::make_shared<int>(0);
+    int num_tensors = num_tensors_;
+
+    // ReadyEvent makes sure input tensor is ready.  We cannot pre-allocate
+    // output for allgather, since shape of result is only known after all
+    // ranks make a request.
+    common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+    ready_event_list.AddReadyEvent(
+        std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context)));
+#endif
+
+    for (int i = 0; i < num_tensors_; ++i) {
+      auto tensor = context->input(i);
+      ready_event_lists.emplace_back(
+          ready_event_list); // Same for all tensors in group
+      hvd_contexts.emplace_back(std::make_shared<TFOpContext>(context));
+      hvd_tensors.emplace_back(std::make_shared<TFTensor>(tensor));
+      names.emplace_back(node_name + "_" + std::to_string(i + 1) + "of" +
+                         std::to_string(num_tensors));
+      callbacks.emplace_back([context, done, callback_mutex, callback_count,
+                              num_tensors](const common::Status& status) {
+        // Must only invoke callback on last tensor.
+        std::lock_guard<std::mutex> guard(*callback_mutex);
+        (*callback_count)++;
+        if (*callback_count == num_tensors) {
+#if HAVE_GPU
+          auto hvd_event = status.event;
+          if (hvd_event.event) {
+            auto device_context = context->op_device_context();
+            if (device_context != nullptr) {
+              auto stream = stream_executor::gpu::AsGpuStreamValue(
+                  device_context->stream());
+              HVD_GPU_CHECK(gpuStreamWaitEvent(stream, *(hvd_event.event), 0));
+            }
+          }
+#endif
+          context->SetStatus(ConvertStatus(status));
+          done();
+        }
+      });
+    }
+
+    auto enqueue_result =
+        EnqueueTensorAllgathers(hvd_contexts, hvd_tensors, ready_event_lists,
+                                names, device, callbacks, process_set_id_);
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
+  }
+
+private:
+  bool ignore_name_scope_;
+  int num_tensors_;
+  int process_set_id_;
+};
+
+REGISTER_KERNEL_BUILDER(Name("HorovodGroupedAllgather").Device(DEVICE_CPU),
+                        HorovodGroupedAllgatherOp);
+#if HOROVOD_GPU_ALLGATHER
+REGISTER_KERNEL_BUILDER(Name("HorovodGroupedAllgather").Device(DEVICE_GPU),
+                        HorovodGroupedAllgatherOp);
+#endif
+
+REGISTER_OP("HorovodGroupedAllgather")
+    .Attr(
+        "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
+    .Attr("ignore_name_scope: bool = False")
+    .Attr("num_tensors: int")
+    .Attr("process_set_id: int = 0")
+    .Input("tensors: num_tensors*T")
+    .Output("outputs: num_tensors*T")
+    .SetShapeFn([](shape_inference::InferenceContext* c) {
+      for (int i = 0; i < c->num_inputs(); ++i) {
+        shape_inference::ShapeHandle output;
+        TF_RETURN_IF_ERROR(
+            c->ReplaceDim(c->input(i), 0, c->UnknownDim(), &output));
+        c->set_output(i, output);
+      }
+      return Status::OK();
+    })
+    .Doc(R"doc(
+Perform an Allgather on a list tensors. All other processes that do a gather
+on a tensor with the same name  must have the same rank for that tensor, and have the
+same dimension on all but the first dimension.
+
+Arguments
+    tensors:     A list of tensors to gather.
+
+Output
+    outputs:    A list of tensors with the same shape as corresponding tensors
+                in `tensors` except for the first dimension.
+)doc");
+
 class HorovodBroadcastOp : public AsyncOpKernel {
 public:
   explicit HorovodBroadcastOp(OpKernelConstruction* context)
@@ -1214,6 +1341,137 @@ Arguments
 Output
     output:     A tensor with the same shape as `tensor` except for the first dimension.
 )doc");
+
+class HorovodGroupedReducescatterOp : public AsyncOpKernel {
+public:
+  explicit HorovodGroupedReducescatterOp(OpKernelConstruction* context)
+      : AsyncOpKernel(context) {
+    int reduce_op;
+    OP_REQUIRES_OK(context, context->GetAttr("reduce_op", &reduce_op));
+    reduce_op_ = static_cast<horovod::common::ReduceOp>(reduce_op);
+    OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
+    OP_REQUIRES_OK(context, context->GetAttr("num_tensors", &num_tensors_));
+    OP_REQUIRES_OK(context, context->GetAttr("process_set_id", &process_set_id_));
+  }
+
+  void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(common::CheckInitialized()),
+                         done);
+
+    auto node_name = name();
+    if (ignore_name_scope_) {
+      auto pos = node_name.find_last_of('/');
+      if (pos != std::string::npos) {
+        node_name = node_name.substr(pos + 1);
+      }
+    }
+    auto device = GetDeviceID(context);
+
+    std::vector<common::ReadyEventList> ready_event_lists;
+    std::vector<std::shared_ptr<common::OpContext>> hvd_contexts;
+    std::vector<std::shared_ptr<common::Tensor>> hvd_tensors;
+    std::vector<common::StatusCallback> callbacks;
+    std::vector<std::string> names;
+    ready_event_lists.reserve(num_tensors_);
+    hvd_contexts.reserve(num_tensors_);
+    hvd_tensors.reserve(num_tensors_);
+    callbacks.reserve(num_tensors_);
+    names.reserve(num_tensors_);
+    auto callback_mutex = std::make_shared<std::mutex>();
+    auto callback_count = std::make_shared<int>(0);
+    int num_tensors = num_tensors_;
+
+    // ReadyEvent makes sure input tensors are ready, and outputs are allocated.
+    common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+    ready_event_list.AddReadyEvent(
+        std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context)));
+#endif
+
+    for (int i = 0; i < num_tensors_; ++i) {
+      auto tensor = context->input(i);
+      ready_event_lists.emplace_back(
+          ready_event_list); // Same for all tensors in group
+      hvd_contexts.emplace_back(std::make_shared<TFOpContext>(context));
+      hvd_tensors.emplace_back(std::make_shared<TFTensor>(tensor));
+      names.emplace_back(node_name + "_" + std::to_string(i + 1) + "of" +
+                         std::to_string(num_tensors));
+      callbacks.emplace_back([context, done, callback_mutex, callback_count,
+                              num_tensors](const common::Status& status) {
+        // Must only invoke callback on last tensor.
+        std::lock_guard<std::mutex> guard(*callback_mutex);
+        (*callback_count)++;
+        if (*callback_count == num_tensors) {
+#if HAVE_GPU
+          auto hvd_event = status.event;
+          if (hvd_event.event) {
+            auto device_context = context->op_device_context();
+            if (device_context != nullptr) {
+              auto stream = stream_executor::gpu::AsGpuStreamValue(
+                  device_context->stream());
+              HVD_GPU_CHECK(gpuStreamWaitEvent(stream, *(hvd_event.event), 0));
+            }
+          }
+#endif
+          context->SetStatus(ConvertStatus(status));
+          done();
+        }
+      });
+    }
+
+    auto enqueue_result = EnqueueTensorReducescatters(
+        hvd_contexts, hvd_tensors, ready_event_lists, names, device, callbacks,
+        reduce_op_, process_set_id_);
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
+  }
+
+private:
+  horovod::common::ReduceOp reduce_op_;
+  bool ignore_name_scope_;
+  int num_tensors_;
+  int process_set_id_;
+};
+
+REGISTER_KERNEL_BUILDER(Name("HorovodGroupedReducescatter").Device(DEVICE_CPU),
+                        HorovodGroupedReducescatterOp);
+#if HOROVOD_GPU_REDUCESCATTER
+REGISTER_KERNEL_BUILDER(Name("HorovodGroupedReducescatter").Device(DEVICE_GPU),
+                        HorovodGroupedReducescatterOp);
+#endif
+
+REGISTER_OP("HorovodGroupedReducescatter")
+    .Attr("T: {int32, int64, float16, float32, float64}")
+    .Attr("reduce_op: int")
+    .Attr("ignore_name_scope: bool = False")
+    .Attr("num_tensors: int")
+    .Attr("process_set_id: int = 0")
+    .Input("tensors: num_tensors*T")
+    .Output("outputs: num_tensors*T")
+    .SetShapeFn([](shape_inference::InferenceContext* c) {
+      for (int i = 0; i < c->num_inputs(); ++i) {
+        shape_inference::ShapeHandle output;
+        TF_RETURN_IF_ERROR(
+            c->ReplaceDim(c->input(i), 0, c->UnknownDim(), &output));
+        c->set_output(i, output);
+      }
+      return Status::OK();
+    })
+    .Doc(R"doc(
+Perform a Reducescatter on a list tensors. All other processes that do a reduce
+scatter on a tensor with the same name must have the same dimension for that
+tensor. Tensors are reduced with other tensors that have the same node name for
+the reducescatter. For each tensor the output shape is identical to the input
+shape except for the first dimension, which will be divided across the
+different Horovod processes.
+
+Arguments
+    tensors:     A list of tensors to reduce and scatter.
+
+Output
+    outputs:    A list of tensors with the same shape as corresponding tensors
+                in `tensors` except for the first dimension.
+)doc");
+
 
 class HorovodJoinOp : public AsyncOpKernel {
 public:

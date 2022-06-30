@@ -179,7 +179,7 @@ Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
 
       if (entry_component_sizes) {
         entry_component_sizes[ec][rc] =
-                          component_size * single_slice_shape.num_elements();
+            component_size * single_slice_shape.num_elements();
       }
     }
 
@@ -189,10 +189,10 @@ Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
     output_shape.AddDim((int64_t)total_entry_dimension_size);
     output_shape.AppendShape(single_slice_shape);
 
-    Status status = e.context->AllocateOutput(output_shape, &e.output);
+    Status status =
+        e.context->AllocateOutput(e.output_index, output_shape, &e.output);
     if (!status.ok()) {
-      LOG(WARNING) << "AllgatherOp::AllocateOutput failed: "
-                   << status.reason();
+      LOG(WARNING) << "AllgatherOp::AllocateOutput failed: " << status.reason();
       return status;
     }
   }
@@ -350,7 +350,8 @@ ReducescatterOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
   for (size_t ec = 0; ec < entries.size(); ++ec) {
     auto& e = entries[ec];
     const auto& output_shape = output_shapes[ec];
-    Status status = e.context->AllocateOutput(output_shape, &e.output);
+    Status status =
+        e.context->AllocateOutput(e.output_index, output_shape, &e.output);
     if (!status.ok()) {
       LOG(WARNING) << "ReducescatterOp::AllocateOutput failed: "
                    << status.reason();

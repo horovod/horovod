@@ -210,6 +210,14 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
                               StatusCallback callback,
                               int32_t process_set_id = 0);
 
+Status
+EnqueueTensorAllgathers(std::vector<std::shared_ptr<OpContext>>& contexts,
+                        std::vector<std::shared_ptr<Tensor>>& tensors,
+                        std::vector<ReadyEventList>& ready_event_lists,
+                        std::vector<std::string>& names, int device,
+                        std::vector<StatusCallback>& callbacks,
+                        int32_t process_set_id = 0);
+
 Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,
                               std::shared_ptr<Tensor> output, int root_rank,
@@ -233,6 +241,15 @@ Status EnqueueTensorReducescatter(std::shared_ptr<OpContext> context,
                                   StatusCallback callback,
                                   ReduceOp reduce_op = ReduceOp::SUM,
                                   int32_t process_set_id = 0);
+
+Status
+EnqueueTensorReducescatters(std::vector<std::shared_ptr<OpContext>>& contexts,
+                            std::vector<std::shared_ptr<Tensor>>& tensors,
+                            std::vector<ReadyEventList>& ready_event_lists,
+                            std::vector<std::string>& names, int device,
+                            std::vector<StatusCallback>& callbacks,
+                            ReduceOp reduce_op = ReduceOp::SUM,
+                            int32_t process_set_id = 0);
 
 Status EnqueueJoin(std::shared_ptr<OpContext> context,
                    std::shared_ptr<Tensor> output_last_joined_rank,
