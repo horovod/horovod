@@ -140,6 +140,12 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
             else:
                 tf.random.set_seed(random_seed)
 
+        if LooseVersion(tf.__version__) >= LooseVersion('2.0.0'):
+            print("Disable TF2 behavior")
+            import tensorflow.compat.v1 as tf_compat
+
+            tf_compat.disable_v2_behavior()
+
         # If user specifies any user_shuffle_buffer_size (even 0), we should honor it.
         if user_shuffle_buffer_size is None:
             shuffle_buffer_size = calculate_shuffle_buffer_size(
