@@ -203,6 +203,16 @@ public:
                const Response& response) const override;
 
 protected:
+#if HAVE_GPU
+  void MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                            const int* displcmnts, int element_size,
+                            void*& buffer_data) override;
+
+  void MemcpyOutFusionBuffer(const int64_t* const* entry_component_offsets,
+                             const int64_t* const* entry_component_sizes,
+                             const void* buffer_data, int element_size,
+                             std::vector<TensorTableEntry>& entries) override;
+#endif
   void MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
                                  const TensorTableEntry& e,
                                  void* buffer_data_at_offset) override;

@@ -458,6 +458,73 @@ bool GPUAllgather::Enabled(const ParameterManager& param_manager,
   return entries[0].device != CPU_DEVICE_ID;
 }
 
+
+#if HAVE_GPU
+void GPUAllgather::MemcpyInFusionBuffer(
+    const std::vector<TensorTableEntry>& entries, const int* displcmnts,
+    int element_size, void*& buffer_data) {
+  // Access first entry for retrieving context
+  auto& first_entry = entries[0];
+  auto buffer = global_state_->fusion_buffer.GetBuffer(
+      first_entry.device, first_entry.context->framework(),
+      global_state_->current_nccl_stream);
+  buffer_data = const_cast<void*>(buffer->AccessData(first_entry.context));
+  auto& process_set =
+      global_state_->process_set_table.Get(first_entry.process_set_id);
+  int64_t offset = (int64_t)displcmnts[process_set.controller->GetRank()] *
+                   (int64_t)element_size;
+
+  if (global_state_->batch_d2d_memcopies) {
+    // enabled by default but can be modified via HOROVOD_BATCH_D2D_MEMCOPIES
+    // env var
+    int idx = 0;
+    int count = 0;
+    BatchedD2DParams d2d_params;
+    auto& first_entry = entries[0];
+    for (auto& e : entries) {
+      void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
+
+      // accumulate the buffered data
+      d2d_params.out[idx % BATCHED_D2D_CAPACITY] = buffer_data_at_offset;
+      d2d_params.in[idx % BATCHED_D2D_CAPACITY] = (void*)e.tensor->data();
+      d2d_params.sizes[idx % BATCHED_D2D_CAPACITY] = e.tensor->size();
+
+
+      offset += e.tensor->size();
+      idx++;
+      count++;
+
+      if (idx % BATCHED_D2D_CAPACITY == 0 || idx == (int)entries.size()) {
+        // do the batched d2d memcopies of all the accumulated entries
+#if HAVE_CUDA
+        BatchedD2DMemcpyCudaImpl(
+            d2d_params, count,
+            gpu_context_->streams[global_state_->current_nccl_stream]
+                                 [first_entry.device]);
+#elif HAVE_ROCM
+        BatchedD2DMemcpyROCmImpl(
+            d2d_params, count,
+            gpu_context_->streams[global_state_->current_nccl_stream]
+                                 [first_entry.device]);
+#endif
+        // (kvignesh142): Keeping in sync with all-reduce based implementation
+        // TODO: https://github.com/horovod/horovod/issues/2230
+        // gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl",
+        // cudaGetLastError());
+        count = 0;
+      }
+    }
+  } else {
+    // use the default AllgatherOps implementation
+    for (auto& e : entries) {
+      void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
+      MemcpyEntryInFusionBuffer(entries, e, buffer_data_at_offset);
+      offset += e.tensor->size();
+    }
+  }
+}
+#endif
+
 void GPUAllgather::MemcpyEntryInFusionBuffer(
     const std::vector<TensorTableEntry>& entries, const TensorTableEntry& e,
     void* buffer_data_at_offset) {
@@ -467,6 +534,102 @@ void GPUAllgather::MemcpyEntryInFusionBuffer(
       gpu_context_
           ->streams[global_state_->current_nccl_stream][first_entry.device]);
 }
+
+#if HAVE_GPU
+void GPUAllgather::MemcpyOutFusionBuffer(
+    const int64_t* const* entry_component_offsets,
+    const int64_t* const* entry_component_sizes, const void* buffer_data,
+    int element_size, std::vector<TensorTableEntry>& entries) {
+
+  if (global_state_->batch_d2d_memcopies) {
+
+    int idx = 0;
+    int count = 0;
+
+    BatchedD2DParams d2d_params;
+    auto& first_entry = entries[0];
+
+    for (size_t ec = 0; ec < entries.size(); ec++) {
+      auto& e = entries[ec];
+      auto& process_set =
+          global_state_->process_set_table.Get(e.process_set_id);
+      int global_size = process_set.controller->GetSize();
+      int64_t copy_offset = 0;
+      for (int rc = 0; rc < global_size; rc++) {
+        int64_t entry_offset = entry_component_offsets[ec][rc] * element_size;
+        int64_t entry_size = entry_component_sizes[ec][rc] * element_size;
+        void* buffer_data_at_offset = (uint8_t*)buffer_data + entry_offset;
+
+        // populate the d2d params for blocked mem copies
+        d2d_params.out[idx % BATCHED_D2D_CAPACITY] =
+            (int8_t*)e.output->data() + copy_offset;
+        d2d_params.in[idx % BATCHED_D2D_CAPACITY] = buffer_data_at_offset;
+        d2d_params.sizes[idx % BATCHED_D2D_CAPACITY] = entry_size;
+
+        copy_offset += entry_size;
+        idx++;
+        count++;
+
+        if (idx % BATCHED_D2D_CAPACITY == 0) {
+
+#if HAVE_CUDA
+          BatchedD2DMemcpyCudaImpl(
+              d2d_params, count,
+              gpu_context_->streams[global_state_->current_nccl_stream]
+                                   [first_entry.device]);
+#elif HAVE_ROCM
+          BatchedD2DMemcpyROCmImpl(
+              d2d_params, count,
+              gpu_context_->streams[global_state_->current_nccl_stream]
+                                   [first_entry.device]);
+#endif
+          // (kvignesh142): Keeping in sync with all-reduce based implementation
+          // TODO: https://github.com/horovod/horovod/issues/2230
+          // gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl",
+          // cudaGetLastError());
+          count = 0;
+        }
+      }
+    }
+    // handle any leftover entries
+    if (count != 0) {
+#if HAVE_CUDA
+      BatchedD2DMemcpyCudaImpl(
+          d2d_params, count,
+          gpu_context_->streams[global_state_->current_nccl_stream]
+                                [first_entry.device]);
+#elif HAVE_ROCM
+      BatchedD2DMemcpyROCmImpl(
+          d2d_params, count,
+          gpu_context_->streams[global_state_->current_nccl_stream]
+                                [first_entry.device]);
+#endif
+      // (kvignesh142): Keeping in sync with all-reduce based implementation
+      // TODO: https://github.com/horovod/horovod/issues/2230
+      // gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl",
+      // cudaGetLastError());
+    }
+  } else {
+    // use the default AllgatherOps implementation
+    for (size_t ec = 0; ec < entries.size(); ++ec) {
+      auto& e = entries[ec];
+      auto& process_set =
+          global_state_->process_set_table.Get(e.process_set_id);
+      int global_size = process_set.controller->GetSize();
+      int64_t copy_offset = 0;
+      for (int rc = 0; rc < global_size; ++rc) {
+        int64_t entry_offset = entry_component_offsets[ec][rc] * element_size;
+        int64_t entry_size = entry_component_sizes[ec][rc] * element_size;
+        const void* buffer_data_at_offset =
+            (uint8_t*)buffer_data + entry_offset;
+        MemcpyEntryOutFusionBuffer(entries, buffer_data_at_offset, e,
+                                   copy_offset, entry_size);
+        copy_offset += entry_size;
+      }
+    }
+  }
+}
+#endif
 
 void GPUAllgather::MemcpyEntryOutFusionBuffer(
     const std::vector<TensorTableEntry>& entries,
