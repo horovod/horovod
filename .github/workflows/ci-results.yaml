@@ -301,7 +301,7 @@ jobs:
         shell: bash
 
       - name: Publish Unit Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v1
+        uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
         with:
           check_name: Unit Test Results
@@ -311,7 +311,7 @@ jobs:
           files: "${{ env.LAST_RUNS }}"
 
       - name: Publish Unit Test Results (with flaky tests)
-        uses: EnricoMi/publish-unit-test-result-action@v1
+        uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
         with:
           check_name: Unit Test Results (with flaky tests)
