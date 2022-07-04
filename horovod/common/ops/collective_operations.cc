@@ -191,6 +191,8 @@ Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
 
     Status status = e.context->AllocateOutput(output_shape, &e.output);
     if (!status.ok()) {
+      LOG(WARNING) << "AllgatherOp::AllocateOutput failed: "
+                   << status.reason();
       return status;
     }
   }
@@ -342,13 +344,16 @@ std::vector<int> ReducescatterOp::ComputeReceiveCounts(
   return recvcounts;
 }
 
-Status ReducescatterOp::AllocateOutput(
-    std::vector<TensorTableEntry>& entries, const std::vector<TensorShape>& output_shapes) {
+Status
+ReducescatterOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
+                                const std::vector<TensorShape>& output_shapes) {
   for (size_t ec = 0; ec < entries.size(); ++ec) {
     auto& e = entries[ec];
     const auto& output_shape = output_shapes[ec];
     Status status = e.context->AllocateOutput(output_shape, &e.output);
     if (!status.ok()) {
+      LOG(WARNING) << "ReducescatterOp::AllocateOutput failed: "
+                   << status.reason();
       return status;
     }
   }

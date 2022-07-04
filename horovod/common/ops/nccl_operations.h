@@ -180,6 +180,9 @@ protected:
     std::shared_ptr<ReadyEvent> event;
     Status status = e.context->AllocateOutput(output_shape, &e.output, &event);
     if (!status.ok()) {
+      LOG(WARNING)
+          << "NCCLAlltoall::PrepareOutputAndParams failed to allocate output: "
+          << status.reason();
       return status;
     }
 
@@ -197,6 +200,9 @@ protected:
                                                &e.received_splits,
                                                &revent);
     if (!rstatus.ok()) {
+      LOG(WARNING) << "NCCLAlltoall::PrepareOutputAndParams failed to allocate "
+                      "received_splits: "
+                   << status.reason();
       return rstatus;
     }
 

@@ -625,6 +625,8 @@ Status NCCLAllgather::AllocateOutput(std::vector<TensorTableEntry>& entries,
     std::shared_ptr<ReadyEvent> event;
     Status status = e.context->AllocateOutput(output_shape, &e.output, &event);
     if (!status.ok()) {
+      LOG(WARNING) << "NCCLAllgather::AllocateOutput failed: "
+                   << status.reason();
       return status;
     }
 
@@ -1011,6 +1013,8 @@ Status NCCLReducescatter::AllocateOutput(
     std::shared_ptr<ReadyEvent> event;
     Status status = e.context->AllocateOutput(output_shape, &e.output, &event);
     if (!status.ok()) {
+      LOG(WARNING) << "NCCLReducescatter::AllocateOutput failed: "
+                   << status.reason();
       return status;
     }
 
