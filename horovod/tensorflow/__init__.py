@@ -206,6 +206,35 @@ def grouped_allreduce(tensors, average=None, device_dense='', device_sparse='',
                       compression=Compression.none, op=None,
                       prescale_factor=1.0, postscale_factor=1.0,
                       process_set=global_process_set):
+    """Perform grouped allreduces on a sequence of tf.Tensor or tf.IndexedSlices.
+
+    Arguments:
+        tensors: Sequence of tf.Tensor, tf.Variable, or tf.IndexedSlices to reduce.
+                 The tensor type and shape must be the same on all Horovod processes
+                 for tensors sharing positions in `tensors`.
+        average:
+            .. warning:: .. deprecated:: 0.19.0
+
+                Use `op` instead. Will be removed in v1.0.
+
+        device_dense: Device to be used for dense tensors. Uses GPU by default
+                      if Horovod was built with HOROVOD_GPU_OPERATIONS.
+        device_sparse: Device to be used for sparse tensors. Uses GPU by default
+                       if Horovod was built with HOROVOD_GPU_OPERATIONS.
+        compression: Compression algorithm used to reduce the amount of data
+                     sent and received by each worker node.  Defaults to not
+                     using compression.
+        op: The reduction operation to combine tensors across different ranks.
+            Defaults to Average if None is given.
+        prescale_factor: Multiplicative factor to scale tensors before allreduce.
+        postscale_factor: Multiplicative factor to scale tensors after allreduce.
+        process_set: Process set object to limit this operation to a subset of
+            Horovod processes. Default is the global process set.
+
+    Returns:
+        A list of tensors of the same shape and type as those in `tensors`,
+        reduced across all processes.
+    """
     if not tensors:
         return tensors
 
@@ -318,6 +347,30 @@ def _grouped_allreduce_cond(tensors, *args, process_set=global_process_set, **kw
 
 def grouped_reducescatter(tensors, device_dense='', compression=Compression.none, op=Average,
                           process_set=global_process_set):
+    """Perform grouped reducescatters on a sequence of tf.Tensor.
+
+    Arguments:
+        tensors: Sequence of tf.Tensor or tf.Variable to reduce.
+                 The shape must be the same on all Horovod processes
+                 for inputs sharing positions in `tensors`.
+        device_dense: Device to be used for dense tensors. Uses GPU by default
+                      if Horovod was built with HOROVOD_GPU_OPERATIONS.
+        device_sparse: Device to be used for sparse tensors. Uses GPU by default
+                       if Horovod was built with HOROVOD_GPU_OPERATIONS.
+        compression: Compression algorithm used to reduce the amount of data
+                     sent and received by each worker node.  Defaults to not
+                     using compression.
+        op: The reduction operation to combine tensors across different ranks.
+            Defaults to Average if None is given.
+        process_set: Process set object to limit this operation to a subset of
+            Horovod processes. Default is the global process set.
+
+    Returns:
+        A list of tensors of the same rank and type as those in `tensors`,
+        reduced across all processes. For each returned tensor the shape is
+        identical to the corresponding input shape, except for the first
+        dimension, which will be divided across the different Horovod processes.
+    """
     if not tensors:
         return tensors
     # Averaging happens in framework code, so translate that to Sum for the actual call
