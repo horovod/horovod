@@ -24,18 +24,18 @@ endif()
 
 execute_process(COMMAND ${PY_EXE} -c "import torch; from torch.utils.cpp_extension import CUDA_HOME; print(True if ((torch.version.cuda is not None) and (CUDA_HOME is not None)) else False)"
                 OUTPUT_VARIABLE Pytorch_CUDA OUTPUT_STRIP_TRAILING_WHITESPACE)
-string(REGEX REPLACE "No CUDA runtime[^\n]*\n?" "" Pytorch_CUDA "${Pytorch_CUDA}")
+string(REGEX REPLACE "No (CUDA|ROCm) runtime[^\n]*\n?" "" Pytorch_CUDA "${Pytorch_CUDA}")
 string(TOUPPER "${Pytorch_CUDA}" Pytorch_CUDA)
 
 execute_process(COMMAND ${PY_EXE} -c "import torch; from torch.utils.cpp_extension import ROCM_HOME; print(True if ((torch.version.hip is not None) and (ROCM_HOME is not None)) else False)"
                 OUTPUT_VARIABLE Pytorch_ROCM OUTPUT_STRIP_TRAILING_WHITESPACE)
-string(REGEX REPLACE "No CUDA runtime[^\n]*\n?" "" Pytorch_ROCM "${Pytorch_ROCM}")
+string(REGEX REPLACE "No (CUDA|ROCm) runtime[^\n]*\n?" "" Pytorch_ROCM "${Pytorch_ROCM}")
 string(TOUPPER "${Pytorch_ROCM}" Pytorch_ROCM)
 
 if(Pytorch_ROCM)
     execute_process(COMMAND ${PY_EXE} -c "from torch.utils.cpp_extension import COMMON_HIPCC_FLAGS; print(' '.join(COMMON_HIPCC_FLAGS))"
                     OUTPUT_VARIABLE _Pytorch_ROCM_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
-    string(REGEX REPLACE "No CUDA runtime[^\n]*\n?" "" _Pytorch_ROCM_FLAGS "${_Pytorch_ROCM_FLAGS}")
+    string(REGEX REPLACE "No (CUDA|ROCm) runtime[^\n]*\n?" "" _Pytorch_ROCM_FLAGS "${_Pytorch_ROCM_FLAGS}")
     set(Pytorch_COMPILE_FLAGS "${_Pytorch_ROCM_FLAGS}")
 endif()
 
