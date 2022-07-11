@@ -27,12 +27,17 @@ from typing import Mapping, Sequence, Tuple, Any, Optional
 import tensorflow as tf
 
 import horovod.tensorflow as hvd
+from horovod.tensorflow.elastic import TensorFlowState
 from horovod.runner.common.service.compute_service import ComputeClient
+from horovod.tensorflow.functions import broadcast_object, broadcast_object_fn, broadcast_variables
+from horovod.runner.common.util.address import local_addresses
 
 
 @dataclasses.dataclass(frozen=True)
 class TfDataServiceConfig:
     dispatchers: int
+    dispatchers_work_dir: Optional[str]
+    dispatchers_nic: str
     workers_per_dispatcher: int
     dispatcher_side: str
     addresses: Mapping[str, Sequence[Tuple[str, int]]]
@@ -56,6 +61,8 @@ class TfDataServiceConfig:
 
         return TfDataServiceConfig(
             dispatchers=config.get('dispatchers'),
+            dispatchers_work_dir=config.get('dispatchers_work_dir'),
+            dispatchers_nic=config.get('dispatchers_nic'),
             workers_per_dispatcher=config.get('workers_per_dispatcher'),
             dispatcher_side=config.get('dispatcher_side'),
             addresses=config.get('addresses'),
@@ -96,15 +103,13 @@ def tf_data_service(compute_config: TfDataServiceConfig, rank: int) -> str:
     dispatcher_server = None
     if compute_config.dispatcher_side == 'training':
         if compute_config.dispatchers > 1 or compute_config.dispatchers == 1 and rank == 0:
-            if compute_config.dispatchers == 1:
-                logging.info(f"Setting up Dispatcher for all tasks")
-            else:
-                logging.info(f"Setting up Dispatcher for task {rank}")
-
-            dispatcher_server = tf.data.experimental.service.DispatchServer()
-            logging.debug(f"Registering Dispatcher {rank} at {dispatcher_server.target}")
-            compute.register_dispatcher(rank, dispatcher_server.target)
-            logging.info(f"Registered Dispatcher {rank} at {dispatcher_server.target}")
+            dispatcher_server = start_and_register_dispatcher(
+                compute_config.dispatchers,
+                rank,
+                compute_config.dispatchers_work_dir,
+                compute_config.dispatchers_nic,
+                compute
+            )
 
     dispatcher_id = rank if compute_config.dispatchers > 1 else 0
     dispatcher_address = compute.wait_for_dispatcher_registration(dispatcher_id, compute_config.timeout)
@@ -144,6 +149,37 @@ def send_to_data_service(dataset: tf.data.Dataset,
 tf.data.Dataset.send_to_data_service = send_to_data_service
 
 
+def start_and_register_dispatcher(dispatchers: int,
+                                  dispatcher_index: int,
+                                  work_dir_root: Optional[str],
+                                  dispatcher_nic: str,
+                                  compute: ComputeClient) -> tf.data.experimental.service.DispatchServer:
+    if dispatchers == 1:
+        logging.info(f"Setting up Dispatcher for all tasks")
+    else:
+        logging.info(f"Setting up Dispatcher for task {dispatcher_index}")
+
+    # need to know the local address of the nic that is used to reach the dispatchers
+    address = local_addresses([dispatcher_nic])[dispatcher_nic][0]
+
+    work_dir = str(Path(work_dir_root).resolve() / f'dispatcher-{dispatcher_index}') if work_dir_root else None
+    print(f'dispatcher work dir: {work_dir}')
+    dispatcher_config = tf.data.experimental.service.DispatcherConfig(
+        work_dir=work_dir,
+        fault_tolerant_mode=work_dir is not None
+    )
+    dispatcher_server = tf.data.experimental.service.DispatchServer(dispatcher_config)
+
+    # the dispatcher_server.target is usually hardcoded to localhost, but we need a address reachable from other hosts
+    target = "{0}://{1}:{2}".format(dispatcher_server._config.protocol, address, dispatcher_server._server.bound_port())
+
+    logging.debug(f"Registering Dispatcher {dispatcher_index} at {target}")
+    compute.register_dispatcher(dispatcher_index, target)
+    logging.info(f"Registered Dispatcher {dispatcher_index} at {target}")
+
+    return dispatcher_server
+
+
 def compute_worker_fn(compute_config: TfDataServiceConfig):
     """ Function run on the compute tasks providing tf dispatcher and worker server. """
     hvd.init()
@@ -157,15 +193,13 @@ def compute_worker_fn(compute_config: TfDataServiceConfig):
     # Create dispatcher for train task
     dispatcher_server = None
     if compute_config.dispatcher_side == 'compute' and index % compute_config.workers_per_dispatcher == 0:
-        if compute_config.dispatchers == 1:
-            logging.info(f"Setting up Dispatcher for all tasks")
-        else:
-            logging.info(f"Setting up Dispatcher for task {dispatcher_index}")
-
-        dispatcher_server = tf.data.experimental.service.DispatchServer()
-        logging.debug(f"Registering Dispatcher {dispatcher_index} at {dispatcher_server.target}")
-        compute.register_dispatcher(dispatcher_index, dispatcher_server.target)
-        logging.info(f"Registered Dispatcher {dispatcher_index} at {dispatcher_server.target}")
+        dispatcher_server = start_and_register_dispatcher(
+            compute_config.dispatchers,
+            dispatcher_index,
+            compute_config.dispatchers_work_dir,
+            compute_config.dispatchers_nic,
+            compute
+        )
 
     # Get dispatcher for the worker
     logging.debug(f'Waiting for dispatcher {dispatcher_index} for worker {index}')
@@ -174,8 +208,11 @@ def compute_worker_fn(compute_config: TfDataServiceConfig):
 
     # Create worker
     logging.debug(f"Setting up worker for dispatcher {dispatcher_index}")
+    worker_address = local_addresses(compute_config.dispatchers_nic)[compute_config.dispatchers_nic][0]
     worker_config = tf.data.experimental.service.WorkerConfig(
+        protocol=dispatcher_address.split("://")[0],
         dispatcher_address=dispatcher_address.split("://")[1],
+        worker_address='{}:%port%'.format(worker_address),
         heartbeat_interval_ms=1000,
         dispatcher_timeout_ms=compute_config.timeout * 1000)
     worker_server = tf.data.experimental.service.WorkerServer(worker_config)
@@ -188,10 +225,23 @@ def compute_worker_fn(compute_config: TfDataServiceConfig):
     compute.register_worker_for_dispatcher(dispatcher_index, index)
     logging.info(f"Worker for dispatcher {dispatcher_index} registered")
 
+    @hvd.elastic.run
+    def wait_for_shutdown(state):
+        # Run until the compute service shuts down
+        while compute.is_running():
+            # the broadcast makes sure we identify lost workers and re-shape the elastic job
+            with tf.device(f'/cpu:0'):
+                broadcast_object(time.time_ns(), root_rank=0, name="time")
+            time.sleep(1)
+
     # Wait until the compute service shuts down
-    logging.debug(f"Waiting for shutdown request")
-    compute.wait_for_shutdown()
-    logging.debug(f"Shutdown requested")
+    if os.environ.get('HOROVOD_ELASTIC', 0):
+        state = TensorFlowState()
+        wait_for_shutdown(state)
+    else:
+        logging.debug(f"Waiting for shutdown request")
+        compute.wait_for_shutdown()
+        logging.debug(f"Shutdown requested")
 
     # stop the servers
     # there is currently no other way to stop the worker server

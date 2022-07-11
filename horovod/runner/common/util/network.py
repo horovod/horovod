@@ -13,25 +13,22 @@
 # limitations under the License.
 # ==============================================================================
 import pickle
-import psutil
 import queue
+import shutil
 import socket
 import socketserver
 import struct
-import shutil
 
 import cloudpickle
+import psutil
 
-from horovod.runner.util.threads import in_thread
 from horovod.runner.common.util import secret
+from horovod.runner.common.util.address import local_addresses, NoValidAddressesFound
 from horovod.runner.util.network import find_port
+from horovod.runner.util.threads import in_thread
 
 
 class PingRequest(object):
-    pass
-
-
-class NoValidAddressesFound(Exception):
     pass
 
 
@@ -109,7 +106,7 @@ class BasicService(object):
                 addr, self._make_handler()))
         self._server._block_on_close = True
         self._port = self._server.socket.getsockname()[1]
-        self._addresses = self._get_local_addresses()
+        self._addresses = local_addresses(self._nics, self._port)
         self._thread = in_thread(target=self._server.serve_forever)
 
     def _make_handler(self):
@@ -144,21 +141,6 @@ class BasicService(object):
             return PingResponse(self._service_name, client_address[0])
 
         raise NotImplementedError(req)
-
-    def _get_local_addresses(self):
-        result = {}
-        for intf, intf_addresses in psutil.net_if_addrs().items():
-            if self._nics and intf not in self._nics:
-                continue
-            for addr in intf_addresses:
-                if addr.family == socket.AF_INET:
-                    if intf not in result:
-                        result[intf] = []
-                    result[intf].append((addr.address, self._port))
-        if not result and self._nics:
-            raise NoValidAddressesFound(
-                'No available network interface found matching user provided interface: {}'.format(self._nics))
-        return result
 
     def addresses(self):
         return self._addresses.copy()

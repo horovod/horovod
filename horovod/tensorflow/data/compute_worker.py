@@ -14,8 +14,7 @@
 # ==============================================================================
 
 import argparse
-
-import tensorflow as tf
+from typing import Optional
 
 import horovod.tensorflow as hvd
 from horovod.runner.common.service.compute_service import ComputeService
@@ -23,7 +22,12 @@ from horovod.runner.common.util import secret
 from horovod.tensorflow.data.compute_service import TfDataServiceConfig, compute_worker_fn
 
 
-def main(dispatchers: int, dispatcher_side: str, configfile: str, timeout: int):
+def main(dispatchers: int,
+         dispatchers_work_dir: Optional[str],
+         dispatchers_nic: str,
+         dispatcher_side: str,
+         configfile: str,
+         timeout: int):
     hvd.init()
     rank, size = hvd.rank(), hvd.size()
 
@@ -38,10 +42,15 @@ def main(dispatchers: int, dispatcher_side: str, configfile: str, timeout: int):
 
         if rank == 0:
             key = secret.make_secret_key()
-            compute = ComputeService(dispatchers, workers_per_dispatcher, key=key)
+            compute = ComputeService(dispatchers,
+                                     workers_per_dispatcher,
+                                     fault_tolerant=dispatchers_work_dir is not None,
+                                     key=key)
 
             compute_config = TfDataServiceConfig(
                 dispatchers=dispatchers,
+                dispatchers_work_dir=dispatchers_work_dir,
+                dispatchers_nic=dispatchers_nic,
                 workers_per_dispatcher=workers_per_dispatcher,
                 dispatcher_side=dispatcher_side,
                 addresses=compute.addresses(),
@@ -49,10 +58,8 @@ def main(dispatchers: int, dispatcher_side: str, configfile: str, timeout: int):
                 timeout=timeout
             )
             compute_config.write(configfile)
-
-        # broadcast this config to all ranks via CPU ops
-        with tf.device(f'/cpu:0'):
-            compute_config = hvd.broadcast_object(compute_config, name='TfDataServiceConfig')
+        else:
+            compute_config = TfDataServiceConfig.read(configfile, wait_for_file_creation=True)
 
         # start all compute workers
         compute_worker_fn(compute_config)
@@ -71,6 +78,14 @@ if __name__ == '__main__':
                         help=f"The number of dispatcher to support.",
                         dest="dispatchers")
 
+    parser.add_argument("--dispatchers-work-dir", required=False, default='None', type=str,
+                        help=f"The path to dispatchers working directories. Setting this enables fault tolerance mode.",
+                        dest="dispatchers_work_dir")
+
+    parser.add_argument("--dispatchers-nic", required=True, type=str,
+                        help=f"The network interface (NIC) to reach the dispatchers.",
+                        dest="dispatchers_nic")
+
     parser.add_argument("--dispatcher-side", required=False, default='compute', type=str,
                         help=f"Where do the dispatcher run? On 'compute' side or 'training' side.",
                         dest="dispatcher_side")
@@ -80,4 +95,9 @@ if __name__ == '__main__':
                         dest="timeout")
 
     parsed_args = parser.parse_args()
-    main(parsed_args.dispatchers, parsed_args.dispatcher_side, parsed_args.configfile, parsed_args.timeout)
+    main(parsed_args.dispatchers,
+         parsed_args.dispatchers_work_dir,
+         parsed_args.dispatchers_nic,
+         parsed_args.dispatcher_side,
+         parsed_args.configfile,
+         parsed_args.timeout)

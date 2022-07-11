@@ -14,9 +14,9 @@
 # ==============================================================================
 
 import threading
+from typing import Optional
 
 from horovod.runner.common.util import timeout, network
-from horovod.runner.common.util.network import AckResponse
 from horovod.runner.common.util.timeout import TimeoutException
 from horovod.runner.util.threads import in_thread
 
@@ -97,7 +97,7 @@ ComputeClient is used to query and change the internal state of the ComputeServi
 class ComputeService(network.BasicService):
     NAME = "Compute service"
 
-    def __init__(self, dispatchers, workers_per_dispatcher, key, nics=None):
+    def __init__(self, dispatchers, workers_per_dispatcher, fault_tolerant, key, nics=None):
         if dispatchers <= 0:
             raise ValueError(f'The number of dispatchers must be larger than 0: {dispatchers}')
         if workers_per_dispatcher <= 0:
@@ -106,6 +106,7 @@ class ComputeService(network.BasicService):
         self._max_dispatcher_id = dispatchers - 1
         self._dispatcher_addresses = [None] * dispatchers
         self._workers_per_dispatcher = workers_per_dispatcher
+        self._fault_tolerant = fault_tolerant
         self._dispatcher_worker_ids = [set()] * dispatchers
         self._shutdown = False
         self._wait_cond = threading.Condition()
@@ -122,9 +123,16 @@ class ComputeService(network.BasicService):
 
                 if self._dispatcher_addresses[req.dispatcher_id] is not None and \
                    self._dispatcher_addresses[req.dispatcher_id] != req.dispatcher_address:
-                    return ValueError(f'Dispatcher with id {req.dispatcher_id} has already been registered under '
-                                      f'different address {self._dispatcher_addresses[req.dispatcher_id]}: '
-                                      f'{req.dispatcher_address}')
+                    if not self._fault_tolerant:
+                        return ValueError(f'Dispatcher with id {req.dispatcher_id} has already been registered under '
+                                          f'different address {self._dispatcher_addresses[req.dispatcher_id]}: '
+                                          f'{req.dispatcher_address}')
+
+                    print(f'Registering new dispatcher with id {req.dispatcher_id} and '
+                          f'new address {req.dispatcher_address}, '
+                          f'old address was {self._dispatcher_addresses[req.dispatcher_id]}')
+                else:
+                    print(f'Registering dispatcher with id {req.dispatcher_id} and address {req.dispatcher_address}')
 
                 self._dispatcher_addresses[req.dispatcher_id] = req.dispatcher_address
                 self._wait_cond.notify_all()
@@ -221,6 +229,9 @@ class ComputeClient(network.BasicClient):
     def __init__(self, compute_addresses, key, verbose=1):
         super().__init__(ComputeService.NAME, compute_addresses, key, verbose)
 
+        self._wait_for_shutdown_cond = threading.Condition()
+        self._wait_for_shutdown_thread: Optional[Thread] = None
+
     def register_dispatcher(self, dispatcher_id, dispatcher_address):
         self._send(RegisterDispatcherRequest(dispatcher_id, dispatcher_address))
 
@@ -239,6 +250,20 @@ class ComputeClient(network.BasicClient):
 
     def wait_for_shutdown(self):
         self._send(WaitForShutdownRequest())
+
+    def is_running(self) -> bool:
+        # quick check without the thread condition
+        if self._wait_for_shutdown_thread is None:
+            self._wait_for_shutdown_cond.acquire()
+            try:
+                # we have to test this again because another thread might have created the thread after above check
+                if self._wait_for_shutdown_thread is None:
+                    self._wait_for_shutdown_thread = in_thread(self.wait_for_shutdown)
+            finally:
+                self._wait_for_shutdown_cond.release()
+
+        # as long as the thread is alive the compute service is running
+        return self._wait_for_shutdown_thread.is_alive()
 
     def _send(self, req, stream=None):
         """Raise exceptions that we retrieve for any request."""
