@@ -35,10 +35,6 @@ if __name__ == '__main__':
                         help=f"The number of dispatcher to support.",
                         dest="dispatchers")
 
-    parser.add_argument("--dispatchers-work-dir", required=False, default=None, type=str,
-                        help=f"The path to dispatchers working directories. Setting this enables fault tolerance mode.",
-                        dest="dispatchers_work_dir")
-
     parser.add_argument("--dispatchers-nic", required=True, type=str,
                         help=f"The network interface (NIC) to reach the dispatchers.",
                         dest="dispatchers_nic")
@@ -63,7 +59,6 @@ if __name__ == '__main__':
 
     compute_config = TfDataServiceConfig(
         dispatchers=parsed_args.dispatchers,
-        dispatchers_work_dir=parsed_args.dispatchers_work_dir,
         dispatchers_nic=parsed_args.dispatchers_nic,
         workers_per_dispatcher=workers_per_dispatcher,
         dispatcher_side=parsed_args.dispatcher_side,

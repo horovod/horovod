@@ -36,7 +36,6 @@ from horovod.runner.common.util.address import local_addresses
 @dataclasses.dataclass(frozen=True)
 class TfDataServiceConfig:
     dispatchers: int
-    dispatchers_work_dir: Optional[str]
     dispatchers_nic: str
     workers_per_dispatcher: int
     dispatcher_side: str
@@ -61,7 +60,6 @@ class TfDataServiceConfig:
 
         return TfDataServiceConfig(
             dispatchers=config.get('dispatchers'),
-            dispatchers_work_dir=config.get('dispatchers_work_dir'),
             dispatchers_nic=config.get('dispatchers_nic'),
             workers_per_dispatcher=config.get('workers_per_dispatcher'),
             dispatcher_side=config.get('dispatcher_side'),
@@ -106,7 +104,6 @@ def tf_data_service(compute_config: TfDataServiceConfig, rank: int) -> str:
             dispatcher_server = start_and_register_dispatcher(
                 compute_config.dispatchers,
                 rank,
-                compute_config.dispatchers_work_dir,
                 compute_config.dispatchers_nic,
                 compute
             )
@@ -151,7 +148,6 @@ tf.data.Dataset.send_to_data_service = send_to_data_service
 
 def start_and_register_dispatcher(dispatchers: int,
                                   dispatcher_index: int,
-                                  work_dir_root: Optional[str],
                                   dispatcher_nic: str,
                                   compute: ComputeClient) -> 'tf.data.experimental.service.DispatchServer':
     if dispatchers == 1:
@@ -162,13 +158,8 @@ def start_and_register_dispatcher(dispatchers: int,
     # need to know the local address of the nic that is used to reach the dispatchers
     address = local_addresses([dispatcher_nic])[dispatcher_nic][0]
 
-    work_dir = str(Path(work_dir_root).resolve() / f'dispatcher-{dispatcher_index}') if work_dir_root else None
-    print(f'dispatcher work dir: {work_dir}')
-    dispatcher_config = tf.data.experimental.service.DispatcherConfig(
-        work_dir=work_dir,
-        fault_tolerant_mode=work_dir is not None
-    )
-    dispatcher_server = tf.data.experimental.service.DispatchServer(dispatcher_config)
+    # start the dispatch server
+    dispatcher_server = tf.data.experimental.service.DispatchServer()
 
     # the dispatcher_server.target is usually hardcoded to localhost, but we need a address reachable from other hosts
     target = "{0}://{1}:{2}".format(dispatcher_server._config.protocol, address, dispatcher_server._server.bound_port())
@@ -196,7 +187,6 @@ def compute_worker_fn(compute_config: TfDataServiceConfig):
         dispatcher_server = start_and_register_dispatcher(
             compute_config.dispatchers,
             dispatcher_index,
-            compute_config.dispatchers_work_dir,
             compute_config.dispatchers_nic,
             compute
         )
