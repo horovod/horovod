@@ -13,8 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 
+import socket
 import unittest
 
+import mock
+
+from horovod.runner.common.util.address import local_addresses, NoValidAddressesFound
 from horovod.runner.util.streams import Pipe
 from horovod.runner.util.threads import in_thread
 
@@ -147,3 +151,44 @@ class UtilTests(unittest.TestCase):
         self.assertEqual(b'\x80\xe2\x88\x81', pipe.read(4))
         self.assertEqual(b'\xe2\x88\x82\xe2\x88\x83\xe2\x88', pipe.read(8))
         self.assertEqual(b'\x84\xe2\x88\x85', pipe.read())
+
+    def test_local_addresses(self):
+        addresses = {
+            'lo': [
+                mock.MagicMock(family=socket.AF_INET, address='127.0.0.1'),
+                mock.MagicMock(family=socket.AF_INET6, address='::1'),
+                mock.MagicMock(family=socket.AF_PACKET, address='00:00:00:00:00:00'),
+            ],
+            'eth0': [
+                mock.MagicMock(family=socket.AF_INET, address='192.168.1.115'),
+                mock.MagicMock(family=socket.AF_INET6, address='0123::4567:890a:bcde:f012%eth0'),
+                mock.MagicMock(family=socket.AF_PACKET, address='01:23:45:67:89:ab'),
+            ],
+            'tun0': [
+                mock.MagicMock(family=socket.AF_INET, address='10.0.0.1')
+            ]
+        }
+
+        for port in None, 1234:
+            for nics, expected in [
+                (None, {'lo': ['127.0.0.1'], 'eth0': ['192.168.1.115'], 'tun0': ['10.0.0.1']}),
+                ({}, {'lo': ['127.0.0.1'], 'eth0': ['192.168.1.115'], 'tun0': ['10.0.0.1']}),
+                (['lo'], {'lo': ['127.0.0.1']}),
+                (['eth0', 'tun0'], {'eth0': ['192.168.1.115'], 'tun0': ['10.0.0.1']}),
+                (['eth1'], NoValidAddressesFound("No available network interface found matching user "
+                                                 "provided interfaces ['eth1'], existing nics: ['lo', 'eth0', 'tun0']"))
+            ]:
+                with self.subTest(nics=nics, port=port):
+                    with mock.patch('horovod.runner.common.util.address.psutil.net_if_addrs', return_value=addresses):
+                        if isinstance(expected, Exception):
+                            with self.assertRaises(type(expected)) as e:
+                                local_addresses(nics=nics, port=port)
+
+                            self.assertEqual(expected.args, e.exception.args)
+                        else:
+                            if port is not None:
+                                # when port is given, addresses are tuple of address and that port
+                                expected = {nic: [(addr, port) for addr in addrs]
+                                            for nic, addrs in expected.items()}
+
+                            self.assertEqual(expected, local_addresses(nics=nics, port=port))

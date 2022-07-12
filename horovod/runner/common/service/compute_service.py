@@ -97,7 +97,7 @@ ComputeClient is used to query and change the internal state of the ComputeServi
 class ComputeService(network.BasicService):
     NAME = "Compute service"
 
-    def __init__(self, dispatchers, workers_per_dispatcher, fault_tolerant, key, nics=None):
+    def __init__(self, dispatchers, workers_per_dispatcher, key, fault_tolerant=False, nics=None):
         if dispatchers <= 0:
             raise ValueError(f'The number of dispatchers must be larger than 0: {dispatchers}')
         if workers_per_dispatcher <= 0:
@@ -258,7 +258,7 @@ class ComputeClient(network.BasicClient):
             try:
                 # we have to test this again because another thread might have created the thread after above check
                 if self._wait_for_shutdown_thread is None:
-                    self._wait_for_shutdown_thread = in_thread(self.wait_for_shutdown)
+                    self._wait_for_shutdown_thread = in_thread(self.wait_for_shutdown, daemon=True)
             finally:
                 self._wait_for_shutdown_cond.release()
 

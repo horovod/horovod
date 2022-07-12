@@ -68,6 +68,7 @@ class ComputeServiceTest(unittest.TestCase):
                     # create thread waiting for shutdown
                     shutdown = Queue()
                     shutdown_thread = self.wait_for_shutdown(client, shutdown)
+                    self.assertTrue(client.is_running())
 
                     # dispatcher registration
                     # start threads that wait for dispatchers
@@ -110,10 +111,13 @@ class ComputeServiceTest(unittest.TestCase):
 
                     # shutdown and wait for shutdown
                     self.assertTrue(shutdown_thread.is_alive(), msg="thread waiting for shutdown, terminated early")
+                    self.assertTrue(client.is_running())
                     client.shutdown()
                     shutdown_thread.join(10)
                     self.assertFalse(shutdown_thread.is_alive(), msg="thread waiting for shutdown did not terminate")
                     self.assertEqual([True], list(self.get_all(shutdown)))
+                    client._wait_for_shutdown_thread.join(10)
+                    self.assertFalse(client.is_running())
                 finally:
                     service.shutdown()
 

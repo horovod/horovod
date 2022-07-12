@@ -153,7 +153,7 @@ def start_and_register_dispatcher(dispatchers: int,
                                   dispatcher_index: int,
                                   work_dir_root: Optional[str],
                                   dispatcher_nic: str,
-                                  compute: ComputeClient) -> tf.data.experimental.service.DispatchServer:
+                                  compute: ComputeClient) -> 'tf.data.experimental.service.DispatchServer':
     if dispatchers == 1:
         logging.info(f"Setting up Dispatcher for all tasks")
     else:
@@ -208,7 +208,7 @@ def compute_worker_fn(compute_config: TfDataServiceConfig):
 
     # Create worker
     logging.debug(f"Setting up worker for dispatcher {dispatcher_index}")
-    worker_address = local_addresses(compute_config.dispatchers_nic)[compute_config.dispatchers_nic][0]
+    worker_address = local_addresses([compute_config.dispatchers_nic])[compute_config.dispatchers_nic][0]
     worker_config = tf.data.experimental.service.WorkerConfig(
         protocol=dispatcher_address.split("://")[0],
         dispatcher_address=dispatcher_address.split("://")[1],
@@ -229,7 +229,7 @@ def compute_worker_fn(compute_config: TfDataServiceConfig):
     def wait_for_shutdown(state):
         # Run until the compute service shuts down
         while compute.is_running():
-            # the broadcast makes sure we identify lost workers and re-shape the elastic job
+            # the broadcast makes sure we recognize lost workers and re-shape the elastic job
             with tf.device(f'/cpu:0'):
                 broadcast_object(time.time_ns(), root_rank=0, name="time")
             time.sleep(1)
