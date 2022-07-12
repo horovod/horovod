@@ -59,10 +59,7 @@ if __name__ == '__main__':
     workers_per_dispatcher = workers // parsed_args.dispatchers
 
     key = secret.make_secret_key()
-    compute = ComputeService(parsed_args.dispatchers,
-                             workers_per_dispatcher,
-                             fault_tolerant=parsed_args.dispatchers_work_dir is not None,
-                             key=key)
+    compute = ComputeService(parsed_args.dispatchers, workers_per_dispatcher, key=key)
 
     compute_config = TfDataServiceConfig(
         dispatchers=parsed_args.dispatchers,

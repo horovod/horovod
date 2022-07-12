@@ -97,7 +97,7 @@ ComputeClient is used to query and change the internal state of the ComputeServi
 class ComputeService(network.BasicService):
     NAME = "Compute service"
 
-    def __init__(self, dispatchers, workers_per_dispatcher, key, fault_tolerant=False, nics=None):
+    def __init__(self, dispatchers, workers_per_dispatcher, key, nics=None):
         if dispatchers <= 0:
             raise ValueError(f'The number of dispatchers must be larger than 0: {dispatchers}')
         if workers_per_dispatcher <= 0:
@@ -106,7 +106,6 @@ class ComputeService(network.BasicService):
         self._max_dispatcher_id = dispatchers - 1
         self._dispatcher_addresses = [None] * dispatchers
         self._workers_per_dispatcher = workers_per_dispatcher
-        self._fault_tolerant = fault_tolerant
         self._dispatcher_worker_ids = [set()] * dispatchers
         self._shutdown = False
         self._wait_cond = threading.Condition()
@@ -123,17 +122,11 @@ class ComputeService(network.BasicService):
 
                 if self._dispatcher_addresses[req.dispatcher_id] is not None and \
                    self._dispatcher_addresses[req.dispatcher_id] != req.dispatcher_address:
-                    if not self._fault_tolerant:
-                        return ValueError(f'Dispatcher with id {req.dispatcher_id} has already been registered under '
-                                          f'different address {self._dispatcher_addresses[req.dispatcher_id]}: '
-                                          f'{req.dispatcher_address}')
+                    return ValueError(f'Dispatcher with id {req.dispatcher_id} has already been registered under '
+                                      f'different address {self._dispatcher_addresses[req.dispatcher_id]}: '
+                                      f'{req.dispatcher_address}')
 
-                    print(f'Registering new dispatcher with id {req.dispatcher_id} and '
-                          f'new address {req.dispatcher_address}, '
-                          f'old address was {self._dispatcher_addresses[req.dispatcher_id]}')
-                else:
-                    print(f'Registering dispatcher with id {req.dispatcher_id} and address {req.dispatcher_address}')
-
+                print(f'Registering dispatcher with id {req.dispatcher_id} and address {req.dispatcher_address}')
                 self._dispatcher_addresses[req.dispatcher_id] = req.dispatcher_address
                 self._wait_cond.notify_all()
             finally:

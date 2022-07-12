@@ -42,10 +42,7 @@ def main(dispatchers: int,
 
         if rank == 0:
             key = secret.make_secret_key()
-            compute = ComputeService(dispatchers,
-                                     workers_per_dispatcher,
-                                     fault_tolerant=dispatchers_work_dir is not None,
-                                     key=key)
+            compute = ComputeService(dispatchers, workers_per_dispatcher, key=key)
 
             compute_config = TfDataServiceConfig(
                 dispatchers=dispatchers,
