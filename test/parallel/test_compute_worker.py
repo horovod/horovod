@@ -95,7 +95,7 @@ class ComputeWorkerTest(unittest.TestCase):
         try:
             # start the worker
             logging.debug('starting worker process')
-            worker = in_thread(main, (dispatchers, None, 'lo', 'compute', configfile, self.timeout), daemon=True)
+            worker = in_thread(main, (dispatchers, 'lo', 'compute', configfile, self.timeout), daemon=True)
             # this runs 'main' as a separated process
             #command = f'{sys.executable} -m horovod.tensorflow.data.compute_worker --dispatchers {dispatchers} --dispatcher-side compute {configfile}'
             #worker = in_thread(safe_shell_exec.execute, (command, None, sys.stdout, sys.stderr), daemon=True)
@@ -184,7 +184,7 @@ class ComputeWorkerTest(unittest.TestCase):
         try:
             # start the worker
             logging.debug('starting worker process')
-            worker = in_thread(main, (dispatchers, None, 'lo', 'training', configfile, self.timeout), daemon=True)
+            worker = in_thread(main, (dispatchers, 'lo', 'training', configfile, self.timeout), daemon=True)
             # this runs 'main' as a separated process
             #command = f'{sys.executable} -m horovod.tensorflow.data.compute_worker --dispatchers {dispatchers} --dispatcher-side compute {configfile}'
             #worker = in_thread(safe_shell_exec.execute, (command, None, sys.stdout, sys.stderr), daemon=True)
