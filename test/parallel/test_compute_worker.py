@@ -14,6 +14,7 @@
 # ==============================================================================
 import logging
 import os
+import platform
 import unittest
 from distutils.version import LooseVersion
 from itertools import islice
@@ -27,6 +28,10 @@ from horovod.tensorflow.data.compute_worker import main
 
 _PRE_TF_2_0_0 = LooseVersion(tf.__version__) < LooseVersion("2.0.0")
 
+if platform.system() == 'Darwin':
+    lo_nic = 'lo0'
+else:
+    lo_nic = 'lo'
 
 # this test is to be run via horovodrun -np 2, all processes have to run on the same machine
 @unittest.skipIf(_PRE_TF_2_0_0, 'Compute service not supported pre 2.0.0')
@@ -95,7 +100,7 @@ class ComputeWorkerTest(unittest.TestCase):
         try:
             # start the worker
             logging.debug('starting worker process')
-            worker = in_thread(main, (dispatchers, 'lo', 'compute', configfile, self.timeout), daemon=True)
+            worker = in_thread(main, (dispatchers, lo_nic, 'compute', configfile, self.timeout), daemon=True)
             # this runs 'main' as a separated process
             #command = f'{sys.executable} -m horovod.tensorflow.data.compute_worker --dispatchers {dispatchers} --dispatcher-side compute {configfile}'
             #worker = in_thread(safe_shell_exec.execute, (command, None, sys.stdout, sys.stderr), daemon=True)
@@ -184,7 +189,7 @@ class ComputeWorkerTest(unittest.TestCase):
         try:
             # start the worker
             logging.debug('starting worker process')
-            worker = in_thread(main, (dispatchers, 'lo', 'training', configfile, self.timeout), daemon=True)
+            worker = in_thread(main, (dispatchers, lo_nic, 'training', configfile, self.timeout), daemon=True)
             # this runs 'main' as a separated process
             #command = f'{sys.executable} -m horovod.tensorflow.data.compute_worker --dispatchers {dispatchers} --dispatcher-side compute {configfile}'
             #worker = in_thread(safe_shell_exec.execute, (command, None, sys.stdout, sys.stderr), daemon=True)
