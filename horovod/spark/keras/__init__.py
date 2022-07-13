@@ -13,5 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
+import horovod.spark.keras.datamodule
 from horovod.spark.keras.estimator import KerasEstimator
 from horovod.spark.keras.estimator import KerasModel

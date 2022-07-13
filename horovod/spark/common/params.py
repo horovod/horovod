@@ -23,6 +23,7 @@ from horovod.spark.common import util
 
 class EstimatorParams(Params):
     num_proc = Param(Params._dummy(), 'num_proc', 'number of processes')
+    data_module = Param(Params._dummy(), 'data_module', 'data module class to use when reading data', typeConverter=TypeConverters.toString)
     train_reader_num_workers = Param(Params._dummy(),
                                      'train_reader_num_workers',
                                      'number of parallel worker processes to read train data')
@@ -53,6 +54,10 @@ class EstimatorParams(Params):
                          typeConverter=TypeConverters.toListString)
     label_cols = Param(Params._dummy(), 'label_cols', 'label column names',
                        typeConverter=TypeConverters.toListString)
+    continuous_cols = Param(Params._dummy(), "continuous_cols", "continuous column names",
+                        typeConverter=TypeConverters.toListString)
+    categorical_cols = Param(Params._dummy(), "categorical_cols", "categorical column names",
+                        typeConverter=TypeConverters.toListString)
     validation = Param(Params._dummy(), 'validation',
                        'one of: float validation split [0, 1), or string validation column name')
     callbacks = Param(Params._dummy(), 'callbacks', 'callbacks')
@@ -134,6 +139,7 @@ class EstimatorParams(Params):
 
         self._setDefault(
             num_proc=None,
+            data_module=None,
             store=None,
             backend=None,
             model=None,
@@ -144,6 +150,8 @@ class EstimatorParams(Params):
             metrics=[],
             feature_cols=None,
             label_cols=None,
+            continuous_cols=None,
+            categorical_cols=None,
             validation=None,
             gradient_compression=None,
             compress_sparse_cols=False,
@@ -199,6 +207,12 @@ class EstimatorParams(Params):
     def getNumProc(self):
         return self.getOrDefault(self.num_proc)
 
+    def setDataModule(self, value):
+        return self._set(data_module=value)
+
+    def getDataModule(self):
+        return self.getOrDefault(self.data_module)
+
     def setModel(self, value):
         return self._set(model=value)
 
@@ -252,6 +266,18 @@ class EstimatorParams(Params):
 
     def getLabelCols(self):
         return self.getOrDefault(self.label_cols)
+
+    def setContinuousCols(self, value):
+        return self._set(continuous_cols=value)
+
+    def getContinuousCols(self):
+        return self.getOrDefault(self.continuous_cols)
+
+    def setCategoricalCols(self, value):
+        return self._set(categorical_cols=value)
+
+    def getCategoricalCols(self):
+        return self.getOrDefault(self.categorical_cols)
 
     def setValidation(self, value):
         return self._set(validation=value)

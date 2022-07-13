@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-import contextlib
+import importlib
 import io
 import math
 import os
@@ -23,14 +23,12 @@ import h5py
 import tensorflow as tf
 
 from distutils.version import LooseVersion
-
 from horovod.spark.common import constants
+from horovod.spark.common.datamodule import datamodule_from_name
 from horovod.spark.common.store import DBFSLocalStore
 from horovod.spark.common.util import _get_assigned_gpu_or_default, _set_mp_start_method
 from horovod.runner.common.util import codec
 
-
-PETASTORM_HDFS_DRIVER = constants.PETASTORM_HDFS_DRIVER
 TOTAL_BUFFER_MEMORY_CAP_GIB = constants.TOTAL_BUFFER_MEMORY_CAP_GIB
 BYTES_PER_GIB = constants.BYTES_PER_GIB
 
@@ -39,6 +37,8 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     # Estimator parameters
     label_columns = estimator.getLabelCols()
     feature_columns = estimator.getFeatureCols()
+    continuous_columns = estimator.getContinuousCols()
+    categorical_columns = estimator.getCategoricalCols()
     user_callbacks = estimator.getCallbacks()
     batch_size = estimator.getBatchSize()
     val_batch_size = estimator.getValBatchSize() if estimator.getValBatchSize() else batch_size
@@ -60,6 +60,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     mp_start_method = estimator.getMpStartMethod()
 
     # Data reader parameters
+    data_module = datamodule_from_name(estimator.getDataModule())
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
     val_reader_worker_count = estimator.getValReaderNumWorker()
     reader_pool_type = estimator.getReaderPoolType()
@@ -83,8 +84,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
         label_shapes=label_shapes if label_shapes else output_shapes,
         output_names=output_names)
     fit = keras_utils.fit_fn(epochs)
-    transformation_fn = estimator.getTransformationFn()
-    transformation = transformation_fn if transformation_fn else None
+    transform_fn = estimator.getTransformationFn()
 
     # Utility functions
     deserialize_keras_model = _deserialize_keras_model_fn()
@@ -102,10 +102,6 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 sync_to_store_fn(root_path)
 
         return _SyncCallback()
-
-    @contextlib.contextmanager
-    def empty_batch_reader():
-        yield None
 
     def train(serialized_model, train_rows, val_rows, avg_row_size):
         # If not empty, set it before everything else.
@@ -146,13 +142,8 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
         scaled_lr = k.backend.get_value(model.optimizer.lr) * hvd.size()
         k.backend.set_value(model.optimizer.lr, scaled_lr)
 
-
         if verbose:
             print(f"Shared lib path is pointing to: {_horovod.common.process_sets._basics.MPI_LIB_CTYPES}")
-
-        transform_spec = None
-        if transformation:
-            transform_spec = TransformSpec(transformation)
 
         # The inital_lr needs to be set to scaled learning rate in the checkpointing callbacks.
         for callback in user_callbacks:
@@ -236,56 +227,41 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                       f"Train rows: {train_rows}, Train batch size: {batch_size}, Train_steps_per_epoch: {steps_per_epoch}\n"
                       f"Val rows: {val_rows}, Val batch size: {val_batch_size}, Val_steps_per_epoch: {validation_steps}\n"
                       f"Checkpoint file: {remote_store.checkpoint_path}, Logs dir: {remote_store.logs_path}\n")
-            # In general, make_batch_reader is faster than make_reader for reading the dataset.
-            # However, we found out that make_reader performs data transformations much faster than
-            # make_batch_reader with parallel worker processes. Therefore, the default reader
-            # we choose is make_batch_reader unless there are data transformations.
-            reader_factory_kwargs = dict()
-            if transform_spec:
-                reader_factory = make_reader
-                reader_factory_kwargs['pyarrow_serialize'] = True
-                is_batch_reader = False
-            else:
-                reader_factory = make_batch_reader
-                is_batch_reader = True
 
-            with reader_factory(remote_store.train_data_path,
-                                num_epochs=1,
-                                cur_shard=hvd.rank(),
-                                reader_pool_type=reader_pool_type,
-                                workers_count=train_reader_worker_count,
-                                shard_count=hvd.size(),
-                                hdfs_driver=PETASTORM_HDFS_DRIVER,
-                                schema_fields=schema_fields,
-                                transform_spec=transform_spec,
-                                storage_options=storage_options,
-                                shuffle_rows=shuffle,
-                                shuffle_row_groups=shuffle,
-                                seed=random_seed,
-                                **reader_factory_kwargs) as train_reader:
-                with reader_factory(remote_store.val_data_path,
-                                    num_epochs=1,
-                                    cur_shard=hvd.rank(),
-                                    reader_pool_type=reader_pool_type,
-                                    workers_count=val_reader_worker_count,
-                                    shard_count=hvd.size(),
-                                    hdfs_driver=PETASTORM_HDFS_DRIVER,
-                                    schema_fields=schema_fields,
-                                    transform_spec=transform_spec,
-                                    storage_options=storage_options,
-                                    shuffle_rows=False,
-                                    shuffle_row_groups=False,
-                                    **reader_factory_kwargs) \
-                    if should_validate else empty_batch_reader() as val_reader:
+            data_module_kwargs = {
+                'label_cols': label_columns,                    # nvtabular
+                'continuous_cols': continuous_columns,          # nvtabular
+                'categorical_cols': categorical_columns,        # nvtabular
+                'make_dataset': make_dataset,                   # petastorm
+                'random_seed': random_seed,                     # petastorm
+                'train_dir': remote_store.train_data_path,
+                'val_dir': remote_store.val_data_path,
+                'num_train_epochs': epochs,
+                'has_val': should_validate is not None,
+                'train_batch_size': batch_size,
+                'val_batch_size': val_batch_size,
+                'shuffle_rows': shuffle,
+                'shuffle_row_groups': shuffle,
+                'seed': random_seed,
+                'num_reader_epochs': epochs,
+                'reader_pool_type': reader_pool_type,
+                'train_reader_worker_count': train_reader_worker_count,
+                'val_reader_worker_count': val_reader_worker_count,
+                'transform_fn': transform_fn,
+                'inmemory_cache_all': inmemory_cache_all,
+                'cur_shard': hvd.rank(),
+                'shard_count': hvd.size(),
+                'schema_fields': schema_fields,
+                'storage_options': storage_options,
+                'steps_per_epoch_train': steps_per_epoch,
+                'steps_per_epoch_val': validation_steps,
+                'verbose': verbose,
+            }
+            print("data_module: {}".format(data_module))
+            dm = data_module(**data_module_kwargs)
 
-                    train_data = make_dataset(train_reader, batch_size,
-                                              is_batch_reader, shuffle=shuffle, cache=inmemory_cache_all)
-                    val_data = make_dataset(val_reader, val_batch_size,
-                                            is_batch_reader, shuffle=False, cache=inmemory_cache_all) \
-                        if val_reader else None
-
-                    history = fit(model, train_data, val_data, steps_per_epoch,
-                                  validation_steps, callbacks, verbose)
+            history = fit(model, dm, steps_per_epoch,
+                            validation_steps, callbacks, verbose)
 
             # Dataset API usage currently displays a wall of errors upon termination.
             # This global model registration ensures clean termination.

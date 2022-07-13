@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Spark Estimator: Add support for custom data loaders in KerasEstimator. ([#3603](https://github.com/horovod/horovod/pull/3603))
+- Spark Estimator: Add NVTabular data loader for KerasEstimator. ([#3603](https://github.com/horovod/horovod/pull/3603))
 - Added support for Petastorm reader level parallel shuffling. ([#3665](https://github.com/horovod/horovod/pull/3665))
 - Added random seed support for Lightning datamodule to generate reproducible data loading outputs. ([#3665](https://github.com/horovod/horovod/pull/3665))
 - Added support for `int8, uint8` allreduce and grouped_allreduce in tensorflow. ([#3649](https://github.com/horovod/horovod/pull/3649))

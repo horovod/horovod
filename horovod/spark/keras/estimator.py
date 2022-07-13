@@ -93,6 +93,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
 
     Args:
         num_proc: Number of Horovod processes.  Defaults to `spark.default.parallelism`.
+        data_module: (Optional) DataModule used for training and validation, if not set, defaults to the PetastormDataModule.
         model: Keras model to train.
         backend: Optional Backend object for running distributed training function. Defaults to SparkBackend with
                  `num_proc` worker processes. Cannot be specified if `num_proc` is also provided.
@@ -161,6 +162,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
     @keyword_only
     def __init__(self,
                  num_proc=None,
+                 data_module=None,
                  model=None,
                  backend=None,
                  store=None,
@@ -173,6 +175,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                  metrics=None,
                  feature_cols=None,
                  label_cols=None,
+                 continuous_cols=None,
+                 categorical_cols=None,
                  validation=None,
                  callbacks=None,
                  batch_size=None,
@@ -199,7 +203,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
 
         super(KerasEstimator, self).__init__()
 
-        self._setDefault(optimizer=None,
+        self._setDefault(data_module='petastorm',
+                         optimizer=None,
                          custom_objects={},
                          checkpoint_callback=None,
                          backend_env={'LIBHDFS_OPTS': '-Xms2048m -Xmx2048m'})
