@@ -40,6 +40,7 @@ class _HorovodArgs(object):
         # hierarchy
         self.hierarchical_allreduce = None
         self.hierarchical_allgather = None
+        self.torus_allreduce = None
 
         # autotune arguments
         self.autotune = None

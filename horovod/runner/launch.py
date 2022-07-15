@@ -391,6 +391,18 @@ def parse_args():
                                               action=make_override_false_action(override_args),
                                               help='Explicitly disable hierarchical allgather to prevent autotuning '
                                                    'from adjusting it.')
+    
+    group_torus_allreduce = group_params.add_mutually_exclusive_group()
+    group_torus_allreduce.add_argument('--torus-allreduce',
+                                              action=make_override_true_action(override_args),
+                                              help='Perform 2D NCCL torus allreduce between workers instead of '
+                                                   'ring allreduce. Torus allreduce is the same as hierarchical allreduce '
+                                                   'but the parallel inter-node allreduce is performed using NCCL in place '
+                                                   'of MPI.')
+    group_torus_allreduce.add_argument('--no-torus-allreduce', dest='torus_allreduce',
+                                              action=make_override_false_action(override_args),
+                                              help='Explicitly disable torus allreduce to prevent autotuning '
+                                                   'from adjusting it.')
 
     group_autotune = parser.add_argument_group('autotune arguments')
     group_autotune_enabled = group_autotune.add_mutually_exclusive_group()

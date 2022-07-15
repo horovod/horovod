@@ -149,9 +149,8 @@ void NCCLOpContext::PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
     nccl_rank = process_set.controller->GetLocalRank();
     nccl_size = process_set.controller->GetLocalSize();
   } else {
-    throw std::logic_error("Communicator type " +
-                           std::to_string(communicator_type_) +
-                           " is not supported in NCCL mode.");
+    nccl_rank = process_set.controller->GetCrossRank();
+    nccl_size = process_set.controller->GetCrossSize();
   }
   nccl_id_bcast_comm = communicator_type_;
 }
@@ -515,6 +514,256 @@ bool NCCLHierarchicalAllreduce::Enabled(
   return param_manager.HierarchicalAllreduce();
 }
 #endif
+
+void NCCLTorusAllreduce::WaitForData(std::vector<TensorTableEntry>& entries) {
+  if (global_state_->timeline.Initialized()) {
+    // If timeline is initialized, need to use normal CPU syncing path
+    HorovodOp::WaitForData(entries);
+  } else {
+    // Push events to set to deduplicate entries
+    std::unordered_set<gpuEvent_t> event_set;
+    for (auto& e : entries) {
+      e.ready_event_list.PushEventsToSet(event_set);
+    }
+    for (auto& ev : event_set) {
+      HVD_GPU_CHECK(gpuStreamWaitEvent(*gpu_op_context_.stream, ev, 0));
+    }
+  }
+}
+
+Status NCCLTorusAllreduce::Execute(std::vector<TensorTableEntry>& entries,
+                                   const Response& response) {
+  assert(!entries.empty());
+  auto& first_entry = entries.at(0);
+  auto& process_set =
+      global_state_->process_set_table.Get(first_entry.process_set_id);
+
+  // Determine GPU IDs of the devices participating in this communicator.
+  std::vector<int32_t> local_nccl_device_map;
+  local_nccl_device_map.reserve(process_set.controller->GetLocalCommRanks().size());
+  for (int rank : process_set.controller->GetLocalCommRanks()) {
+    int32_t device = response.devices().at(rank);
+    local_nccl_device_map.push_back(device);
+  }
+  gpu_op_context_.InitGPU(entries);
+  local_nccl_op_context_.InitNCCLComm(entries, local_nccl_device_map);
+
+  std::vector<int32_t> cross_nccl_device_map({response.devices()[process_set.controller->GetCrossRank()]});
+  cross_nccl_op_context_.InitNCCLComm(entries, cross_nccl_device_map);
+  gpu_op_context_.InitGPUQueue(entries, response);
+
+  WaitForData(entries);
+
+  const void* fused_input_data;
+  void* buffer_data;
+  size_t buffer_len;
+
+  // Copy memory into the fusion buffer.
+  if (entries.size() > 1) {
+    MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
+
+    if (global_state_->timeline.Initialized()) {
+      gpu_context_->RecordEvent(gpu_op_context_.event_queue,
+                                MEMCPY_IN_FUSION_BUFFER,
+                                *gpu_op_context_.stream);
+    }
+  } else {
+    fused_input_data = first_entry.tensor->data();
+    buffer_data = (void*)first_entry.output->data();
+    buffer_len = (size_t)first_entry.output->size();
+  }
+
+  int64_t num_elements =
+      buffer_len / DataType_Size(first_entry.tensor->dtype());
+
+  if (response.prescale_factor() != 1.0) {
+    // Execute prescaling op
+    ScaleBuffer(response.prescale_factor(), entries, fused_input_data,
+                buffer_data, num_elements);
+    fused_input_data = buffer_data; // for unfused, scale is done out of place
+  }
+
+  // Do allreduce.
+  int element_size = DataType_Size(first_entry.tensor->dtype());
+  int local_size = process_set.controller->GetLocalSize();
+  int local_rank = process_set.controller->GetLocalRank();
+
+  // If cluster is homogeneous and we are using fusion buffer, include
+  // dummy elements from the buffer (if necessary) to make sure the data
+  // is divisible by local_size. This is always possible since we
+  // set the fusion buffer size divisible by local_size.
+  if (process_set.controller->IsHomogeneous() && entries.size() > 1) {
+    // Making sure the number of elements is divisible by
+    // FUSION_BUFFER_ATOMIC_UNIT for improved performance
+    int div = local_size * FUSION_BUFFER_ATOMIC_UNIT;
+    num_elements = ((num_elements + div - 1) / div) * div;
+    buffer_len = num_elements * element_size;
+  }
+
+  // Split the elements into two groups: num_elements_per_rank*local_size,
+  // and num_elements_remaining. Cross-node reduction for the first group
+  // is done by all local_rank's in parallel, while for the second group
+  // it it is only done by the root_rank. If the cluster is not
+  // homogeneous first group is zero, and root_rank is 0.
+
+  // Homogeneous case:
+  // For the part of data divisible by local_size, perform NCCL
+  // ReduceScatter - Parallelized MPI Allreduce - NCCL Allgather. For the
+  // non-divisible part (if any), do NCCL Reduce (at rank local_size-1),
+  // MPI Allreduce (across rank (local_size-1)'s), and NCCL Bcast
+
+  int64_t num_elements_per_rank =
+      process_set.controller->IsHomogeneous() ? num_elements / local_size : 0;
+
+  size_t buffer_len_per_rank = element_size * num_elements_per_rank;
+
+  void* buffer_data_at_rank_offset =
+      (uint8_t*)buffer_data + buffer_len_per_rank * local_rank;
+
+  int64_t num_elements_remaining = process_set.controller->IsHomogeneous()
+                                       ? num_elements % local_size
+                                       : num_elements;
+
+  size_t buffer_len_remaining = element_size * num_elements_remaining;
+
+  void* buffer_data_remainder =
+      (uint8_t*)buffer_data + buffer_len_per_rank * local_size;
+
+  void* fused_input_data_remainder =
+      (uint8_t*)fused_input_data + buffer_len_per_rank * local_size;
+
+  int root_rank = process_set.controller->IsHomogeneous() ? local_size - 1 : 0;
+  bool is_root_rank = local_rank == root_rank;
+
+  int64_t total_num_elements =
+      is_root_rank ? num_elements_per_rank + num_elements_remaining
+                   : num_elements_per_rank;
+  int64_t total_buffer_len = is_root_rank
+                                 ? buffer_len_per_rank + buffer_len_remaining
+                                 : buffer_len_per_rank;
+
+  auto& timeline = global_state_->timeline;
+  if (num_elements_per_rank > 0) {
+    auto nccl_result = ncclReduceScatter(
+        fused_input_data, buffer_data_at_rank_offset,
+        (size_t)num_elements_per_rank, GetNCCLDataType(first_entry.tensor),
+        ncclSum, *local_nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
+    local_nccl_context_->ErrorCheck("ncclReduceScatter", nccl_result,
+                              *local_nccl_op_context_.nccl_comm_);
+    if (global_state_->timeline.Initialized()) {
+      gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_REDUCESCATTER,
+                                *gpu_op_context_.stream);
+    }
+  }
+
+  if (num_elements_remaining > 0) {
+    // Reduce the remaining data at local_size-1 to append to
+    // existing buffer
+    auto nccl_result =
+        ncclReduce(fused_input_data_remainder, buffer_data_remainder,
+                   (size_t)num_elements_remaining,
+                   GetNCCLDataType(first_entry.tensor), ncclSum, root_rank,
+                   *local_nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
+    local_nccl_context_->ErrorCheck("ncclReduce", nccl_result,
+                              *local_nccl_op_context_.nccl_comm_);
+    if (global_state_->timeline.Initialized()) {
+      gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_REDUCE,
+                                *gpu_op_context_.stream);
+    }
+  }
+
+  if (process_set.controller->IsHomogeneous() || is_root_rank) {
+    // Synchronize.
+    if (global_state_->elastic_enabled) {
+      gpu_context_->WaitForEventsElastic(
+          gpu_op_context_.event_queue, entries, timeline,
+          local_nccl_op_context_.error_check_callback_);
+    } else {
+      gpu_context_->WaitForEvents(gpu_op_context_.event_queue, entries,
+                                  timeline,
+                                  local_nccl_op_context_.error_check_callback_);
+    }
+  timeline.ActivityStartAll(entries, NCCL_ALLREDUCE);
+    auto cross_nccl_result = ncclAllReduce(buffer_data_at_rank_offset, buffer_data_at_rank_offset,
+                                           (size_t) total_num_elements, GetNCCLDataType(first_entry.tensor),
+                                           ncclSum, *cross_nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
+    cross_nccl_context_->ErrorCheck("ncclAllReduce", cross_nccl_result, *cross_nccl_op_context_.nccl_comm_);
+    timeline.ActivityEndAll(entries);
+  }
+  // We need to make sure the cross-node ncclAllReduce doesn't raise async error
+    if (global_state_->elastic_enabled) {
+      gpu_context_->WaitForEventsElastic(
+          gpu_op_context_.event_queue, entries, timeline,
+          cross_nccl_op_context_.error_check_callback_);
+    } else {
+      gpu_context_->WaitForEvents(gpu_op_context_.event_queue, entries,
+                                  timeline,
+                                  cross_nccl_op_context_.error_check_callback_);
+  if (num_elements_per_rank > 0) {
+    local_nccl_context_->ErrorCheck(
+        "ncclAllGather",
+        ncclAllGather(buffer_data_at_rank_offset, buffer_data,
+                      (size_t)num_elements_per_rank,
+                      GetNCCLDataType(first_entry.tensor),
+                      *local_nccl_op_context_.nccl_comm_, *gpu_op_context_.stream),
+        *local_nccl_op_context_.nccl_comm_);
+    if (global_state_->timeline.Initialized()) {
+      gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_ALLGATHER,
+                                *gpu_op_context_.stream);
+    }
+  }
+  if (num_elements_remaining > 0) {
+#if NCCL_VERSION_CODE >= NCCL_VERSION(2, 2, 12)
+    local_nccl_context_->ErrorCheck(
+        "ncclBroadcast",
+        ncclBroadcast(buffer_data_remainder, buffer_data_remainder,
+                      (size_t)num_elements_remaining,
+                      GetNCCLDataType(first_entry.tensor), root_rank,
+                      *local_nccl_op_context_.nccl_comm_, *gpu_op_context_.stream),
+        *local_nccl_op_context_.nccl_comm_);
+#else
+    local_nccl_context_->ErrorCheck(
+        "ncclBcast",
+        ncclBcast(buffer_data_remainder, (size_t)num_elements_remaining,
+                  GetNCCLDataType(first_entry.tensor), root_rank,
+                  *local_nccl_op_context_.nccl_comm_, *gpu_op_context_.stream),
+        *local_nccl_op_context_.nccl_comm_);
+#endif
+    if (global_state_->timeline.Initialized()) {
+      gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_BCAST,
+                                *gpu_op_context_.stream);
+    }
+  }
+
+  if (response.postscale_factor() != 1.0) {
+    // Execute postscaling op
+    ScaleBuffer(response.postscale_factor(), entries, buffer_data, buffer_data,
+                num_elements);
+  }
+
+  // Copy memory out of the fusion buffer.
+  if (entries.size() > 1) {
+    MemcpyOutFusionBuffer(buffer_data, entries);
+
+    if (global_state_->timeline.Initialized()) {
+      gpu_context_->RecordEvent(gpu_op_context_.event_queue,
+                                MEMCPY_OUT_FUSION_BUFFER,
+                                *gpu_op_context_.stream);
+    }
+  }
+
+  return gpu_op_context_.FinalizeGPUQueue(
+      entries, true, local_nccl_op_context_.error_check_callback_);
+}
+
+bool NCCLTorusAllreduce::Enabled(const ParameterManager& param_manager,
+                                 const std::vector<TensorTableEntry>& entries,
+                                 const Response& response) const {
+  if (!GPUAllreduce::Enabled(param_manager, entries, response)) {
+    return false;
+  }
+  return param_manager.TorusAllreduce();
+}
 
 void NCCLBroadcast::WaitForData(std::vector<TensorTableEntry>& entries) {
   if (global_state_->timeline.Initialized()) {

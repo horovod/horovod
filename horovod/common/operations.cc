@@ -129,6 +129,8 @@ GPUContext gpu_context;
 
 #if HAVE_NCCL
 NCCLContext nccl_context;
+NCCLContext local_nccl_context;
+NCCLContext cross_nccl_context;
 #endif
 
 #if HAVE_DDL
@@ -190,6 +192,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #endif
 
 #if HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
+  allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
+    new NCCLTorusAllreduce(&local_nccl_context, &cross_nccl_context, &gpu_context, &state)));
   allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
       new NCCLAllreduce(&nccl_context, &gpu_context, &state)));
 #endif
@@ -462,7 +466,11 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
 #if HAVE_NCCL
   nccl_context.nccl_comms.resize(state.num_nccl_streams);
+  local_nccl_context.nccl_comms.resize(state.num_nccl_streams);
+  cross_nccl_context.nccl_comms.resize(state.num_nccl_streams);
   SetBoolFromEnv(HOROVOD_ELASTIC, nccl_context.elastic, true);
+  SetBoolFromEnv(HOROVOD_ELASTIC, local_nccl_context.elastic, true);
+  SetBoolFromEnv(HOROVOD_ELASTIC, cross_nccl_context.elastic, true);
 #endif
   gpu_context.streams.resize(state.num_nccl_streams);
 
@@ -577,6 +585,21 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
            "allgather and hierarchical allreduce.";
   }
 
+  // Set flag for torus allreduce. Ignore if Horovod is running on a
+  // single node.
+  auto horovod_torus_allreduce =
+      std::getenv(HOROVOD_TORUS_ALLREDUCE);
+  state.parameter_manager.SetTorusAllreduce(false);
+  if (horovod_torus_allreduce != nullptr) {
+    bool value = std::strtol(horovod_torus_allreduce, nullptr, 10) > 0 &&
+                 (size != local_size);
+    state.parameter_manager.SetTorusAllreduce(value, true);
+  }
+#if HOROVOD_GPU_ALLREDUCE != 'N' && HOROVOD_GPU_ALLREDUCE != 'D'
+  // Torus allreduce is not supported without NCCL or DDL
+  state.parameter_manager.SetTorusAllreduce(false, true);
+#endif
+
   // Set flag to control use of batched memcopy kernel on GPU
   auto horovod_batch_d2d_memcopies = std::getenv(HOROVOD_BATCH_D2D_MEMCOPIES);
   if (horovod_batch_d2d_memcopies != nullptr &&
@@ -675,6 +698,8 @@ shutdown:
   // Finalize all contexts
 #if HAVE_NCCL
   nccl_context.ShutDown();
+  local_nccl_context.ShutDown();
+  cross_nccl_context.ShutDown();
 #endif
 
   LOG(DEBUG, horovod_global.global_controller->GetRank())
