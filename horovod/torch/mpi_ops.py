@@ -1102,6 +1102,111 @@ def reducescatter(tensor, name=None, compression=Compression.none, op=Average,
     return compression.decompress(reduced_tensor_compressed, ctx)
 
 
+def _grouped_reducescatter_function_factory(tensor):
+    return 'horovod_torch_grouped_reducescatter_async_' + tensor.type().replace('.', '_')
+
+
+def _grouped_reducescatter_async(tensors, outputs, name, op, process_set: ProcessSet):
+    function = _check_function(_grouped_reducescatter_function_factory, tensors[0])
+    try:
+        handle = getattr(mpi_lib, function)(tensors, outputs,
+                                            name.encode() if name is not None else _NULL,
+                                            op, process_set.process_set_id)
+    except RuntimeError as e:
+        raise HorovodInternalError(e)
+    _handle_map[handle] = (tuple(tensors), tuple(outputs))
+    return handle
+
+
+def grouped_reducescatter_async(tensors, name=None, op=Average, process_set=global_process_set):
+    """
+    A function that performs asynchronous reduction of a list of input tensors over all the
+    Horovod processes, then scatters the results across all Horovod processes. The
+    input tensors are not modified.
+
+    The reduction operation is keyed by the name. If name is not provided, an incremented
+    auto-generated name is used. For each of the input tensors, the type and shape must
+    be the same on all Horovod processes for a given name. The reduction will not start
+    until all processes are ready to send and receive the tensors.
+
+    The input tensor at some place in the list tensor must have the same rank and shape
+    on the different processes. The corresponding output tensor will be the same rank on
+    all processes, but the first dimension may be different.
+
+    Arguments:
+        tensors: A list of tensors to average and sum.
+        name: A base name to use for the group reduction operation.
+        op: The reduction operation to combine tensors across different ranks.
+            Defaults to Average.
+        process_set: Process set object to limit this operation to a subset of
+                     Horovod processes. Default is the global process set.
+
+    Returns:
+        A handle to the group reducescatter operation that can be used with `poll()` or
+        `synchronize()`.
+    """
+    outputs = [t.new() for t in tensors]
+    return _grouped_reducescatter_async(tensors, outputs, name, op, process_set)
+
+
+class HorovodGroupedReducescatter(torch.autograd.Function):
+    """An autograd function that performs reducescatter on a list of tensors."""
+
+    @staticmethod
+    def forward(ctx, name, op, process_set, *tensors):
+        ctx.op = op
+        ctx.process_set = process_set
+        handle = grouped_reducescatter_async(list(tensors), name, op, process_set)
+        return synchronize(handle)
+
+    @staticmethod
+    def backward(ctx, *grad_output):
+        if ctx.op == Sum:
+            grad_output = [g * ctx.process_set.size() for g in grad_output]
+
+        return (None, None, None, *grouped_allgather(grad_output, process_set=ctx.process_set))
+
+
+def grouped_reducescatter(tensors, name=None, compression=Compression.none, op=Average,
+                          process_set=global_process_set):
+    """
+    A function that performs reduction of a list of input tensors over all the
+    Horovod processes, then scatters the results across all Horovod processes. The
+    input tensors are not modified.
+
+    The reduction operation is keyed by the name. If name is not provided, an incremented
+    auto-generated name is used. The tensor type and shape must be the same on all
+    Horovod processes for a given name. The reduction will not start until all processes
+    are ready to send and receive the tensor.
+
+    Arguments:
+        tensors: A list of tensors to average and sum.
+        name: A base name to use for the group reduction operation.
+        compression: Compression algorithm used during reducescatter to reduce the amount
+                     of data sent during the each parameter update step.  Defaults to
+                     not using compression.
+        op: The reduction operation to combine tensors across different ranks.
+            Defaults to Average.
+        process_set: Process set object to limit this operation to a subset of
+                     Horovod processes. Default is the global process set.
+
+
+    Returns:
+        A list containing tensors of the same rank and type as in `tensors`. For each
+        tensor the shape is identical to the input shape, except for the first dimension,
+        which will be divided across the different Horovod processes.
+    """
+    tensors_compressed = []
+    ctxs = []
+    for tensor in tensors:
+        tensor_compressed, ctx = compression.compress(tensor)
+        tensors_compressed.append(tensor_compressed)
+        ctxs.append(ctx)
+    reduced_tensors_compressed = HorovodGroupedReducescatter.apply(name, op, process_set, *tensors_compressed)
+    return [compression.decompress(reduced_tensor_compressed, ctx)
+            for reduced_tensor_compressed, ctx in zip(reduced_tensors_compressed, ctxs)]
+
+
 def poll(handle):
     """
     Polls an allreduce, allgather, alltoall, broadcast, or reducescatter handle to determine whether

@@ -796,6 +796,178 @@ int DoReducescatterCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output,
   return handle;
 }
 
+int DoGroupedReducescatter(const std::vector<::torch::Tensor>& tensors,
+                           const std::vector<::torch::Tensor>& outputs,
+                           const std::string& name, int reduce_op_int,
+                           int process_set_id) {
+  ThrowIfError(common::CheckInitialized());
+
+  if (tensors.size() != outputs.size()) {
+    throw std::logic_error("Number of tensors and outputs must be equal");
+  }
+
+  // For ReduceOp::AVERAGE, we do SUM reduction then divide on the device.
+  auto reduce_op = static_cast<ReduceOp>(reduce_op_int);
+  auto request_op = reduce_op == ReduceOp::AVERAGE ? ReduceOp::SUM : reduce_op;
+
+  auto handle = handle_manager.AllocateHandle();
+  auto device = GetDeviceID(tensors[0]);
+  common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+  ready_event_list.AddReadyEvent(RecordReadyEvent(device));
+#endif
+
+  std::vector<std::shared_ptr<Tensor>> hvd_tensors;
+  std::vector<std::shared_ptr<OpContext>> hvd_contexts;
+  std::vector<common::ReadyEventList> ready_event_lists;
+  std::vector<StatusCallback> callbacks;
+  std::vector<std::string> names;
+
+  auto num_tensors = tensors.size();
+  hvd_tensors.reserve(num_tensors);
+  hvd_contexts.reserve(num_tensors);
+  ready_event_lists.reserve(num_tensors);
+  names.reserve(num_tensors);
+  callbacks.reserve(num_tensors);
+
+  auto base_name = GetOpName("grouped_reducescatter", name, handle);
+
+  auto callback_mutex = std::make_shared<std::mutex>();
+  auto callback_count = std::make_shared<std::size_t>(0);
+  for (std::size_t i = 0; i < num_tensors; ++i) {
+    if (GetDeviceID(tensors[i]) != device) {
+      throw std::logic_error("Tensors in list must be on same device.");
+    }
+    hvd_tensors.emplace_back(std::make_shared<TorchTensor>(tensors[i]));
+    hvd_contexts.emplace_back(
+        std::make_shared<TorchOpContext>(device, outputs));
+    ready_event_lists.emplace_back(
+        ready_event_list); // Same for all tensors in group
+    names.emplace_back(base_name + "_" + std::to_string(i + 1) + "of" +
+                       std::to_string(num_tensors));
+    auto output = outputs[i];
+    callbacks.emplace_back([handle, reduce_op, output, callback_mutex,
+                            callback_count, num_tensors, device,
+                            process_set_id](const Status& status) mutable {
+#if HAVE_GPU
+      auto hvd_event = status.event;
+      if (hvd_event.event) {
+        auto stream = GetGPUStream(device);
+        HVD_GPU_CHECK(gpuStreamWaitEvent(stream, *(hvd_event.event), 0));
+      }
+#endif
+      // Will execute in the `device` context.
+      if (reduce_op == ReduceOp::AVERAGE) {
+        DivideInPlace(output, horovod_process_set_size(process_set_id));
+      }
+      // Must only call MarkDone on last tensor.
+      std::lock_guard<std::mutex> guard(*callback_mutex);
+      (*callback_count)++;
+      if (*callback_count == num_tensors) {
+        handle_manager.MarkDone(handle, status);
+      }
+    });
+  }
+
+  auto enqueue_result = EnqueueTensorReducescatters(
+      hvd_contexts, hvd_tensors, ready_event_lists, names, device,
+      callbacks, request_op, process_set_id);
+  ThrowIfError(enqueue_result);
+
+  return handle;
+}
+
+int DoGroupedReducescatterCudaOnCPU(const std::vector<::torch::Tensor>& tensors,
+                                    const std::vector<::torch::Tensor>& outputs,
+                                    const std::string& name, int reduce_op_int,
+                                    int process_set_id) {
+  ThrowIfError(common::CheckInitialized());
+
+  if (tensors.size() != outputs.size()) {
+    throw std::logic_error("Number of tensors and outputs must be equal");
+  }
+
+  // For ReduceOp::AVERAGE, we do SUM reduction then divide on the device.
+  auto reduce_op = static_cast<ReduceOp>(reduce_op_int);
+  auto request_op = reduce_op == ReduceOp::AVERAGE ? ReduceOp::SUM : reduce_op;
+
+  auto handle = handle_manager.AllocateHandle();
+  auto device = GetDeviceID(tensors[0]);
+
+  std::vector<std::shared_ptr<Tensor>> hvd_cpu_tensors;
+  std::vector<::torch::Tensor> cpu_outputs;
+  std::vector<std::shared_ptr<OpContext>> hvd_contexts;
+  std::vector<common::ReadyEventList> ready_event_lists;
+  std::vector<StatusCallback> callbacks;
+  std::vector<std::string> names;
+
+  auto num_tensors = tensors.size();
+  hvd_cpu_tensors.reserve(num_tensors);
+  cpu_outputs.reserve(outputs.size());
+  hvd_contexts.reserve(num_tensors);
+  ready_event_lists.reserve(num_tensors);
+  names.reserve(num_tensors);
+  callbacks.reserve(num_tensors);
+
+  auto base_name = GetOpName("grouped_reducescatter", name, handle);
+
+  for (std::size_t i = 0; i < num_tensors; ++i) {
+    if (GetDeviceID(tensors[i]) != device) {
+      throw std::logic_error("Tensors in list must be on same device.");
+    }
+    // Make async copy of input tensor to CPU tensor and record completion
+    // event.
+    auto cpu_tensor =
+        tensors[i].to(::torch::Device(::torch::kCPU), /*non_blocking=*/true);
+    hvd_cpu_tensors.emplace_back(std::make_shared<TorchTensor>(cpu_tensor));
+    common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+    ready_event_list.AddReadyEvent(RecordReadyEvent(device));
+#endif
+    ready_event_lists.emplace_back(ready_event_list);
+    cpu_outputs.emplace_back(
+        ::torch::empty_like(cpu_tensor, LEGACY_CONTIGUOUS_MEMORY_FORMAT));
+    names.emplace_back(base_name + "_" + std::to_string(i + 1) + "of" +
+                       std::to_string(num_tensors));
+  }
+
+  auto callback_mutex = std::make_shared<std::mutex>();
+  auto callback_count = std::make_shared<std::size_t>(0);
+  for (std::size_t i = 0; i < num_tensors; ++i) {
+    hvd_contexts.emplace_back(
+        std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_outputs));
+    auto output = outputs[i];
+    auto cpu_output = cpu_outputs[i];
+    callbacks.emplace_back([handle, reduce_op, cpu_output, output,
+                            callback_mutex, callback_count, num_tensors, device,
+                            process_set_id](const Status& status) mutable {
+      // Since the operation was on CPU, need to perform copy with the GPU
+      // device guard.
+      with_device device_guard(device);
+      // output needs to be resized before copying in the CPU tensor.
+      output.resize_(cpu_output.sizes());
+      output.copy_(cpu_output);
+      if (reduce_op == ReduceOp::AVERAGE) {
+        DivideInPlace(output, horovod_process_set_size(process_set_id));
+      }
+
+      // Must only call MarkDone on last tensor.
+      std::lock_guard<std::mutex> guard(*callback_mutex);
+      (*callback_count)++;
+      if (*callback_count == num_tensors) {
+        handle_manager.MarkDone(handle, status);
+      }
+    });
+  }
+
+  auto enqueue_result = EnqueueTensorReducescatters(
+      hvd_contexts, hvd_cpu_tensors, ready_event_lists, names, CPU_DEVICE_ID,
+      callbacks, request_op, process_set_id);
+  ThrowIfError(enqueue_result);
+
+  return handle;
+}
+
 int DoJoin(::torch::Tensor output_last_joined_rank, int device) {
   ThrowIfError(common::CheckInitialized());
 
@@ -1100,6 +1272,41 @@ PYBIND11_MODULE(mpi_lib_v2, m) {
         &DoReducescatterCudaOnCPU);
   m.def("horovod_torch_reducescatter_async_torch_cuda_DoubleTensor",
         &DoReducescatterCudaOnCPU);
+#endif
+
+  // grouped reducescatter
+  m.def("horovod_torch_grouped_reducescatter_async_torch_IntTensor",
+        &DoGroupedReducescatter);
+  m.def("horovod_torch_grouped_reducescatter_async_torch_LongTensor",
+        &DoGroupedReducescatter);
+  m.def("horovod_torch_grouped_reducescatter_async_torch_HalfTensor",
+        &DoGroupedReducescatter);
+  m.def("horovod_torch_grouped_reducescatter_async_torch_FloatTensor",
+        &DoGroupedReducescatter);
+  m.def("horovod_torch_grouped_reducescatter_async_torch_DoubleTensor",
+        &DoGroupedReducescatter);
+#if HOROVOD_GPU_REDUCESCATTER
+  m.def("horovod_torch_grouped_reducescatter_async_torch_cuda_IntTensor",
+        &DoGroupedReducescatter);
+  m.def("horovod_torch_grouped_reducescatter_async_torch_cuda_LongTensor",
+        &DoGroupedReducescatter);
+  m.def("horovod_torch_grouped_reducescatter_async_torch_cuda_HalfTensor",
+        &DoGroupedReducescatter);
+  m.def("horovod_torch_grouped_reducescatter_async_torch_cuda_FloatTensor",
+        &DoGroupedReducescatter);
+  m.def("horovod_torch_grouped_reducescatter_async_torch_cuda_DoubleTensor",
+        &DoGroupedReducescatter);
+#else
+  m.def("horovod_torch_grouped_reducescatter_async_torch_cuda_IntTensor",
+        &DoGroupedReducescatterCudaOnCPU);
+  m.def("horovod_torch_grouped_reducescatter_async_torch_cuda_LongTensor",
+        &DoGroupedReducescatterCudaOnCPU);
+  m.def("horovod_torch_grouped_reducescatter_async_torch_cuda_HalfTensor",
+        &DoGroupedReducescatterCudaOnCPU);
+  m.def("horovod_torch_grouped_reducescatter_async_torch_cuda_FloatTensor",
+        &DoGroupedReducescatterCudaOnCPU);
+  m.def("horovod_torch_grouped_reducescatter_async_torch_cuda_DoubleTensor",
+        &DoGroupedReducescatterCudaOnCPU);
 #endif
 
   // join

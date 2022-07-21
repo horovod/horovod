@@ -3887,6 +3887,180 @@ class TorchTests(unittest.TestCase):
         hvd.remove_process_set(odd_set)
         hvd.remove_process_set(even_set)
 
+    def test_horovod_grouped_reducescatter(self):
+        """Test that grouped reducescatter correctly sums and scatters 1D, 2D, 3D tensors."""
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                                              torch.FloatTensor, torch.DoubleTensor,
+                                              torch.HalfTensor])
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            if rank == 0:
+                print(dtype, dim)
+            torch.manual_seed(1234)
+            tensors = [torch.FloatTensor(*([size * 4] * dim)).random_(-100, 100) for _ in range(5)]
+            tensors = [self.cast_and_place(t, dtype) for t in tensors]
+            summed = hvd.grouped_reducescatter(tensors, op=hvd.Sum)
+            tensors, summed = zip(*[self.convert_cpu_fp16_to_fp32(t, g)
+                                    for t, g in zip(tensors, summed)])
+            expected = [t[rank * 4:(rank + 1) * 4] * size for t in tensors]
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
+                                      torch.cuda.IntTensor, torch.cuda.LongTensor]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+
+            assert all([torch.allclose(t1, t2, threshold) for t1, t2 in zip(expected, summed)]), \
+                'hvd.grouped_reducescatter produces incorrect results'
+
+    def test_horovod_grouped_reducescatter_average(self):
+        """Test that grouped reducescatter correctly averages and scatters 1D, 2D, 3D tensors."""
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                                              torch.FloatTensor, torch.DoubleTensor,
+                                              torch.HalfTensor])
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            torch.manual_seed(1234)
+            tensors = [torch.FloatTensor(*([size * 4] * dim)).random_(-100, 100) for _ in range(5)]
+            tensors = [self.cast_and_place(t, dtype) for t in tensors]
+            averaged = hvd.grouped_reducescatter(tensors, op=hvd.Average)
+            tensors, averaged = zip(*[self.convert_cpu_fp16_to_fp32(t, g)
+                                    for t, g in zip(tensors, averaged)])
+            expected = [t[rank * 4:(rank + 1) * 4] for t in tensors]
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
+                                      torch.cuda.IntTensor, torch.cuda.LongTensor]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+
+            assert all([torch.allclose(t1, t2, threshold) for t1, t2 in zip(expected, averaged)]), \
+                'hvd.grouped_reducescatter produces incorrect results for average'
+
+    def test_horovod_grouped_reducescatter_process_sets(self):
+        """Test that grouped reducescatter correctly sums and scatters 1D, 2D, 3D tensors if restricted to process sets."""
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
+        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
+
+        even_set = hvd.add_process_set(even_ranks)
+        odd_set = hvd.add_process_set(odd_ranks)
+
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                                              torch.FloatTensor, torch.DoubleTensor,
+                                              torch.HalfTensor])
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            torch.manual_seed(1234)
+            even_rank_tensors = [torch.FloatTensor(*([len(even_ranks) * 4] * dim)).random_(-100, 100) for _ in range(5)]
+            odd_rank_tensors = [torch.FloatTensor(*([len(odd_ranks) * 4] * dim)).random_(-100, 100) for _ in range(5)]
+            if rank in even_ranks:
+                tensors = [self.cast_and_place(tensor, dtype) for tensor in even_rank_tensors]
+                summed = hvd.grouped_reducescatter(tensors, op=hvd.Sum, process_set=even_set)
+                expected = [t[even_set.rank() * 4:(even_set.rank() + 1) * 4] * even_set.size() for t in tensors]
+            elif rank in odd_ranks:
+                tensors = [self.cast_and_place(tensor, dtype) for tensor in odd_rank_tensors]
+                summed = hvd.grouped_reducescatter(tensors, op=hvd.Sum, process_set=odd_set)
+                expected = [t[odd_set.rank() * 4:(odd_set.rank() + 1) * 4] * odd_set.size() for t in tensors]
+            tensors, summed, expected = zip(*[self.convert_cpu_fp16_to_fp32(t, s, e)
+                                              for t, s, e in zip(tensors, summed, expected)])
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
+                                      torch.cuda.IntTensor, torch.cuda.LongTensor]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+
+            assert all([torch.allclose(t1, t2, threshold) for t1, t2 in zip(expected, summed)]), \
+                'hvd.grouped_reducescatter produces incorrect results'
+
+        hvd.remove_process_set(odd_set)
+        hvd.remove_process_set(even_set)
+
+    def test_horovod_grouped_reducescatter_grad(self):
+        """Test the correctness of the grouped reducescatter gradient."""
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
+        hvd.init()
+        size = hvd.size()
+        # Only Tensors of floating point dtype can require gradients
+        dtypes = [torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor]
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor, torch.cuda.HalfTensor]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            torch.manual_seed(1234)
+            tensors = [torch.FloatTensor(*([size * 4] * dim)).random_(-100, 100) for _ in range(5)]
+            tensors = [self.cast_and_place(tensor, dtype) for tensor in tensors]
+            for t in tensors:
+                t.requires_grad_()
+            summed = hvd.grouped_reducescatter(tensors, op=hvd.Sum)
+
+            grad_shape = [4] + [size * 4] * (dim - 1)
+            for s in summed:
+                s.backward(self.cast_and_place(torch.ones(grad_shape), dtype))
+            grads_out =[t.grad.data.cpu().numpy() for t in tensors]
+
+            expected = np.ones([size * 4] * dim) * size
+            for grad_out in grads_out:
+                err = np.linalg.norm(expected - grad_out)
+                self.assertLess(err, 0.00000001,
+                                "gradient %s differs from expected %s, "
+                                "error: %s" % (grad_out, expected, str(err)))
+
 
 if __name__ == "__main__":
    unittest.main()
