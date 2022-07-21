@@ -293,8 +293,9 @@ int DoGroupedAllreduceCudaOnCPU(const std::vector<::torch::Tensor>& tensors,
   ReduceOp reduce_op = static_cast<ReduceOp>(reduce_op_int);
 
   auto enqueue_result = EnqueueTensorAllreduces(
-      hvd_contexts, cpu_buffers, cpu_buffers, ready_event_lists, names, device,
-      callbacks, reduce_op, prescale_factor, postscale_factor, process_set_id);
+      hvd_contexts, cpu_buffers, cpu_buffers, ready_event_lists, names,
+      CPU_DEVICE_ID, callbacks, reduce_op, prescale_factor, postscale_factor,
+      process_set_id);
   ThrowIfError(enqueue_result);
 
   return handle;
@@ -517,7 +518,7 @@ int DoGroupedAllgatherCudaOnCPU(const std::vector<::torch::Tensor>& tensors,
 
   auto enqueue_result =
       EnqueueTensorAllgathers(hvd_contexts, hvd_cpu_tensors, ready_event_lists,
-                              names, device, callbacks, process_set_id);
+                              names, CPU_DEVICE_ID, callbacks, process_set_id);
   ThrowIfError(enqueue_result);
 
   return handle;
