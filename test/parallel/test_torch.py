@@ -1354,6 +1354,141 @@ class TorchTests(unittest.TestCase):
         hvd.remove_process_set(odd_set)
         hvd.remove_process_set(even_set)
 
+    def test_horovod_grouped_allgather(self):
+        """Test that the grouped allgather correctly gathers 1D, 2D, 3D tensors."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
+                  torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor,
+                  torch.HalfTensor]
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
+                       torch.cuda.IntTensor, torch.cuda.LongTensor,
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            tensors = [torch.FloatTensor(*([17] * dim)).fill_(1).mul_(rank) for _ in range(5)]
+            tensors = [self.cast_and_place(t, dtype) for t in tensors]
+            gathered = hvd.grouped_allgather(tensors)
+            tensors, gathered = zip(*[self.convert_cpu_fp16_to_fp32(t, g)
+                                      for t, g in zip(tensors, gathered)])
+
+            assert all(list(g.shape) == [17 * size] + [17] * (dim - 1)
+                       for g in gathered)
+
+            for g in gathered:
+                for i in range(size):
+                    rank_tensor = g[i * 17:(i + 1) * 17]
+                    assert list(rank_tensor.shape) == [17] * dim, \
+                        'hvd.grouped_allgather produces incorrect gathered shape'
+                    assert rank_tensor.data.min() == i, 'hvd.grouped_allgather produces incorrect gathered tensor'
+                    assert rank_tensor.data.max() == i, 'hvd.grouped_allgather produces incorrect gathered tensor'
+
+    def test_horovod_grouped_allgather_process_sets(self):
+        """Test that the allgather correctly gathers 1D, 2D, 3D tensors if restricted to process sets."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        if hvd.ccl_built():
+            self.skipTest("Multiple process sets currently do not support CCL.")
+
+        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
+        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
+
+        even_set = hvd.add_process_set(even_ranks)
+        odd_set = hvd.add_process_set(odd_ranks)
+
+        if rank in even_ranks:
+            set_size = len(even_ranks)
+            set_ranks = even_ranks
+            this_set = even_set
+        elif rank in odd_ranks:
+            set_size = len(odd_ranks)
+            set_ranks = odd_ranks
+            this_set = odd_set
+
+        dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
+                  torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor,
+                  torch.HalfTensor]
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
+                       torch.cuda.IntTensor, torch.cuda.LongTensor,
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            tensors = [torch.FloatTensor(*([17] * dim)).fill_(1).mul_(rank) for _ in range(5)]
+            tensors = [self.cast_and_place(t, dtype) for t in tensors]
+            gathered = hvd.grouped_allgather(tensors, process_set=this_set)
+            tensors, gathered = zip(*[self.convert_cpu_fp16_to_fp32(t, g)
+                                      for t, g in zip(tensors, gathered)])
+
+            assert all(list(g.shape) == [17 * set_size] + [17] * (dim - 1)
+                       for g in gathered)
+
+            for g in gathered:
+                for i in range(set_size):
+                    rank_tensor = g[i * 17:(i + 1) * 17]
+                    assert list(rank_tensor.shape) == [17] * dim, \
+                        'hvd.grouped_allgather produces incorrect gathered shape'
+                    value = set_ranks[i]
+
+                    assert rank_tensor.data.min() == value, 'hvd.grouped_allgather produces incorrect gathered tensor'
+                    assert rank_tensor.data.max() == value, 'hvd.grouped_allgather produces incorrect gathered tensor'
+
+        hvd.remove_process_set(odd_set)
+        hvd.remove_process_set(even_set)
+
+    def test_horovod_grouped_allgather_grad(self):
+        """Test the correctness of the grouped allgather gradient."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # Only Tensors of floating point dtype can require gradients
+        dtypes = [torch.FloatTensor, torch.DoubleTensor]
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor, torch.cuda.HalfTensor]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            # Support tests up to MPI Size of 35
+            if size > 35:
+                break
+
+            tensor_sizes = [3, 2, 7, 4, 6, 8, 10] * 5
+            tensor_sizes = tensor_sizes[:size]
+
+            tensors = [torch.FloatTensor(
+                *([tensor_sizes[rank]] + [17] * (dim - 1))).fill_(1).mul_(rank) for _ in range(5)]
+            tensors = [self.cast_and_place(t, dtype) for t in tensors]
+            for t in tensors:
+                t.requires_grad_()
+
+            grad_list = []
+            for r, tensor_size in enumerate(tensor_sizes):
+                grad_list.append(self.cast_and_place(
+                    torch.ones([tensor_size] + [17] * (dim - 1)), dtype) * r)
+            grad_ys = torch.cat(grad_list, dim=0)
+
+            gathered = hvd.grouped_allgather(tensors)
+            for g in gathered:
+                g.backward(grad_ys)
+            grads_out = [t.grad.data.cpu().numpy() for t in tensors]
+
+            expected = np.ones(
+                [tensor_sizes[rank]] + [17] * (dim - 1)
+            ) * rank
+            for go in grads_out:
+                err = np.linalg.norm(expected - go)
+                self.assertLess(err, 0.00000001,
+                                "gradient %s differs from expected %s, "
+                                "error: %s" % (go, expected, str(err)))
+
+
     def test_horovod_broadcast(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
         hvd.init()

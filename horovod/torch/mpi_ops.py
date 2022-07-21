@@ -643,9 +643,9 @@ def allgather(tensor, name=None, process_set=global_process_set):
     A function that concatenates the input tensor with the same input tensor on
     all other Horovod processes. The input tensor is not modified.
 
-    The concatenation is done on the first dimension, so the input tensors on the
-    different processes must have the same rank and shape, except for the first
-    dimension, which is allowed to be different.
+    The concatenation is done on the first dimension, so the corresponding
+    input tensors on the different processes must have the same rank and
+    shape, except for the first dimension, which is allowed to be different.
 
     This acts as a thin wrapper around an autograd function.  If your input
     tensor requires gradients, then callings this function will allow gradients
@@ -664,6 +664,98 @@ def allgather(tensor, name=None, process_set=global_process_set):
         dimensions of the tensors in different Horovod processes.
     """
     return HorovodAllgather.apply(tensor, name, process_set)
+
+
+def _grouped_allgather_function_factory(tensor):
+    return 'horovod_torch_grouped_allgather_async_' + tensor.type().replace('.', '_')
+
+
+def _grouped_allgather_async(tensors, outputs, name, process_set: ProcessSet):
+    function = _check_function(_grouped_allgather_function_factory, tensors[0])
+    try:
+        handle = getattr(mpi_lib, function)(
+            tensors, outputs, name.encode() if name is not None else _NULL,
+            process_set.process_set_id)
+    except RuntimeError as e:
+        raise HorovodInternalError(e)
+    _handle_map[handle] = (tuple(tensors), tuple(outputs))
+    return handle
+
+
+def grouped_allgather_async(tensors, name=None, process_set=global_process_set):
+    """
+    A function that asynchronously concatenates each input tensor with the corresponding
+    input tensor on all other Horovod processes for a list of input tensors. The input
+    tensors are not modified.
+
+    The concatenation is done on the first dimension, so the input tensors on the
+    different processes must have the same rank and shape, except for the first
+    dimension, which is allowed to be different.
+
+    Arguments:
+        tensors: A list of tensors to allgather.
+        name: A base name to use for the group allgather operation.
+        process_set: Process set object to limit this operation to a subset of
+                     Horovod processes. Default is the global process set.
+
+    Returns:
+        A handle to the group allgather operation that can be used with `poll()` or
+        `synchronize()`.
+    """
+    outputs = [t.new() for t in tensors]
+    return _grouped_allgather_async(tensors, outputs, name, process_set)
+
+
+class HorovodGroupedAllgather(torch.autograd.Function):
+    """An autograd function that performs allgather on a list of tensors."""
+
+    @staticmethod
+    def forward(ctx, name, process_set: ProcessSet, *tensors):
+        ctx.dims = [t.shape[0] for t in tensors]
+        ctx.process_set = process_set
+        handle = grouped_allgather_async(list(tensors), name, process_set)
+        return synchronize(handle)
+
+    @staticmethod
+    def backward(ctx, *grad_output):
+        grad_reduced = grouped_allreduce(list(grad_output), average=True, process_set=ctx.process_set)
+
+        dim_ts = [torch.IntTensor([dim]) for dim in ctx.dims]
+        dims = [dt.view(ctx.process_set.size())
+                for dt in grouped_allgather(dim_ts, process_set=ctx.process_set)]
+
+        r = ctx.process_set.rank()
+        offsets = [torch.sum(dim.narrow(0, 0, r)).item() if r != 0 else 0
+                   for dim in dims]
+        result = [gr.narrow(0, offset, dim)
+                  for gr, offset, dim in zip(grad_reduced, offsets, ctx.dims)]
+        return None, None, *result
+
+
+def grouped_allgather(tensors, name=None, process_set=global_process_set):
+    """
+    A function that concatenates each input tensor with the corresponding
+    input tensor on all other Horovod processes for a list of input tensors.
+    The input tensors are not modified.
+
+    The concatenation is done on the first dimension, so the corresponding input
+    tensors on the different processes must have the same rank and shape, except
+    for the first dimension, which is allowed to be different.
+
+    Arguments:
+        tensors: A list of tensors to allgather.
+        name: A base name to use for the group allgather operation.
+        process_set: Process set object to limit this operation to a subset of
+                     Horovod processes. Default is the global process set.
+
+    Returns:
+        A list containing tensors of the same type as in `tensors`. Each tensor
+        is concatenated on dimension zero across all processes. Its shape is
+        identical to the corresponding input shape, expect for the first
+        dimension, which may be greater and is the sum of all first dimensions
+        of the corresponding tensor in different Horovod processes.
+    """
+    return HorovodGroupedAllgather.apply(name, process_set, *tensors)
 
 
 def _broadcast_function_factory(tensor):

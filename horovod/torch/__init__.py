@@ -39,6 +39,7 @@ if _MPI_LIB_AVAILABLE:
     from horovod.torch.mpi_ops import grouped_allreduce, grouped_allreduce_async, grouped_allreduce_, grouped_allreduce_async_
     from horovod.torch.mpi_ops import sparse_allreduce_async
     from horovod.torch.mpi_ops import allgather, allgather_async
+    from horovod.torch.mpi_ops import grouped_allgather, grouped_allgather_async
     from horovod.torch.mpi_ops import broadcast, broadcast_async, broadcast_, broadcast_async_
     from horovod.torch.mpi_ops import alltoall, alltoall_async
     from horovod.torch.mpi_ops import reducescatter, reducescatter_async

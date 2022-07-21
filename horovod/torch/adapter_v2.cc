@@ -99,6 +99,11 @@ int64_t TorchTensor::size() const {
 TorchOpContext::TorchOpContext(int device, ::torch::Tensor principal_output)
     : device_(device), output_devices_{device}, outputs_{principal_output} {}
 
+TorchOpContext::TorchOpContext(int device,
+                               const std::vector<::torch::Tensor>& outputs)
+    : device_(device), output_devices_(outputs.size(), device),
+      outputs_(outputs) {}
+
 void TorchOpContext::AddOutput(int device, ::torch::Tensor output) {
   output_devices_.push_back(device);
   outputs_.push_back(output);
