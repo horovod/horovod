@@ -1009,9 +1009,12 @@ def _reducescatter_function_factory(tensor):
 
 def _reducescatter_async(tensor, output, name, op, process_set: ProcessSet):
     function = _check_function(_reducescatter_function_factory, tensor)
-    handle = getattr(mpi_lib, function)(tensor, output,
-                                        name.encode() if name is not None else _NULL,
-                                        op, process_set.process_set_id)
+    try:
+        handle = getattr(mpi_lib, function)(tensor, output,
+                                            name.encode() if name is not None else _NULL,
+                                            op, process_set.process_set_id)
+    except RuntimeError as e:
+        raise HorovodInternalError(e)
     _handle_map[handle] = (tensor, output)
     return handle
 
