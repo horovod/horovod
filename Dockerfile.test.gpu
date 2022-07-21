@@ -4,7 +4,6 @@ FROM nvidia/cuda:${CUDA_DOCKER_VERSION}
 # Arguments for the build. CUDA_DOCKER_VERSION needs to be repeated because
 # the first usage only applies to the FROM tag.
 ARG CUDA_DOCKER_VERSION=10.0-devel-ubuntu20.04
-ARG CUDA_TOOLKIT_VERSION=10.0
 ARG CUDNN_VERSION=7.6.0.64-1+cuda10.0
 ARG NCCL_VERSION_OVERRIDE=2.4.7-1+cuda10.0
 ARG MPI_KIND=OpenMPI
@@ -74,7 +73,7 @@ RUN wget -q https://repo.continuum.io/miniconda/Miniconda3-py38_4.12.0-Linux-x86
     # Set always_yes for non-interactive shells.
     conda config --system --set always_yes True && \
     # Install NVTabular
-    conda install -y -c nvidia -c rapidsai -c numba -c conda-forge nvtabular python=${PYTHON_VERSION} cudatoolkit=${CUDA_TOOLKIT_VERSION} && \
+    conda install -y -c nvidia -c rapidsai -c numba -c conda-forge nvtabular python=${PYTHON_VERSION} cudatoolkit=${CUDA_DOCKER_VERSION:0:4} && \
     conda clean --all
 
 # pinning pip to 21.0.0 as 22.0.0 cannot fetch pytorch packages from html linl
@@ -182,7 +181,7 @@ RUN wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/pytorch_d
 # Patches (leveraging cached layers above)
 
 # Update pip dependencies for nvtabular and apply patch per: https://github.com/NVIDIA-Merlin/NVTabular/pull/1587
-RUN CUDA_VER=$(echo ${CUDA_TOOLKIT_VERSION} | sed 's/\.//'); \
+RUN CUDA_VER=$(echo ${CUDA_DOCKER_VERSION:0:4} | sed 's/\.//'); \
     pip uninstall -y cupy && pip install --no-cache-dir cupy-cuda${CUDA_VER} "numpy<=1.22" petastorm && \
     sed -i 's/warnings.warn(e)/warnings.warn(str(e))/' /root/miniconda3/lib/python3.8/site-packages/nvtabular/loader/tf_utils.py
 
