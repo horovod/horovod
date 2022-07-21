@@ -729,7 +729,7 @@ class HorovodGroupedAllgather(torch.autograd.Function):
                    for dim in dims]
         result = [gr.narrow(0, offset, dim)
                   for gr, offset, dim in zip(grad_reduced, offsets, ctx.dims)]
-        return None, None, *result
+        return (None, None, *result)
 
 
 def grouped_allgather(tensors, name=None, process_set=global_process_set):
