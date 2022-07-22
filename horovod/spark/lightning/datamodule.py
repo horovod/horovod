@@ -62,6 +62,8 @@ class PetastormDataModule(pl.LightningDataModule):
                 reader_factory = make_batch_reader
 
             self.train_reader = reader_factory(self.train_dir, num_epochs=self.num_reader_epochs,
+                                               reader_pool_type=self.reader_pool_type,
+                                               workers_count=self.reader_worker_count,
                                                cur_shard=self.cur_shard, shard_count=self.shard_count,
                                                hdfs_driver=PETASTORM_HDFS_DRIVER,
                                                schema_fields=self.schema_fields,
@@ -72,6 +74,8 @@ class PetastormDataModule(pl.LightningDataModule):
                                                **reader_factory_kwargs)
             if self.has_val:
                 self.val_reader = reader_factory(self.val_dir, num_epochs=self.num_reader_epochs,
+                                                 reader_pool_type=self.reader_pool_type,
+                                                 workers_count=self.reader_worker_count,
                                                  cur_shard=self.cur_shard, shard_count=self.shard_count,
                                                  hdfs_driver=PETASTORM_HDFS_DRIVER,
                                                  schema_fields=self.schema_fields,
