@@ -764,7 +764,7 @@ extern "C" int horovod_mxnet_reducescatter_async(NDArray* const* inputs,
   MX_API_BEGIN();
 
 #if HAVE_CUDA && !HOROVOD_GPU_REDUCESCATTER
-  if (IsTensorOnCPU(input) && IsTensorOnCPU(output)) {
+  if (IsTensorOnCPU(inputs[0]) && IsTensorOnCPU(outputs[0])) {
     PushHorovodOperation(OperationType::REDUCESCATTER, inputs, outputs, name,
                          priority, num_tensors, process_set_id, -1, false);
   } else {
