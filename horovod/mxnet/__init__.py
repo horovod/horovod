@@ -20,7 +20,7 @@ check_extension('horovod.mxnet', 'HOROVOD_WITH_MXNET',
 
 from horovod.mxnet.compression import Compression
 from horovod.mxnet.functions import allgather_object, broadcast_object
-from horovod.mxnet.mpi_ops import allgather
+from horovod.mxnet.mpi_ops import allgather, grouped_allgather
 from horovod.mxnet.mpi_ops import allreduce, allreduce_, grouped_allreduce, grouped_allreduce_
 from horovod.mxnet.mpi_ops import alltoall
 from horovod.mxnet.mpi_ops import broadcast, broadcast_

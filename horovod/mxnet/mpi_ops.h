@@ -112,18 +112,16 @@ void DeleteMpiOpsParam(void* param) {
   delete ops_param;
 }
 
-extern "C" int horovod_mxnet_allreduce_async(NDArray* const * inputs,
-                                             NDArray* const * outputs,
-                                             const char* name, bool average,
-                                             int priority,
-                                             double prescale_factor,
-                                             double postscale_factor,
-                                             int num_tensors,
-                                             int process_set_id);
-extern "C" int horovod_mxnet_allgather_async(NDArray* input,
-                                             NDArray* output,
+extern "C" int
+horovod_mxnet_allreduce_async(NDArray* const* inputs, NDArray* const* outputs,
+                              const char* name, bool average, int priority,
+                              double prescale_factor, double postscale_factor,
+                              int num_tensors, int process_set_id);
+extern "C" int horovod_mxnet_allgather_async(NDArray* const* inputs,
+                                             NDArray* const* outputs,
                                              const char* name, int priority,
-                                             int process_set_id);
+                                             int process_set_id,
+                                             int num_tensors);
 extern "C" int horovod_mxnet_broadcast_async(NDArray* input,
                                              NDArray* output,
                                              const char* name, int root_rank,

@@ -326,22 +326,65 @@ def allgather(tensor, name=None, priority=0, process_set=global_process_set):
     assert(isinstance(tensor, mx.nd.NDArray))
     # Size of output is unknown, create output array that
     # will be resized during Horovod operation
-    output = mx.nd.empty(shape=[1], ctx=tensor.context,
+    output = mx.nd.empty(shape=(1,), ctx=tensor.context,
                          dtype=tensor.dtype)
     c_in = tensor.handle
     c_out = output.handle
-    if isinstance(name, string_types):
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allgather_async(
-            c_in, c_out, c_str(name), ctypes.c_int(priority),
-            ctypes.c_int(process_set.process_set_id)))
-    else:
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allgather_async(
-            c_in, c_out, name, ctypes.c_int(priority),
-            ctypes.c_int(process_set.process_set_id)))
+    c_name = c_str(name) if isinstance(name, string_types) else ctypes.c_char_p(None)
+
+    check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allgather_async(
+        ctypes.byref(c_in), ctypes.byref(c_out), c_name, ctypes.c_int(priority),
+        ctypes.c_int(process_set.process_set_id), ctypes.c_int(1)
+        ))
 
     # Need to block here so changes to output tensor are visible
     output.wait_to_read()
     return output
+
+
+def grouped_allgather(tensors, name=None, priority=0, process_set=global_process_set):
+    """
+    A function that concatenates each input tensor with the corresponding
+    input tensor on all other Horovod processes for a list of input tensors.
+    The input tensors are not modified.
+
+    The concatenation is done on the first dimension, so the corresponding input
+    tensors on the different processes must have the same rank and shape, except
+    for the first dimension, which is allowed to be different.
+
+    Arguments:
+        tensors: A list of tensors to allgather.
+        name: A base name to use for the group allgather operation.
+        priority: The priority of this operation. Higher priority operations
+                  are likely to be executed before other operations.
+        process_set: Process set object to limit this operation to a subset of
+                     Horovod processes. Default is the global process set.
+
+    Returns:
+        A list containing tensors of the same type as in `tensors`. Each tensor
+        is concatenated on dimension zero across all processes. Its shape is
+        identical to the corresponding input shape, expect for the first
+        dimension, which may be greater and is the sum of all first dimensions
+        of the corresponding tensor in different Horovod processes.
+    """
+    assert(all(isinstance(t, mx.nd.NDArray) for t in tensors))
+    # Sizes of outputs are unknown, create output arrays that
+    # will be resized during Horovod operation
+    outputs = [mx.nd.empty(shape=(1,), ctx=t.context, dtype=t.dtype)
+               for t in tensors]
+    c_in = c_handle_array(tensors)
+    c_out = c_handle_array(outputs)
+    c_name = c_str(name) if isinstance(name, string_types) else ctypes.c_char_p(None)
+
+    check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allgather_async(
+        c_in, c_out, c_name, ctypes.c_int(priority),
+        ctypes.c_int(process_set.process_set_id),
+        ctypes.c_int(len(tensors))))
+
+    # Need to block here so changes to output tensors are visible
+    for o in outputs:
+        o.wait_to_read()
+    return outputs
 
 
 def broadcast(tensor, root_rank, name=None, priority=0, process_set=global_process_set):

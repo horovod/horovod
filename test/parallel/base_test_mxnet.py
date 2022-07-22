@@ -1073,6 +1073,89 @@ class MXTests:
         except (MXNetError, RuntimeError):
             pass
 
+    def test_horovod_grouped_allgather(self):
+        """Test that the grouped allgather correctly gathers 1D, 2D, 3D tensors."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        dtypes = ['int32',   'int64',
+                  'float32', 'float64']
+        dims = [1, 2, 3]
+        ctx = self._current_context()
+        for dtype, dim in itertools.product(dtypes, dims):
+            tensors = [mx.ndarray.ones(shape=[17] * dim, dtype=dtype, ctx=ctx) * rank
+                       for _ in range(5)]
+            gathered = hvd.grouped_allgather(tensors)
+
+            for g in gathered:
+                assert list(g.shape) == [17 * size] + [17] * (dim - 1)
+                for i in range(size):
+                    rank_tensor = g[i * 17:(i + 1) * 17]
+                    assert list(rank_tensor.shape) == [17] * dim, \
+                        'hvd.grouped_allgather produces incorrect gathered shape'
+                    assert rank_tensor.min() == i, 'hvd.grouped_allgather produces incorrect gathered tensor'
+                    assert rank_tensor.max() == i, 'hvd.grouped_allgather produces incorrect gathered tensor'
+
+    def test_horovod_grouped_allgather_process_sets(self):
+        """Test that the grouped allgather correctly gathers 1D, 2D, 3D tensors
+        if restricted to non-global process sets."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        if hvd.ccl_built():
+            self.skipTest("Multiple process sets currently do not support CCL.")
+
+        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
+        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
+        even_set = hvd.add_process_set(even_ranks)
+        odd_set = hvd.add_process_set(odd_ranks)
+        if rank in even_ranks:
+            set_size = len(even_ranks)
+            set_ranks = even_ranks
+            this_set = even_set
+        elif rank in odd_ranks:
+            set_size = len(odd_ranks)
+            set_ranks = odd_ranks
+            this_set = odd_set
+
+        dtypes = ['int32',   'int64',
+                  'float32', 'float64']
+        dims = [1, 2, 3]
+        ctx = self._current_context()
+        for dtype, dim in itertools.product(dtypes, dims):
+            tensors = [mx.ndarray.ones(shape=[17] * dim, dtype=dtype, ctx=ctx) * rank for _ in range(5)]
+            gathered = hvd.grouped_allgather(tensors, process_set=this_set)
+
+            for g in gathered:
+                assert list(g.shape) == [17 * set_size] + [17] * (dim - 1)
+                for i in range(set_size):
+                    rank_tensor = g[i * 17:(i + 1) * 17]
+                    assert list(rank_tensor.shape) == [17] * dim, \
+                        'hvd.grouped_allgather produces incorrect gathered shape'
+                    value = set_ranks[i]
+                    assert rank_tensor.min() == value, 'hvd.grouped_allgather produces incorrect gathered tensor'
+                    assert rank_tensor.max() == value, 'hvd.grouped_allgather produces incorrect gathered tensor'
+        hvd.remove_process_set(odd_set)
+        hvd.remove_process_set(even_set)
+
+    @unittest.skipUnless(has_gpu, "no gpu detected")
+    def test_horovod_grouped_allgather_cpu_gpu_error(self):
+        """Test that the grouped allgather raises an error if the input tensor
+           list contains a mix of tensors on CPU and GPU."""
+        hvd.init()
+        local_rank = hvd.local_rank()
+        tensors = [mx.nd.ones(shape=[10], ctx=mx.gpu(local_rank) if i % 2
+                   else mx.cpu(local_rank)) for i in range(5)]
+
+        try:
+            outputs = hvd.grouped_allgather(tensors)
+            mx.nd.waitall()
+            assert False, 'hvd.grouped_allgather did not throw cpu-gpu error'
+        except (MXNetError, RuntimeError):
+            pass
+
     def test_broadcast_object(self):
         hvd.init()
 
