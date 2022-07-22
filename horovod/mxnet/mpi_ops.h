@@ -134,10 +134,11 @@ extern "C" int horovod_mxnet_alltoall_async(NDArray* input,
                                             NDArray* output_received_splits,
                                             int priority,
                                             int process_set_id);
-extern "C" int
-horovod_mxnet_reducescatter_async(NDArray* input, NDArray* output,
-                                  const char* name, int priority,
-                                  int process_set_id);
+extern "C" int horovod_mxnet_reducescatter_async(NDArray* const* inputs,
+                                                 NDArray* const* outputs,
+                                                 const char* name, int priority,
+                                                 int process_set_id,
+                                                 int num_tensors);
 
 } // namespace mxnet
 } // namespace horovod

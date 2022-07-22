@@ -297,9 +297,9 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
       break;
     }
     case OperationType::REDUCESCATTER:
-      enqueue_result = EnqueueTensorReducescatter(
-          hvd_contexts[0], hvd_tensors[0], ready_event_lists[0],
-          ops_param->op_names[0], device, callbacks[0],
+      enqueue_result = EnqueueTensorReducescatters(
+          hvd_contexts, hvd_tensors, ready_event_lists,
+          ops_param->op_names, device, callbacks,
           ReduceOp::SUM, process_set_id);
       break;
     default:
@@ -513,9 +513,9 @@ void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
     break;
   }
   case OperationType::REDUCESCATTER:
-    enqueue_result = EnqueueTensorReducescatter(
-        hvd_contexts[0], hvd_cpu_buffers[0], ready_event_lists[0],
-        ops_param->op_names[0], device, callbacks[0],
+    enqueue_result = EnqueueTensorReducescatters(
+        hvd_contexts, hvd_cpu_buffers, ready_event_lists,
+        ops_param->op_names, device, callbacks,
         ReduceOp::SUM, process_set_id);
     break;
   default:
@@ -756,23 +756,24 @@ extern "C" int horovod_mxnet_alltoall_async(NDArray* input,
   MX_API_END();
 }
 
-extern "C" int
-horovod_mxnet_reducescatter_async(NDArray* input, NDArray* output,
-                                  const char* name, int priority,
-                                  int process_set_id) {
+extern "C" int horovod_mxnet_reducescatter_async(NDArray* const* inputs,
+                                                 NDArray* const* outputs,
+                                                 const char* name, int priority,
+                                                 int process_set_id,
+                                                 int num_tensors) {
   MX_API_BEGIN();
 
 #if HAVE_CUDA && !HOROVOD_GPU_REDUCESCATTER
   if (IsTensorOnCPU(input) && IsTensorOnCPU(output)) {
-    PushHorovodOperation(OperationType::REDUCESCATTER, &input, &output, name,
-                         priority, 1, process_set_id, -1, false);
+    PushHorovodOperation(OperationType::REDUCESCATTER, inputs, outputs, name,
+                         priority, num_tensors, process_set_id, -1, false);
   } else {
-    PushHorovodOperationCudaOnCPU(OperationType::REDUCESCATTER, &input, &output,
-                                  name, priority, 1, process_set_id, -1, false);
+    PushHorovodOperationCudaOnCPU(OperationType::REDUCESCATTER, inputs, outputs,
+                                  name, priority, num_tensors, process_set_id, -1, false);
   }
 #else
-  PushHorovodOperation(OperationType::REDUCESCATTER, &input, &output, name,
-                       priority, 1, process_set_id, -1, false);
+  PushHorovodOperation(OperationType::REDUCESCATTER, inputs, outputs, name,
+                       priority, num_tensors, process_set_id, -1, false);
 #endif
 
   MX_API_END();
