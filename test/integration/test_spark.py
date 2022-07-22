@@ -470,7 +470,7 @@ class SparkTests(unittest.TestCase):
                 with mpi_implementation_flags():
                     with pytest.raises(Exception, match='^mpirun failed with exit code 127$'):
                         horovod.spark.run(None, start_timeout=20, env={'PATH': '/nonexistent'}, verbose=0)
-        self.assertLessEqual(time.time() - start, 10, 'Failure propagation took too long')
+        self.assertLessEqual(time.time() - start, 60, 'Failure propagation took too long')
 
     """
     Test that horovod.spark.run uses MPI properly.
