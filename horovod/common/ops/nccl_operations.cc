@@ -699,6 +699,7 @@ Status NCCLTorusAllreduce::Execute(std::vector<TensorTableEntry>& entries,
       gpu_context_->WaitForEvents(gpu_op_context_.event_queue, entries,
                                   timeline,
                                   cross_nccl_op_context_.error_check_callback_);
+    }
   if (num_elements_per_rank > 0) {
     local_nccl_context_->ErrorCheck(
         "ncclAllGather",
