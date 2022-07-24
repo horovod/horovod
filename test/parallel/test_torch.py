@@ -42,6 +42,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 from common import mpi_env_rank_and_size, skip_or_fail_gpu_test, temppath
 
+_1_12_api = LooseVersion(torch.__version__) >= LooseVersion('1.12.0')
 _1_5_api = LooseVersion(torch.__version__) >= LooseVersion('1.5.0')
 _is_mac = platform.system() == 'Darwin'
 
@@ -2781,6 +2782,8 @@ class TorchTests(unittest.TestCase):
             torch.manual_seed(1234)
 
             def div(t, s):
+                if _1_12_api and dtype in integral_types:
+                    return t.div(s, rounding_mode='trunc')
                 if _1_5_api and dtype in integral_types:
                     return t.floor_divide(s)
                 return t / s
