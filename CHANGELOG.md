@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Added support for batched memory copies in GPUAllgather. ([#3590](https://github.com/horovod/horovod/pull/3590))
+- Added support for batched memory copies in GPUReducescatter.
+
 ### Changed
 
 ### Deprecated
@@ -17,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - Updated Eigen submodule to fix build on macOS with aarch64.
+- Fix FuseResponses() on BATCHED_D2D_PADDING edge cases for Reducescatter and/or ROCm.
 
 
 ## [v0.25.0] - 2022-06-20
