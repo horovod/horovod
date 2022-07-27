@@ -59,9 +59,9 @@ __global__ void batched_memcpy_k(BatchedD2DParams params) {
   // Select load/store size based on the misaligned buffer
   size_t align = (align_out == 0) ? align_in : align_out;
   if (align_in && align_out) {
-    // If both are misaligned, use unsigned char (this should not occur
-    // as fusion buffer locations should be aligned by applying BATCH_D2D_PADDING
-    // during construction.)
+    // If both are misaligned, use unsigned char (this should not occur for
+    // Allreduces as fusion buffer locations should be aligned by applying
+    // BATCHED_D2D_PADDING during construction.)
     align = 1;
   }
 
