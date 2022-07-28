@@ -148,9 +148,13 @@ void NCCLOpContext::PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
   } else if (communicator_type_ == Communicator::LOCAL) {
     nccl_rank = process_set.controller->GetLocalRank();
     nccl_size = process_set.controller->GetLocalSize();
-  } else {
+  } else if (communicator_type_ == Communicator::CROSS) {
     nccl_rank = process_set.controller->GetCrossRank();
     nccl_size = process_set.controller->GetCrossSize();
+  } else {
+     throw std::logic_error("Communicator type " +
+                            std::to_string(communicator_type_) +
+                            " is not supported in NCCL mode.");
   }
   nccl_id_bcast_comm = communicator_type_;
 }
@@ -673,16 +677,6 @@ Status NCCLTorusAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   }
 
   if (process_set.controller->IsHomogeneous() || is_root_rank) {
-    // Synchronize.
-    if (global_state_->elastic_enabled) {
-      gpu_context_->WaitForEventsElastic(
-          gpu_op_context_.event_queue, entries, timeline,
-          local_nccl_op_context_.error_check_callback_);
-    } else {
-      gpu_context_->WaitForEvents(gpu_op_context_.event_queue, entries,
-                                  timeline,
-                                  local_nccl_op_context_.error_check_callback_);
-    }
   timeline.ActivityStartAll(entries, NCCL_ALLREDUCE);
     auto cross_nccl_result = ncclAllReduce(buffer_data_at_rank_offset, buffer_data_at_rank_offset,
                                            (size_t) total_num_elements, GetNCCLDataType(first_entry.tensor),
@@ -690,16 +684,6 @@ Status NCCLTorusAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     cross_nccl_context_->ErrorCheck("ncclAllReduce", cross_nccl_result, *cross_nccl_op_context_.nccl_comm_);
     timeline.ActivityEndAll(entries);
   }
-  // We need to make sure the cross-node ncclAllReduce doesn't raise async error
-    if (global_state_->elastic_enabled) {
-      gpu_context_->WaitForEventsElastic(
-          gpu_op_context_.event_queue, entries, timeline,
-          cross_nccl_op_context_.error_check_callback_);
-    } else {
-      gpu_context_->WaitForEvents(gpu_op_context_.event_queue, entries,
-                                  timeline,
-                                  cross_nccl_op_context_.error_check_callback_);
-    }
   if (num_elements_per_rank > 0) {
     local_nccl_context_->ErrorCheck(
         "ncclAllGather",
