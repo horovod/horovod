@@ -188,7 +188,7 @@ protected:
   void ScaleBuffer(double scale_factor,
                    const std::vector<TensorTableEntry>& entries,
                    const void* fused_input_data, void* buffer_data,
-                   int64_t num_elements);
+                   int64_t num_elements) override;
 
   GPUContext* gpu_context_;
   GPUOpContext gpu_op_context_;
@@ -235,7 +235,7 @@ public:
                const Response& response) const override;
 
 protected:
-  struct GPUContext* gpu_context_;
+  GPUContext* gpu_context_;
   GPUOpContext gpu_op_context_;
 };
 
@@ -266,6 +266,16 @@ protected:
 
   void MemcpyEntryOutFusionBuffer(const void* buffer_data_at_offset,
                                   TensorTableEntry& e) override;
+
+#if HAVE_GPU
+  void MemcpyInFusionBuffer(
+      const std::vector<TensorTableEntry>& entries,
+      const std::vector<std::vector<TensorShape>>& output_shapes,
+      std::size_t element_size, void*& buffer_data) override;
+
+  void MemcpyOutFusionBuffer(const void* buffer_data,
+                             std::vector<TensorTableEntry>& entries) override;
+#endif // HAVE_GPU
 
   GPUContext* gpu_context_;
   GPUOpContext gpu_op_context_;

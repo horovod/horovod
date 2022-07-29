@@ -840,12 +840,15 @@ void Controller::FuseResponses(std::deque<Response>& responses,
       // Attempt to add more responses to this fused response.
 
       tensor_size = response.tensor_sizes()[0] * GetTypeSize(response.tensor_type());
-#if HAVE_CUDA
-      if (state.batch_d2d_memcopies) {
+#if HAVE_CUDA || HAVE_ROCM
+      if (state.batch_d2d_memcopies &&
+          response.response_type() != Response::ResponseType::REDUCESCATTER) {
         // Add 16 byte pad for batched memcpy op
-        tensor_size = BATCHED_D2D_PADDING * ((tensor_size + BATCHED_D2D_PADDING - 1) / BATCHED_D2D_PADDING);
+        tensor_size =
+            BATCHED_D2D_PADDING *
+            ((tensor_size + BATCHED_D2D_PADDING - 1) / BATCHED_D2D_PADDING);
       }
-#endif
+#endif // HAVE_CUDA || HAVE_ROCM
       std::deque<Response> skipped_responses;
       int64_t skipped_size = 0;
       while (!responses.empty()) {
@@ -857,12 +860,15 @@ void Controller::FuseResponses(std::deque<Response>& responses,
                                       : new_response.tensor_sizes()[0] *
                                         GetTypeSize(new_response.tensor_type());
 
-#if HAVE_CUDA
-        if (state.batch_d2d_memcopies) {
+#if HAVE_CUDA || HAVE_ROCM
+        if (state.batch_d2d_memcopies &&
+            response.response_type() != Response::ResponseType::REDUCESCATTER) {
           // Add 16 byte pad for batched memcpy op
-          new_tensor_size = BATCHED_D2D_PADDING * ((new_tensor_size + BATCHED_D2D_PADDING - 1) / BATCHED_D2D_PADDING);
+          new_tensor_size = BATCHED_D2D_PADDING *
+                            ((new_tensor_size + BATCHED_D2D_PADDING - 1) /
+                             BATCHED_D2D_PADDING);
         }
-#endif
+#endif // HAVE_CUDA || HAVE_ROCM
 
         if (response.response_type() == new_response.response_type() &&
             response.devices() == new_response.devices() &&
