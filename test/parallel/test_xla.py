@@ -62,10 +62,6 @@ ccl_supported_types = set([tf.uint8, tf.int8, tf.uint16, tf.int16,
 
 _IS_TF26 = LooseVersion(tf.__version__) >= LooseVersion('2.6.0')
 
-# Set environment variable to enable adding/removing process sets after
-# initializing Horovod.
-os.environ["HOROVOD_DYNAMIC_PROCESS_SETS"] = "1"
-
 
 @pytest.mark.skipif(not _IS_TF26, reason='TF2.6+ is required')
 class XLATests(tf.test.TestCase):
@@ -260,72 +256,6 @@ class XLATests(tf.test.TestCase):
             diff = self.evaluate(max_difference)
             self.assertTrue(diff <= threshold,
                             "hvd.allreduce produces incorrect results")
-
-    def test_horovod_allreduce_gpu_process_sets(self):
-        """ Test on XLA/GPU that allreduce correctly sums if restricted to non-global process sets"""
-        # Only do this test if there are GPUs available.
-        if not tf.test.is_gpu_available(cuda_only=True):
-            self.skipTest(("No GPUs available"))
-
-        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
-            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
-            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
-
-        hvd.init()
-        local_rank = hvd.local_rank()
-        rank = hvd.rank()
-        size = hvd.size()
-
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
-
-        def allreduce_gpu_process_set(self, dtype, dim):
-            even_rank_tensor = self.random_uniform(
-                [17] * dim, -100, 100, dtype=dtype)
-            odd_rank_tensor = self.random_uniform(
-                [17] * dim, -100, 100, dtype=dtype)
-            if rank in even_ranks:
-                summed = hvd.allreduce(
-                    even_rank_tensor,
-                    average=False,
-                    process_set=even_set)
-                multiplied = even_rank_tensor * len(even_ranks)
-            if rank in odd_ranks:
-                summed = hvd.allreduce(
-                    odd_rank_tensor, average=False, process_set=odd_set)
-                multiplied = odd_rank_tensor * len(odd_ranks)
-            max_difference = tf.reduce_max(tf.abs(summed - multiplied))
-            return max_difference
-
-        dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
-        dims = [1, 2, 3]
-        for dtype, dim in itertools.product(dtypes, dims):
-            with tf.device("/gpu:%d" % local_rank):
-                max_difference = tf.function(
-                    allreduce_gpu_process_set, jit_compile=True)(self, dtype, dim)
-
-            # Threshold for floating point equality depends on number of
-            # ranks, since we're comparing against precise multiplication.
-            max_process_set_size = max(len(even_ranks), len(odd_ranks))
-            if max_process_set_size <= 3 or dtype in [tf.int32, tf.int64]:
-                threshold = 0
-            elif max_process_set_size < 10:
-                threshold = 1e-4
-            elif max_process_set_size < 15:
-                threshold = 5e-4
-            else:
-                self.skipTest(
-                    "Horovod cluster too large for precise multiplication comparison")
-
-            diff = self.evaluate(max_difference)
-            self.assertTrue(diff <= threshold,
-                            "hvd.allreduce produces incorrect results")
-
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
 
     def test_horovod_allreduce_grad_gpu(self):
         """Test the correctness of the allreduce gradient on XLA/GPU."""

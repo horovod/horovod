@@ -5,7 +5,7 @@ FROM rayproject/ray:${RAY_DOCKER_VERSION}-gpu
 # the first usage only applies to the FROM tag.
 # TensorFlow version is tightly coupled to CUDA and cuDNN so it should be selected carefully
 ARG RAY_DOCKER_VERSION=nightly
-ARG TENSORFLOW_VERSION=2.6.5
+ARG TENSORFLOW_VERSION=2.7.3
 ARG PYTORCH_VERSION=1.8.1+cu111
 ARG PYTORCH_LIGHTNING_VERSION=1.5.9
 ARG TORCHVISION_VERSION=0.9.1+cu111

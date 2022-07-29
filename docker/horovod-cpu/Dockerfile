@@ -1,7 +1,7 @@
 FROM ubuntu:20.04
 
 # TensorFlow version is tightly coupled to CUDA and cuDNN so it should be selected carefully
-ARG TENSORFLOW_VERSION=2.6.5
+ARG TENSORFLOW_VERSION=2.7.3
 ARG PYTORCH_VERSION=1.8.1
 ARG PYTORCH_LIGHTNING_VERSION=1.5.9
 ARG TORCHVISION_VERSION=0.9.1

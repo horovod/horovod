@@ -9,8 +9,8 @@ services:
         GPP_VERSION: 7
         MPI_KIND: None
         PYTHON_VERSION: 3.8
-        TENSORFLOW_PACKAGE: tensorflow-cpu==2.8.2
-        KERAS_PACKAGE: keras==2.8.0
+        TENSORFLOW_PACKAGE: tensorflow-cpu==2.9.1
+        KERAS_PACKAGE: keras==2.9.0
         PYTORCH_PACKAGE: torch==1.11.0+cpu
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision==0.12.0+cpu
@@ -22,29 +22,29 @@ services:
     shm_size: 8gb
 
   # our baseline first
-  test-cpu-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1:
+  test-cpu-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1:
     extends: test-cpu-base
 
   # permute MPI kinds
-  test-cpu-mpich-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1:
+  test-cpu-mpich-py3_8-tf2_9_1-keras2_9_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: MPICH
         HOROVOD_BUILD_FLAGS: HOROVOD_WITHOUT_GLOO=1
-  test-cpu-oneccl-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1:
+  test-cpu-oneccl-py3_8-tf2_9_1-keras2_9_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: ONECCL
         HOROVOD_BUILD_FLAGS: HOROVOD_WITHOUT_GLOO=1
-  test-cpu-openmpi-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1:
+  test-cpu-openmpi-py3_8-tf2_9_1-keras2_9_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: OpenMPI
         HOROVOD_BUILD_FLAGS: HOROVOD_WITHOUT_GLOO=1
-  test-cpu-openmpi-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1:
+  test-cpu-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1:
     extends: test-cpu-base
     build:
       args:
@@ -67,21 +67,21 @@ services:
         PYTORCH_PACKAGE: torch==1.8.1+cpu
         TORCHVISION_PACKAGE: torchvision==0.9.1+cpu
         MXNET_PACKAGE: mxnet==1.5.1.post0
-  test-cpu-gloo-py3_8-tf2_6_5-keras2_6_0-torch1_9_1-mxnet1_7_0_p2-pyspark3_2_1:
-    extends: test-cpu-base
-    build:
-      args:
-        TENSORFLOW_PACKAGE: tensorflow-cpu==2.6.5
-        KERAS_PACKAGE: keras==2.6.0
-        PYTORCH_PACKAGE: torch==1.9.1+cpu
-        TORCHVISION_PACKAGE: torchvision==0.10.1+cpu
-        MXNET_PACKAGE: mxnet==1.7.0.post2
-  test-cpu-gloo-py3_8-tf2_7_3-keras2_7_0-torch1_10_2-mxnet1_8_0_p0-pyspark3_2_1:
+  test-cpu-gloo-py3_8-tf2_7_3-keras2_7_0-torch1_9_1-mxnet1_7_0_p2-pyspark3_2_1:
     extends: test-cpu-base
     build:
       args:
         TENSORFLOW_PACKAGE: tensorflow-cpu==2.7.3
         KERAS_PACKAGE: keras==2.7.0
+        PYTORCH_PACKAGE: torch==1.9.1+cpu
+        TORCHVISION_PACKAGE: torchvision==0.10.1+cpu
+        MXNET_PACKAGE: mxnet==1.7.0.post2
+  test-cpu-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_10_2-mxnet1_8_0_p0-pyspark3_2_1:
+    extends: test-cpu-base
+    build:
+      args:
+        TENSORFLOW_PACKAGE: tensorflow-cpu==2.8.2
+        KERAS_PACKAGE: keras==2.8.0
         PYTORCH_PACKAGE: torch==1.10.2+cpu
         TORCHVISION_PACKAGE: torchvision==0.11.3+cpu
         MXNET_PACKAGE: mxnet==1.8.0.post0
@@ -112,7 +112,7 @@ services:
         PYSPARK_PACKAGE: pyspark==2.4.0
         SPARK_PACKAGE: spark-2.4.0/spark-2.4.0-bin-hadoop2.7.tgz
 
-  test-cpu-gloo-py3_7-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_9_1-pyspark2_4_8:
+  test-cpu-gloo-py3_7-tf2_9_1-keras2_9_0-torch1_11_0-mxnet1_9_1-pyspark2_4_8:
     extends: test-cpu-base
     build:
       args:
@@ -122,7 +122,7 @@ services:
         PYTHON_VERSION: 3.7
         PYSPARK_PACKAGE: pyspark==2.4.8
         SPARK_PACKAGE: spark-2.4.8/spark-2.4.8-bin-hadoop2.7.tgz
-  test-cpu-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_9_1-pyspark3_1_3:
+  test-cpu-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_11_0-mxnet1_9_1-pyspark3_1_3:
     extends: test-cpu-base
     build:
       args:
@@ -173,7 +173,7 @@ services:
         TORCHVISION_PACKAGE: torchvision==0.9.1+cu101
         MXNET_PACKAGE: mxnet-cu100==1.5.1.post0
   # here we deviate from mxnet==1.7.0.post2 as there is none for cu101, only post1
-  test-gpu-gloo-py3_8-tf2_6_5-keras2_6_0-torch1_9_1-mxnet1_7_0_p1-pyspark3_2_1:
+  test-gpu-gloo-py3_8-tf2_7_3-keras2_7_0-torch1_9_1-mxnet1_7_0_p1-pyspark3_2_1:
     extends: test-gpu-base
     build:
       args:
@@ -181,26 +181,26 @@ services:
         CUDA_DOCKER_VERSION: 10.1-devel-ubuntu18.04
         CUDNN_VERSION: 8.0.5.39-1+cuda10.1
         NCCL_VERSION_OVERRIDE: 2.8.4-1+cuda10.2
-        TENSORFLOW_PACKAGE: tensorflow-gpu==2.6.5
-        KERAS_PACKAGE: keras==2.6.0
+        TENSORFLOW_PACKAGE: tensorflow-gpu==2.7.3
+        KERAS_PACKAGE: keras==2.7.0
         PYTORCH_PACKAGE: torch==1.9.1+cu102
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision==0.10.1+cu102
         MXNET_PACKAGE: mxnet-cu101==1.7.0.post1
-  test-gpu-gloo-py3_8-tf2_7_3-keras2_7_0-torch1_10_2-mxnet1_8_0_p0-pyspark3_2_1:
+  test-gpu-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_10_2-mxnet1_8_0_p0-pyspark3_2_1:
     extends: test-gpu-base
     build:
       args:
         CUDA_DOCKER_VERSION: 11.2.2-devel-ubuntu20.04
         CUDNN_VERSION: 8.1.1.33-1+cuda11.2
         NCCL_VERSION_OVERRIDE: 2.8.4-1+cuda11.2
-        TENSORFLOW_PACKAGE: tensorflow-gpu==2.7.3
-        KERAS_PACKAGE: keras==2.7.0
+        TENSORFLOW_PACKAGE: tensorflow-gpu==2.8.2
+        KERAS_PACKAGE: keras==2.8.0
         PYTORCH_PACKAGE: torch==1.10.2+cu111
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision==0.11.3+cu111
         MXNET_PACKAGE: mxnet-cu112==1.8.0.post0
-  test-gpu-openmpi-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1:
+  test-gpu-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1:
     extends: test-gpu-base
     build:
       args:
@@ -208,8 +208,8 @@ services:
         CUDNN_VERSION: 8.1.1.33-1+cuda11.2
         NCCL_VERSION_OVERRIDE: 2.8.4-1+cuda11.2
         MPI_KIND: OpenMPI
-        TENSORFLOW_PACKAGE: tensorflow-gpu==2.8.2
-        KERAS_PACKAGE: keras==2.8.0
+        TENSORFLOW_PACKAGE: tensorflow-gpu==2.9.1
+        KERAS_PACKAGE: keras==2.9.0
         PYTORCH_PACKAGE: torch==1.11.0+cu113
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision==0.12.0+cu113
@@ -245,7 +245,7 @@ services:
         PYSPARK_PACKAGE: pyspark==2.4.0
         SPARK_PACKAGE: spark-2.4.0/spark-2.4.0-bin-hadoop2.7.tgz
 
-  test-mixed-openmpi-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1:
+  test-mixed-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1:
     extends: test-gpu-base
     build:
       args:
@@ -253,8 +253,8 @@ services:
         CUDNN_VERSION: 8.1.1.33-1+cuda11.2
         NCCL_VERSION_OVERRIDE: 2.8.4-1+cuda11.2
         MPI_KIND: OpenMPI
-        TENSORFLOW_PACKAGE: tensorflow-gpu==2.8.2
-        KERAS_PACKAGE: keras==2.8.0
+        TENSORFLOW_PACKAGE: tensorflow-gpu==2.9.1
+        KERAS_PACKAGE: keras==2.9.0
         PYTORCH_PACKAGE: torch==1.11.0+cu113
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision==0.12.0+cu113
