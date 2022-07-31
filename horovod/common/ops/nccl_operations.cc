@@ -152,9 +152,9 @@ void NCCLOpContext::PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
     nccl_rank = process_set.controller->GetCrossRank();
     nccl_size = process_set.controller->GetCrossSize();
   } else {
-     throw std::logic_error("Communicator type " +
-                            std::to_string(communicator_type_) +
-                            " is not supported in NCCL mode.");
+    throw std::logic_error("Communicator type " +
+                           std::to_string(communicator_type_) +
+                           " is not supported in NCCL mode.");
   }
   nccl_id_bcast_comm = communicator_type_;
 }
@@ -537,7 +537,6 @@ void NCCLTorusAllreduce::WaitForData(std::vector<TensorTableEntry>& entries) {
 
 Status NCCLTorusAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                                    const Response& response) {
-  assert(!entries.empty());
   auto& first_entry = entries.at(0);
   auto& process_set =
       global_state_->process_set_table.Get(first_entry.process_set_id);
@@ -562,10 +561,10 @@ Status NCCLTorusAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   void* buffer_data;
   size_t buffer_len;
 
-  // Copy memory into the fusion buffer.
+  // Copy (and possibly scale) tensors into the fusion buffer.
   if (entries.size() > 1) {
-    MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
-
+    ScaleMemcpyInFusionBuffer(entries, fused_input_data, buffer_data, 
+                              buffer_len, response.prescale_factor());
     if (global_state_->timeline.Initialized()) {
       gpu_context_->RecordEvent(gpu_op_context_.event_queue,
                                 MEMCPY_IN_FUSION_BUFFER,
@@ -575,19 +574,19 @@ Status NCCLTorusAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     fused_input_data = first_entry.tensor->data();
     buffer_data = (void*)first_entry.output->data();
     buffer_len = (size_t)first_entry.output->size();
-  }
-
-  int64_t num_elements =
-      buffer_len / DataType_Size(first_entry.tensor->dtype());
-
-  if (response.prescale_factor() != 1.0) {
-    // Execute prescaling op
-    ScaleBuffer(response.prescale_factor(), entries, fused_input_data,
-                buffer_data, num_elements);
-    fused_input_data = buffer_data; // for unfused, scale is done out of place
+    int64_t num_elements =
+        buffer_len / DataType_Size(first_entry.tensor->dtype());
+    if (response.prescale_factor() != 1.0) {
+      // Execute prescaling op
+      ScaleBuffer(response.prescale_factor(), entries, fused_input_data,
+                  buffer_data, num_elements);
+      fused_input_data = buffer_data; // for unfused, scale is done out of place
+    }
   }
 
   // Do allreduce.
+  int64_t num_elements =
+      buffer_len / DataType_Size(first_entry.tensor->dtype());
   int element_size = DataType_Size(first_entry.tensor->dtype());
   int local_size = process_set.controller->GetLocalSize();
   int local_rank = process_set.controller->GetLocalRank();
@@ -612,9 +611,9 @@ Status NCCLTorusAllreduce::Execute(std::vector<TensorTableEntry>& entries,
 
   // Homogeneous case:
   // For the part of data divisible by local_size, perform NCCL
-  // ReduceScatter - Parallelized MPI Allreduce - NCCL Allgather. For the
+  // ReduceScatter - Parallelized NCCL Allreduce - NCCL Allgather. For the
   // non-divisible part (if any), do NCCL Reduce (at rank local_size-1),
-  // MPI Allreduce (across rank (local_size-1)'s), and NCCL Bcast
+  // NCCL Allreduce (across rank (local_size-1)'s), and NCCL Bcast.
 
   int64_t num_elements_per_rank =
       process_set.controller->IsHomogeneous() ? num_elements / local_size : 0;
@@ -720,20 +719,21 @@ Status NCCLTorusAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     }
   }
 
-  if (response.postscale_factor() != 1.0) {
-    // Execute postscaling op
-    ScaleBuffer(response.postscale_factor(), entries, buffer_data, buffer_data,
-                num_elements);
-  }
-
-  // Copy memory out of the fusion buffer.
+  // Copy (and possible scale) tensors out of the fusion buffer.
   if (entries.size() > 1) {
-    MemcpyOutFusionBuffer(buffer_data, entries);
+    ScaleMemcpyOutFusionBuffer(buffer_data, buffer_len,
+                               response.postscale_factor(), entries);
 
     if (global_state_->timeline.Initialized()) {
       gpu_context_->RecordEvent(gpu_op_context_.event_queue,
                                 MEMCPY_OUT_FUSION_BUFFER,
                                 *gpu_op_context_.stream);
+    }
+  } else {
+    if (response.postscale_factor() != 1.0) {
+      // Execute postscaling op
+      ScaleBuffer(response.postscale_factor(), entries, buffer_data,
+                  buffer_data, num_elements);
     }
   }
 

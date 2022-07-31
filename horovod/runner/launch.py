@@ -398,7 +398,8 @@ def parse_args():
                                               help='Perform 2D NCCL torus allreduce between workers instead of '
                                                    'ring allreduce. Torus allreduce is the same as hierarchical allreduce '
                                                    'but the parallel inter-node allreduce is performed using NCCL in place '
-                                                   'of MPI.')
+                                                   'of MPI. For each NCCL allreduce operation, NCCL on its own might choose '
+                                                   'between Ring and Tree algorithm.')
     group_torus_allreduce.add_argument('--no-torus-allreduce', dest='torus_allreduce',
                                               action=make_override_false_action(override_args),
                                               help='Explicitly disable torus allreduce to prevent autotuning '
