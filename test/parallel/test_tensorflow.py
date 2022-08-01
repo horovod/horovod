@@ -3616,68 +3616,6 @@ class TensorFlowTests(BaseTensorFlowTests):
             diff = self.evaluate(max_difference)
             self.assertTrue(diff <= threshold, "hvd.grouped_reducescatter produces incorrect results")
 
-    def test_horovod_grouped_reducescatter_cpu_process_sets(self):
-        """Test on CPU that the grouped reducescatter correctly sums if restricted to non-global process sets"""
-        if hvd.ccl_built():
-            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
-        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
-            self.skipTest("ReducescatterGloo is not supported on macOS")
-        hvd.init()
-        rank = hvd.rank()
-        size = hvd.size()
-
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
-        if rank in even_ranks:
-            this_set = even_set
-        else:
-            this_set = odd_set
-        process_set_size = this_set.size()
-        process_set_rank = this_set.rank()
-
-        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
-        dims = [1, 2, 3]
-        for red_op, dtype, dim in itertools.product([hvd.Sum, hvd.Average], dtypes, dims):
-            with tf.device("/cpu:0"):
-                even_rank_tensors = [self.random_uniform([process_set_size * 4] * dim, -100, 100, dtype=dtype)
-                                     for _ in range(5)]
-                odd_rank_tensors = [self.random_uniform([process_set_size * 4] * dim, -100, 100, dtype=dtype)
-                                    for _ in range(5)]
-                if rank in even_ranks:
-                    tensors = even_rank_tensors
-                else:
-                    tensors = odd_rank_tensors
-                reduced = hvd.grouped_reducescatter(tensors, op=red_op, process_set=this_set)
-            if red_op == hvd.Sum:
-                expected = [tf.cast(tensor[process_set_rank * 4:(process_set_rank + 1) * 4] * process_set_size,
-                                    reduced[0].dtype) for tensor in tensors]
-            elif red_op == hvd.Average:
-                expected = [tf.cast(tensor[process_set_rank * 4:(process_set_rank + 1) * 4], reduced[0].dtype)
-                            for tensor in tensors]
-            max_difference = tf.reduce_max([tf.reduce_max(tf.abs(t1 - t2)) for t1, t2 in zip(reduced, expected)])
-
-            # Threshold for floating point equality depends on number of
-            # ranks, since we're comparing against precise multiplication.
-            if dtype == tf.float16:
-                threshold = .5
-            elif dtype in [tf.int32, tf.int64]:
-                threshold = 0
-            elif process_set_size < 10:
-                threshold = 1e-4
-            elif process_set_size < 15:
-                threshold = 5e-4
-            else:
-                break
-
-            diff = self.evaluate(max_difference)
-            self.assertTrue(diff <= threshold,
-                            "hvd.reducescatter produces incorrect results")
-
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
-
     def test_horovod_grouped_reducescatter_grad_cpu(self):
         """Test the correctness of the grouped reducescatter gradient on CPU."""
         if hvd.ccl_built():
@@ -3802,67 +3740,6 @@ class TensorFlowTests(BaseTensorFlowTests):
                 self.assertTrue(all(self.evaluate(tf.reduce_all(
                     tf.equal(tf.cast(rank_tensor, tf.int32), value))) for rank_tensor in rank_tensors),
                     "hvd.grouped_allgather produces incorrect gathered tensor")
-
-    def test_horovod_grouped_allgather_cpu_process_sets(self):
-        """Test that the grouped allgather correctly gathers 1D, 2D, 3D tensors
-        if restricted to non-global process sets."""
-        hvd.init()
-        rank = hvd.rank()
-        size = hvd.size()
-
-        if hvd.ccl_built():
-            self.skipTest("Multiple process sets currently do not support CCL.")
-
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
-
-        if rank in even_ranks:
-            set_size = len(even_ranks)
-            set_ranks = even_ranks
-            this_set = even_set
-        elif rank in odd_ranks:
-            set_size = len(odd_ranks)
-            set_ranks = odd_ranks
-            this_set = odd_set
-
-        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
-                  tf.int32, tf.int64, tf.float16, tf.float32,
-                  tf.float64, tf.bool]
-        dims = [1, 2, 3]
-        for dtype, dim in itertools.product(dtypes, dims):
-            tensors = [tf.ones([17] * dim) * rank for _ in range(5)]
-            if dtype == tf.bool:
-                tensors = [tensor % 2 for tensor in tensors]
-            tensors = [tf.cast(tensor, dtype=dtype) for tensor in tensors]
-            with tf.device("/cpu:0"):
-                gathered = hvd.grouped_allgather(tensors, process_set=this_set)
-
-            gathered_tensors = self.evaluate(gathered)
-            for gathered_tensor in gathered_tensors:
-                self.assertEqual(list(gathered_tensor.shape),
-                                 [17 * set_size] + [17] * (dim - 1))
-
-            for i in range(set_size):
-                rank_tensors = [tf.slice(gathered_tensor,
-                                         [i * 17] + [0] * (dim - 1),
-                                         [17] + [-1] * (dim - 1))
-                                for gathered_tensor in gathered_tensors]
-                self.assertEqual([rank_tensor.shape for rank_tensor in rank_tensors], len(tensors) * [[17] * dim])
-                # tf.equal() does not support tf.uint16 as of TensorFlow 1.2,
-                # so need to cast rank_tensor to tf.int32.
-                if dtype != tf.bool:
-                    value = set_ranks[i]
-                else:
-                    value = set_ranks[i] % 2
-                self.assertTrue(all(self.evaluate(tf.reduce_all(
-                    tf.equal(tf.cast(rank_tensor, tf.int32), value))) for rank_tensor in rank_tensors),
-                    "hvd.grouped_allgather produces incorrect gathered tensor")
-
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
 
     def test_horovod_grouped_allgather_grad_cpu(self):
         """Test the correctness of the grouped allgather gradient on CPU."""
