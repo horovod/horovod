@@ -3579,6 +3579,271 @@ class TensorFlowTests(BaseTensorFlowTests):
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
 
+    def test_horovod_grouped_reducescatter_cpu(self):
+        """Test on CPU that the grouped reducescatter correctly sums or averages and scatters 1D, 2D, 3D tensors."""
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dims = [1, 2, 3]
+        for red_op, dtype, dim in itertools.product([hvd.Sum, hvd.Average], dtypes, dims):
+            with tf.device("/cpu:0"):
+                tensors = [self.random_uniform([size * 4] * dim, -100, 100, dtype=dtype) for _ in range(5)]
+                reduced = hvd.grouped_reducescatter(tensors, op=red_op)
+            if red_op == hvd.Sum:
+                expected = [tf.cast(tensor[rank * 4:(rank + 1) * 4] * size, reduced[0].dtype) for tensor in tensors]
+            elif red_op == hvd.Average:
+                expected = [tf.cast(tensor[rank * 4:(rank + 1) * 4], reduced[0].dtype) for tensor in tensors]
+            max_difference = tf.reduce_max([tf.reduce_max(tf.abs(t1 - t2)) for t1, t2 in zip(reduced, expected)])
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if dtype == tf.float16:
+                threshold = .5
+            elif dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold, "hvd.grouped_reducescatter produces incorrect results")
+
+    def test_horovod_grouped_reducescatter_grad_cpu(self):
+        """Test the correctness of the grouped reducescatter gradient on CPU."""
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                if _executing_eagerly():
+                    tensors = [self.tfe.Variable(self.random_uniform([size * 4] * dim, -100, 100, dtype=dtype))
+                               for _ in range(5)]
+                    with tf.GradientTape(persistent=True) as tape:
+                        summed = hvd.grouped_reducescatter(tensors, op=hvd.Sum)
+                else:
+                    tensors = [self.random_uniform([size * 4] * dim, -100, 100, dtype=dtype)
+                               for _ in range(5)]
+                    summed = hvd.grouped_reducescatter(tensors, op=hvd.Sum)
+
+                grads_ys = [tf.ones([4] + [size * 4] * (dim - 1)) for _ in range(5)]
+                if _executing_eagerly():
+                    grads_out = [tape.gradient(s, t, g) for s, t, g in zip(summed, tensors, grads_ys)]
+                else:
+                    grads = [tf.gradients(s, t, g)[0] for s, t, g in zip(summed, tensors, grads_ys)]
+                    grads_out = self.evaluate(grads)
+
+            expected = np.ones([size * 4] * dim) * size
+            for grad_out in grads_out:
+                err = np.linalg.norm(expected - grad_out)
+                self.assertLess(err, 0.00000001,
+                                "gradient %s differs from expected %s, "
+                                "error: %s" % (grad_out, expected, str(err)))
+
+    def test_horovod_grouped_reducescatter_gpu(self):
+        """Test that the grouped reducescatter works on GPUs."""
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest("No GPUs available")
+
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        hvd.init()
+        local_rank = hvd.local_rank()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for red_op, dtype, dim in itertools.product([hvd.Sum, hvd.Average], dtypes, dims):
+            with tf.device("/gpu:%d" % local_rank):
+                tensors = [self.random_uniform([size * 4] * dim, -100, 100, dtype=dtype)
+                           for _ in range(5)]
+                reduced = hvd.grouped_reducescatter(tensors, op=red_op)
+            if red_op == hvd.Sum:
+                expected = [tf.cast(tensor[rank * 4:(rank + 1) * 4] * size, reduced[0].dtype)
+                            for tensor in tensors]
+            elif red_op == hvd.Average:
+                expected = [tf.cast(tensor[rank * 4:(rank + 1) * 4], reduced[0].dtype)
+                            for tensor in tensors]
+            max_difference = tf.reduce_max([tf.reduce_max(tf.abs(t1 - t2)) for t1, t2 in zip(reduced, expected)])
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if dtype == tf.float16:
+                threshold = .5
+            elif dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                return
+
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold,
+                            "hvd.grouped_reducescatter on GPU produces incorrect results")
+
+    def test_horovod_grouped_allgather_cpu(self):
+        """Test that the grouped allgather correctly gathers 1D, 2D, 3D tensors."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64, tf.bool]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            tensors = [tf.ones([17] * dim) * rank for _ in range(5)]
+            if dtype == tf.bool:
+                tensors = [tensor % 2 for tensor in tensors]
+            tensors = [tf.cast(tensor, dtype=dtype) for tensor in tensors]
+            with tf.device("/cpu:0"):
+                gathered = hvd.grouped_allgather(tensors)
+
+            gathered_tensors = self.evaluate(gathered)
+            for gathered_tensor in gathered_tensors:
+                self.assertEqual(list(gathered_tensor.shape),
+                                 [17 * size] + [17] * (dim - 1))
+
+            for i in range(size):
+                rank_tensors = [tf.slice(gathered_tensor,
+                                         [i * 17] + [0] * (dim - 1),
+                                         [17] + [-1] * (dim - 1))
+                                for gathered_tensor in gathered_tensors]
+                self.assertEqual([rank_tensor.shape for rank_tensor in rank_tensors], len(tensors) * [[17] * dim])
+                # tf.equal() does not support tf.uint16 as of TensorFlow 1.2,
+                # so need to cast rank_tensor to tf.int32.
+                if dtype != tf.bool:
+                    value = i
+                else:
+                    value = i % 2
+                self.assertTrue(all(self.evaluate(tf.reduce_all(
+                    tf.equal(tf.cast(rank_tensor, tf.int32), value))) for rank_tensor in rank_tensors),
+                    "hvd.grouped_allgather produces incorrect gathered tensor")
+
+    def test_horovod_grouped_allgather_grad_cpu(self):
+        """Test the correctness of the grouped allgather gradient on CPU."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            print(dtype)
+            tensor_sizes = [3, 2, 7, 4, 6, 8, 10] * 5
+            tensor_sizes = tensor_sizes[:size]
+
+            with tf.device("/cpu:0"):
+                if _executing_eagerly():
+                    with tf.GradientTape(persistent=True) as tape:
+                        tensors = [self.tfe.Variable(tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank)
+                                   for _ in range(5)]
+                        tensors = [tf.cast(tensor, dtype=dtype) for tensor in tensors]
+                        gathered = hvd.grouped_allgather(tensors)
+                        grad_list = []
+                        for r, tensor_size in enumerate(tensor_sizes):
+                            g = tf.ones([tensor_size] + [17] * (dim - 1)) * r
+                            grad_list.append(g)
+                        grads_ys = [tf.concat(grad_list, axis=0) for _ in range(5)]
+                    grads_out = [tape.gradient(x, t, g) for x, t, g in zip(gathered, tensors, grads_ys)]
+                else:
+                    tensors = [tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank
+                               for _ in range(5)]
+                    tensors = [tf.cast(tensor, dtype=dtype) for tensor in tensors]
+                    gathered = hvd.grouped_allgather(tensors)
+
+                    grad_list = []
+                    for r, tensor_size in enumerate(tensor_sizes):
+                        g = tf.ones([tensor_size] + [17] * (dim - 1)) * r
+                        grad_list.append(g)
+                    grad_ys = tf.concat(grad_list, axis=0)
+                    grads = [tf.gradients(x, t, grad_ys)[0] for x, t in zip(gathered, tensors)]
+
+                    grads_out = self.evaluate(grads)
+
+            expected = np.ones(
+                [tensor_sizes[rank]] + [17] * (dim - 1)
+            ) * rank
+            for grad_out in grads_out:
+                err = np.linalg.norm(expected - grad_out)
+                self.assertLess(err, 0.00000001,
+                                "gradient %s differs from expected %s, "
+                                "error: %s" %
+                                (grad_out, expected, str(err)))
+
+    def test_horovod_grouped_allgather_gpu(self):
+        """Test that the grouped allgather correctly gathers 1D, 2D, 3D tensors."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        hvd.init()
+        rank = hvd.rank()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64, tf.bool]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            tensors = [tf.ones([17] * dim) * rank for _ in range(5)]
+            if dtype == tf.bool:
+                tensors = [tensor % 2 for tensor in tensors]
+            tensors = [tf.cast(tensor, dtype=dtype) for tensor in tensors]
+            with tf.device("/gpu:%d" % local_rank):
+                gathered = hvd.grouped_allgather(tensors)
+
+            gathered_tensors = self.evaluate(gathered)
+            for gathered_tensor in gathered_tensors:
+                self.assertEqual(list(gathered_tensor.shape),
+                                 [17 * size] + [17] * (dim - 1))
+
+            for i in range(size):
+                rank_tensors = [tf.slice(gathered_tensor,
+                                         [i * 17] + [0] * (dim - 1),
+                                         [17] + [-1] * (dim - 1))
+                                for gathered_tensor in gathered_tensors]
+                self.assertEqual([rank_tensor.shape for rank_tensor in rank_tensors], len(tensors) * [[17] * dim])
+                # tf.equal() does not support tf.uint16 as of TensorFlow 1.2,
+                # so need to cast rank_tensor to tf.int32.
+                if dtype != tf.bool:
+                    value = i
+                else:
+                    value = i % 2
+                self.assertTrue(all(self.evaluate(tf.reduce_all(
+                    tf.equal(tf.cast(rank_tensor, tf.int32), value))) for rank_tensor in rank_tensors),
+                    "hvd.grouped_allgather produces incorrect gathered tensor")
+
+
+
 
 from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
 run_all_in_graph_and_eager_modes(TensorFlowTests)

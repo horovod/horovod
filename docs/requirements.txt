@@ -1,5 +1,6 @@
 sphinx>=3,<4
 sphinxcontrib-napoleon
 alabaster
+jinja2<3.1
 nbsphinx
 pyyaml

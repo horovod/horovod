@@ -158,10 +158,6 @@ def _grouped_allreduce(tensors, name=None, op=Sum, prescale_factor=1.0, postscal
     """An op which reduces input tensors over all the Horovod processes. The
     default reduction is a sum.
 
-    The reduction operation is keyed by the name of the op. The tensor type and
-    shape must be the same on all Horovod processes for a given name. The reduction
-    will not start until all processes are ready to send and receive the tensor.
-
     The reduction operations are keyed by the name of the op. Reductions are
     performed across tensors in the same list position. The tensor type and
     shape must be the same on all Horovod processes for tensors sharing
@@ -255,6 +251,65 @@ def _allgather_grad(op, grad):
 
     splits = tf.split(grad, num_or_size_splits=d, axis=0)
     return splits[temp_process_set_object.rank()]
+
+
+def grouped_allgather(tensors, name=None, ignore_name_scope=False, process_set=global_process_set):
+    """An op which concatenates the input tensor with the same input tensor on
+    all other Horovod processes.
+
+    The concatenation is done on the first dimension, so the input tensors on the
+    different processes must have the same rank and shape, except for the first
+    dimension, which is allowed to be different.
+
+    Returns:
+      A list of tensors of the same rank and type as `tensor`, concatenated on
+      dimension zero across all processes. For each returned tensor the shape
+      is identical to the input shape, except for the first dimension, which
+      may be greater and is the sum of all first dimensions of the tensors
+      in different Horovod processes.
+    """
+    if name is None and not _executing_eagerly():
+        name = _normalize_name('HorovodGroupedAllgather_%s_%s' % (tensors[0].name, tensors[-1].name))
+    return MPI_LIB.horovod_grouped_allgather(tensors, name=name,
+                                             ignore_name_scope=ignore_name_scope,
+                                             process_set_id=process_set.process_set_id)
+
+
+@ops.RegisterGradient('HorovodGroupedAllgather')
+def _grouped_allgather_grad(op, *grads):
+    """Gradient for the grouped allgather op.
+
+    Args:
+      op: An operation.
+      grad: List of `Tensor` gradients with respect to the outputs of the op.
+
+    Returns:
+      The gradients with respect to the inputs of the op.
+    """
+    ignore_name_scope = op.get_attr('ignore_name_scope')
+    process_set_id = op.get_attr('process_set_id')
+    temp_process_set_object = _temp_process_set_object(process_set_id)
+    # Not using _grouped_allreduce here because all its input tensors need to be of the same dtype, but TensorFlow may
+    # give us float32 zero gradients here despite non-zero gradients being, e.g, float64.
+    grads = [_allreduce(g, op=Average, ignore_name_scope=ignore_name_scope, process_set=temp_process_set_object)
+             for g in grads]
+
+    split_sizes = []
+    with tf.device('/cpu:0'):
+        # Keep the split size tensors on CPU.
+        for x in op.inputs:
+            d = tf.shape(x)
+            d = tf.reshape(d[0], [1])
+
+            s = temp_process_set_object.size()
+            d = tf.reshape(
+                allgather(d, ignore_name_scope=ignore_name_scope, process_set=temp_process_set_object),
+                [s])
+            split_sizes.append(d)
+
+    splits_list = [tf.split(grad, num_or_size_splits=d, axis=0)
+                   for grad, d in zip(grads, split_sizes)]
+    return [splits[temp_process_set_object.rank()] for splits in splits_list]
 
 
 def broadcast(tensor, root_rank, name=None, ignore_name_scope=False, process_set=global_process_set):
@@ -398,8 +453,9 @@ def _alltoall_grad(op, grad_wrt_output, grad_wrt_received_splits):
 
 def _reducescatter(tensor, name=None, op=Sum, ignore_name_scope=False,
                    process_set=global_process_set):
-    """An op which sums an input tensor over all the Horovod processes, then
-    scatters the result across all the Horovod processes.
+    """An op which reduces an input tensor over all the Horovod processes, then
+    scatters the result across all the Horovod processes. The default reduction
+    is a sum.
 
     The reduction operation is keyed by the name of the op. The tensor type and
     shape must be the same on all Horovod processes for a given name. The reduction
@@ -436,6 +492,52 @@ def _reducescatter_grad(op, grad):
         grad *= process_set.size()
     return allgather(grad, ignore_name_scope=ignore_name_scope,
                      process_set=process_set)
+
+
+def _grouped_reducescatter(tensors, name=None, op=Sum, ignore_name_scope=False,
+                           process_set=global_process_set):
+    """An op which sums an input tensor over all the Horovod processes, then
+    scatters the result across all the Horovod processes.
+
+    The reduction operations are keyed by the name of the op. Reductions are
+    performed across tensors in the same list position. The tensor type and
+    shape must be the same on all Horovod processes for tensors sharing
+    positions in the input tensor list. The reduction will not start until all
+    processes are ready to send and receive the tensors.
+
+    Returns:
+      A list of tensors of the same rank and type as those in `tensors`.
+      For each returned tensor the shape is identical to the corresponding
+      input shape, except for the first dimension, which will be divided across
+      the different Horovod processes.
+    """
+    if name is None and not _executing_eagerly():
+        name = _normalize_name('HorovodGroupedReducescatter_%s_%s' % (tensors[0].name, tensors[-1].name))
+    return MPI_LIB.horovod_grouped_reducescatter(tensors, name=name, reduce_op=op,
+                                                 ignore_name_scope=ignore_name_scope,
+                                                 process_set_id=process_set.process_set_id)
+
+
+@ops.RegisterGradient('HorovodGroupedReducescatter')
+def _grouped_reducescatter_grad(op, *grads):
+    """Gradient for the grouped reducescatter op.
+
+    Args:
+      op: An operation.
+      grads: List of `Tensor` gradients with respect to the outputs of the op.
+
+    Returns:
+      The gradients with respect to the inputs of the op.
+    """
+    ignore_name_scope = op.get_attr('ignore_name_scope')
+    process_set_id = op.get_attr('process_set_id')
+    reduce_op = op.get_attr('reduce_op')
+    process_set = _temp_process_set_object(process_set_id)
+    if reduce_op == Sum:
+        grads = [grad * process_set.size() for grad in grads]
+    # Not using grouped_allgather here because all its input tensors need to be of the same dtype, but TensorFlow may
+    # give us float32 zero gradients here despite non-zero gradients being, e.g, float64.
+    return [allgather(g, ignore_name_scope=ignore_name_scope, process_set=process_set) for g in grads]
 
 
 def join():

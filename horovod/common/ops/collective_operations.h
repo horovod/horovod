@@ -253,6 +253,9 @@ protected:
     output_shape.AppendShape(slice_shape);
     Status status = e.context->AllocateOutput(output_shape, &e.output);
     if (!status.ok()) {
+      LOG(WARNING)
+          << "AlltoallOp::PrepareOutputAndParams failed to allocate output: "
+          << status.reason();
       return status;
     }
 
@@ -262,6 +265,9 @@ protected:
     Status rstatus = e.context->AllocateOutput(1, received_splits_shape,
                                                &e.received_splits);
     if (!rstatus.ok()) {
+      LOG(WARNING) << "AlltoallOp::PrepareOutputAndParams failed to allocate "
+                      "received_splits: "
+                   << status.reason();
       return rstatus;
     }
     auto* target_pointer = reinterpret_cast<int32_t*>(

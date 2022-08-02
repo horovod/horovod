@@ -54,19 +54,18 @@ protected:
 class TorchOpContext : public OpContext {
 public:
   TorchOpContext(int device, ::torch::Tensor principal_output);
+  TorchOpContext(int device, const std::vector<::torch::Tensor>& outputs);
   void AddOutput(int device, ::torch::Tensor output);
-  virtual Status
-  AllocatePersistent(int64_t size,
-                     std::shared_ptr<PersistentBuffer>* tensor) override;
-  virtual Status AllocateOutput(TensorShape shape,
-                                std::shared_ptr<Tensor>* tensor,
-                                std::shared_ptr<ReadyEvent>* event = nullptr) override;
-  virtual Status AllocateOutput(int output_index, TensorShape shape,
-                                std::shared_ptr<Tensor>* tensor,
-                                std::shared_ptr<ReadyEvent>* event = nullptr) override;
-  virtual Status AllocateZeros(int64_t num_elements, DataType dtype,
-                               std::shared_ptr<Tensor>* tensor) override;
-  virtual Framework framework() const override;
+  Status AllocatePersistent(int64_t size,
+                            std::shared_ptr<PersistentBuffer>* tensor) override;
+  Status AllocateOutput(TensorShape shape, std::shared_ptr<Tensor>* tensor,
+                        std::shared_ptr<ReadyEvent>* event = nullptr) override;
+  Status AllocateOutput(int output_index, TensorShape shape,
+                        std::shared_ptr<Tensor>* tensor,
+                        std::shared_ptr<ReadyEvent>* event = nullptr) override;
+  Status AllocateZeros(int64_t num_elements, DataType dtype,
+                       std::shared_ptr<Tensor>* tensor) override;
+  Framework framework() const override;
 
 private:
   int device_ = CPU_DEVICE_ID;

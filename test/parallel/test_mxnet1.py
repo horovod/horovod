@@ -49,6 +49,14 @@ class MX1Tests(MXTests, unittest.TestCase):
            list contains a mix of tensors on CPU and GPU."""
         super(MX1Tests, self).test_horovod_grouped_allreduce_cpu_gpu_error()
 
+    @unittest.skipUnless(has_gpu, "no gpu detected")
+    @pytest.mark.skipif(_skip_enqueue_errors,
+                        reason="Skip enqueue errors for MXNet version < 1.5.0")
+    def test_horovod_grouped_allgather_cpu_gpu_error(self):
+        """Test that the grouped allgather raises an error if the input tensor
+           list contains a mix of tensors on CPU and GPU."""
+        super(MX1Tests, self).test_horovod_grouped_allgather_cpu_gpu_error()
+
     @pytest.mark.skipif(_skip_enqueue_errors,
                         reason="Skip enqueue errors for MXNet version < 1.5.0")
     def test_horovod_alltoall_equal_split_length_error(self):
