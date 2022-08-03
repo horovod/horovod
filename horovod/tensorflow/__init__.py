@@ -44,6 +44,7 @@ from horovod.tensorflow.sync_batch_norm import SyncBatchNormalization
 from horovod.tensorflow.gradient_aggregation import LocalGradientAggregationHelper
 
 import tensorflow as tf
+_IS_TF2 = LooseVersion(tf.__version__) >= LooseVersion('2.0.0')
 
 # @DEKHTIARJonathan: Do not remove, this fixes issues:
 # - https://github.com/tensorflow/tensorflow/issues/38516
@@ -909,13 +910,19 @@ if hasattr(tf, 'GradientTape'):
             """Registers a source/variable as worker local. Horovod will not perform any global
             operations on gradients corresponding to these sources and will instead return the local
             gradient."""
-            self._local_sources.add(source.ref())
+            if _IS_TF2:
+                self._local_sources.add(source.ref())
+            else:
+                self._local_sources.add(source)
 
         def gradient(self, target, sources, output_gradients=None, use_generic_names=False):
             gradients = super(self.__class__, self).gradient(target, sources, output_gradients)
 
             # Create dict mapping sources to gradients
-            s2g = {s.ref() : g for s,g in zip(sources, gradients)}
+            if _IS_TF2:
+                s2g = {s.ref() : g for s,g in zip(sources, gradients)}
+            else:
+                s2g = {s : g for s,g in zip(sources, gradients)}
 
             # Collect source/grad pairs requiring reduction (i.e. not from a registered local source) and reduce
             rs = []
@@ -928,10 +935,16 @@ if hasattr(tf, 'GradientTape'):
             rg = self._allreduce_grads(rg, rs, use_generic_names)
 
             # Replace dict entries with reduced grads
-            for rs, rg in zip(rs, rg):
-                s2g[rs.ref()] = rg
+            if _IS_TF2:
+                for rs, rg in zip(rs, rg):
+                    s2g[rs.ref()] = rg
 
-            return [s2g[s.ref()] for s in sources]
+                return [s2g[s.ref()] for s in sources]
+            else:
+                for rs, rg in zip(rs, rg):
+                    s2g[rs] = rg
+
+                return [s2g[s] for s in sources]
 
 
     def DistributedGradientTape(gradtape, device_dense='', device_sparse='',
