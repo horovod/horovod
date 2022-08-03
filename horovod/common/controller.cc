@@ -29,6 +29,8 @@
 
 #if HAVE_CUDA
 #include "ops/cuda/cuda_kernels.h"
+#elif HAVE_ROCM
+#include "ops/rocm/hip_kernels.h"
 #endif
 
 
