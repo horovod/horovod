@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Tensorflow: Fixed the optimizer iteration increments when `backward_passes_per_step > 1`. ([#3631](https://github.com/horovod/horovod/pull/3631))
 - Updated Eigen submodule to fix build on macOS with aarch64. ([#3619](https://github.com/horovod/horovod/pull/3619))
 - Fix FuseResponses() on BATCHED_D2D_PADDING edge cases for Reducescatter and/or ROCm. ([#3621](https://github.com/horovod/horovod/pull/3621))
 - PyTorch: Fixed Reducescatter functions to raise `HorovodInternalError` rather than `RuntimeError`. ([#3594](https://github.com/horovod/horovod/pull/3594))
