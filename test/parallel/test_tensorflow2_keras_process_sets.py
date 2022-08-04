@@ -59,6 +59,12 @@ class Tf2KerasProcessSetsTests(tf.test.TestCase):
             tf.config.experimental.set_visible_devices(
                 gpus[hvd.local_rank()], 'GPU')
 
+    def tearDown(self):
+        """Prevent that one process shuts down Horovod too early"""
+        with tf.device("/cpu:0"):
+            b = hvd.allreduce(tf.constant([0.]), name="global_barrier_after_test")
+            _ = self.evaluate(b)
+
     def test_process_set_optimizer(self):
         """ Note that this test makes the most sense when running with > 2 processes. """
         size = hvd.size()

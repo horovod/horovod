@@ -76,6 +76,12 @@ class XLAProcessSetsTests(BaseTensorFlowTests):
 
         hvd.init(process_sets=[cls.even_set, cls.odd_set])
 
+    def tearDown(self):
+        """Prevent that one process shuts down Horovod too early"""
+        with tf.device("/cpu:0"):
+            b = hvd.allreduce(tf.constant([0.]), name="global_barrier_after_test")
+            _ = self.evaluate(b)
+
     def test_horovod_allreduce_gpu_process_sets(self):
         """ Test on XLA/GPU that allreduce correctly sums if restricted to non-global process sets"""
         # Only do this test if there are GPUs available.

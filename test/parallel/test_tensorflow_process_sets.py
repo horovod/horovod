@@ -50,6 +50,12 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
 
         hvd.init(process_sets=[cls.even_set, cls.odd_set])
 
+    def tearDown(self):
+        """Prevent that one process shuts down Horovod too early"""
+        with tf.device("/cpu:0"):
+            b = hvd.allreduce(tf.constant([0.]), name="global_barrier_after_test")
+            _ = self.evaluate(b)
+
     def test_horovod_size_op_process_set(self):
         """Test that the size returned by hvd.size_op(process_set_id) is correct."""
         # This test does not apply if there is only one worker.
@@ -966,7 +972,8 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
     def test_legacy_DistributedOptimizer_process_sets(self):
         """ Note that this test makes the most sense when running with > 2 processes. """
         if _executing_eagerly():
-            self.skipTest("Legacy Optimizers only support graph mode.")
+            # Legacy Optimizers only support graph mode.
+            return
 
         resource_variables_by_default = tf.compat.v1.resource_variables_enabled()
         tf.compat.v1.disable_resource_variables()
@@ -976,7 +983,7 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
         if size == 1:
             self.skipTest("Only one worker available")
 
-        with self.test_session() as sess:
+        with self.test_session(use_gpu=False) as sess:
             class TestOptimizer(tf.compat.v1.train.Optimizer):
                 def __init__(self, *args, **kwargs):
                     super().__init__(*args, **kwargs)

@@ -26,6 +26,12 @@ class TensorFlowProcessSetsDynamicTests(BaseTensorFlowTests):
     def __init__(self, *args, **kwargs):
         super(TensorFlowProcessSetsDynamicTests, self).__init__(*args, **kwargs)
 
+    def tearDown(self):
+        """Prevent that one process shuts down Horovod too early"""
+        with tf.device("/cpu:0"):
+            b = hvd.allreduce(tf.constant([0.]), name="global_barrier_after_test")
+            _ = self.evaluate(b)
+
     def test_horovod_add_get_remove_process_set(self):
         hvd.init()
         size = hvd.size()
