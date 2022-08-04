@@ -1,8 +1,8 @@
-"""Tests for horovod.tensorflow.mpi_ops that add/remove process sets after initialization.
+"""Tests for horovod.tensorflow.mpi_ops using multiple process sets.
 
 With TensorFlow 2.9 and MPI the option HOROVOD_DYNAMIC_PROCESS_SETS has been observed to cause significant
-slowdowns in all Horovod operations, especially on GPU-equipped AWS instances. For that reason we separate
-out tests that depend on that setting to this script.
+slowdowns in all Horovod operations, especially on GPU-equipped AWS instances. For that reason we collect
+tests for multiple process sets in this script that initializes Horovod with static process sets.
 """
 
 from distutils.version import LooseVersion
@@ -23,70 +23,62 @@ import horovod.tensorflow as hvd
 
 from base_test_tensorflow import *
 
+from common import mpi_env_rank_and_size
+
 _IS_TF2 = LooseVersion(tf.__version__) >= LooseVersion('2.0.0')
 _is_mac = platform.system() == 'Darwin'
 
 
-# Set environment variable to enable adding/removing process sets after initializing Horovod.
-os.environ["HOROVOD_DYNAMIC_PROCESS_SETS"] = "1"
-
-
 class TensorFlowProcessSetsTests(BaseTensorFlowTests):
     """
-    Tests for ops in horovod.tensorflow that add/remove process sets after initialization.
+    Tests for ops in horovod.tensorflow using multiple process sets.
     """
     def __init__(self, *args, **kwargs):
         super(TensorFlowProcessSetsTests, self).__init__(*args, **kwargs)
 
+    @classmethod
+    def setUpClass(cls):
+        """Initializes Horovod with two process sets"""
+        _, mpi_size = mpi_env_rank_and_size()
+        gloo_size = int(os.getenv('HOROVOD_SIZE', -1))
+        size = max(mpi_size, gloo_size)
+
+        cls.even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
+        cls.odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
+        cls.even_set = hvd.ProcessSet(cls.even_ranks)
+        cls.odd_set = hvd.ProcessSet(cls.odd_ranks)
+
+        hvd.init(process_sets=[cls.even_set, cls.odd_set])
+
     def test_horovod_size_op_process_set(self):
         """Test that the size returned by hvd.size_op(process_set_id) is correct."""
-        hvd.init()
-
         # This test does not apply if there is only one worker.
         if hvd.size() == 1:
             self.skipTest("Only one worker available")
 
-        single_set = hvd.add_process_set([0])
-
-        size = self.evaluate(hvd.size_op(process_set_id=single_set.process_set_id))
-        self.assertEqual(size, single_set.size(),
+        size = self.evaluate(hvd.size_op(process_set_id=self.even_set.process_set_id))
+        self.assertEqual(size, self.even_set.size(),
                         "hvd.size_op produces incorrect results for a process set")
-
-        hvd.remove_process_set(single_set)
 
     def test_horovod_process_set_included_op(self):
         """Test that the result of hvd.process_set_included_op(process_set_id) is correct."""
-        hvd.init()
-
         # This test does not apply if there is only one worker.
         if hvd.size() == 1:
             self.skipTest("Only one worker available")
 
-        single_set = hvd.add_process_set([0])
+        included = self.evaluate(hvd.process_set_included_op(process_set_id=self.even_set.process_set_id))
 
-        included = self.evaluate(hvd.process_set_included_op(process_set_id=single_set.process_set_id))
-
-        if hvd.rank() == 0:
+        if hvd.rank() in self.even_ranks:
             self.assertEqual(included, 1)
         else:
             self.assertEqual(included, 0)
 
-        hvd.remove_process_set(single_set)
-
     def test_horovod_allreduce_cpu_process_sets(self):
         """ Test on CPU that allreduce correctly sums if restricted to non-global process sets"""
-        hvd.init()
         rank = hvd.rank()
-        size = hvd.size()
 
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
-
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
 
         dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
         dims = [1, 2, 3]
@@ -94,17 +86,17 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
             with tf.device("/cpu:0"):
                 even_rank_tensor = self.random_uniform([17] * dim, -100, 100, dtype=dtype)
                 odd_rank_tensor = self.random_uniform([17] * dim, -100, 100, dtype=dtype)
-                if rank in even_ranks:
-                    summed = hvd.allreduce(even_rank_tensor, average=False, process_set=even_set)
-                    multiplied = even_rank_tensor * len(even_ranks)
-                if rank in odd_ranks:
-                    summed = hvd.allreduce(odd_rank_tensor, average=False, process_set=odd_set)
-                    multiplied = odd_rank_tensor * len(odd_ranks)
+                if rank in self.even_ranks:
+                    summed = hvd.allreduce(even_rank_tensor, average=False, process_set=self.even_set)
+                    multiplied = even_rank_tensor * len(self.even_ranks)
+                if rank in self.odd_ranks:
+                    summed = hvd.allreduce(odd_rank_tensor, average=False, process_set=self.odd_set)
+                    multiplied = odd_rank_tensor * len(self.odd_ranks)
                 max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            max_process_set_size = max(len(even_ranks), len(odd_ranks))
+            max_process_set_size = max(len(self.even_ranks), len(self.odd_ranks))
             if max_process_set_size <= 3 or dtype in [tf.int32, tf.int64]:
                 threshold = 0
             elif max_process_set_size < 10:
@@ -117,29 +109,18 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
             diff = self.evaluate(max_difference)
             self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results")
 
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
-
     def test_horovod_allreduce_gpu_process_sets(self):
         """ Test on GPU that allreduce correctly sums if restricted to non-global process sets"""
         # Only do this test if there are GPUs available.
         if not tf.test.is_gpu_available(cuda_only=True):
-            self.skipTest(("No GPUs available"))
+            self.skipTest("No GPUs available")
 
         if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
-        hvd.init()
         local_rank = hvd.local_rank()
         rank = hvd.rank()
-        size = hvd.size()
-
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
 
         dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
         dims = [1, 2, 3]
@@ -147,17 +128,17 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
             with tf.device("/gpu:%d" % local_rank):
                 even_rank_tensor = self.random_uniform([17] * dim, -100, 100, dtype=dtype)
                 odd_rank_tensor = self.random_uniform([17] * dim, -100, 100, dtype=dtype)
-                if rank in even_ranks:
-                    summed = hvd.allreduce(even_rank_tensor, average=False, process_set=even_set)
-                    multiplied = even_rank_tensor * len(even_ranks)
-                if rank in odd_ranks:
-                    summed = hvd.allreduce(odd_rank_tensor, average=False, process_set=odd_set)
-                    multiplied = odd_rank_tensor * len(odd_ranks)
+                if rank in self.even_ranks:
+                    summed = hvd.allreduce(even_rank_tensor, average=False, process_set=self.even_set)
+                    multiplied = even_rank_tensor * len(self.even_ranks)
+                if rank in self.odd_ranks:
+                    summed = hvd.allreduce(odd_rank_tensor, average=False, process_set=self.odd_set)
+                    multiplied = odd_rank_tensor * len(self.odd_ranks)
                 max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            max_process_set_size = max(len(even_ranks), len(odd_ranks))
+            max_process_set_size = max(len(self.even_ranks), len(self.odd_ranks))
             if max_process_set_size <= 3 or dtype in [tf.int32, tf.int64]:
                 threshold = 0
             elif max_process_set_size < 10:
@@ -170,13 +151,9 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
             diff = self.evaluate(max_difference)
             self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results")
 
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
-
     def test_horovod_allreduce_process_set_id_error(self):
         """Test that allreduce raises an error if an invalid process set id
         is specified."""
-        hvd.init()
         rank = hvd.rank()
         size = hvd.size()
 
@@ -184,40 +161,25 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
         if size == 1:
             self.skipTest("Only one worker available")
 
-        single_set = hvd.add_process_set([0])
-        rest_set = hvd.add_process_set(range(1, size))
-
-        try:
-            with tf.device("/cpu:0"):
-                tensor = tf.ones(4)
-                if rank == 0:
-                    with self.assertRaises(tf.errors.InvalidArgumentError):
-                        self.evaluate(hvd.allreduce(tensor, process_set=rest_set))
-                else:
-                    with self.assertRaises(tf.errors.InvalidArgumentError):
-                        self.evaluate(hvd.allreduce(tensor, process_set=single_set))
-                with self.assertRaises(ValueError):
-                    fake_set = hvd.ProcessSet([0])
-                    fake_set.process_set_id = 10  # you should not do this
-                    self.evaluate(hvd.allreduce(tensor, process_set=fake_set))
-        finally:
-            hvd.remove_process_set(rest_set)
-            hvd.remove_process_set(single_set)
+        with tf.device("/cpu:0"):
+            tensor = tf.ones(4)
+            if rank in self.even_ranks:
+                with self.assertRaises(tf.errors.InvalidArgumentError):
+                    self.evaluate(hvd.allreduce(tensor, process_set=self.odd_set))
+            else:
+                with self.assertRaises(tf.errors.InvalidArgumentError):
+                    self.evaluate(hvd.allreduce(tensor, process_set=self.even_set))
+            with self.assertRaises(ValueError):
+                fake_set = hvd.ProcessSet([0])
+                fake_set.process_set_id = 10  # you should not do this
+                self.evaluate(hvd.allreduce(tensor, process_set=fake_set))
 
     def test_horovod_allreduce_grad_cpu_process_sets(self):
         """Test the correctness of the allreduce gradient on CPU if restricted to non-global process sets."""
-        hvd.init()
         rank = hvd.rank()
-        size = hvd.size()
 
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
-
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
 
         # As of TensorFlow v1.9, gradients are not supported on
         # integer tensors
@@ -226,33 +188,33 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
                 if _executing_eagerly():
-                    even_rank_tensor = self.tfe.Variable(self.random_uniform(
+                    self.even_rank_tensor = self.tfe.Variable(self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype))
                     odd_rank_tensor = self.tfe.Variable(self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype))
                     with tf.GradientTape() as tape:
-                        if rank in even_ranks:
-                            summed = hvd.allreduce(even_rank_tensor, average=False,
-                                                   process_set=even_set)
-                        elif rank in odd_ranks:
+                        if rank in self.even_ranks:
+                            summed = hvd.allreduce(self.even_rank_tensor, average=False,
+                                                   process_set=self.even_set)
+                        elif rank in self.odd_ranks:
                             summed = hvd.allreduce(odd_rank_tensor, average=False,
-                                                   process_set=odd_set)
+                                                   process_set=self.odd_set)
                 else:
-                    even_rank_tensor = self.random_uniform([5] * dim, -100, 100, dtype=dtype)
+                    self.even_rank_tensor = self.random_uniform([5] * dim, -100, 100, dtype=dtype)
                     odd_rank_tensor = self.random_uniform([5] * dim, -100, 100, dtype=dtype)
-                    if rank in even_ranks:
-                        summed = hvd.allreduce(even_rank_tensor, average=False,
-                                               process_set=even_set)
-                    elif rank in odd_ranks:
+                    if rank in self.even_ranks:
+                        summed = hvd.allreduce(self.even_rank_tensor, average=False,
+                                               process_set=self.even_set)
+                    elif rank in self.odd_ranks:
                         summed = hvd.allreduce(odd_rank_tensor, average=False,
-                                               process_set=odd_set)
+                                               process_set=self.odd_set)
 
-                if rank in even_ranks:
-                    tensor = even_rank_tensor
-                    set_size = len(even_ranks)
-                elif rank in odd_ranks:
+                if rank in self.even_ranks:
+                    tensor = self.even_rank_tensor
+                    set_size = len(self.even_ranks)
+                elif rank in self.odd_ranks:
                     tensor = odd_rank_tensor
-                    set_size = len(odd_ranks)
+                    set_size = len(self.odd_ranks)
 
                 grad_ys = tf.ones([5] * dim)
                 if _executing_eagerly():
@@ -267,23 +229,12 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
 
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
-
     def test_horovod_grouped_allreduce_cpu_process_sets(self):
         """Test on CPU that the grouped allreduce correctly sums if restricted to non-global process sets"""
-        hvd.init()
         rank = hvd.rank()
-        size = hvd.size()
 
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
-
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
 
         dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
         dims = [1, 2, 3]
@@ -293,17 +244,17 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
                     [17] * dim, -100, 100, dtype=dtype) for _ in range(5)]
                 odd_rank_tensors = [self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype) for _ in range(5)]
-                if rank in even_ranks:
-                    summed = hvd.grouped_allreduce(even_rank_tensors, average=False, process_set=even_set)
-                    multiplied = [tensor * len(even_ranks) for tensor in even_rank_tensors]
-                elif rank in odd_ranks:
-                    summed = hvd.grouped_allreduce(odd_rank_tensors, average=False, process_set=odd_set)
-                    multiplied = [tensor * len(odd_ranks) for tensor in odd_rank_tensors]
+                if rank in self.even_ranks:
+                    summed = hvd.grouped_allreduce(even_rank_tensors, average=False, process_set=self.even_set)
+                    multiplied = [tensor * len(self.even_ranks) for tensor in even_rank_tensors]
+                elif rank in self.odd_ranks:
+                    summed = hvd.grouped_allreduce(odd_rank_tensors, average=False, process_set=self.odd_set)
+                    multiplied = [tensor * len(self.odd_ranks) for tensor in odd_rank_tensors]
             max_difference = tf.reduce_max([tf.reduce_max(tf.abs(t1 - t2)) for t1, t2 in zip(summed, multiplied)])
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            max_process_set_size = max(len(even_ranks), len(odd_ranks))
+            max_process_set_size = max(len(self.even_ranks), len(self.odd_ranks))
             if max_process_set_size <= 3 or dtype in [tf.int32, tf.int64]:
                 threshold = 0
             elif max_process_set_size < 10:
@@ -316,9 +267,6 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
             diff = self.evaluate(max_difference)
             self.assertTrue(diff <= threshold, "hvd.grouped_allreduce produces incorrect results")
 
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
-
     def test_horovod_grouped_allreduce_gpu_process_sets(self):
         """Test on GPU that the grouped allreduce correctly sums if restricted to non-global process sets"""
         if not tf.test.is_gpu_available(cuda_only=True):
@@ -326,16 +274,8 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
         if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
-        hvd.init()
         rank = hvd.rank()
         local_rank = hvd.local_rank()
-        size = hvd.size()
-
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
 
         dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
         dims = [1, 2, 3]
@@ -345,17 +285,17 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
                     [17] * dim, -100, 100, dtype=dtype) for _ in range(5)]
                 odd_rank_tensors = [self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype) for _ in range(5)]
-                if rank in even_ranks:
-                    summed = hvd.grouped_allreduce(even_rank_tensors, average=False, process_set=even_set)
-                    multiplied = [tensor * len(even_ranks) for tensor in even_rank_tensors]
-                elif rank in odd_ranks:
-                    summed = hvd.grouped_allreduce(odd_rank_tensors, average=False, process_set=odd_set)
-                    multiplied = [tensor * len(odd_ranks) for tensor in odd_rank_tensors]
+                if rank in self.even_ranks:
+                    summed = hvd.grouped_allreduce(even_rank_tensors, average=False, process_set=self.even_set)
+                    multiplied = [tensor * len(self.even_ranks) for tensor in even_rank_tensors]
+                elif rank in self.odd_ranks:
+                    summed = hvd.grouped_allreduce(odd_rank_tensors, average=False, process_set=self.odd_set)
+                    multiplied = [tensor * len(self.odd_ranks) for tensor in odd_rank_tensors]
             max_difference = tf.reduce_max([tf.reduce_max(tf.abs(t1 - t2)) for t1, t2 in zip(summed, multiplied)])
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            max_process_set_size = max(len(even_ranks), len(odd_ranks))
+            max_process_set_size = max(len(self.even_ranks), len(self.odd_ranks))
             if max_process_set_size <= 3 or dtype in [tf.int32, tf.int64]:
                 threshold = 0
             elif max_process_set_size < 10:
@@ -368,24 +308,13 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
             diff = self.evaluate(max_difference)
             self.assertTrue(diff <= threshold, "hvd.grouped_allreduce produces incorrect results")
 
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
-
     def test_horovod_grouped_allreduce_grad_cpu_process_sets(self):
         """Test the correctness of the grouped allreduce gradient on CPU
         if restricted to non-global process sets."""
-        hvd.init()
         rank = hvd.rank()
-        size = hvd.size()
 
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
-
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
 
         # As of TensorFlow v1.9, gradients are not supported on
         # integer tensors
@@ -399,30 +328,30 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
                     odd_rank_tensors = [self.tfe.Variable(self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype)) for _ in range(5)]
                     with tf.GradientTape(persistent=True) as tape:
-                        if rank in even_ranks:
+                        if rank in self.even_ranks:
                             summed = hvd.grouped_allreduce(even_rank_tensors, average=False,
-                                                           process_set=even_set)
-                        elif rank in odd_ranks:
+                                                           process_set=self.even_set)
+                        elif rank in self.odd_ranks:
                             summed = hvd.grouped_allreduce(odd_rank_tensors, average=False,
-                                                           process_set=odd_set)
+                                                           process_set=self.odd_set)
                 else:
                     even_rank_tensors = [self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype) for _ in range(5)]
                     odd_rank_tensors = [self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype) for _ in range(5)]
-                    if rank in even_ranks:
+                    if rank in self.even_ranks:
                         summed = hvd.grouped_allreduce(even_rank_tensors, average=False,
-                                                       process_set=even_set)
-                    elif rank in odd_ranks:
+                                                       process_set=self.even_set)
+                    elif rank in self.odd_ranks:
                         summed = hvd.grouped_allreduce(odd_rank_tensors, average=False,
-                                                       process_set=odd_set)
+                                                       process_set=self.odd_set)
 
-                if rank in even_ranks:
+                if rank in self.even_ranks:
                     tensors = even_rank_tensors
-                    set_size = len(even_ranks)
-                elif rank in odd_ranks:
+                    set_size = len(self.even_ranks)
+                elif rank in self.odd_ranks:
                     tensors = odd_rank_tensors
-                    set_size = len(odd_ranks)
+                    set_size = len(self.odd_ranks)
 
                 grads_ys = [tf.ones([5] * dim, dtype=dtype) for _ in range(5)]
                 if _executing_eagerly():
@@ -438,32 +367,21 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
                                 "gradient %s differs from expected %s, "
                                 "error: %s" % (grad_out, expected, str(err)))
 
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
-
     def test_horovod_allgather_cpu_process_sets(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors if restricted to non-global process sets."""
-        hvd.init()
         rank = hvd.rank()
-        size = hvd.size()
 
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
 
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
-
-        if rank in even_ranks:
-            set_size = len(even_ranks)
-            set_ranks = even_ranks
-            this_set = even_set
-        elif rank in odd_ranks:
-            set_size = len(odd_ranks)
-            set_ranks = odd_ranks
-            this_set = odd_set
+        if rank in self.even_ranks:
+            set_size = len(self.even_ranks)
+            set_ranks = self.even_ranks
+            this_set = self.even_set
+        elif rank in self.odd_ranks:
+            set_size = len(self.odd_ranks)
+            set_ranks = self.odd_ranks
+            this_set = self.odd_set
 
         dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
                   tf.int32, tf.int64, tf.float16, tf.float32,
@@ -497,9 +415,6 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
                         tf.equal(tf.cast(rank_tensor, tf.int32), value))),
                     "hvd.allgather produces incorrect gathered tensor")
 
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
-
     def test_horovod_allgather_gpu_process_sets(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors if restricted to non-global process sets."""
 
@@ -510,25 +425,17 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
-        hvd.init()
         rank = hvd.rank()
         local_rank = hvd.local_rank()
-        size = hvd.size()
 
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
-
-        if rank in even_ranks:
-            set_size = len(even_ranks)
-            set_ranks = even_ranks
-            this_set = even_set
-        elif rank in odd_ranks:
-            set_size = len(odd_ranks)
-            set_ranks = odd_ranks
-            this_set = odd_set
+        if rank in self.even_ranks:
+            set_size = len(self.even_ranks)
+            set_ranks = self.even_ranks
+            this_set = self.even_set
+        elif rank in self.odd_ranks:
+            set_size = len(self.odd_ranks)
+            set_ranks = self.odd_ranks
+            this_set = self.odd_set
 
         dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
                   tf.int32, tf.int64, tf.float16, tf.float32,
@@ -562,30 +469,20 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
                         tf.equal(tf.cast(rank_tensor, tf.int32), value))),
                     "hvd.allgather produces incorrect gathered tensor")
 
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
-
     def test_horovod_allgather_grad_cpu_process_sets(self):
         """Test the correctness of the allgather gradient on CPU if restricted to non-global process sets."""
-        hvd.init()
         rank = hvd.rank()
         size = hvd.size()
 
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
 
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
-
-        if rank in even_ranks:
-            set_ranks = even_ranks
-            this_set = even_set
-        elif rank in odd_ranks:
-            set_ranks = odd_ranks
-            this_set = odd_set
+        if rank in self.even_ranks:
+            set_ranks = self.even_ranks
+            this_set = self.even_set
+        elif rank in self.odd_ranks:
+            set_ranks = self.odd_ranks
+            this_set = self.odd_set
 
         # As of TensorFlow v1.9, gradients are not supported on
         # integer tensors
@@ -636,13 +533,9 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
                             "error: %s" %
                             (grad_out, expected, str(err)))
 
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
-
     def test_horovod_broadcast_cpu_process_sets(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors on CPU
          if restricted to non-global process sets"""
-        hvd.init()
         rank = hvd.rank()
         size = hvd.size()
 
@@ -653,20 +546,12 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
         if size == 1:
             self.skipTest("Only one worker available")
 
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
-
-        if rank in even_ranks:
-            set_size = len(even_ranks)
-            set_ranks = even_ranks
-            this_set = even_set
-        elif rank in odd_ranks:
-            set_size = len(odd_ranks)
-            set_ranks = odd_ranks
-            this_set = odd_set
+        if rank in self.even_ranks:
+            set_ranks = self.even_ranks
+            this_set = self.even_set
+        elif rank in self.odd_ranks:
+            set_ranks = self.odd_ranks
+            this_set = self.odd_set
 
         dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
                   tf.int32, tf.int64, tf.float16, tf.float32,
@@ -688,9 +573,6 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
                     tf.cast(root_tensor, tf.int32), tf.cast(broadcasted_tensor, tf.int32)))),
                 "hvd.broadcast produces incorrect broadcasted tensor")
 
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
-
     def test_horovod_broadcast_gpu_process_sets(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors on GPU
          if restricted to non-global process sets"""
@@ -702,7 +584,6 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
-        hvd.init()
         rank = hvd.rank()
         local_rank = hvd.local_rank()
         size = hvd.size()
@@ -714,20 +595,12 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
         if size == 1:
             self.skipTest("Only one worker available")
 
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
-
-        if rank in even_ranks:
-            set_size = len(even_ranks)
-            set_ranks = even_ranks
-            this_set = even_set
-        elif rank in odd_ranks:
-            set_size = len(odd_ranks)
-            set_ranks = odd_ranks
-            this_set = odd_set
+        if rank in self.even_ranks:
+            set_ranks = self.even_ranks
+            this_set = self.even_set
+        elif rank in self.odd_ranks:
+            set_ranks = self.odd_ranks
+            this_set = self.odd_set
 
         dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
                   tf.int32, tf.int64, tf.float16, tf.float32,
@@ -749,11 +622,7 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
                     tf.cast(root_tensor, tf.int32), tf.cast(broadcasted_tensor, tf.int32)))),
                 "hvd.broadcast produces incorrect broadcasted tensor")
 
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
-
     def test_broadcast_variables_process_sets(self):
-        hvd.init()
         rank = hvd.rank()
         size = hvd.size()
 
@@ -764,18 +633,12 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
         if size == 1:
             self.skipTest("Only one worker available")
 
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
-
-        if rank in even_ranks:
-            set_ranks = even_ranks
-            this_set = even_set
-        elif rank in odd_ranks:
-            set_ranks = odd_ranks
-            this_set = odd_set
+        if rank in self.even_ranks:
+            set_ranks = self.even_ranks
+            this_set = self.even_set
+        elif rank in self.odd_ranks:
+            set_ranks = self.odd_ranks
+            this_set = self.odd_set
         root_rank = set_ranks[0]
 
         with tf.device("/cpu:0"):
@@ -788,12 +651,8 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
             value = self.evaluate(var)
         self.assertListEqual(list(value), [root_rank])
 
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
-
     def test_horovod_broadcast_grad_cpu_process_sets(self):
         """Test the correctness of the broadcast gradient on CPU if restricted to non-global process sets."""
-        hvd.init()
         rank = hvd.rank()
         size = hvd.size()
 
@@ -804,20 +663,12 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
         if size == 1:
             self.skipTest("Only one worker available")
 
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
-
-        if rank in even_ranks:
-            set_size = len(even_ranks)
-            set_ranks = even_ranks
-            this_set = even_set
-        elif rank in odd_ranks:
-            set_size = len(odd_ranks)
-            set_ranks = odd_ranks
-            this_set = odd_set
+        if rank in self.even_ranks:
+            set_ranks = self.even_ranks
+            this_set = self.even_set
+        elif rank in self.odd_ranks:
+            set_ranks = self.odd_ranks
+            this_set = self.odd_set
 
         # As of TensorFlow v1.9, gradients are not supported on
         # integer tensors
@@ -853,30 +704,19 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
 
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
-
     def test_horovod_alltoall_cpu_process_sets(self):
         """Test that the alltoall on restricted process sets correctly distributes 1D, 2D, and 3D tensors."""
-        hvd.init()
         rank = hvd.rank()
-        size = hvd.size()
 
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
 
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
-
-        if rank in even_ranks:
-            set_size = len(even_ranks)
-            set_ranks = even_ranks
-        elif rank in odd_ranks:
-            set_size = len(odd_ranks)
-            set_ranks = odd_ranks
+        if rank in self.even_ranks:
+            set_size = len(self.even_ranks)
+            set_ranks = self.even_ranks
+        elif rank in self.odd_ranks:
+            set_size = len(self.odd_ranks)
+            set_ranks = self.odd_ranks
 
         dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.uint16, tf.int16,
                                               tf.int32, tf.int64, tf.float16, tf.float32,
@@ -892,10 +732,10 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
                   tensor = tf.expand_dims(tensor, axis=1)
                   tensor = tf.concat([tensor, tensor], axis=1)
                 splits = tf.convert_to_tensor([rank+1] * set_size, dtype=tf.int32)
-                if rank in even_ranks:
-                    collected, received_splits = hvd.alltoall(tensor, splits, process_set=even_set)
-                elif rank in odd_ranks:
-                    collected, received_splits = hvd.alltoall(tensor, splits, process_set=odd_set)
+                if rank in self.even_ranks:
+                    collected, received_splits = hvd.alltoall(tensor, splits, process_set=self.even_set)
+                elif rank in self.odd_ranks:
+                    collected, received_splits = hvd.alltoall(tensor, splits, process_set=self.odd_set)
 
                 self.assertTrue(
                     self.evaluate(tf.reduce_all(
@@ -908,9 +748,6 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
 
                 self.assertSequenceEqual(self.evaluate(received_splits).tolist(), [rk + 1 for rk in set_ranks],
                                          "hvd.alltoall returned incorrect received_splits")
-
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
 
     def test_horovod_alltoall_gpu_process_sets(self):
         """Test that the GPU alltoall on restricted process sets correctly distributes 1D, 2D, and 3D tensors."""
@@ -925,23 +762,15 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
         if hvd.nccl_built() and hvd.nccl_built() < 2700:
             self.skipTest("NCCL-based Alltoall requires NCCL version >= 2.7.0.")
 
-        hvd.init()
         rank = hvd.rank()
         local_rank = hvd.local_rank()
-        size = hvd.size()
 
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
-
-        if rank in even_ranks:
-            set_size = len(even_ranks)
-            set_ranks = even_ranks
-        elif rank in odd_ranks:
-            set_size = len(odd_ranks)
-            set_ranks = odd_ranks
+        if rank in self.even_ranks:
+            set_size = len(self.even_ranks)
+            set_ranks = self.even_ranks
+        elif rank in self.odd_ranks:
+            set_size = len(self.odd_ranks)
+            set_ranks = self.odd_ranks
 
         dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
                   tf.int32, tf.int64, tf.float16, tf.float32,
@@ -957,10 +786,10 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
                   tensor = tf.expand_dims(tensor, axis=1)
                   tensor = tf.concat([tensor, tensor], axis=1)
                 splits = tf.convert_to_tensor([rank+1] * set_size, dtype=tf.int32)
-                if rank in even_ranks:
-                    collected, received_splits = hvd.alltoall(tensor, splits, process_set=even_set)
-                elif rank in odd_ranks:
-                    collected, received_splits = hvd.alltoall(tensor, splits, process_set=odd_set)
+                if rank in self.even_ranks:
+                    collected, received_splits = hvd.alltoall(tensor, splits, process_set=self.even_set)
+                elif rank in self.odd_ranks:
+                    collected, received_splits = hvd.alltoall(tensor, splits, process_set=self.odd_set)
 
                 self.assertTrue(
                     self.evaluate(tf.reduce_all(
@@ -974,30 +803,19 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
                 self.assertSequenceEqual(self.evaluate(received_splits).tolist(), [rk + 1 for rk in set_ranks],
                                          "hvd.alltoall returned incorrect received_splits")
 
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
-
     def test_horovod_alltoall_grad_cpu_process_sets(self):
         """Test the correctness of the alltoall gradient on CPU with restricted process sets."""
-        hvd.init()
         rank = hvd.rank()
-        size = hvd.size()
 
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
 
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
-
-        if rank in even_ranks:
-            set_size = len(even_ranks)
-            this_set = even_set
-        elif rank in odd_ranks:
-            set_size = len(odd_ranks)
-            this_set = odd_set
+        if rank in self.even_ranks:
+            set_size = len(self.even_ranks)
+            this_set = self.even_set
+        elif rank in self.odd_ranks:
+            set_size = len(self.odd_ranks)
+            this_set = self.odd_set
 
         # As of TensorFlow v1.9, gradients are not supported on
         # integer tensors
@@ -1035,12 +853,8 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
 
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
-
     def test_broadcast_object_process_sets(self):
         """ This should best be tested with more than two Horovod processes """
-        hvd.init()
         rank = hvd.rank()
         size = hvd.size()
 
@@ -1051,16 +865,12 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
         if size == 1:
             self.skipTest("Only one worker available")
 
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
-        if rank in even_ranks:
-            set_ranks = even_ranks
-            this_set = even_set
-        elif rank in odd_ranks:
-            set_ranks = odd_ranks
-            this_set = odd_set
+        if rank in self.even_ranks:
+            set_ranks = self.even_ranks
+            this_set = self.even_set
+        elif rank in self.odd_ranks:
+            set_ranks = self.odd_ranks
+            this_set = self.odd_set
         root_rank = set_ranks[0]
 
         with tf.device("/cpu:0"):
@@ -1072,14 +882,11 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
                 'odd': 456,
                 1: [1, 2, 3, 4]
             }
-            expected_obj = expected_even_obj if this_set == even_set else expected_odd_obj
+            expected_obj = expected_even_obj if this_set == self.even_set else expected_odd_obj
             obj = expected_obj if hvd.rank() == root_rank else {}
 
             obj = hvd.broadcast_object(obj, root_rank=root_rank, process_set=this_set)
             self.assertDictEqual(obj, expected_obj)
-
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
 
     def test_broadcast_object_fn_process_sets(self):
         """ This should best be tested with more than two Horovod processes """
@@ -1087,7 +894,6 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
             # Only for TF 1.0 in graph mode
             return
 
-        hvd.init()
         rank = hvd.rank()
         size = hvd.size()
 
@@ -1098,16 +904,12 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
         if size == 1:
             self.skipTest("Only one worker available")
 
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
-        if rank in even_ranks:
-            set_ranks = even_ranks
-            this_set = even_set
-        elif rank in odd_ranks:
-            set_ranks = odd_ranks
-            this_set = odd_set
+        if rank in self.even_ranks:
+            set_ranks = self.even_ranks
+            this_set = self.even_set
+        elif rank in self.odd_ranks:
+            set_ranks = self.odd_ranks
+            this_set = self.odd_set
         root_rank = set_ranks[0]
 
         with tf.device("/cpu:0"):
@@ -1119,19 +921,15 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
                 'odd': 456,
                 1: [1, 2, 3, 4]
             }
-            expected_obj = expected_even_obj if this_set == even_set else expected_odd_obj
+            expected_obj = expected_even_obj if this_set == self.even_set else expected_odd_obj
             obj = expected_obj if hvd.rank() == root_rank else {}
 
             bcast = hvd.broadcast_object_fn(root_rank=root_rank, process_set=this_set)
             obj = bcast(obj)
             self.assertDictEqual(obj, expected_obj)
 
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
-
     def test_allgather_object_process_sets(self):
         """ This should best be tested with more than two Horovod processes """
-        hvd.init()
 
         rank = hvd.rank()
         size = hvd.size()
@@ -1143,117 +941,27 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
         if size == 1:
             self.skipTest("Only one worker available")
 
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
-        if rank in even_ranks:
-            set_ranks = even_ranks
-            this_set = even_set
-        elif rank in odd_ranks:
-            set_ranks = odd_ranks
-            this_set = odd_set
+        if rank in self.even_ranks:
+            set_ranks = self.even_ranks
+            this_set = self.even_set
+        elif rank in self.odd_ranks:
+            set_ranks = self.odd_ranks
+            this_set = self.odd_set
 
         with tf.device("/cpu:0"):
             d = {'metric_val_1': hvd.rank()}
             if this_set.rank() == 1:
-                d['metric_val_2'] = 42 if this_set == even_set else 23
+                d['metric_val_2'] = 42 if this_set == self.even_set else 23
 
             results = hvd.allgather_object(d, process_set=this_set)
 
             expected = [{'metric_val_1': i} for i in set_ranks]
             if this_set.size() > 1:
                 expected[1] = {'metric_val_1': set_ranks[1],
-                               'metric_val_2': 42 if this_set == even_set else 23}
+                               'metric_val_2': 42 if this_set == self.even_set else 23}
 
             self.assertEqual(len(results), this_set.size())
             self.assertListEqual(results, expected)
-
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
-
-    def test_horovod_add_get_remove_process_set(self):
-        hvd.init()
-        size = hvd.size()
-
-        # This test does not apply if there is only one worker.
-        if size == 1:
-            self.skipTest("Only one worker available")
-
-        # Here we test some implementation details (numeric process set id values) using an internal function. We only
-        # test the concrete value 0 because IDs will be reassigned between eager and graph-mode test runs and may
-        # change.
-        ps = hvd.mpi_ops._basics._get_process_set_ids_and_ranks()
-        self.assertDictEqual(ps, {0: list(range(size))})
-
-        set1 = hvd.add_process_set([0])
-        set2 = hvd.add_process_set(range(1, size))
-
-        ps = hvd.mpi_ops._basics._get_process_set_ids_and_ranks()
-        self.assertDictEqual(ps, {0: list(range(size)),
-                                  set1.process_set_id: [0],
-                                  set2.process_set_id: list(range(1, size))})
-
-        # Ensure process set ids are equal across processes.
-        with tf.device("/cpu:0"):
-            for a_set in [set1, set2]:
-                ids_on_ranks = list(self.evaluate(hvd.allgather(tf.convert_to_tensor([a_set.process_set_id]))))
-                self.assertTrue(all(an_id == a_set.process_set_id for an_id in ids_on_ranks))
-
-        # Test stringification
-        self.assertListEqual([str(p) for p in [hvd.global_process_set, set1, set2]],
-                             [f"ProcessSet(process_set_id=0, ranks={list(range(size))}, mpi_comm=None)",
-                              f"ProcessSet(process_set_id={set1.process_set_id}, ranks=[0], mpi_comm=None)",
-                              f"ProcessSet(process_set_id={set2.process_set_id}, ranks={list(range(1, size))}, mpi_comm=None)",
-                              ])
-
-        old_id_of_set1 = set1.process_set_id
-        hvd.remove_process_set(set1)
-        self.assertIsNone(set1.process_set_id)  # invalidated
-
-        ps = hvd.mpi_ops._basics._get_process_set_ids_and_ranks()
-        self.assertDictEqual(ps, {0: list(range(size)),
-                                  set2.process_set_id: list(range(1, size))})
-
-        # test re-adding set1
-        hvd.add_process_set(set1)
-        ps = hvd.mpi_ops._basics._get_process_set_ids_and_ranks()
-        self.assertDictEqual(ps, {0: list(range(size)),
-                                  set1.process_set_id: [0],
-                                  set2.process_set_id: list(range(1, size))})
-        hvd.remove_process_set(set1)
-
-
-        if size > 2:
-            set3 = hvd.add_process_set([0, size - 1])
-            self.assertEqual(old_id_of_set1, set3.process_set_id) # id reuse
-        else:
-            with self.assertRaises(ValueError):  # duplicate of the global process set
-                set3 = hvd.add_process_set([0, size - 1])
-            set3 = hvd.global_process_set
-
-        with self.assertRaises(ValueError):  # duplicate of set2
-            set4 = hvd.add_process_set(range(size - 1, 0, -1))
-
-        with self.assertRaises(ValueError):  # duplicate of the global process set
-            set5 = hvd.add_process_set(range(0, size))
-
-        ps = hvd.mpi_ops._basics._get_process_set_ids_and_ranks()
-        if size > 2:
-            self.assertDictEqual(ps, {0: list(range(size)),
-                                      set2.process_set_id: list(range(1, size)),
-                                      set3.process_set_id: [0, size-1]})
-        else:
-            self.assertDictEqual(ps, {0: list(range(size)),
-                                      set2.process_set_id: list(range(1, size))})
-        hvd.remove_process_set(set2)
-        hvd.remove_process_set(set3)
-
-        ps = hvd.mpi_ops._basics._get_process_set_ids_and_ranks()
-        self.assertDictEqual(ps, {0: list(range(size))})
-
-        self.assertFalse(hvd.remove_process_set(hvd.global_process_set),
-                         "Removing the global process set should be impossible.")
 
     def test_legacy_DistributedOptimizer_process_sets(self):
         """ Note that this test makes the most sense when running with > 2 processes. """
@@ -1263,13 +971,10 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
         resource_variables_by_default = tf.compat.v1.resource_variables_enabled()
         tf.compat.v1.disable_resource_variables()
 
-        hvd.init()
         size = hvd.size()
 
         if size == 1:
             self.skipTest("Only one worker available")
-
-        subset = hvd.add_process_set(range(0, size, 2))
 
         with self.test_session() as sess:
             class TestOptimizer(tf.compat.v1.train.Optimizer):
@@ -1286,7 +991,7 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
             opt = hvd.DistributedOptimizer(
                 optimizer=opt,
                 average_aggregated_gradients=True,
-                process_set=subset,
+                process_set=self.even_set,
             )
 
             grads_and_vars = opt.compute_gradients()
@@ -1295,40 +1000,34 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
             sess.run(update_op)
 
             computed_value = sess.run(opt._optimizer.variable.read_value())[0]
-            if subset.included():
-                self.assertAlmostEqual(computed_value, sum(range(0, size, 2)) / subset.size())
+            if self.even_set.included():
+                self.assertAlmostEqual(computed_value, sum(range(0, size, 2)) / self.even_set.size())
             else:
                 self.assertAlmostEqual(computed_value, float(hvd.rank()))
 
-        hvd.remove_process_set(subset)
         if resource_variables_by_default:
             tf.compat.v1.enable_resource_variables()
 
     def test_distributed_gradient_tape_process_sets(self):
         """ Note: test makes most sense with more than 2 nodes. """
-        hvd.init()
         size = hvd.size()
 
         if size == 1:
             self.skipTest("Only one worker available")
-
-        subset = hvd.add_process_set(range(0, size, 2))
 
         with tf.device("/cpu:0"):
             x = tf.constant(float(hvd.rank()))
             with tf.GradientTape() as g:
                 g.watch(x)
                 y = x * x
-            dg = hvd.DistributedGradientTape(g, process_set=subset)
+            dg = hvd.DistributedGradientTape(g, process_set=self.even_set)
             dy_dx = dg.gradient(y, [x])
         value, = self.evaluate(dy_dx)
 
-        if subset.included():
-            self.assertAlmostEqual(value, 2. * sum(subset.ranks) / subset.size())
+        if self.even_set.included():
+            self.assertAlmostEqual(value, 2. * sum(self.even_set.ranks) / self.even_set.size())
         else:
             self.assertAlmostEqual(value, 2. * hvd.rank())
-
-        hvd.remove_process_set(subset)
 
     def test_horovod_reducescatter_cpu_process_sets(self):
         """Test on CPU that the reducescatter correctly sums or averages and scatters 1D, 2D, 3D tensors
@@ -1337,18 +1036,12 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
         if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
             self.skipTest("ReducescatterGloo is not supported on macOS")
-        hvd.init()
         rank = hvd.rank()
-        size = hvd.size()
 
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
-        if rank in even_ranks:
-            this_set = even_set
+        if rank in self.even_ranks:
+            this_set = self.even_set
         else:
-            this_set = odd_set
+            this_set = self.odd_set
         process_set_size = this_set.size()
         process_set_rank = this_set.rank()
 
@@ -1358,7 +1051,7 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
             with tf.device("/cpu:0"):
                 even_rank_tensor = self.random_uniform([process_set_size * 4] * dim, -100, 100, dtype=dtype)
                 odd_rank_tensor = self.random_uniform([process_set_size * 4] * dim, -100, 100, dtype=dtype)
-                if rank in even_ranks:
+                if rank in self.even_ranks:
                     tensor = even_rank_tensor
                 else:
                     tensor = odd_rank_tensor
@@ -1387,9 +1080,6 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
             self.assertTrue(diff <= threshold,
                             "hvd.reducescatter produces incorrect results")
 
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
-
     def test_horovod_reducescatter_gpu_process_sets(self):
         """Test that the reducescatter works on GPUs if restricted to non-global process sets."""
         if not tf.test.is_gpu_available(cuda_only=True):
@@ -1399,19 +1089,13 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
             self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
-        hvd.init()
         local_rank = hvd.local_rank()
         rank = hvd.rank()
-        size = hvd.size()
 
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
-        if rank in even_ranks:
-            this_set = even_set
+        if rank in self.even_ranks:
+            this_set = self.even_set
         else:
-            this_set = odd_set
+            this_set = self.odd_set
         process_set_size = this_set.size()
         process_set_rank = this_set.rank()
 
@@ -1421,7 +1105,7 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
             with tf.device("/gpu:%d" % local_rank):
                 even_rank_tensor = self.random_uniform([process_set_size * 4] * dim, -100, 100, dtype=dtype)
                 odd_rank_tensor = self.random_uniform([process_set_size * 4] * dim, -100, 100, dtype=dtype)
-                if rank in even_ranks:
+                if rank in self.even_ranks:
                     tensor = even_rank_tensor
                 else:
                     tensor = odd_rank_tensor
@@ -1450,24 +1134,13 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
             self.assertTrue(diff <= threshold,
                             "hvd.reducescatter on GPU produces incorrect results")
 
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
-
     def test_horovod_reducescatter_grad_cpu_process_sets(self):
         """Test the correctness of the reducescatter gradient on CPU if restricted to non-global process sets."""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
         if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
             self.skipTest("ReducescatterGloo is not supported on macOS")
-        hvd.init()
         rank = hvd.rank()
-        size = hvd.size()
-
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
 
         # As of TensorFlow v1.9, gradients are not supported on
         # integer tensors
@@ -1477,32 +1150,32 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
             with tf.device("/cpu:0"):
                 if _executing_eagerly():
                     even_rank_tensor = self.tfe.Variable(self.random_uniform(
-                        [len(even_ranks) * 4] * dim, -100, 100, dtype=dtype))
+                        [len(self.even_ranks) * 4] * dim, -100, 100, dtype=dtype))
                     odd_rank_tensor = self.tfe.Variable(self.random_uniform(
-                        [len(odd_ranks) * 4] * dim, -100, 100, dtype=dtype))
+                        [len(self.odd_ranks) * 4] * dim, -100, 100, dtype=dtype))
                     with tf.GradientTape() as tape:
-                        if rank in even_ranks:
+                        if rank in self.even_ranks:
                             reduced = hvd.reducescatter(even_rank_tensor, op=red_op,
-                                                       process_set=even_set)
-                        elif rank in odd_ranks:
+                                                       process_set=self.even_set)
+                        elif rank in self.odd_ranks:
                             reduced = hvd.reducescatter(odd_rank_tensor, op=red_op,
-                                                       process_set=odd_set)
+                                                       process_set=self.odd_set)
                 else:
-                    even_rank_tensor = self.random_uniform([len(even_ranks) * 4] * dim, -100, 100, dtype=dtype)
-                    odd_rank_tensor = self.random_uniform([len(odd_ranks) * 4] * dim, -100, 100, dtype=dtype)
-                    if rank in even_ranks:
+                    even_rank_tensor = self.random_uniform([len(self.even_ranks) * 4] * dim, -100, 100, dtype=dtype)
+                    odd_rank_tensor = self.random_uniform([len(self.odd_ranks) * 4] * dim, -100, 100, dtype=dtype)
+                    if rank in self.even_ranks:
                         reduced = hvd.reducescatter(even_rank_tensor, op=red_op,
-                                                   process_set=even_set)
-                    elif rank in odd_ranks:
+                                                   process_set=self.even_set)
+                    elif rank in self.odd_ranks:
                         reduced = hvd.reducescatter(odd_rank_tensor, op=red_op,
-                                                   process_set=odd_set)
+                                                   process_set=self.odd_set)
 
-                if rank in even_ranks:
+                if rank in self.even_ranks:
                     tensor = even_rank_tensor
-                    set_size = len(even_ranks)
-                elif rank in odd_ranks:
+                    set_size = len(self.even_ranks)
+                elif rank in self.odd_ranks:
                     tensor = odd_rank_tensor
-                    set_size = len(odd_ranks)
+                    set_size = len(self.odd_ranks)
 
                 grad_ys = tf.ones([4] + [set_size * 4] * (dim - 1), dtype=tensor.dtype)
                 if _executing_eagerly():
@@ -1520,27 +1193,18 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
 
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
-
     def test_horovod_grouped_reducescatter_cpu_process_sets(self):
         """Test on CPU that the grouped reducescatter correctly sums if restricted to non-global process sets"""
         if hvd.ccl_built():
             self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
         if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
             self.skipTest("ReducescatterGloo is not supported on macOS")
-        hvd.init()
         rank = hvd.rank()
-        size = hvd.size()
 
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
-        if rank in even_ranks:
-            this_set = even_set
+        if rank in self.even_ranks:
+            this_set = self.even_set
         else:
-            this_set = odd_set
+            this_set = self.odd_set
         process_set_size = this_set.size()
         process_set_rank = this_set.rank()
 
@@ -1552,7 +1216,7 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
                                      for _ in range(5)]
                 odd_rank_tensors = [self.random_uniform([process_set_size * 4] * dim, -100, 100, dtype=dtype)
                                     for _ in range(5)]
-                if rank in even_ranks:
+                if rank in self.even_ranks:
                     tensors = even_rank_tensors
                 else:
                     tensors = odd_rank_tensors
@@ -1582,33 +1246,22 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
             self.assertTrue(diff <= threshold,
                             "hvd.reducescatter produces incorrect results")
 
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
-
     def test_horovod_grouped_allgather_cpu_process_sets(self):
         """Test that the grouped allgather correctly gathers 1D, 2D, 3D tensors
         if restricted to non-global process sets."""
-        hvd.init()
         rank = hvd.rank()
-        size = hvd.size()
 
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
 
-        even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
-        odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
-
-        even_set = hvd.add_process_set(even_ranks)
-        odd_set = hvd.add_process_set(odd_ranks)
-
-        if rank in even_ranks:
-            set_size = len(even_ranks)
-            set_ranks = even_ranks
-            this_set = even_set
-        elif rank in odd_ranks:
-            set_size = len(odd_ranks)
-            set_ranks = odd_ranks
-            this_set = odd_set
+        if rank in self.even_ranks:
+            set_size = len(self.even_ranks)
+            set_ranks = self.even_ranks
+            this_set = self.even_set
+        elif rank in self.odd_ranks:
+            set_size = len(self.odd_ranks)
+            set_ranks = self.odd_ranks
+            this_set = self.odd_set
 
         dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
                   tf.int32, tf.int64, tf.float16, tf.float32,
@@ -1642,9 +1295,6 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
                 self.assertTrue(all(self.evaluate(tf.reduce_all(
                     tf.equal(tf.cast(rank_tensor, tf.int32), value))) for rank_tensor in rank_tensors),
                     "hvd.grouped_allgather produces incorrect gathered tensor")
-
-        hvd.remove_process_set(odd_set)
-        hvd.remove_process_set(even_set)
 
 
 from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
