@@ -919,20 +919,23 @@ if hasattr(tf, 'GradientTape'):
         def gradient(self, target, sources, output_gradients=None, use_generic_names=False):
             gradients = super(self.__class__, self).gradient(target, sources, output_gradients)
 
-            # Create dict mapping sources to gradients
-            if _IS_TF2:
-                s2g = {s.ref() : g for s,g in zip(sources, gradients)}
-            else:
-                s2g = {s : g for s,g in zip(sources, gradients)}
-
-            # Collect source/grad pairs requiring reduction (i.e. not from a registered local source) and reduce
+            # Collect source/grad pairs requiring reduction (i.e. not from a registered local source)
             rs = []
             rg = []
-            for s,g in zip(sources, gradients):
-                if s.ref() not in self._local_sources:
-                    rs.append(s)
-                    rg.append(g)
+            if _IS_TF2:
+                s2g = {s.ref() : g for s,g in zip(sources, gradients)}
+                for s,g in zip(sources, gradients):
+                    if s.ref() not in self._local_sources:
+                        rs.append(s)
+                        rg.append(g)
+            else:
+                s2g = {s : g for s,g in zip(sources, gradients)}
+                for s,g in zip(sources, gradients):
+                    if s not in self._local_sources:
+                        rs.append(s)
+                        rg.append(g)
 
+            # Reduce grads
             rg = self._allreduce_grads(rg, rs, use_generic_names)
 
             # Replace dict entries with reduced grads
@@ -946,7 +949,6 @@ if hasattr(tf, 'GradientTape'):
                     s2g[rs] = rg
 
                 return [s2g[s] for s in sources]
-
 
     def DistributedGradientTape(gradtape, device_dense='', device_sparse='',
                                 compression=Compression.none, sparse_as_dense=False,
