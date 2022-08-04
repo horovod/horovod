@@ -46,9 +46,9 @@ tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${B
   printf "test-cpu-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_10_2-mxnet1_8_0_p0-pyspark3_2_1 "
   # our baseline again
 # printf "test-cpu-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1 "
-  printf "test-cpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1 "
+  printf "test-cpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1 "
   # these are the lowest framework versions that Horovod compiles with, but they are not tested
-  printf "test-cpu-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin "
+  printf "test-cpu-openmpi-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin "
 
   # then we vary the frameworks for gpu
   # we need CUDA 10.0 as tensorflow-gpu==1.15.5 is compiled against and linked to CUDA 10.0
@@ -61,9 +61,9 @@ tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${B
   printf "test-gpu-gloo-py3_8-tf2_7_3-keras2_7_0-torch1_9_1-mxnet1_7_0_p1-pyspark3_2_1 "
   printf "test-gpu-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_10_2-mxnet1_8_0_p0-pyspark3_2_1 "
   printf "test-gpu-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1 "
-  printf "test-gpu-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1 "
+  printf "test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1 "
   # these are the lowest framework versions that Horovod compiles with, but they are not tested
-  printf "test-gpu-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin "
+  printf "test-gpu-openmpi-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin "
 
   # and one final test with mixed cpu+gpu
   printf "test-mixed-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1 "
