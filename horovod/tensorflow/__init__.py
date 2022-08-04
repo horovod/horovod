@@ -16,6 +16,7 @@
 # ==============================================================================
 # pylint: disable=g-short-docstring-punctuation
 
+from distutils.version import LooseVersion
 import os
 import warnings
 
