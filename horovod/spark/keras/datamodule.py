@@ -3,12 +3,13 @@ import horovod.tensorflow.keras as hvd
 
 from horovod.spark.common import constants
 from horovod.spark.common.datamodule import register_datamodule, DataModule
-from petastorm import TransformSpec, make_reader, make_batch_reader
 
 
 class PetastormDataModule(DataModule):
     """Default Petastorm-based DataModule for KerasEstimator."""
     def __init__(self, reader_pool_type: str="process", train_reader_worker_count: int=2, val_reader_worker_count: int=2, make_dataset=None, random_seed=0, **kwargs):
+        from petastorm import TransformSpec, make_reader, make_batch_reader
+
         super().__init__(**kwargs)
         self.reader_pool_type = reader_pool_type
         self.train_reader_worker_count = train_reader_worker_count
