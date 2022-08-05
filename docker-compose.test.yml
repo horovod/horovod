@@ -222,13 +222,13 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.2.2-devel-ubuntu20.04
-        CUDNN_VERSION: 8.1.1.33-1+cuda11.2
-        NCCL_VERSION_OVERRIDE: 2.8.4-1+cuda11.2
+        CUDA_DOCKER_VERSION: 11.3.1-devel-ubuntu20.04
+        CUDNN_VERSION: 8.2.1.32-1+cuda11.3
+        NCCL_VERSION_OVERRIDE: 2.9.6-1+cuda11.3
         MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tf-nightly-gpu
         KERAS_PACKAGE: None
-        PYTORCH_PACKAGE: torch-nightly-cu111
+        PYTORCH_PACKAGE: torch-nightly-cu113
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision
         MXNET_PACKAGE: mxnet-nightly-cu112
