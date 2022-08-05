@@ -539,7 +539,7 @@ def _make_cached_allreduce_grads_fn(name, device_dense, device_sparse,
                                                                postscale_factor=postscale_factor,
                                                                process_set=process_set,
                                                                name=f"grad_{i}" if use_generic_names else None,
-                                                               ignore_name_scope=True if use_generic_names else False)
+                                                               ignore_name_scope=use_generic_names)
                     for i in range(len(index_group)):
                         reduce_ops[index_group[i]] = reduce_ops_group[i]
                 return reduce_ops
@@ -553,7 +553,7 @@ def _make_cached_allreduce_grads_fn(name, device_dense, device_sparse,
                                     postscale_factor=postscale_factor,
                                     process_set=process_set,
                                     name=f"grad_{i}" if use_generic_names else None,
-                                    ignore_name_scope=True if use_generic_names else False)
+                                    ignore_name_scope=use_generic_names)
                     if grad is not None else grad
                     for i, grad in enumerate(grads)]
 
