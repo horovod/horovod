@@ -8,7 +8,7 @@ for var in TENSORFLOW_PACKAGE KERAS_PACKAGE PYTORCH_PACKAGE PYTORCH_LIGHTNING_PA
 do
   if [ -z "${!var-}" ]
   then
-    echo "environment var $var not set"
+    echo -e "$var \u001b[31mnot set\u001b[0m"
     result=1
     continue
   fi
@@ -40,17 +40,17 @@ do
   then
     if [ "$found" == "$pattern" ]
     then
-      echo "$found found"
+      echo -e "$found \u001b[32mfound\u001b[0m"
     else
-      echo "$found found (matches ${!var} / $pattern)"
+      echo -e "$found \u001b[32mfound\u001b[0m (matches ${!var} / $pattern)"
     fi
   else
     found=$(pip freeze | grep -i "^${pattern/=*/==}" || true)
     if [ -n "$found" ]
     then
-      echo "$found found BUT ${!var} / $pattern expected"
+      echo -e "$found \u001b[31mfound BUT\u001b[0m ${!var} / $pattern \u001b[31mexpected\u001b[0m"
     else
-      echo "$pattern NOT found (no match for ${!var} / $pattern)"
+      echo -e "$pattern \u001b[31mNOT found\u001b[0m (no match for ${!var} / $pattern)"
     fi
     result=1
   fi
