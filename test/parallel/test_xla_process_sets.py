@@ -48,7 +48,7 @@ import horovod.tensorflow as hvd
 
 from base_test_tensorflow import *
 
-from common import mpi_env_rank_and_size
+from horovod.runner.common.util.env import get_env_rank_and_size
 
 _IS_TF26 = LooseVersion(tf.__version__) >= LooseVersion('2.6.0')
 
@@ -65,9 +65,7 @@ class XLAProcessSetsTests(BaseTensorFlowTests):
     @classmethod
     def setUpClass(cls):
         """Initializes Horovod with two process sets"""
-        _, mpi_size = mpi_env_rank_and_size()
-        gloo_size = int(os.getenv('HOROVOD_SIZE', -1))
-        size = max(mpi_size, gloo_size)
+        _, size = get_env_rank_and_size()
 
         cls.even_ranks = [rk for rk in range(0, size) if rk % 2 == 0]
         cls.odd_ranks = [rk for rk in range(0, size) if rk % 2 == 1]
