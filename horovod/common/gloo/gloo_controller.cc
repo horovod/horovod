@@ -18,7 +18,6 @@
 #include <cstring>
 
 #include "gloo/allgather.h"
-#include "gloo/allgatherv.h"
 #include "gloo/alltoall.h"
 #include "gloo/allreduce.h"
 #include "gloo/barrier.h"
@@ -150,7 +149,6 @@ void GlooController::RecvReadyTensors(std::vector<std::string>& ready_to_reduce,
     opts.setInput(&send_data, 1);
     opts.setOutput(recvcounts.get(), size_);
     gloo::gather(opts);
-    LOG(INFO) << "use gloo";
   }
 
   // 2. Compute displacements.
@@ -217,8 +215,6 @@ void GlooController::SendFinalTensors(ResponseList& response_list) {
 void GlooController::SendReadyTensors(RequestList& message_list) {
   std::string encoded_message;
   RequestList::SerializeToString(message_list, encoded_message);
-
-  // Gloo doesn't have the gatherv options, using allgatherv instead.
 
   // send message length to root
   std::unique_ptr<int[]> recvcounts(new int[size_]);
