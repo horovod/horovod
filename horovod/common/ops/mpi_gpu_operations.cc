@@ -233,11 +233,11 @@ Status MPI_GPUAlltoall::Execute(std::vector<TensorTableEntry>& entries, const Re
   return Status::OK();
 }
 
-MPI_GPUReduceScatter::MPI_GPUReduceScatter(GPUContext* gpu_context,
+MPI_GPUReducescatter::MPI_GPUReducescatter(GPUContext* gpu_context,
                                            HorovodGlobalState* global_state)
-    : GPUReduceScatter(gpu_context, global_state) {}
+    : GPUReducescatter(gpu_context, global_state) {}
 
-Status MPI_GPUReduceScatter::Execute(std::vector<TensorTableEntry>& entries,
+Status MPI_GPUReducescatter::Execute(std::vector<TensorTableEntry>& entries,
                                      const Response& response) {
   assert(!entries.empty());
   auto& first_entry = entries[0];

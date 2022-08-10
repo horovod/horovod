@@ -274,11 +274,11 @@ protected:
   HorovodGlobalState* global_state_;
 };
 
-class NCCLReducescatter : public GPUReduceScatter {
+class NCCLReducescatter : public GPUReducescatter {
 public:
   NCCLReducescatter(NCCLContext* nccl_context, GPUContext* gpu_context,
                     HorovodGlobalState* global_state)
-      : GPUReduceScatter(gpu_context, global_state),
+      : GPUReducescatter(gpu_context, global_state),
         nccl_context_(nccl_context),
         nccl_op_context_(nccl_context, global_state, Communicator::GLOBAL),
         global_state_(global_state) {}
