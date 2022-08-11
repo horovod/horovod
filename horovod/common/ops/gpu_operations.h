@@ -251,9 +251,9 @@ protected:
   GPUOpContext gpu_op_context_;
 };
 
-class GPUReduceScatter : public ReducescatterOp {
+class GPUReducescatter : public ReducescatterOp {
 public:
-  GPUReduceScatter(GPUContext* context, HorovodGlobalState* global_state);
+  GPUReducescatter(GPUContext* context, HorovodGlobalState* global_state);
 
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,

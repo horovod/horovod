@@ -664,18 +664,18 @@ bool GPUAlltoall::Enabled(const ParameterManager& param_manager,
   return entries[0].device != CPU_DEVICE_ID;
 }
 
-GPUReduceScatter::GPUReduceScatter(GPUContext* context,
+GPUReducescatter::GPUReducescatter(GPUContext* context,
                                    HorovodGlobalState* global_state)
     : ReducescatterOp(global_state), gpu_context_(context),
       gpu_op_context_(context, global_state) {}
 
-bool GPUReduceScatter::Enabled(const ParameterManager& param_manager,
+bool GPUReducescatter::Enabled(const ParameterManager& param_manager,
                                const std::vector<TensorTableEntry>& entries,
                                const Response& response) const {
   return entries[0].device != CPU_DEVICE_ID;
 }
 
-void GPUReduceScatter::MemcpyEntryInFusionBuffer(const TensorTableEntry& e,
+void GPUReducescatter::MemcpyEntryInFusionBuffer(const TensorTableEntry& e,
                                                  size_t entry_offset,
                                                  size_t entry_size,
                                                  void* buffer_data_at_offset) {
@@ -685,7 +685,7 @@ void GPUReduceScatter::MemcpyEntryInFusionBuffer(const TensorTableEntry& e,
       gpu_context_->streams[global_state_->current_nccl_stream][e.device]);
 }
 
-void GPUReduceScatter::MemcpyEntryOutFusionBuffer(
+void GPUReducescatter::MemcpyEntryOutFusionBuffer(
     const void* buffer_data_at_offset, TensorTableEntry& e) {
   gpu_context_->MemcpyAsyncD2D(
       (void*)e.output->data(), buffer_data_at_offset, (size_t)e.output->size(),
@@ -693,7 +693,7 @@ void GPUReduceScatter::MemcpyEntryOutFusionBuffer(
 }
 
 #if HAVE_GPU
-void GPUReduceScatter::MemcpyInFusionBuffer(
+void GPUReducescatter::MemcpyInFusionBuffer(
     const std::vector<TensorTableEntry>& entries,
     const std::vector<std::vector<TensorShape>>& output_shapes,
     std::size_t element_size, void*& buffer_data) {
@@ -752,13 +752,13 @@ void GPUReduceScatter::MemcpyInFusionBuffer(
       }
     }
   } else {
-    // default implementation using GPUReduceScatter::MemcpyEntryInFusionBuffer
+    // default implementation using GPUReducescatter::MemcpyEntryInFusionBuffer
     ReducescatterOp::MemcpyInFusionBuffer(entries, output_shapes, element_size,
                                           buffer_data);
   }
 }
 
-void GPUReduceScatter::MemcpyOutFusionBuffer(
+void GPUReducescatter::MemcpyOutFusionBuffer(
     const void* buffer_data, std::vector<TensorTableEntry>& entries) {
   if (global_state_->batch_d2d_memcopies) {
     int device = entries[0].device;
@@ -796,7 +796,7 @@ void GPUReduceScatter::MemcpyOutFusionBuffer(
       }
     }
   } else {
-    // default implementation using GPUReduceScatter::MemcpyEntryOutFusionBuffer
+    // default implementation using GPUReducescatter::MemcpyEntryOutFusionBuffer
     ReducescatterOp::MemcpyOutFusionBuffer(buffer_data, entries);
   }
 }
