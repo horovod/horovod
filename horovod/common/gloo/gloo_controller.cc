@@ -18,12 +18,12 @@
 #include <cstring>
 
 #include "gloo/allgather.h"
-#include "gloo/allgatherv.h"
 #include "gloo/alltoall.h"
 #include "gloo/allreduce.h"
 #include "gloo/barrier.h"
 #include "gloo/broadcast.h"
 #include "gloo/gather.h"
+#include "gloo/gatherv.h"
 
 #include "gloo_context.h"
 #include "../logging.h"
@@ -140,14 +140,15 @@ void GlooController::RecvReadyTensors(std::vector<std::string>& ready_to_reduce,
   // 1. Get message lengths from every rank.
   std::unique_ptr<int[]> recvcounts(new int[size_]);
 
-  // do allgather
+  // do gather
   {
     // gloo doesn't have inplace option, put a zero as input for root rank
     int send_data = 0;
-    gloo::AllgatherOptions opts(gloo_context_.ctx);
+    gloo::GatherOptions opts(gloo_context_.ctx);
+    opts.setRoot(RANK_ZERO);
     opts.setInput(&send_data, 1);
     opts.setOutput(recvcounts.get(), size_);
-    gloo::allgather(opts);
+    gloo::gather(opts);
   }
 
   // 2. Compute displacements.
@@ -165,14 +166,15 @@ void GlooController::RecvReadyTensors(std::vector<std::string>& ready_to_reduce,
   // 3. Collect messages from every rank.
   std::unique_ptr<uint8_t[]> buffer(new uint8_t[total_size]);
 
-  // do allgatherv
+  // do gatherv
   {
     auto input = new uint8_t[0];
-    gloo::AllgathervOptions opts(gloo_context_.ctx);
+    gloo::GathervOptions opts(gloo_context_.ctx);
+    opts.setRoot(RANK_ZERO);
     opts.setInput(input, 0);
     std::vector<size_t> count_vec(recvcounts.get(), recvcounts.get() + size_);
     opts.setOutput(buffer.get(), count_vec);
-    gloo::allgatherv(opts);
+    gloo::gatherv(opts);
   }
 
   // 4. Process messages.
@@ -214,38 +216,32 @@ void GlooController::SendReadyTensors(RequestList& message_list) {
   std::string encoded_message;
   RequestList::SerializeToString(message_list, encoded_message);
 
-  // Gloo doesn't have the gatherv options, using allgatherv instead.
-
   // send message length to root
   std::unique_ptr<int[]> recvcounts(new int[size_]);
   int encoded_message_length = (int)encoded_message.length() + 1;
   {
-    gloo::AllgatherOptions opts(gloo_context_.ctx);
+    gloo::GatherOptions opts(gloo_context_.ctx);
+    opts.setRoot(RANK_ZERO);
     opts.setInput(&encoded_message_length, 1);
-    opts.setOutput(recvcounts.get(), size_);
-    gloo::allgather(opts);
+    gloo::gather(opts);
   }
 
-  std::unique_ptr<int[]> displcmnts(new int[size_]);
-  size_t total_size = 0;
   for (int i = 0; i < size_; ++i) {
-    if (i == 0) {
-      displcmnts[i] = 0;
+    if (i == gloo_context_.ctx->rank) {
+      recvcounts[i] = encoded_message_length;
     } else {
-      displcmnts[i] = recvcounts[i - 1] + displcmnts[i - 1];
+      recvcounts[i] = 0;
     }
-    total_size += recvcounts[i];
   }
 
-  // 3. Collect messages from every rank.
-  std::unique_ptr<uint8_t[]> buffer(new uint8_t[total_size]);
   // send message body to root
   {
-    gloo::AllgathervOptions opts(gloo_context_.ctx);
+    gloo::GathervOptions opts(gloo_context_.ctx);
+    opts.setRoot(RANK_ZERO);
     opts.setInput((uint8_t*)encoded_message.c_str(), encoded_message_length);
     std::vector<size_t> count_vec(recvcounts.get(), recvcounts.get() + size_);
-    opts.setOutput((uint8_t*)buffer.get(), count_vec);
-    gloo::allgatherv(opts);
+    opts.setOutput((uint8_t*)nullptr, count_vec);
+    gloo::gatherv(opts);
   }
 }
 
