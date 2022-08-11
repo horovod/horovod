@@ -241,8 +241,14 @@ class LocalGradientAggregationHelper:
         # If optimizer tracks iterations, we increment it on steps where we
         # are not going to call `apply_gradients()`.
         def increment_optimizer_iteration():
-            if hasattr(optimizer, "_iterations") and optimizer._iterations is not None:
-                return optimizer._iterations.assign_add(1).op
+            # (kvignesh1420): Since all `tf.OptimizerV2` instances have the `iterations`
+            # property for modifying the underlying `optimizer._iterations`, it is safe to use
+            # the property instead of the private variable. For instance, the keras
+            # `LossScaleOptimizer` inherits `tf.Optimizer` and exposes the cleaner `iterations`
+            # property instead of the unsafe `_iterations`.
+
+            if hasattr(optimizer, "iterations") and optimizer.iterations is not None:
+                return optimizer.iterations.assign_add(1).op
             return tf.no_op()
 
         with tf.control_dependencies([tf.group(*get_not_none_from_list(flattended_args0))]):
