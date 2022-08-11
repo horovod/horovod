@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Added `hvd.grouped_allgather()` and `hvd.grouped_reducescatter()` operations. ([#3594](https://github.com/horovod/horovod/pull/3594))
 - TensorFlow: Added doc string for `hvd.grouped_allreduce()`. ([#3594](https://github.com/horovod/horovod/pull/3594))
 - Added warning messages if output tensor memory allocations fail. ([#3594](https://github.com/horovod/horovod/pull/3594))
+- Added `register_local_source` and `use_generic_names` funtionality to DistributedGradientTape. ([#3628](https://github.com/horovod/horovod/pull/3628))
 
 ### Changed
 

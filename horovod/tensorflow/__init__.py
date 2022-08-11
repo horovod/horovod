@@ -16,6 +16,7 @@
 # ==============================================================================
 # pylint: disable=g-short-docstring-punctuation
 
+from distutils.version import LooseVersion
 import os
 import warnings
 
@@ -44,6 +45,7 @@ from horovod.tensorflow.sync_batch_norm import SyncBatchNormalization
 from horovod.tensorflow.gradient_aggregation import LocalGradientAggregationHelper
 
 import tensorflow as tf
+_IS_TF2 = LooseVersion(tf.__version__) >= LooseVersion('2.0.0')
 
 # @DEKHTIARJonathan: Do not remove, this fixes issues:
 # - https://github.com/tensorflow/tensorflow/issues/38516
@@ -56,7 +58,8 @@ if tf.__version__.startswith('2.2.'):
 def allreduce(tensor, average=None, device_dense='', device_sparse='',
               compression=Compression.none, op=None,
               prescale_factor=1.0, postscale_factor=1.0,
-              name=None, process_set=global_process_set):
+              name=None, process_set=global_process_set,
+              ignore_name_scope=False):
     """Perform an allreduce on a tf.Tensor or tf.IndexedSlices.
 
     This function performs a bandwidth-optimal ring allreduce on the input
@@ -86,6 +89,8 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
         process_set: Process set object to limit this operation to a subset of
             Horovod processes. Default is the global process set.
         name: A name of the allreduce operation
+        ignore_name_scope: If True, ignores any outer name scope applied by
+                           TensorFlow in the name used by the Horovod operation.
 
     Returns:
         A tensor of the same shape and type as `tensor`, summed across all
@@ -103,8 +108,8 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
             horovod_size = tf.cast(size_op(process_set_id=process_set.process_set_id)
                                    if int(os.environ.get("HOROVOD_ELASTIC", 0)) else process_set.size(),
                                    dtype=tensor.values.dtype)
-            values = allgather(tensor.values, process_set=process_set)
-            indices = allgather(tensor.indices, process_set=process_set)
+            values = allgather(tensor.values, process_set=process_set, ignore_name_scope=ignore_name_scope)
+            indices = allgather(tensor.indices, process_set=process_set, ignore_name_scope=ignore_name_scope)
 
             # To make this operation into an average, divide allgathered values by
             # the Horovod size.
@@ -126,7 +131,8 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
             summed_tensor_compressed = _allreduce(tensor_compressed, op=op,
                                                   prescale_factor=prescale_factor,
                                                   postscale_factor=postscale_factor,
-                                                  name=name, process_set=process_set)
+                                                  name=name, process_set=process_set,
+                                                  ignore_name_scope=ignore_name_scope)
             summed_tensor = compression.decompress(summed_tensor_compressed, ctx)
             if op == Adasum:
                 if process_set != global_process_set:
@@ -163,7 +169,8 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
 
 
 def reducescatter(tensor, device_dense='', compression=Compression.none, op=Average,
-                  name=None, process_set=global_process_set):
+                  name=None, process_set=global_process_set,
+                  ignore_name_scope=False):
     """Perform a reducescatter on a tf.Tensor.
 
     This function performs a bandwidth-optimal reduce and scatter on the input
@@ -182,6 +189,8 @@ def reducescatter(tensor, device_dense='', compression=Compression.none, op=Aver
         process_set: Process set object to limit this operation to a subset of
             Horovod processes. Default is the global process set.
         name: A name of the reduce_scatter operation
+        ignore_name_scope: If True, ignores any outer name scope applied by
+                           TensorFlow in the name used by the Horovod operation.
 
     Returns:
         A tensor of the same rank and type as `tensor`, summed across all processes.
@@ -196,7 +205,8 @@ def reducescatter(tensor, device_dense='', compression=Compression.none, op=Aver
                                if int(os.environ.get("HOROVOD_ELASTIC", 0)) else process_set.size(),
                                dtype=tensor.dtype)
         tensor_compressed, ctx = compression.compress(tensor)
-        reduced_tensor_compressed = _reducescatter(tensor_compressed, op=true_op, name=name, process_set=process_set)
+        reduced_tensor_compressed = _reducescatter(tensor_compressed, op=true_op, name=name, process_set=process_set,
+                                                   ignore_name_scope=ignore_name_scope)
         reduced_tensor = compression.decompress(reduced_tensor_compressed, ctx)
         new_tensor = (reduced_tensor / horovod_size) if op == Average else reduced_tensor
     return new_tensor
@@ -205,7 +215,9 @@ def reducescatter(tensor, device_dense='', compression=Compression.none, op=Aver
 def grouped_allreduce(tensors, average=None, device_dense='', device_sparse='',
                       compression=Compression.none, op=None,
                       prescale_factor=1.0, postscale_factor=1.0,
-                      process_set=global_process_set):
+                      process_set=global_process_set,
+                      ignore_name_scope=False,
+                      name=None):
     """Perform grouped allreduces on a sequence of tf.Tensor or tf.IndexedSlices.
 
     Arguments:
@@ -230,6 +242,9 @@ def grouped_allreduce(tensors, average=None, device_dense='', device_sparse='',
         postscale_factor: Multiplicative factor to scale tensors after allreduce.
         process_set: Process set object to limit this operation to a subset of
             Horovod processes. Default is the global process set.
+        name: A name of the reduce_scatter operation
+        ignore_name_scope: If True, ignores any outer name scope applied by
+                           TensorFlow in the name used by the Horovod operation.
 
     Returns:
         A list of tensors of the same shape and type as those in `tensors`,
@@ -258,8 +273,8 @@ def grouped_allreduce(tensors, average=None, device_dense='', device_sparse='',
                 horovod_size = tf.cast(size_op(process_set_id=process_set.process_set_id)
                                        if int(os.environ.get("HOROVOD_ELASTIC", 0)) else process_set.size(),
                                        dtype=tensor.values.dtype)
-                values = allgather(tensor.values, process_set=process_set)
-                indices = allgather(tensor.indices, process_set=process_set)
+                values = allgather(tensor.values, process_set=process_set, ignore_name_scope=ignore_name_scope)
+                indices = allgather(tensor.indices, process_set=process_set, ignore_name_scope=ignore_name_scope)
 
                 # To make this operation into an average, divide allgathered values by
                 # the Horovod size.
@@ -272,7 +287,9 @@ def grouped_allreduce(tensors, average=None, device_dense='', device_sparse='',
             summed_tensors_compressed = _grouped_allreduce(tensors_compressed, op=op,
                                                            prescale_factor=prescale_factor,
                                                            postscale_factor=postscale_factor,
-                                                           process_set=process_set)
+                                                           process_set=process_set,
+                                                           name=name,
+                                                           ignore_name_scope=ignore_name_scope)
             summed_tensors = [compression.decompress(t, ctx) for t, ctx in zip(summed_tensors_compressed, ctxs)]
             if op == Adasum:
                 if process_set != global_process_set:
@@ -481,7 +498,7 @@ def _make_cached_allreduce_grads_fn(name, device_dense, device_sparse,
         prescale_factor = 1.0
         postscale_factor = 1.0
 
-    def allreduce_grads(grads, vars=None):
+    def allreduce_grads(grads, vars=None, use_generic_names=False):
         with tf.name_scope(name + "_Allreduce"):
             if sparse_as_dense:
                 grads = [tf.convert_to_tensor(grad)
@@ -511,7 +528,7 @@ def _make_cached_allreduce_grads_fn(name, device_dense, device_sparse,
                     grads_split = split_list(grads_clean, groups)
 
                 reduce_ops = [None] * len(vars)
-                for group in grads_split:
+                for i, group in enumerate(grads_split):
                     index_group, grad_group = [list(t) for t in zip(*group)]
                     reduce_ops_group = _grouped_allreduce_cond(grad_group,
                                                                device_dense=device_dense,
@@ -520,7 +537,9 @@ def _make_cached_allreduce_grads_fn(name, device_dense, device_sparse,
                                                                op=op,
                                                                prescale_factor=prescale_factor,
                                                                postscale_factor=postscale_factor,
-                                                               process_set=process_set)
+                                                               process_set=process_set,
+                                                               name=f"grad_{i}" if use_generic_names else None,
+                                                               ignore_name_scope=use_generic_names)
                     for i in range(len(index_group)):
                         reduce_ops[index_group[i]] = reduce_ops_group[i]
                 return reduce_ops
@@ -532,9 +551,11 @@ def _make_cached_allreduce_grads_fn(name, device_dense, device_sparse,
                                     op=op,
                                     prescale_factor=prescale_factor,
                                     postscale_factor=postscale_factor,
-                                    process_set=process_set)
+                                    process_set=process_set,
+                                    name=f"grad_{i}" if use_generic_names else None,
+                                    ignore_name_scope=use_generic_names)
                     if grad is not None else grad
-                    for grad in grads]
+                    for i, grad in enumerate(grads)]
 
     if _executing_eagerly():
         return _make_subgraph(allreduce_grads)
@@ -884,10 +905,50 @@ if hasattr(tf, 'GradientTape'):
                 'DistributedGradientTape', device_dense, device_sparse, compression,
                 sparse_as_dense, op, gradient_predivide_factor, groups, process_set)
 
-        def gradient(self, target, sources, output_gradients=None):
-            gradients = super(self.__class__, self).gradient(target, sources, output_gradients)
-            return self._allreduce_grads(gradients, sources)
+            self._local_sources = set()
 
+        def register_local_source(self, source):
+            """Registers a source/variable as worker local. Horovod will not perform any global
+            operations on gradients corresponding to these sources and will instead return the local
+            gradient."""
+            if _IS_TF2:
+                self._local_sources.add(source.ref())
+            else:
+                self._local_sources.add(source)
+
+        def gradient(self, target, sources, output_gradients=None, use_generic_names=False):
+            gradients = super(self.__class__, self).gradient(target, sources, output_gradients)
+
+            # Collect source/grad pairs requiring reduction (i.e. not from a registered local source)
+            rs = []
+            rg = []
+            if _IS_TF2:
+                s2g = {s.ref() : g for s,g in zip(sources, gradients)}
+                for s,g in zip(sources, gradients):
+                    if s.ref() not in self._local_sources:
+                        rs.append(s)
+                        rg.append(g)
+            else:
+                s2g = {s : g for s,g in zip(sources, gradients)}
+                for s,g in zip(sources, gradients):
+                    if s not in self._local_sources:
+                        rs.append(s)
+                        rg.append(g)
+
+            # Reduce grads
+            rg = self._allreduce_grads(rg, rs, use_generic_names)
+
+            # Replace dict entries with reduced grads
+            if _IS_TF2:
+                for rs, rg in zip(rs, rg):
+                    s2g[rs.ref()] = rg
+
+                return [s2g[s.ref()] for s in sources]
+            else:
+                for rs, rg in zip(rs, rg):
+                    s2g[rs] = rg
+
+                return [s2g[s] for s in sources]
 
     def DistributedGradientTape(gradtape, device_dense='', device_sparse='',
                                 compression=Compression.none, sparse_as_dense=False,
