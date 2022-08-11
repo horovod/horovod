@@ -49,6 +49,7 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
         self._optimizer = optimizer
         self._gradient_predivide_factor = gradient_predivide_factor
         self._average_in_framework=False
+        # C++ backend will apply additional 1 / size() factor to postscale_factor for op == Average.
         self._postscale_factor = self._gradient_predivide_factor
         if rocm_built() or nccl_built() < 21000:
           # Perform average in framework via rescale_grad for ROCM or older NCCL versions
@@ -165,6 +166,7 @@ class DistributedTrainer(mx.gluon.Trainer):
 
         self._gradient_predivide_factor = gradient_predivide_factor
         self._average_in_framework=False
+        # C++ backend will apply additional 1 / size() factor to postscale_factor for op == Average.
         self._postscale_factor = self._gradient_predivide_factor
         if rocm_built() or nccl_built() < 21000:
           # Perform average in framework via rescale_grad for ROCM or older NCCL versions
