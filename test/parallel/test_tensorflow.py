@@ -3872,19 +3872,33 @@ class TensorFlowTests(BaseTensorFlowTests):
 
             # deem local layers
             local_layers = model.layers[:num_local_layers]
-            var_grad = {var.ref():grad for var,grad in zip(model.trainable_weights, gradients)}
-            local_vars = [var.ref() for layer in local_layers for var in layer.trainable_weights]
+            if _IS_TF2:
+                var_grad = {var.ref():grad for var,grad in zip(model.trainable_weights, gradients)}
+                local_vars = [var.ref() for layer in local_layers for var in layer.trainable_weights]
+            else:
+                var_grad = {var:grad for var,grad in zip(model.trainable_weights, gradients)}
+                local_vars = [var for layer in local_layers for var in layer.trainable_weights]
 
             tape = hvd.PartialDistributedGradientTape(tape, local_layers=local_layers)
             allreduced_gradients = tape.gradient(l, model.trainable_weights)
 
             for var,grad in zip(model.trainable_weights, allreduced_gradients):
-                if var.ref() in local_vars:
-                    # local gradients should not change.
-                    self.assertAllEqual(grad, var_grad[var.ref()])
+                if _IS_TF2:
+                    if var.ref() in local_vars:
+                        # local gradients should not change.
+                        self.assertAllClose(grad, var_grad[var.ref()])
+                    else:
+                        # non-local gradients shouldn't be equal given that the initial weights are set to ranks
+                        self.assertNotAllClose(grad, var_grad[var.ref()])
                 else:
-                    # non-local gradients shouldn't be equal given that the initial weights are set to ranks
-                    self.assertNotAllEqual(grad, var_grad[var.ref()])
+                    if var in local_vars:
+                        # local gradients should not change.
+                        self.assertAllClose(grad, var_grad[var])
+                    else:
+                        # non-local gradients shouldn't be equal given that the initial weights are set to ranks
+                        self.assertNotAllClose(grad, var_grad[var])
+
+
 
 
 from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
