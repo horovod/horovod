@@ -3844,9 +3844,12 @@ class TensorFlowTests(BaseTensorFlowTests):
 
     def test_partial_distributed_gradient_tape(self):
         """ Note: test makes most sense with more than 1 nodes. """
+        hvd.init()
+        if hvd.size() == 1:
+            self.skipTest("Only one worker available")
+
         # the keras model has 3 layers, we test cases with 0, 1, and 2 local layers.
         for num_local_layers in range(3):
-            hvd.init()
             model = tf.keras.models.Sequential()
             initializer = tf.keras.initializers.Constant(hvd.rank())
             model.add(tf.keras.layers.Dense(2, input_shape=(3,), kernel_initializer=initializer, bias_initializer=initializer))
