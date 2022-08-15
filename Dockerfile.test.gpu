@@ -170,7 +170,7 @@ RUN if [[ ${MXNET_PACKAGE} != "mxnet-nightly-cu"* ]]; then \
     fi
 
 # Prefetch Spark MNIST dataset.
-RUN mkdir -p /work && mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/mnist.bz2 -O /data/mnist.bz2
+RUN mkdir -p /work /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/mnist.bz2 -O /data/mnist.bz2
 
 # Prefetch Spark Rossmann dataset.
 RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/rossmann.tgz -O - | tar -xzC /data
