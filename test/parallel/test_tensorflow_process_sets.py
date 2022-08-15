@@ -78,24 +78,28 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
 
-        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
-                even_rank_tensor = self.random_uniform([17] * dim, -100, 100, dtype=dtype)
-                odd_rank_tensor = self.random_uniform([17] * dim, -100, 100, dtype=dtype)
+                even_rank_tensor = self.random_uniform([17] * dim, -100, 100)
+                even_rank_tensor = tf.cast(even_rank_tensor, dtype=dtype)
+                odd_rank_tensor = self.random_uniform([17] * dim, -100, 100)
+                odd_rank_tensor = tf.cast(odd_rank_tensor, dtype=dtype)
                 if rank in self.even_ranks:
                     summed = hvd.allreduce(even_rank_tensor, average=False, process_set=self.even_set)
                     multiplied = even_rank_tensor * len(self.even_ranks)
                 if rank in self.odd_ranks:
                     summed = hvd.allreduce(odd_rank_tensor, average=False, process_set=self.odd_set)
                     multiplied = odd_rank_tensor * len(self.odd_ranks)
-                max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+                difference = summed - multiplied
+                difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
+                max_difference = tf.reduce_max(tf.abs(difference))
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
             max_process_set_size = max(len(self.even_ranks), len(self.odd_ranks))
-            if max_process_set_size <= 3 or dtype in [tf.int32, tf.int64]:
+            if max_process_set_size <= 3 or dtype in [tf.uint8, tf.int8, tf.int32, tf.int64]:
                 threshold = 0
             elif max_process_set_size < 10:
                 threshold = 1e-4
@@ -120,24 +124,28 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
         local_rank = hvd.local_rank()
         rank = hvd.rank()
 
-        dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
+        dtypes = [tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%d" % local_rank):
-                even_rank_tensor = self.random_uniform([17] * dim, -100, 100, dtype=dtype)
-                odd_rank_tensor = self.random_uniform([17] * dim, -100, 100, dtype=dtype)
+                even_rank_tensor = self.random_uniform([17] * dim, -100, 100)
+                even_rank_tensor = tf.cast(even_rank_tensor, dtype=dtype)
+                odd_rank_tensor = self.random_uniform([17] * dim, -100, 100)
+                odd_rank_tensor = tf.cast(odd_rank_tensor, dtype=dtype)
                 if rank in self.even_ranks:
                     summed = hvd.allreduce(even_rank_tensor, average=False, process_set=self.even_set)
                     multiplied = even_rank_tensor * len(self.even_ranks)
                 if rank in self.odd_ranks:
                     summed = hvd.allreduce(odd_rank_tensor, average=False, process_set=self.odd_set)
                     multiplied = odd_rank_tensor * len(self.odd_ranks)
-                max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+                difference = summed - multiplied
+                difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
+                max_difference = tf.reduce_max(tf.abs(difference))
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
             max_process_set_size = max(len(self.even_ranks), len(self.odd_ranks))
-            if max_process_set_size <= 3 or dtype in [tf.int32, tf.int64]:
+            if max_process_set_size <= 3 or dtype in [tf.uint8, tf.int8, tf.int32, tf.int64]:
                 threshold = 0
             elif max_process_set_size < 10:
                 threshold = 1e-4
@@ -234,26 +242,28 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
 
-        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
-                even_rank_tensors = [self.random_uniform(
-                    [17] * dim, -100, 100, dtype=dtype) for _ in range(5)]
-                odd_rank_tensors = [self.random_uniform(
-                    [17] * dim, -100, 100, dtype=dtype) for _ in range(5)]
+                even_rank_tensors = [tf.cast(self.random_uniform(
+                    [17] * dim, -100, 100), dtype=dtype) for _ in range(5)]
+                odd_rank_tensors = [tf.cast(self.random_uniform(
+                    [17] * dim, -100, 100), dtype=dtype) for _ in range(5)]
                 if rank in self.even_ranks:
                     summed = hvd.grouped_allreduce(even_rank_tensors, average=False, process_set=self.even_set)
                     multiplied = [tensor * len(self.even_ranks) for tensor in even_rank_tensors]
                 elif rank in self.odd_ranks:
                     summed = hvd.grouped_allreduce(odd_rank_tensors, average=False, process_set=self.odd_set)
                     multiplied = [tensor * len(self.odd_ranks) for tensor in odd_rank_tensors]
-            max_difference = tf.reduce_max([tf.reduce_max(tf.abs(t1 - t2)) for t1, t2 in zip(summed, multiplied)])
+            differences = [t1 - t2 for t1, t2 in zip(summed, multiplied)]
+            differences = [tf.cast(diff, tf.int32) if dtype == tf.uint8 else diff for diff in differences]
+            max_difference = tf.reduce_max([tf.reduce_max(tf.abs(diff)) for diff in differences])
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
             max_process_set_size = max(len(self.even_ranks), len(self.odd_ranks))
-            if max_process_set_size <= 3 or dtype in [tf.int32, tf.int64]:
+            if max_process_set_size <= 3 or dtype in [tf.uint8, tf.int8, tf.int32, tf.int64]:
                 threshold = 0
             elif max_process_set_size < 10:
                 threshold = 1e-4
@@ -275,26 +285,28 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
         rank = hvd.rank()
         local_rank = hvd.local_rank()
 
-        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%d" % local_rank):
-                even_rank_tensors = [self.random_uniform(
-                    [17] * dim, -100, 100, dtype=dtype) for _ in range(5)]
-                odd_rank_tensors = [self.random_uniform(
-                    [17] * dim, -100, 100, dtype=dtype) for _ in range(5)]
+                even_rank_tensors = [tf.cast(self.random_uniform(
+                    [17] * dim, -100, 100), dtype=dtype) for _ in range(5)]
+                odd_rank_tensors = [tf.cast(self.random_uniform(
+                    [17] * dim, -100, 100), dtype=dtype) for _ in range(5)]
                 if rank in self.even_ranks:
                     summed = hvd.grouped_allreduce(even_rank_tensors, average=False, process_set=self.even_set)
                     multiplied = [tensor * len(self.even_ranks) for tensor in even_rank_tensors]
                 elif rank in self.odd_ranks:
                     summed = hvd.grouped_allreduce(odd_rank_tensors, average=False, process_set=self.odd_set)
                     multiplied = [tensor * len(self.odd_ranks) for tensor in odd_rank_tensors]
-            max_difference = tf.reduce_max([tf.reduce_max(tf.abs(t1 - t2)) for t1, t2 in zip(summed, multiplied)])
+            differences = [t1 - t2 for t1, t2 in zip(summed, multiplied)]
+            differences = [tf.cast(diff, tf.int32) if dtype == tf.uint8 else diff for diff in differences]
+            max_difference = tf.reduce_max([tf.reduce_max(tf.abs(diff)) for diff in differences])
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
             max_process_set_size = max(len(self.even_ranks), len(self.odd_ranks))
-            if max_process_set_size <= 3 or dtype in [tf.int32, tf.int64]:
+            if max_process_set_size <= 3 or dtype in [tf.uint8, tf.int8, tf.int32, tf.int64]:
                 threshold = 0
             elif max_process_set_size < 10:
                 threshold = 1e-4
