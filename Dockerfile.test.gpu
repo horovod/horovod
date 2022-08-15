@@ -134,7 +134,7 @@ RUN if [[ ${MPI_KIND} != "None" ]]; then \
 RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly-gpu" ]]; then \
         PROTOBUF_PACKAGE=""; \
         if [[ ${TENSORFLOW_PACKAGE} == tensorflow-gpu==1.15.* ]] || \
-           [[ ${TENSORFLOW_PACKAGE} == tensorflow-gpu==2.[0123456789].* ]]; then \
+           [[ ${TENSORFLOW_PACKAGE} == tensorflow-gpu==2.[012345].* ]]; then \
             PROTOBUF_PACKAGE="protobuf~=3.20"; \
         fi; \
         pip install --no-cache-dir ${TENSORFLOW_PACKAGE} ${PROTOBUF_PACKAGE}; \
@@ -177,8 +177,6 @@ RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazo
 
 # Prefetch PyTorch datasets.
 RUN wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/pytorch_datasets.tgz -O - | tar -xzC /data
-
-# Patches (leveraging cached layers above)
 
 # Update pip dependencies for nvtabular and apply patch per: https://github.com/NVIDIA-Merlin/NVTabular/pull/1587
 RUN CUDA_VER=$(echo ${CUDA_DOCKER_VERSION:0:4} | sed 's/\.//'); \
