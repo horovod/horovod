@@ -93,6 +93,11 @@ class EstimatorParams(Params):
                               'functions that construct the transformation '
                               'function that applies custom transformations to '
                               'every batch before train and validation steps')
+    
+    transformation_edit_fields = Param(Params._dummy(), 'transformation_edit_fields',
+                                       'edit fields for petastorm TransformSpec that\'s applied to '
+                                       'every batch, A list of 4-tuples with the following fields: '
+                                       '(name, numpy_dtype, shape, is_nullable)')
 
     label_shapes = Param(Params._dummy(), 'label_shapes', 'specifies the shape (or shapes) of the label column (or columns)')
 
@@ -145,6 +150,7 @@ class EstimatorParams(Params):
             train_steps_per_epoch=None,
             validation_steps_per_epoch=None,
             transformation_fn=None,
+            transformation_edit_fields=None,
             train_reader_num_workers=2,
             val_reader_num_workers=2,
             reader_pool_type='process',
@@ -331,6 +337,12 @@ class EstimatorParams(Params):
 
     def getTransformationFn(self):
         return self.getOrDefault(self.transformation_fn)
+    
+    def setTransformationEditFields(self, value):
+        return self._set(transformation_edit_fields=value)
+
+    def getTransformationEditFields(self):
+        return self.getOrDefault(self.transformation_edit_fields)
 
     def setTrainReaderNumWorker(self, value):
         return self._set(train_reader_num_workers=value)

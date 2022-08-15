@@ -169,6 +169,10 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                             [TransformSpec](https://github.com/uber/petastorm/blob/master/petastorm/transform.py)
                             for more details. Note that this fucntion constructs another function
                             which should perform the transformation.
+        transformation_edit_fields: (Optional) A list of 4-tuples with the following fields:
+                            ``(name, numpy_dtype, shape, is_nullable)`` used for Petastorm 
+                            [TransformSpec](https://github.com/uber/petastorm/blob/master/petastorm/transform.py)
+                            to add more fields into the schema.
         val_batch_size: Number of rows from the DataFrame per batch for validation, if not set,
                          will use batch_size.
         val_reader_num_workers: Similar to the train_reader_num_workers.
@@ -249,6 +253,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  train_steps_per_epoch=None,
                  validation_steps_per_epoch=None,
                  transformation_fn=None,
+                 transformation_edit_fields=None,
                  train_reader_num_workers=None,
                  trainer_args=None,
                  val_reader_num_workers=None,

@@ -13,9 +13,9 @@ class PetastormDataModule(pl.LightningDataModule):
     def __init__(self, train_dir: str, val_dir: str, num_train_epochs: int=1, has_val: bool=True,
                  train_batch_size: int=32, val_batch_size: int=32, shuffle_size: int=1000,
                  num_reader_epochs=None, reader_pool_type: str="process",
-                 reader_worker_count: int=2, transformation=None, inmemory_cache_all=False,
-                 cur_shard: int=0, shard_count: int=1, schema_fields=None, storage_options=None,
-                 steps_per_epoch_train: int=1, steps_per_epoch_val: int=1, verbose=True,
+                 reader_worker_count: int=2, transformation=None, transformation_edit_fields=None,
+                 inmemory_cache_all=False, cur_shard: int=0, shard_count: int=1, schema_fields=None,
+                 storage_options=None, steps_per_epoch_train: int=1, steps_per_epoch_val: int=1, verbose=True,
                  debug_data_loader: bool=False, train_async_data_loader_queue_size: int=None,
                  val_async_data_loader_queue_size: int=None, **kwargs):
         super().__init__()
@@ -30,6 +30,7 @@ class PetastormDataModule(pl.LightningDataModule):
         self.reader_pool_type = reader_pool_type
         self.reader_worker_count = reader_worker_count
         self.transformation = transformation
+        self.transformation_edit_fields = transformation_edit_fields
         self.inmemory_cache_all = inmemory_cache_all
         self.cur_shard = cur_shard
         self.shard_count = shard_count
@@ -49,7 +50,10 @@ class PetastormDataModule(pl.LightningDataModule):
     def setup(self, stage=None):
         # Assign train/val datasets for use in dataloaders
         if stage == 'fit' or stage is None:
-            transform_spec = TransformSpec(self.transformation) if self.transformation else None
+            if self.transformation is None and self.transformation_edit_fields is None:
+                transform_spec = None
+            else:
+                transform_spec = TransformSpec(func=self.transformation, edit_fields=self.transformation_edit_fields)
             # In general, make_batch_reader is faster than make_reader for reading the dataset.
             # However, we found out that make_reader performs data transformations much faster than
             # make_batch_reader with parallel worker processes. Therefore, the default reader

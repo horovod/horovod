@@ -52,6 +52,8 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     terminate_on_nan = estimator.getTerminateOnNan()
     transformation_fn = estimator.getTransformationFn()
     transformation = transformation_fn if transformation_fn else None
+    edit_fields = estimator.getTransformationEditFields()
+    transformation_edit_fields = edit_fields if edit_fields else None
     inmemory_cache_all = estimator.getInMemoryCacheAll()
     callbacks = estimator.getCallbacks() or []
     train_steps_per_epoch = estimator.getTrainStepsPerEpoch()
@@ -272,6 +274,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                 'reader_pool_type': reader_pool_type,
                 'reader_worker_count': train_reader_worker_count,
                 'transformation': transformation,
+                'transformation_edit_fields': transformation_edit_fields,
                 'inmemory_cache_all': inmemory_cache_all,
                 'cur_shard': hvd.rank(),
                 'shard_count': hvd.size(),
