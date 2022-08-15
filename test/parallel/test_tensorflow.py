@@ -3882,8 +3882,14 @@ class TensorFlowTests(BaseTensorFlowTests):
                 var_grad = {var:grad for var,grad in zip(model.trainable_weights, gradients)}
                 local_vars = [var for layer in local_layers for var in layer.trainable_weights]
 
-            tape = hvd.PartialDistributedGradientTape(tape, local_layers=local_layers)
-            allreduced_gradients = tape.gradient(l, model.trainable_weights)
+            local_rank = hvd.local_rank()
+            if tf.test.is_gpu_available(cuda_only=True):
+                with tf.device("/gpu:%d" % local_rank):
+                    tape = hvd.PartialDistributedGradientTape(tape, local_layers=local_layers)
+                    allreduced_gradients = tape.gradient(l, model.trainable_weights)
+            else:
+                tape = hvd.PartialDistributedGradientTape(tape, local_layers=local_layers)
+                allreduced_gradients = tape.gradient(l, model.trainable_weights)
 
             for var,grad in zip(model.trainable_weights, allreduced_gradients):
                 if _IS_TF2:
