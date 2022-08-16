@@ -52,7 +52,7 @@ class PetastormDataModule(pl.LightningDataModule):
         self.reader_worker_count = reader_worker_count
         self.transformation = transformation
         self.transformation_edit_fields = transformation_edit_fields
-        self.transformation_edit_fields = transformation_edit_fields
+        self.transformation_removed_fields = transformation_removed_fields
         self.inmemory_cache_all = inmemory_cache_all
         self.cur_shard = cur_shard
         self.shard_count = shard_count
@@ -71,7 +71,7 @@ class PetastormDataModule(pl.LightningDataModule):
     def setup(self, stage=None):
         # Assign train/val datasets for use in dataloaders
         if stage == 'fit' or stage is None:
-            if self.transformation is None and self.transformation_edit_fields is None and self.transformation_edit_fields is None:
+            if self.transformation is None and self.transformation_edit_fields is None and self.transformation_removed_fields is None:
                 transform_spec = None
             else:
                 # [TransformSpec](https://github.com/uber/petastorm/blob/3f248003221a648261a36189c95c8705f6ef34ad/petastorm/transform.py#L27)
@@ -80,7 +80,7 @@ class PetastormDataModule(pl.LightningDataModule):
                 transform_spec = TransformSpec(
                     func=self.transformation,
                     edit_fields=self.transformation_edit_fields,
-                    removed_fields=self.transformation_edit_fields)
+                    removed_fields=self.transformation_removed_fields)
             # In general, make_batch_reader is faster than make_reader for reading the dataset.
             # However, we found out that make_reader performs data transformations much faster than
             # make_batch_reader with parallel worker processes. Therefore, the default reader
