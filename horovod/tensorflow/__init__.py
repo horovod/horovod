@@ -1049,12 +1049,10 @@ if hasattr(tf, 'GradientTape'):
         """
         if local_layers is None:
             local_layers = []
-        else:
-            if isinstance(local_layers, tf.keras.layers.Layer):
-                local_layers = [local_layers]
-            else:
-                if not all(isinstance(layer, tf.keras.layers.Layer) for layer in local_layers):
-                    raise ValueError("All local layers must be of tf.keras.layers.Layer type.")
+        elif isinstance(local_layers, tf.keras.layers.Layer):
+            local_layers = [local_layers]
+        elif not all(isinstance(layer, tf.keras.layers.Layer) for layer in local_layers):
+            raise ValueError("All local layers must be of tf.keras.layers.Layer type.")
 
         local_vars = [var for layer in local_layers for var in layer.trainable_weights]
 
