@@ -25,6 +25,7 @@
 #endif
 #elif HAVE_ROCM
 #include <rccl.h>
+#define NCCL_P2P_SUPPORTED
 #endif
 
 #include "../hashes.h"
