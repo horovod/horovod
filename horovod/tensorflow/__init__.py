@@ -1028,10 +1028,9 @@ if hasattr(tf, 'GradientTape'):
 
 
     def PartialDistributedGradientTape(gradtape, device_dense='', device_sparse='',
-                                compression=Compression.none, sparse_as_dense=False,
-                                op=Average, gradient_predivide_factor=1.0,
-                                num_groups=0, groups=None, process_set=global_process_set,
-                                local_layers=None):
+                                       compression=Compression.none, sparse_as_dense=False,
+                                       op=Average, gradient_predivide_factor=1.0,
+                                       num_groups=0, groups=None, process_set=global_process_set, local_layers=None):
         """A tape that wraps another tf.GradientTape, using an allreduce to
         combine gradient values before applying gradients to model weights similar to
         DistributedGradientTape execpt it skips allreducing gradients of the local layers
@@ -1048,7 +1047,9 @@ if hasattr(tf, 'GradientTape'):
 
         The rest of the arguments are similar to those of DistributedGradientTape.
         """
-        if local_layers:
+        if local_layers is None:
+            local_layers = []
+        else:
             if isinstance(local_layers, tf.keras.layers.Layer):
                 local_layers = [local_layers]
             else:
@@ -1058,9 +1059,9 @@ if hasattr(tf, 'GradientTape'):
         local_vars = [var for layer in local_layers for var in layer.trainable_weights]
 
         _tape = DistributedGradientTape(gradtape, device_dense, device_sparse,
-                                compression, sparse_as_dense,
-                                op, gradient_predivide_factor,
-                                num_groups, groups, process_set)
+                                        compression, sparse_as_dense,
+                                        op, gradient_predivide_factor,
+                                        num_groups, groups, process_set)
         for var in local_vars:
             _tape.register_local_source(var)
         return _tape
