@@ -11,40 +11,40 @@ services:
         PYTHON_VERSION: 3.8
         TENSORFLOW_PACKAGE: tensorflow-cpu==2.9.1
         KERAS_PACKAGE: keras==2.9.0
-        PYTORCH_PACKAGE: torch==1.11.0+cpu
+        PYTORCH_PACKAGE: torch==1.12.1+cpu
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
-        TORCHVISION_PACKAGE: torchvision==0.12.0+cpu
+        TORCHVISION_PACKAGE: torchvision==0.13.1+cpu
         MXNET_PACKAGE: mxnet==1.9.1
-        PYSPARK_PACKAGE: pyspark==3.2.1
-        SPARK_PACKAGE: spark-3.2.1/spark-3.2.1-bin-hadoop2.7.tgz
+        PYSPARK_PACKAGE: pyspark==3.3.0
+        SPARK_PACKAGE: spark-3.3.0/spark-3.3.0-bin-hadoop2.tgz
         HOROVOD_BUILD_FLAGS: HOROVOD_WITH_GLOO=1
     privileged: true
     shm_size: 8gb
 
   # our baseline first
-  test-cpu-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1:
+  test-cpu-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark3_3_0:
     extends: test-cpu-base
 
   # permute MPI kinds
-  test-cpu-mpich-py3_8-tf2_9_1-keras2_9_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1:
+  test-cpu-mpich-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark3_3_0:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: MPICH
         HOROVOD_BUILD_FLAGS: HOROVOD_WITHOUT_GLOO=1
-  test-cpu-oneccl-py3_8-tf2_9_1-keras2_9_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1:
+  test-cpu-oneccl-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark3_3_0:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: ONECCL
         HOROVOD_BUILD_FLAGS: HOROVOD_WITHOUT_GLOO=1
-  test-cpu-openmpi-py3_8-tf2_9_1-keras2_9_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1:
+  test-cpu-openmpi-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark3_3_0:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: OpenMPI
         HOROVOD_BUILD_FLAGS: HOROVOD_WITHOUT_GLOO=1
-  test-cpu-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1:
+  test-cpu-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark3_3_0:
     extends: test-cpu-base
     build:
       args:
@@ -53,8 +53,9 @@ services:
   # run_gloo_integration expects tf1 to have Gloo mpi kind to run 'Elastic Spark * Tests'
   # Tensorflow 1.15.5 is only available for Python 3.7
   # Python 3.7 is only available on Ubuntu 18.04
+  # torch==1.8.1 is the latest we can test in this setup
   # see test-gpu-gloo-py3_7-tf1_15_5-... below why we have to test with mxnet 1.5.1 here
-  test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_2_1:
+  test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_3_0:
     extends: test-cpu-base
     build:
       args:
@@ -67,26 +68,26 @@ services:
         PYTORCH_PACKAGE: torch==1.8.1+cpu
         TORCHVISION_PACKAGE: torchvision==0.9.1+cpu
         MXNET_PACKAGE: mxnet==1.5.1.post0
-  test-cpu-gloo-py3_8-tf2_7_3-keras2_7_0-torch1_9_1-mxnet1_7_0_p2-pyspark3_2_1:
+  test-cpu-gloo-py3_8-tf2_7_3-keras2_7_0-torch1_10_2-mxnet1_7_0_p2-pyspark3_3_0:
     extends: test-cpu-base
     build:
       args:
         TENSORFLOW_PACKAGE: tensorflow-cpu==2.7.3
         KERAS_PACKAGE: keras==2.7.0
-        PYTORCH_PACKAGE: torch==1.9.1+cpu
-        TORCHVISION_PACKAGE: torchvision==0.10.1+cpu
+        PYTORCH_PACKAGE: torch==1.10.2+cpu
+        TORCHVISION_PACKAGE: torchvision==0.11.3+cpu
         MXNET_PACKAGE: mxnet==1.7.0.post2
-  test-cpu-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_10_2-mxnet1_8_0_p0-pyspark3_2_1:
+  test-cpu-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_8_0_p0-pyspark3_3_0:
     extends: test-cpu-base
     build:
       args:
         TENSORFLOW_PACKAGE: tensorflow-cpu==2.8.2
         KERAS_PACKAGE: keras==2.8.0
-        PYTORCH_PACKAGE: torch==1.10.2+cpu
-        TORCHVISION_PACKAGE: torchvision==0.11.3+cpu
+        PYTORCH_PACKAGE: torch==1.11.0+cpu
+        TORCHVISION_PACKAGE: torchvision==0.12.0+cpu
         MXNET_PACKAGE: mxnet==1.8.0.post0
   # then our baseline again, omitted ...
-  test-cpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1:
+  test-cpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0:
     extends: test-cpu-base
     build:
       args:
@@ -114,7 +115,7 @@ services:
         PYSPARK_PACKAGE: pyspark==2.4.0
         SPARK_PACKAGE: spark-2.4.0/spark-2.4.0-bin-hadoop2.7.tgz
 
-  test-cpu-gloo-py3_7-tf2_9_1-keras2_9_0-torch1_11_0-mxnet1_9_1-pyspark2_4_8:
+  test-cpu-gloo-py3_7-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark2_4_8:
     extends: test-cpu-base
     build:
       args:
@@ -124,13 +125,13 @@ services:
         PYTHON_VERSION: 3.7
         PYSPARK_PACKAGE: pyspark==2.4.8
         SPARK_PACKAGE: spark-2.4.8/spark-2.4.8-bin-hadoop2.7.tgz
-  test-cpu-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_11_0-mxnet1_9_1-pyspark3_1_3:
+  test-cpu-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark3_2_2:
     extends: test-cpu-base
     build:
       args:
         PYTHON_VERSION: 3.8
-        PYSPARK_PACKAGE: pyspark==3.1.3
-        SPARK_PACKAGE: spark-3.1.3/spark-3.1.3-bin-hadoop2.7.tgz
+        PYSPARK_PACKAGE: pyspark==3.2.2
+        SPARK_PACKAGE: spark-3.2.2/spark-3.2.2-bin-hadoop2.7.tgz
   # then our baseline again, omitted ...
 
   test-gpu-base:
@@ -141,8 +142,8 @@ services:
         GPP_VERSION: 7
         MPI_KIND: None
         PYTHON_VERSION: 3.8
-        PYSPARK_PACKAGE: pyspark==3.2.1
-        SPARK_PACKAGE: spark-3.2.1/spark-3.2.1-bin-hadoop2.7.tgz
+        PYSPARK_PACKAGE: pyspark==3.3.0
+        SPARK_PACKAGE: spark-3.3.0/spark-3.3.0-bin-hadoop2.tgz
         HOROVOD_BUILD_FLAGS: HOROVOD_GPU_OPERATIONS=NCCL
         HOROVOD_MIXED_INSTALL: 0
     runtime: nvidia
@@ -154,11 +155,12 @@ services:
     shm_size: 8gb
 
   # we need CUDA 10.0 as tensorflow-gpu==1.15.5 is compiled against and linked to CUDA 10.0
+  # torch==1.8.1 is the latest we can test in this setup
   # mxnet-cu100==1.7.0 does not contain mkldnn headers, and there is no 1.7.0.postx that would have them
   # there is no mxnet-1.6.0.post0 and mxnet-1.6.0 does not work with horovod
   # https://github.com/apache/incubator-mxnet/issues/16193
   # so we test with mxnet 1.5.1
-  test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_2_1:
+  test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_3_0:
     extends: test-gpu-base
     build:
       args:
@@ -175,7 +177,7 @@ services:
         TORCHVISION_PACKAGE: torchvision==0.9.1+cu101
         MXNET_PACKAGE: mxnet-cu100==1.5.1.post0
   # here we deviate from mxnet==1.7.0.post2 as there is none for cu101, only post1
-  test-gpu-gloo-py3_8-tf2_7_3-keras2_7_0-torch1_9_1-mxnet1_7_0_p1-pyspark3_2_1:
+  test-gpu-gloo-py3_8-tf2_7_3-keras2_7_0-torch1_10_2-mxnet1_7_0_p1-pyspark3_3_0:
     extends: test-gpu-base
     build:
       args:
@@ -185,48 +187,48 @@ services:
         NCCL_VERSION_OVERRIDE: 2.8.4-1+cuda10.2
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.7.3
         KERAS_PACKAGE: keras==2.7.0
-        PYTORCH_PACKAGE: torch==1.9.1+cu102
+        PYTORCH_PACKAGE: torch==1.10.2+cu102
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
-        TORCHVISION_PACKAGE: torchvision==0.10.1+cu102
+        TORCHVISION_PACKAGE: torchvision==0.11.3+cu102
         MXNET_PACKAGE: mxnet-cu101==1.7.0.post1
-  test-gpu-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_10_2-mxnet1_8_0_p0-pyspark3_2_1:
+  test-gpu-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_8_0_p0-pyspark3_3_0:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.2.2-devel-ubuntu20.04
-        CUDNN_VERSION: 8.1.1.33-1+cuda11.2
-        NCCL_VERSION_OVERRIDE: 2.8.4-1+cuda11.2
+        CUDA_DOCKER_VERSION: 11.3.1-devel-ubuntu20.04
+        CUDNN_VERSION: 8.2.1.32-1+cuda11.3
+        NCCL_VERSION_OVERRIDE: 2.9.6-1+cuda11.3
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.8.2
         KERAS_PACKAGE: keras==2.8.0
-        PYTORCH_PACKAGE: torch==1.10.2+cu111
-        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
-        TORCHVISION_PACKAGE: torchvision==0.11.3+cu111
-        MXNET_PACKAGE: mxnet-cu112==1.8.0.post0
-  test-gpu-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1:
-    extends: test-gpu-base
-    build:
-      args:
-        CUDA_DOCKER_VERSION: 11.2.2-devel-ubuntu20.04
-        CUDNN_VERSION: 8.1.1.33-1+cuda11.2
-        NCCL_VERSION_OVERRIDE: 2.8.4-1+cuda11.2
-        MPI_KIND: OpenMPI
-        TENSORFLOW_PACKAGE: tensorflow-gpu==2.9.1
-        KERAS_PACKAGE: keras==2.9.0
         PYTORCH_PACKAGE: torch==1.11.0+cu113
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision==0.12.0+cu113
-        MXNET_PACKAGE: mxnet-cu112==1.9.0
-  test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_2_1:
+        MXNET_PACKAGE: mxnet-cu112==1.8.0.post0
+  test-gpu-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark3_3_0:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.2.2-devel-ubuntu20.04
-        CUDNN_VERSION: 8.1.1.33-1+cuda11.2
-        NCCL_VERSION_OVERRIDE: 2.8.4-1+cuda11.2
+        CUDA_DOCKER_VERSION: 11.3.1-devel-ubuntu20.04
+        CUDNN_VERSION: 8.2.1.32-1+cuda11.3
+        NCCL_VERSION_OVERRIDE: 2.9.6-1+cuda11.3
+        MPI_KIND: OpenMPI
+        TENSORFLOW_PACKAGE: tensorflow-gpu==2.9.1
+        KERAS_PACKAGE: keras==2.9.0
+        PYTORCH_PACKAGE: torch==1.12.1+cu113
+        PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
+        TORCHVISION_PACKAGE: torchvision==0.13.1+cu113
+        MXNET_PACKAGE: mxnet-cu112==1.9.0
+  test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0:
+    extends: test-gpu-base
+    build:
+      args:
+        CUDA_DOCKER_VERSION: 11.3.1-devel-ubuntu20.04
+        CUDNN_VERSION: 8.2.1.32-1+cuda11.3
+        NCCL_VERSION_OVERRIDE: 2.9.6-1+cuda11.3
         MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tf-nightly-gpu
         KERAS_PACKAGE: None
-        PYTORCH_PACKAGE: torch-nightly-cu111
+        PYTORCH_PACKAGE: torch-nightly-cu113
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision
         MXNET_PACKAGE: mxnet-nightly-cu112
@@ -249,19 +251,19 @@ services:
         PYSPARK_PACKAGE: pyspark==2.4.0
         SPARK_PACKAGE: spark-2.4.0/spark-2.4.0-bin-hadoop2.7.tgz
 
-  test-mixed-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_11_0-mxnet1_9_1-pyspark3_2_1:
+  test-mixed-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark3_3_0:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.2.2-devel-ubuntu20.04
-        CUDNN_VERSION: 8.1.1.33-1+cuda11.2
-        NCCL_VERSION_OVERRIDE: 2.8.4-1+cuda11.2
+        CUDA_DOCKER_VERSION: 11.3.1-devel-ubuntu20.04
+        CUDNN_VERSION: 8.2.1.32-1+cuda11.3
+        NCCL_VERSION_OVERRIDE: 2.9.6-1+cuda11.3
         MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.9.1
         KERAS_PACKAGE: keras==2.9.0
-        PYTORCH_PACKAGE: torch==1.11.0+cu113
+        PYTORCH_PACKAGE: torch==1.12.1+cu113
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
-        TORCHVISION_PACKAGE: torchvision==0.12.0+cu113
+        TORCHVISION_PACKAGE: torchvision==0.13.1+cu113
         MXNET_PACKAGE: mxnet-cu112==1.9.0
         HOROVOD_BUILD_FLAGS: ""
         HOROVOD_MIXED_INSTALL: 1

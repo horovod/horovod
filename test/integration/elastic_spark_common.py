@@ -363,7 +363,7 @@ class BaseElasticSparkTests(unittest.TestCase):
             raise RuntimeError('executed command returned non-zero exit code: {}'.format(exit_code))
 
     def _run(self, discovery_schedule=None, exit_schedule=None, hosts=None,
-             discovery_wait=10, epoch_wait=None, epochs=None,
+             discovery_wait=30, epoch_wait=None, epochs=None,
              num_proc=2, min_num_proc=None, max_num_proc=None, extra_conf=None):
         with temppath() as logfile:
             with spark_cluster(logfile=logfile, discovery_schedule=discovery_schedule,
@@ -383,7 +383,7 @@ class BaseElasticSparkTests(unittest.TestCase):
                 run_elastic(self._exec, (cmd,), env={'HOROVOD_LOG_LEVEL': 'DEBUG'},
                             num_proc=num_proc, min_num_proc=min_num_proc, max_num_proc=max_num_proc,
                             stdout=sys.stdout, stderr=sys.stderr,
-                            start_timeout=10, elastic_timeout=10, verbose=2,
+                            start_timeout=30, elastic_timeout=30, verbose=2,
                             prefix_output_with_timestamp=True)
 
                 with open(logfile, 'r') as f:
