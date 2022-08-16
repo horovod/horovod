@@ -26,7 +26,6 @@ import numpy as np
 import itertools
 from distutils.version import LooseVersion
 import warnings
-from common import mpi_env_rank_and_size, skip_or_fail_gpu_test
 
 # Enable HVD XLA ops so that tf.function(jit_compile=True) works. This
 # environment variable needs to be set up before loading Tensorflow, because
