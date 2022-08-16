@@ -28,8 +28,6 @@ from distutils.version import LooseVersion
 import itertools
 import numpy as np
 import os
-import platform
-import math
 import pytest
 import sys
 
@@ -40,9 +38,6 @@ import sys
 os.environ["HOROVOD_ENABLE_XLA_OPS"] = "1"
 
 import tensorflow as tf
-from horovod.tensorflow.util import _executing_eagerly
-
-sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 import horovod.tensorflow as hvd
 
