@@ -17,11 +17,6 @@ from horovod.runner.common.util.env import get_env_rank_and_size
 
 _PRE_TF_2_2_0 = LooseVersion(tf.__version__) < LooseVersion("2.2.0")
 
-# Set environment variable to enable adding/removing process sets after
-# initializing Horovod.
-os.environ["HOROVOD_DYNAMIC_PROCESS_SETS"] = "1"
-
-
 @pytest.mark.skipif(LooseVersion(tf.__version__) <
                     LooseVersion('2.0.0'), reason='TensorFlow v2 tests')
 class Tf2KerasProcessSetsTests(tf.test.TestCase):
