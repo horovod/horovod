@@ -1,10 +1,7 @@
 import os
-import sys
 import unittest
 
 import horovod.tensorflow as hvd
-
-sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 class ProcessSetsMultiCommTests(unittest.TestCase):
     """ Since this test case initializes Horovod and shuts it down, it must be run in a separate process. """

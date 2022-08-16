@@ -6,14 +6,10 @@ tests for multiple process sets in this script that initializes Horovod with sta
 """
 
 import tensorflow as tf
-import os
-import sys
 import warnings
 from distutils.version import LooseVersion
 import pytest
 from tensorflow import keras
-
-sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 import horovod.tensorflow.keras as hvd
 from horovod.runner.common.util.env import get_env_rank_and_size

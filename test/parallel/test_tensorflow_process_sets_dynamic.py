@@ -5,12 +5,7 @@ slowdowns in all Horovod operations, especially on GPU-equipped AWS instances. F
 tests that depend on that setting in this script.
 """
 
-import os
-import sys
 import tensorflow as tf
-from horovod.tensorflow.util import _executing_eagerly
-
-sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 import horovod.tensorflow as hvd
 
