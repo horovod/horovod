@@ -99,6 +99,10 @@ class EstimatorParams(Params):
                                        'every batch, A list of 4-tuples with the following fields: '
                                        '(name, numpy_dtype, shape, is_nullable)')
 
+    transformation_removed_fields = Param(Params._dummy(), 'transformation_removed_fields',
+                                       'removed fields for petastorm TransformSpec that\'s applied to '
+                                       'every batch, A list of field names that will be removed from the original schema.')
+
     label_shapes = Param(Params._dummy(), 'label_shapes', 'specifies the shape (or shapes) of the label column (or columns)')
 
     inmemory_cache_all = Param(Params._dummy(), 'inmemory_cache_all',
@@ -151,6 +155,7 @@ class EstimatorParams(Params):
             validation_steps_per_epoch=None,
             transformation_fn=None,
             transformation_edit_fields=None,
+            transformation_removed_fields=None,
             train_reader_num_workers=2,
             val_reader_num_workers=2,
             reader_pool_type='process',
@@ -343,6 +348,12 @@ class EstimatorParams(Params):
 
     def getTransformationEditFields(self):
         return self.getOrDefault(self.transformation_edit_fields)
+
+    def setTransformationRemovedFields(self, value):
+        return self._set(transformation_removed_fields=value)
+
+    def getTransformationRemovedFields(self):
+        return self.getOrDefault(self.transformation_removed_fields)
 
     def setTrainReaderNumWorker(self, value):
         return self._set(train_reader_num_workers=value)
