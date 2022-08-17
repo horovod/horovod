@@ -1025,3 +1025,41 @@ if hasattr(tf, 'GradientTape'):
             return cls(gradtape._tape, device_dense, device_sparse, compression,
                        sparse_as_dense, op, gradient_predivide_factor, groups,
                        gradtape._persistent, process_set=process_set)
+
+
+    def PartialDistributedGradientTape(gradtape, device_dense='', device_sparse='',
+                                       compression=Compression.none, sparse_as_dense=False,
+                                       op=Average, gradient_predivide_factor=1.0,
+                                       num_groups=0, groups=None, process_set=global_process_set, local_layers=None):
+        """A tape that wraps another tf.GradientTape, using an allreduce to
+        combine gradient values before applying gradients to model weights similar to
+        DistributedGradientTape execpt it skips allreducing gradients of the local layers
+        passed in local_layers parameter.
+
+        Args:
+          gradtape:
+            GradientTape to use for computing gradients and applying updates.
+          local_layers:
+            A collection of type tf.keras.layers.Layer local layers that their gradients need not
+            to be synced accross ranks and is kept and applied locally.
+            If not provided, the functionality of PartialDistributedGradientTape is
+            identical to DistributedGradientTape.
+
+        The rest of the arguments are similar to those of DistributedGradientTape.
+        """
+        if local_layers is None:
+            local_layers = []
+        elif isinstance(local_layers, tf.keras.layers.Layer):
+            local_layers = [local_layers]
+        elif not all(isinstance(layer, tf.keras.layers.Layer) for layer in local_layers):
+            raise ValueError("All local layers must be of tf.keras.layers.Layer type.")
+
+        local_vars = [var for layer in local_layers for var in layer.trainable_weights]
+
+        _tape = DistributedGradientTape(gradtape, device_dense, device_sparse,
+                                        compression, sparse_as_dense,
+                                        op, gradient_predivide_factor,
+                                        num_groups, groups, process_set)
+        for var in local_vars:
+            _tape.register_local_source(var)
+        return _tape

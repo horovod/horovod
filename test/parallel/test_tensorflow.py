@@ -3842,6 +3842,71 @@ class TensorFlowTests(BaseTensorFlowTests):
                     tf.equal(tf.cast(rank_tensor, tf.int32), value))) for rank_tensor in rank_tensors),
                     "hvd.grouped_allgather produces incorrect gathered tensor")
 
+    def test_partial_distributed_gradient_tape(self):
+        """ Note: test makes most sense with more than 1 nodes. """
+        hvd.init()
+        if hvd.size() == 1:
+            self.skipTest("Only one worker available")
+
+        # the keras model has 3 layers, we test cases with 0, 1, and 2 local layers.
+        for num_local_layers in range(3):
+            model = tf.keras.models.Sequential()
+            initializer = tf.keras.initializers.Constant(hvd.rank())
+            model.add(tf.keras.layers.Dense(2, input_shape=(3,), kernel_initializer=initializer, bias_initializer=initializer))
+            model.add(tf.keras.layers.RepeatVector(3))
+            model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(3, kernel_initializer=initializer, bias_initializer=initializer)))
+            model.compile(loss=tf.keras.losses.MSE,
+                            metrics=[tf.keras.metrics.categorical_accuracy])
+
+            X = np.random.random((1, 3))
+            Y = np.random.random((1, 3, 3))
+
+            try:
+                init = tf.global_variables_initializer()
+            except AttributeError:
+                init = tf.compat.v1.global_variables_initializer()
+            self.evaluate(init)
+
+            with tf.GradientTape(persistent=True) as tape:
+                p = model(X, training=True)
+                l = model.loss(Y, p)
+
+            gradients = tape.gradient(l, model.trainable_weights)
+
+            # deem local layers
+            local_layers = model.layers[:num_local_layers]
+            if _IS_TF2:
+                var_grad = {var.ref():grad for var,grad in zip(model.trainable_weights, gradients)}
+                local_vars = [var.ref() for layer in local_layers for var in layer.trainable_weights]
+            else:
+                var_grad = {var:grad for var,grad in zip(model.trainable_weights, gradients)}
+                local_vars = [var for layer in local_layers for var in layer.trainable_weights]
+
+            local_rank = hvd.local_rank()
+            if tf.test.is_gpu_available(cuda_only=True):
+                with tf.device("/gpu:%d" % local_rank):
+                    tape = hvd.PartialDistributedGradientTape(tape, local_layers=local_layers)
+                    allreduced_gradients = tape.gradient(l, model.trainable_weights)
+            else:
+                tape = hvd.PartialDistributedGradientTape(tape, local_layers=local_layers)
+                allreduced_gradients = tape.gradient(l, model.trainable_weights)
+
+            for var,grad in zip(model.trainable_weights, allreduced_gradients):
+                if _IS_TF2:
+                    if var.ref() in local_vars:
+                        # local gradients should not change.
+                        self.assertAllClose(grad, var_grad[var.ref()])
+                    else:
+                        # non-local gradients shouldn't be equal given that the initial weights are set to ranks
+                        self.assertNotAllClose(grad, var_grad[var.ref()])
+                else:
+                    if var in local_vars:
+                        # local gradients should not change.
+                        self.assertAllClose(grad, var_grad[var])
+                    else:
+                        # non-local gradients shouldn't be equal given that the initial weights are set to ranks
+                        self.assertNotAllClose(grad, var_grad[var])
+
 
 
 
