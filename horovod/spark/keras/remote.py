@@ -257,7 +257,9 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 'steps_per_epoch_val': validation_steps,
                 'verbose': verbose,
             }
-            print("data_module: {}".format(data_module))
+            if verbose:
+                print("data_module: {}".format(data_module))
+
             dm = data_module(**data_module_kwargs)
 
             history = fit(model, dm, steps_per_epoch,

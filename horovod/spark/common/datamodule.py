@@ -1,9 +1,12 @@
 import importlib
+from abc import ABC, abstractmethod
 
 
 _data_modules = {}
-class DataModule:
-    """Context manager base class for data module/loader implementation.s"""
+
+
+class DataModule(ABC):
+    """Context manager base class for data module/loader implementations."""
     def __init__(self, train_dir: str, val_dir: str, num_train_epochs: int=1, has_val: bool=True,
                  train_batch_size: int=32, val_batch_size: int=32, shuffle_size: int=1000,
                  transform_fn=None, inmemory_cache_all=False,
@@ -38,11 +41,15 @@ class DataModule:
     def __exit__(self, type, value, traceback):
         pass
 
+    @abstractmethod
     def train_data(self, reader=None):
-        raise NotImplementedError()
+        """Returns the training data in a form required by the target DL framework."""
+        pass
 
+    @abstractmethod
     def val_data(self, reader=None):
-        raise NotImplementedError()
+        """Returns the validation data in a form required by the target DL framework."""
+        pass
 
 
 def register_datamodule(module_name, data_module):

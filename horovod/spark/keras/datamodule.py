@@ -76,19 +76,19 @@ class PetastormDataModule(DataModule):
 
     def train_data(self):
         return self.make_dataset(self.train_reader, self.train_batch_size, self.shuffle_size,
-                                self.is_batch_reader, shuffle=True if self.shuffle_size > 0 else False,
-                                cache=self.inmemory_cache_all, seed=self.random_seed)
+                                 self.is_batch_reader, shuffle=True if self.shuffle_size > 0 else False,
+                                 cache=self.inmemory_cache_all, seed=self.random_seed)
 
     def val_data(self):
         return self.make_dataset(self.val_reader, self.val_batch_size, self.shuffle_size,
-                            self.is_batch_reader, shuffle=False, cache=self.inmemory_cache_all) if self.val_reader else None
+                                 self.is_batch_reader, shuffle=False, cache=self.inmemory_cache_all) if self.val_reader else None
 
 
 
 class NVTabularDataModule(DataModule):
     """NVTabular-based DataModule for KerasEstimator for GPU-accelerated data loading of tabular datasets.
 
-    Note: requires `categorical_cols` and `continuous_cols` to be explicitly provided."""
+    Note: requires `label_cols`, `categorical_cols`, and `continuous_cols` to be explicitly provided."""
     def __init__(self, label_cols=[], categorical_cols=[], continuous_cols=[], **kwargs):
         super().__init__(**kwargs)
         self.label_cols = label_cols
@@ -132,32 +132,32 @@ class NVTabularDataModule(DataModule):
         import horovod.tensorflow.keras as hvd
         from nvtabular.loader.tensorflow import KerasSequenceLoader
         return KerasSequenceLoader(self.train_dir,
-                                    batch_size=self.train_batch_size,
-                                    label_names=self.label_cols,
-                                    cat_names=self.categorical_cols,
-                                    cont_names=self.continuous_cols,
-                                    engine="parquet",
-                                    shuffle=True,
-                                    buffer_size=0.06,  # how many batches to load at once
-                                    parts_per_chunk=1,
-                                    global_size=hvd.size(),
-                                    global_rank=hvd.rank(),
-                                    seed_fn=self.seed_fn).map(self.to_dense)
+                                   batch_size=self.train_batch_size,
+                                   label_names=self.label_cols,
+                                   cat_names=self.categorical_cols,
+                                   cont_names=self.continuous_cols,
+                                   engine="parquet",
+                                   shuffle=True,
+                                   buffer_size=0.06,  # how many batches to load at once
+                                   parts_per_chunk=1,
+                                   global_size=hvd.size(),
+                                   global_rank=hvd.rank(),
+                                   seed_fn=self.seed_fn).map(self.to_dense)
 
     def val_data(self):
         import horovod.tensorflow.keras as hvd
         from nvtabular.loader.tensorflow import KerasSequenceLoader
         return KerasSequenceLoader(self.val_dir,
-                                batch_size=self.val_batch_size,
-                                label_names=self.label_cols,
-                                cat_names=self.categorical_cols,
-                                cont_names=self.continuous_cols,
-                                engine="parquet",
-                                shuffle=False,
-                                buffer_size=0.06,  # how many batches to load at once
-                                parts_per_chunk=1,
-                                global_size=hvd.size(),
-                                global_rank=hvd.rank()).map(self.to_dense) if self.has_val else self.empty_batch_reader()
+                                   batch_size=self.val_batch_size,
+                                   label_names=self.label_cols,
+                                   cat_names=self.categorical_cols,
+                                   cont_names=self.continuous_cols,
+                                   engine="parquet",
+                                   shuffle=False,
+                                   buffer_size=0.06,  # how many batches to load at once
+                                   parts_per_chunk=1,
+                                   global_size=hvd.size(),
+                                   global_rank=hvd.rank()).map(self.to_dense) if self.has_val else self.empty_batch_reader()
 
 
 def register():
