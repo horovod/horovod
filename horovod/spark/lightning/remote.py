@@ -52,10 +52,8 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     terminate_on_nan = estimator.getTerminateOnNan()
     transformation_fn = estimator.getTransformationFn()
     transformation = transformation_fn if transformation_fn else None
-    edit_fields = estimator.getTransformationEditFields()
-    transformation_edit_fields = edit_fields if edit_fields else None
-    removed_fields = estimator.getTransformationRemovedFields()
-    transformation_removed_fields = removed_fields if removed_fields else None
+    transformation_edit_fields = estimator.getTransformationEditFields()
+    transformation_removed_fields = estimator.getTransformationRemovedFields()
     inmemory_cache_all = estimator.getInMemoryCacheAll()
     callbacks = estimator.getCallbacks() or []
     train_steps_per_epoch = estimator.getTrainStepsPerEpoch()
