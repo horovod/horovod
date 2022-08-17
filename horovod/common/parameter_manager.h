@@ -63,6 +63,10 @@ public:
   bool HierarchicalAllgather() const;
   void SetHierarchicalAllgather(bool value, bool fixed=false);
 
+  // Do torus allreduce.
+  bool TorusAllreduce() const;
+  void SetTorusAllreduce(bool value, bool fixed=false);
+
   // Threshold for Tensor Fusion.  All tensors that occupy memory beyond this
   // threshold will be fused.
   int64_t TensorFusionThresholdBytes() const;
@@ -90,6 +94,7 @@ public:
   struct Params {
     bool hierarchical_allreduce;
     bool hierarchical_allgather;
+    bool torus_allreduce;
     bool cache_enabled;
     double tensor_fusion_threshold;
     double cycle_time;
@@ -224,6 +229,7 @@ private:
 
   CategoricalParameter<bool> hierarchical_allreduce_;
   CategoricalParameter<bool> hierarchical_allgather_;
+  CategoricalParameter<bool> torus_allreduce_;
   CategoricalParameter<bool> cache_enabled_;
   BayesianParameter joint_params_;
 

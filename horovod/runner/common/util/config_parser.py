@@ -21,6 +21,7 @@ HOROVOD_CYCLE_TIME = 'HOROVOD_CYCLE_TIME'
 HOROVOD_CACHE_CAPACITY = 'HOROVOD_CACHE_CAPACITY'
 HOROVOD_HIERARCHICAL_ALLREDUCE = 'HOROVOD_HIERARCHICAL_ALLREDUCE'
 HOROVOD_HIERARCHICAL_ALLGATHER = 'HOROVOD_HIERARCHICAL_ALLGATHER'
+HOROVOD_TORUS_ALLREDUCE = 'HOROVOD_TORUS_ALLREDUCE'
 
 # Autotune knobs
 HOROVOD_AUTOTUNE = 'HOROVOD_AUTOTUNE'
@@ -81,6 +82,7 @@ def set_args_from_config(args, config, override_args):
         _set_arg_from_config(args, 'cache_capacity', override_args, params)
         _set_arg_from_config(args, 'hierarchical_allreduce', override_args, params)
         _set_arg_from_config(args, 'hierarchical_allgather', override_args, params)
+        _set_arg_from_config(args, 'torus_allreduce', override_args, params)
 
     # Autotune
     autotune = config.get('autotune')
@@ -168,6 +170,7 @@ def set_env_from_args(env, args):
     _add_arg_to_env(env, HOROVOD_CACHE_CAPACITY, args.cache_capacity)
     _add_arg_to_env(env, HOROVOD_HIERARCHICAL_ALLREDUCE, args.hierarchical_allreduce, identity)
     _add_arg_to_env(env, HOROVOD_HIERARCHICAL_ALLGATHER, args.hierarchical_allgather, identity)
+    _add_arg_to_env(env, HOROVOD_TORUS_ALLREDUCE, args.torus_allreduce, identity)
 
     # Autotune
     if args.autotune:

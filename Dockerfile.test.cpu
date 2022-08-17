@@ -28,6 +28,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
+# Log given ARGs (and all other environment vars)
+RUN env | sort
+
 # Prepare to install specific g++ versions
 RUN apt-get update -qq && apt-get install -y --no-install-recommends software-properties-common
 RUN add-apt-repository ppa:ubuntu-toolchain-r/test
@@ -235,6 +238,9 @@ RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
 
 # Show the effective python package version to easily spot version differences
 RUN pip freeze | sort
+
+# Assert installed package versions
+RUN /horovod/assert-package-versions.sh
 
 # Hack for compatibility of MNIST example with TensorFlow 1.1.0.
 RUN if [[ ${TENSORFLOW_PACKAGE} == "tensorflow==1.1.0" ]]; then \

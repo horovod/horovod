@@ -29,6 +29,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
+# Log given ARGs (and all other environment vars)
+RUN env | sort
+
 # Extract ubuntu distribution version and download the corresponding key.
 # This is to fix CI failures caused by the new rotating key mechanism rolled out by Nvidia.
 # Refer to https://forums.developer.nvidia.com/t/notice-cuda-linux-repository-key-rotation/212771 for more details.
@@ -209,6 +212,9 @@ RUN cd /horovod && \
 
 # Show the effective python package version to easily spot version differences
 RUN pip freeze | sort
+
+# Assert installed package versions
+RUN /horovod/assert-package-versions.sh
 
 # Hack for compatibility of MNIST example with TensorFlow 1.1.0.
 RUN if [[ ${TENSORFLOW_PACKAGE} == "tensorflow-gpu==1.1.0" ]]; then \

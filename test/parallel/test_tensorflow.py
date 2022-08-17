@@ -117,19 +117,22 @@ class TensorFlowTests(BaseTensorFlowTests):
         """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
-        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
-                tensor = self.random_uniform(
-                    [17] * dim, -100, 100, dtype=dtype)
+                # prevent underflows/overflows in uint8, int8
+                tensor = self.random_uniform([17] * dim, -100, 100)
+                tensor = tf.cast(tensor, dtype=dtype)
                 summed = hvd.allreduce(tensor, average=False)
             multiplied = tensor * size
-            max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+            difference = summed - multiplied
+            difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
+            max_difference = tf.reduce_max(tf.abs(difference))
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [tf.int32, tf.int64]:
+            if size <= 3 or dtype in [tf.uint8, tf.int8, tf.int32, tf.int64]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -145,18 +148,22 @@ class TensorFlowTests(BaseTensorFlowTests):
         """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
-        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
-                tensor = self.random_uniform(
-                    [17] * dim, -100, 100, dtype=dtype)
+                tensor = self.random_uniform([17] * dim, -100, 100)
+                tensor = tf.cast(tensor, dtype=dtype)
                 averaged = hvd.allreduce(tensor, average=True)
-            max_difference = tf.reduce_max(tf.abs(tf.cast(averaged, dtype=dtype) - tensor))
+            # handle int8, uint8 overflows when allreduce sums up and averages the values
+            tensor = tf.cast((tensor*size)/size, dtype=dtype)
+            difference = tf.cast(averaged, dtype=dtype) - tensor
+            difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
+            max_difference = tf.reduce_max(tf.abs(difference))
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [tf.int32, tf.int64]:
+            if size <= 3 or dtype in [tf.uint8, tf.int8, tf.int32, tf.int64]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -173,20 +180,22 @@ class TensorFlowTests(BaseTensorFlowTests):
         with Tensor Fusion."""
         hvd.init()
         size = hvd.size()
-        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
         dims = [1, 2, 3]
         tests = []
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
-                tensor = self.random_uniform(
-                    [17] * dim, -100, 100, dtype=dtype)
+                tensor = self.random_uniform([17] * dim, -100, 100)
+                tensor = tf.cast(tensor, dtype=dtype)
                 summed = hvd.allreduce(tensor, average=False)
             multiplied = tensor * size
-            max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+            difference = summed - multiplied
+            difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
+            max_difference = tf.reduce_max(tf.abs(difference))
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [tf.int32, tf.int64]:
+            if size <= 3 or dtype in [tf.uint8, tf.int8, tf.int32, tf.int64]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -208,15 +217,15 @@ class TensorFlowTests(BaseTensorFlowTests):
            with prescaling"""
         hvd.init()
         size = hvd.size()
-        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32])
-        int_types = [tf.int32, tf.int64]
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32])
+        int_types = [tf.uint8, tf.int8, tf.int32, tf.int64]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
                 np.random.seed(1234)
                 factor = np.random.uniform()
-                tensor = self.random_uniform(
-                    [17] * dim, -100, 100, dtype=dtype)
+                tensor = self.random_uniform([17] * dim, -100, 100)
+                tensor = tf.cast(tensor, dtype=dtype)
                 summed = hvd.allreduce(tensor, average=False,
                                        prescale_factor=factor)
 
@@ -226,7 +235,9 @@ class TensorFlowTests(BaseTensorFlowTests):
                 factor = tf.convert_to_tensor(factor, tf.float32 if dtype == tf.float16 else
                                               tf.float64 if dtype in int_types else dtype)
                 multiplied = tf.cast(factor * tensor, dtype) * size
-                max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+                difference = summed - multiplied
+                difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
+                max_difference = tf.reduce_max(tf.abs(difference))
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
@@ -248,15 +259,15 @@ class TensorFlowTests(BaseTensorFlowTests):
            with postscaling"""
         hvd.init()
         size = hvd.size()
-        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32])
-        int_types = [tf.int32, tf.int64]
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32])
+        int_types = [tf.uint8, tf.int8, tf.int32, tf.int64]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
                 np.random.seed(1234)
                 factor = np.random.uniform()
-                tensor = self.random_uniform(
-                    [17] * dim, -100, 100, dtype=dtype)
+                tensor = self.random_uniform([17] * dim, -100, 100)
+                tensor = tf.cast(tensor, dtype=dtype)
                 summed = hvd.allreduce(tensor, average=False,
                                        postscale_factor=factor)
 
@@ -267,7 +278,9 @@ class TensorFlowTests(BaseTensorFlowTests):
                 factor = tf.convert_to_tensor(factor, tf.float32 if dtype == tf.float16 else
                                               tf.float64 if dtype in int_types else dtype)
                 multiplied = tf.cast(factor * multiplied, dtype)
-                max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+                difference = summed - multiplied
+                difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
+                max_difference = tf.reduce_max(tf.abs(difference))
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
@@ -298,19 +311,21 @@ class TensorFlowTests(BaseTensorFlowTests):
         local_rank = hvd.local_rank()
         size = hvd.size()
 
-        dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
+        dtypes = [tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%d" % local_rank):
-                tensor = self.random_uniform(
-                    [17] * dim, -100, 100, dtype=dtype)
+                tensor = self.random_uniform([17] * dim, -100, 100)
+                tensor = tf.cast(tensor, dtype=dtype)
                 summed = hvd.allreduce(tensor, average=False)
             multiplied = tensor * size
-            max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+            difference = summed - multiplied
+            difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
+            max_difference = tf.reduce_max(tf.abs(difference))
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [tf.int32, tf.int64]:
+            if size <= 3 or dtype in [tf.uint8, tf.int8, tf.int32, tf.int64]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -336,18 +351,22 @@ class TensorFlowTests(BaseTensorFlowTests):
         local_rank = hvd.local_rank()
         size = hvd.size()
 
-        dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
+        dtypes = [tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%d" % local_rank):
-                tensor = self.random_uniform(
-                    [17] * dim, -100, 100, dtype=dtype)
+                tensor = self.random_uniform([17] * dim, -100, 100)
+                tensor = tf.cast(tensor, dtype=dtype)
                 averaged = hvd.allreduce(tensor, average=True)
-            max_difference = tf.reduce_max(tf.abs(tf.cast(averaged, dtype=dtype) - tensor))
+            # handle int8, uint8 overflows when allreduce sums up and averages the values
+            tensor = tf.cast((tensor*size)/size, dtype=dtype)
+            difference = tf.cast(averaged, dtype=dtype) - tensor
+            difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
+            max_difference = tf.reduce_max(tf.abs(difference))
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [tf.int32, tf.int64]:
+            if size <= 3 or dtype in [tf.uint8, tf.int8, tf.int32, tf.int64]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -377,20 +396,22 @@ class TensorFlowTests(BaseTensorFlowTests):
         local_rank = hvd.local_rank()
         size = hvd.size()
 
-        dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
+        dtypes = [tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
         dims = [1, 2, 3]
         tests = []
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%d" % local_rank):
-                tensor = self.random_uniform(
-                    [17] * dim, -100, 100, dtype=dtype)
+                tensor = self.random_uniform([17] * dim, -100, 100)
+                tensor = tf.cast(tensor, dtype=dtype)
                 summed = hvd.allreduce(tensor, average=False)
             multiplied = tensor * size
-            max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+            difference = summed - multiplied
+            difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
+            max_difference = tf.reduce_max(tf.abs(difference))
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [tf.int32, tf.int64]:
+            if size <= 3 or dtype in [tf.uint8, tf.int8, tf.int32, tf.int64]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -429,20 +450,22 @@ class TensorFlowTests(BaseTensorFlowTests):
 
         iter = 0
         gpu_ids = [local_rank * 2, local_rank * 2 + 1]
-        dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
+        dtypes = [tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             iter += 1
             with tf.device("/gpu:%d" % gpu_ids[(iter + local_rank) % 2]):
-                tensor = self.random_uniform(
-                    [17] * dim, -100, 100, dtype=dtype)
+                tensor = self.random_uniform([17] * dim, -100, 100)
+                tensor = tf.cast(tensor, dtype=dtype)
                 summed = hvd.allreduce(tensor, average=False)
             multiplied = tensor * size
-            max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+            difference = summed - multiplied
+            difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
+            max_difference = tf.reduce_max(tf.abs(difference))
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [tf.int32, tf.int64]:
+            if size <= 3 or dtype in [tf.uint8, tf.int8, tf.int32, tf.int64]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -470,15 +493,15 @@ class TensorFlowTests(BaseTensorFlowTests):
         hvd.init()
         size = hvd.size()
         local_rank = hvd.local_rank()
-        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32])
-        int_types = [tf.int32, tf.int64]
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32])
+        int_types = [tf.uint8, tf.int8, tf.int32, tf.int64]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%s" % local_rank):
                 np.random.seed(1234)
                 factor = np.random.uniform()
-                tensor = self.random_uniform(
-                    [17] * dim, -100, 100, dtype=dtype)
+                tensor = self.random_uniform([17] * dim, -100, 100)
+                tensor = tf.cast(tensor, dtype=dtype)
                 summed = hvd.allreduce(tensor, average=False,
                                        prescale_factor=factor)
 
@@ -486,8 +509,9 @@ class TensorFlowTests(BaseTensorFlowTests):
                 tensor = tf.cast(tensor, tf.float64 if dtype in int_types else dtype)
                 factor = tf.convert_to_tensor(factor, tf.float64 if dtype in int_types else dtype)
                 multiplied = tf.cast(factor * tensor, dtype) * size
-                max_difference = tf.reduce_max(tf.abs(summed - multiplied))
-
+                difference = summed - multiplied
+                difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
+                max_difference = tf.reduce_max(tf.abs(difference))
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
             if size <= 3 or dtype in int_types:
@@ -518,15 +542,15 @@ class TensorFlowTests(BaseTensorFlowTests):
         hvd.init()
         size = hvd.size()
         local_rank = hvd.local_rank()
-        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32])
-        int_types = [tf.int32, tf.int64]
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32])
+        int_types = [tf.uint8, tf.int8, tf.int32, tf.int64]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%s" % local_rank):
                 np.random.seed(1234)
                 factor = np.random.uniform()
-                tensor = self.random_uniform(
-                    [17] * dim, -100, 100, dtype=dtype)
+                tensor = self.random_uniform([17] * dim, -100, 100)
+                tensor = tf.cast(tensor, dtype=dtype)
                 summed = hvd.allreduce(tensor, average=False,
                                        postscale_factor=factor)
 
@@ -535,7 +559,9 @@ class TensorFlowTests(BaseTensorFlowTests):
                 multiplied = tf.cast(multiplied, tf.float64 if dtype in int_types else dtype)
                 factor = tf.convert_to_tensor(factor, tf.float64 if dtype in int_types else dtype)
                 multiplied = tf.cast(factor * multiplied, dtype)
-                max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+                difference = summed - multiplied
+                difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
+                max_difference = tf.reduce_max(tf.abs(difference))
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
@@ -779,19 +805,21 @@ class TensorFlowTests(BaseTensorFlowTests):
         """Test on CPU that the grouped allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
-        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
-                tensors = [self.random_uniform(
-                    [17] * dim, -100, 100, dtype=dtype) for _ in range(5)]
+                tensors = [tf.cast(self.random_uniform(
+                    [17] * dim, -100, 100), dtype=dtype) for _ in range(5)]
                 summed = hvd.grouped_allreduce(tensors, average=False)
             multiplied = [tensor * size for tensor in tensors]
-            max_difference = tf.reduce_max([tf.reduce_max(tf.abs(t1 - t2)) for t1, t2 in zip(summed, multiplied)])
+            differences = [t1 - t2 for t1, t2 in zip(summed, multiplied)]
+            differences = [tf.cast(diff, tf.int32) if dtype == tf.uint8 else diff for diff in differences]
+            max_difference = tf.reduce_max([tf.reduce_max(tf.abs(diff)) for diff in differences])
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [tf.int32, tf.int64]:
+            if size <= 3 or dtype in [tf.uint8, tf.int8, tf.int32, tf.int64]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -816,19 +844,21 @@ class TensorFlowTests(BaseTensorFlowTests):
         hvd.init()
         local_rank = hvd.local_rank()
         size = hvd.size()
-        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%d" % local_rank):
-                tensors = [self.random_uniform(
-                    [17] * dim, -100, 100, dtype=dtype) for _ in range(5)]
+                tensors = [tf.cast(self.random_uniform(
+                    [17] * dim, -100, 100), dtype=dtype) for _ in range(5)]
                 summed = hvd.grouped_allreduce(tensors, average=False)
             multiplied = [tensor * size for tensor in tensors]
-            max_difference = tf.reduce_max([tf.reduce_max(tf.abs(t1 - t2)) for t1, t2 in zip(summed, multiplied)])
+            differences = [t1 - t2 for t1, t2 in zip(summed, multiplied)]
+            differences = [tf.cast(diff, tf.int32) if dtype == tf.uint8 else diff for diff in differences]
+            max_difference = tf.reduce_max([tf.reduce_max(tf.abs(diff)) for diff in differences])
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [tf.int32, tf.int64]:
+            if size <= 3 or dtype in [tf.uint8, tf.int8, tf.int32, tf.int64]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -3841,6 +3871,71 @@ class TensorFlowTests(BaseTensorFlowTests):
                 self.assertTrue(all(self.evaluate(tf.reduce_all(
                     tf.equal(tf.cast(rank_tensor, tf.int32), value))) for rank_tensor in rank_tensors),
                     "hvd.grouped_allgather produces incorrect gathered tensor")
+
+    def test_partial_distributed_gradient_tape(self):
+        """ Note: test makes most sense with more than 1 nodes. """
+        hvd.init()
+        if hvd.size() == 1:
+            self.skipTest("Only one worker available")
+
+        # the keras model has 3 layers, we test cases with 0, 1, and 2 local layers.
+        for num_local_layers in range(3):
+            model = tf.keras.models.Sequential()
+            initializer = tf.keras.initializers.Constant(hvd.rank())
+            model.add(tf.keras.layers.Dense(2, input_shape=(3,), kernel_initializer=initializer, bias_initializer=initializer))
+            model.add(tf.keras.layers.RepeatVector(3))
+            model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(3, kernel_initializer=initializer, bias_initializer=initializer)))
+            model.compile(loss=tf.keras.losses.MSE,
+                            metrics=[tf.keras.metrics.categorical_accuracy])
+
+            X = np.random.random((1, 3))
+            Y = np.random.random((1, 3, 3))
+
+            try:
+                init = tf.global_variables_initializer()
+            except AttributeError:
+                init = tf.compat.v1.global_variables_initializer()
+            self.evaluate(init)
+
+            with tf.GradientTape(persistent=True) as tape:
+                p = model(X, training=True)
+                l = model.loss(Y, p)
+
+            gradients = tape.gradient(l, model.trainable_weights)
+
+            # deem local layers
+            local_layers = model.layers[:num_local_layers]
+            if _IS_TF2:
+                var_grad = {var.ref():grad for var,grad in zip(model.trainable_weights, gradients)}
+                local_vars = [var.ref() for layer in local_layers for var in layer.trainable_weights]
+            else:
+                var_grad = {var:grad for var,grad in zip(model.trainable_weights, gradients)}
+                local_vars = [var for layer in local_layers for var in layer.trainable_weights]
+
+            local_rank = hvd.local_rank()
+            if tf.test.is_gpu_available(cuda_only=True):
+                with tf.device("/gpu:%d" % local_rank):
+                    tape = hvd.PartialDistributedGradientTape(tape, local_layers=local_layers)
+                    allreduced_gradients = tape.gradient(l, model.trainable_weights)
+            else:
+                tape = hvd.PartialDistributedGradientTape(tape, local_layers=local_layers)
+                allreduced_gradients = tape.gradient(l, model.trainable_weights)
+
+            for var,grad in zip(model.trainable_weights, allreduced_gradients):
+                if _IS_TF2:
+                    if var.ref() in local_vars:
+                        # local gradients should not change.
+                        self.assertAllClose(grad, var_grad[var.ref()])
+                    else:
+                        # non-local gradients shouldn't be equal given that the initial weights are set to ranks
+                        self.assertNotAllClose(grad, var_grad[var.ref()])
+                else:
+                    if var in local_vars:
+                        # local gradients should not change.
+                        self.assertAllClose(grad, var_grad[var])
+                    else:
+                        # non-local gradients shouldn't be equal given that the initial weights are set to ranks
+                        self.assertNotAllClose(grad, var_grad[var])
 
 
 
