@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Added support for `int8, uint8` allreduce and grouped_allreduce in tensorflow. ([#3649](https://github.com/horovod/horovod/pull/3649))
 - Added support for batched memory copies in GPUAllgather. ([#3590](https://github.com/horovod/horovod/pull/3590))
 - Added support for batched memory copies in GPUReducescatter. ([#3621](https://github.com/horovod/horovod/pull/3621))
 - Added `hvd.grouped_allgather()` and `hvd.grouped_reducescatter()` operations. ([#3594](https://github.com/horovod/horovod/pull/3594))

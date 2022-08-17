@@ -510,7 +510,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_GPU),
 #endif
 
 REGISTER_OP("HorovodAllreduce")
-    .Attr("T: {int32, int64, float16, float32, float64}")
+    .Attr("T: {uint8, int8, int32, int64, float16, float32, float64}")
     .Attr("reduce_op: int")
     .Attr("prescale_factor: float")
     .Attr("postscale_factor: float")
@@ -647,7 +647,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodGroupedAllreduce").Device(DEVICE_GPU),
 #endif
 
 REGISTER_OP("HorovodGroupedAllreduce")
-    .Attr("T: {int32, int64, float16, float32, float64}")
+    .Attr("T: {uint8, int8, int32, int64, float16, float32, float64}")
     .Attr("reduce_op: int")
     .Attr("prescale_factor: float")
     .Attr("postscale_factor: float")

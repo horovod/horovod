@@ -110,14 +110,16 @@ class XLATests(tf.test.TestCase):
         size = hvd.size()
 
         def hvd_allreduce_test(self, dtype, dim):
-            tensor = self.random_uniform(
-                [17] * dim, -100, 100, dtype=dtype)
+            tensor = self.random_uniform([17] * dim, -100, 100)
+            tensor = tf.cast(tensor, dtype=dtype)
             summed = hvd.allreduce(tensor, average=False)
             multiplied = tensor * size
-            max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+            difference = summed - multiplied
+            difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
+            max_difference = tf.reduce_max(tf.abs(difference))
             return max_difference
 
-        dtypes = [tf.int32, tf.int64, tf.float32, tf.float16, tf.float64]
+        dtypes = [tf.uint8, tf.int8, tf.int32, tf.int64, tf.float32, tf.float16, tf.float64]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%d" % local_rank):
@@ -126,7 +128,7 @@ class XLATests(tf.test.TestCase):
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [tf.int32, tf.int64]:
+            if size <= 3 or dtype in [tf.uint8, tf.int8, tf.int32, tf.int64]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -160,8 +162,8 @@ class XLATests(tf.test.TestCase):
         def hvd_allreduce_test(self, dtype, dim):
             np.random.seed(1234)
             factor = np.random.uniform()
-            tensor = self.random_uniform(
-                [17] * dim, -100, 100, dtype=dtype)
+            tensor = self.random_uniform([17] * dim, -100, 100)
+            tensor = tf.cast(tensor, dtype=dtype)
             summed = hvd.allreduce(tensor, average=False,
                                    prescale_factor=factor)
 
@@ -171,12 +173,14 @@ class XLATests(tf.test.TestCase):
             factor = tf.convert_to_tensor(
                 factor, tf.float64 if dtype in int_types else dtype)
             multiplied = tf.cast(factor * tensor, dtype) * size
-            max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+            difference = summed - multiplied
+            difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
+            max_difference = tf.reduce_max(tf.abs(difference))
             return max_difference
 
         dtypes = self.filter_supported_types(
-            [tf.int32, tf.int64, tf.float16, tf.float32])
-        int_types = [tf.int32, tf.int64]
+            [tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32])
+        int_types = [tf.uint8, tf.int8, tf.int32, tf.int64]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%s" % local_rank):
@@ -216,8 +220,8 @@ class XLATests(tf.test.TestCase):
         def hvd_allreduce_test(self, dtype, dim):
             np.random.seed(1234)
             factor = np.random.uniform()
-            tensor = self.random_uniform(
-                [17] * dim, -100, 100, dtype=dtype)
+            tensor = self.random_uniform([17] * dim, -100, 100)
+            tensor = tf.cast(tensor, dtype=dtype)
             summed = hvd.allreduce(tensor, average=False,
                                    postscale_factor=factor)
 
@@ -228,13 +232,15 @@ class XLATests(tf.test.TestCase):
             factor = tf.convert_to_tensor(
                 factor, tf.float64 if dtype in int_types else dtype)
             multiplied = tf.cast(factor * multiplied, dtype)
-            max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+            difference = summed - multiplied
+            difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
+            max_difference = tf.reduce_max(tf.abs(difference))
             return max_difference
 
         local_rank = hvd.local_rank()
         dtypes = self.filter_supported_types(
-            [tf.int32, tf.int64, tf.float16, tf.float32])
-        int_types = [tf.int32, tf.int64]
+            [tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32])
+        int_types = [tf.uint8, tf.int8, tf.int32, tf.int64]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%s" % local_rank):
