@@ -247,6 +247,34 @@ private:
 };
 #endif
 
+class NCCLTorusAllreduce : public GPUAllreduce {
+public:
+  NCCLTorusAllreduce(NCCLContext* local_nccl_context, NCCLContext* cross_nccl_context,
+                     GPUContext* gpu_context, HorovodGlobalState* global_state)
+      : GPUAllreduce(gpu_context, global_state),
+        local_nccl_context_(local_nccl_context),
+        cross_nccl_context_(cross_nccl_context),
+        local_nccl_op_context_(local_nccl_context, global_state, Communicator::LOCAL),
+        cross_nccl_op_context_(cross_nccl_context, global_state, Communicator::CROSS),
+        global_state_(global_state){};
+
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
+
+  bool Enabled(const ParameterManager& param_manager,
+               const std::vector<TensorTableEntry>& entries,
+               const Response& response) const override;
+
+protected:
+  void WaitForData(std::vector<TensorTableEntry>& entries) override;
+
+  NCCLContext* local_nccl_context_;
+  NCCLOpContext local_nccl_op_context_;
+  NCCLContext* cross_nccl_context_;
+  NCCLOpContext cross_nccl_op_context_;
+  HorovodGlobalState* global_state_;
+};
+
 class NCCLAllgather : public GPUAllgather {
 public:
   NCCLAllgather(NCCLContext* nccl_context, GPUContext* gpu_context,
