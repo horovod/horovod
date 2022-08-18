@@ -37,7 +37,7 @@ from horovod.tensorflow.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_b
 from horovod.tensorflow.mpi_ops import gloo_enabled, gloo_built
 from horovod.tensorflow.mpi_ops import nccl_built, ddl_built, ccl_built, cuda_built, rocm_built
 from horovod.tensorflow.mpi_ops import ProcessSet, global_process_set, add_process_set, remove_process_set
-from horovod.tensorflow.mpi_ops import Average, Sum, Adasum
+from horovod.tensorflow.mpi_ops import Average, Sum, Adasum, Min, Max, Product
 from horovod.tensorflow.mpi_ops import handle_average_backwards_compatibility, check_num_rank_power_of_2
 from horovod.tensorflow.util import _executing_eagerly, _make_subgraph, _cache, vars_to_refs, refs_to_vars
 from horovod.tensorflow.mpi_ops import join

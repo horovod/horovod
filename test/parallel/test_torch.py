@@ -229,6 +229,87 @@ class TorchTests(unittest.TestCase):
 
             assert torch.allclose(averaged, tensor, threshold), 'hvd.allreduce produces incorrect results'
 
+    def test_horovod_allreduce_min(self):
+        """Test that the allreduce correctly minimizes 1D, 2D, 3D tensors."""
+        hvd.init()
+        size = hvd.size()
+        rank = hvd.rank()
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                     torch.FloatTensor, torch.DoubleTensor])
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            torch.manual_seed(1234)
+            tensors = torch.FloatTensor(size, *([17] * dim)).random_(-100, 100)
+            tensors = self.cast_and_place(tensors, dtype)
+            tensor = tensors[rank, ...]
+            result = hvd.allreduce(tensor, op=hvd.Min)
+
+            reference = tensors.min(0).values
+
+            assert torch.equal(result, reference), 'hvd.allreduce produces incorrect results'
+
+    def test_horovod_allreduce_max(self):
+        """Test that the allreduce correctly maximizes 1D, 2D, 3D tensors."""
+        hvd.init()
+        size = hvd.size()
+        rank = hvd.rank()
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                     torch.FloatTensor, torch.DoubleTensor])
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            torch.manual_seed(1234)
+            tensors = torch.FloatTensor(size, *([17] * dim)).random_(-100, 100)
+            tensors = self.cast_and_place(tensors, dtype)
+            tensor = tensors[rank, ...]
+            result = hvd.allreduce(tensor, op=hvd.Max)
+
+            reference = tensors.max(0).values
+
+            assert torch.equal(result, reference), 'hvd.allreduce produces incorrect results'
+
+    def test_horovod_allreduce_product(self):
+        """Test that the allreduce correctly multiplies 1D, 2D, 3D tensors."""
+        hvd.init()
+        size = hvd.size()
+        rank = hvd.rank()
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                     torch.FloatTensor, torch.DoubleTensor])
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
+                       torch.cuda.HalfTensor]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            torch.manual_seed(1234)
+            tensors = torch.FloatTensor(size, *([17] * dim)).random_(-100, 100)
+            tensors = self.cast_and_place(tensors, dtype)
+            tensor = tensors[rank, ...]
+            result = hvd.allreduce(tensor, op=hvd.Product)
+
+            reference = tensors.prod(0).type(dtype)
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
+                                      torch.cuda.IntTensor, torch.cuda.LongTensor]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+
+            assert torch.allclose(result, reference, threshold), 'hvd.allreduce produces incorrect results'
+
     def test_horovod_allreduce_inplace(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()

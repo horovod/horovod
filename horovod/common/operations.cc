@@ -1242,6 +1242,12 @@ int horovod_reduce_op_sum() { return ReduceOp::SUM; }
 
 int horovod_reduce_op_adasum() { return ReduceOp::ADASUM; }
 
+int horovod_reduce_op_min() { return ReduceOp::MIN; }
+
+int horovod_reduce_op_max() { return ReduceOp::MAX; }
+
+int horovod_reduce_op_product() { return ReduceOp::PRODUCT; }
+
 const int HOROVOD_PROCESS_SET_ERROR_INIT = -1;
 const int HOROVOD_PROCESS_SET_ERROR_DYNAMIC = -2;
 const int HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET = -3;
@@ -1446,16 +1452,7 @@ EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts,
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
   Status status;
 
-  if (reduce_op == ReduceOp::AVERAGE) {
-#if !HAVE_ROCM
-    // Averaging happens via postscale_factor
-    postscale_factor /= process_set.controller->GetSize();
-#else
-    LOG(ERROR, horovod_global.global_controller->GetRank())
-        << "Enqueuing AVERAGE allreduce is not allowed.";
-    return status.Aborted("AVERAGE not allowed.");
-#endif
-  } else if (reduce_op == ReduceOp::ADASUM) {
+  if (reduce_op == ReduceOp::ADASUM) {
 #if HAVE_NCCL && !HAVE_ROCM
     if (device != CPU_DEVICE_ID) {
       // Averaging by local size happens via postscale_factor
@@ -1483,6 +1480,7 @@ EnqueueTensorAllreduces(std::vector<std::shared_ptr<OpContext>>& contexts,
     } else {
       message.set_request_type(Request::ALLREDUCE);
     }
+    message.set_reduce_op(reduce_op);
 
     message.set_tensor_shape(tensors[n]->shape().to_vector());
     messages.push_back(std::move(message));

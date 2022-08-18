@@ -77,6 +77,9 @@ def init(*args, **kwargs):
 Average = _basics.Average
 Sum = _basics.Sum
 Adasum = _basics.Adasum
+Min = _basics.Min
+Max = _basics.Max
+Product = _basics.Product
 
 is_homogeneous = _basics.is_homogeneous
 

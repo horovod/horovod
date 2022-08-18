@@ -32,7 +32,7 @@ from horovod.mxnet.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.mxnet.mpi_ops import gloo_enabled, gloo_built
 from horovod.mxnet.mpi_ops import nccl_built, ddl_built, ccl_built, cuda_built, rocm_built
 from horovod.mxnet.mpi_ops import ProcessSet, global_process_set, add_process_set, remove_process_set
-from horovod.mxnet.mpi_ops import Average, Sum, Adasum
+from horovod.mxnet.mpi_ops import Average, Sum, Adasum, Min, Max, Product
 
 import mxnet as mx
 from collections import OrderedDict, defaultdict

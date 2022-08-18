@@ -235,6 +235,26 @@ Status CCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   auto& c4h =
       this->ccl_context_->opctxt_->GetCCL4HVD(first_entry, global_state_);
 
+  auto cclOp = ccl::reduction::sum;
+  double prescale_factor = response.prescale_factor();
+  double postscale_factor = response.postscale_factor();
+
+  if (response.reduce_op() == ReduceOp::AVERAGE) {
+    cclOp = ccl::reduction::sum;
+    // Averaging happens via postscale_factor
+    postscale_factor /= process_set.controller->GetSize();
+  } else if (response.reduce_op() == ReduceOp::SUM) {
+    cclOp = ccl::reduction::sum;
+  } else if (response.reduce_op() == ReduceOp::MIN) {
+    cclOp = ccl::reduction::min;
+  } else if (response.reduce_op() == ReduceOp::MAX) {
+    cclOp = ccl::reduction::max;
+  } else if (response.reduce_op() == ReduceOp::PRODUCT) {
+    cclOp = ccl::reduction::prod;
+  } else {
+    throw std::logic_error("Reduction op type not supported.");
+  }
+
   const void* fused_input_data;
   void* buffer_data;
   size_t buffer_len;
@@ -253,9 +273,9 @@ Status CCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     buffer_len = (size_t)first_entry.output->size();
   }
 
-  if (response.prescale_factor() != 1.0) {
+  if (prescale_factor != 1.0) {
     // Execute prescaling op
-    ScaleBuffer(response.prescale_factor(), entries, fused_input_data,
+    ScaleBuffer(prescale_factor, entries, fused_input_data,
                 buffer_data, num_elements);
     fused_input_data = buffer_data; // for unfused, scale is done out of place
   }
@@ -272,11 +292,11 @@ Status CCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     std::string match_id = "dt_" + DataType_Name(first_entry.tensor->dtype()) +
                            "_len_" + std::to_string(buffer_len);
 
-    if (response.prescale_factor() != 1.0) {
-      match_id += "_prescale_" + std::to_string(response.prescale_factor());
+    if (prescale_factor != 1.0) {
+      match_id += "_prescale_" + std::to_string(prescale_factor);
     }
-    if (response.postscale_factor() != 1.0) {
-      match_id += "_postscale_" + std::to_string(response.postscale_factor());
+    if (postscale_factor != 1.0) {
+      match_id += "_postscale_" + std::to_string(postscale_factor);
     }
     for (size_t idx = 0; idx < entries.size(); idx++) {
       match_id += "_" + entries[idx].tensor_name;
@@ -296,14 +316,14 @@ Status CCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   }
 
   ccl::allreduce((void*)sendbuf, buffer_data, num_elements,
-                 GetCCLDataType(first_entry.tensor), ccl::reduction::sum,
+                 GetCCLDataType(first_entry.tensor), cclOp,
                  c4h.comm_, c4h.stream_, attr)
       .wait();
   timeline.ActivityEndAll(entries);
 
-  if (response.postscale_factor() != 1.0) {
+  if (postscale_factor != 1.0) {
     // Execute postscaling op
-    ScaleBuffer(response.postscale_factor(), entries, buffer_data, buffer_data,
+    ScaleBuffer(postscale_factor, entries, buffer_data, buffer_data,
                 num_elements);
   }
 

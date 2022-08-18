@@ -600,6 +600,28 @@ Response Controller::ConstructResponse(const std::string& name, int joined_size)
     }
   }
 
+  // If we are doing an allreduce, check that the reduction op is indentical
+  // across ranks.
+  ReduceOp reduce_op;
+  if (message_type == Request::ALLREDUCE) {
+    reduce_op = requests[0].reduce_op();
+    for (unsigned int i = 1; i < requests.size(); ++i) {
+      if (error) {
+        break;
+      }
+      ReduceOp request_reduce_op = requests[i].reduce_op();
+      if (reduce_op != request_reduce_op) {
+        error = true;
+        error_message_stream
+            << "Mismatched reduction operation: "
+            << "One rank sent reduction op " << reduce_op
+            << ", but another rank sent reduction op "
+            << request_reduce_op << ".";
+        break;
+      }
+    }
+  }
+
   std::vector<int64_t> tensor_sizes;
   if (message_type == Request::ALLGATHER ||
       message_type == Request::ALLTOALL) {
@@ -768,6 +790,7 @@ Response Controller::ConstructResponse(const std::string& name, int joined_size)
     response.set_tensor_type(data_type);
     response.set_prescale_factor(prescale_factor);
     response.set_postscale_factor(postscale_factor);
+    response.set_reduce_op(reduce_op);
   } else if (message_type == Request::BROADCAST) {
     response.set_response_type(Response::BROADCAST);
   } else if (message_type == Request::ALLTOALL) {

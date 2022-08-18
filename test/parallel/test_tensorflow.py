@@ -179,6 +179,82 @@ class TensorFlowTests(BaseTensorFlowTests):
             diff = self.evaluate(max_difference)
             self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results")
 
+    def test_horovod_allreduce_min_cpu(self):
+        """Test on CPU that the allreduce correctly minimizes 1D, 2D, 3D tensors."""
+        hvd.init()
+        size = hvd.size()
+        rank = hvd.rank()
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                tensors = self.random_uniform([size] + [17] * dim, -100, 100)
+                tensors = tf.cast(tensors, dtype=dtype)
+                tensor = tensors[rank,...]
+                result = hvd.allreduce(tensor, op=hvd.Min)
+            reference = tf.math.reduce_min(tensors, axis=0)
+            difference = tf.cast(result, dtype=dtype) - reference
+            difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
+            max_difference = tf.reduce_max(difference)
+
+            threshold = 0
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results for min")
+
+    def test_horovod_allreduce_max_cpu(self):
+        """Test on CPU that the allreduce correctly maximizes 1D, 2D, 3D tensors."""
+        hvd.init()
+        size = hvd.size()
+        rank = hvd.rank()
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                tensors = self.random_uniform([size] + [17] * dim, -100, 100)
+                tensors = tf.cast(tensors, dtype=dtype)
+                tensor = tensors[rank,...]
+                result = hvd.allreduce(tensor, op=hvd.Max)
+            reference = tf.math.reduce_max(tensors, axis=0)
+            difference = tf.cast(result, dtype=dtype) - reference
+            difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
+            max_difference = tf.reduce_max(difference)
+
+            threshold = 0
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results for min")
+
+    def test_horovod_allreduce_product_cpu(self):
+        """Test on CPU that the allreduce correctly multiplies of 1D, 2D, 3D tensors."""
+        hvd.init()
+        size = hvd.size()
+        rank = hvd.rank()
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                tensors = self.random_uniform([size] + [17] * dim, -100, 100)
+                tensors = tf.cast(tensors, dtype=dtype)
+                tensor = tensors[rank,...]
+                result = hvd.allreduce(tensor, op=hvd.Product)
+            reference = tf.math.reduce_prod(tensors, axis=0)
+            difference = tf.cast(result, dtype=dtype) - reference
+            difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
+            max_difference = tf.reduce_max(difference)
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [tf.uint8, tf.int8, tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                self.skipTest("Horovod cluster too large for precise multiplication comparison")
+
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results for min")
+
     def test_horovod_allreduce_cpu_fused(self):
         """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors
         with Tensor Fusion."""
@@ -391,6 +467,109 @@ class TensorFlowTests(BaseTensorFlowTests):
 
             diff = self.evaluate(max_difference)
             self.assertTrue(diff <= threshold, "hvd.allreduce on GPU produces incorrect results")
+
+    def test_horovod_allreduce_min_gpu(self):
+        """Test on GPU that the allreduce correctly minimizes 1D, 2D, 3D tensors."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        hvd.init()
+        rank = hvd.rank()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%d" % local_rank):
+                tensors = self.random_uniform([size] + [17] * dim, -100, 100)
+                tensors = tf.cast(tensors, dtype=dtype)
+                tensor = tensors[rank,...]
+                result = hvd.allreduce(tensor, op=hvd.Min)
+            reference = tf.math.reduce_min(tensors, axis=0)
+            difference = tf.cast(result, dtype=dtype) - reference
+            difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
+            max_difference = tf.reduce_max(difference)
+
+            threshold = 0
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results for min")
+
+    def test_horovod_allreduce_max_gpu(self):
+        """Test on GPU that the allreduce correctly maximizes 1D, 2D, 3D tensors."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        hvd.init()
+        rank = hvd.rank()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%d" % local_rank):
+                tensors = self.random_uniform([size] + [2] * dim, -100, 100)
+                tensors = tf.cast(tensors, dtype=dtype)
+                tensor = tensors[rank,...]
+                result = hvd.allreduce(tensor, op=hvd.Max)
+            reference = tf.math.reduce_max(tensors, axis=0)
+            difference = tf.cast(result, dtype=dtype) - reference
+            difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
+            max_difference = tf.reduce_max(difference)
+
+            threshold = 0
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results for min")
+
+    def test_horovod_allreduce_product_gpu(self):
+        """Test on GPU that the allreduce correctly multiplies 1D, 2D, 3D tensors."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        hvd.init()
+        rank = hvd.rank()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+        dtypes = self.filter_supported_types([tf.uint8, tf.int8, tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%d" % local_rank):
+                tensors = self.random_uniform([size] + [2] * dim, -100, 100)
+                tensors = tf.cast(tensors, dtype=dtype)
+                tensor = tensors[rank,...]
+                result = hvd.allreduce(tensor, op=hvd.Product)
+            reference = tf.math.reduce_prod(tensors, axis=0)
+            difference = tf.cast(result, dtype=dtype) - reference
+            difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
+            max_difference = tf.reduce_max(difference)
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [tf.uint8, tf.int8, tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                self.skipTest("Horovod cluster too large for precise multiplication comparison")
+
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results for min")
 
     def test_horovod_allreduce_gpu_fused(self):
         """Test that the allreduce works on GPUs with Tensor Fusion.

@@ -36,6 +36,9 @@ class HorovodBasics(object):
         self.Average = self.MPI_LIB_CTYPES.horovod_reduce_op_average()
         self.Sum = self.MPI_LIB_CTYPES.horovod_reduce_op_sum()
         self.Adasum = self.MPI_LIB_CTYPES.horovod_reduce_op_adasum()
+        self.Min = self.MPI_LIB_CTYPES.horovod_reduce_op_min()
+        self.Max = self.MPI_LIB_CTYPES.horovod_reduce_op_max()
+        self.Product = self.MPI_LIB_CTYPES.horovod_reduce_op_product()
 
         # These must be kept in sync with operations.cc (this might also be possible via ctypes)
         self.HOROVOD_PROCESS_SET_ERROR_INIT = -1

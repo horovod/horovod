@@ -69,6 +69,9 @@ def init(*args, **kwargs):
 Average = _basics.Average
 Sum = _basics.Sum
 Adasum = _basics.Adasum
+Min = _basics.Min
+Max = _basics.Max
+Product = _basics.Product
 
 handle_average_backwards_compatibility = get_average_backwards_compatibility_fun(_basics)
 
@@ -116,7 +119,7 @@ def allreduce(tensor, average=None, name=None, priority=0, prescale_factor=1.0,
         across all processes.
     """
     op = handle_average_backwards_compatibility(op, average)
-    assert op in [Average, Sum]
+    assert op != Adasum
 
     output = mx.nd.zeros(shape=tensor.shape, ctx=tensor.context,
                          dtype=tensor.dtype)
@@ -126,7 +129,7 @@ def allreduce(tensor, average=None, name=None, priority=0, prescale_factor=1.0,
     c_name = c_str(name) if isinstance(name, string_types) else ctypes.c_char_p(None)
 
     check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(
-        ctypes.byref(c_in), ctypes.byref(c_out), c_name, ctypes.c_bool(op == Average),
+        ctypes.byref(c_in), ctypes.byref(c_out), c_name, ctypes.c_int(op),
         ctypes.c_int(priority),
         ctypes.c_double(prescale_factor),
         ctypes.c_double(postscale_factor),
@@ -177,7 +180,7 @@ def allreduce_(tensor, average=None, name=None, priority=0, prescale_factor=1.0,
     c_name = c_str(name) if isinstance(name, string_types) else ctypes.c_char_p(None)
 
     check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(
-        ctypes.byref(c_in), ctypes.byref(c_out), c_name, ctypes.c_bool(op == Average),
+        ctypes.byref(c_in), ctypes.byref(c_out), c_name, ctypes.c_int(op),
         ctypes.c_int(priority),
         ctypes.c_double(prescale_factor),
         ctypes.c_double(postscale_factor),
@@ -235,7 +238,7 @@ def grouped_allreduce(tensors, average=None, name=None, priority=0, prescale_fac
     c_name = c_str(name) if isinstance(name, string_types) else ctypes.c_char_p(None)
 
     check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(
-        c_in, c_out, c_name, ctypes.c_bool(op == Average),
+        c_in, c_out, c_name, ctypes.c_int(op),
         ctypes.c_int(priority),
         ctypes.c_double(prescale_factor),
         ctypes.c_double(postscale_factor),
@@ -290,7 +293,7 @@ def grouped_allreduce_(tensors, average=None, name=None, priority=0, prescale_fa
     c_name = c_str(name) if isinstance(name, string_types) else ctypes.c_char_p(None)
 
     check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(
-        c_in, c_out, c_name, ctypes.c_bool(op == Average),
+        c_in, c_out, c_name, ctypes.c_int(op),
         ctypes.c_int(priority),
         ctypes.c_double(prescale_factor),
         ctypes.c_double(postscale_factor),

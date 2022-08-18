@@ -64,6 +64,18 @@ MPI_Op MPIContext::GetMPISumOp(DataType dtype) const {
   return dtype == HOROVOD_FLOAT16 ? mpi_float16_sum : MPI_SUM;
 }
 
+MPI_Op MPIContext::GetMPIMinOp(DataType dtype) const {
+  return dtype == HOROVOD_FLOAT16 ? mpi_float16_min : MPI_MIN;
+}
+
+MPI_Op MPIContext::GetMPIMaxOp(DataType dtype) const {
+  return dtype == HOROVOD_FLOAT16 ? mpi_float16_max : MPI_MAX;
+}
+
+MPI_Op MPIContext::GetMPIProdOp(DataType dtype) const {
+  return dtype == HOROVOD_FLOAT16 ? mpi_float16_prod : MPI_PROD;
+}
+
 MPI_Comm MPIContext::GetMPICommunicator(Communicator comm) const {
   switch (comm) {
   case GLOBAL:
@@ -86,14 +98,26 @@ int MPIContext::GetMPITypeSize(DataType dtype) const {
 
 namespace {
 
-void CreateMPIFloat16TypeAndSumOp(MPI_Datatype& mpi_float16_t,
-                                MPI_Op& mpi_float16_sum) {
+void CreateMPIFloat16TypeAndOps(MPI_Datatype& mpi_float16_t,
+                                MPI_Op& mpi_float16_sum,
+                                MPI_Op& mpi_float16_min,
+                                MPI_Op& mpi_float16_max,
+                                MPI_Op& mpi_float16_prod) {
   // Create custom MPI float16 data type.
   MPI_Type_contiguous(2, MPI_BYTE, &mpi_float16_t);
   MPI_Type_commit(&mpi_float16_t);
 
   // Create custom MPI float16 summation op.
   MPI_Op_create(&float16_sum, 1, &mpi_float16_sum);
+
+  // Create custom MPI float16 min op.
+  MPI_Op_create(&float16_min, 1, &mpi_float16_min);
+
+  // Create custom MPI float16 max op.
+  MPI_Op_create(&float16_max, 1, &mpi_float16_max);
+
+  // Create custom MPI float16 prod op.
+  MPI_Op_create(&float16_prod, 1, &mpi_float16_prod);
 }
 
 void CreateMPILocalAndCrossComm(MPI_Comm mpi_comm, MPI_Comm& local_comm,
@@ -176,7 +200,8 @@ void MPIContext::Initialize(MPIContextManager& ctx_manager) {
 
   CreateMPILocalAndCrossComm(mpi_comm, local_comm, cross_comm);
 
-  CreateMPIFloat16TypeAndSumOp(mpi_float16_t, mpi_float16_sum);
+  CreateMPIFloat16TypeAndOps(mpi_float16_t, mpi_float16_sum, mpi_float16_min,
+                             mpi_float16_max, mpi_float16_prod);
 }
 
 void MPIContext::InitializeForProcessSet(const MPIContext& global_context,
@@ -207,7 +232,8 @@ void MPIContext::InitializeForProcessSet(const MPIContext& global_context,
     CreateMPILocalAndCrossComm(mpi_comm, local_comm, cross_comm);
   }
 
-  CreateMPIFloat16TypeAndSumOp(mpi_float16_t, mpi_float16_sum);
+  CreateMPIFloat16TypeAndOps(mpi_float16_t, mpi_float16_sum, mpi_float16_min,
+                             mpi_float16_max, mpi_float16_prod);
 }
 
 void MPIContext::Finalize(MPIContextManager& ctx_manager) {
@@ -242,6 +268,15 @@ void MPIContext::FinalizeWithoutEnv() {
   }
   if (mpi_float16_sum != MPI_OP_NULL) {
     MPI_Op_free(&mpi_float16_sum);
+  }
+  if (mpi_float16_min != MPI_OP_NULL) {
+    MPI_Op_free(&mpi_float16_min);
+  }
+  if (mpi_float16_max != MPI_OP_NULL) {
+    MPI_Op_free(&mpi_float16_max);
+  }
+  if (mpi_float16_prod != MPI_OP_NULL) {
+    MPI_Op_free(&mpi_float16_prod);
   }
 }
 

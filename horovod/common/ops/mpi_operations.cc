@@ -32,6 +32,26 @@ Status MPIAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
       global_state_->process_set_table.Get(first_entry.process_set_id);
   const auto& mpi_context = process_set.mpi_context;
 
+  MPI_Op mpiOp = mpi_context.GetMPISumOp(first_entry.tensor->dtype());
+  double prescale_factor = response.prescale_factor();
+  double postscale_factor = response.postscale_factor();
+
+  if (response.reduce_op() == ReduceOp::AVERAGE) {
+    mpiOp = mpi_context.GetMPISumOp(first_entry.tensor->dtype());
+    // Averaging happens via postscale_factor
+    postscale_factor /= process_set.controller->GetSize();
+  } else if (response.reduce_op() == ReduceOp::SUM) {
+    mpiOp = mpi_context.GetMPISumOp(first_entry.tensor->dtype());
+  } else if (response.reduce_op() == ReduceOp::MIN) {
+    mpiOp = mpi_context.GetMPIMinOp(first_entry.tensor->dtype());
+  } else if (response.reduce_op() == ReduceOp::MAX) {
+    mpiOp = mpi_context.GetMPIMaxOp(first_entry.tensor->dtype());
+  } else if (response.reduce_op() == ReduceOp::PRODUCT) {
+    mpiOp = mpi_context.GetMPIProdOp(first_entry.tensor->dtype());
+  } else {
+    throw std::logic_error("Reduction op type not supported.");
+  }
+
   const void* fused_input_data;
   void* buffer_data;
   size_t buffer_len;
@@ -49,9 +69,9 @@ Status MPIAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
     buffer_len = (size_t) first_entry.output->size();
   }
 
-  if (response.prescale_factor() != 1.0) {
+  if (prescale_factor != 1.0) {
     // Execute prescaling op
-    ScaleBuffer(response.prescale_factor(), entries, fused_input_data, buffer_data, num_elements);
+    ScaleBuffer(prescale_factor, entries, fused_input_data, buffer_data, num_elements);
     fused_input_data = buffer_data; // for unfused, scale is done out of place
   }
 
@@ -62,16 +82,16 @@ Status MPIAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
   int op =
       MPI_Allreduce(sendbuf, buffer_data, (int)num_elements,
                     mpi_context.GetMPIDataType(first_entry.tensor),
-                    mpi_context.GetMPISumOp(first_entry.tensor->dtype()),
+                    mpiOp,
                     mpi_context.GetMPICommunicator(Communicator::GLOBAL));
   if (op != MPI_SUCCESS) {
     throw std::runtime_error("MPI_Allreduce failed, see MPI output for details.");
   }
   timeline.ActivityEndAll(entries);
 
-  if (response.postscale_factor() != 1.0) {
+  if (postscale_factor != 1.0) {
     // Execute postscaling op
-    ScaleBuffer(response.postscale_factor(), entries, buffer_data, buffer_data, num_elements);
+    ScaleBuffer(postscale_factor, entries, buffer_data, buffer_data, num_elements);
   }
 
   // Copy memory out of the fusion buffer.
