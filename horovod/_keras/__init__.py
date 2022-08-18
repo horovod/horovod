@@ -23,6 +23,7 @@ from horovod.tensorflow.mpi_ops import rank
 
 
 _PRE_TF_2_4_0 = LooseVersion(tf.__version__) < LooseVersion('2.4.0')
+_IS_TF2 = LooseVersion(tf.__version__) >= LooseVersion('2.0.0')
 
 
 def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sparse,
@@ -49,7 +50,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                 gradient_predivide_factor,
                 groups,
                 process_set=process_set)
-
+            self._local_vars = set()
             self._agg_helper = None
             if backward_passes_per_step > 1:
                 if hvd._executing_eagerly():
@@ -68,6 +69,17 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                         rank=rank(),
                         optimizer_type=LocalGradientAggregationHelper._OPTIMIZER_TYPE_KERAS,
                     )
+
+        def register_local_var(self, var):
+            """Registers a source/variable as worker local. Horovod will not perform any global
+            operations on gradients corresponding to these sources and will instead return the local
+            gradient."""
+            if _IS_TF2:
+                self._local_vars.add(var.ref())
+            else:
+                self._local_vars.add(var.ref())
+            if self._agg_helper:
+                self._agg_helper.register_local_var(var)
 
         def _compute_gradients(self, loss, var_list, grad_loss=None, tape=None):
             """
@@ -121,7 +133,32 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
             if self._agg_helper:
                 return self._agg_helper.compute_gradients(tuple(grads), tuple(vars))
             else:
-                return self._allreduce_grads(grads, vars)
+                def _filtered_reduce_grads(grads, vars):
+                    rv = []
+                    rg = []
+                    if _IS_TF2:
+                        v2g = {var.ref():grad for var,grad in zip(vars, grads)}
+                        for var,grad in zip(vars, grads):
+                            if var.ref() not in self._local_vars:
+                                rv.append(var)
+                                rg.append(grad)
+                    else:
+                        v2g = {var:grad for var,grad in zip(vars, grads)}
+                        for var,grad in zip(vars, grads):
+                            if var not in self._local_vars:
+                                rv.append(var)
+                                rg.append(grad)
+
+                    rg = self._allreduce_grads(rg, rv)
+                    if _IS_TF2:
+                        for rv,rg in zip(rv, rg):
+                            v2g[rv.ref()] = rg
+                        return [v2g[rv.ref()] for rv in vars]
+                    else:
+                        for rv,rg in zip(rv,rg):
+                            v2g[rv] = rg
+                        return [v2g[rv] for rv in vars]
+                return _filtered_reduce_grads(grads, vars)
 
         def apply_gradients(self, *args, **kwargs):
             if self._agg_helper:
