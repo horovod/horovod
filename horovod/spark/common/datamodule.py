@@ -7,6 +7,8 @@ _data_modules = {}
 
 class DataModule(ABC):
     """Context manager base class for data module/loader implementations."""
+    short_name = None     # implementations should provide a short name for easy reference, e.g. 'petastorm', 'nvtabular', etc.
+
     def __init__(self, train_dir: str, val_dir: str, num_train_epochs: int=1, has_val: bool=True,
                  train_batch_size: int=32, val_batch_size: int=32, shuffle_size: int=1000,
                  transform_fn=None, inmemory_cache_all=False,
@@ -51,17 +53,27 @@ class DataModule(ABC):
         """Returns the validation data in a form required by the target DL framework."""
         pass
 
+    @classmethod
+    def register(cls):
+        """Adds this DataModule implementation to a global registry keyed by short name."""
+        _data_modules[cls.short_name] = cls
 
-def register_datamodule(module_name, data_module):
-    """Registers a DataModule implementation with a string key, e.g. 'petastorm', 'nvtabular'."""
-    _data_modules[module_name] = data_module
 
 def datamodule_from_name(module_name):
-    """Returns a DataModule implementation associated with a string key."""
+    """Returns a DataModule implementation associated with a string key.
+
+    Alternate implemntations of DataModule can be referenced by their fully-scoped name, e.g. `x.y.z.CustomDataModule`
+    """
     if module_name in _data_modules:
+        # return data module class from registry
         return _data_modules[module_name]
     else:
-        # try dynamic import
-        module = importlib.import_module(module_name)
-        module.register()
-        return _data_modules[module_name]
+        # otherwise, try to dynamically import data module
+        try:
+            splits = module_name.split('.')
+            m, c = '.'.join(splits[:-1]), splits[-1]
+            module = importlib.import_module(m)
+            return getattr(module, c)
+        except Exception as e:
+            print("Unable to dynamically load data module: {}".format(module_name))
+            raise(e)
