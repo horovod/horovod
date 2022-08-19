@@ -97,7 +97,7 @@ artifacts including intermediate representations of the training data.  Horovod 
 and local filesystems.
 
 `Petastorm <https://github.com/uber/petastorm/blob/master/petastorm/pytorch.py#L258>` based data loader is used by default,
-but user can define a custom data loader by overriding the `BaseDataLoader` interface. A async data loader mixin can also
+but user can define a custom data loader by overriding the `BaseDataLoader` interface. An async data loader mixin can also
 be added on top of the data loader.  Additionally, the KerasEstimator now supports a DataModule argument that is similar
 to the Lightning DataModule which abstracts the data loading and allows for alternative implementations:
 

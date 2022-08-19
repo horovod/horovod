@@ -60,9 +60,9 @@ class DataModule(ABC):
 
 
 def datamodule_from_name(module_name):
-    """Returns a DataModule implementation associated with a string key.
+    """Returns a DataModule implementation (the class) associated with a name.
 
-    Alternate implemntations of DataModule can be referenced by their fully-scoped name, e.g. `x.y.z.CustomDataModule`
+    Alternatively, implementations of DataModule can be referenced by their fully qualified class names, e.g. `horovod.spark.keras.datamodule.PetastormDataModule`
     """
     if module_name in _data_modules:
         # return data module class from registry
@@ -71,7 +71,7 @@ def datamodule_from_name(module_name):
         # otherwise, try to dynamically import data module
         try:
             splits = module_name.split('.')
-            m, c = '.'.join(splits[:-1]), splits[-1]
+            module_name, class_name = '.'.join(splits[:-1]), splits[-1]
             module = importlib.import_module(m)
             return getattr(module, c)
         except Exception as e:
