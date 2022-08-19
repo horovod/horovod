@@ -206,7 +206,7 @@ Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   // Copy (and possibly scale) tensors into the fusion buffer.
   if (entries.size() > 1) {
     ScaleMemcpyInFusionBuffer(entries, fused_input_data, buffer_data,
-                              buffer_len, response.prescale_factor());
+                              buffer_len, prescale_factor);
     if (global_state_->timeline.Initialized()) {
       gpu_context_->RecordEvent(gpu_op_context_.event_queue,
                                 MEMCPY_IN_FUSION_BUFFER,
@@ -220,7 +220,7 @@ Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
         buffer_len / DataType_Size(first_entry.tensor->dtype());
     if (prescale_factor != 1.0) {
       // Execute prescaling op
-      ScaleBuffer(response.prescale_factor(), entries, fused_input_data,
+      ScaleBuffer(prescale_factor, entries, fused_input_data,
                   buffer_data, num_elements);
       fused_input_data = buffer_data; // for unfused, scale is done out of place
     }
