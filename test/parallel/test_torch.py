@@ -170,11 +170,13 @@ class TorchTests(unittest.TestCase):
         hvd.init()
         size = hvd.size()
         dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
-                     torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor])
+                     torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor,
+                     torch.ByteTensor, torch.CharTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
-                       torch.cuda.HalfTensor]
+                       torch.cuda.HalfTensor, torch.cuda.ByteTensor,
+                       torch.cuda.CharTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             torch.manual_seed(1234)
@@ -187,7 +189,9 @@ class TorchTests(unittest.TestCase):
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
             if size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
-                                      torch.cuda.IntTensor, torch.cuda.LongTensor]:
+                                      torch.cuda.IntTensor, torch.cuda.LongTensor,
+                                      torch.ByteTensor, torch.CharTensor,
+                                      torch.cuda.ByteTensor, torch.cuda.CharTensor]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -203,22 +207,27 @@ class TorchTests(unittest.TestCase):
         hvd.init()
         size = hvd.size()
         dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
-                     torch.FloatTensor, torch.DoubleTensor])
+                     torch.FloatTensor, torch.DoubleTensor, torch.ByteTensor,
+                     torch.CharTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
-                       torch.cuda.HalfTensor]
+                       torch.cuda.HalfTensor, torch.cuda.ByteTensor,
+                       torch.cuda.CharTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             torch.manual_seed(1234)
             tensor = torch.FloatTensor(*([17] * dim)).random_(-100, 100)
             tensor = self.cast_and_place(tensor, dtype)
             averaged = hvd.allreduce(tensor, average=True)
-
+            # multiply and divide to handle overflows during allreduce
+            tensor = self.cast_and_place((tensor*size)/size, dtype)
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
             if size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
-                                      torch.cuda.IntTensor, torch.cuda.LongTensor]:
+                                      torch.cuda.IntTensor, torch.cuda.LongTensor,
+                                      torch.ByteTensor, torch.CharTensor,
+                                      torch.cuda.ByteTensor, torch.cuda.CharTensor]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -315,11 +324,13 @@ class TorchTests(unittest.TestCase):
         hvd.init()
         size = hvd.size()
         dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
-                     torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor])
+                     torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor,
+                     torch.ByteTensor, torch.CharTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
-                       torch.cuda.HalfTensor]
+                       torch.cuda.HalfTensor, torch.cuda.ByteTensor,
+                       torch.cuda.CharTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             torch.manual_seed(1234)
@@ -332,7 +343,9 @@ class TorchTests(unittest.TestCase):
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
             if size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
-                                      torch.cuda.IntTensor, torch.cuda.LongTensor]:
+                                      torch.cuda.IntTensor, torch.cuda.LongTensor,
+                                      torch.ByteTensor, torch.CharTensor,
+                                      torch.cuda.ByteTensor, torch.cuda.CharTensor]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -349,11 +362,13 @@ class TorchTests(unittest.TestCase):
         hvd.init()
         size = hvd.size()
         dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor])
+                  torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor,
+                  torch.ByteTensor, torch.CharTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
-                       torch.cuda.HalfTensor]
+                       torch.cuda.HalfTensor, torch.cuda.ByteTensor,
+                       torch.cuda.CharTensor]
         dims = [1, 2, 3]
         tests = []
         is_hvd_poll_false_once = False
@@ -378,7 +393,9 @@ class TorchTests(unittest.TestCase):
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
             if size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
-                                      torch.cuda.IntTensor, torch.cuda.LongTensor]:
+                                      torch.cuda.IntTensor, torch.cuda.LongTensor,
+                                      torch.ByteTensor, torch.CharTensor,
+                                      torch.cuda.ByteTensor, torch.cuda.CharTensor]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -406,7 +423,8 @@ class TorchTests(unittest.TestCase):
         iter = 0
         dtypes = [torch.cuda.IntTensor, torch.cuda.LongTensor,
                   torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
-                  torch.cuda.HalfTensor]
+                  torch.cuda.HalfTensor, torch.cuda.ByteTensor,
+                  torch.cuda.CharTensor]
 
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
@@ -420,7 +438,8 @@ class TorchTests(unittest.TestCase):
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [torch.cuda.IntTensor, torch.cuda.LongTensor]:
+            if size <= 3 or dtype in [torch.cuda.IntTensor, torch.cuda.LongTensor,
+                                      torch.cuda.ByteTensor, torch.cuda.CharTensor]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -436,13 +455,17 @@ class TorchTests(unittest.TestCase):
         hvd.init()
         size = hvd.size()
         dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
-                 torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor])
+                 torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor,
+                 torch.ByteTensor, torch.CharTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
-                       torch.cuda.HalfTensor]
+                       torch.cuda.HalfTensor, torch.cuda.ByteTensor,
+                       torch.cuda.CharTensor]
         int_types = [torch.IntTensor, torch.LongTensor,
-                     torch.cuda.IntTensor, torch.cuda.LongTensor]
+                     torch.cuda.IntTensor, torch.cuda.LongTensor,
+                     torch.ByteTensor, torch.CharTensor,
+                     torch.cuda.ByteTensor, torch.cuda.CharTensor]
         half_types = [torch.HalfTensor, torch.cuda.HalfTensor]
 
         dims = [1, 2, 3]
@@ -490,13 +513,17 @@ class TorchTests(unittest.TestCase):
         hvd.init()
         size = hvd.size()
         dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
-                 torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor])
+                 torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor,
+                 torch.ByteTensor, torch.CharTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
-                       torch.cuda.HalfTensor]
+                       torch.cuda.HalfTensor, torch.cuda.ByteTensor,
+                       torch.cuda.CharTensor]
         int_types = [torch.IntTensor, torch.LongTensor,
-                     torch.cuda.IntTensor, torch.cuda.LongTensor]
+                     torch.cuda.IntTensor, torch.cuda.LongTensor,
+                     torch.ByteTensor, torch.CharTensor,
+                     torch.cuda.ByteTensor, torch.cuda.CharTensor]
         half_types = [torch.HalfTensor, torch.cuda.HalfTensor]
 
         dims = [1, 2, 3]
@@ -522,6 +549,8 @@ class TorchTests(unittest.TestCase):
               tensor = tensor.type(torch.float32 if dtype in half_types else
                                    torch.float64 if dtype in int_types else dtype)
             multiplied = size * tensor
+            if dtype in int_types:
+                multiplied = multiplied.type(dtype)
             multiplied = multiplied * factor
             multiplied = multiplied.type(dtype)
             summed, multiplied = self.convert_cpu_fp16_to_fp32(summed, multiplied)
@@ -555,11 +584,13 @@ class TorchTests(unittest.TestCase):
         odd_set = hvd.add_process_set(odd_ranks)
         
         dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
-                     torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor])
+                     torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor,
+                     torch.ByteTensor, torch.CharTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
-                       torch.cuda.HalfTensor]
+                       torch.cuda.HalfTensor, torch.cuda.ByteTensor,
+                       torch.cuda.CharTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             torch.manual_seed(1234)
@@ -580,7 +611,9 @@ class TorchTests(unittest.TestCase):
             # ranks, since we're comparing against precise multiplication.
             max_process_set_size = max(len(even_ranks), len(odd_ranks))
             if max_process_set_size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
-                                                      torch.cuda.IntTensor, torch.cuda.LongTensor]:
+                                                      torch.cuda.IntTensor, torch.cuda.LongTensor,
+                                                      torch.ByteTensor, torch.CharTensor,
+                                                      torch.cuda.ByteTensor, torch.cuda.CharTensor]:
                 threshold = 0
             elif max_process_set_size < 10:
                 threshold = 1e-4
@@ -816,11 +849,13 @@ class TorchTests(unittest.TestCase):
         hvd.init()
         size = hvd.size()
         dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
-                     torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor])
+                     torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor,
+                     torch.ByteTensor, torch.CharTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
-                       torch.cuda.HalfTensor]
+                       torch.cuda.HalfTensor, torch.cuda.ByteTensor,
+                       torch.cuda.CharTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             torch.manual_seed(1234)
@@ -833,7 +868,9 @@ class TorchTests(unittest.TestCase):
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
             if size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
-                                      torch.cuda.IntTensor, torch.cuda.LongTensor]:
+                                      torch.cuda.IntTensor, torch.cuda.LongTensor,
+                                      torch.ByteTensor, torch.CharTensor,
+                                      torch.cuda.ByteTensor, torch.cuda.CharTensor]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -850,23 +887,29 @@ class TorchTests(unittest.TestCase):
         hvd.init()
         size = hvd.size()
         dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
-                     torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor])
+                     torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor,
+                     torch.ByteTensor, torch.CharTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
-                       torch.cuda.HalfTensor]
+                       torch.cuda.HalfTensor, torch.cuda.ByteTensor,
+                       torch.cuda.CharTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             torch.manual_seed(1234)
             tensors = [torch.FloatTensor(*([17] * dim)).random_(-100, 100) for _ in range(5)]
             tensors = [self.cast_and_place(tensor, dtype) for tensor in tensors]
             averaged = hvd.grouped_allreduce(tensors, average=True)
+            # multiply and divide to handle overflows during allreduce
+            tensors = [self.cast_and_place((tensor*size)/size, dtype) for tensor in tensors]
             tensors, averaged = zip(*[self.convert_cpu_fp16_to_fp32(t, m) for t, m in zip(tensors, averaged)])
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
             if size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
-                                      torch.cuda.IntTensor, torch.cuda.LongTensor]:
+                                      torch.cuda.IntTensor, torch.cuda.LongTensor,
+                                      torch.ByteTensor, torch.CharTensor,
+                                      torch.cuda.ByteTensor, torch.cuda.CharTensor]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -883,11 +926,13 @@ class TorchTests(unittest.TestCase):
         hvd.init()
         size = hvd.size()
         dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
-                     torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor])
+                     torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor,
+                     torch.ByteTensor, torch.CharTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
-                       torch.cuda.HalfTensor]
+                       torch.cuda.HalfTensor, torch.cuda.ByteTensor,
+                       torch.cuda.CharTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             torch.manual_seed(1234)
@@ -900,7 +945,9 @@ class TorchTests(unittest.TestCase):
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
             if size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
-                                      torch.cuda.IntTensor, torch.cuda.LongTensor]:
+                                      torch.cuda.IntTensor, torch.cuda.LongTensor,
+                                      torch.ByteTensor, torch.CharTensor,
+                                      torch.cuda.ByteTensor, torch.cuda.CharTensor]:
                 threshold = 0
             elif size < 10:
                 threshold = 1e-4
@@ -928,11 +975,13 @@ class TorchTests(unittest.TestCase):
         odd_set = hvd.add_process_set(odd_ranks)
 
         dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
-                     torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor])
+                     torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor,
+                     torch.ByteTensor, torch.CharTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
-                       torch.cuda.HalfTensor]
+                       torch.cuda.HalfTensor, torch.cuda.ByteTensor,
+                       torch.cuda.CharTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             torch.manual_seed(1234)
@@ -954,7 +1003,9 @@ class TorchTests(unittest.TestCase):
             # ranks, since we're comparing against precise multiplication.
             max_process_set_size = max(len(even_ranks), len(odd_ranks))
             if max_process_set_size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
-                                                      torch.cuda.IntTensor, torch.cuda.LongTensor]:
+                                                      torch.cuda.IntTensor, torch.cuda.LongTensor,
+                                                      torch.ByteTensor, torch.CharTensor,
+                                                      torch.cuda.ByteTensor, torch.cuda.CharTensor]:
                 threshold = 0
             elif max_process_set_size < 10:
                 threshold = 1e-4
@@ -2983,13 +3034,16 @@ class TorchTests(unittest.TestCase):
         size = hvd.size()
 
         dtypes = [torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor]
+                  torch.FloatTensor, torch.DoubleTensor,
+                  torch.ByteTensor, torch.CharTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor,
-                       torch.cuda.HalfTensor]
+                       torch.cuda.HalfTensor, torch.cuda.ByteTensor,
+                       torch.cuda.CharTensor]
 
-        integral_types = [torch.IntTensor, torch.LongTensor, torch.cuda.IntTensor, torch.cuda.LongTensor]
+        integral_types = [torch.IntTensor, torch.LongTensor, torch.cuda.IntTensor, torch.cuda.LongTensor,
+                          torch.ByteTensor, torch.CharTensor, torch.cuda.ByteTensor, torch.cuda.CharTensor]
 
         dims = [1, 2, 3]
         first_join_ranks = list(range(size))
