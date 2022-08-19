@@ -624,13 +624,13 @@ if _LegacyOptimizer is not None:
         def register_local_var(self, var):
             """Registers a source/variable as worker local. Horovod will not perform any global
             operations on gradients corresponding to these sources and will instead return the local
-            gradient."""
-            if _IS_TF2:
+            gradient."""    
+            if self._agg_helper:
+                self._agg_helper.register_local_var(var)
+            elif _IS_TF2:
                 self._local_vars.add(var.ref())
             else:
                 self._local_vars.add(var.ref())
-            if self._agg_helper:
-                self._agg_helper.register_local_var(var)
 
         def compute_gradients(self, *args, **kwargs):
             """Compute gradients of all trainable variables.
@@ -650,14 +650,14 @@ if _LegacyOptimizer is not None:
                     rv = []
                     rg = []
                     if _IS_TF2:
-                        v2g = {var.ref():grad for var,grad in zip(vars, grads)}
-                        for var,grad in zip(vars, grads):
+                        v2g = {var.ref(): grad for var, grad in zip(vars, grads)}
+                        for var, grad in zip(vars, grads):
                             if var.ref() not in self._local_vars:
                                 rv.append(var)
                                 rg.append(grad)
                     else:
-                        v2g = {var:grad for var,grad in zip(vars, grads)}
-                        for var,grad in zip(vars, grads):
+                        v2g = {var: grad for var, grad in zip(vars, grads)}
+                        for var, grad in zip(vars, grads):
                             if var not in self._local_vars:
                                 rv.append(var)
                                 rg.append(grad)
@@ -668,7 +668,7 @@ if _LegacyOptimizer is not None:
                             v2g[rv.ref()] = rg
                         return [v2g[rv.ref()] for rv in vars]
                     else:
-                        for rv,rg in zip(rv,rg):
+                        for rv, rg in zip(rv, rg):
                             v2g[rv] = rg
                         return [v2g[rv] for rv in vars]
 

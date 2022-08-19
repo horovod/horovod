@@ -165,25 +165,25 @@ class LocalGradientAggregationHelper:
             rv = []
             rg = []
             if _IS_TF2:
-                v2g = {var.ref():grad for var,grad in zip(vars, grads)}
-                for var,grad in zip(vars, grads):
+                v2g = {var.ref(): grad for var, grad in zip(vars, grads)}
+                for var, grad in zip(vars, grads):
                     if var.ref() not in self._local_vars:
                         rv.append(var)
                         rg.append(grad)
             else:
-                v2g = {var:grad for var,grad in zip(vars, grads)}
-                for var,grad in zip(vars, grads):
+                v2g = {var: grad for var, grad in zip(vars, grads)}
+                for var, grad in zip(vars, grads):
                     if var not in self._local_vars:
                         rv.append(var)
                         rg.append(grad)
 
             rg = self._allreduce_grads(rg, rv)
             if _IS_TF2:
-                for rv,rg in zip(rv, rg):
+                for rv, rg in zip(rv, rg):
                     v2g[rv.ref()] = rg
                 return [v2g[rv.ref()] for rv in vars]
             else:
-                for rv,rg in zip(rv,rg):
+                for rv, rg in zip(rv, rg):
                     v2g[rv] = rg
                 return [v2g[rv] for rv in vars]
 
