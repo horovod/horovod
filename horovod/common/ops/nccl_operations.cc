@@ -195,6 +195,8 @@ Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     // Use NCCLAvg op in place of postscale_factor
     ncclOp = ncclAvg;
 #else
+    auto process_set_id = first_entry.process_set_id;
+    auto& process_set = global_state_->process_set_table.Get(process_set_id);
     ncclOp = ncclSum;
     // Averaging happens via postscale_factor
     postscale_factor /= process_set.controller->GetSize();

@@ -55,6 +55,8 @@ Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
 
   if (response.reduce_op() == ReduceOp::AVERAGE) {
     ddlOp = DDL_OP_SUM;
+    auto process_set_id = first_entry.process_set_id;
+    auto& process_set = global_state_->process_set_table.Get(process_set_id);
     // Averaging happens via postscale_factor
     postscale_factor /= process_set.controller->GetSize();
   } else if (response.reduce_op() == ReduceOp::SUM) {
