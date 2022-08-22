@@ -173,7 +173,7 @@ def allreduce_(tensor, average=None, name=None, priority=0, prescale_factor=1.0,
         across all processes.
     """
     op = handle_average_backwards_compatibility(op, average)
-    assert op in [Average, Sum]
+    assert op != Adasum
 
     c_in = tensor.handle
     c_out = tensor.handle
@@ -225,7 +225,7 @@ def grouped_allreduce(tensors, average=None, name=None, priority=0, prescale_fac
         averaged or summed across all processes.
     """
     op = handle_average_backwards_compatibility(op, average)
-    assert op in [Average, Sum]
+    assert op != Adasum
 
     if not tensors:
       return tensors
@@ -283,7 +283,7 @@ def grouped_allreduce_(tensors, average=None, name=None, priority=0, prescale_fa
         averaged or summed across all processes.
     """
     op = handle_average_backwards_compatibility(op, average)
-    assert op in [Average, Sum]
+    assert op != Adasum
 
     if not tensors:
       return tensors
