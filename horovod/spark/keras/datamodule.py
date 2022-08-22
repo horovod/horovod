@@ -21,8 +21,6 @@ from horovod.spark.common.datamodule import DataModule
 
 class PetastormDataModule(DataModule):
     """Default Petastorm-based DataModule for KerasEstimator."""
-    short_name = 'petastorm'
-
     def __init__(self, reader_pool_type: str="process", train_reader_worker_count: int=2, val_reader_worker_count: int=2, make_dataset=None, random_seed=0, **kwargs):
         from petastorm import TransformSpec, make_reader, make_batch_reader
 
@@ -105,8 +103,6 @@ class NVTabularDataModule(DataModule):
     """NVTabular-based DataModule for KerasEstimator for GPU-accelerated data loading of tabular datasets.
 
     Note: requires `label_cols`, `categorical_cols`, and `continuous_cols` to be explicitly provided."""
-    short_name = 'nvtabular'
-
     def __init__(self, label_cols=[], categorical_cols=[], continuous_cols=[], **kwargs):
         super().__init__(**kwargs)
         self.label_cols = label_cols
@@ -176,7 +172,3 @@ class NVTabularDataModule(DataModule):
                                    parts_per_chunk=1,
                                    global_size=hvd.size(),
                                    global_rank=hvd.rank()).map(self.to_dense) if self.has_val else self.empty_batch_reader()
-
-
-PetastormDataModule.register()
-NVTabularDataModule.register()

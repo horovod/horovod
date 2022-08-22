@@ -124,6 +124,8 @@ class SparkKerasTests(tf.test.TestCase):
 
     @pytest.mark.skipif(not HAS_NVTABULAR, reason='NVTabular unavailable')
     def test_fit_model_nvtabular_vector(self):
+        from horovod.spark.keras.datamodule import NVTabularDataModule
+
         model = create_xor_model()
         optimizer = tf.keras.optimizers.SGD(lr=0.1)
         loss = 'binary_crossentropy'
@@ -135,7 +137,7 @@ class SparkKerasTests(tf.test.TestCase):
             with local_store() as store:
                 keras_estimator = hvd.KerasEstimator(
                     num_proc=1,
-                    data_module='nvtabular',
+                    data_module=NVTabularDataModule,
                     store=store,
                     model=model,
                     optimizer=optimizer,
@@ -159,6 +161,8 @@ class SparkKerasTests(tf.test.TestCase):
 
     @pytest.mark.skipif(not HAS_NVTABULAR, reason='NVTabular unavailable')
     def test_fit_model_nvtabular_scalar(self):
+        from horovod.spark.keras.datamodule import NVTabularDataModule
+
         np.random.seed(1234)
         continuous = np.random.rand(1000, 2)
         weights = np.array([3.142, 1.618])
@@ -181,7 +185,7 @@ class SparkKerasTests(tf.test.TestCase):
 
                 keras_estimator = hvd.KerasEstimator(
                     num_proc=2,
-                    data_module='nvtabular',
+                    data_module=NVTabularDataModule,
                     store=store,
                     model=model,
                     optimizer=optimizer,

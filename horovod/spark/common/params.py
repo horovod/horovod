@@ -24,7 +24,7 @@ from horovod.spark.common import util
 
 class EstimatorParams(Params):
     num_proc = Param(Params._dummy(), 'num_proc', 'number of processes')
-    data_module = Param(Params._dummy(), 'data_module', 'data module class to use when reading data', typeConverter=TypeConverters.toString)
+    data_module = Param(Params._dummy(), 'data_module', 'data module class to use when reading data')
     train_reader_num_workers = Param(Params._dummy(),
                                      'train_reader_num_workers',
                                      'number of parallel worker processes to read train data')

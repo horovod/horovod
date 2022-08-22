@@ -12,11 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-import importlib
 from abc import ABC, abstractmethod
-
-
-_data_modules = {}
 
 
 class DataModule(ABC):
@@ -58,36 +54,11 @@ class DataModule(ABC):
         pass
 
     @abstractmethod
-    def train_data(self, reader=None):
+    def train_data(self):
         """Returns the training data in a form required by the target DL framework."""
         pass
 
     @abstractmethod
-    def val_data(self, reader=None):
+    def val_data(self):
         """Returns the validation data in a form required by the target DL framework."""
         pass
-
-    @classmethod
-    def register(cls):
-        """Adds this DataModule implementation to a global registry keyed by short name."""
-        _data_modules[cls.short_name] = cls
-
-
-def datamodule_from_name(module_name):
-    """Returns a DataModule implementation (the class) associated with a name.
-
-    Alternatively, implementations of DataModule can be referenced by their fully qualified class names, e.g. `horovod.spark.keras.datamodule.PetastormDataModule`
-    """
-    if module_name in _data_modules:
-        # return data module class from registry
-        return _data_modules[module_name]
-    else:
-        # otherwise, try to dynamically import data module
-        try:
-            splits = module_name.split('.')
-            module_name, class_name = '.'.join(splits[:-1]), splits[-1]
-            module = importlib.import_module(m)
-            return getattr(module, c)
-        except Exception as e:
-            print("Unable to dynamically load data module: {}".format(module_name))
-            raise(e)

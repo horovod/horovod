@@ -14,7 +14,6 @@
 # limitations under the License.
 # ==============================================================================
 
-import importlib
 import io
 import math
 import os
@@ -25,7 +24,6 @@ import tensorflow as tf
 
 from distutils.version import LooseVersion
 from horovod.spark.common import constants
-from horovod.spark.common.datamodule import datamodule_from_name
 from horovod.spark.common.store import DBFSLocalStore
 from horovod.spark.common.util import _get_assigned_gpu_or_default, _set_mp_start_method
 from horovod.runner.common.util import codec
@@ -61,7 +59,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     mp_start_method = estimator.getMpStartMethod()
 
     # Data reader parameters
-    data_module = datamodule_from_name(estimator.getDataModule())
+    data_module = estimator.getDataModule()
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
     val_reader_worker_count = estimator.getValReaderNumWorker()
     reader_pool_type = estimator.getReaderPoolType()
@@ -109,7 +107,6 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
         if mp_start_method:
             _set_mp_start_method(mp_start_method, user_verbose)
 
-        from petastorm import TransformSpec, make_reader, make_batch_reader
         import horovod as _horovod
         k = get_keras()
         k.backend.set_floatx(floatx)

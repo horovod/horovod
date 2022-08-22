@@ -32,6 +32,7 @@ from horovod.spark.common.params import EstimatorParams
 from horovod.spark.common.serialization import HorovodParamsWriter, HorovodParamsReader
 from horovod.spark.keras import remote
 from horovod.spark.keras.util import TFKerasUtil
+from horovod.spark.keras.datamodule import PetastormDataModule
 
 
 class KerasEstimatorParamsWriter(HorovodParamsWriter):
@@ -204,7 +205,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
 
         super(KerasEstimator, self).__init__()
 
-        self._setDefault(data_module='petastorm',
+        self._setDefault(data_module=PetastormDataModule,
                          optimizer=None,
                          custom_objects={},
                          checkpoint_callback=None,
