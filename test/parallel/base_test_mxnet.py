@@ -191,7 +191,7 @@ class MXTests:
             mx.random.seed(1234, ctx=ctx)
             tensors = mx.nd.random.uniform(-100, 100, shape=shapes[dim],
                                            ctx=ctx).astype(dtype)
-            tensor = tensors[rank,...]
+            tensor = tensors[rank,:]
             result = hvd.allreduce(tensor, op=hvd.Min, name=str(count))
             reference = mx.nd.min(tensors, axis=0)
             count += 1
@@ -214,7 +214,7 @@ class MXTests:
             mx.random.seed(1234, ctx=ctx)
             tensors = mx.nd.random.uniform(-100, 100, shape=shapes[dim],
                                            ctx=ctx).astype(dtype)
-            tensor = tensors[rank,...]
+            tensor = tensors[rank,:]
             result = hvd.allreduce(tensor, op=hvd.Max, name=str(count))
             reference = mx.nd.max(tensors, axis=0)
             count += 1
@@ -237,7 +237,7 @@ class MXTests:
             mx.random.seed(1234, ctx=ctx)
             tensors = mx.nd.random.uniform(-100, 100, shape=shapes[dim],
                                            ctx=ctx).astype(dtype)
-            tensor = tensors[rank,...]
+            tensor = tensors[rank,:]
             result = hvd.allreduce(tensor, op=hvd.Product, name=str(count))
             reference = mx.nd.prod(tensors, axis=0)
             count += 1
