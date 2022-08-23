@@ -75,7 +75,7 @@ class LocalGradientAggregationHelper:
         if _IS_TF2:
             self._local_vars.add(var.ref())
         else:
-            self._local_vars.add(var.ref())
+            self._local_vars.add(var)
 
     def _maybe_convert_grad(self, grad):
         # Handle IndexedSlices.

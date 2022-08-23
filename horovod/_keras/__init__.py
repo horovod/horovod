@@ -79,7 +79,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
             elif _IS_TF2:
                 self._local_vars.add(var.ref())
             else:
-                self._local_vars.add(var.ref())
+                self._local_vars.add(var)
 
         def _compute_gradients(self, loss, var_list, grad_loss=None, tape=None):
             """

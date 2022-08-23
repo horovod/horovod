@@ -51,7 +51,7 @@ class LocalGradientAggregationHelperEager:
         if _IS_TF2:
             self._local_vars.add(var.ref())
         else:
-            self._local_vars.add(var.ref())
+            self._local_vars.add(var)
 
     def compute_gradients(self, grads, vars):
         # On steps where allreduce happens, resulting_grads returns the allreduced

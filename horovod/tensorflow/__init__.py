@@ -630,7 +630,7 @@ if _LegacyOptimizer is not None:
             elif _IS_TF2:
                 self._local_vars.add(var.ref())
             else:
-                self._local_vars.add(var.ref())
+                self._local_vars.add(var)
 
         def compute_gradients(self, *args, **kwargs):
             """Compute gradients of all trainable variables.
