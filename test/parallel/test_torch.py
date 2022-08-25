@@ -221,7 +221,7 @@ class TorchTests(unittest.TestCase):
             tensor = self.cast_and_place(tensor, dtype)
             averaged = hvd.allreduce(tensor, average=True)
             # multiply and divide to handle overflows during allreduce
-            tensor = self.cast_and_place((tensor*size)/size, dtype)
+            tensor = self.cast_and_place((tensor*size)//size, dtype)
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
             if size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
@@ -901,7 +901,7 @@ class TorchTests(unittest.TestCase):
             tensors = [self.cast_and_place(tensor, dtype) for tensor in tensors]
             averaged = hvd.grouped_allreduce(tensors, average=True)
             # multiply and divide to handle overflows during allreduce
-            tensors = [self.cast_and_place((tensor*size)/size, dtype) for tensor in tensors]
+            tensors = [self.cast_and_place((tensor*size)//size, dtype) for tensor in tensors]
             tensors, averaged = zip(*[self.convert_cpu_fp16_to_fp32(t, m) for t, m in zip(tensors, averaged)])
 
             # Threshold for floating point equality depends on number of
