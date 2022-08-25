@@ -17,6 +17,7 @@ import contextlib
 import io
 import math
 import os
+import warnings
 from datetime import datetime, timezone
 
 import torch
@@ -52,6 +53,10 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     metric_fn_groups = estimator.getMetrics()
     random_seed = estimator.getRandomSeed()
     user_shuffle_buffer_size = estimator.getShufflingBufferSize()
+    if user_shuffle_buffer_size is not None:
+        warnings.warn('shuffle_buffer_size is deprecated and will be removed in future releases, '\
+                      'use shuffle instead', DeprecationWarning)
+    shuffle = estimator.getShuffle()
     user_verbose = estimator.getVerbose()
     train_minibatch_fn = estimator.getTrainMinibatchFn()
     train_minibatch = train_minibatch_fn if train_minibatch_fn else _train_minibatch_fn()
@@ -81,7 +86,6 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     # Utility functions
     deserialize = deserialize_fn()
     get_optimizer_with_unscaled_lr = _get_optimizer_with_unscaled_lr_fn()
-    calculate_shuffle_buffer_size = _calculate_shuffle_buffer_size_fn()
     construct_metric_value_holders = _construct_metric_value_holders_fn()
     metric_cls = _metric_cls()
     prepare_np_data = _prepare_np_data_fn()
@@ -130,15 +134,6 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
         if user_verbose:
             import horovod as _horovod
             print(f"Shared lib path is pointing to: {_horovod.common.process_sets._basics.MPI_LIB_CTYPES}")
-
-        # If user specifies any user_shuffle_buffer_size (even 0), we should honor it.
-        if user_shuffle_buffer_size is None:
-            shuffle_buffer_size = \
-                calculate_shuffle_buffer_size(hvd, avg_row_size, train_rows / hvd.size())
-        else:
-            if user_shuffle_buffer_size < 0:
-                raise ValueError("user_shuffle_buffer_size cannot be negative!")
-            shuffle_buffer_size = user_shuffle_buffer_size
 
         if not should_use_gpu and user_verbose:
             print("Skip pinning current process to the GPU.")
@@ -240,7 +235,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
             if hvd.rank() == 0 and user_verbose:
                 print(f"Training parameters: Epochs: {epochs}\n"
                       f"Train rows: {train_rows}, Train batch size: {batch_size}, Train_steps_per_epoch: {steps_per_epoch}\n"
-                      f"Shuffle buffer size: {shuffle_buffer_size}, Random seed: {random_seed}\n"
+                      f"Shuffle: {shuffle}, Random seed: {random_seed}\n"
                       f"Checkpoint file: {ckpt_file}, Logs dir: {logs_dir}\n")
             # In general, make_batch_reader is faster than make_reader for reading the dataset.
             # However, we found out that make_reader performs data transformations much faster than
@@ -268,8 +263,9 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                                 schema_fields=schema_fields,
                                 transform_spec=transform_spec,
                                 storage_options=storage_options,
-                                # Don't shuffle row groups without shuffling.
-                                shuffle_row_groups=True if shuffle_buffer_size > 0 else False,
+                                shuffle_rows=shuffle,
+                                shuffle_row_groups=shuffle,
+                                seed=random_seed,
                                 **reader_factory_kwargs) as train_reader:
                 with reader_factory(remote_store.val_data_path,
                                     num_epochs=None,
@@ -281,7 +277,9 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                                     schema_fields=schema_fields,
                                     transform_spec=transform_spec,
                                     storage_options=storage_options,
+                                    shuffle_rows=False,
                                     shuffle_row_groups=False,
+                                    seed=random_seed,
                                     **reader_factory_kwargs) \
                     if should_validate else empty_batch_reader() as val_reader:
 
@@ -291,11 +289,12 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                                                               batch_size=batch_size,
                                                               num_epochs=epochs,
                                                               rows_capacity=steps_per_epoch*batch_size,
-                                                              shuffle=True)
+                                                              shuffle=shuffle)
                     else:
                         train_loader = BatchedDataLoader(train_reader,
                                                          batch_size=batch_size,
-                                                         shuffling_queue_capacity=shuffle_buffer_size)
+                                                         # No need to shuffle again in dataloader level
+                                                         shuffling_queue_capacity=0)
                     train_loader_iter = iter(train_loader)
 
                     def prepare_batch(row):
@@ -478,46 +477,6 @@ def _get_optimizer_with_unscaled_lr_fn():
         return optimizer
 
     return get_optimizer_with_unscaled_lr
-
-
-def _calculate_shuffle_buffer_size_fn():
-    def calculate_shuffle_buffer_size(hvd, avg_row_size, train_row_count_per_worker):
-        """
-        Determines the shuffling buffer size such that each worker gets at most 1GB for shuffling
-        buffer such that on a single machine, among all the workers on that machine, at most
-        memory_cap_gb GB are allocated for shuffling buffer. Also, it ensures that the buffer size
-        is identical among all the workers.
-
-        example 1:
-        memory_cap_gb = 4
-        machine1: 8 workers
-        machine2: 3 workers
-        shuffle_buffer_size = 0.5 GB
-
-        example 2:
-        memory_cap_gb = 4
-            machine1: 2 workers
-            machine2: 3 workers
-        shuffle_buffer_size = 1 GB
-
-        example 3:
-        memory_cap_gb = 4
-            machine1: 2 workers
-            machine2: 8 workers
-            machine3: 5 workers
-        shuffle_buffer_size = 0.5 GB
-        """
-        local_size = hvd.local_size()
-        local_sizes = hvd.allgather(torch.tensor([local_size]))
-        max_local_size = torch.max(local_sizes).item()
-
-        if max_local_size > TOTAL_BUFFER_MEMORY_CAP_GIB:
-            shuffle_buffer_size = TOTAL_BUFFER_MEMORY_CAP_GIB * BYTES_PER_GIB / avg_row_size / max_local_size
-        else:
-            shuffle_buffer_size = BYTES_PER_GIB / avg_row_size
-        return int(min(shuffle_buffer_size, train_row_count_per_worker))
-
-    return calculate_shuffle_buffer_size
 
 
 def _construct_metric_value_holders_fn():

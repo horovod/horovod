@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Added support for Petastorm reader level parallel shuffling. ([#3665](https://github.com/horovod/horovod/pull/3665))
+- Added random seed support for Lightning datamodule to generate reproducible data loading outputs. ([#3665](https://github.com/horovod/horovod/pull/3665))
 - Added support for `int8, uint8` allreduce and grouped_allreduce in tensorflow. ([#3649](https://github.com/horovod/horovod/pull/3649))
 - Added support for batched memory copies in GPUAllgather. ([#3590](https://github.com/horovod/horovod/pull/3590))
 - Added support for batched memory copies in GPUReducescatter. ([#3621](https://github.com/horovod/horovod/pull/3621))
@@ -20,7 +22,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Default Petastorm reader pool is changed from `process` to `thread` for lower memory usage. ([#3665](https://github.com/horovod/horovod/pull/3665))
+
 ### Deprecated
+
+- Deprecated field `shuffle_buffer_size` from `EstimatorParams`. Use `shuffle` to enable shuffle or not. ([#3665](https://github.com/horovod/horovod/pull/3665))
 
 ### Removed
 

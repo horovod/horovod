@@ -60,19 +60,18 @@ class TFKerasUtil(object):
             has_sparse_col, sample_weight_col, feature_columns,
             label_columns, input_shapes, label_shapes, output_names)
 
-        def fn(reader, batch_size, shuffle_buffer_size, is_batch_reader, shuffle=False, cache=False, seed=None):
+        def fn(reader, batch_size, is_batch_reader, shuffle=True, cache=False):
             from petastorm.tf_utils import make_petastorm_dataset
 
+            # Samples come from Petastorm reader are already shuffled if needed.
+            # We don't need to shuffle again in Tensorflow dataset.
             dataset = make_petastorm_dataset(reader)
             if is_batch_reader:
                 dataset = dataset.apply(tf.data.experimental.unbatch())
 
-            # Apply cache() before shuffle, so we can reshuffle in each iteration.
-            if cache:
+            # cache() can only be applied without shuffle to generate same samples per epoch.
+            if cache and not shuffle:
                 dataset = dataset.cache()
-
-            if shuffle:
-                dataset = dataset.shuffle(shuffle_buffer_size, seed=seed)
 
             # Use tf.data.Dataset.repeat() to set up an infinite iterator
             # and to enable ranks to perform training and validation with
