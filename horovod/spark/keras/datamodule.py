@@ -120,15 +120,10 @@ class NVTabularDataModule(DataModule):
         import cupy
         import tensorflow as tf
         hvd.init()
-
-        min_int, max_int = tf.int32.limits
-        max_rand = max_int // hvd.size()
-        # Generate a seed fragment on each worker
-        seed_fragment = cupy.random.randint(0, max_rand).get()
-        # Aggregate seed fragments from all Horovod workers
-        seed_tensor = tf.constant(seed_fragment)
-        reduced_seed = hvd.allreduce(seed_tensor, name="shuffle_seed", op=hvd.Sum)
-        return reduced_seed % max_rand
+        seed = cupy.random.randint(0, tf.int32.max).get()
+        seed_tensor = tf.constant(seed)
+        root_seed = hvd.broadcast(seed_tensor, name="shuffle_seed", root_rank=0)
+        return root_seed
 
     @staticmethod
     def to_dense(X, labels):
