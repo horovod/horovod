@@ -102,6 +102,7 @@ be added on top of the data loader.  Additionally, the KerasEstimator supports a
 to the Lightning DataModule which abstracts the data loading and allows for alternative implementations:
 
 .. code-block:: python
+
     from horovod.spark.keras.datamodule import NVTabularDataModule
 
     keras_estimator = hvd.KerasEstimator(
