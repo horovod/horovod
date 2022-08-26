@@ -95,7 +95,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
 
     Args:
         num_proc: Number of Horovod processes.  Defaults to `spark.default.parallelism`.
-        data_module: (Optional) DataModule used for training and validation, if not set, defaults to the PetastormDataModule.
+        data_module: (Optional) DataModule class used for training and validation, if not set, defaults to the PetastormDataModule.
         model: Keras model to train.
         backend: Optional Backend object for running distributed training function. Defaults to SparkBackend with
                  `num_proc` worker processes. Cannot be specified if `num_proc` is also provided.
