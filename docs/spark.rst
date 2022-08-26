@@ -96,15 +96,16 @@ logging (for Tensorboard) using the Estimator ``Store`` abstraction.  Stores are
 artifacts including intermediate representations of the training data.  Horovod natively supports stores for HDFS
 and local filesystems.
 
-`Petastorm <https://github.com/uber/petastorm/blob/master/petastorm/pytorch.py#L258>` based data loader is used by default,
+`Petastorm <https://github.com/uber/petastorm/blob/master/petastorm/pytorch.py#L259>`__ based data loader is used by default,
 but user can define a custom data loader by overriding the `BaseDataLoader` interface. An async data loader mixin can also
-be added on top of the data loader.  Additionally, the KerasEstimator now supports a DataModule argument that is similar
+be added on top of the data loader.  Additionally, the KerasEstimator supports a DataModule argument that is similar
 to the Lightning DataModule which abstracts the data loading and allows for alternative implementations:
 
 .. code-block:: python
+    from horovod.spark.keras.datamodule import NVTabularDataModule
 
     keras_estimator = hvd.KerasEstimator(
-        data_module='nvtabular',   # default: 'petastorm'
+        data_module=NVTabularDataModule,   # default: PetastormDataModule
         num_proc=4,
         store=store,
         model=model,
