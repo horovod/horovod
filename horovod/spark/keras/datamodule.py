@@ -98,7 +98,6 @@ class PetastormDataModule(DataModule):
                                  self.is_batch_reader, shuffle=False, cache=self.inmemory_cache_all) if self.val_reader else None
 
 
-
 class NVTabularDataModule(DataModule):
     """NVTabular-based DataModule for KerasEstimator for GPU-accelerated data loading of tabular datasets.
 
