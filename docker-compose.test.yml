@@ -154,6 +154,9 @@ services:
     privileged: true
     shm_size: 8gb
 
+  # available versions for CUDNN_VERSION and NCCL_VERSION_OVERRIDE can be found at
+  #   https://developer.download.nvidia.com/compute/cuda/repos/{OS}/x86_64/
+
   # we need CUDA 10.0 as tensorflow-gpu==1.15.5 is compiled against and linked to CUDA 10.0
   # torch==1.8.1 is the latest we can test in this setup
   # mxnet-cu100==1.7.0 does not contain mkldnn headers, and there is no 1.7.0.postx that would have them
@@ -195,9 +198,9 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.3.1-devel-ubuntu20.04
-        CUDNN_VERSION: 8.2.1.32-1+cuda11.3
-        NCCL_VERSION_OVERRIDE: 2.9.6-1+cuda11.3
+        CUDA_DOCKER_VERSION: 11.6.1-devel-ubuntu20.04
+        CUDNN_VERSION: 8.4.1.50-1+cuda11.6
+        NCCL_VERSION_OVERRIDE: 2.12.12-1+cuda11.6
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.8.2
         KERAS_PACKAGE: keras==2.8.0
         PYTORCH_PACKAGE: torch==1.11.0+cu113
@@ -208,9 +211,9 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.3.1-devel-ubuntu20.04
-        CUDNN_VERSION: 8.2.1.32-1+cuda11.3
-        NCCL_VERSION_OVERRIDE: 2.9.6-1+cuda11.3
+        CUDA_DOCKER_VERSION: 11.6.1-devel-ubuntu20.04
+        CUDNN_VERSION: 8.4.1.50-1+cuda11.6
+        NCCL_VERSION_OVERRIDE: 2.12.12-1+cuda11.6
         MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.9.1
         KERAS_PACKAGE: keras==2.9.0
@@ -222,9 +225,9 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.3.1-devel-ubuntu20.04
-        CUDNN_VERSION: 8.2.1.32-1+cuda11.3
-        NCCL_VERSION_OVERRIDE: 2.9.6-1+cuda11.3
+        CUDA_DOCKER_VERSION: 11.6.1-devel-ubuntu20.04
+        CUDNN_VERSION: 8.4.1.50-1+cuda11.6
+        NCCL_VERSION_OVERRIDE: 2.12.12-1+cuda11.6
         MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tf-nightly-gpu
         KERAS_PACKAGE: None
@@ -255,9 +258,9 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.3.1-devel-ubuntu20.04
-        CUDNN_VERSION: 8.2.1.32-1+cuda11.3
-        NCCL_VERSION_OVERRIDE: 2.9.6-1+cuda11.3
+        CUDA_DOCKER_VERSION: 11.6.1-devel-ubuntu20.04
+        CUDNN_VERSION: 8.4.1.50-1+cuda11.6
+        NCCL_VERSION_OVERRIDE: 2.12.12-1+cuda11.6
         MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.9.1
         KERAS_PACKAGE: keras==2.9.0
