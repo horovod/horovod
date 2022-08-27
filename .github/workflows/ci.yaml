@@ -5065,6 +5065,7 @@ jobs:
         docker-image:
           - horovod
           - horovod-cpu
+          - horovod-nvtabular
           - horovod-ray
 
     steps:
