@@ -813,7 +813,7 @@ def main():
             build_and_test_macos(id='build-and-test-macos', name='Build and Test macOS', needs=['build-and-test']),
             trigger_buildkite_job(id='buildkite', name='Build and Test GPU', needs=['build-and-test'], mode='GPU NON HEADS'),
             trigger_buildkite_job(id='buildkite-heads', name='Build and Test GPU heads', needs=['build-and-test'], mode='GPU HEADS'),
-            publish_docker_images(needs=['build-and-test', 'buildkite'], images=['horovod', 'horovod-cpu', 'horovod-ray']),
+            publish_docker_images(needs=['build-and-test', 'buildkite'], images=['horovod', 'horovod-cpu', 'horovod-nvtabular', 'horovod-ray']),
             sync_files(needs=['init-workflow'])
         )
         print(workflow, file=w, end='')

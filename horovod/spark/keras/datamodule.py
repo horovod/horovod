@@ -32,8 +32,6 @@ class PetastormDataModule(DataModule):
         self.make_dataset = make_dataset
         self.random_seed = random_seed
 
-        hvd.init()
-
         # In general, make_batch_reader is faster than make_reader for reading the dataset.
         # However, we found out that make_reader performs data transformations much faster than
         # make_batch_reader with parallel worker processes. Therefore, the default reader
@@ -116,10 +114,10 @@ class NVTabularDataModule(DataModule):
         that's consistent across workers.
         """
         import horovod.tensorflow.keras as hvd
-        import cupy
+        import numpy as np
         import tensorflow as tf
         hvd.init()
-        seed = cupy.random.randint(0, tf.int32.max).get()
+        seed = np.random.randint(0, tf.int32.max)
         seed_tensor = tf.constant(seed)
         root_seed = hvd.broadcast(seed_tensor, name="shuffle_seed", root_rank=0)
         return root_seed
