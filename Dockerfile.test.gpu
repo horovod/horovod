@@ -108,7 +108,7 @@ RUN pip install --no-cache-dir ray==1.3.0
 RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
         wget --progress=dot:mega -O /tmp/openmpi-4.1.4-bin.tar.gz https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.4.tar.gz && \
             cd /tmp && tar -zxf /tmp/openmpi-4.1.4-bin.tar.gz && \
-            mkdir openmpi-4.1.4/build && cd openmpi-4.1.4/build && ../configure --prefix=/usr/local/openmpi && \
+            mkdir openmpi-4.1.4/build && cd openmpi-4.1.4/build && ../configure --prefix=/usr/local && \
             make -j all && make install && ldconfig && \
             echo "mpirun -allow-run-as-root -np 2 -H localhost:2 -bind-to none -map-by slot -mca mpi_abort_print_stack 1" > /mpirun_command; \
     elif [[ ${MPI_KIND} == "MPICH" ]]; then \
