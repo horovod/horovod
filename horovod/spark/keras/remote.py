@@ -17,6 +17,7 @@ import contextlib
 import io
 import math
 import os
+import warnings
 
 import h5py
 import tensorflow as tf
@@ -49,6 +50,9 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     should_validate = estimator.getValidation()
     random_seed = estimator.getRandomSeed()
     user_shuffle_buffer_size = estimator.getShufflingBufferSize()
+    if user_shuffle_buffer_size is not None:
+        warnings.warn('shuffle_buffer_size is deprecated, use shuffle instead', DeprecationWarning)
+    shuffle = estimator.getShuffle()
     user_verbose = estimator.getVerbose()
     checkpoint_callback = estimator.getCheckpointCallback()
     inmemory_cache_all = estimator.getInMemoryCacheAll()
@@ -84,7 +88,6 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
 
     # Utility functions
     deserialize_keras_model = _deserialize_keras_model_fn()
-    calculate_shuffle_buffer_size = _calculate_shuffle_buffer_size_fn()
     pin_gpu = _pin_gpu_fn()
 
     # Storage
@@ -133,15 +136,6 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 tf.random.set_random_seed(random_seed)
             else:
                 tf.random.set_seed(random_seed)
-
-        # If user specifies any user_shuffle_buffer_size (even 0), we should honor it.
-        if user_shuffle_buffer_size is None:
-            shuffle_buffer_size = calculate_shuffle_buffer_size(
-                hvd, avg_row_size, train_rows / hvd.size())
-        else:
-            if user_shuffle_buffer_size < 0:
-                raise ValueError("user_shuffle_buffer_size cannot be negative!")
-            shuffle_buffer_size = user_shuffle_buffer_size
 
         # needs to be deserialized in the with scope
         with k.utils.custom_object_scope(custom_objects):
@@ -238,7 +232,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
 
             if verbose:
                 print(f"Training parameters: Epochs: {epochs}, Scaled lr: {scaled_lr}, "
-                      f"Shuffle size: {shuffle_buffer_size}, random_seed: {random_seed}\n"
+                      f"Shuffle: {shuffle}, random_seed: {random_seed}\n"
                       f"Train rows: {train_rows}, Train batch size: {batch_size}, Train_steps_per_epoch: {steps_per_epoch}\n"
                       f"Val rows: {val_rows}, Val batch size: {val_batch_size}, Val_steps_per_epoch: {validation_steps}\n"
                       f"Checkpoint file: {remote_store.checkpoint_path}, Logs dir: {remote_store.logs_path}\n")
@@ -265,8 +259,9 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                                 schema_fields=schema_fields,
                                 transform_spec=transform_spec,
                                 storage_options=storage_options,
-                                # Don't shuffle row groups if shuffle_buffer_size is 0 (non-shuffle case).
-                                shuffle_row_groups=True if shuffle_buffer_size > 0 else False,
+                                shuffle_rows=shuffle,
+                                shuffle_row_groups=shuffle,
+                                seed=random_seed,
                                 **reader_factory_kwargs) as train_reader:
                 with reader_factory(remote_store.val_data_path,
                                     num_epochs=1,
@@ -278,14 +273,14 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                                     schema_fields=schema_fields,
                                     transform_spec=transform_spec,
                                     storage_options=storage_options,
+                                    shuffle_rows=False,
                                     shuffle_row_groups=False,
                                     **reader_factory_kwargs) \
                     if should_validate else empty_batch_reader() as val_reader:
 
-                    train_data = make_dataset(train_reader, batch_size, shuffle_buffer_size,
-                                              is_batch_reader, shuffle=True if shuffle_buffer_size > 0 else False,
-                                              cache=inmemory_cache_all, seed=random_seed)
-                    val_data = make_dataset(val_reader, val_batch_size, shuffle_buffer_size,
+                    train_data = make_dataset(train_reader, batch_size,
+                                              is_batch_reader, shuffle=shuffle, cache=inmemory_cache_all)
+                    val_data = make_dataset(val_reader, val_batch_size,
                                             is_batch_reader, shuffle=False, cache=inmemory_cache_all) \
                         if val_reader else None
 
@@ -327,47 +322,6 @@ def _deserialize_keras_model_fn():
         with h5py.File(bio, 'r') as f:
             return load_model_fn(f)
     return deserialize_keras_model
-
-
-def _calculate_shuffle_buffer_size_fn():
-    def calculate_shuffle_buffer_size(hvd, avg_row_size, train_row_count_per_worker):
-        """
-        Determines the shuffling buffer size such that each worker gets at most 1GB for shuffling
-        buffer such that on a single machine, among all the workers on that machine, at most
-        memory_cap_gb GB are allocated for shuffling buffer. Also, it ensures that the buffer size
-        is identical among all the workers.
-
-        example 1:
-        memory_cap_gb = 4
-        machine1: 8 workers
-        machine2: 3 workers
-        shuffle_buffer_size = 0.5 GB
-
-        example 2:
-        memory_cap_gb = 4
-            machine1: 2 workers
-            machine2: 3 workers
-        shuffle_buffer_size = 1 GB
-
-        example 3:
-        memory_cap_gb = 4
-            machine1: 2 workers
-            machine2: 8 workers
-            machine3: 5 workers
-        shuffle_buffer_size = 0.5 GB
-        """
-        local_size = hvd.local_size()
-        local_sizes = hvd.allgather([local_size])
-        max_local_size = int(max(local_sizes))
-
-        if max_local_size > TOTAL_BUFFER_MEMORY_CAP_GIB:
-            shuffle_buffer_size = TOTAL_BUFFER_MEMORY_CAP_GIB * BYTES_PER_GIB / avg_row_size / max_local_size
-        else:
-            shuffle_buffer_size = BYTES_PER_GIB / avg_row_size
-
-        return int(min(shuffle_buffer_size, train_row_count_per_worker))
-
-    return calculate_shuffle_buffer_size
 
 
 def _pin_gpu_fn():

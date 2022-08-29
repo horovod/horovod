@@ -331,52 +331,6 @@ class SparkLightningTests(unittest.TestCase):
             for field in out_df.schema.fields:
                 assert type(field.dataType) == expected_types[field.name]
 
-    @mock.patch('horovod.torch.allgather')
-    @mock.patch('horovod.torch.local_size')
-    def test_calculate_shuffle_buffer_size_small_row_size(self, mock_local_size, mock_allgather):
-        import horovod.torch as hvd
-        hvd.init()
-
-        hvd_size = 4
-        local_size = 2
-        mock_local_size.return_value = local_size
-        mock_allgather.return_value = torch.tensor([local_size for _ in range(hvd_size)])
-
-        avg_row_size = 100
-        train_row_count_per_worker = 100
-
-        calculate_shuffle_buffer_size = remote._calculate_shuffle_buffer_size_fn(
-            train_row_count_per_worker, avg_row_size, None)
-        shuffle_size = calculate_shuffle_buffer_size()
-        assert shuffle_size == train_row_count_per_worker
-
-    @mock.patch('horovod.torch.allgather')
-    @mock.patch('horovod.torch.local_size')
-    def test_calculate_shuffle_buffer_size(self, mock_local_size, mock_allgather):
-        import horovod.torch as hvd
-        hvd.init()
-
-        # case with 2 workers, one with 5 ranks and second with 3 ranks
-        mock_allgather.return_value = torch.tensor([5, 5, 5, 5, 5, 3, 3, 3])
-        mock_local_size.return_value = 2
-
-        avg_row_size = 100000
-        train_row_count_per_worker = 1000000
-
-        calculate_shuffle_buffer_size = remote._calculate_shuffle_buffer_size_fn(
-            train_row_count_per_worker, avg_row_size, None)
-        shuffle_size = calculate_shuffle_buffer_size()
-
-        actual = int(shuffle_size)
-        expected = int(constants.TOTAL_BUFFER_MEMORY_CAP_GIB * constants.BYTES_PER_GIB / avg_row_size / 5)
-        assert actual == expected
-
-        calculate_shuffle_buffer_size = remote._calculate_shuffle_buffer_size_fn(
-            train_row_count_per_worker, avg_row_size, 0)
-        shuffle_size = calculate_shuffle_buffer_size()
-        # Set 0 for non-shuffle
-        assert int(shuffle_size) == 0
-
     def test_prepare_data(self):
         with spark_session('test_prepare_data') as spark:
             df = create_xor_data(spark)
@@ -898,7 +852,7 @@ class SparkLightningTests(unittest.TestCase):
         class CustomDataModule(pl.LightningDataModule):
             """Custom DataModule for Lightning Estimator, using PytorchAsyncDataLoader"""
             def __init__(self, train_dir: str, val_dir: str, has_val: bool=True,
-                         train_batch_size: int=32, val_batch_size: int=32, shuffle_size: int=100,
+                         train_batch_size: int=32, val_batch_size: int=32, shuffle: bool=True,
                          num_reader_epochs=None, cur_shard: int=0, shard_count: int=1, schema_fields=None,
                          storage_options=None, steps_per_epoch_train: int=1, steps_per_epoch_val: int=1, verbose=True, **kwargs):
                 super().__init__()
@@ -907,7 +861,7 @@ class SparkLightningTests(unittest.TestCase):
                 self.has_val = has_val
                 self.train_batch_size = train_batch_size
                 self.val_batch_size = val_batch_size
-                self.shuffle_size = shuffle_size
+                self.shuffle = shuffle
                 self.num_reader_epochs = num_reader_epochs
                 self.cur_shard = cur_shard
                 self.shard_count = shard_count
@@ -923,6 +877,8 @@ class SparkLightningTests(unittest.TestCase):
                 if stage == 'fit' or stage is None:
                     self.train_reader = make_batch_reader(self.train_dir, num_epochs=self.num_reader_epochs,
                                                           cur_shard=self.cur_shard, shard_count=self.shard_count,
+                                                          shuffle_rows=self.shuffle,
+                                                          shuffle_row_groups=self.shuffle,
                                                           hdfs_driver='libhdfs',
                                                           schema_fields=self.schema_fields,
                                                           storage_options=self.storage_options)
@@ -948,7 +904,7 @@ class SparkLightningTests(unittest.TestCase):
                     print("Setup train dataloader")
                 kwargs = dict(reader=self.train_reader, batch_size=self.train_batch_size,
                               name="train dataloader",
-                              shuffling_queue_capacity = self.shuffle_size,
+                              shuffling_queue_capacity=0,
                               limit_step_per_epoch=self.steps_per_epoch_train,
                               verbose=self.verbose)
                 return PytorchAsyncDataLoader(**kwargs)

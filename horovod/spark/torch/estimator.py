@@ -117,10 +117,11 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         epochs: Number of epochs to train.
         verbose: Verbosity level [0, 2] (default: 1).
         random_seed: Optional random seed to use for Torch. Default: None.
-        shuffle_buffer_size: Optional size of in-memory shuffle buffer in rows (on training data).
+        shuffle_buffer_size: (Deprecated) Optional size of in-memory shuffle buffer in rows (on training data).
                              Allocating a larger buffer size increases randomness of shuffling at
                              the cost of more host memory. Defaults to estimating with an assumption
                              of 4GB of memory per host. Set shuffle_buffer_size=0 would turn off shuffle.
+        shuffle: (Optional) Whether to shuffle training samples or not. Defaults to True.
         partitions_per_process: Number of Parquet partitions to assign per worker process from `num_proc` (default: 10).
         run_id: Optional unique ID for this run for organization in the Store. Will be automatically assigned if not
                 provided.
@@ -145,8 +146,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                                high enough, or users need to apply transformation such as
                                decompression or data augmentation on raw data.
         val_reader_num_workers: Similar to the train_reader_num_workers.
-        reader_pool_type: Type of worker pool used to parallelize reading data from the dataset.
-                          Should be one of ['thread', 'process']. Defaults to 'process'.
+        reader_pool_type: Type of Petastorm worker pool used to parallelize reading data from the dataset.
+                          Should be one of ['thread', 'process', 'dummy']. Defaults to 'thread'.
         inmemory_cache_all: (Optional) Cache the data in memory for training and validation.
         use_gpu: Whether to use the GPU for training. Defaults to True.
         mp_start_method: The method to use to start multiprocessing. Defaults to None.
@@ -182,6 +183,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  verbose=1,
                  random_seed=None,
                  shuffle_buffer_size=None,
+                 shuffle=True,
                  partitions_per_process=None,
                  run_id=None,
                  train_minibatch_fn=None,
@@ -190,7 +192,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  transformation_fn=None,
                  train_reader_num_workers=None,
                  val_reader_num_workers=None,
-                 reader_pool_type=None,
+                 reader_pool_type='thread',
                  label_shapes=None,
                  inmemory_cache_all=False,
                  use_gpu=True,

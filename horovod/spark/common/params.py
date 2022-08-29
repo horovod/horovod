@@ -74,8 +74,13 @@ class EstimatorParams(Params):
 
     shuffle_buffer_size = Param(Params._dummy(),
                                 'shuffle_buffer_size',
-                                'shuffling buffer size of data before training in number of samples',
+                                '(Deprecated) shuffling buffer size used for training samples',
                                 typeConverter=TypeConverters.toInt)
+
+    shuffle = Param(Params._dummy(),
+                    'shuffle',
+                    'Whether to shuffle training samples or not. Defaults to True',
+                    typeConverter=TypeConverters.toBoolean)
 
     verbose = Param(Params._dummy(), 'verbose', 'verbose flag (0=silent, 1=enabled, other values used by frameworks)',
                     typeConverter=TypeConverters.toInt)
@@ -149,6 +154,7 @@ class EstimatorParams(Params):
             callbacks=[],
             random_seed=None,
             shuffle_buffer_size=None,
+            shuffle=True,
             partitions_per_process=10,
             run_id=None,
             train_steps_per_epoch=None,
@@ -158,7 +164,7 @@ class EstimatorParams(Params):
             transformation_removed_fields=None,
             train_reader_num_workers=2,
             val_reader_num_workers=2,
-            reader_pool_type='process',
+            reader_pool_type='thread',
             label_shapes=None,
             inmemory_cache_all=False,
             use_gpu=True,
@@ -316,8 +322,14 @@ class EstimatorParams(Params):
     def setShufflingBufferSize(self, value):
         return self._set(shuffle_buffer_size=value)
 
+    def setShuffle(self, value):
+        return self._set(shuffle=value)
+
     def getShufflingBufferSize(self):
         return self.getOrDefault(self.shuffle_buffer_size)
+
+    def getShuffle(self):
+        return self.getOrDefault(self.shuffle)
 
     def setOptimizer(self, value):
         return self._set(optimizer=value)

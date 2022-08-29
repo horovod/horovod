@@ -116,10 +116,11 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
         epochs: Number of epochs to train.
         verbose: Verbosity level [0, 2] (default: 1).
         random_seed: Optional random seed to use for Tensorflow. Default: None.
-        shuffle_buffer_size: Optional size of in-memory shuffle buffer in rows (on training data).
+        shuffle_buffer_size: (Deprecated) Optional size of in-memory shuffle buffer in rows (on training data).
                              Allocating a larger buffer size increases randomness of shuffling at
                              the cost of more host memory. Defaults to estimating with an assumption
                              of 4GB of memory per host. Set shuffle_buffer_size=0 would turn off shuffle.
+        shuffle: (Optional) Whether to shuffle training samples or not. Defaults to True.
         partitions_per_process: Number of Parquet partitions to assign per worker process from `num_proc` (default: 10).
         run_id: Optional unique ID for this run for organization in the Store. Will be automatically assigned if not
                 provided.
@@ -142,8 +143,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                                high enough, or users need to apply transformation such as
                                decompression or data augmentation on raw data.
         val_reader_num_workers: Similar to the train_reader_num_workers.
-        reader_pool_type: Type of worker pool used to parallelize reading data from the dataset.
-                          Should be one of ['thread', 'process']. Defaults to 'process'.
+        reader_pool_type: Type of Petastorm worker pool used to parallelize reading data from the dataset.
+                          Should be one of ['thread', 'process', 'dummy']. Defaults to 'thread'.
         inmemory_cache_all: boolean value. Cache the data in memory for training and validation. Default: False.
         backend_env: dict to add to the environment of the backend.  Defaults to setting the java heap size to
                      2G min and max for libhdfs through petastorm
@@ -180,6 +181,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                  verbose=None,
                  random_seed=None,
                  shuffle_buffer_size=None,
+                 shuffle=True,
                  partitions_per_process=None,
                  run_id=None,
                  train_steps_per_epoch=None,
@@ -187,7 +189,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                  transformation_fn=None,
                  train_reader_num_workers=None,
                  val_reader_num_workers=None,
-                 reader_pool_type=None,
+                 reader_pool_type='thread',
                  label_shapes=None,
                  checkpoint_callback=None,
                  inmemory_cache_all=False,
