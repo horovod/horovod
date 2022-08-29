@@ -62,7 +62,7 @@ namespace gpu {
 GpuStreamHandle AsGpuStreamValue(Stream* stream);
 } // namespace stream_executor
 } // namespace gpu
-#include "tensorflow/stream_executor/stream.h"
+#include "tensorflow/compiler/xla/stream_executor/stream.h"
 #endif // HAVE_GPU
 
 #define OMPI_SKIP_MPICXX
