@@ -7,9 +7,9 @@ set -eu
 repository=823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
 
 # our queues
-cpu_queue="cpu-v572"
-gpux2_queue="2x-gpu-v572"
-gpux4_queue="4x-gpu-v572"
+cpu_queue="cpu-v5111"
+gpux2_queue="2x-gpu-v5111"
+gpux4_queue="4x-gpu-v5111"
 
 # our baseline test is
 baseline="test-cpu-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark3_3_0"
