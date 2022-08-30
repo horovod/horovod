@@ -5,7 +5,8 @@ name: CI
 on:
   schedule:
     # run a build on master (this does not publish test results or cancel concurrent builds)
-    - cron: '0 10 * * *' # everyday at 10am
+    # this refreshes test images and pulls in latest nightly packages (released around 4-7 pm UTC)
+    - cron: '0 0 * * *' # everyday at midnight UTC
   push:
     # only consider push to master, hotfix-branches, and tags
     # otherwise modify job.config.outputs.push
