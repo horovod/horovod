@@ -3,7 +3,7 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.5.0:
+  - docker-compose#v3.10.0:
       build: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
       cache-from: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0-latest
@@ -24,7 +24,7 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.5.0:
+  - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -42,7 +42,7 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.5.0:
+  - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -60,7 +60,7 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.5.0:
+  - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -78,7 +78,7 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.5.0:
+  - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -96,7 +96,7 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.5.0:
+  - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -114,7 +114,7 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.5.0:
+  - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -133,7 +133,7 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.5.0:
+  - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -151,7 +151,7 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.5.0:
+  - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -169,7 +169,7 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.5.0:
+  - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -187,7 +187,7 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.5.0:
+  - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -205,7 +205,7 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.5.0:
+  - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -223,7 +223,7 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.5.0:
+  - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -241,7 +241,7 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.5.0:
+  - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -259,7 +259,7 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.5.0:
+  - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -277,7 +277,7 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.5.0:
+  - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -295,7 +295,7 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.5.0:
+  - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -313,7 +313,7 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.5.0:
+  - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -331,7 +331,7 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.5.0:
+  - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -349,7 +349,7 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.5.0:
+  - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -367,7 +367,7 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.5.0:
+  - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -385,7 +385,7 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.5.0:
+  - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
@@ -403,7 +403,7 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.5.0:
+  - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml

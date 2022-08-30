@@ -20,7 +20,7 @@ import yaml
 from yaml import Loader
 
 
-def main():
+def main(docker_compose_version: str):
     import subprocess
     import pathlib
     from collections import Counter, defaultdict
@@ -42,18 +42,19 @@ def main():
     pipeline = yaml.load(proc.stdout, Loader=Loader)
     steps = pipeline.get('steps', [])
 
-    images = [plugin['docker-compose#v3.5.0']['build']
+    docker_compose_plugin = f'docker-compose#{docker_compose_version}'
+    images = [plugin[docker_compose_plugin]['build']
               for step in steps if isinstance(step, dict) and 'label' in step
                                 and step['label'].startswith(':docker: Build ')
-              for plugin in step['plugins'] if 'docker-compose#v3.5.0' in plugin]
+              for plugin in step['plugins'] if docker_compose_plugin in plugin]
 
     cpu_tests = [(re.sub(r' \(test-.*', '', re.sub(':[^:]*: ', '', step['label'])),
                   step['command'],
                   step['timeout_in_minutes'],
-                  plugin['docker-compose#v3.5.0']['run'])
+                  plugin[docker_compose_plugin]['run'])
                  for step in steps if isinstance(step, dict) and 'label' in step and 'command' in step
                  and not step['label'].startswith(':docker: Build ') and '-cpu-' in step['label']
-                 for plugin in step['plugins'] if 'docker-compose#v3.5.0' in plugin]
+                 for plugin in step['plugins'] if docker_compose_plugin in plugin]
 
     # we need to distinguish the two oneccl variants of some tests
     cpu_tests = [(label + (' [ONECCL OFI]' if 'mpirun_command_ofi' in command else (' [ONECCL MPI]' if 'mpirun_command_mpi' in command else '')),
@@ -820,4 +821,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(docker_compose_version='v3.10.0')
