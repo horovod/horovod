@@ -112,6 +112,7 @@ run_test() {
   echo "  plugins:"
   echo "  - docker-compose#v3.10.0:"
   echo "      run: ${test}"
+  echo "      build-alias: commit-sha"
   echo "      volumes: \"./artifacts:/artifacts\""
   echo "      config: docker-compose.test.yml"
   echo "      pull-retries: 3"

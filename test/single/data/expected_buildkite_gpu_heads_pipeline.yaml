@@ -26,6 +26,7 @@ steps:
   plugins:
   - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      build-alias: commit-sha
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -44,6 +45,7 @@ steps:
   plugins:
   - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      build-alias: commit-sha
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -62,6 +64,7 @@ steps:
   plugins:
   - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      build-alias: commit-sha
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -80,6 +83,7 @@ steps:
   plugins:
   - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      build-alias: commit-sha
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -98,6 +102,7 @@ steps:
   plugins:
   - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      build-alias: commit-sha
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -116,6 +121,7 @@ steps:
   plugins:
   - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      build-alias: commit-sha
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -135,6 +141,7 @@ steps:
   plugins:
   - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      build-alias: commit-sha
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -153,6 +160,7 @@ steps:
   plugins:
   - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      build-alias: commit-sha
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -171,6 +179,7 @@ steps:
   plugins:
   - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      build-alias: commit-sha
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -189,6 +198,7 @@ steps:
   plugins:
   - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      build-alias: commit-sha
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -207,6 +217,7 @@ steps:
   plugins:
   - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      build-alias: commit-sha
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -225,6 +236,7 @@ steps:
   plugins:
   - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      build-alias: commit-sha
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -243,6 +255,7 @@ steps:
   plugins:
   - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      build-alias: commit-sha
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -261,6 +274,7 @@ steps:
   plugins:
   - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      build-alias: commit-sha
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -279,6 +293,7 @@ steps:
   plugins:
   - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      build-alias: commit-sha
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -297,6 +312,7 @@ steps:
   plugins:
   - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      build-alias: commit-sha
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -315,6 +331,7 @@ steps:
   plugins:
   - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      build-alias: commit-sha
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -333,6 +350,7 @@ steps:
   plugins:
   - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      build-alias: commit-sha
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -351,6 +369,7 @@ steps:
   plugins:
   - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      build-alias: commit-sha
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -369,6 +388,7 @@ steps:
   plugins:
   - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      build-alias: commit-sha
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -387,6 +407,7 @@ steps:
   plugins:
   - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      build-alias: commit-sha
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -405,6 +426,7 @@ steps:
   plugins:
   - docker-compose#v3.10.0:
       run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      build-alias: commit-sha
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
