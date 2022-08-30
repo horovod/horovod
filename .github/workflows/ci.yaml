@@ -2461,17 +2461,11 @@ jobs:
 
       - name: Push test image
         # We push test image to AWS ECR on push to Horovod master (not a fork)
-        if: >
-          github.event_name == 'push' &&
-          github.ref == 'refs/heads/master' &&
-          github.repository == 'horovod/horovod' &&
-          steps.ecr.outcome == 'success'
         continue-on-error: true
         run: |
-          docker image ls | head
+          (docker image ls | grep horovod) || true
           docker tag horovod_${{ matrix.image }} ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
           docker push ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-          docker image ls | head
         shell: bash
 
   build-and-test-heads:
@@ -4599,17 +4593,11 @@ jobs:
 
       - name: Push test image
         # We push test image to AWS ECR on push to Horovod master (not a fork)
-        if: >
-          github.event_name == 'push' &&
-          github.ref == 'refs/heads/master' &&
-          github.repository == 'horovod/horovod' &&
-          steps.ecr.outcome == 'success'
         continue-on-error: true
         run: |
-          docker image ls | head
+          (docker image ls | grep horovod) || true
           docker tag horovod_${{ matrix.image }} ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
           docker push ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-          docker image ls | head
         shell: bash
 
   build-mins:
@@ -4733,17 +4721,11 @@ jobs:
 
       - name: Push test image
         # We push test image to AWS ECR on push to Horovod master (not a fork)
-        if: >
-          github.event_name == 'push' &&
-          github.ref == 'refs/heads/master' &&
-          github.repository == 'horovod/horovod' &&
-          steps.ecr.outcome == 'success'
         continue-on-error: true
         run: |
-          docker image ls | head
+          (docker image ls | grep horovod) || true
           docker tag horovod_${{ matrix.image }} ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
           docker push ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-          docker image ls | head
         shell: bash
 
   build-and-test-macos:
