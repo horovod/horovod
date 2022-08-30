@@ -415,14 +415,15 @@ class RayExecutor:
         return result
 
     def _maybe_call_ray(self, driver_func, *args, **kwargs):
+        import sys
         if self._is_remote:
             result = ray.get(driver_func.remote(*args, **kwargs))
             print("_maybe_call_ray: result is of type: {}".format(type(result)))
             if isinstance(result, list):
                 for index, r in enumerate(result):
-                    print("result {} has: {}".format(index, r))
+                    print("result {} is of type: {}, has {} bytes".format(index, type(r), sys.getsizeof(r)))
             else:
-                print("result {}".format(result))
+                print("result is of type: {}, has {} bytes".format(type(result), sys.getsizeof(result)))
             return result
         else:
             return driver_func(**kwargs)
