@@ -21,15 +21,21 @@ from horovod.spark.common.datamodule import DataModule
 
 class PetastormDataModule(DataModule):
     """Default Petastorm-based DataModule for KerasEstimator."""
-    def __init__(self, reader_pool_type: str="process", train_reader_worker_count: int=2, val_reader_worker_count: int=2, make_dataset=None, random_seed=0, **kwargs):
+    def __init__(self, reader_pool_type: str="process",
+                       train_reader_worker_count: int=2,
+                       val_reader_worker_count: int=2,
+                       make_dataset=None,
+                       shuffle=False,
+                       random_seed=0,
+                       **kwargs):
         from petastorm import TransformSpec, make_reader, make_batch_reader
 
         super().__init__(**kwargs)
         self.reader_pool_type = reader_pool_type
         self.train_reader_worker_count = train_reader_worker_count
         self.val_reader_worker_count = val_reader_worker_count
-
         self.make_dataset = make_dataset
+        self.shuffle = shuffle
         self.random_seed = random_seed
 
         # In general, make_batch_reader is faster than make_reader for reading the dataset.
@@ -58,8 +64,9 @@ class PetastormDataModule(DataModule):
                                 schema_fields=self.schema_fields,
                                 transform_spec=self.transform_spec,
                                 storage_options=self.storage_options,
-                                # Don't shuffle row groups if shuffle_buffer_size is 0 (non-shuffle case).
-                                shuffle_row_groups=True if self.shuffle_size > 0 else False,
+                                shuffle_rows=self.shuffle,
+                                shuffle_row_groups=self.shuffle,
+                                seed=self.random_seed,
                                 **self.reader_factory_kwargs)
         self.val_reader = self.reader_factory(self.val_dir,
                                 num_epochs=1,
@@ -71,6 +78,7 @@ class PetastormDataModule(DataModule):
                                 schema_fields=self.schema_fields,
                                 transform_spec=self.transform_spec,
                                 storage_options=self.storage_options,
+                                shuffle_rows=False,
                                 shuffle_row_groups=False,
                                 **self.reader_factory_kwargs) if self.has_val else self.empty_batch_reader()
         return self
@@ -87,12 +95,11 @@ class PetastormDataModule(DataModule):
         yield None
 
     def train_data(self):
-        return self.make_dataset(self.train_reader, self.train_batch_size, self.shuffle_size,
-                                 self.is_batch_reader, shuffle=True if self.shuffle_size > 0 else False,
-                                 cache=self.inmemory_cache_all, seed=self.random_seed)
+        return self.make_dataset(self.train_reader, self.train_batch_size,
+                                 self.is_batch_reader, shuffle=self.shuffle, cache=self.inmemory_cache_all)
 
     def val_data(self):
-        return self.make_dataset(self.val_reader, self.val_batch_size, self.shuffle_size,
+        return self.make_dataset(self.val_reader, self.val_batch_size,
                                  self.is_batch_reader, shuffle=False, cache=self.inmemory_cache_all) if self.val_reader else None
 
 
@@ -144,7 +151,7 @@ class NVTabularDataModule(DataModule):
                                    cont_names=self.continuous_cols,
                                    engine="parquet",
                                    shuffle=True,
-                                   buffer_size=0.06,  # how many batches to load at once
+                                   buffer_size=0.1,  # how many batches to load at once
                                    parts_per_chunk=1,
                                    global_size=hvd.size(),
                                    global_rank=hvd.rank(),
