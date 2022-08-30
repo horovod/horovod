@@ -603,12 +603,21 @@ class StaticAdapter(Adapter):
         """
         args = args or []
         kwargs = kwargs or {}
+        import psutil
+        import os
         f = lambda w: fn(*args, **kwargs)
-        result = ray.get(self._run_remote(fn=f))
+        process = psutil.Process(os.getpid())
+        print("#####memory usage before {}".format(process.memory_info().rss))
+        func = self._run_remote(fn=f)
+        result = ray.get(func)
+        print("#####memory usage after {}".format(process.memory_info().rss))
+
         import sys
         if isinstance(result, list):
             for index, r in enumerate(result):
-                print("result index {} has {} bytes".format(index, sys.getsizeof(r)))
+                if isinstance(r, tuple):
+                    for ind, element in enumerate(r):
+                        print("result index tuple {} at {} has {} bytes".format(index, ind, sys.getsizeof(element)))
         else:
             print("result has {} bytes".format(sys.getsizeof(result)))
         return result
