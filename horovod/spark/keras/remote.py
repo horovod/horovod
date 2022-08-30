@@ -307,8 +307,14 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                             model = k.models.load_model(ckpt_file)
                         serialized_model = keras_utils.serialize_model(model)
                     else:
+                        import psutil
+                        import os
+                        process = psutil.Process(os.getpid())
+
+                        print("#####memory usage before codec dump {}".format(process.memory_info().rss))
                         with open(ckpt_file, 'rb') as f:
                             serialized_model = codec.dumps_base64(f.read())
+                        print("#####memory usage after codec dump {}".format(process.memory_info().rss))
 
                 return history.history, serialized_model, hvd.size()
     return train
