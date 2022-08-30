@@ -416,7 +416,14 @@ class RayExecutor:
 
     def _maybe_call_ray(self, driver_func, *args, **kwargs):
         if self._is_remote:
-            return ray.get(driver_func.remote(*args, **kwargs))
+            result = ray.get(driver_func.remote(*args, **kwargs))
+            print("_maybe_call_ray: result is of type: {}".format(type(result)))
+            if isinstance(result, list):
+                for index, r in enumerate(result):
+                    print("result {} has: {}".format(index, r))
+            else:
+                print("result {}".format(result))
+            return result
         else:
             return driver_func(**kwargs)
 
@@ -596,7 +603,14 @@ class StaticAdapter(Adapter):
         args = args or []
         kwargs = kwargs or {}
         f = lambda w: fn(*args, **kwargs)
-        return ray.get(self._run_remote(fn=f))
+        result = ray.get(self._run_remote(fn=f))
+        import sys
+        if isinstance(result, list):
+            for index, r in enumerate(result):
+                print("result index {} has {} bytes".format(index, sys.getsizeof(r)))
+        else:
+            print("result has {} bytes".format(sys.getsizeof(result)))
+        return result
 
     def run_remote(self,
                    fn: Callable[[Any], Any],
@@ -636,9 +650,14 @@ class StaticAdapter(Adapter):
         """
         # Use run_remote for all calls
         # for elastic, start the driver and launch the job
-        return [
+        ray_results = [
             worker.execute.remote(fn) for worker in self.workers
         ]
+        import sys
+        for index, r in enumerate(ray_results):
+            print("ray_results index {} has {} bytes".format(index, sys.getsizeof(r)))
+
+        return ray_results
 
     def execute_single(self,
                        fn: Callable[["executable_cls"], Any]) -> List[Any]:
