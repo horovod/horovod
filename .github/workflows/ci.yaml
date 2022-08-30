@@ -449,34 +449,10 @@ jobs:
         continue-on-error: true
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Add cache_from to docker-compose YAML
-        if: steps.ecr.outcome == 'success'
-        run: |
-          cat > docker-compose.test.override.yml <<EOF
-          version: '2.3'
-          services:
-            ${{ matrix.image }}:
-              build:
-                cache_from:
-                  - ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-          EOF
-          cat docker-compose.test.override.yml
-        shell: bash
-
-      - name: Pull latest test image
-        if: steps.ecr.outcome == 'success'
-        continue-on-error: true
-        run: |
-          docker pull ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-        env:
-          DOCKER_BUILDKIT: 1
-
       - name: Build
         id: build
         run: |
-          override_yaml=""
-          if [ -e docker-compose.test.override.yml ]; then override_yaml="-f docker-compose.test.override.yml"; fi
-          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml $override_yaml build --pull ${{ matrix.image }}
+          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml build --pull ${{ matrix.image }}
         env:
           COMPOSE_DOCKER_CLI_BUILD: 1
           DOCKER_BUILDKIT: 1
@@ -2581,34 +2557,10 @@ jobs:
         continue-on-error: true
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Add cache_from to docker-compose YAML
-        if: steps.ecr.outcome == 'success'
-        run: |
-          cat > docker-compose.test.override.yml <<EOF
-          version: '2.3'
-          services:
-            ${{ matrix.image }}:
-              build:
-                cache_from:
-                  - ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-          EOF
-          cat docker-compose.test.override.yml
-        shell: bash
-
-      - name: Pull latest test image
-        if: steps.ecr.outcome == 'success'
-        continue-on-error: true
-        run: |
-          docker pull ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-        env:
-          DOCKER_BUILDKIT: 1
-
       - name: Build
         id: build
         run: |
-          override_yaml=""
-          if [ -e docker-compose.test.override.yml ]; then override_yaml="-f docker-compose.test.override.yml"; fi
-          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml $override_yaml build --pull ${{ matrix.image }}
+          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml build --pull ${{ matrix.image }}
         env:
           COMPOSE_DOCKER_CLI_BUILD: 1
           DOCKER_BUILDKIT: 1
@@ -4679,34 +4631,10 @@ jobs:
         continue-on-error: true
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Add cache_from to docker-compose YAML
-        if: steps.ecr.outcome == 'success'
-        run: |
-          cat > docker-compose.test.override.yml <<EOF
-          version: '2.3'
-          services:
-            ${{ matrix.image }}:
-              build:
-                cache_from:
-                  - ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-          EOF
-          cat docker-compose.test.override.yml
-        shell: bash
-
-      - name: Pull latest test image
-        if: steps.ecr.outcome == 'success'
-        continue-on-error: true
-        run: |
-          docker pull ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-        env:
-          DOCKER_BUILDKIT: 1
-
       - name: Build
         id: build
         run: |
-          override_yaml=""
-          if [ -e docker-compose.test.override.yml ]; then override_yaml="-f docker-compose.test.override.yml"; fi
-          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml $override_yaml build --pull ${{ matrix.image }}
+          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml build --pull ${{ matrix.image }}
         env:
           COMPOSE_DOCKER_CLI_BUILD: 1
           DOCKER_BUILDKIT: 1
