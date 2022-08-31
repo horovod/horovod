@@ -2438,11 +2438,15 @@ jobs:
 
       - name: Push test image
         # We push test image to AWS ECR on push to Horovod master (not a fork)
+        if: >
+          github.repository == 'horovod/horovod' &&
+          startsWith(matrix.image, 'test-gpu-gloo-py3_7-tf1_15_5') &&
+          steps.ecr.outcome == 'success'
         continue-on-error: true
         run: |
           (docker image ls | grep horovod) || true
-          docker tag horovod_${{ matrix.image }} ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-          docker push ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
+          docker tag horovod_${{ matrix.image }} ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}
+          docker push ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}
         shell: bash
 
   build-and-test-heads:
@@ -4546,11 +4550,15 @@ jobs:
 
       - name: Push test image
         # We push test image to AWS ECR on push to Horovod master (not a fork)
+        if: >
+          github.repository == 'horovod/horovod' &&
+          startsWith(matrix.image, 'test-gpu-gloo-py3_7-tf1_15_5') &&
+          steps.ecr.outcome == 'success'
         continue-on-error: true
         run: |
           (docker image ls | grep horovod) || true
-          docker tag horovod_${{ matrix.image }} ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-          docker push ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
+          docker tag horovod_${{ matrix.image }} ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}
+          docker push ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}
         shell: bash
 
   build-mins:
@@ -4650,11 +4658,15 @@ jobs:
 
       - name: Push test image
         # We push test image to AWS ECR on push to Horovod master (not a fork)
+        if: >
+          github.repository == 'horovod/horovod' &&
+          startsWith(matrix.image, 'test-gpu-gloo-py3_7-tf1_15_5') &&
+          steps.ecr.outcome == 'success'
         continue-on-error: true
         run: |
           (docker image ls | grep horovod) || true
-          docker tag horovod_${{ matrix.image }} ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-          docker push ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
+          docker tag horovod_${{ matrix.image }} ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}
+          docker push ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}
         shell: bash
 
   build-and-test-macos:

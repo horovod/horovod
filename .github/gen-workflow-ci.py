@@ -385,11 +385,15 @@ def main(docker_compose_version: str):
                 f'\n'
                 f'      - name: Push test image\n'
                 f'        # We push test image to AWS ECR on push to Horovod master (not a fork)\n'
+                f'        if: >\n'
+                f'          github.repository == \'horovod/horovod\' &&\n'
+                f'          startsWith(matrix.image, \'test-gpu-gloo-py3_7-tf1_15_5\') &&\n'
+                f'          steps.ecr.outcome == \'success\'\n'
                 f'        continue-on-error: true\n'
                 f'        run: |\n'
                 f'          (docker image ls | grep horovod) || true\n'
-                f'          docker tag horovod_${{{{ matrix.image }}}} ${{{{ steps.ecr.outputs.registry }}}}/buildkite:horovod-${{{{ matrix.image }}}}-latest\n'
-                f'          docker push ${{{{ steps.ecr.outputs.registry }}}}/buildkite:horovod-${{{{ matrix.image }}}}-latest\n'
+                f'          docker tag horovod_${{{{ matrix.image }}}} ${{{{ steps.ecr.outputs.registry }}}}/buildkite:horovod-${{{{ matrix.image }}}}\n'
+                f'          docker push ${{{{ steps.ecr.outputs.registry }}}}/buildkite:horovod-${{{{ matrix.image }}}}\n'
                 f'        shell: bash\n')
 
     def build_and_test_macos(id: str, name: str, needs: List[str], attempts: int = 3) -> str:
