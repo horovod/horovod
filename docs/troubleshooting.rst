@@ -410,7 +410,7 @@ We recommended reinstalling Open MPI with the ``--enable-orterun-prefix-by-defau
 
     $ wget https://www.open-mpi.org/software/ompi/v4.0/downloads/openmpi-4.1.4.tar.gz
     $ tar zxf openmpi-4.1.4.tar.gz
-    $ cd openmpi-4.0.0
+    $ cd openmpi-4.1.4
     $ ./configure --enable-orterun-prefix-by-default
     $ make -j $(nproc) all
     $ make install
