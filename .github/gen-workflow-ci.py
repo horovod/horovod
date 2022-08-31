@@ -783,8 +783,8 @@ def main(docker_compose_version: str):
         workflow = workflow_header() + jobs(
             init_workflow_job(),
             # changing these names require changes in the workflow-conclusion step in ci-results.yaml
-            build_and_test_images(id='build-and-test', name='Build and Test', needs=['init-workflow'], images=release_images, parallel_images=len(cpu_release_images), tests_per_image=tests_per_image, tests=tests),
-            build_and_test_images(id='build-and-test-heads', name='Build and Test heads', needs=['build-and-test'], images=allhead_images, tests_per_image=tests_per_image, tests=tests),
+            build_and_test_images(id='build-and-test', name='Build and Test', needs=['init-workflow'], images=cpu_release_images[:1] + gpu_release_images[:1], parallel_images=2, tests_per_image=tests_per_image, tests={}),
+            build_and_test_images(id='build-and-test-heads', name='Build and Test heads', needs=['build-and-test'], images=allhead_images, tests_per_image=tests_per_image, tests={}),
             build_and_test_images(id='build-mins', name='Build mins', needs=['build-and-test'], images=allmin_images, tests_per_image=tests_per_image, tests={}),
             build_and_test_macos(id='build-and-test-macos', name='Build and Test macOS', needs=['build-and-test']),
             trigger_buildkite_job(id='buildkite', name='Build and Test GPU', needs=['build-and-test'], mode='GPU NON HEADS'),
