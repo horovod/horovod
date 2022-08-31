@@ -20,7 +20,7 @@ import yaml
 from yaml import Loader
 
 
-def main(docker_compose_version: str):
+def main():
     import subprocess
     import pathlib
     from collections import Counter, defaultdict
@@ -42,7 +42,17 @@ def main(docker_compose_version: str):
     pipeline = yaml.load(proc.stdout, Loader=Loader)
     steps = pipeline.get('steps', [])
 
-    docker_compose_plugin = f'docker-compose#{docker_compose_version}'
+    docker_compose_plugins = {plugin_name
+                              for step in steps if isinstance(step, dict) and 'label' in step
+                              and step['label'].startswith(':docker: Build ')
+                              for plugins in step['plugins']
+                              for plugin_name in plugins.keys() if plugin_name.startswith('docker-compose#')}
+    if len(docker_compose_plugins) == 0:
+        raise RuntimeError('No docker-compose plugin found')
+    if len(docker_compose_plugins) > 1:
+        raise RuntimeError('Multiple docker-compose plugins found')
+
+    docker_compose_plugin = list(docker_compose_plugins)[0]
     images = [plugin[docker_compose_plugin]['build']
               for step in steps if isinstance(step, dict) and 'label' in step
                                 and step['label'].startswith(':docker: Build ')
@@ -762,4 +772,4 @@ def main(docker_compose_version: str):
 
 
 if __name__ == "__main__":
-    main(docker_compose_version='v3.10.0')
+    main()
