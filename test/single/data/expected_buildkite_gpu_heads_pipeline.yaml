@@ -3,6 +3,11 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
+  - docker-compose#v3.9.0:
+      command: ["docker-compose", "-f", "docker-compose.test.yml", "pull", "test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0"]
+      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
+      config: docker-compose.test.yml
+      pull-retries: 5
   - docker-compose#v3.10.0:
       build: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
       image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
