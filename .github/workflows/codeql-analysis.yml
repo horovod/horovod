@@ -9,6 +9,27 @@ on:
   schedule:
     - cron: '32 10 * * 5'
 
+concurrency:
+  # This controls which concurrent builds to cancel:
+  # - we do not want any concurrent builds on a branch (pull_request)
+  # - we do not want concurrent builds on the same commit on master (push)
+  # - we do not want concurrent builds on the same commit on a tag (push)
+  # - we allow concurrent runs on the same commit on master and its tag (push)
+  # - we allow concurrent runs on the same commit on master (push) and a scheduled build (schedule)
+  #
+  # A pull_request event only runs on branch commit, a push event only on master and tag commit.
+  # A schedule event only runs on master HEAD commit.
+  #
+  # Expression github.ref means something like refs/heads/master or refs/tags/v0.22.1 or the branch.
+  # This helps to not cancel concurrent runs on master or a tag that share the same commit.
+  # Expression github.head_ref refers to the branch of the pull request.
+  # On master, github.head_ref is empty, so we use the SHA of the commit, this means individual
+  # commits to master will not be cancelled, while there can only be one concurrent build on a branch.
+  #
+  # We include the event name to we allow for concurrent scheduled and master builds.
+  group: codeql-${{ github.event_name }}-${{ github.ref }}-${{ github.head_ref || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   analyze-python:
     name: Analyze Python
