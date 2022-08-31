@@ -6,7 +6,6 @@ steps:
   - docker-compose#v3.5.0:
       build: test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_3_0
       image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
-      cache-from: test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_3_0:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_3_0-latest
       config: docker-compose.test.yml
       push-retries: 5
   - ecr#v1.2.0:
@@ -23,7 +22,6 @@ steps:
   - docker-compose#v3.5.0:
       build: test-gpu-gloo-py3_8-tf2_7_3-keras2_7_0-torch1_10_2-mxnet1_7_0_p1-pyspark3_3_0
       image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
-      cache-from: test-gpu-gloo-py3_8-tf2_7_3-keras2_7_0-torch1_10_2-mxnet1_7_0_p1-pyspark3_3_0:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-gpu-gloo-py3_8-tf2_7_3-keras2_7_0-torch1_10_2-mxnet1_7_0_p1-pyspark3_3_0-latest
       config: docker-compose.test.yml
       push-retries: 5
   - ecr#v1.2.0:
@@ -40,7 +38,6 @@ steps:
   - docker-compose#v3.5.0:
       build: test-gpu-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_8_0_p0-pyspark3_3_0
       image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
-      cache-from: test-gpu-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_8_0_p0-pyspark3_3_0:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-gpu-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_8_0_p0-pyspark3_3_0-latest
       config: docker-compose.test.yml
       push-retries: 5
   - ecr#v1.2.0:
@@ -57,7 +54,6 @@ steps:
   - docker-compose#v3.5.0:
       build: test-gpu-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark3_3_0
       image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
-      cache-from: test-gpu-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark3_3_0:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-gpu-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark3_3_0-latest
       config: docker-compose.test.yml
       push-retries: 5
   - ecr#v1.2.0:
@@ -74,7 +70,6 @@ steps:
   - docker-compose#v3.5.0:
       build: test-gpu-openmpi-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin
       image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
-      cache-from: test-gpu-openmpi-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-gpu-openmpi-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin-latest
       config: docker-compose.test.yml
       push-retries: 5
   - ecr#v1.2.0:
@@ -91,7 +86,6 @@ steps:
   - docker-compose#v3.5.0:
       build: test-mixed-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark3_3_0
       image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
-      cache-from: test-mixed-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark3_3_0:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite:SLUG-test-mixed-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark3_3_0-latest
       config: docker-compose.test.yml
       push-retries: 5
   - ecr#v1.2.0:

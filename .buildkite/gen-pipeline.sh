@@ -85,7 +85,6 @@ build_test() {
   echo "  - docker-compose#v3.5.0:"
   echo "      build: ${test}"
   echo "      image-repository: ${repository}"
-  echo "      cache-from: ${test}:${repository}:${BUILDKITE_PIPELINE_SLUG}-${test}-latest"
   echo "      config: docker-compose.test.yml"
   echo "      push-retries: 5"
   echo "  - ecr#v1.2.0:"
