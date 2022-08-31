@@ -392,8 +392,8 @@ def main(docker_compose_version: str):
                 f'        continue-on-error: true\n'
                 f'        run: |\n'
                 f'          (docker image ls | grep horovod) || true\n'
-                f'          docker tag horovod_${{{{ matrix.image }}}} ${{{{ steps.ecr.outputs.registry }}}}/buildkite:horovod-${{{{ matrix.image }}}}\n'
-                f'          docker push ${{{{ steps.ecr.outputs.registry }}}}/buildkite:horovod-${{{{ matrix.image }}}}\n'
+                f'          docker tag horovod_${{{{ matrix.image }}}} ${{{{ steps.ecr.outputs.registry }}}}/buildkite:${{{{ matrix.image }}}}\n'
+                f'          docker push ${{{{ steps.ecr.outputs.registry }}}}/buildkite:${{{{ matrix.image }}}}\n'
                 f'        shell: bash\n')
 
     def build_and_test_macos(id: str, name: str, needs: List[str], attempts: int = 3) -> str:

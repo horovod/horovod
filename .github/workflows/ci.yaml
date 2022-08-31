@@ -2445,8 +2445,8 @@ jobs:
         continue-on-error: true
         run: |
           (docker image ls | grep horovod) || true
-          docker tag horovod_${{ matrix.image }} ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}
-          docker push ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}
+          docker tag horovod_${{ matrix.image }} ${{ steps.ecr.outputs.registry }}/buildkite:${{ matrix.image }}
+          docker push ${{ steps.ecr.outputs.registry }}/buildkite:${{ matrix.image }}
         shell: bash
 
   build-and-test-heads:
@@ -4557,8 +4557,8 @@ jobs:
         continue-on-error: true
         run: |
           (docker image ls | grep horovod) || true
-          docker tag horovod_${{ matrix.image }} ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}
-          docker push ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}
+          docker tag horovod_${{ matrix.image }} ${{ steps.ecr.outputs.registry }}/buildkite:${{ matrix.image }}
+          docker push ${{ steps.ecr.outputs.registry }}/buildkite:${{ matrix.image }}
         shell: bash
 
   build-mins:
@@ -4665,8 +4665,8 @@ jobs:
         continue-on-error: true
         run: |
           (docker image ls | grep horovod) || true
-          docker tag horovod_${{ matrix.image }} ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}
-          docker push ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}
+          docker tag horovod_${{ matrix.image }} ${{ steps.ecr.outputs.registry }}/buildkite:${{ matrix.image }}
+          docker push ${{ steps.ecr.outputs.registry }}/buildkite:${{ matrix.image }}
         shell: bash
 
   build-and-test-macos:
