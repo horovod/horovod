@@ -227,11 +227,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                       f"Checkpoint file: {remote_store.checkpoint_path}, Logs dir: {remote_store.logs_path}\n")
 
             data_module_kwargs = {
-                'label_cols': label_columns,                    # nvtabular
-                'continuous_cols': continuous_columns,          # nvtabular
-                'categorical_cols': categorical_columns,        # nvtabular
-                'make_dataset': make_dataset,                   # petastorm
-                'random_seed': random_seed,                     # petastorm
+                # common
                 'train_dir': remote_store.train_data_path,
                 'val_dir': remote_store.val_data_path,
                 'num_train_epochs': epochs,
@@ -239,11 +235,6 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 'train_batch_size': batch_size,
                 'val_batch_size': val_batch_size,
                 'shuffle': shuffle,
-                'random_seed': random_seed,
-                'num_reader_epochs': epochs,
-                'reader_pool_type': reader_pool_type,
-                'train_reader_worker_count': train_reader_worker_count,
-                'val_reader_worker_count': val_reader_worker_count,
                 'transform_fn': transform_fn,
                 'inmemory_cache_all': inmemory_cache_all,
                 'cur_shard': hvd.rank(),
@@ -253,6 +244,16 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 'steps_per_epoch_train': steps_per_epoch,
                 'steps_per_epoch_val': validation_steps,
                 'verbose': verbose,
+                # petastorm
+                'make_dataset': make_dataset,
+                'random_seed': random_seed,
+                'reader_pool_type': reader_pool_type,
+                'train_reader_worker_count': train_reader_worker_count,
+                'val_reader_worker_count': val_reader_worker_count,
+                # nvtabular
+                'categorical_cols': categorical_columns,
+                'continuous_cols': continuous_columns,
+                'label_cols': label_columns,
             }
             if verbose:
                 print("data_module: {}".format(data_module))

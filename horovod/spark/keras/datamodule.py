@@ -25,7 +25,6 @@ class PetastormDataModule(DataModule):
                        train_reader_worker_count: int=2,
                        val_reader_worker_count: int=2,
                        make_dataset=None,
-                       shuffle=False,
                        random_seed=0,
                        **kwargs):
         from petastorm import TransformSpec, make_reader, make_batch_reader
@@ -35,7 +34,6 @@ class PetastormDataModule(DataModule):
         self.train_reader_worker_count = train_reader_worker_count
         self.val_reader_worker_count = val_reader_worker_count
         self.make_dataset = make_dataset
-        self.shuffle = shuffle
         self.random_seed = random_seed
 
         # In general, make_batch_reader is faster than make_reader for reading the dataset.
@@ -150,7 +148,7 @@ class NVTabularDataModule(DataModule):
                                    cat_names=self.categorical_cols,
                                    cont_names=self.continuous_cols,
                                    engine="parquet",
-                                   shuffle=True,
+                                   shuffle=self.shuffle,
                                    buffer_size=0.1,  # how many batches to load at once
                                    parts_per_chunk=1,
                                    global_size=hvd.size(),

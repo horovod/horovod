@@ -251,6 +251,12 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
     def getBackendEnv(self):
         return self.getOrDefault(self.backend_env)
 
+    def setDataModule(self, value):
+        return self._set(data_module=value)
+
+    def getDataModule(self):
+        return self.getOrDefault(self.data_module)
+
     def _check_metadata_compatibility(self, metadata):
         input_shapes, output_shapes = self.get_model_shapes()
         util.check_shape_compatibility(metadata,

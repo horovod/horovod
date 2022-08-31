@@ -20,12 +20,10 @@ class DataModule(ABC):
     short_name = None     # implementations should provide a short name for easy reference, e.g. 'petastorm', 'nvtabular', etc.
 
     def __init__(self, train_dir: str, val_dir: str, num_train_epochs: int=1, has_val: bool=True,
-                 train_batch_size: int=32, val_batch_size: int=32, shuffle_size: int=1000,
+                 train_batch_size: int=32, val_batch_size: int=32, shuffle: bool=True,
                  transform_fn=None, inmemory_cache_all=False,
                  cur_shard: int=0, shard_count: int=1, schema_fields=None, storage_options=None,
-                 steps_per_epoch_train: int=1, steps_per_epoch_val: int=1, verbose=True,
-                 debug_data_loader: bool=False, train_async_data_loader_queue_size: int=None,
-                 val_async_data_loader_queue_size: int=None, **kwargs):
+                 steps_per_epoch_train: int=1, steps_per_epoch_val: int=1, verbose=True, **kwargs):
         super().__init__()
         self.train_dir = train_dir
         self.val_dir = val_dir
@@ -33,7 +31,7 @@ class DataModule(ABC):
         self.has_val = has_val
         self.train_batch_size = train_batch_size
         self.val_batch_size = val_batch_size
-        self.shuffle_size = shuffle_size
+        self.shuffle = shuffle
         self.transform_fn = transform_fn
         self.inmemory_cache_all = inmemory_cache_all
         self.cur_shard = cur_shard
@@ -43,9 +41,6 @@ class DataModule(ABC):
         self.steps_per_epoch_train = steps_per_epoch_train
         self.steps_per_epoch_val = steps_per_epoch_val
         self.verbose = verbose
-        self.debug_data_loader = debug_data_loader
-        self.train_async_data_loader_queue_size = train_async_data_loader_queue_size
-        self.val_async_data_loader_queue_size = val_async_data_loader_queue_size
 
     def __enter__(self):
         return self

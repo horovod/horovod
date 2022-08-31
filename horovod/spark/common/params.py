@@ -206,12 +206,6 @@ class EstimatorParams(Params):
     def getNumProc(self):
         return self.getOrDefault(self.num_proc)
 
-    def setDataModule(self, value):
-        return self._set(data_module=value)
-
-    def getDataModule(self):
-        return self.getOrDefault(self.data_module)
-
     def setModel(self, value):
         return self._set(model=value)
 
