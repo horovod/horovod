@@ -24,7 +24,6 @@ from horovod.spark.common import util
 
 class EstimatorParams(Params):
     num_proc = Param(Params._dummy(), 'num_proc', 'number of processes')
-    data_module = Param(Params._dummy(), 'data_module', 'data module class to use when reading data')
     train_reader_num_workers = Param(Params._dummy(),
                                      'train_reader_num_workers',
                                      'number of parallel worker processes to read train data')
@@ -140,7 +139,6 @@ class EstimatorParams(Params):
 
         self._setDefault(
             num_proc=None,
-            data_module=None,
             store=None,
             backend=None,
             model=None,

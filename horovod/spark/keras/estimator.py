@@ -158,6 +158,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
     custom_objects = Param(Params._dummy(), 'custom_objects', 'custom objects')
     checkpoint_callback = Param(Params._dummy(), 'checkpoint_callback',
                                 'model checkpointing callback')
+    data_module = Param(Params._dummy(), 'data_module', 'data module class to use when reading data')
     backend_env = Param(Params._dummy(), "backend_env",
                         "dict to add to the environment of the command run on the environment")
 

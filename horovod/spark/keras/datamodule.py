@@ -21,7 +21,7 @@ from horovod.spark.common.datamodule import DataModule
 
 class PetastormDataModule(DataModule):
     """Default Petastorm-based DataModule for KerasEstimator."""
-    def __init__(self, reader_pool_type: str="process",
+    def __init__(self, reader_pool_type: str='thread',
                        train_reader_worker_count: int=2,
                        val_reader_worker_count: int=2,
                        make_dataset=None,
@@ -55,7 +55,7 @@ class PetastormDataModule(DataModule):
     def __enter__(self):
         super().__enter__()
         self.train_reader = self.reader_factory(self.train_dir,
-                                num_epochs=self.num_train_epochs,
+                                num_epochs=1,
                                 cur_shard=hvd.rank(),
                                 reader_pool_type=self.reader_pool_type,
                                 workers_count=self.train_reader_worker_count,
