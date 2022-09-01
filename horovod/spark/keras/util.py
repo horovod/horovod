@@ -1,4 +1,5 @@
 # Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
+# Modifications copyright (C) 2022, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,15 +36,15 @@ class TFKerasUtil(object):
 
     @staticmethod
     def fit_fn(epochs):
-        def fn(model, train_data, val_data, steps_per_epoch, validation_steps, callbacks, verbose):
-            return model.fit(
-                train_data,
-                validation_data=val_data,
-                steps_per_epoch=steps_per_epoch,
-                validation_steps=validation_steps,
-                callbacks=callbacks,
-                verbose=verbose,
-                epochs=epochs)
+        def fn(model, data_module, steps_per_epoch, validation_steps, callbacks, verbose):
+            with data_module as dm:
+                return model.fit(dm.train_data(),
+                                 validation_data=dm.val_data() if dm.has_val else None,
+                                 steps_per_epoch=steps_per_epoch,
+                                 validation_steps=validation_steps,
+                                 callbacks=callbacks,
+                                 verbose=verbose,
+                                 epochs=epochs)
         return fn
 
     @staticmethod

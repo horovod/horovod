@@ -32,7 +32,9 @@ SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 RUN env | sort
 
 # Prepare to install specific g++ versions
-RUN apt-get update -qq && apt-get install -y --no-install-recommends software-properties-common
+RUN apt-get update -qq && apt-get install -y --no-install-recommends software-properties-common && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN add-apt-repository ppa:ubuntu-toolchain-r/test
 
 # Install essential packages.
@@ -45,14 +47,16 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
         git \
         build-essential \
         g++-${GPP_VERSION} \
-        moreutils
+        moreutils && \
+    rm -rf /var/lib/apt/lists/*
 
 # setup ssh service
 RUN ssh-keygen -f /root/.ssh/id_rsa -q -N ''
 RUN cp -v /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
 
 # Install Python.
-RUN apt-get update -qq && apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-distutils
+RUN apt-get update -qq && apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-distutils && \
+    rm -rf /var/lib/apt/lists/*
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python${PYTHON_VERSION/%.*/}
 RUN wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
@@ -181,12 +185,10 @@ RUN if [[ ${MXNET_PACKAGE} != "mxnet-nightly" ]]; then \
     fi
 
 # Prefetch Spark MNIST dataset.
-RUN mkdir -p /work
-RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/mnist.bz2 -O /data/mnist.bz2
+RUN mkdir -p /work /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/mnist.bz2 -O /data/mnist.bz2
 
 # Prefetch Spark Rossmann dataset.
-RUN mkdir -p /work
-RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/rossmann.tgz -O - | tar -xzC /data
+RUN mkdir -p /work /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/rossmann.tgz -O - | tar -xzC /data
 
 # Prefetch PyTorch datasets.
 RUN wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/pytorch_datasets.tgz -O - | tar -xzC /data

@@ -1,4 +1,5 @@
 # Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
+# Modifications copyright (C) 2022, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,6 +32,7 @@ from horovod.spark.common.params import EstimatorParams
 from horovod.spark.common.serialization import HorovodParamsWriter, HorovodParamsReader
 from horovod.spark.keras import remote
 from horovod.spark.keras.util import TFKerasUtil
+from horovod.spark.keras.datamodule import PetastormDataModule
 
 
 class KerasEstimatorParamsWriter(HorovodParamsWriter):
@@ -93,6 +95,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
 
     Args:
         num_proc: Number of Horovod processes.  Defaults to `spark.default.parallelism`.
+        data_module: (Optional) DataModule class used for training and validation, if not set, defaults to the PetastormDataModule.
         model: Keras model to train.
         backend: Optional Backend object for running distributed training function. Defaults to SparkBackend with
                  `num_proc` worker processes. Cannot be specified if `num_proc` is also provided.
@@ -155,12 +158,14 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
     custom_objects = Param(Params._dummy(), 'custom_objects', 'custom objects')
     checkpoint_callback = Param(Params._dummy(), 'checkpoint_callback',
                                 'model checkpointing callback')
+    data_module = Param(Params._dummy(), 'data_module', 'data module class to use when reading data')
     backend_env = Param(Params._dummy(), "backend_env",
                         "dict to add to the environment of the command run on the environment")
 
     @keyword_only
     def __init__(self,
                  num_proc=None,
+                 data_module=None,
                  model=None,
                  backend=None,
                  store=None,
@@ -173,6 +178,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                  metrics=None,
                  feature_cols=None,
                  label_cols=None,
+                 continuous_cols=None,
+                 categorical_cols=None,
                  validation=None,
                  callbacks=None,
                  batch_size=None,
@@ -199,7 +206,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
 
         super(KerasEstimator, self).__init__()
 
-        self._setDefault(optimizer=None,
+        self._setDefault(data_module=PetastormDataModule,
+                         optimizer=None,
                          custom_objects={},
                          checkpoint_callback=None,
                          backend_env={'LIBHDFS_OPTS': '-Xms2048m -Xmx2048m'})
@@ -242,6 +250,12 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
 
     def getBackendEnv(self):
         return self.getOrDefault(self.backend_env)
+
+    def setDataModule(self, value):
+        return self._set(data_module=value)
+
+    def getDataModule(self):
+        return self.getOrDefault(self.data_module)
 
     def _check_metadata_compatibility(self, metadata):
         input_shapes, output_shapes = self.get_model_shapes()

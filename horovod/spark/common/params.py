@@ -1,4 +1,5 @@
 # Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
+# Modifications copyright (C) 2022, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,6 +54,10 @@ class EstimatorParams(Params):
                          typeConverter=TypeConverters.toListString)
     label_cols = Param(Params._dummy(), 'label_cols', 'label column names',
                        typeConverter=TypeConverters.toListString)
+    continuous_cols = Param(Params._dummy(), "continuous_cols", "continuous column names",
+                        typeConverter=TypeConverters.toListString)
+    categorical_cols = Param(Params._dummy(), "categorical_cols", "categorical column names",
+                        typeConverter=TypeConverters.toListString)
     validation = Param(Params._dummy(), 'validation',
                        'one of: float validation split [0, 1), or string validation column name')
     callbacks = Param(Params._dummy(), 'callbacks', 'callbacks')
@@ -144,6 +149,8 @@ class EstimatorParams(Params):
             metrics=[],
             feature_cols=None,
             label_cols=None,
+            continuous_cols=None,
+            categorical_cols=None,
             validation=None,
             gradient_compression=None,
             compress_sparse_cols=False,
@@ -252,6 +259,18 @@ class EstimatorParams(Params):
 
     def getLabelCols(self):
         return self.getOrDefault(self.label_cols)
+
+    def setContinuousCols(self, value):
+        return self._set(continuous_cols=value)
+
+    def getContinuousCols(self):
+        return self.getOrDefault(self.continuous_cols)
+
+    def setCategoricalCols(self, value):
+        return self._set(categorical_cols=value)
+
+    def getCategoricalCols(self):
+        return self.getOrDefault(self.categorical_cols)
 
     def setValidation(self, value):
         return self._set(validation=value)

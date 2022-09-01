@@ -1,4 +1,5 @@
 # Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
+# Modifications copyright (C) 2022, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,6 +42,12 @@ sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 from common import temppath
 from spark_common import CallbackBackend, create_mnist_data, create_xor_data, create_xor_data_with_val, local_store, spark_session
 
+try:
+    import nvtabular
+    HAS_NVTABULAR=True
+except ImportError:
+    HAS_NVTABULAR=False
+
 
 def create_xor_model():
     model = tf.keras.models.Sequential()
@@ -64,7 +71,7 @@ def create_mnist_model():
 
 
 def get_mock_fit_fn():
-    def fit(model, train_data, val_data, steps_per_epoch, validation_steps, callbacks, verbose):
+    def fit(model, data_module, steps_per_epoch, validation_steps, callbacks, verbose):
         for callback in callbacks:
             callback.set_model(model)
             callback.on_epoch_end(0, logs={})
@@ -114,6 +121,86 @@ class SparkKerasTests(tf.test.TestCase):
                 pred = trained_model.predict([np.ones([1, 2], dtype=np.float32)])
                 assert len(pred) == 1
                 assert pred.dtype == np.float32
+
+    @pytest.mark.skipif(not HAS_NVTABULAR, reason='NVTabular unavailable')
+    def test_fit_model_nvtabular_vector(self):
+        from horovod.spark.keras.datamodule import NVTabularDataModule
+
+        model = create_xor_model()
+        optimizer = tf.keras.optimizers.SGD(lr=0.1)
+        loss = 'binary_crossentropy'
+
+        with spark_session('test_fit_model_nvtabular_vector') as spark:
+            df = create_xor_data(spark)
+            df = df.withColumnRenamed('features', 'dense_input')
+
+            with local_store() as store:
+                keras_estimator = hvd.KerasEstimator(
+                    num_proc=1,
+                    data_module=NVTabularDataModule,
+                    store=store,
+                    model=model,
+                    optimizer=optimizer,
+                    loss=loss,
+                    feature_cols=['dense_input'],
+                    label_cols=['y'],
+                    categorical_cols=None,
+                    continuous_cols=['dense_input'],
+                    batch_size=1,
+                    random_seed=1,
+                    epochs=3,
+                    verbose=2,
+                    use_gpu=True)
+
+                keras_model = keras_estimator.fit(df)
+
+                trained_model = keras_model.getModel()
+                pred = trained_model.predict([np.ones([1, 2], dtype=np.float32)])
+                assert len(pred) == 1
+                assert pred.dtype == np.float32
+
+    @pytest.mark.skipif(not HAS_NVTABULAR, reason='NVTabular unavailable')
+    def test_fit_model_nvtabular_scalar(self):
+        from horovod.spark.keras.datamodule import NVTabularDataModule
+
+        np.random.seed(1234)
+        continuous = np.random.rand(1000, 2)
+        weights = np.array([3.142, 1.618])
+        labels = np.dot(continuous, weights)
+        train_examples = [(continuous[i][0].item(), continuous[i][1].item(), labels[i].item()) for i in range(1000)]
+
+        with spark_session('test_fit_model_nvtabular_scalar') as spark:
+            with local_store() as store:
+                df = spark.createDataFrame(train_examples, schema=['c1', 'c2', 'labels'])
+
+                c1 = tf.keras.layers.Input(shape=(1,), name='c1')
+                c2 = tf.keras.layers.Input(shape=(1,), name='c2')
+                merged = tf.keras.layers.Concatenate(axis=1)([c1, c2])
+                output = tf.keras.layers.Dense(1, activation='linear', input_shape=[2])(merged)
+                model = tf.keras.Model(inputs=[c1, c2], outputs=output)
+                model.summary()
+
+                optimizer = tf.keras.optimizers.SGD(lr=0.1)
+                loss = tf.keras.losses.MeanSquaredError()
+
+                keras_estimator = hvd.KerasEstimator(
+                    num_proc=2,
+                    data_module=NVTabularDataModule,
+                    store=store,
+                    model=model,
+                    optimizer=optimizer,
+                    loss=loss,
+                    feature_cols=['c1', 'c2'],
+                    label_cols=['labels'],
+                    categorical_cols=None,
+                    continuous_cols=['c1', 'c2'],
+                    batch_size=16,
+                    random_seed=1,
+                    epochs=3,
+                    verbose=2,
+                    use_gpu=True)
+
+                keras_estimator.fit(df)
 
     def test_fit_model_multiclass(self):
         model = create_mnist_model()
@@ -251,7 +338,7 @@ class SparkKerasTests(tf.test.TestCase):
         from horovod.tensorflow.keras.callbacks import BestModelCheckpoint
 
         def _get_mock_fit_fn(checkpoint_callback_provided):
-            def fit(model, train_data, val_data, steps_per_epoch, validation_steps, callbacks,
+            def fit(model, data_module, steps_per_epoch, validation_steps, callbacks,
                     verbose):
                 returned_model_checkpoint_present = False
                 model_checkpoint_present = False
