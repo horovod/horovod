@@ -196,7 +196,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  label_shapes=None,
                  inmemory_cache_all=False,
                  use_gpu=True,
-                 mp_start_method=None):
+                 mp_start_method=None,
+                 backward_passes_per_step=1):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
