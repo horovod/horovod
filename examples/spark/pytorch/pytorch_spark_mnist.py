@@ -39,6 +39,8 @@ parser.add_argument('--work-dir', default='/tmp',
                     help='temporary working directory to write intermediate files (prefix with hdfs:// to use HDFS)')
 parser.add_argument('--data-dir', default='/tmp',
                     help='location of the training dataset in the local filesystem (will be downloaded if needed)')
+parser.add_argument('--backward-passes-per-step', type=int, default=1,
+                    help='number of backward passes to perform before calling hvd.allreduce')
 
 if __name__ == '__main__':
     args = parser.parse_args()
@@ -114,6 +116,7 @@ if __name__ == '__main__':
                                          batch_size=args.batch_size,
                                          epochs=args.epochs,
                                          validation=0.1,
+                                         backward_passes_per_step=args.backward_passes_per_step,
                                          verbose=1)
 
     torch_model = torch_estimator.fit(train_df).setOutputCols(['label_prob'])
