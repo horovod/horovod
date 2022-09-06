@@ -151,6 +151,9 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         inmemory_cache_all: (Optional) Cache the data in memory for training and validation.
         use_gpu: Whether to use the GPU for training. Defaults to True.
         mp_start_method: The method to use to start multiprocessing. Defaults to None.
+        backward_passes_per_step: Number of backward passes to perform before calling hvd.allreduce.
+                                  This allows accumulating updates over multiple mini-batches before
+                                  reducing and applying them. Defaults to 1.
     """
 
     input_shapes = Param(Params._dummy(), 'input_shapes', 'input layer shapes')

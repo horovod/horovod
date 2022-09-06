@@ -135,8 +135,10 @@ class EstimatorParams(Params):
                     typeConverter=TypeConverters.toString)
     
     backward_passes_per_step = Param(Params._dummy(), 'backward_passes_per_step',
-                        'backward_passes_per_step',
-                        typeConverter=TypeConverters.toInt)
+                                     'Number of backward passes to perform before calling hvd.allreduce. '
+                                     'This allows accumulating updates over multiple mini-batches before reducing and applying them. '
+                                     'This param defaults to 1.',
+                                     typeConverter=TypeConverters.toInt)
 
     def __init__(self):
         super(EstimatorParams, self).__init__()
