@@ -163,6 +163,7 @@ if(NOT CMAKE_CUDA_COMPILER)
     find_package(CUDAToolkit)
     if(CUDAToolkit_BIN_DIR)
         message("CUDA compiler was not found in $PATH, but searching again in CUDA Toolkit binary directory")
+        unset(CMAKE_CUDA_COMPILER CACHE)  # need to clear this from cache, else some versions of CMake go into an infinite loop
         set(CMAKE_CUDA_COMPILER "${CUDAToolkit_BIN_DIR}/nvcc")
         check_language(CUDA)
     endif()
