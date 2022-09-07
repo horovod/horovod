@@ -40,6 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - PyTorch: Fixed Reducescatter functions to raise `HorovodInternalError` rather than `RuntimeError`. ([#3594](https://github.com/horovod/horovod/pull/3594))
 - PyTorch on GPUs without GPU operations: Fixed grouped allreduce to set CPU device in tensor table. ([#3594](https://github.com/horovod/horovod/pull/3594))
 - Fixed race condition in PyTorch allocation handling. ([#3639](https://github.com/horovod/horovod/pull/3639))
+- Build: Fixed finding nvcc (if not in $PATH) with older versions of CMake. ([#3682](https://github.com/horovod/horovod/pull/3682))
 
 
 ## [v0.25.0] - 2022-06-20
