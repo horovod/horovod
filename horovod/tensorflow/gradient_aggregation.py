@@ -1,7 +1,4 @@
-from distutils.version import LooseVersion
 import tensorflow as tf
-
-_IS_TF2 = LooseVersion(tf.__version__) >= LooseVersion('2.0.0')
 
 
 def apply_op_to_not_none_tensors(tensor_op, tensors, *args):
@@ -65,17 +62,6 @@ class LocalGradientAggregationHelper:
         # the list into a tf.cond().
         self.not_none_indexes = {}
         self.num_none_grad_updates = 0
-
-        self._local_vars = set()
-
-    def register_local_var(self, var):
-        """Registers a source/variable as worker local. Horovod will not perform any global
-        operations on gradients corresponding to these sources and will instead return the local
-        gradient."""
-        if _IS_TF2:
-            self._local_vars.add(var.ref())
-        else:
-            self._local_vars.add(var)
 
     def _maybe_convert_grad(self, grad):
         # Handle IndexedSlices.
@@ -161,32 +147,6 @@ class LocalGradientAggregationHelper:
         return aggregation_ops_list
 
     def _allreduce_grads_helper(self, vars):
-        def __filtered_reduce_grads(grads, vars):
-            rv = []
-            rg = []
-            if _IS_TF2:
-                v2g = {var.ref(): grad for var, grad in zip(vars, grads)}
-                for var, grad in zip(vars, grads):
-                    if var.ref() not in self._local_vars:
-                        rv.append(var)
-                        rg.append(grad)
-            else:
-                v2g = {var: grad for var, grad in zip(vars, grads)}
-                for var, grad in zip(vars, grads):
-                    if var not in self._local_vars:
-                        rv.append(var)
-                        rg.append(grad)
-
-            rg = self._allreduce_grads(rg, rv)
-            if _IS_TF2:
-                for rv, rg in zip(rv, rg):
-                    v2g[rv.ref()] = rg
-                return [v2g[rv.ref()] for rv in vars]
-            else:
-                for rv, rg in zip(rv, rg):
-                    v2g[rv] = rg
-                return [v2g[rv] for rv in vars]
-
         # Read in latest variables values.
         aggregated_grads = []
         aggregation_read_ops_list = []
@@ -197,7 +157,7 @@ class LocalGradientAggregationHelper:
         aggregation_read_ops = tf.group(*aggregation_read_ops_list)
 
         with tf.control_dependencies([aggregation_read_ops]):
-            averaged_gradients = __filtered_reduce_grads(aggregated_grads, vars)
+            averaged_gradients = self._allreduce_grads(aggregated_grads, vars)
 
             # Reset counter.
             with tf.control_dependencies([g.op for g in averaged_gradients if g is not None]):
