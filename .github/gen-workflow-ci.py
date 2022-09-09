@@ -42,18 +42,29 @@ def main():
     pipeline = yaml.load(proc.stdout, Loader=Loader)
     steps = pipeline.get('steps', [])
 
-    images = [plugin['docker-compose#v3.5.0']['build']
+    docker_compose_plugins = {plugin_name
+                              for step in steps if isinstance(step, dict) and 'label' in step
+                              and step['label'].startswith(':docker: Build ')
+                              for plugins in step['plugins']
+                              for plugin_name in plugins.keys() if plugin_name.startswith('docker-compose#')}
+    if len(docker_compose_plugins) == 0:
+        raise RuntimeError('No docker-compose plugin found')
+    if len(docker_compose_plugins) > 1:
+        raise RuntimeError('Multiple docker-compose plugins found')
+
+    docker_compose_plugin = list(docker_compose_plugins)[0]
+    images = [plugin[docker_compose_plugin]['build']
               for step in steps if isinstance(step, dict) and 'label' in step
                                 and step['label'].startswith(':docker: Build ')
-              for plugin in step['plugins'] if 'docker-compose#v3.5.0' in plugin]
+              for plugin in step['plugins'] if docker_compose_plugin in plugin]
 
     cpu_tests = [(re.sub(r' \(test-.*', '', re.sub(':[^:]*: ', '', step['label'])),
                   step['command'],
                   step['timeout_in_minutes'],
-                  plugin['docker-compose#v3.5.0']['run'])
+                  plugin[docker_compose_plugin]['run'])
                  for step in steps if isinstance(step, dict) and 'label' in step and 'command' in step
                  and not step['label'].startswith(':docker: Build ') and '-cpu-' in step['label']
-                 for plugin in step['plugins'] if 'docker-compose#v3.5.0' in plugin]
+                 for plugin in step['plugins'] if docker_compose_plugin in plugin]
 
     # we need to distinguish the two oneccl variants of some tests
     cpu_tests = [(label + (' [ONECCL OFI]' if 'mpirun_command_ofi' in command else (' [ONECCL MPI]' if 'mpirun_command_mpi' in command else '')),
@@ -335,54 +346,10 @@ def main():
                 f'      - name: Setup docker-compose\n'
                 f'        run: pip install docker-compose\n'
                 f'\n'
-                f'      - name: Configure AWS credentials\n'
-                f'        id: aws\n'
-                f'        uses: aws-actions/configure-aws-credentials@v1\n'
-                f'        # AWS credentials are used to authenticate against AWS ECR to pull and push test images\n'
-                f'        # We can only authenticate when running on Horovod repo (not a fork)\n'
-                f'        if: >\n'
-                f'          github.repository == \'horovod/horovod\' &&\n'
-                f'          ( github.event_name != \'pull_request\' || github.event.pull_request.head.repo.full_name == github.repository )\n'
-                f'        continue-on-error: true\n'
-                f'        with:\n'
-                f'          aws-access-key-id: ${{{{ secrets.AWS_ACCESS_KEY_ID }}}}\n'
-                f'          aws-secret-access-key: ${{{{ secrets.AWS_SECRET_ACCESS_KEY }}}}\n'
-                f'          aws-region: us-east-1\n'
-                f'\n'
-                f'      - name: Login to Amazon ECR\n'
-                f'        id: ecr\n'
-                f'        if: steps.aws.outcome == \'success\'\n'
-                f'        continue-on-error: true\n'
-                f'        uses: aws-actions/amazon-ecr-login@v1\n'
-                f'\n'
-                f'      - name: Add cache_from to docker-compose YAML\n'
-                f'        if: steps.ecr.outcome == \'success\'\n'
-                f'        run: |\n'
-                f'          cat > docker-compose.test.override.yml <<EOF\n'
-                f'          version: \'2.3\'\n'
-                f'          services:\n'
-                f'            ${{{{ matrix.image }}}}:\n'
-                f'              build:\n'
-                f'                cache_from:\n'
-                f'                  - ${{{{ steps.ecr.outputs.registry }}}}/buildkite:horovod-${{{{ matrix.image }}}}-latest\n'
-                f'          EOF\n'
-                f'          cat docker-compose.test.override.yml\n'
-                f'        shell: bash\n'
-                f'\n'
-                f'      - name: Pull latest test image\n'
-                f'        if: steps.ecr.outcome == \'success\'\n'
-                f'        continue-on-error: true\n'
-                f'        run: |\n'
-                f'          docker pull ${{{{ steps.ecr.outputs.registry }}}}/buildkite:horovod-${{{{ matrix.image }}}}-latest\n'
-                f'        env:\n'
-                f'          DOCKER_BUILDKIT: 1\n'
-                f'\n'
                 f'      - name: Build\n'
                 f'        id: build\n'
                 f'        run: |\n'
-                f'          override_yaml=""\n'
-                f'          if [ -e docker-compose.test.override.yml ]; then override_yaml="-f docker-compose.test.override.yml"; fi\n'
-                f'          .github/timeout-and-retry.sh ${{{{ matrix.build_timeout }}}}m 3 10 docker-compose -f docker-compose.test.yml $override_yaml build --pull ${{{{ matrix.image }}}}\n'
+                f'          .github/timeout-and-retry.sh ${{{{ matrix.build_timeout }}}}m 3 10 docker-compose -f docker-compose.test.yml build ${{{{ matrix.image }}}}\n'
                 f'        env:\n'
                 f'          COMPOSE_DOCKER_CLI_BUILD: 1\n'
                 f'          DOCKER_BUILDKIT: 1\n'
@@ -403,22 +370,7 @@ def main():
                 f'        if: always() && contains(matrix.image, \'-cpu-\')\n'
                 f'        with:\n'
                 f'          name: Unit Test Results - ${{{{ matrix.image }}}}\n'
-                f'          path: artifacts/${{{{ matrix.image }}}}/**/*.xml\n'
-                f'\n'
-                f'      - name: Push test image\n'
-                f'        # We push test image to AWS ECR on push to Horovod master (not a fork)\n'
-                f'        if: >\n'
-                f'          github.event_name == \'push\' &&\n'
-                f'          github.ref == \'refs/heads/master\' &&\n'
-                f'          github.repository == \'horovod/horovod\' &&\n'
-                f'          steps.ecr.outcome == \'success\'\n'
-                f'        continue-on-error: true\n'
-                f'        run: |\n'
-                f'          docker image ls | head\n'
-                f'          docker tag horovod_${{{{ matrix.image }}}} ${{{{ steps.ecr.outputs.registry }}}}/buildkite:horovod-${{{{ matrix.image }}}}-latest\n'
-                f'          docker push ${{{{ steps.ecr.outputs.registry }}}}/buildkite:horovod-${{{{ matrix.image }}}}-latest\n'
-                f'          docker image ls | head\n'
-                f'        shell: bash\n')
+                f'          path: artifacts/${{{{ matrix.image }}}}/**/*.xml\n')
 
     def build_and_test_macos(id: str, name: str, needs: List[str], attempts: int = 3) -> str:
         if 'init-workflow' not in needs:

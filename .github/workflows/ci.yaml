@@ -429,54 +429,10 @@ jobs:
       - name: Setup docker-compose
         run: pip install docker-compose
 
-      - name: Configure AWS credentials
-        id: aws
-        uses: aws-actions/configure-aws-credentials@v1
-        # AWS credentials are used to authenticate against AWS ECR to pull and push test images
-        # We can only authenticate when running on Horovod repo (not a fork)
-        if: >
-          github.repository == 'horovod/horovod' &&
-          ( github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository )
-        continue-on-error: true
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Login to Amazon ECR
-        id: ecr
-        if: steps.aws.outcome == 'success'
-        continue-on-error: true
-        uses: aws-actions/amazon-ecr-login@v1
-
-      - name: Add cache_from to docker-compose YAML
-        if: steps.ecr.outcome == 'success'
-        run: |
-          cat > docker-compose.test.override.yml <<EOF
-          version: '2.3'
-          services:
-            ${{ matrix.image }}:
-              build:
-                cache_from:
-                  - ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-          EOF
-          cat docker-compose.test.override.yml
-        shell: bash
-
-      - name: Pull latest test image
-        if: steps.ecr.outcome == 'success'
-        continue-on-error: true
-        run: |
-          docker pull ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-        env:
-          DOCKER_BUILDKIT: 1
-
       - name: Build
         id: build
         run: |
-          override_yaml=""
-          if [ -e docker-compose.test.override.yml ]; then override_yaml="-f docker-compose.test.override.yml"; fi
-          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml $override_yaml build --pull ${{ matrix.image }}
+          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml build ${{ matrix.image }}
         env:
           COMPOSE_DOCKER_CLI_BUILD: 1
           DOCKER_BUILDKIT: 1
@@ -2458,21 +2414,6 @@ jobs:
         with:
           name: Unit Test Results - ${{ matrix.image }}
           path: artifacts/${{ matrix.image }}/**/*.xml
-
-      - name: Push test image
-        # We push test image to AWS ECR on push to Horovod master (not a fork)
-        if: >
-          github.event_name == 'push' &&
-          github.ref == 'refs/heads/master' &&
-          github.repository == 'horovod/horovod' &&
-          steps.ecr.outcome == 'success'
-        continue-on-error: true
-        run: |
-          docker image ls | head
-          docker tag horovod_${{ matrix.image }} ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-          docker push ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-          docker image ls | head
-        shell: bash
 
   build-and-test-heads:
     name: "Build and Test heads (${{ matrix.image }})"
@@ -2567,54 +2508,10 @@ jobs:
       - name: Setup docker-compose
         run: pip install docker-compose
 
-      - name: Configure AWS credentials
-        id: aws
-        uses: aws-actions/configure-aws-credentials@v1
-        # AWS credentials are used to authenticate against AWS ECR to pull and push test images
-        # We can only authenticate when running on Horovod repo (not a fork)
-        if: >
-          github.repository == 'horovod/horovod' &&
-          ( github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository )
-        continue-on-error: true
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Login to Amazon ECR
-        id: ecr
-        if: steps.aws.outcome == 'success'
-        continue-on-error: true
-        uses: aws-actions/amazon-ecr-login@v1
-
-      - name: Add cache_from to docker-compose YAML
-        if: steps.ecr.outcome == 'success'
-        run: |
-          cat > docker-compose.test.override.yml <<EOF
-          version: '2.3'
-          services:
-            ${{ matrix.image }}:
-              build:
-                cache_from:
-                  - ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-          EOF
-          cat docker-compose.test.override.yml
-        shell: bash
-
-      - name: Pull latest test image
-        if: steps.ecr.outcome == 'success'
-        continue-on-error: true
-        run: |
-          docker pull ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-        env:
-          DOCKER_BUILDKIT: 1
-
       - name: Build
         id: build
         run: |
-          override_yaml=""
-          if [ -e docker-compose.test.override.yml ]; then override_yaml="-f docker-compose.test.override.yml"; fi
-          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml $override_yaml build --pull ${{ matrix.image }}
+          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml build ${{ matrix.image }}
         env:
           COMPOSE_DOCKER_CLI_BUILD: 1
           DOCKER_BUILDKIT: 1
@@ -4597,21 +4494,6 @@ jobs:
           name: Unit Test Results - ${{ matrix.image }}
           path: artifacts/${{ matrix.image }}/**/*.xml
 
-      - name: Push test image
-        # We push test image to AWS ECR on push to Horovod master (not a fork)
-        if: >
-          github.event_name == 'push' &&
-          github.ref == 'refs/heads/master' &&
-          github.repository == 'horovod/horovod' &&
-          steps.ecr.outcome == 'success'
-        continue-on-error: true
-        run: |
-          docker image ls | head
-          docker tag horovod_${{ matrix.image }} ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-          docker push ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-          docker image ls | head
-        shell: bash
-
   build-mins:
     name: "Build mins (${{ matrix.image }})"
     needs: [init-workflow, build-and-test]
@@ -4671,54 +4553,10 @@ jobs:
       - name: Setup docker-compose
         run: pip install docker-compose
 
-      - name: Configure AWS credentials
-        id: aws
-        uses: aws-actions/configure-aws-credentials@v1
-        # AWS credentials are used to authenticate against AWS ECR to pull and push test images
-        # We can only authenticate when running on Horovod repo (not a fork)
-        if: >
-          github.repository == 'horovod/horovod' &&
-          ( github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository )
-        continue-on-error: true
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Login to Amazon ECR
-        id: ecr
-        if: steps.aws.outcome == 'success'
-        continue-on-error: true
-        uses: aws-actions/amazon-ecr-login@v1
-
-      - name: Add cache_from to docker-compose YAML
-        if: steps.ecr.outcome == 'success'
-        run: |
-          cat > docker-compose.test.override.yml <<EOF
-          version: '2.3'
-          services:
-            ${{ matrix.image }}:
-              build:
-                cache_from:
-                  - ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-          EOF
-          cat docker-compose.test.override.yml
-        shell: bash
-
-      - name: Pull latest test image
-        if: steps.ecr.outcome == 'success'
-        continue-on-error: true
-        run: |
-          docker pull ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-        env:
-          DOCKER_BUILDKIT: 1
-
       - name: Build
         id: build
         run: |
-          override_yaml=""
-          if [ -e docker-compose.test.override.yml ]; then override_yaml="-f docker-compose.test.override.yml"; fi
-          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml $override_yaml build --pull ${{ matrix.image }}
+          .github/timeout-and-retry.sh ${{ matrix.build_timeout }}m 3 10 docker-compose -f docker-compose.test.yml build ${{ matrix.image }}
         env:
           COMPOSE_DOCKER_CLI_BUILD: 1
           DOCKER_BUILDKIT: 1
@@ -4730,21 +4568,6 @@ jobs:
         with:
           name: Unit Test Results - ${{ matrix.image }}
           path: artifacts/${{ matrix.image }}/**/*.xml
-
-      - name: Push test image
-        # We push test image to AWS ECR on push to Horovod master (not a fork)
-        if: >
-          github.event_name == 'push' &&
-          github.ref == 'refs/heads/master' &&
-          github.repository == 'horovod/horovod' &&
-          steps.ecr.outcome == 'success'
-        continue-on-error: true
-        run: |
-          docker image ls | head
-          docker tag horovod_${{ matrix.image }} ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-          docker push ${{ steps.ecr.outputs.registry }}/buildkite:horovod-${{ matrix.image }}-latest
-          docker image ls | head
-        shell: bash
 
   build-and-test-macos:
     name: "Build and Test macOS (${{ matrix.image }}-macos)"
