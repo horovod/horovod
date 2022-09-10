@@ -122,7 +122,9 @@ class TensorFlowTests(BaseTensorFlowTests):
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
                 # prevent underflows/overflows in uint8, int8
-                tensor = self.random_uniform([17] * dim, -100, 100)
+                maxval = 100 if dtype not in [tf.uint8, tf.int8] else 1
+                minval = -maxval if dtype not in [tf.uint8] else 0
+                tensor = self.random_uniform([17] * dim, minval, maxval)
                 tensor = tf.cast(tensor, dtype=dtype)
                 summed = hvd.allreduce(tensor, average=False)
             multiplied = tensor * size
@@ -152,7 +154,9 @@ class TensorFlowTests(BaseTensorFlowTests):
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
-                tensor = self.random_uniform([17] * dim, -100, 100)
+                maxval = 100 if dtype not in [tf.uint8, tf.int8] else 1
+                minval = -maxval if dtype not in [tf.uint8] else 0
+                tensor = self.random_uniform([17] * dim, minval, maxval)
                 tensor = tf.cast(tensor, dtype=dtype)
                 averaged = hvd.allreduce(tensor, average=True)
             # handle int8, uint8 overflows when allreduce sums up and averages the values
@@ -185,7 +189,9 @@ class TensorFlowTests(BaseTensorFlowTests):
         tests = []
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
-                tensor = self.random_uniform([17] * dim, -100, 100)
+                maxval = 100 if dtype not in [tf.uint8, tf.int8] else 1
+                minval = -maxval if dtype not in [tf.uint8] else 0
+                tensor = self.random_uniform([17] * dim, minval, maxval)
                 tensor = tf.cast(tensor, dtype=dtype)
                 summed = hvd.allreduce(tensor, average=False)
             multiplied = tensor * size
@@ -224,7 +230,9 @@ class TensorFlowTests(BaseTensorFlowTests):
             with tf.device("/cpu:0"):
                 np.random.seed(1234)
                 factor = np.random.uniform()
-                tensor = self.random_uniform([17] * dim, -100, 100)
+                maxval = 100 if dtype not in [tf.uint8, tf.int8] else 1
+                minval = -maxval if dtype not in [tf.uint8] else 0
+                tensor = self.random_uniform([17] * dim, minval, maxval)
                 tensor = tf.cast(tensor, dtype=dtype)
                 summed = hvd.allreduce(tensor, average=False,
                                        prescale_factor=factor)
@@ -266,7 +274,9 @@ class TensorFlowTests(BaseTensorFlowTests):
             with tf.device("/cpu:0"):
                 np.random.seed(1234)
                 factor = np.random.uniform()
-                tensor = self.random_uniform([17] * dim, -100, 100)
+                maxval = 100 if dtype not in [tf.uint8, tf.int8] else 1
+                minval = -maxval if dtype not in [tf.uint8] else 0
+                tensor = self.random_uniform([17] * dim, minval, maxval)
                 tensor = tf.cast(tensor, dtype=dtype)
                 summed = hvd.allreduce(tensor, average=False,
                                        postscale_factor=factor)
@@ -315,7 +325,9 @@ class TensorFlowTests(BaseTensorFlowTests):
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%d" % local_rank):
-                tensor = self.random_uniform([17] * dim, -100, 100)
+                maxval = 100 if dtype not in [tf.uint8, tf.int8] else 1
+                minval = -maxval if dtype not in [tf.uint8] else 0
+                tensor = self.random_uniform([17] * dim, minval, maxval)
                 tensor = tf.cast(tensor, dtype=dtype)
                 summed = hvd.allreduce(tensor, average=False)
             multiplied = tensor * size
@@ -355,7 +367,9 @@ class TensorFlowTests(BaseTensorFlowTests):
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%d" % local_rank):
-                tensor = self.random_uniform([17] * dim, -100, 100)
+                maxval = 100 if dtype not in [tf.uint8, tf.int8] else 1
+                minval = -maxval if dtype not in [tf.uint8] else 0
+                tensor = self.random_uniform([17] * dim, minval, maxval)
                 tensor = tf.cast(tensor, dtype=dtype)
                 averaged = hvd.allreduce(tensor, average=True)
             # handle int8, uint8 overflows when allreduce sums up and averages the values
@@ -401,7 +415,9 @@ class TensorFlowTests(BaseTensorFlowTests):
         tests = []
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%d" % local_rank):
-                tensor = self.random_uniform([17] * dim, -100, 100)
+                maxval = 100 if dtype not in [tf.uint8, tf.int8] else 1
+                minval = -maxval if dtype not in [tf.uint8] else 0
+                tensor = self.random_uniform([17] * dim, minval, maxval)
                 tensor = tf.cast(tensor, dtype=dtype)
                 summed = hvd.allreduce(tensor, average=False)
             multiplied = tensor * size
@@ -455,7 +471,9 @@ class TensorFlowTests(BaseTensorFlowTests):
         for dtype, dim in itertools.product(dtypes, dims):
             iter += 1
             with tf.device("/gpu:%d" % gpu_ids[(iter + local_rank) % 2]):
-                tensor = self.random_uniform([17] * dim, -100, 100)
+                maxval = 100 if dtype not in [tf.uint8, tf.int8] else 1
+                minval = -maxval if dtype not in [tf.uint8] else 0
+                tensor = self.random_uniform([17] * dim, minval, maxval)
                 tensor = tf.cast(tensor, dtype=dtype)
                 summed = hvd.allreduce(tensor, average=False)
             multiplied = tensor * size
@@ -500,7 +518,9 @@ class TensorFlowTests(BaseTensorFlowTests):
             with tf.device("/gpu:%s" % local_rank):
                 np.random.seed(1234)
                 factor = np.random.uniform()
-                tensor = self.random_uniform([17] * dim, -100, 100)
+                maxval = 100 if dtype not in [tf.uint8, tf.int8] else 1
+                minval = -maxval if dtype not in [tf.uint8] else 0
+                tensor = self.random_uniform([17] * dim, minval, maxval)
                 tensor = tf.cast(tensor, dtype=dtype)
                 summed = hvd.allreduce(tensor, average=False,
                                        prescale_factor=factor)
@@ -549,7 +569,9 @@ class TensorFlowTests(BaseTensorFlowTests):
             with tf.device("/gpu:%s" % local_rank):
                 np.random.seed(1234)
                 factor = np.random.uniform()
-                tensor = self.random_uniform([17] * dim, -100, 100)
+                maxval = 100 if dtype not in [tf.uint8, tf.int8] else 1
+                minval = -maxval if dtype not in [tf.uint8] else 0
+                tensor = self.random_uniform([17] * dim, minval, maxval)
                 tensor = tf.cast(tensor, dtype=dtype)
                 summed = hvd.allreduce(tensor, average=False,
                                        postscale_factor=factor)
@@ -809,8 +831,10 @@ class TensorFlowTests(BaseTensorFlowTests):
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
+                maxval = 100 if dtype not in [tf.uint8, tf.int8] else 1
+                minval = -maxval if dtype not in [tf.uint8] else 0
                 tensors = [tf.cast(self.random_uniform(
-                    [17] * dim, -100, 100), dtype=dtype) for _ in range(5)]
+                    [17] * dim, minval, maxval), dtype=dtype) for _ in range(5)]
                 summed = hvd.grouped_allreduce(tensors, average=False)
             multiplied = [tensor * size for tensor in tensors]
             differences = [t1 - t2 for t1, t2 in zip(summed, multiplied)]
@@ -848,8 +872,10 @@ class TensorFlowTests(BaseTensorFlowTests):
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%d" % local_rank):
+                maxval = 100 if dtype not in [tf.uint8, tf.int8] else 1
+                minval = -maxval if dtype not in [tf.uint8] else 0
                 tensors = [tf.cast(self.random_uniform(
-                    [17] * dim, -100, 100), dtype=dtype) for _ in range(5)]
+                    [17] * dim, minval, maxval), dtype=dtype) for _ in range(5)]
                 summed = hvd.grouped_allreduce(tensors, average=False)
             multiplied = [tensor * size for tensor in tensors]
             differences = [t1 - t2 for t1, t2 in zip(summed, multiplied)]
