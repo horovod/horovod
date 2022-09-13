@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Added `register_local_source` and `use_generic_names` funtionality to DistributedGradientTape. ([#3628](https://github.com/horovod/horovod/pull/3628))
 - Added `transformation_edit_fields` and `transformation_removed_fields` param for EstimatorParams. ([#3651](https://github.com/horovod/horovod/pull/3651))
 - Added `PartialDistributedGradientTape()` API for model parallel use cases. ([#3643](https://github.com/horovod/horovod/pull/3643))
+- Enable use of native `ncclAvg` op for NCCL allreduces. ([#3646](https://github.com/horovod/horovod/pull/3646))
 
 ### Changed
 
@@ -40,6 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - PyTorch: Fixed Reducescatter functions to raise `HorovodInternalError` rather than `RuntimeError`. ([#3594](https://github.com/horovod/horovod/pull/3594))
 - PyTorch on GPUs without GPU operations: Fixed grouped allreduce to set CPU device in tensor table. ([#3594](https://github.com/horovod/horovod/pull/3594))
 - Fixed race condition in PyTorch allocation handling. ([#3639](https://github.com/horovod/horovod/pull/3639))
+- Build: Fixed finding nvcc (if not in $PATH) with older versions of CMake. ([#3682](https://github.com/horovod/horovod/pull/3682))
 
 
 ## [v0.25.0] - 2022-06-20

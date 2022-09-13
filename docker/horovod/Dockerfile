@@ -57,10 +57,10 @@ RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Open MPI
-RUN wget --progress=dot:mega -O /tmp/openmpi-3.0.0-bin.tar.gz https://github.com/horovod/horovod/files/1596799/openmpi-3.0.0-bin.tar.gz && \
-    cd /usr/local && \
-    tar -zxf /tmp/openmpi-3.0.0-bin.tar.gz && \
-    ldconfig && \
+RUN wget --progress=dot:mega -O /tmp/openmpi-4.1.4-bin.tar.gz https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.4.tar.gz && \
+    cd /tmp && tar -zxf /tmp/openmpi-4.1.4-bin.tar.gz && \
+    mkdir openmpi-4.1.4/build && cd openmpi-4.1.4/build && ../configure --prefix=/usr/local && \
+    make -j all && make install && ldconfig && \
     mpirun --version
 
 # Allow OpenSSH to talk to containers without asking for confirmation

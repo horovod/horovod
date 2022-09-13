@@ -23,6 +23,9 @@
 #if NCCL_VERSION_CODE >= NCCL_VERSION(2, 7, 0)
 #define NCCL_P2P_SUPPORTED
 #endif
+#if NCCL_VERSION_CODE >= NCCL_VERSION(2, 10, 0)
+#define NCCL_AVG_SUPPORTED
+#endif
 #elif HAVE_ROCM
 #include <rccl.h>
 #define NCCL_P2P_SUPPORTED
