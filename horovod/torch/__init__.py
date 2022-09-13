@@ -51,6 +51,7 @@ if _MPI_LIB_AVAILABLE:
     from horovod.torch.mpi_ops import nccl_built, ddl_built, ccl_built, cuda_built, rocm_built
     from horovod.torch.mpi_ops import ProcessSet, global_process_set, add_process_set, remove_process_set
     from horovod.torch.mpi_ops import Average, Sum, Adasum
+    from horovod.torch.mpi_ops import HorovodInternalError
     from horovod.torch.optimizer import DistributedOptimizer
     from horovod.torch.sync_batch_norm import SyncBatchNorm
 
