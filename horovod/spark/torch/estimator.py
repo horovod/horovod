@@ -151,6 +151,9 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         inmemory_cache_all: (Optional) Cache the data in memory for training and validation.
         use_gpu: Whether to use the GPU for training. Defaults to True.
         mp_start_method: The method to use to start multiprocessing. Defaults to None.
+        backward_passes_per_step: Number of backward passes to perform before calling hvd.allreduce.
+                                  This allows accumulating updates over multiple mini-batches before
+                                  reducing and applying them. Defaults to 1.
     """
 
     input_shapes = Param(Params._dummy(), 'input_shapes', 'input layer shapes')
@@ -196,7 +199,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  label_shapes=None,
                  inmemory_cache_all=False,
                  use_gpu=True,
-                 mp_start_method=None):
+                 mp_start_method=None,
+                 backward_passes_per_step=1):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
@@ -208,6 +212,9 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
         if EstimatorParams.loss.name in kwargs and TorchEstimator.loss_constructors.name in kwargs:
             raise ValueError("only one of loss_constructors and loss parameters can be specified.")
+        
+        if backward_passes_per_step <= 0:
+            raise ValueError("backward_passes_per_step must be > 0")
 
         self.setParams(**kwargs)
 

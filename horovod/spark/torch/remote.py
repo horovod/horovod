@@ -67,6 +67,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     inmemory_cache_all = estimator.getInMemoryCacheAll()
     should_use_gpu = estimator.getUseGpu()
     mp_start_method = estimator.getMpStartMethod()
+    backward_passes_per_step = estimator.getBackwardPassesPerStep()
 
     # If loss weight is not provided, use equal loss for all the labels
     loss_weights = estimator.getLossWeights()
@@ -193,6 +194,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
         if gradient_compression:
             # Pass the compression arg only if it is specified by the user.
             dist_optimizer_args['compression'] = gradient_compression
+        dist_optimizer_args['backward_passes_per_step'] = backward_passes_per_step
         # Horovod: wrap optimizer with DistributedOptimizer.
         optimizer = hvd.DistributedOptimizer(**dist_optimizer_args)
 
@@ -370,10 +372,12 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                             row = next(train_loader_iter)
                             inputs, labels, sample_weights = prepare_batch(row)
                             outputs, loss = train_minibatch(model, optimizer, transform_outputs,
-                                                            loss_fn, inputs, labels, sample_weights)
+                                                            loss_fn, inputs, labels, sample_weights,
+                                                            backward_passes_per_step, batch_idx)
                             update_metrics(metric_value_groups, outputs, labels)
                             train_loss.update(loss)
                             print_metrics(batch_idx, train_loss, metric_value_groups, 'train')
+                        optimizer.step()
 
                         return aggregate_metrics('train', epoch, train_loss, metric_value_groups)
 
@@ -454,13 +458,17 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
 
 
 def _train_minibatch_fn():
-    def train_minibatch(model, optimizer, transform_outputs, loss_fn, inputs, labels, sample_weights):
-        optimizer.zero_grad()
+    def train_minibatch(model, optimizer, transform_outputs, loss_fn, inputs, labels, sample_weights, backward_passes_per_step, batch_idx):
+        if batch_idx % backward_passes_per_step == 0:
+            if batch_idx != 0:
+                optimizer.step()
+            optimizer.zero_grad()
         outputs = model(*inputs)
         outputs, labels = transform_outputs(outputs, labels)
         loss = loss_fn(outputs, labels, sample_weights)
+        if backward_passes_per_step > 1:
+            loss.div_(float(backward_passes_per_step))
         loss.backward()
-        optimizer.step()
         return outputs, loss
     return train_minibatch
 
