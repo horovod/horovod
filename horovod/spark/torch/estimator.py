@@ -212,6 +212,9 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
         if EstimatorParams.loss.name in kwargs and TorchEstimator.loss_constructors.name in kwargs:
             raise ValueError("only one of loss_constructors and loss parameters can be specified.")
+        
+        if backward_passes_per_step <= 0:
+            raise ValueError("backward_passes_per_step must be > 0")
 
         self.setParams(**kwargs)
 

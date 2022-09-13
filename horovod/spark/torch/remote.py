@@ -194,8 +194,8 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
         if gradient_compression:
             # Pass the compression arg only if it is specified by the user.
             dist_optimizer_args['compression'] = gradient_compression
-        # Horovod: wrap optimizer with DistributedOptimizer.
         dist_optimizer_args['backward_passes_per_step'] = backward_passes_per_step
+        # Horovod: wrap optimizer with DistributedOptimizer.
         optimizer = hvd.DistributedOptimizer(**dist_optimizer_args)
 
         # This function takes the current optimizer and constructs a new optimizer with the
@@ -466,7 +466,8 @@ def _train_minibatch_fn():
         outputs = model(*inputs)
         outputs, labels = transform_outputs(outputs, labels)
         loss = loss_fn(outputs, labels, sample_weights)
-        loss.div_(float(backward_passes_per_step))
+        if backward_passes_per_step > 1:
+            loss.div_(float(backward_passes_per_step))
         loss.backward()
         return outputs, loss
     return train_minibatch
