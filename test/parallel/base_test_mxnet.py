@@ -1711,6 +1711,19 @@ class MXTests:
             assert almost_equal(averaged.asnumpy(), expected.asnumpy(), atol=threshold), \
                 f'hvd.reducescatter produces incorrect results: {hvd.rank()} {count} {dtype} {dim}'
 
+    def test_horovod_reducescatter_scalar_error(self):
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
+        hvd.init()
+        size = hvd.size()
+        rank = hvd.rank()
+        ctx = self._current_context()
+        scalar = mx.nd.array(rank, dtype=np.float32, ctx=ctx)
+        with self.assertRaises(ValueError):
+            _ = hvd.reducescatter(scalar, op=hvd.Average)
+
     def test_horovod_reducescatter_error(self):
         """Test that the reducescatter raises an error if different ranks try to
         send tensors of different rank or dimension."""
@@ -1889,6 +1902,19 @@ class MXTests:
 
             assert all(almost_equal(t1.asnumpy(), t2.asnumpy(), atol=threshold) for t1, t2 in zip(averaged, expected)), \
                 f'hvd.grouped_reducescatter produces incorrect results: {hvd.rank()} {count} {dtype} {dim}'
+
+    def test_horovod_grouped_reducescatter_scalar_error(self):
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
+        hvd.init()
+        rank = hvd.rank()
+        ctx = self._current_context()
+        tensor_and_scalar = [mx.nd.zeros((3,1), ctx=ctx, dtype=np.float32),
+                             mx.nd.array(rank, dtype=np.float32, ctx=ctx)]
+        with self.assertRaises(ValueError):
+            _ = hvd.grouped_reducescatter(tensor_and_scalar, op=hvd.Average)
 
     def test_horovod_grouped_reducescatter_process_sets(self):
         """Test that grouped reducescatter correctly sums and scatters 1D, 2D, 3D tensors if restricted

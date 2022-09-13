@@ -3294,6 +3294,18 @@ class TensorFlowTests(BaseTensorFlowTests):
         self.assertTrue(successful,
                         "hvd.reducescatter produces incorrect results")
 
+    def test_horovod_reducescatter_scalar_error(self):
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
+        hvd.init()
+        rank = hvd.rank()
+        with tf.device("/cpu:0"):
+            scalar = tf.constant(rank, dtype=tf.float32)
+            with self.assertRaises((tf.errors.InvalidArgumentError, ValueError, tf.errors.FailedPreconditionError)):
+                self.evaluate(hvd.reducescatter(scalar))
+
     def test_horovod_reducescatter_gpu(self):
         """Test that the reducescatter works on GPUs."""
         if not tf.test.is_gpu_available(cuda_only=True):
@@ -3672,6 +3684,18 @@ class TensorFlowTests(BaseTensorFlowTests):
             diff = self.evaluate(max_difference)
             self.assertTrue(diff <= threshold, "hvd.grouped_reducescatter produces incorrect results")
 
+    def test_horovod_grouped_reducescatter_scalar_error(self):
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
+        hvd.init()
+        rank = hvd.rank()
+        with tf.device("/cpu:0"):
+            tensor_and_scalar = [tf.zeros((2,1), dtype=tf.float32), tf.constant(rank, dtype=tf.float32)]
+            with self.assertRaises((tf.errors.InvalidArgumentError, ValueError, tf.errors.FailedPreconditionError)):
+                self.evaluate(hvd.grouped_reducescatter(tensor_and_scalar))
+
     def test_horovod_grouped_reducescatter_grad_cpu(self):
         """Test the correctness of the grouped reducescatter gradient on CPU."""
         if hvd.ccl_built():
@@ -3808,7 +3832,6 @@ class TensorFlowTests(BaseTensorFlowTests):
         dtypes = [tf.float32, tf.float64]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
-            print(dtype)
             tensor_sizes = [3, 2, 7, 4, 6, 8, 10] * 5
             tensor_sizes = tensor_sizes[:size]
 
