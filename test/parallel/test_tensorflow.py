@@ -221,10 +221,10 @@ class TensorFlowTests(BaseTensorFlowTests):
 
             threshold = 0
             diff = self.evaluate(max_difference)
-            self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results for min")
+            self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results for max")
 
     def test_horovod_allreduce_product_cpu(self):
-        """Test on CPU that the allreduce correctly multiplies of 1D, 2D, 3D tensors."""
+        """Test on CPU that the allreduce correctly multiplies 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
         rank = hvd.rank()
@@ -253,7 +253,7 @@ class TensorFlowTests(BaseTensorFlowTests):
                 self.skipTest("Horovod cluster too large for precise multiplication comparison")
 
             diff = self.evaluate(max_difference)
-            self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results for min")
+            self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results for product")
 
     def test_horovod_allreduce_cpu_fused(self):
         """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors
@@ -517,7 +517,7 @@ class TensorFlowTests(BaseTensorFlowTests):
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%d" % local_rank):
-                tensors = self.random_uniform([size] + [2] * dim, -100, 100)
+                tensors = self.random_uniform([size] + [17] * dim, -100, 100)
                 tensors = tf.cast(tensors, dtype=dtype)
                 tensor = tensors[rank,...]
                 result = hvd.allreduce(tensor, op=hvd.Max)
@@ -528,7 +528,7 @@ class TensorFlowTests(BaseTensorFlowTests):
 
             threshold = 0
             diff = self.evaluate(max_difference)
-            self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results for min")
+            self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results for max")
 
     def test_horovod_allreduce_product_gpu(self):
         """Test on GPU that the allreduce correctly multiplies 1D, 2D, 3D tensors."""
@@ -548,7 +548,7 @@ class TensorFlowTests(BaseTensorFlowTests):
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%d" % local_rank):
-                tensors = self.random_uniform([size] + [2] * dim, -100, 100)
+                tensors = self.random_uniform([size] + [17] * dim, -100, 100)
                 tensors = tf.cast(tensors, dtype=dtype)
                 tensor = tensors[rank,...]
                 result = hvd.allreduce(tensor, op=hvd.Product)
@@ -569,7 +569,7 @@ class TensorFlowTests(BaseTensorFlowTests):
                 self.skipTest("Horovod cluster too large for precise multiplication comparison")
 
             diff = self.evaluate(max_difference)
-            self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results for min")
+            self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results for product")
 
     def test_horovod_allreduce_gpu_fused(self):
         """Test that the allreduce works on GPUs with Tensor Fusion.

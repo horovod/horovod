@@ -83,7 +83,8 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                      sent and received by each worker node.  Defaults to not
                      using compression.
         op: The reduction operation to combine tensors across different ranks.
-            Defaults to Average if None is given.
+            Supported op values are Sum, Average, Min, Max, and Product. Defaults
+            to Average if None is given.
         prescale_factor: Multiplicative factor to scale tensor before allreduce.
         postscale_factor: Multiplicative factor to scale tensor after allreduce.
         process_set: Process set object to limit this operation to a subset of
@@ -237,7 +238,8 @@ def grouped_allreduce(tensors, average=None, device_dense='', device_sparse='',
                      sent and received by each worker node.  Defaults to not
                      using compression.
         op: The reduction operation to combine tensors across different ranks.
-            Defaults to Average if None is given.
+            Supported op values are Sum, Average, Min, Max, and Product. Defaults
+            to Average if None is given.
         prescale_factor: Multiplicative factor to scale tensors before allreduce.
         postscale_factor: Multiplicative factor to scale tensors after allreduce.
         process_set: Process set object to limit this operation to a subset of

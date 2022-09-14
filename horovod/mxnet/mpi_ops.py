@@ -105,7 +105,8 @@ def allreduce(tensor, average=None, name=None, priority=0, prescale_factor=1.0,
                 Use `op` instead. Will be removed in v1.0.
 
         op: The reduction operation to combine tensors across different ranks.
-            Can be Average (default) or Sum.
+            Supported op values are Sum, Average, Min, Max, and Product. Defaults
+            to Average if None is given.
         name: A name of the reduction operation.
         priority: The priority of this operation. Higher priority operations
                   are likely to be executed before other operations.
@@ -159,7 +160,8 @@ def allreduce_(tensor, average=None, name=None, priority=0, prescale_factor=1.0,
                 Use `op` instead. Will be removed in v1.0.
 
         op: The reduction operation to combine tensors across different ranks.
-            Can be Average (default) or Sum.
+            Supported op values are Sum, Average, Min, Max, and Product. Defaults
+            to Average if None is given.
         name: A name of the reduction operation.
         priority: The priority of this operation. Higher priority operations
                   are likely to be executed before other operations.
@@ -211,7 +213,8 @@ def grouped_allreduce(tensors, average=None, name=None, priority=0, prescale_fac
                 Use `op` instead. Will be removed in v1.0.
 
         op: The reduction operation to combine tensors across different ranks.
-            Can be Average (default) or Sum.
+            Supported op values are Sum, Average, Min, Max, and Product. Defaults
+            to Average if None is given.
         name: A base name to use for the group reduction operation
         priority: The priority of this operation. Higher priority operations
                   are likely to be executed before other operations.
@@ -269,7 +272,8 @@ def grouped_allreduce_(tensors, average=None, name=None, priority=0, prescale_fa
                 Use `op` instead. Will be removed in v1.0.
 
         op: The reduction operation to combine tensors across different ranks.
-            Can be Average (default) or Sum.
+            Supported op values are Sum, Average, Min, Max, and Product. Defaults
+            to Average if None is given.
         name: A base name to use for the group reduction operation
         priority: The priority of this operation. Higher priority operations
                   are likely to be executed before other operations.

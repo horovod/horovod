@@ -174,8 +174,9 @@ def allreduce_async(tensor, average=None, name=None, op=None,
                 Use `op` instead. Will be removed in v1.0.
 
         name: A name of the reduction operation.
-        op: The reduction operation to combine tensors across different
-                   ranks. Defaults to Average if None is given.
+        op: The reduction operation to combine tensors across different ranks.
+            Supported op values are Sum, Average, Min, Max, and Product. Defaults
+            to Average if None is given.
         prescale_factor: Multiplicative factor to scale tensor before allreduce.
         postscale_factor: Multiplicative factor to scale tensor after allreduce.
         process_set: Process set object to limit this operation to a subset of
@@ -237,7 +238,8 @@ def allreduce(tensor, average=None, name=None, compression=Compression.none, op=
         compression: Compression algorithm used during allreduce to reduce the amount
                      of data sent during the each parameter update step.  Defaults to
                      not using compression.
-        op: The reduction operation to combine tensors across different ranks. Defaults
+        op: The reduction operation to combine tensors across different ranks.
+            Supported op values are Sum, Average, Min, Max, and Product. Defaults
             to Average if None is given.
         prescale_factor: Multiplicative factor to scale tensor before allreduce.
         postscale_factor: Multiplicative factor to scale tensor after allreduce.
@@ -275,8 +277,9 @@ def allreduce_async_(tensor, average=None, name=None, op=None,
                 Use `op` instead. Will be removed in v1.0.
 
         name: A name of the reduction operation.
-        op: The reduction operation to combine tensors across different ranks. Defaults to
-            Average if None is given.
+        op: The reduction operation to combine tensors across different ranks.
+            Supported op values are Sum, Average, Min, Max, and Product. Defaults
+            to Average if None is given.
         prescale_factor: Multiplicative factor to scale tensor before allreduce.
         postscale_factor: Multiplicative factor to scale tensor after allreduce.
         process_set: Process set object to limit this operation to a subset of
@@ -310,8 +313,9 @@ def allreduce_(tensor, average=None, name=None, op=None,
                 Use `op` instead. Will be removed in v1.0.
 
         name: A name of the reduction operation.
-        op: The reduction operation to combine tensors across different ranks. Defaults to
-            Average if None is given.
+        op: The reduction operation to combine tensors across different ranks.
+            Supported op values are Sum, Average, Min, Max, and Product. Defaults
+            to Average if None is given.
         prescale_factor: Multiplicative factor to scale tensor before allreduce.
         postscale_factor: Multiplicative factor to scale tensor after allreduce.
         process_set: Process set object to limit this operation to a subset of
@@ -397,8 +401,9 @@ def grouped_allreduce_async(tensors, average=None, name=None, op=None,
                 Use `op` instead. Will be removed in v1.0.
 
         name: A base name to use for the group reduction operation.
-        op: The reduction operation to combine tensors across different
-                   ranks. Defaults to Average if None is given.
+        op: The reduction operation to combine tensors across different ranks.
+            Supported op values are Sum, Average, Min, Max, and Product. Defaults
+            to Average if None is given.
         prescale_factor: Multiplicative factor to scale tensor before allreduce.
         postscale_factor: Multiplicative factor to scale tensor after allreduce.
         process_set: Process set object to limit this operation to a subset of
@@ -464,7 +469,8 @@ def grouped_allreduce(tensors, average=None, name=None, compression=Compression.
         compression: Compression algorithm used during allreduce to reduce the amount
                      of data sent during the each parameter update step.  Defaults to
                      not using compression.
-        op: The reduction operation to combine tensors across different ranks. Defaults
+        op: The reduction operation to combine tensors across different ranks.
+            Supported op values are Sum, Average, Min, Max, and Product. Defaults
             to Average if None is given.
         prescale_factor: Multiplicative factor to scale tensor before allreduce.
         postscale_factor: Multiplicative factor to scale tensor after allreduce.
@@ -504,8 +510,9 @@ def grouped_allreduce_async_(tensors, average=None, name=None, op=None,
                 Use `op` instead. Will be removed in v1.0.
 
         name: A base name to use for the group reduction operation.
-        op: The reduction operation to combine tensors across different ranks. Defaults to
-            Average if None is given.
+        op: The reduction operation to combine tensors across different ranks.
+            Supported op values are Sum, Average, Min, Max, and Product. Defaults
+            to Average if None is given.
         prescale_factor: Multiplicative factor to scale tensor before allreduce.
         postscale_factor: Multiplicative factor to scale tensor after allreduce.
         process_set: Process set object to limit this operation to a subset of
@@ -541,8 +548,9 @@ def grouped_allreduce_(tensors, average=None, name=None, op=None,
                 Use `op` instead. Will be removed in v1.0.
 
         name: A base name to use for the group reduction operation.
-        op: The reduction operation to combine tensors across different ranks. Defaults to
-            Average if None is given.
+        op: The reduction operation to combine tensors across different ranks.
+            Supported op values are Sum, Average, Min, Max, and Product. Defaults
+            to Average if None is given.
         prescale_factor: Multiplicative factor to scale tensor before allreduce.
         postscale_factor: Multiplicative factor to scale tensor after allreduce.
         process_set: Process set object to limit this operation to a subset of
