@@ -154,7 +154,7 @@ class custom_build_ext(build_ext):
 
 
 # python packages required to use horovod in general
-require_list = ['cloudpickle', 'psutil', 'pyyaml', 'dataclasses;python_version<"3.7"']
+require_list = ['cloudpickle', 'psutil', 'pyyaml', 'dataclasses;python_version<"3.7"', 'packaging']
 
 # framework dependencies
 tensorflow_require_list = ['tensorflow']

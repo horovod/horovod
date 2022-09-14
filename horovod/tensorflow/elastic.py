@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from distutils.version import LooseVersion
+from packaging.version import parse
 
 import tensorflow as tf
 
@@ -25,7 +25,7 @@ from horovod.tensorflow.functions import broadcast_object, broadcast_object_fn, 
 from horovod.tensorflow.mpi_ops import _executing_eagerly, init, rank, shutdown
 
 
-_IS_TF2 = LooseVersion(tf.__version__) >= LooseVersion('2.0.0')
+_IS_TF2 = parse(tf.__version__) >= parse('2.0.0')
 
 
 def run(func):
