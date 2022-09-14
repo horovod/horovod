@@ -14,6 +14,7 @@
 # ==============================================================================
 
 import keras
+import tensorflow as tf
 import keras.backend as K
 
 from horovod._keras import callbacks as _impl
@@ -28,7 +29,7 @@ class BroadcastGlobalVariablesCallback(_impl.BroadcastGlobalVariablesCallbackImp
     training is started with random weights or restored from a checkpoint.
     """
 
-    def __init__(self, root_rank, device=''):
+    def __init__(self, root_rank, device='', local_variables=None):
         """
         Construct a new BroadcastGlobalVariablesCallback that will broadcast all
         global variables from root rank to all other processes during initialization.
@@ -37,8 +38,17 @@ class BroadcastGlobalVariablesCallback(_impl.BroadcastGlobalVariablesCallbackImp
             root_rank: Rank that will send data, other ranks will receive data.
             device: Device to be used for broadcasting. Uses GPU by default
                     if Horovod was build with HOROVOD_GPU_OPERATIONS.
+            local_variables: A collection of variables that need not to be broadcasted.
         """
         super(BroadcastGlobalVariablesCallback, self).__init__(K, root_rank, device)
+        if local_variables is None:
+            local_variables = []
+        elif isinstance(local_variables, tf.Variable):
+            local_variables = [local_variables]
+        elif not all(isinstance(var, tf.Variable) for var in local_variables):
+            raise ValueError("All local variables must be of tf.Variable type.")
+        for var in local_variables:
+            self.register_local_var(var)
 
 
 class MetricAverageCallback(_impl.MetricAverageCallbackImpl, keras.callbacks.Callback):

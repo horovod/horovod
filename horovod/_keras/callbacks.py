@@ -27,6 +27,14 @@ class BroadcastGlobalVariablesCallbackImpl(object):
         self.root_rank = root_rank
         self.device = device
         self.broadcast_done = False
+        self._local_vars = set()
+
+    def register_local_var(self, var):
+        """
+        Registers a variable as worker local. Horovod will not perform broadcasting
+            operation on this variable.
+        """
+        self._local_vars.add(var.ref())
 
     def on_batch_end(self, batch, logs=None):
         if self.broadcast_done:
@@ -35,7 +43,8 @@ class BroadcastGlobalVariablesCallbackImpl(object):
         with tf.device(self.device):
             if hvd._executing_eagerly() and hasattr(self.model, 'variables'):
                 # TensorFlow 2.0 or TensorFlow eager
-                hvd.broadcast_variables(self.model.variables,
+                broadcast_vars = [var for var in self.model.variables if var.ref() not in self._local_vars]
+                hvd.broadcast_variables(broadcast_vars,
                                         root_rank=self.root_rank)
                 hvd.broadcast_variables(self.model.optimizer.variables(),
                                         root_rank=self.root_rank)
