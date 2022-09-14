@@ -402,22 +402,12 @@ class Tf2KerasTests(tf.test.TestCase):
                 return var.assign_add(grad)
 
         backward_passes_per_step = 4
-        local_rank = hvd.local_rank()
-        if tf.test.is_gpu_available(cuda_only=True):
-            with tf.device("/gpu:%d" % local_rank):
-                hvd_optimizer = hvd.DistributedOptimizer(
-                    optimizer=TestingOptimizer("test"),
-                    backward_passes_per_step=backward_passes_per_step,
-                    average_aggregated_gradients=average_aggregated_gradients,
-                    sparse_as_dense=True,
-                )
-        else:
-            hvd_optimizer = hvd.DistributedOptimizer(
-                    optimizer=TestingOptimizer("test"),
-                    backward_passes_per_step=backward_passes_per_step,
-                    average_aggregated_gradients=average_aggregated_gradients,
-                    sparse_as_dense=True,
-                )
+        hvd_optimizer = hvd.DistributedOptimizer(
+            optimizer=TestingOptimizer("test"),
+            backward_passes_per_step=backward_passes_per_step,
+            average_aggregated_gradients=average_aggregated_gradients,
+            sparse_as_dense=True,
+        )
 
         _ = hvd_optimizer.iterations
 
@@ -487,15 +477,9 @@ class Tf2KerasTests(tf.test.TestCase):
         def compute_and_apply_gradients_in_tf_function(var_list, **kwargs):
             # Compute and apply gradient updates in tf.function to reproduce
             # how it is done inside `model.fit()`.
-            if tf.test.is_gpu_available(cuda_only=True):
-                with tf.device("/gpu:%d" % local_rank):
-                    grads_and_vars = hvd_optimizer._compute_gradients(
-                        loss, var_list=var_list)
-                    hvd_optimizer.apply_gradients(grads_and_vars, **kwargs)
-            else:
-                grads_and_vars = hvd_optimizer._compute_gradients(
-                    loss, var_list=var_list)
-                hvd_optimizer.apply_gradients(grads_and_vars, **kwargs)
+            grads_and_vars = hvd_optimizer._compute_gradients(
+                loss, var_list=var_list)
+            hvd_optimizer.apply_gradients(grads_and_vars, **kwargs)
 
         total_num_of_steps = 10
         for idx in range(total_num_of_steps):
@@ -523,7 +507,6 @@ class Tf2KerasTests(tf.test.TestCase):
 
     def test_distributed_optimizer_with_local_vars(self):
         """ Note: test makes most sense with more than 1 nodes. """
-        hvd.init()
         if hvd.size() == 1:
             self.skipTest("Only one worker available")
 
@@ -557,20 +540,11 @@ class Tf2KerasTests(tf.test.TestCase):
             local_layers = model.layers[:num_local_layers]
             local_vars = [var for layer in local_layers for var in layer.trainable_weights]
 
-            local_rank = hvd.local_rank()
-            if tf.test.is_gpu_available(cuda_only=True):
-                with tf.device("/gpu:%d" % local_rank):
-                    opt = hvd.DistributedOptimizer(opt, sparse_as_dense=True)
-                    # register local vars to the opt
-                    for var in local_vars:
-                        opt.register_local_var(var)
-                    gradients_vars_opt = opt._compute_gradients(l, model.trainable_weights, tape=tape)
-            else:
-                opt = hvd.DistributedOptimizer(opt, sparse_as_dense=True)
-                # register local vars to the opt
-                for var in local_vars:
-                    opt.register_local_var(var)
-                gradients_vars_opt = opt._compute_gradients(l, model.trainable_weights, tape=tape)
+            opt = hvd.DistributedOptimizer(opt, sparse_as_dense=True)
+            # register local vars to the opt
+            for var in local_vars:
+                opt.register_local_var(var)
+            gradients_vars_opt = opt._compute_gradients(l, model.trainable_weights, tape=tape)
 
             var_grad_tape = {var.ref():grad for var,grad in zip(model.trainable_weights, gradients_tape)}
             var_grad_opt = {var.ref():grad for grad,var in gradients_vars_opt}
