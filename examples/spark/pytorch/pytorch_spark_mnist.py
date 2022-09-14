@@ -2,7 +2,7 @@ import argparse
 import os
 import subprocess
 import sys
-from distutils.version import LooseVersion
+from packaging import version
 
 import numpy as np
 
@@ -10,7 +10,7 @@ import pyspark
 import pyspark.sql.types as T
 from pyspark import SparkConf
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
-if LooseVersion(pyspark.__version__) < LooseVersion('3.0.0'):
+if version.parse(pyspark.__version__) < version.parse('3.0.0'):
     from pyspark.ml.feature import OneHotEncoderEstimator as OneHotEncoder
 else:
     from pyspark.ml.feature import OneHotEncoder

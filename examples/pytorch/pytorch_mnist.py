@@ -1,6 +1,6 @@
 import argparse
 import os
-from distutils.version import LooseVersion
+from packaging import version
 
 import torch.multiprocessing as mp
 import torch.nn as nn
@@ -161,8 +161,8 @@ def main(args):
         if args.use_mixed_precision:
             raise ValueError("Mixed precision is only supported with cuda enabled.")
 
-    if (args.use_mixed_precision and LooseVersion(torch.__version__)
-            < LooseVersion('1.6.0')):
+    if (args.use_mixed_precision and version.parse(torch.__version__)
+            < version.parse('1.6.0')):
         raise ValueError("""Mixed precision is using torch.cuda.amp.autocast(),
                             which requires torch >= 1.6.0""")
 

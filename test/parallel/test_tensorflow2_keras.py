@@ -19,7 +19,7 @@ import tensorflow as tf
 import numpy as np
 import warnings
 
-from distutils.version import LooseVersion
+from packaging import version
 from parameterized import parameterized
 
 import pytest
@@ -29,7 +29,7 @@ from tensorflow import keras
 from horovod.common.util import is_version_greater_equal_than
 
 if is_version_greater_equal_than(tf.__version__, "2.6.0"):
-    if LooseVersion(keras.__version__) < LooseVersion("2.9.0"):
+    if version.parse(keras.__version__) < version.parse("2.9.0"):
         from keras.optimizer_v2 import optimizer_v2
     else:
         from keras.optimizers.optimizer_v2 import optimizer_v2
@@ -39,11 +39,11 @@ else:
 import horovod.tensorflow.keras as hvd
 
 
-_PRE_TF_2_2_0 = LooseVersion(tf.__version__) < LooseVersion("2.2.0")
+_PRE_TF_2_2_0 = version.parse(tf.__version__) < version.parse("2.2.0")
 
 
-@pytest.mark.skipif(LooseVersion(tf.__version__) <
-                    LooseVersion('2.0.0'), reason='TensorFlow v2 tests')
+@pytest.mark.skipif(version.parse(tf.__version__) <
+                    version.parse('2.0.0'), reason='TensorFlow v2 tests')
 class Tf2KerasTests(tf.test.TestCase):
     """
     Tests for ops in horovod.tensorflow.keras.

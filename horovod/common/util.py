@@ -269,7 +269,7 @@ def is_iterable(x):
 
 @_cache
 def is_version_greater_equal_than(ver, target):
-    from distutils.version import LooseVersion
+    from packaging import version
     if any([not isinstance(_str, str) for _str in (ver, target)]):
         raise ValueError("This function only accepts string arguments. \n"
                          "Received:\n"
@@ -285,4 +285,4 @@ def is_version_greater_equal_than(ver, target):
         raise ValueError("We only accepts target version values in the form "
                          "of: major.minor.patch. Received: {}".format(target))
 
-    return LooseVersion(ver) >= LooseVersion(target)
+    return version.parse(ver) >= version.parse(target)

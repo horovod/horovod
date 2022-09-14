@@ -1,8 +1,8 @@
-from distutils.version import LooseVersion
+from packaging import version
 
 import tensorflow as tf
 
-_POST_TF_2_4_0 = LooseVersion(tf.__version__) >= LooseVersion('2.4.0')
+_POST_TF_2_4_0 = version.parse(tf.__version__) >= version.parse('2.4.0')
 
 
 class LocalGradientAggregationHelperEager:

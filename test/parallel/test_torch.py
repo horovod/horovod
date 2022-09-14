@@ -15,7 +15,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from distutils.version import LooseVersion
+from packaging import version
 
 import inspect
 import itertools
@@ -42,8 +42,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 from common import mpi_env_rank_and_size, skip_or_fail_gpu_test, temppath
 
-_1_12_api = LooseVersion(torch.__version__) >= LooseVersion('1.12.0')
-_1_5_api = LooseVersion(torch.__version__) >= LooseVersion('1.5.0')
+_1_12_api = version.parse(torch.__version__) >= version.parse('1.12.0')
+_1_5_api = version.parse(torch.__version__) >= version.parse('1.5.0')
 _is_mac = platform.system() == 'Darwin'
 
 ccl_supported_types = set([torch.ByteTensor, torch.CharTensor, torch.ShortTensor,

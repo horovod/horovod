@@ -2,7 +2,7 @@ import argparse
 import os
 import subprocess
 import sys
-from distutils.version import LooseVersion
+from packaging import version
 
 import numpy as np
 
@@ -10,7 +10,7 @@ import pyspark
 import pyspark.sql.types as T
 from pyspark import SparkConf
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
-if LooseVersion(pyspark.__version__) < LooseVersion('3.0.0'):
+if version.parse(pyspark.__version__) < version.parse('3.0.0'):
     from pyspark.ml.feature import OneHotEncoderEstimator as OneHotEncoder
 else:
     from pyspark.ml.feature import OneHotEncoder
@@ -21,8 +21,8 @@ from pyspark.sql.functions import udf
 try:
     # tensorflow has to be imported BEFORE pytorch_lightning, otherwise we see the segfault right away
     import tensorflow as tf
-    from distutils.version import LooseVersion
-    if LooseVersion('2.5.0') <= LooseVersion(tf.__version__) < LooseVersion('2.7.0'):
+    from packaging import version
+    if version.parse('2.5.0') <= version.parse(tf.__version__) < version.parse('2.7.0'):
         print('Skipping test as Pytorch Lightning conflicts with present Tensorflow 2.6.x', file=sys.stderr)
         sys.exit(0)
 except ImportError:
@@ -61,7 +61,7 @@ parser.add_argument('--enable-profiler', action='store_true',
 def train_model(args):
     # do not run this test for pytorch lightning below min supported verson
     import pytorch_lightning as pl
-    if LooseVersion(pl.__version__) < LooseVersion(MIN_PL_VERSION):
+    if version.parse(pl.__version__) < version.parse(MIN_PL_VERSION):
         print("Skip test for pytorch_ligthning=={}, min support version is {}".format(pl.__version__, MIN_PL_VERSION))
         return
 

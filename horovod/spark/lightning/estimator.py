@@ -21,7 +21,7 @@ import numbers
 import os
 import time
 import warnings
-from distutils.version import LooseVersion
+from packaging import version
 
 from pyspark import keyword_only
 from pyspark.ml.param.shared import Param, Params, TypeConverters
@@ -298,7 +298,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         kwargs = self._input_kwargs
 
         # pl version check
-        if LooseVersion(pl.__version__) < LooseVersion(MIN_PL_VERSION):
+        if version.parse(pl.__version__) < version.parse(MIN_PL_VERSION):
             raise RuntimeError("Only support pytorch_lightning version > {}, found version {}".format(MIN_PL_VERSION, pl.__version__))
 
         if EstimatorParams.loss.name in kwargs and TorchEstimator.loss_constructors.name in kwargs:

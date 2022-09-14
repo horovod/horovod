@@ -22,7 +22,7 @@ import shutil
 import tempfile
 import warnings
 
-from distutils.version import LooseVersion
+from packaging import version
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -202,7 +202,7 @@ class AbstractFilesystemStore(Store):
         from tensorflow import keras
         from horovod.spark.keras.util import TFKerasUtil
 
-        if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
+        if version.parse(tensorflow.__version__) < version.parse("2.0.0"):
             model_bytes = self.read(ckpt_path)
             return codec.dumps_base64(model_bytes)
         else:
@@ -429,7 +429,7 @@ class HDFSStore(AbstractFilesystemStore):
                                  user=user,
                                  kerb_ticket=kerb_ticket,
                                  extra_conf=extra_conf)
-        if LooseVersion(pa.__version__) < LooseVersion('0.17.0'):
+        if version.parse(pa.__version__) < version.parse('0.17.0'):
             self._hdfs_kwargs['driver'] = driver
         self._hdfs = self._get_filesystem_fn()()
 
@@ -609,7 +609,7 @@ class DBFSLocalStore(FilesystemStore):
         from tensorflow import keras
         from horovod.spark.keras.util import TFKerasUtil
 
-        if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
+        if version.parse(tensorflow.__version__) < version.parse("2.0.0"):
             model.load_weights(ckpt_path)
         else:
             with keras.utils.custom_object_scope(custom_objects):

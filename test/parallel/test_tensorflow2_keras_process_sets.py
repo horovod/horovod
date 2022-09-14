@@ -7,7 +7,7 @@ tests for multiple process sets in this script that initializes Horovod with sta
 
 import tensorflow as tf
 import warnings
-from distutils.version import LooseVersion
+from packaging import version
 import pytest
 from tensorflow import keras
 
@@ -15,10 +15,10 @@ import horovod.tensorflow.keras as hvd
 from horovod.runner.common.util.env import get_env_rank_and_size
 
 
-_PRE_TF_2_2_0 = LooseVersion(tf.__version__) < LooseVersion("2.2.0")
+_PRE_TF_2_2_0 = version.parse(tf.__version__) < version.parse("2.2.0")
 
-@pytest.mark.skipif(LooseVersion(tf.__version__) <
-                    LooseVersion('2.0.0'), reason='TensorFlow v2 tests')
+@pytest.mark.skipif(version.parse(tf.__version__) <
+                    version.parse('2.0.0'), reason='TensorFlow v2 tests')
 class Tf2KerasProcessSetsTests(tf.test.TestCase):
     """
     Tests for ops in horovod.tensorflow.keras using multiple process sets.
