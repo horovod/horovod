@@ -30,7 +30,7 @@ import threading
 import time
 import unittest
 import warnings
-from distutils.version import LooseVersion
+from packaging import version
 
 import mock
 import psutil
@@ -1692,7 +1692,7 @@ class SparkTests(unittest.TestCase):
                 client.abort_command()
                 self.do_test_spark_task_service_executes_command(client, file)
 
-    @pytest.mark.skipif(LooseVersion(pyspark.__version__) < LooseVersion('3.0.0'),
+    @pytest.mark.skipif(version.parse(pyspark.__version__) < version.parse('3.0.0'),
                         reason='get_available_devices only supported in Spark 3.0 and above')
     def test_get_available_devices(self):
         res = run_get_available_devices()
@@ -1774,14 +1774,14 @@ class SparkTests(unittest.TestCase):
         get_dbfs_output_dir = dbfs_store.get_local_output_dir_fn("0")
         with get_dbfs_output_dir() as run_output_dir:
             dbfs_ckpt_path = run_output_dir + "/" + local_store.get_checkpoint_filename()
-            if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
+            if version.parse(tensorflow.__version__) < version.parse("2.0.0"):
                 model.save_weights(dbfs_ckpt_path)
             else:
                 model.save(dbfs_ckpt_path)
             serialized_model_dbfs = dbfs_store.read_serialized_keras_model(dbfs_ckpt_path, model,
                                                                            custom_objects={})
             reconstructed_model_dbfs = deserialize_keras_model(serialized_model_dbfs)
-            if LooseVersion(tensorflow.__version__) >= LooseVersion("2.3.0"):
+            if version.parse(tensorflow.__version__) >= version.parse("2.3.0"):
                 assert reconstructed_model_dbfs.get_config() == model.get_config()
 
         # test local_store.read_serialized_keras_model
@@ -1801,7 +1801,7 @@ class SparkTests(unittest.TestCase):
                                                             custom_objects={})
 
                 reconstructed_model_local = deserialize_keras_model(serialized_model_local)
-                if LooseVersion(tensorflow.__version__) >= LooseVersion("2.3.0"):
+                if version.parse(tensorflow.__version__) >= version.parse("2.3.0"):
                     assert reconstructed_model_local.get_config() == model.get_config()
         finally:
             shutil.rmtree(actual_dbfs_dir, ignore_errors=True)

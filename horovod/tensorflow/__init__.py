@@ -16,7 +16,7 @@
 # ==============================================================================
 # pylint: disable=g-short-docstring-punctuation
 
-from distutils.version import LooseVersion
+from packaging import version
 import os
 import warnings
 
@@ -45,7 +45,7 @@ from horovod.tensorflow.sync_batch_norm import SyncBatchNormalization
 from horovod.tensorflow.gradient_aggregation import LocalGradientAggregationHelper
 
 import tensorflow as tf
-_IS_TF2 = LooseVersion(tf.__version__) >= LooseVersion('2.0.0')
+_IS_TF2 = version.parse(tf.__version__) >= version.parse('2.0.0')
 
 # @DEKHTIARJonathan: Do not remove, this fixes issues:
 # - https://github.com/tensorflow/tensorflow/issues/38516

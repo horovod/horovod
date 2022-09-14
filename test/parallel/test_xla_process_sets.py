@@ -23,7 +23,7 @@ slowdowns in all Horovod operations, especially on GPU-equipped AWS instances. F
 out tests that depend on that setting to this script.
 """
 
-from distutils.version import LooseVersion
+from packaging import version
 
 import itertools
 import numpy as np
@@ -45,7 +45,7 @@ from base_test_tensorflow import *
 
 from horovod.runner.common.util.env import get_env_rank_and_size
 
-_IS_TF26 = LooseVersion(tf.__version__) >= LooseVersion('2.6.0')
+_IS_TF26 = version.parse(tf.__version__) >= version.parse('2.6.0')
 
 
 @pytest.mark.skipif(not _IS_TF26, reason='TF2.6+ is required')

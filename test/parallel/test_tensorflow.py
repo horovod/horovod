@@ -18,7 +18,7 @@
 
 """Tests for horovod.tensorflow.mpi_ops."""
 
-from distutils.version import LooseVersion
+from packaging import version
 
 import itertools
 import numpy as np
@@ -40,7 +40,7 @@ import horovod.tensorflow as hvd
 
 from base_test_tensorflow import *
 
-_IS_TF2 = LooseVersion(tf.__version__) >= LooseVersion('2.0.0')
+_IS_TF2 = version.parse(tf.__version__) >= version.parse('2.0.0')
 _is_mac = platform.system() == 'Darwin'
 
 class TensorFlowTests(BaseTensorFlowTests):
@@ -1612,7 +1612,7 @@ class TensorFlowTests(BaseTensorFlowTests):
 
     def test_horovod_broadcast_inplace_cpu(self):
         """Test that the inplace broadcast correctly broadcasts 1D, 2D, 3D variables on CPU."""
-        if LooseVersion(tf.__version__) < LooseVersion('2.6.0'):
+        if version.parse(tf.__version__) < version.parse('2.6.0'):
             self.skipTest("Custom Ops using resource variables only work with TF 2.6+")
 
         hvd.init()
@@ -1662,7 +1662,7 @@ class TensorFlowTests(BaseTensorFlowTests):
 
     def test_horovod_broadcast_inplace_gpu(self):
         """Test that the inplace broadcast correctly broadcasts 1D, 2D, 3D variables on GPU."""
-        if LooseVersion(tf.__version__) < LooseVersion('2.6.0'):
+        if version.parse(tf.__version__) < version.parse('2.6.0'):
             self.skipTest("Custom Ops using resource variables only work with TF 2.6+")
 
         if not tf.test.is_gpu_available(cuda_only=True):
@@ -1719,7 +1719,7 @@ class TensorFlowTests(BaseTensorFlowTests):
 
     def test_horovod_broadcast_inplace_multiple_cpu(self):
         """Test that the inplace broadcast correctly broadcasts multiple variables on CPU."""
-        if LooseVersion(tf.__version__) < LooseVersion('2.6.0'):
+        if version.parse(tf.__version__) < version.parse('2.6.0'):
             self.skipTest("Custom Ops using resource variables only work with TF 2.6+")
 
         hvd.init()

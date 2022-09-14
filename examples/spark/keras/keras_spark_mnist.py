@@ -2,7 +2,7 @@ import argparse
 import os
 import subprocess
 import sys
-from distutils.version import LooseVersion
+from packaging import version
 
 import numpy as np
 
@@ -10,7 +10,7 @@ import pyspark
 import pyspark.sql.types as T
 from pyspark import SparkConf
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
-if LooseVersion(pyspark.__version__) < LooseVersion('3.0.0'):
+if version.parse(pyspark.__version__) < version.parse('3.0.0'):
     from pyspark.ml.feature import OneHotEncoderEstimator as OneHotEncoder
 else:
     from pyspark.ml.feature import OneHotEncoder
@@ -78,7 +78,7 @@ if __name__ == '__main__':
     train_df, test_df = train_df.randomSplit([0.9, 0.1])
 
     # Disable GPUs when building the model to prevent memory leaks
-    if LooseVersion(tf.__version__) >= LooseVersion('2.0.0'):
+    if version.parse(tf.__version__) >= version.parse('2.0.0'):
         # See https://github.com/tensorflow/tensorflow/issues/33168
         os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     else:

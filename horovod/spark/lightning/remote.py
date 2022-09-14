@@ -19,7 +19,7 @@ import os
 import tempfile
 import math
 import warnings
-from distutils.version import LooseVersion
+from packaging import version
 
 import torch
 import pytorch_lightning as pl

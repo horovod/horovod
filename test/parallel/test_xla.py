@@ -24,7 +24,7 @@ import pytest
 import math
 import numpy as np
 import itertools
-from distutils.version import LooseVersion
+from packaging import version
 import warnings
 
 # Enable HVD XLA ops so that tf.function(jit_compile=True) works. This
@@ -59,7 +59,7 @@ else:
 ccl_supported_types = set([tf.uint8, tf.int8, tf.uint16, tf.int16,
                            tf.int32, tf.int64, tf.float32])
 
-_IS_TF26 = LooseVersion(tf.__version__) >= LooseVersion('2.6.0')
+_IS_TF26 = version.parse(tf.__version__) >= version.parse('2.6.0')
 
 
 @pytest.mark.skipif(not _IS_TF26, reason='TF2.6+ is required')

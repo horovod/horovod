@@ -22,7 +22,7 @@ import warnings
 import h5py
 import tensorflow as tf
 
-from distutils.version import LooseVersion
+from packaging import version
 from horovod.spark.common import constants
 from horovod.spark.common.store import DBFSLocalStore
 from horovod.spark.common.util import _get_assigned_gpu_or_default, _set_mp_start_method
@@ -126,7 +126,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 print("Skip pinning current process to the GPU.")
 
         if random_seed is not None:
-            if LooseVersion(tf.__version__) < LooseVersion('2.0.0'):
+            if version.parse(tf.__version__) < version.parse('2.0.0'):
                 tf.random.set_random_seed(random_seed)
             else:
                 tf.random.set_seed(random_seed)
@@ -176,7 +176,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 if _checkpoint_callback:
                     _checkpoint_callback.filepath = ckpt_file
                 else:
-                    if is_dbfs and LooseVersion(tf.__version__) < LooseVersion("2.0.0"):
+                    if is_dbfs and version.parse(tf.__version__) < version.parse("2.0.0"):
                         # Because DBFS local file APIs does not support random write which is
                         # required by h5 format, save_weights_only=True is needed for switching
                         # to the TensorFlow SavedModel format.
@@ -270,7 +270,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
 
             if hvd.rank() == 0:
                 if is_dbfs:
-                    if LooseVersion(tf.__version__) < LooseVersion("2.0.0"):
+                    if version.parse(tf.__version__) < version.parse("2.0.0"):
                         model.load_weights(ckpt_file)
                     else:
                         # needs to be deserialized in the with scope
@@ -278,7 +278,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                             model = k.models.load_model(ckpt_file)
                     serialized_model = keras_utils.serialize_model(model)
                 else:
-                    if LooseVersion(tf.__version__) >= LooseVersion("2.0.0"):
+                    if version.parse(tf.__version__) >= version.parse("2.0.0"):
                         with k.utils.custom_object_scope(custom_objects):
                             model = k.models.load_model(ckpt_file)
                         serialized_model = keras_utils.serialize_model(model)
@@ -302,7 +302,7 @@ def _deserialize_keras_model_fn():
 
 def _pin_gpu_fn():
     # Horovod: pin GPU to be used to process local rank (one GPU per process)
-    return _pin_gpu_tensorflow2_fn() if LooseVersion(tf.__version__) >= LooseVersion('2.0.0') \
+    return _pin_gpu_tensorflow2_fn() if version.parse(tf.__version__) >= version.parse('2.0.0') \
         else _pin_gpu_tensorflow1_fn()
 
 
@@ -328,7 +328,7 @@ def _pin_gpu_tensorflow1_fn():
 
 
 def _pin_cpu_fn():
-    return _pin_cpu_tensorflow2_fn() if LooseVersion(tf.__version__) >= LooseVersion('2.0.0') \
+    return _pin_cpu_tensorflow2_fn() if version.parse(tf.__version__) >= version.parse('2.0.0') \
         else _pin_cpu_tensorflow1_fn()
 
 

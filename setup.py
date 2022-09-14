@@ -27,7 +27,7 @@ import textwrap
 
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
-from distutils.version import LooseVersion
+from packaging import version
 
 from horovod import __version__
 
@@ -72,11 +72,11 @@ def get_cmake_bin():
     try:
         out = subprocess.check_output([cmake_bin, '--version'])
     except OSError:
-        cmake_installed_version = LooseVersion("0.0")
+        cmake_installed_version = version.parse("0.0")
     else:
-        cmake_installed_version = LooseVersion(re.search(r'version\s*([\d.]+)', out.decode()).group(1))
+        cmake_installed_version = version.parse(re.search(r'version\s*([\d.]+)', out.decode()).group(1))
 
-    if cmake_installed_version < LooseVersion("3.13.0"):
+    if cmake_installed_version < version.parse("3.13.0"):
         print("Could not find a recent CMake to build Horovod. "
               "Attempting to install CMake 3.13 to a temporary location via pip.", flush=True)
         cmake_temp_dir = tempfile.TemporaryDirectory(prefix="horovod-cmake-tmp")

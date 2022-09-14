@@ -62,7 +62,7 @@ autodoc_default_options = {
     'members': None,
     'member-order': 'bysource',
     'imported-members': None,
-    'exclude-members': 'contextmanager, LooseVersion, tf, keras, torch, mx, pyspark',
+    'exclude-members': 'contextmanager, version.parse, tf, keras, torch, mx, pyspark',
 }
 
 

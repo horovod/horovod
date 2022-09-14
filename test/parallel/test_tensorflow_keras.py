@@ -23,14 +23,14 @@ import sys
 import tensorflow as tf
 import warnings
 
-from distutils.version import LooseVersion
+from packaging import version
 from tensorflow import keras
 
 from horovod.common.util  import is_version_greater_equal_than
 
 if is_version_greater_equal_than(tf.__version__, "2.6.0"):
     from keras import backend as K
-    if LooseVersion(keras.__version__) < LooseVersion("2.9.0"):
+    if version.parse(keras.__version__) < version.parse("2.9.0"):
         from keras.optimizer_v2 import optimizer_v2
     else:
         from keras.optimizers.optimizer_v2 import optimizer_v2
@@ -45,7 +45,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 from common import temppath
 
 
-@pytest.mark.skipif(LooseVersion(tf.__version__) >= LooseVersion('2.0.0'), reason='TensorFlow v1 tests')
+@pytest.mark.skipif(version.parse(tf.__version__) >= version.parse('2.0.0'), reason='TensorFlow v1 tests')
 class TfKerasTests(tf.test.TestCase):
     """
     Tests for ops in horovod.tensorflow.keras.

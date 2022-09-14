@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from distutils.version import LooseVersion
+from packaging import version
 
 import os
 import pyspark
@@ -96,7 +96,7 @@ class SparkTaskService(task_service.BasicTaskService):
         return super(SparkTaskService, self)._handle(req, client_address)
 
     def _get_resources(self):
-        if LooseVersion(pyspark.__version__) >= LooseVersion('3.0.0'):
+        if version.parse(pyspark.__version__) >= version.parse('3.0.0'):
             task_context = pyspark.TaskContext.get()
             if task_context:
                 return task_context.resources()

@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 import unittest
-from distutils.version import LooseVersion
+from packaging import version
 from queue import Queue
 
 import tensorflow as tf
@@ -23,7 +23,7 @@ from horovod.runner.common.util import secret
 from horovod.runner.common.util.timeout import TimeoutException
 from horovod.runner.util.threads import in_thread
 
-_PRE_TF_2_0_0 = LooseVersion(tf.__version__) < LooseVersion("2.0.0")
+_PRE_TF_2_0_0 = version.parse(tf.__version__) < version.parse("2.0.0")
 
 
 class ComputeServiceTest(unittest.TestCase):

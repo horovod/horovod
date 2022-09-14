@@ -15,7 +15,7 @@
 
 """Tests for horovod.keras."""
 
-from distutils.version import LooseVersion
+from packaging import version
 import os
 import sys
 
@@ -38,7 +38,7 @@ from common import temppath
 
 
 @pytest.mark.skipif(not _HAS_KERAS, reason='Keras not available')
-@pytest.mark.skipif(LooseVersion(tf.__version__) >= LooseVersion('2.0.0'), reason='TensorFlow v1 tests')
+@pytest.mark.skipif(version.parse(tf.__version__) >= version.parse('2.0.0'), reason='TensorFlow v1 tests')
 class KerasTests(tf.test.TestCase):
     """
     Tests for ops in horovod.keras.

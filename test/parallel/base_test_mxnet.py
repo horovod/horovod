@@ -19,7 +19,7 @@ import platform
 import sys
 import itertools
 import unittest
-from distutils.version import LooseVersion
+from packaging import version
 
 import pytest
 import numpy as np
@@ -1607,7 +1607,7 @@ class MXTests:
         g = mx.random.uniform(shape=shape, ctx=ctx, dtype=np.float32)
         
         # Update that is only averaged over even_set
-        if LooseVersion(mx.__version__) >= LooseVersion('2.0.0'):
+        if version.parse(mx.__version__) >= version.parse('2.0.0'):
             opt.update([0], [w], [g], [opt.create_state(0, w)])
         else:
             opt.update(0, w, g, opt.create_state(0, w))
