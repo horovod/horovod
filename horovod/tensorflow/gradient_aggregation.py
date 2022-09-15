@@ -1,7 +1,7 @@
 import tensorflow as tf
-from distutils.version import LooseVersion
+from packaging import version
 
-_IS_TF2 = LooseVersion(tf.__version__) >= LooseVersion('2.0.0')
+_IS_TF2 = version.parse(tf.__version__) >= version.parse('2.0.0')
 
 
 def apply_op_to_not_none_tensors(tensor_op, tensors, *args):
