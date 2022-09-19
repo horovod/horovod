@@ -2,7 +2,9 @@ from packaging import version
 
 import tensorflow as tf
 
+
 _POST_TF_2_4_0 = version.parse(tf.__version__) >= version.parse('2.4.0')
+_IS_TF2 = version.parse(tf.__version__) >= version.parse('2.0.0')
 
 
 class LocalGradientAggregationHelperEager:
@@ -40,6 +42,17 @@ class LocalGradientAggregationHelperEager:
         # is equal to `self.backward_passes_per_step`. We apply gradients when `self.counter`
         # is equal to 0.
         self.counter = tf.Variable(initial_value=0)
+
+        self._local_vars = set()
+
+    def register_local_var(self, var):
+        """Registers a source/variable as worker local. Horovod will not perform any global
+        operations on gradients corresponding to these sources and will instead return the local
+        gradient."""
+        if _IS_TF2:
+            self._local_vars.add(var.ref())
+        else:
+            self._local_vars.add(var)
 
     def compute_gradients(self, grads, vars):
         # On steps where allreduce happens, resulting_grads returns the allreduced
@@ -100,7 +113,33 @@ class LocalGradientAggregationHelperEager:
         return resulting_grads
 
     def _allreduce_helper(self, grads, vars):
-        allreduced_grads = self.allreduce_grads(grads, vars)
+        def __filtered_reduce_grads(grads, vars):
+            rv = []
+            rg = []
+            if _IS_TF2:
+                v2g = {var.ref(): grad for var, grad in zip(vars, grads)}
+                for var, grad in zip(vars, grads):
+                    if var.ref() not in self._local_vars:
+                        rv.append(var)
+                        rg.append(grad)
+            else:
+                v2g = {var: grad for var, grad in zip(vars, grads)}
+                for var, grad in zip(vars, grads):
+                    if var not in self._local_vars:
+                        rv.append(var)
+                        rg.append(grad)
+
+            rg = self.allreduce_grads(rg, rv)
+            if _IS_TF2:
+                for rv, rg in zip(rv, rg):
+                    v2g[rv.ref()] = rg
+                return [v2g[rv.ref()] for rv in vars]
+            else:
+                for rv, rg in zip(rv, rg):
+                    v2g[rv] = rg
+                return [v2g[rv] for rv in vars]
+
+        allreduced_grads = __filtered_reduce_grads(grads, vars)
 
         if not self.average_aggregated_gradients:
             return allreduced_grads
