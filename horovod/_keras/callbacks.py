@@ -34,6 +34,10 @@ class BroadcastGlobalVariablesCallbackImpl(object):
         Registers a variable as worker local. Horovod will not perform broadcasting
             operation on this variable.
         """
+        if version.parse(tf.__version__) < version.parse('2.0.0'):
+            raise Exception('Registering local variables for '
+                            'BroadcastGlobalVariablesCallback is not supported in TF 1.*')
+
         self._local_vars.add(var.ref())
 
     def on_batch_end(self, batch, logs=None):
