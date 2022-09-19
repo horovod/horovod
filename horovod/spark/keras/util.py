@@ -16,7 +16,7 @@
 
 import io
 
-from distutils.version import LooseVersion
+from packaging import version
 
 import h5py
 import numpy as np

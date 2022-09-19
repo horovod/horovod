@@ -19,7 +19,7 @@ import tensorflow as tf
 import numpy as np
 import warnings
 
-from distutils.version import LooseVersion
+from packaging import version
 from parameterized import parameterized
 
 import pytest
@@ -29,7 +29,7 @@ from tensorflow import keras
 from horovod.common.util import is_version_greater_equal_than
 
 if is_version_greater_equal_than(tf.__version__, "2.6.0"):
-    if LooseVersion(keras.__version__) < LooseVersion("2.9.0"):
+    if version.parse(keras.__version__) < version.parse("2.9.0"):
         from keras.optimizer_v2 import optimizer_v2
     else:
         from keras.optimizers.optimizer_v2 import optimizer_v2
@@ -39,11 +39,11 @@ else:
 import horovod.tensorflow.keras as hvd
 
 
-_PRE_TF_2_2_0 = LooseVersion(tf.__version__) < LooseVersion("2.2.0")
+_PRE_TF_2_2_0 = version.parse(tf.__version__) < version.parse("2.2.0")
 
 
-@pytest.mark.skipif(LooseVersion(tf.__version__) <
-                    LooseVersion('2.0.0'), reason='TensorFlow v2 tests')
+@pytest.mark.skipif(version.parse(tf.__version__) <
+                    version.parse('2.0.0'), reason='TensorFlow v2 tests')
 class Tf2KerasTests(tf.test.TestCase):
     """
     Tests for ops in horovod.tensorflow.keras.
@@ -379,3 +379,181 @@ class Tf2KerasTests(tf.test.TestCase):
 
         aggregation_counter = hvd_optimizer._agg_helper.counter.numpy()
         assert aggregation_counter == total_num_of_steps % backward_passes_per_step
+
+    @parameterized.expand([
+        [True],
+        [False]
+    ])
+    def test_gradient_aggregation_with_local_vars(self, average_aggregated_gradients):
+        class TestingOptimizer(optimizer_v2.OptimizerV2):
+            """
+            Custom optimizer we use for testing gradient aggregation.
+            """
+
+            def get_config(self):
+                config = super(TestingOptimizer, self).get_config()
+                return config
+
+            def _create_slots(self, var_list):
+                # Only needed for TF < 2.2.
+                pass
+
+            def _resource_apply_dense(self, grad, var, apply_state=None):
+                return var.assign_add(grad)
+
+        backward_passes_per_step = 4
+        hvd_optimizer = hvd.DistributedOptimizer(
+            optimizer=TestingOptimizer("test"),
+            backward_passes_per_step=backward_passes_per_step,
+            average_aggregated_gradients=average_aggregated_gradients,
+            sparse_as_dense=True,
+        )
+
+        _ = hvd_optimizer.iterations
+
+        total_num_variables = 8
+        num_local_vars = 4
+        X_0 = [0.0]*total_num_variables
+        Y_0, Y_1 = [1.0]*total_num_variables, [2.0]*total_num_variables
+        X = [tf.Variable([x_0]) for x_0 in X_0]
+        Y = [tf.Variable([y_0, y_1]) for y_0, y_1 in zip(Y_0, Y_1)]
+        variables = [X, Y]
+
+        for i in range(num_local_vars):
+            x_var = X[i]
+            y_var = Y[i]
+            hvd_optimizer.register_local_var(x_var)
+            hvd_optimizer.register_local_var(y_var)
+
+        def loss():
+            """
+            loss = x - y * er where er = [float(hvd.rank()+1), 0.0]
+            """
+            # Gather the first row of y. It is equivalent to y * er.
+            # Use tf.gather to produce tf.IndexedSlices gradient to improve test coverage.
+            gathered_y_1 = tf.gather(Y, [0], axis=1)
+            return X - (float(hvd.rank()+1) * gathered_y_1)
+
+        def compute_expected_value(batch_id):
+            """
+            Given the loss function above, the gradient of x and y can be derived.
+              dloss/dx = 1.0
+              dloss/dy = [-float(hvd.rank()+1), 0.0]
+            Therefore, for each step, the value of x increases by 1.0 and
+            the value of y increases by [-float(hvd.rank()), 0.0].
+            """
+            num_of_steps = (batch_id + 1) // backward_passes_per_step
+
+            gradient_of_x = num_of_steps * 1.0
+
+            # At each rank, the gradient of y_0 evaluates to (hvd.rank()+1).
+            # For non-local variables we need to average the value accross the ranks.
+            # The average value is (1+2+...hvd.size())/hvd.size() wich is
+            # equivalent to the following expression:
+            gradient_of_y_multiplier = float(hvd.size()+1)/2
+            gradient_of_y_0 = num_of_steps * gradient_of_y_multiplier * -1.0
+
+            if not average_aggregated_gradients:
+                gradient_of_x *= backward_passes_per_step
+                gradient_of_y_0 *= backward_passes_per_step
+
+            expected_x = np.array(X_0) + gradient_of_x
+
+            expected_y_0 = np.array(Y_0)
+            for i in range(len(Y_0)):
+                if i < num_local_vars:
+                    # recover the gradient of local vars
+                    expected_y_0[i] += (gradient_of_y_0/gradient_of_y_multiplier)*float(hvd.rank()+1)
+                else:
+                    expected_y_0[i] += gradient_of_y_0
+
+            # It should remain constant as gradient is always 0.
+            expected_y_1 = np.array(Y_1)
+            expected_y = [[ey0, ey1] for ey0,ey1 in zip(expected_y_0, expected_y_1)]
+
+            return np.array(expected_x), np.array(expected_y)
+
+        @tf.function
+        def compute_and_apply_gradients_in_tf_function(var_list, **kwargs):
+            # Compute and apply gradient updates in tf.function to reproduce
+            # how it is done inside `model.fit()`.
+            grads_and_vars = hvd_optimizer._compute_gradients(
+                loss, var_list=var_list)
+            hvd_optimizer.apply_gradients(grads_and_vars, **kwargs)
+
+        total_num_of_steps = 10
+        for idx in range(total_num_of_steps):
+            if _PRE_TF_2_2_0:
+                compute_and_apply_gradients_in_tf_function(var_list=variables)
+            else:
+                # In 2.2 and 2.3 the horovod optimizer sets `_HAS_AGGREGATE_GRAD = True`.
+                # This configures tf.keras to call `_aggregate_gradients()` outside of
+                # `apply_gradients()` and to set `experimental_aggregate_gradients` to
+                # False when calling `apply_gradients()` to prevent it from calling
+                # `_aggregate_gradients()` again.
+                compute_and_apply_gradients_in_tf_function(
+                    var_list=variables,
+                    experimental_aggregate_gradients=False)
+
+            expected_x, expected_y = compute_expected_value(idx)
+            updated_x = np.array(variables[0])
+            updated_y = np.array(variables[1])
+            assert np.isclose(updated_x, expected_x).all()
+            assert np.isclose(updated_y, expected_y).all()
+            assert idx + 1 == hvd_optimizer.iterations.numpy()
+
+        aggregation_counter = hvd_optimizer._agg_helper.counter.numpy()
+        assert aggregation_counter == total_num_of_steps % backward_passes_per_step
+
+    def test_distributed_optimizer_with_local_vars(self):
+        """ Note: test makes most sense with more than 1 nodes. """
+        if hvd.size() == 1:
+            self.skipTest("Only one worker available")
+
+        # the keras model has 3 layers, we test cases with 0, 1, and 2 local layers.
+        for num_local_layers in range(3):
+            model = tf.keras.models.Sequential()
+            initializer = tf.keras.initializers.Constant(hvd.rank())
+            model.add(tf.keras.layers.Dense(2, input_shape=(3,), kernel_initializer=initializer, bias_initializer=initializer))
+            model.add(tf.keras.layers.RepeatVector(3))
+            model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(3, kernel_initializer=initializer, bias_initializer=initializer)))
+            opt = tf.keras.optimizers.Adam()
+            model.compile(loss=tf.keras.losses.MSE,
+                            metrics=[tf.keras.metrics.categorical_accuracy])
+
+            X = np.random.random((1, 3))
+            Y = np.random.random((1, 3, 3))
+
+            try:
+                init = tf.global_variables_initializer()
+            except AttributeError:
+                init = tf.compat.v1.global_variables_initializer()
+            self.evaluate(init)
+
+            with tf.GradientTape(persistent=True) as tape:
+                p = model(X, training=True)
+                l = model.loss(Y, p)
+
+            gradients_tape = tape.gradient(l, model.trainable_weights)
+
+            # deem local layers
+            local_layers = model.layers[:num_local_layers]
+            local_vars = [var for layer in local_layers for var in layer.trainable_weights]
+
+            opt = hvd.DistributedOptimizer(opt, sparse_as_dense=True)
+            # register local vars to the opt
+            for var in local_vars:
+                opt.register_local_var(var)
+            gradients_vars_opt = opt._compute_gradients(l, model.trainable_weights, tape=tape)
+
+            var_grad_tape = {var.ref():grad for var,grad in zip(model.trainable_weights, gradients_tape)}
+            var_grad_opt = {var.ref():grad for grad,var in gradients_vars_opt}
+            local_vars = [var.ref() for layer in local_layers for var in layer.trainable_weights]
+
+            for var in model.trainable_weights:
+                if var.ref() in local_vars:
+                    # local gradients should not change.
+                    self.assertAllClose(var_grad_tape[var.ref()], var_grad_opt[var.ref()])
+                else:
+                    # non-local gradients shouldn't be equal given that the initial weights are set to ranks
+                    self.assertNotAllClose(var_grad_tape[var.ref()], var_grad_opt[var.ref()])

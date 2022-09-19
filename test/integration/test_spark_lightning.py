@@ -23,7 +23,7 @@ import mock
 from unittest.mock import Mock
 import pytest
 import numpy as np
-from distutils.version import LooseVersion
+from packaging import version
 
 import torch
 import torch.nn as nn
@@ -37,8 +37,8 @@ skip_lightning_tests = False
 try:
     # tensorflow has to be imported BEFORE pytorch_lightning, otherwise we see the segfault right away
     import tensorflow as tf
-    from distutils.version import LooseVersion
-    if LooseVersion('2.5.0') <= LooseVersion(tf.__version__) < LooseVersion('2.7.0'):
+    from packaging import version
+    if version.parse('2.5.0') <= version.parse(tf.__version__) < version.parse('2.7.0'):
         skip_lightning_tests = True
 except ImportError:
     pass
@@ -125,7 +125,7 @@ def create_legacy_xor_model(input_dim=2, output_dim=1):
     return LegacyXOR(input_dim, output_dim)
 
 
-@pytest.mark.skipif(LooseVersion(pl.__version__) < LooseVersion(MIN_PL_VERSION), reason='Pytorch lightning version is not supported.')
+@pytest.mark.skipif(version.parse(pl.__version__) < version.parse(MIN_PL_VERSION), reason='Pytorch lightning version is not supported.')
 class SparkLightningTests(unittest.TestCase):
 
     def __init__(self, *args, **kwargs):

@@ -15,7 +15,7 @@
 import logging
 import os
 import unittest
-from distutils.version import LooseVersion
+from packaging import version
 from itertools import islice
 
 import tensorflow as tf
@@ -25,7 +25,7 @@ from horovod.runner.util.threads import in_thread
 from horovod.tensorflow.data.compute_service import TfDataServiceConfig, tf_data_service
 from horovod.tensorflow.data.compute_worker import main
 
-_PRE_TF_2_0_0 = LooseVersion(tf.__version__) < LooseVersion("2.0.0")
+_PRE_TF_2_0_0 = version.parse(tf.__version__) < version.parse("2.0.0")
 
 
 # this test is to be run via horovodrun -np 2, all processes have to run on the same machine

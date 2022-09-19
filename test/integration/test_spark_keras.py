@@ -20,7 +20,7 @@ import os
 import sys
 import warnings
 
-from distutils.version import LooseVersion
+from packaging import version
 
 import mock
 import numpy as np

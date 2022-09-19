@@ -140,6 +140,9 @@ inline void Float2HalfBits(const float* src, unsigned short* dest) {
 
 #if HAVE_MPI
 void float16_sum(void* invec, void* inoutvec, int* len, MPI_Datatype* datatype);
+void float16_min(void* invec, void* inoutvec, int* len, MPI_Datatype* datatype);
+void float16_max(void* invec, void* inoutvec, int* len, MPI_Datatype* datatype);
+void float16_prod(void* invec, void* inoutvec, int* len, MPI_Datatype* datatype);
 #endif
 
 } // namespace common

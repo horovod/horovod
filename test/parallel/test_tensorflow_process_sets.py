@@ -5,7 +5,7 @@ slowdowns in all Horovod operations, especially on GPU-equipped AWS instances. F
 tests for multiple process sets in this script that initializes Horovod with static process sets.
 """
 
-from distutils.version import LooseVersion
+from packaging import version
 
 import itertools
 import numpy as np
@@ -19,7 +19,7 @@ from base_test_tensorflow import *
 
 from horovod.runner.common.util.env import get_env_rank_and_size
 
-_IS_TF2 = LooseVersion(tf.__version__) >= LooseVersion('2.0.0')
+_IS_TF2 = version.parse(tf.__version__) >= version.parse('2.0.0')
 _is_mac = platform.system() == 'Darwin'
 
 

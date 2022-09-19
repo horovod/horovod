@@ -27,7 +27,8 @@ namespace common {
 
 class IGlooAlgorithms {
 public:
-  virtual void Allreduce(void* buffer_data, int num_elements) = 0;
+  virtual void Allreduce(void* buffer_data, int num_elements,
+                         ReduceOp reduce_op) = 0;
 
   virtual void Allgather(void* buffer_data, void* buffer_out, int* recvcounts,
                          int* displcmnts) = 0;
@@ -51,7 +52,8 @@ template <typename T> class GlooAlgorithms : public IGlooAlgorithms {
 public:
   explicit GlooAlgorithms(GlooContext* gloo_context);
 
-  void Allreduce(void* buffer_data, int num_elements) override;
+  void Allreduce(void* buffer_data, int num_elements,
+                 ReduceOp reduce_op) override;
 
   void Allgather(void* buffer_data, void* buffer_out, int* recvcounts,
                  int* displcmnts) override;

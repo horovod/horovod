@@ -92,6 +92,7 @@ class SparkTorchTests(unittest.TestCase):
                     epochs=3,
                     random_seed=1,
                     verbose=2,
+                    backward_passes_per_step=3,
                     sample_weight_col='weight')
 
                 torch_model = torch_estimator.fit(df)
@@ -125,6 +126,7 @@ class SparkTorchTests(unittest.TestCase):
                     batch_size=1,
                     epochs=1,
                     verbose=2,
+                    backward_passes_per_step=3,
                     run_id=run_id)
 
                 torch_estimator._load_checkpoint = mock.Mock(side_effect=torch_estimator._load_checkpoint)
@@ -343,6 +345,7 @@ class SparkTorchTests(unittest.TestCase):
                                     verbose=2,
                                     reader_pool_type=reader_pool_type,
                                     inmemory_cache_all=inmemory_cache_all,
+                                    backward_passes_per_step=3,
                                     validation=validation)
 
                                 # To make sure that setLoss works with non-list loss.

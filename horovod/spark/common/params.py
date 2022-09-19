@@ -133,6 +133,12 @@ class EstimatorParams(Params):
                     'https://docs.python.org/3/library/multiprocessing.html#multiprocessing.get_start_method.'
                     'This param defaults to None.',
                     typeConverter=TypeConverters.toString)
+    
+    backward_passes_per_step = Param(Params._dummy(), 'backward_passes_per_step',
+                                     'Number of backward passes to perform before calling hvd.allreduce. '
+                                     'This allows accumulating updates over multiple mini-batches before reducing and applying them. '
+                                     'This param defaults to 1.',
+                                     typeConverter=TypeConverters.toInt)
 
     def __init__(self):
         super(EstimatorParams, self).__init__()
@@ -175,7 +181,8 @@ class EstimatorParams(Params):
             label_shapes=None,
             inmemory_cache_all=False,
             use_gpu=True,
-            mp_start_method=None)
+            mp_start_method=None,
+            backward_passes_per_step=1)
 
     def _check_params(self, metadata):
         model = self.getModel()
@@ -427,6 +434,12 @@ class EstimatorParams(Params):
 
     def getMpStartMethod(self):
         return self.getOrDefault(self.mp_start_method)
+    
+    def setBackwardPassesPerStep(self, value):
+        self._set(backward_passes_per_step=value)
+
+    def getBackwardPassesPerStep(self):
+        return self.getOrDefault(self.backward_passes_per_step)
 
 class ModelParams(HasOutputCols):
     history = Param(Params._dummy(), 'history', 'history')

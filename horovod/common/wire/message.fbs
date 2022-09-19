@@ -31,6 +31,16 @@ enum DataType:byte {
     HOROVOD_BOOL = 9
 }
 
+// Supported reduction types.
+enum ReduceOp:byte {
+    AVERAGE = 0,
+    SUM = 1,
+    ADASUM = 2,
+    MIN_ = 3,
+    MAX_ = 4,
+    PRODUCT = 5
+}
+
 // An Request is a message sent from a rank greater than zero to the
 // coordinator (rank zero), informing the coordinator of an operation that
 // the rank wants to do and the tensor that it wants to apply the operation to.
@@ -66,6 +76,8 @@ table Request {
     // Prescale and postscale factors
     prescale_factor:double;
     postscale_factor:double;
+
+    reduce_op:ReduceOp;
 }
 table RequestList {
     requests:[Request];
@@ -118,6 +130,8 @@ table Response {
     postscale_factor:double;
 
     last_joined_rank:int;
+
+    reduce_op:ReduceOp;
 }
 table ResponseList {
     responses:[Response];

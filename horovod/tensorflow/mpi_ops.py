@@ -82,6 +82,9 @@ rocm_built = _basics.rocm_built
 Average = _basics.Average
 Sum = _basics.Sum
 Adasum = _basics.Adasum
+Min = _basics.Min
+Max = _basics.Max
+Product = _basics.Product
 
 def init(*args, **kwargs):
     _basics.init(*args, **kwargs)
@@ -369,8 +372,8 @@ def broadcast_(variables, root_rank, name=None, process_set=global_process_set):
     Returns:
       The tensor values of the updated `variables` as broadcasted from root rank.
     """
-    from distutils.version import LooseVersion
-    if LooseVersion(tf.__version__) < LooseVersion('2.6.0'):
+    from packaging import version
+    if version.parse(tf.__version__) < version.parse('2.6.0'):
         raise NotImplementedError("In-place broadcasts are only supported with TensorFlow 2.6 or later")
 
     from tensorflow.python.ops import resource_variable_ops

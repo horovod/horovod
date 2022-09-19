@@ -592,6 +592,9 @@ def DistributedOptimizer(optimizer, named_parameters=None,
         if groups is None:
             groups = num_groups
 
+    if backward_passes_per_step <= 0:
+        raise ValueError("backward_passes_per_step must be > 0")
+
     if op != Adasum or size() == 1:
         cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
                    dict(_DistributedOptimizer.__dict__))

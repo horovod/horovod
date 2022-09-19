@@ -185,23 +185,40 @@ Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
 
   WaitForData(entries);
 
-  const void* fused_input_data;
-  void* buffer_data;
-  size_t buffer_len;
-
   ncclRedOp_t ncclOp = ncclSum;
   double prescale_factor = response.prescale_factor();
   double postscale_factor = response.postscale_factor();
+
+  if (response.reduce_op() == ReduceOp::AVERAGE) {
+#if !HAVE_ROCM
 #ifdef NCCL_AVG_SUPPORTED
-  auto& process_set =
-      global_state_->process_set_table.Get(entries[0].process_set_id);
-  if (prescale_factor == 1.0 &&
-      postscale_factor == 1.0 / process_set.controller->GetSize()) {
     // Use NCCLAvg op in place of postscale_factor
     ncclOp = ncclAvg;
-    postscale_factor = 1.0;
-  }
+#else
+    auto process_set_id = first_entry.process_set_id;
+    auto& process_set = global_state_->process_set_table.Get(process_set_id);
+    ncclOp = ncclSum;
+    // Averaging happens via postscale_factor
+    postscale_factor /= process_set.controller->GetSize();
 #endif
+#else
+    throw std::logic_error("AVERAGE not allowed.");
+#endif
+  } else if (response.reduce_op() == ReduceOp::SUM) {
+    ncclOp = ncclSum;
+  } else if (response.reduce_op() == ReduceOp::MIN) {
+    ncclOp = ncclMin;
+  } else if (response.reduce_op() == ReduceOp::MAX) {
+    ncclOp = ncclMax;
+  } else if (response.reduce_op() == ReduceOp::PRODUCT) {
+    ncclOp = ncclProd;
+  } else {
+    throw std::logic_error("Reduction op type not supported.");
+  }
+
+  const void* fused_input_data;
+  void* buffer_data;
+  size_t buffer_len;
 
   // Copy (and possibly scale) tensors into the fusion buffer.
   if (entries.size() > 1) {
@@ -302,6 +319,36 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
 
   WaitForData(entries);
 
+  ncclRedOp_t ncclOp = ncclSum;
+  MPI_Op mpiOp = mpi_context.GetMPISumOp(first_entry.tensor->dtype());
+  double prescale_factor = response.prescale_factor();
+  double postscale_factor = response.postscale_factor();
+
+  if (response.reduce_op() == ReduceOp::AVERAGE) {
+#if !HAVE_ROCM
+    ncclOp = ncclSum;
+    mpiOp = mpi_context.GetMPISumOp(first_entry.tensor->dtype());
+    // Averaging happens via postscale_factor
+    postscale_factor /= process_set.controller->GetSize();
+#else
+    throw std::logic_error("AVERAGE not allowed.");
+#endif
+  } else if (response.reduce_op() == ReduceOp::SUM) {
+    ncclOp = ncclSum;
+    mpiOp = mpi_context.GetMPISumOp(first_entry.tensor->dtype());
+  } else if (response.reduce_op() == ReduceOp::MIN) {
+    ncclOp = ncclMin;
+    mpiOp = mpi_context.GetMPIMinOp(first_entry.tensor->dtype());
+  } else if (response.reduce_op() == ReduceOp::MAX) {
+    ncclOp = ncclMax;
+    mpiOp = mpi_context.GetMPIMaxOp(first_entry.tensor->dtype());
+  } else if (response.reduce_op() == ReduceOp::PRODUCT) {
+    ncclOp = ncclProd;
+    mpiOp = mpi_context.GetMPIProdOp(first_entry.tensor->dtype());
+  } else {
+    throw std::logic_error("Reduction op type not supported.");
+  }
+
   const void* fused_input_data;
   void* buffer_data;
   size_t buffer_len;
@@ -324,9 +371,9 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   int64_t num_elements =
       buffer_len / DataType_Size(first_entry.tensor->dtype());
 
-  if (response.prescale_factor() != 1.0) {
+  if (prescale_factor != 1.0) {
     // Execute prescaling op
-    ScaleBuffer(response.prescale_factor(), entries, fused_input_data,
+    ScaleBuffer(prescale_factor, entries, fused_input_data,
                 buffer_data, num_elements);
     fused_input_data = buffer_data; // for unfused, scale is done out of place
   }
@@ -395,7 +442,7 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     auto nccl_result = ncclReduceScatter(
         fused_input_data, buffer_data_at_rank_offset,
         (size_t)num_elements_per_rank, GetNCCLDataType(first_entry.tensor),
-        ncclSum, *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
+        ncclOp, *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
     nccl_context_->ErrorCheck("ncclReduceScatter", nccl_result,
                               *nccl_op_context_.nccl_comm_);
     if (global_state_->timeline.Initialized()) {
@@ -410,7 +457,7 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     auto nccl_result =
         ncclReduce(fused_input_data_remainder, buffer_data_remainder,
                    (size_t)num_elements_remaining,
-                   GetNCCLDataType(first_entry.tensor), ncclSum, root_rank,
+                   GetNCCLDataType(first_entry.tensor), ncclOp, root_rank,
                    *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
     nccl_context_->ErrorCheck("ncclReduce", nccl_result,
                               *nccl_op_context_.nccl_comm_);
@@ -450,7 +497,7 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     int op = MPI_Allreduce(MPI_IN_PLACE, gpu_op_context_.host_buffer,
                            (int)total_num_elements,
                            mpi_context.GetMPIDataType(first_entry.tensor),
-                           mpi_context.GetMPISumOp(first_entry.tensor->dtype()),
+                           mpiOp,
                            mpi_context.GetMPICommunicator(Communicator::CROSS));
     if (op != MPI_SUCCESS) {
       throw std::runtime_error(
@@ -501,9 +548,9 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     }
   }
 
-  if (response.postscale_factor() != 1.0) {
+  if (postscale_factor != 1.0) {
     // Execute postscaling op
-    ScaleBuffer(response.postscale_factor(), entries, buffer_data, buffer_data,
+    ScaleBuffer(postscale_factor, entries, buffer_data, buffer_data,
                 num_elements);
   }
 
@@ -571,6 +618,30 @@ Status NCCLTorusAllreduce::Execute(std::vector<TensorTableEntry>& entries,
 
   WaitForData(entries);
 
+  ncclRedOp_t ncclOp = ncclSum;
+  double prescale_factor = response.prescale_factor();
+  double postscale_factor = response.postscale_factor();
+
+  if (response.reduce_op() == ReduceOp::AVERAGE) {
+#if !HAVE_ROCM
+    ncclOp = ncclSum;
+    // Averaging happens via postscale_factor
+    postscale_factor /= process_set.controller->GetSize();
+#else
+    throw std::logic_error("AVERAGE not allowed.");
+#endif
+  } else if (response.reduce_op() == ReduceOp::SUM) {
+    ncclOp = ncclSum;
+  } else if (response.reduce_op() == ReduceOp::MIN) {
+    ncclOp = ncclMin;
+  } else if (response.reduce_op() == ReduceOp::MAX) {
+    ncclOp = ncclMax;
+  } else if (response.reduce_op() == ReduceOp::PRODUCT) {
+    ncclOp = ncclProd;
+  } else {
+    throw std::logic_error("Reduction op type not supported.");
+  }
+
   const void* fused_input_data;
   void* buffer_data;
   size_t buffer_len;
@@ -578,7 +649,7 @@ Status NCCLTorusAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   // Copy (and possibly scale) tensors into the fusion buffer.
   if (entries.size() > 1) {
     ScaleMemcpyInFusionBuffer(entries, fused_input_data, buffer_data, 
-                              buffer_len, response.prescale_factor());
+                              buffer_len, prescale_factor);
     if (global_state_->timeline.Initialized()) {
       gpu_context_->RecordEvent(gpu_op_context_.event_queue,
                                 MEMCPY_IN_FUSION_BUFFER,
@@ -590,9 +661,9 @@ Status NCCLTorusAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     buffer_len = (size_t)first_entry.output->size();
     int64_t num_elements =
         buffer_len / DataType_Size(first_entry.tensor->dtype());
-    if (response.prescale_factor() != 1.0) {
+    if (prescale_factor != 1.0) {
       // Execute prescaling op
-      ScaleBuffer(response.prescale_factor(), entries, fused_input_data,
+      ScaleBuffer(prescale_factor, entries, fused_input_data,
                   buffer_data, num_elements);
       fused_input_data = buffer_data; // for unfused, scale is done out of place
     }
@@ -664,7 +735,7 @@ Status NCCLTorusAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     auto nccl_result = ncclReduceScatter(
         fused_input_data, buffer_data_at_rank_offset,
         (size_t)num_elements_per_rank, GetNCCLDataType(first_entry.tensor),
-        ncclSum, *local_nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
+        ncclOp, *local_nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
     local_nccl_context_->ErrorCheck("ncclReduceScatter", nccl_result,
                               *local_nccl_op_context_.nccl_comm_);
     if (global_state_->timeline.Initialized()) {
@@ -679,7 +750,7 @@ Status NCCLTorusAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     auto nccl_result =
         ncclReduce(fused_input_data_remainder, buffer_data_remainder,
                    (size_t)num_elements_remaining,
-                   GetNCCLDataType(first_entry.tensor), ncclSum, root_rank,
+                   GetNCCLDataType(first_entry.tensor), ncclOp, root_rank,
                    *local_nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
     local_nccl_context_->ErrorCheck("ncclReduce", nccl_result,
                               *local_nccl_op_context_.nccl_comm_);
@@ -693,7 +764,7 @@ Status NCCLTorusAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   timeline.ActivityStartAll(entries, NCCL_ALLREDUCE);
     auto cross_nccl_result = ncclAllReduce(buffer_data_at_rank_offset, buffer_data_at_rank_offset,
                                            (size_t) total_num_elements, GetNCCLDataType(first_entry.tensor),
-                                           ncclSum, *cross_nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
+                                           ncclOp, *cross_nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
     cross_nccl_context_->ErrorCheck("ncclAllReduce", cross_nccl_result, *cross_nccl_op_context_.nccl_comm_);
     timeline.ActivityEndAll(entries);
   }
@@ -736,7 +807,7 @@ Status NCCLTorusAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   // Copy (and possible scale) tensors out of the fusion buffer.
   if (entries.size() > 1) {
     ScaleMemcpyOutFusionBuffer(buffer_data, buffer_len,
-                               response.postscale_factor(), entries);
+                               postscale_factor, entries);
 
     if (global_state_->timeline.Initialized()) {
       gpu_context_->RecordEvent(gpu_op_context_.event_queue,
@@ -744,9 +815,9 @@ Status NCCLTorusAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                                 *gpu_op_context_.stream);
     }
   } else {
-    if (response.postscale_factor() != 1.0) {
+    if (postscale_factor != 1.0) {
       // Execute postscaling op
-      ScaleBuffer(response.postscale_factor(), entries, buffer_data,
+      ScaleBuffer(postscale_factor, entries, buffer_data,
                   buffer_data, num_elements);
     }
   }
