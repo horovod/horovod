@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Added `PartialDistributedGradientTape()` API for model parallel use cases. ([#3643](https://github.com/horovod/horovod/pull/3643))
 - Enable use of native `ncclAvg` op for NCCL allreduces. ([#3646](https://github.com/horovod/horovod/pull/3646))
 - Tensorflow: Added `register_local_var` functionality to distributed optimizers and local gradient aggregators. ([3695](https://github.com/horovod/horovod/pull/3695))
+- Tensorflow: Added support for local variables for `BroadcastGlobalVariablesCallback`. ([3703](https://github.com/horovod/horovod/pull/3703))
 
 ### Changed
 
