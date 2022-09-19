@@ -176,6 +176,86 @@ class MXTests:
             assert almost_equal(tensor.asnumpy(), multiplied.asnumpy(), atol=threshold), \
                 f'hvd.allreduce produces incorrect results for self: {hvd.rank()} {count} {dtype} {dim}'
 
+    def test_horovod_allreduce_min(self):
+        """Test that the allreduce correctly finds minimum value of 1D, 2D, 3D tensors."""
+        hvd.init()
+        size = hvd.size()
+        rank = hvd.rank()
+        dtypes = self.filter_supported_types(['int32',   'int64',
+                                              'float32', 'float64'])
+        dims = [1, 2, 3]
+        ctx = self._current_context()
+        count = 0
+        shapes = [(size), (size, 17), (size, 17, 17), (size, 17, 17, 17)]
+        for dtype, dim in itertools.product(dtypes, dims):
+            mx.random.seed(1234, ctx=ctx)
+            tensors = mx.nd.random.uniform(-100, 100, shape=shapes[dim],
+                                           ctx=ctx).astype(dtype)
+            tensor = tensors[rank,:]
+            result = hvd.allreduce(tensor, op=hvd.Min, name=str(count))
+            reference = mx.nd.min(tensors, axis=0)
+            count += 1
+
+            assert same(result.asnumpy(), reference.asnumpy()), \
+                f'hvd.allreduce produces incorrect results for min: {hvd.rank()} {count} {dtype} {dim}'
+
+    def test_horovod_allreduce_max(self):
+        """Test that the allreduce correctly finds maximum value of 1D, 2D, 3D tensors."""
+        hvd.init()
+        size = hvd.size()
+        rank = hvd.rank()
+        dtypes = self.filter_supported_types(['int32',   'int64',
+                                              'float32', 'float64'])
+        dims = [1, 2, 3]
+        ctx = self._current_context()
+        count = 0
+        shapes = [(size), (size, 17), (size, 17, 17), (size, 17, 17, 17)]
+        for dtype, dim in itertools.product(dtypes, dims):
+            mx.random.seed(1234, ctx=ctx)
+            tensors = mx.nd.random.uniform(-100, 100, shape=shapes[dim],
+                                           ctx=ctx).astype(dtype)
+            tensor = tensors[rank,:]
+            result = hvd.allreduce(tensor, op=hvd.Max, name=str(count))
+            reference = mx.nd.max(tensors, axis=0)
+            count += 1
+
+            assert same(result.asnumpy(), reference.asnumpy()), \
+                f'hvd.allreduce produces incorrect results for max: {hvd.rank()} {count} {dtype} {dim}'
+
+    def test_horovod_allreduce_product(self):
+        """Test that the allreduce correctly finds product value of 1D, 2D, 3D tensors."""
+        hvd.init()
+        size = hvd.size()
+        rank = hvd.rank()
+        dtypes = self.filter_supported_types(['int32',   'int64',
+                                              'float32', 'float64'])
+        dims = [1, 2, 3]
+        ctx = self._current_context()
+        count = 0
+        shapes = [(size), (size, 17), (size, 17, 17), (size, 17, 17, 17)]
+        for dtype, dim in itertools.product(dtypes, dims):
+            mx.random.seed(1234, ctx=ctx)
+            tensors = mx.nd.random.uniform(-100, 100, shape=shapes[dim],
+                                           ctx=ctx).astype(dtype)
+            tensor = tensors[rank,:]
+            result = hvd.allreduce(tensor, op=hvd.Product, name=str(count))
+            reference = mx.nd.prod(tensors, axis=0)
+            count += 1
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in ['int32', 'int64']:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+
+            assert almost_equal(result.asnumpy(), reference.asnumpy(), atol=threshold), \
+                f'hvd.allreduce produces incorrect results for prod: {hvd.rank()} {count} {dtype} {dim}'
+
     def test_horovod_allreduce_prescale(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors with prescaling."""
         hvd.init()

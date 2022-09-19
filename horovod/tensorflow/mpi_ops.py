@@ -82,6 +82,9 @@ rocm_built = _basics.rocm_built
 Average = _basics.Average
 Sum = _basics.Sum
 Adasum = _basics.Adasum
+Min = _basics.Min
+Max = _basics.Max
+Product = _basics.Product
 
 def init(*args, **kwargs):
     _basics.init(*args, **kwargs)

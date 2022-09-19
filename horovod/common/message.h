@@ -40,6 +40,15 @@ enum DataType {
   HOROVOD_BOOL = 9,
 };
 
+enum ReduceOp {
+    AVERAGE = 0,
+    SUM = 1,
+    ADASUM = 2,
+    MIN = 3,
+    MAX = 4,
+    PRODUCT = 5,
+};
+
 const std::string& DataType_Name(DataType value);
 
 std::size_t DataType_Size(DataType value);
@@ -91,7 +100,9 @@ public:
   void set_device(int32_t value);
 
   int32_t group_id() const;
+
   void set_group_id(int32_t value);
+
   const std::vector<int64_t>& tensor_shape() const;
 
   void set_tensor_shape(const std::vector<int64_t>& value);
@@ -105,6 +116,10 @@ public:
   void set_prescale_factor(double prescale_factor);
 
   void set_postscale_factor(double postscale_factor);
+
+  ReduceOp reduce_op() const;
+
+  void set_reduce_op(ReduceOp reduce_op);
 
   static void ParseFromBytes(Request& request, const uint8_t* input);
 
@@ -124,6 +139,7 @@ private:
   std::vector<int64_t> tensor_shape_;
   double prescale_factor_ = 1.0;
   double postscale_factor_ = 1.0;
+  ReduceOp reduce_op_ = ReduceOp::SUM;
 };
 
 class RequestList {
@@ -226,6 +242,10 @@ public:
 
   void set_last_joined_rank(int value);
 
+  ReduceOp reduce_op() const;
+
+  void set_reduce_op(ReduceOp reduce_op);
+
   static void ParseFromBytes(Response& response, const uint8_t* input);
 
   static void SerializeToString(const Response& response,
@@ -241,6 +261,7 @@ private:
   double prescale_factor_ = 1.0;
   double postscale_factor_ = 1.0;
   int last_joined_rank_ = -1;
+  ReduceOp reduce_op_ = ReduceOp::SUM;
 };
 
 class ResponseList {

@@ -73,6 +73,12 @@ struct MPIContext {
 
   MPI_Op GetMPISumOp(DataType dtype) const;
 
+  MPI_Op GetMPIMinOp(DataType dtype) const;
+
+  MPI_Op GetMPIMaxOp(DataType dtype) const;
+
+  MPI_Op GetMPIProdOp(DataType dtype) const;
+
   // Communicators handled here are restricted to a single process set.
   // If the running process is not part of that set, these communicators
   // remain MPI_COMM_NULL.
@@ -88,6 +94,9 @@ struct MPIContext {
   // MPI custom data type for float16.
   MPI_Datatype mpi_float16_t;
   MPI_Op mpi_float16_sum;
+  MPI_Op mpi_float16_min;
+  MPI_Op mpi_float16_max;
+  MPI_Op mpi_float16_prod;
 
   // Private MPI communicator for Horovod to ensure no collisions with other
   // threads using MPI, incorporates all processes known to Horovod.

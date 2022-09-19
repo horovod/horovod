@@ -64,12 +64,24 @@ GlooAlgorithms<T>::GlooAlgorithms(GlooContext* gloo_context)
     : gloo_context_(gloo_context) {}
 
 template <typename T>
-void GlooAlgorithms<T>::Allreduce(void* buffer_data, int num_elements) {
+void GlooAlgorithms<T>::Allreduce(void* buffer_data, int num_elements,
+                                  ReduceOp reduce_op) {
   gloo::AllreduceOptions opts(gloo_context_->ctx);
   opts.setOutput<T>(static_cast<T*>(buffer_data), (size_t) num_elements);
 
-  void (*func)(void*, const void*, const void*, size_t) = &::gloo::sum<T>;
-  opts.setReduceFunction(gloo::AllreduceOptions::Func(func));
+  if (reduce_op == ReduceOp::SUM) {
+    void (*func)(void*, const void*, const void*, size_t) = &::gloo::sum<T>;
+    opts.setReduceFunction(gloo::AllreduceOptions::Func(func));
+   } else if (reduce_op == ReduceOp::MIN) {
+    void (*func)(void*, const void*, const void*, size_t) = &::gloo::min<T>;
+    opts.setReduceFunction(gloo::AllreduceOptions::Func(func));
+   } else if (reduce_op == ReduceOp::MAX) {
+    void (*func)(void*, const void*, const void*, size_t) = &::gloo::max<T>;
+    opts.setReduceFunction(gloo::AllreduceOptions::Func(func));
+   } else if (reduce_op == ReduceOp::PRODUCT) {
+    void (*func)(void*, const void*, const void*, size_t) = &::gloo::product<T>;
+    opts.setReduceFunction(gloo::AllreduceOptions::Func(func));
+   }
 
   gloo::allreduce(opts);
 }
@@ -143,6 +155,26 @@ Status GlooAllreduce::Execute(std::vector<TensorTableEntry>& entries,
       global_state_->process_set_table.Get(first_entry.process_set_id);
   auto& gloo_context = process_set.gloo_context;
 
+  ReduceOp glooOp = ReduceOp::SUM;
+  double prescale_factor = response.prescale_factor();
+  double postscale_factor = response.postscale_factor();
+
+  if (response.reduce_op() == ReduceOp::AVERAGE) {
+    glooOp = ReduceOp::SUM;
+    // Averaging happens via postscale_factor
+    postscale_factor /= process_set.controller->GetSize();
+  } else if (response.reduce_op() == ReduceOp::SUM) {
+    glooOp = ReduceOp::SUM;
+  } else if (response.reduce_op() == ReduceOp::MIN) {
+    glooOp = ReduceOp::MIN;
+  } else if (response.reduce_op() == ReduceOp::MAX) {
+    glooOp = ReduceOp::MAX;
+  } else if (response.reduce_op() == ReduceOp::PRODUCT) {
+    glooOp = ReduceOp::PRODUCT;
+  } else {
+    throw std::logic_error("Reduction op type not supported.");
+  }
+
   const void* fused_input_data;
   void* buffer_data;
   int num_elements = (int)NumElements(entries);
@@ -161,21 +193,21 @@ Status GlooAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     fused_input_data = buffer_data;
   }
 
-  if (response.prescale_factor() != 1.0) {
+  if (prescale_factor != 1.0) {
     // Execute prescaling op
-    ScaleBuffer(response.prescale_factor(), entries, fused_input_data, buffer_data, num_elements);
+    ScaleBuffer(prescale_factor, entries, fused_input_data, buffer_data, num_elements);
   }
 
   // Do allreduce.
   timeline.ActivityStartAll(entries, GLOO_ALLREDUCE);
   std::unique_ptr<IGlooAlgorithms> gloo_algos(
       GetAlgorithmsForType(first_entry.tensor->dtype(), &gloo_context));
-  gloo_algos->Allreduce(buffer_data, num_elements);
+  gloo_algos->Allreduce(buffer_data, num_elements, glooOp);
   timeline.ActivityEndAll(entries);
 
-  if (response.postscale_factor() != 1.0) {
+  if (postscale_factor != 1.0) {
     // Execute postscaling op
-    ScaleBuffer(response.postscale_factor(), entries, buffer_data, buffer_data, num_elements);
+    ScaleBuffer(postscale_factor, entries, buffer_data, buffer_data, num_elements);
   }
 
   // Copy memory out of the fusion buffer.

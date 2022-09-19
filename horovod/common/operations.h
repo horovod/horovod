@@ -32,13 +32,6 @@ namespace common {
 // Check that Horovod is initialized.
 Status CheckInitialized();
 
-enum ReduceOp {
-    AVERAGE = 0, // This value should never appear past framework code, as
-                 // averaging is taken care of there.
-    SUM = 1,
-    ADASUM = 2
-};
-
 extern "C" {
 
 // C interface to initialize Horovod. Returns false on failure.
@@ -114,6 +107,15 @@ int horovod_reduce_op_sum();
 
 // C interface to return value of the ReduceOp::ADASUM enum field.
 int horovod_reduce_op_adasum();
+
+// C interface to return value of the ReduceOp::MIN enum field.
+int horovod_reduce_op_min();
+
+// C interface to return value of the ReduceOp::MAX enum field.
+int horovod_reduce_op_max();
+
+// C interface to return value of the ReduceOp::PRODUCT enum field.
+int horovod_reduce_op_product();
 
 extern const int HOROVOD_PROCESS_SET_ERROR_INIT;
 extern const int HOROVOD_PROCESS_SET_ERROR_DYNAMIC;
