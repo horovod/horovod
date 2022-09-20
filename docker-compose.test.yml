@@ -200,7 +200,7 @@ services:
       args:
         CUDA_DOCKER_VERSION: 11.6.1-devel-ubuntu20.04
         CUDNN_VERSION: 8.4.1.50-1+cuda11.6
-        NCCL_VERSION_OVERRIDE: 2.12.12-1+cuda11.6
+        NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.8.2
         KERAS_PACKAGE: keras==2.8.0
         PYTORCH_PACKAGE: torch==1.11.0+cu115
@@ -213,7 +213,7 @@ services:
       args:
         CUDA_DOCKER_VERSION: 11.6.1-devel-ubuntu20.04
         CUDNN_VERSION: 8.4.1.50-1+cuda11.6
-        NCCL_VERSION_OVERRIDE: 2.12.12-1+cuda11.6
+        NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
         MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.9.1
         KERAS_PACKAGE: keras==2.9.0
@@ -227,7 +227,7 @@ services:
       args:
         CUDA_DOCKER_VERSION: 11.6.1-devel-ubuntu20.04
         CUDNN_VERSION: 8.4.1.50-1+cuda11.6
-        NCCL_VERSION_OVERRIDE: 2.12.12-1+cuda11.6
+        NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
         MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tf-nightly-gpu
         KERAS_PACKAGE: None
@@ -260,7 +260,7 @@ services:
       args:
         CUDA_DOCKER_VERSION: 11.6.1-devel-ubuntu20.04
         CUDNN_VERSION: 8.4.1.50-1+cuda11.6
-        NCCL_VERSION_OVERRIDE: 2.12.12-1+cuda11.6
+        NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
         MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.9.1
         KERAS_PACKAGE: keras==2.9.0
