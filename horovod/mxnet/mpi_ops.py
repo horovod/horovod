@@ -571,6 +571,8 @@ def reducescatter(tensor, op=Average, name=None, priority=0,
     """
     assert(isinstance(tensor, mx.nd.NDArray))
     assert(op in [Average, Sum])
+    if tensor.shape == ():
+        raise ValueError("reducescatter does not support scalar inputs")
     # Size of output is unknown, create output array that
     # will be resized during Horovod operation
     output = mx.nd.empty(shape=(1,), ctx=tensor.context,
@@ -625,6 +627,8 @@ def grouped_reducescatter(tensors, op=Average, name=None, priority=0,
     """
     assert(all(isinstance(t, mx.nd.NDArray) for t in tensors))
     assert(op in [Average, Sum])
+    if any(tensor.shape == () for tensor in tensors):
+        raise ValueError("groued_reducescatter does not support scalar inputs")
     # Sizes of outputs are unknown, create output arrays that
     # will be resized during Horovod operation
     outputs = [mx.nd.empty(shape=(1,), ctx=t.context, dtype=t.dtype)

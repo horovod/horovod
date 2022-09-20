@@ -708,7 +708,14 @@ Response Controller::ConstructResponse(const std::string& name, int joined_size)
     for (auto dim : requests[0].tensor_shape()) {
       tensor_shape.AddDim(dim);
     }
-    tensor_sizes.push_back(tensor_shape.num_elements());
+    if (tensor_shape.dims() == 0) {
+      error = true;
+      error_message_stream << "Process-set rank zero tried to "
+                           << Request::RequestType_Name(message_type)
+                           << " a rank-zero tensor.";
+    } else {
+      tensor_sizes.push_back(tensor_shape.num_elements());
+    }
   }
 
   if (message_type == Request::ALLREDUCE || message_type == Request::ADASUM) {

@@ -3610,6 +3610,16 @@ class TorchTests(unittest.TestCase):
             max_difference = averaged.data.sub(expected).max()
             assert max_difference <= threshold, 'hvd.reducescatter produces incorrect results'
 
+    def test_horovod_reducescatter_scalar_error(self):
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
+        hvd.init()
+        rank = hvd.rank()
+        scalar = self.cast_and_place(torch.tensor(rank), torch.FloatTensor)
+        with self.assertRaises((torch.FatalError, RuntimeError, hvd.HorovodInternalError)):
+            _ = hvd.reducescatter(scalar, op=hvd.Average)
 
     def test_horovod_reducescatter_adasum(self):
         """Test that the reducescatter raises an error if we use Adasum operation."""
@@ -3986,8 +3996,6 @@ class TorchTests(unittest.TestCase):
                        torch.cuda.HalfTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
-            if rank == 0:
-                print(dtype, dim)
             torch.manual_seed(1234)
             tensors = [torch.FloatTensor(*([size * 4] * dim)).random_(-100, 100) for _ in range(5)]
             tensors = [self.cast_and_place(t, dtype) for t in tensors]
@@ -4051,6 +4059,18 @@ class TorchTests(unittest.TestCase):
 
             assert all([torch.allclose(t1, t2, threshold) for t1, t2 in zip(expected, averaged)]), \
                 'hvd.grouped_reducescatter produces incorrect results for average'
+
+    def test_horovod_grouped_reducescatter_scalar_error(self):
+        if hvd.ccl_built():
+            self.skipTest("Reducescatter is not supported yet with oneCCL operations.")
+        if _is_mac and hvd.gloo_built() and not hvd.mpi_built():
+            self.skipTest("ReducescatterGloo is not supported on macOS")
+        hvd.init()
+        rank = hvd.rank()
+        scalar = self.cast_and_place(torch.tensor(rank), torch.FloatTensor)
+        tensor = self.cast_and_place(torch.zeros((3,1)), torch.FloatTensor)
+        with self.assertRaises((torch.FatalError, RuntimeError, hvd.HorovodInternalError)):
+            _ = hvd.grouped_reducescatter([tensor, scalar])
 
     def test_horovod_grouped_reducescatter_process_sets(self):
         """Test that grouped reducescatter correctly sums and scatters 1D, 2D, 3D tensors if restricted to process sets."""

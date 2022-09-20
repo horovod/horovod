@@ -1321,6 +1321,10 @@ REGISTER_OP("HorovodReducescatter")
     .Input("tensor: T")
     .Output("output: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
+      if (shape_inference::InferenceContext::Rank(c->input(0)) == 0) {
+        return errors::InvalidArgument(
+            "HorovodReducescatter does not support scalar inputs.");
+      }
       shape_inference::ShapeHandle output;
       TF_RETURN_IF_ERROR(
           c->ReplaceDim(c->input(0), 0, c->UnknownDim(), &output));
@@ -1449,6 +1453,10 @@ REGISTER_OP("HorovodGroupedReducescatter")
     .Output("outputs: num_tensors*T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       for (int i = 0; i < c->num_inputs(); ++i) {
+        if (shape_inference::InferenceContext::Rank(c->input(i)) == 0) {
+          return errors::InvalidArgument(
+              "HorovodGroupedReducescatter does not support scalar inputs.");
+        }
         shape_inference::ShapeHandle output;
         TF_RETURN_IF_ERROR(
             c->ReplaceDim(c->input(i), 0, c->UnknownDim(), &output));
