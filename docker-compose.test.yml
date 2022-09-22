@@ -154,6 +154,9 @@ services:
     privileged: true
     shm_size: 8gb
 
+  # available versions for CUDNN_VERSION and NCCL_VERSION_OVERRIDE can be found at
+  #   https://developer.download.nvidia.com/compute/cuda/repos/{OS}/x86_64/
+
   # we need CUDA 10.0 as tensorflow-gpu==1.15.5 is compiled against and linked to CUDA 10.0
   # torch==1.8.1 is the latest we can test in this setup
   # mxnet-cu100==1.7.0 does not contain mkldnn headers, and there is no 1.7.0.postx that would have them
@@ -195,36 +198,36 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.3.1-devel-ubuntu20.04
-        CUDNN_VERSION: 8.2.1.32-1+cuda11.3
-        NCCL_VERSION_OVERRIDE: 2.9.6-1+cuda11.3
+        CUDA_DOCKER_VERSION: 11.6.1-devel-ubuntu20.04
+        CUDNN_VERSION: 8.4.1.50-1+cuda11.6
+        NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.8.2
         KERAS_PACKAGE: keras==2.8.0
-        PYTORCH_PACKAGE: torch==1.11.0+cu113
+        PYTORCH_PACKAGE: torch==1.11.0+cu115
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
-        TORCHVISION_PACKAGE: torchvision==0.12.0+cu113
+        TORCHVISION_PACKAGE: torchvision==0.12.0+cu115
         MXNET_PACKAGE: mxnet-cu112==1.8.0.post0
   test-gpu-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark3_3_0:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.3.1-devel-ubuntu20.04
-        CUDNN_VERSION: 8.2.1.32-1+cuda11.3
-        NCCL_VERSION_OVERRIDE: 2.9.6-1+cuda11.3
+        CUDA_DOCKER_VERSION: 11.6.1-devel-ubuntu20.04
+        CUDNN_VERSION: 8.4.1.50-1+cuda11.6
+        NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
         MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.9.1
         KERAS_PACKAGE: keras==2.9.0
-        PYTORCH_PACKAGE: torch==1.12.1+cu113
+        PYTORCH_PACKAGE: torch==1.12.1+cu116
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
-        TORCHVISION_PACKAGE: torchvision==0.13.1+cu113
+        TORCHVISION_PACKAGE: torchvision==0.13.1+cu116
         MXNET_PACKAGE: mxnet-cu112==1.9.0
   test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.3.1-devel-ubuntu20.04
-        CUDNN_VERSION: 8.2.1.32-1+cuda11.3
-        NCCL_VERSION_OVERRIDE: 2.9.6-1+cuda11.3
+        CUDA_DOCKER_VERSION: 11.6.1-devel-ubuntu20.04
+        CUDNN_VERSION: 8.4.1.50-1+cuda11.6
+        NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
         MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tf-nightly-gpu
         KERAS_PACKAGE: None
@@ -255,15 +258,15 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.3.1-devel-ubuntu20.04
-        CUDNN_VERSION: 8.2.1.32-1+cuda11.3
-        NCCL_VERSION_OVERRIDE: 2.9.6-1+cuda11.3
+        CUDA_DOCKER_VERSION: 11.6.1-devel-ubuntu20.04
+        CUDNN_VERSION: 8.4.1.50-1+cuda11.6
+        NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
         MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.9.1
         KERAS_PACKAGE: keras==2.9.0
-        PYTORCH_PACKAGE: torch==1.12.1+cu113
+        PYTORCH_PACKAGE: torch==1.12.1+cu116
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
-        TORCHVISION_PACKAGE: torchvision==0.13.1+cu113
+        TORCHVISION_PACKAGE: torchvision==0.13.1+cu116
         MXNET_PACKAGE: mxnet-cu112==1.9.0
         HOROVOD_BUILD_FLAGS: ""
         HOROVOD_MIXED_INSTALL: 1
