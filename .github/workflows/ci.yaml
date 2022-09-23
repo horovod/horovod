@@ -2439,7 +2439,6 @@ jobs:
             Gloo_Single_PyTests: true
             Gloo_TensorFlow_2_0_Keras_MNIST_api: true
             Gloo_TensorFlow_2_0_Keras_MNIST_horovodrun: true
-            Gloo_TensorFlow_2_0_MNIST_Data_Service: true
             Gloo_TensorFlow_2_0_MNIST_Elastic_api: true
             Gloo_TensorFlow_2_0_MNIST_Elastic_horovodrun: true
             Gloo_TensorFlow_2_0_MNIST_api: true
@@ -2453,7 +2452,6 @@ jobs:
             MPI_Single_PyTests: true
             MPI_TensorFlow_2_0_Keras_MNIST_api: true
             MPI_TensorFlow_2_0_Keras_MNIST_horovodrun: true
-            MPI_TensorFlow_2_0_MNIST_Data_Service: true
             MPI_TensorFlow_2_0_MNIST_api: true
             MPI_TensorFlow_2_0_MNIST_horovodrun: true
             Run_PyTests_test_interactiverun: true
