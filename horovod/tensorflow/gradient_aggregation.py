@@ -1,5 +1,9 @@
+import os
 import tensorflow as tf
 from packaging import version
+from horovod.tensorflow.mpi_ops import size_op
+from horovod.tensorflow.mpi_ops import global_process_set
+
 
 _IS_TF2 = version.parse(tf.__version__) >= version.parse('2.0.0')
 
@@ -33,7 +37,8 @@ class LocalGradientAggregationHelper:
             sparse_as_dense,
             average_aggregated_gradients,
             rank,
-            optimizer_type):
+            optimizer_type,
+            process_set=global_process_set):
         self._allreduce_grads = allreduce_func
 
         # backward_passes_per_step controls how often gradient updates are
@@ -66,6 +71,7 @@ class LocalGradientAggregationHelper:
         self.not_none_indexes = {}
         self.num_none_grad_updates = 0
 
+        self.process_set = process_set
         self._local_vars = set()
 
     def register_local_var(self, var):
@@ -178,13 +184,26 @@ class LocalGradientAggregationHelper:
                         rg.append(grad)
 
             rg = self._allreduce_grads(rg, rv)
+            horovod_size = size_op(process_set_id=self.process_set.process_set_id) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else self.process_set.size()
             if _IS_TF2:
                 for rv, rg in zip(rv, rg):
                     v2g[rv.ref()] = rg
+
+                # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
+                for v_ref in v2g:
+                    if v_ref in self._local_vars and v2g[v_ref] is not None:
+                        v2g[v_ref] /= horovod_size
+
                 return [v2g[rv.ref()] for rv in vars]
             else:
                 for rv, rg in zip(rv, rg):
                     v2g[rv] = rg
+
+                # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
+                for v in v2g:
+                    if v in self._local_vars and v2g[v] is not None:
+                        v2g[v] /= horovod_size
+     
                 return [v2g[rv] for rv in vars]
 
         # Read in latest variables values.

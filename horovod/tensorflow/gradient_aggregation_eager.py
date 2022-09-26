@@ -1,6 +1,8 @@
-from packaging import version
-
+import os
 import tensorflow as tf
+from packaging import version
+from horovod.tensorflow.mpi_ops import size_op
+from horovod.tensorflow.mpi_ops import global_process_set
 
 
 _POST_TF_2_4_0 = version.parse(tf.__version__) >= version.parse('2.4.0')
@@ -20,6 +22,7 @@ class LocalGradientAggregationHelperEager:
         allreduce_func,
         sparse_as_dense,
         average_aggregated_gradients,
+        process_set=global_process_set
     ):
         self.allreduce_grads = allreduce_func
         self.sparse_as_dense = sparse_as_dense
@@ -43,6 +46,7 @@ class LocalGradientAggregationHelperEager:
         # is equal to 0.
         self.counter = tf.Variable(initial_value=0)
 
+        self.process_set = process_set
         self._local_vars = set()
 
     def register_local_var(self, var):
@@ -130,13 +134,26 @@ class LocalGradientAggregationHelperEager:
                         rg.append(grad)
 
             rg = self.allreduce_grads(rg, rv)
+            horovod_size = size_op(process_set_id=self.process_set.process_set_id) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else self.process_set.size()
             if _IS_TF2:
                 for rv, rg in zip(rv, rg):
                     v2g[rv.ref()] = rg
+
+                # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
+                for v_ref in v2g:
+                    if v_ref in self._local_vars and v2g[v_ref] is not None:
+                        v2g[v_ref] /= horovod_size
+
                 return [v2g[rv.ref()] for rv in vars]
             else:
                 for rv, rg in zip(rv, rg):
                     v2g[rv] = rg
+
+                # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
+                for v in v2g:
+                    if v in self._local_vars and v2g[v] is not None:
+                        v2g[v] /= horovod_size
+
                 return [v2g[rv] for rv in vars]
 
         allreduced_grads = __filtered_reduce_grads(grads, vars)

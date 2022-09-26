@@ -622,6 +622,7 @@ if _LegacyOptimizer is not None:
                     average_aggregated_gradients=average_aggregated_gradients,
                     rank=rank(),
                     optimizer_type=LocalGradientAggregationHelper._OPTIMIZER_TYPE_LEGACY,
+                    process_set=process_set
                 )
 
         def register_local_var(self, var):
@@ -665,13 +666,26 @@ if _LegacyOptimizer is not None:
                                 rg.append(grad)
 
                     rg = self._allreduce_grads(rg, rv)
+                    horovod_size = size_op(process_set_id=self.process_set.process_set_id) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else self.process_set.size()
                     if _IS_TF2:
                         for rv,rg in zip(rv, rg):
                             v2g[rv.ref()] = rg
+
+                        # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
+                        for v_ref in v2g:
+                            if v_ref in self._local_sources and v2g[v_ref]:
+                                v2g[v.ref()] /= horovod_size
+
                         return [v2g[rv.ref()] for rv in vars]
                     else:
                         for rv, rg in zip(rv, rg):
                             v2g[rv] = rg
+
+                        # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
+                        for v in v2g:
+                            if v in self._local_sources and v2g[v]:
+                                v2g[v] /= horovod_size
+
                         return [v2g[rv] for rv in vars]
 
                 avg_grads = _filtered_reduce_grads(grads, vars)
@@ -945,6 +959,7 @@ if hasattr(tf, 'GradientTape'):
                 'DistributedGradientTape', device_dense, device_sparse, compression,
                 sparse_as_dense, op, gradient_predivide_factor, groups, process_set)
 
+            self.process_set=process_set
             self._local_sources = set()
 
         def register_local_source(self, source):
@@ -978,15 +993,27 @@ if hasattr(tf, 'GradientTape'):
             # Reduce grads
             rg = self._allreduce_grads(rg, rs, use_generic_names)
 
+            horovod_size = size_op(process_set_id=self.process_set.process_set_id) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else self.process_set.size()
+
             # Replace dict entries with reduced grads
             if _IS_TF2:
                 for rs, rg in zip(rs, rg):
                     s2g[rs.ref()] = rg
 
+                # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
+                for s_ref in s2g:
+                    if s_ref in self._local_sources and s2g[s_ref] is not None:
+                        s2g[s_ref] /= horovod_size
+
                 return [s2g[s.ref()] for s in sources]
             else:
                 for rs, rg in zip(rs, rg):
                     s2g[rs] = rg
+
+                # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
+                for s in s2g:
+                    if s in self._local_sources and s2g[s] is not None:
+                        s2g[s] /= horovod_size
 
                 return [s2g[s] for s in sources]
 
