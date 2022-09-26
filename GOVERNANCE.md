@@ -22,7 +22,7 @@ Current voting members of the Horovod TSC:
 * [Josh Romero](https://github.com/romerojosh) - NVIDIA
 * [Nicolas Castet](https://github.com/nvcastet) - NVIDIA
 * [Enrico Minack](https://github.com/EnricoMi) - G-Research
-* [Xu Ning](https://github.com/thuningxu) - Uber
+* [Xu Ning](https://github.com/thuningxu) - Snap Inc.
 * [Todd Mytkowicz](https://github.com/klipto) - Microsoft
 * [Max Gerlach](https://github.com/maxhgerlach) - DeepL
 
