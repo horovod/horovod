@@ -557,3 +557,43 @@ class Tf2KerasTests(tf.test.TestCase):
                 else:
                     # non-local gradients shouldn't be equal given that the initial weights are set to ranks
                     self.assertNotAllClose(var_grad_tape[var.ref()], var_grad_opt[var.ref()])
+
+    def test_broadcast_global_variables_callback_with_local_vars(self):
+        """ Note: test makes most sense with more than 1 nodes. """
+        if hvd.size() == 1:
+            self.skipTest("Only one worker available")
+
+        root_rank = hvd.size() - 1
+
+        X = np.random.random((1, 3))
+        Y = np.random.random((1, 3, 3))
+
+        # all of the model's layers are set to be non-trainable
+        # so that we can assert their inital variable values are
+        # as expected after the call to model.fit() with the call back
+        model = tf.keras.models.Sequential()
+        # the inital value for all variables is set ot each rank's value
+        initializer = tf.keras.initializers.Constant(hvd.rank())
+        model.add(tf.keras.layers.Dense(3, input_shape=(3,), kernel_initializer=initializer,
+                                        bias_initializer=initializer, trainable=False))
+        model.add(tf.keras.layers.Dense(3, kernel_initializer=initializer, bias_initializer=initializer, trainable=False))
+        model.add(tf.keras.layers.Dense(3, kernel_initializer=initializer, bias_initializer=initializer, trainable=False))
+        model.add(tf.keras.layers.Dense(3, kernel_initializer=initializer, bias_initializer=initializer, trainable=False))
+        model.add(tf.keras.layers.RepeatVector(3))
+        model.add(tf.keras.layers.Dense(3, kernel_initializer=initializer, bias_initializer=initializer, trainable=False))
+        model.compile(loss=tf.keras.losses.MSE,
+                        metrics=[tf.keras.metrics.categorical_accuracy])
+
+        # deem first layer's variables as local
+        local_variables = [var for var in model.layers[0].variables]
+        callbacks = [hvd.callbacks.BroadcastGlobalVariablesCallback(root_rank=root_rank, local_variables=local_variables)]
+        model.fit(X, Y, callbacks=callbacks)
+        local_variables_ref = [var.ref() for var in local_variables]
+        for var in model.variables:
+            if var.ref() in local_variables_ref:
+                # the value for local variables should not change and remain as rank's value
+                self.assertAllClose(var, tf.constant(float(hvd.rank()), shape=var.shape))
+            else:
+                # the value for non-local variables should equal the root rank's value
+                self.assertAllClose(var, tf.constant(float(root_rank), shape=var.shape))
+
