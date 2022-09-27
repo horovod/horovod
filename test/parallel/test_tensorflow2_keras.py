@@ -469,13 +469,19 @@ class Tf2KerasTests(tf.test.TestCase):
                 gradient_of_x *= backward_passes_per_step
                 gradient_of_y_0 *= backward_passes_per_step
 
-            expected_x = np.array(X_0) + gradient_of_x
+            expected_x = np.array(X_0)
+
+            for i in range(len(X_0)):
+                if i < num_local_vars:
+                    expected_x[i] += gradient_of_x/hvd.size()
+                else:
+                    expected_x[i] += gradient_of_x
 
             expected_y_0 = np.array(Y_0)
             for i in range(len(Y_0)):
                 if i < num_local_vars:
                     # recover the gradient of local vars
-                    expected_y_0[i] += (gradient_of_y_0/gradient_of_y_multiplier)*float(hvd.rank()+1)
+                    expected_y_0[i] += ((gradient_of_y_0/gradient_of_y_multiplier)*float(hvd.rank()+1))/hvd.size()
                 else:
                     expected_y_0[i] += gradient_of_y_0
 
@@ -483,7 +489,7 @@ class Tf2KerasTests(tf.test.TestCase):
             expected_y_1 = np.array(Y_1)
             expected_y = [[ey0, ey1] for ey0,ey1 in zip(expected_y_0, expected_y_1)]
 
-            return np.array(expected_x), np.array(expected_y)
+            return np.reshape(expected_x, (-1, 1)), np.array(expected_y)
 
         @tf.function
         def compute_and_apply_gradients_in_tf_function(var_list, **kwargs):
@@ -568,7 +574,7 @@ class Tf2KerasTests(tf.test.TestCase):
             for var in model.trainable_weights:
                 if var.ref() in local_vars:
                     # local gradients should not change.
-                    self.assertAllClose(var_grad_tape[var.ref()], var_grad_opt[var.ref()])
+                    self.assertAllClose(var_grad_tape[var.ref()], hvd.size()*var_grad_opt[var.ref()])
                 else:
                     # non-local gradients shouldn't be equal given that the initial weights are set to ranks
                     self.assertNotAllClose(var_grad_tape[var.ref()], var_grad_opt[var.ref()])

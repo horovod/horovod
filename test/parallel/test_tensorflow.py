@@ -4153,14 +4153,14 @@ class TensorFlowTests(BaseTensorFlowTests):
                 if _IS_TF2:
                     if var.ref() in local_vars:
                         # local gradients should not change.
-                        self.assertAllClose(grad, var_grad[var.ref()])
+                        self.assertAllClose(grad*hvd.size(), var_grad[var.ref()])
                     else:
                         # non-local gradients shouldn't be equal given that the initial weights are set to ranks
                         self.assertNotAllClose(grad, var_grad[var.ref()])
                 else:
                     if var in local_vars:
                         # local gradients should not change.
-                        self.assertAllClose(grad, var_grad[var])
+                        self.assertAllClose(grad*hvd.size(), var_grad[var])
                     else:
                         # non-local gradients shouldn't be equal given that the initial weights are set to ranks
                         self.assertNotAllClose(grad, var_grad[var])
