@@ -674,7 +674,7 @@ if _LegacyOptimizer is not None:
 
                         # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
                         for v_ref in v2g:
-                            if v_ref in self._local_sources and v2g[v_ref]:
+                            if v_ref in self._local_vars and v2g[v_ref]:
                                 v2g[v.ref()] /= horovod_size
 
                         return [v2g[rv.ref()] for rv in vars]
@@ -684,7 +684,7 @@ if _LegacyOptimizer is not None:
 
                         # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
                         for v in v2g:
-                            if v in self._local_sources and v2g[v]:
+                            if v in self._local_vars and v2g[v]:
                                 v2g[v] /= horovod_size
 
                         return [v2g[rv] for rv in vars]
