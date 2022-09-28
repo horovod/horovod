@@ -606,6 +606,7 @@ if _LegacyOptimizer is not None:
                 name, device_dense, device_sparse, compression, sparse_as_dense, op,
                 gradient_predivide_factor, groups, process_set=process_set)
 
+            self.process_set = process_set
             self._local_vars = set()
             self._agg_helper = None
             if backward_passes_per_step > 1:
