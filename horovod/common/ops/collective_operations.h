@@ -138,18 +138,17 @@ protected:
                                 const Response& response,
                                 int64_t**& entry_component_sizes);
 
-  virtual void SetRecvcounts(const int64_t* const* entry_component_sizes,
-                             size_t num_entries, int global_size,
-                             int*& recvcounts);
+  static void SetRecvcounts(const int64_t* const* entry_component_sizes,
+                            size_t num_entries, int global_size,
+                            int*& recvcounts);
 
-  virtual void SetDisplacements(const int* recvcounts, int*& displcmnts,
-                                int global_size);
+  static void SetDisplacements(const int* recvcounts, int*& displcmnts,
+                               int global_size);
 
-  virtual void
-  SetEntryComponentOffsets(const std::vector<TensorTableEntry>& entries,
-                           const int64_t* const* entry_component_sizes,
-                           const int* recvcounts,
-                           int64_t**& entry_component_offsets);
+  static void
+  SetEntryComponentOffsets(const int64_t* const* entry_component_sizes,
+                           const int* recvcounts, size_t num_entries,
+                           int global_size, int64_t**& entry_component_offsets);
 
   virtual void
   MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries,

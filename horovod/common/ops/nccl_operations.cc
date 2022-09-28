@@ -1019,8 +1019,8 @@ Status NCCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
 
   SetRecvcounts(entry_component_sizes, entries.size(), global_size, recvcounts);
   SetDisplacements(recvcounts, displcmnts, global_size);
-  SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts,
-                           entry_component_offsets);
+  SetEntryComponentOffsets(entry_component_sizes, recvcounts, entries.size(),
+                           global_size, entry_component_offsets);
 
   auto element_size = (int)DataType_Size(first_entry.tensor->dtype());
 

@@ -222,16 +222,11 @@ void AllgatherOp::SetDisplacements(const int* recvcounts, int*& displcmnts,
 }
 
 void AllgatherOp::SetEntryComponentOffsets(
-    const std::vector<TensorTableEntry>& entries,
     const int64_t* const* entry_component_sizes, const int* recvcounts,
-    int64_t**& entry_component_offsets) {
-  assert(!entries.empty());
-  auto& process_set =
-      global_state_->process_set_table.Get(entries[0].process_set_id);
+    size_t num_entries, int global_size, int64_t**& entry_component_offsets) {
   unsigned int rank_displacement = 0;
-  int global_size = process_set.controller->GetSize();
   for (int rc = 0; rc < global_size; ++rc) {
-    for (size_t ec = 0; ec < entries.size(); ++ec) {
+    for (size_t ec = 0; ec < num_entries; ++ec) {
       if (ec == 0) {
         entry_component_offsets[ec][rc] = rank_displacement;
       } else {
