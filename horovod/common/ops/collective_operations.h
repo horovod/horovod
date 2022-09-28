@@ -56,9 +56,6 @@ public:
 
   virtual ~AllreduceOp() = default;
 
-  virtual Status Execute(std::vector<TensorTableEntry>& entries,
-                         const Response& response) = 0;
-
   virtual bool Enabled(const ParameterManager& param_manager,
                        const std::vector<TensorTableEntry>& entries,
                        const Response& response) const = 0;
@@ -132,9 +129,6 @@ public:
 
   virtual ~AllgatherOp() = default;
 
-  virtual Status Execute(std::vector<TensorTableEntry>& entries,
-                         const Response& response) = 0;
-
   virtual bool Enabled(const ParameterManager& param_manager,
                        const std::vector<TensorTableEntry>& entries,
                        const Response& response) const = 0;
@@ -184,9 +178,6 @@ public:
 
   virtual ~BroadcastOp() = default;
 
-  virtual Status Execute(std::vector<TensorTableEntry>& entries,
-                         const Response& response) = 0;
-
   virtual bool Enabled(const ParameterManager& param_manager,
                        const std::vector<TensorTableEntry>& entries,
                        const Response& response) const = 0;
@@ -197,9 +188,6 @@ public:
   explicit AlltoallOp(HorovodGlobalState* global_state);
 
   virtual ~AlltoallOp() = default;
-
-  virtual Status Execute(std::vector<TensorTableEntry>& entries,
-                         const Response& response) = 0;
 
   virtual bool Enabled(const ParameterManager& param_manager,
                        const std::vector<TensorTableEntry>& entries,
@@ -284,9 +272,6 @@ public:
 
   virtual ~ReducescatterOp() = default;
 
-  Status Execute(std::vector<TensorTableEntry>& entries,
-                 const Response& response) override = 0;
-
   virtual bool Enabled(const ParameterManager& param_manager,
                        const std::vector<TensorTableEntry>& entries,
                        const Response& response) const = 0;
@@ -345,7 +330,8 @@ public:
 
   virtual ~BarrierOp() = default;
 
-  virtual Status Execute(std::vector<TensorTableEntry>& entries, const Response& response);
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
 };
 
 class ErrorOp : public HorovodOp {
@@ -354,7 +340,8 @@ public:
 
   virtual ~ErrorOp() = default;
 
-  virtual Status Execute(std::vector<TensorTableEntry>& entries, const Response& response);
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
 };
 
 } // namespace common
