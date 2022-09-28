@@ -903,8 +903,7 @@ Status NCCLBroadcast::Execute(std::vector<TensorTableEntry>& entries,
 
 Status NCCLAllgather::AllocateOutput(std::vector<TensorTableEntry>& entries,
                                    const Response& response,
-                                   int64_t**& entry_component_sizes,
-                                   int*& recvcounts) {
+                                   int64_t**& entry_component_sizes) {
   for (size_t ec = 0; ec < entries.size(); ++ec) {
     auto& e = entries[ec];
     auto& process_set = global_state_->process_set_table.Get(e.process_set_id);
@@ -924,10 +923,6 @@ Status NCCLAllgather::AllocateOutput(std::vector<TensorTableEntry>& entries,
     for (int rc = 0; rc < global_size; ++rc) {
       auto component_size = tensor_sizes[ec * global_size + rc];
       total_entry_dimension_size += component_size;
-
-      if (recvcounts) {
-        recvcounts[rc] += component_size * single_slice_shape.num_elements();
-      }
 
       if (entry_component_sizes) {
         entry_component_sizes[ec][rc] =
@@ -1008,7 +1003,7 @@ Status NCCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
 
   global_state_->timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
   Status status =
-      AllocateOutput(entries, response, entry_component_sizes, recvcounts);
+      AllocateOutput(entries, response, entry_component_sizes);
   if (!status.ok()) {
     for (size_t ec = 0; ec < entries.size(); ++ec) {
       delete[] entry_component_sizes[ec];
@@ -1022,11 +1017,12 @@ Status NCCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
   }
   global_state_->timeline.ActivityEndAll(entries);
 
+  SetRecvcounts(entry_component_sizes, entries.size(), global_size, recvcounts);
   SetDisplacements(recvcounts, displcmnts, global_size);
   SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts,
                            entry_component_offsets);
 
-  size_t element_size = DataType_Size(first_entry.tensor->dtype());
+  auto element_size = (int)DataType_Size(first_entry.tensor->dtype());
 
   const void* fused_input_data;
   void* buffer_data;
@@ -1057,7 +1053,7 @@ Status NCCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
         break;
       }
     }
-    if (same_shape == false) {
+    if (!same_shape) {
       break;
     }
   }

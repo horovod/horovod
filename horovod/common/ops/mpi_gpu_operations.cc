@@ -148,14 +148,16 @@ Status MPI_GPUAllgather::Execute(std::vector<TensorTableEntry>& entries, const R
   }
 
   timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
-  Status status = AllocateOutput(entries, response, entry_component_sizes, recvcounts);
+  Status status = AllocateOutput(entries, response, entry_component_sizes);
   if (!status.ok()) {
     return status;
   }
   timeline.ActivityEndAll(entries);
 
+  SetRecvcounts(entry_component_sizes, entries.size(), global_size, recvcounts);
   SetDisplacements(recvcounts, displcmnts, global_size);
-  SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts, entry_component_offsets);
+  SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts,
+                           entry_component_offsets);
 
   int element_size = mpi_context.GetMPITypeSize(first_entry.tensor->dtype());
 

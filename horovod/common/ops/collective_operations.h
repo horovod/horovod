@@ -136,8 +136,11 @@ public:
 protected:
   virtual Status AllocateOutput(std::vector<TensorTableEntry>& entries,
                                 const Response& response,
-                                int64_t**& entry_component_sizes,
-                                int*& recvcounts);
+                                int64_t**& entry_component_sizes);
+
+  virtual void SetRecvcounts(const int64_t* const* entry_component_sizes,
+                             size_t num_entries, int global_size,
+                             int*& recvcounts);
 
   virtual void SetDisplacements(const int* recvcounts, int*& displcmnts,
                                 int global_size);

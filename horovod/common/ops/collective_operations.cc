@@ -151,8 +151,7 @@ AllgatherOp::AllgatherOp(HorovodGlobalState* global_state)
 
 Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
                                    const Response& response,
-                                   int64_t**& entry_component_sizes,
-                                   int*& recvcounts) {
+                                   int64_t**& entry_component_sizes) {
   for (size_t ec = 0; ec < entries.size(); ++ec) {
     auto& e = entries[ec];
     auto& process_set = global_state_->process_set_table.Get(e.process_set_id);
@@ -172,10 +171,6 @@ Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
     for (int rc = 0; rc < global_size; ++rc) {
       auto component_size = tensor_sizes[ec * global_size + rc];
       total_entry_dimension_size += component_size;
-
-      if (recvcounts) {
-        recvcounts[rc] += component_size * single_slice_shape.num_elements();
-      }
 
       if (entry_component_sizes) {
         entry_component_sizes[ec][rc] =
@@ -199,6 +194,21 @@ Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
 
   return Status::OK();
 }
+
+void AllgatherOp::SetRecvcounts(const int64_t* const* entry_component_sizes,
+                                size_t num_entries, int global_size,
+                                int*& recvcounts) {
+  assert(num_entries > 0);
+  for (int rc = 0; rc < global_size; ++rc) {
+    recvcounts[rc] = (int)entry_component_sizes[0][rc];
+  }
+  for (size_t ec = 1; ec < num_entries; ++ec) {
+    for (int rc = 0; rc < global_size; ++rc) {
+      recvcounts[rc] += (int)entry_component_sizes[ec][rc];
+    }
+  }
+}
+
 
 void AllgatherOp::SetDisplacements(const int* recvcounts, int*& displcmnts,
                                    int global_size) {
