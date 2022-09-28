@@ -4152,15 +4152,19 @@ class TensorFlowTests(BaseTensorFlowTests):
             for var,grad in zip(model.trainable_weights, allreduced_gradients):
                 if _IS_TF2:
                     if var.ref() in local_vars:
+                        # scale the gradients of local variable by size
+                        avg_local_grad = var_grad[var.ref()]/hvd.size()
                         # local gradients should not change.
-                        self.assertAllClose(grad*hvd.size(), var_grad[var.ref()])
+                        self.assertAllClose(grad, avg_local_grad)
                     else:
                         # non-local gradients shouldn't be equal given that the initial weights are set to ranks
                         self.assertNotAllClose(grad, var_grad[var.ref()])
                 else:
                     if var in local_vars:
+                        # scale the gradients of local variable by size
+                        avg_local_grad = var_grad[var]/hvd.size()
                         # local gradients should not change.
-                        self.assertAllClose(grad*hvd.size(), var_grad[var])
+                        self.assertAllClose(grad, avg_local_grad)
                     else:
                         # non-local gradients shouldn't be equal given that the initial weights are set to ranks
                         self.assertNotAllClose(grad, var_grad[var])
