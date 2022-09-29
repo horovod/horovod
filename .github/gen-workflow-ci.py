@@ -696,7 +696,7 @@ def main():
                     f'          docker run --rm horovod/${{{{ matrix.docker-image }}}}:test {example}\n'
                     for comm in ['gloo', 'mpi']
                     for example in [
-		        f'python /horovod/examples/mxnet/mxnet2_mnist.py --num-proc 2 --hosts localhost:2 --communication {comm}',
+		        f'python /horovod/examples/mxnet/mxnet_mnist.py --num-proc 2 --hosts localhost:2 --communication {comm}',
 		        f'python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication {comm}',
 		        f'python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 {comm}',
                     ]

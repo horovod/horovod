@@ -4969,7 +4969,7 @@ jobs:
       - name: Test image (mxnet gloo)
         if: always() && steps.build.outcome == 'success'
         run: |
-          docker run --rm horovod/${{ matrix.docker-image }}:test python /horovod/examples/mxnet/mxnet2_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo
+          docker run --rm horovod/${{ matrix.docker-image }}:test python /horovod/examples/mxnet/mxnet_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo
 
       - name: Test image (pytorch gloo)
         if: always() && steps.build.outcome == 'success'
@@ -4984,7 +4984,7 @@ jobs:
       - name: Test image (mxnet mpi)
         if: always() && steps.build.outcome == 'success'
         run: |
-          docker run --rm horovod/${{ matrix.docker-image }}:test python /horovod/examples/mxnet/mxnet2_mnist.py --num-proc 2 --hosts localhost:2 --communication mpi
+          docker run --rm horovod/${{ matrix.docker-image }}:test python /horovod/examples/mxnet/mxnet_mnist.py --num-proc 2 --hosts localhost:2 --communication mpi
 
       - name: Test image (pytorch mpi)
         if: always() && steps.build.outcome == 'success'
