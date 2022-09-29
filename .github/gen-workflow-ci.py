@@ -673,35 +673,36 @@ def main():
                 f'          df -h\n'
                 f'          echo ::endgroup::\n'
                 f'\n'
-                f'      - name: Prepare Dockerfiles for test\n'
-                f'        run: |\n'
-                f'          grep "RUN sed" Dockerfile.test.cpu >> "docker/${{{{ matrix.docker-image }}}}/Dockerfile"\n'
-                f'\n'
-                f'      - name: Build image for test\n'
+                f'      - name: Build image\n'
                 f'        id: build\n'
                 f'        uses: docker/build-push-action@v2\n'
                 f'        timeout-minutes: 60\n'
                 f'        with:\n'
                 f'          context: .\n'
                 f'          file: ./docker/${{{{ matrix.docker-image }}}}/Dockerfile\n'
-                f'          load: true\n'
+                f'          pull: true\n'
                 f'          push: false\n'
+                f'          load: true\n'
                 f'          tags: horovod-test\n' +
                 f'          outputs: type=docker\n' +
-                f'\n'
-                f'      - name: Revert Dockerfiles\n'
-                f'        run: |\n'
-                f'          git checkout "docker/${{{{ matrix.docker-image }}}}/Dockerfile"\n'
                 f'\n'
                 f'      - name: List images\n'
                 f'        run: |\n'
                 f'          docker image ls -a\n' +
+                f'\n'
+                f'      - name: List images again\n'
+                f'        run: |\n'
+                f'          sleep 60; docker image ls -a\n'
+                f'\n'
+                f'      - name: Prepare container for test\n'
+                f'        run: |\n'
+                f'          grep "RUN sed" Dockerfile.test.cpu | sed "s/^RUN //" | docker run -i --name horovod-test horovod-test:latest /bin/bash\n' +
                 ''.join([
                     f'\n' +
                     f"      - name: Test image ({framework} {comm})\n" +
                     f'        if: always() && steps.build.outcome == \'success\'\n' +
                     f'        run: |\n' +
-                    f'          docker run --rm horovod-test:latest {example}\n'
+                    f'          docker start -ai horovod-test <<<"{example}"\n'
                     for comm in ['gloo', 'mpi']
                     for example in [
 		        f'python /horovod/examples/mxnet/mxnet_mnist.py --num-proc 2 --hosts localhost:2 --communication {comm}',
@@ -711,7 +712,7 @@ def main():
                     for framework in [re.sub('\/.*', '', re.sub('.*\/examples\/', '', example))]
                 ]) +
                 f'\n'
-                f'      - name: Build and push image\n'
+                f'      - name: Push image\n'
                 f'        if: needs.docker-config.outputs.push == \'true\'\n'
                 f'        uses: docker/build-push-action@v2\n'
                 f'        timeout-minutes: 60\n'
