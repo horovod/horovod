@@ -674,17 +674,36 @@ def main():
                 f'          echo ::endgroup::\n'
                 f'\n'
                 f'      - name: Build\n'
+                f'        id: build\n'
                 f'        uses: docker/build-push-action@v2\n'
                 f'        timeout-minutes: 60\n'
                 f'        with:\n'
                 f'          context: .\n'
                 f'          file: ./docker/${{{{ matrix.docker-image }}}}/Dockerfile\n'
+                f'          load: true\n'
                 f'          push: false\n'
+                f'          tags: ${{{{ matrix.docker-image }}}}\n' +
                 f'\n'
-                f'      - name: Test image\n'
-                f'        run: docker image ls -a\n'
+                f'      - name: List images\n'
+                f'        run: |\n'
+                f'          docker image ls -a\n' +
+                ''.join([
+                    f'\n' +
+                    f"      - name: Test image ({framework} {comm})\n" +
+                    f'        if: always() && steps.build.outcome == \'success\'\n' +
+                    f'        run: |\n' +
+                    f'          docker run --rm ${{{{ matrix.docker-image }}}} {example}\n'
+                    for comm in ['gloo', 'mpi']
+                    for example in [
+		        f'python /horovod/examples/mxnet/mxnet2_mnist.py --num-proc 2 --hosts localhost:2 --communication {comm}',
+		        f'python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication {comm}',
+		        f'python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 {comm}',
+                    ]
+                    for framework in [re.sub('\/.*', '', re.sub('.*\/examples\/', '', example))]
+                ]) +
                 f'\n'
                 f'      - name: Push\n'
+                f'        if: needs.docker-config.outputs.push == \'true\'\n'
                 f'        uses: docker/build-push-action@v2\n'
                 f'        timeout-minutes: 60\n'
                 f'        with:\n'

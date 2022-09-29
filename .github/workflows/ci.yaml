@@ -4951,17 +4951,52 @@ jobs:
           echo ::endgroup::
 
       - name: Build
+        id: build
         uses: docker/build-push-action@v2
         timeout-minutes: 60
         with:
           context: .
           file: ./docker/${{ matrix.docker-image }}/Dockerfile
+          load: true
           push: false
+          tags: ${{ matrix.docker-image }}
 
-      - name: Test image
-        run: docker image ls -a
+      - name: List images
+        run: |
+          docker image ls -a
+
+      - name: Test image (mxnet gloo)
+        if: always() && steps.build.outcome == 'success'
+        run: |
+          docker run --rm ${{ matrix.docker-image }} python /horovod/examples/mxnet/mxnet2_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo
+
+      - name: Test image (pytorch gloo)
+        if: always() && steps.build.outcome == 'success'
+        run: |
+          docker run --rm ${{ matrix.docker-image }} python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo
+
+      - name: Test image (tensorflow2 gloo)
+        if: always() && steps.build.outcome == 'success'
+        run: |
+          docker run --rm ${{ matrix.docker-image }} python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 gloo
+
+      - name: Test image (mxnet mpi)
+        if: always() && steps.build.outcome == 'success'
+        run: |
+          docker run --rm ${{ matrix.docker-image }} python /horovod/examples/mxnet/mxnet2_mnist.py --num-proc 2 --hosts localhost:2 --communication mpi
+
+      - name: Test image (pytorch mpi)
+        if: always() && steps.build.outcome == 'success'
+        run: |
+          docker run --rm ${{ matrix.docker-image }} python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi
+
+      - name: Test image (tensorflow2 mpi)
+        if: always() && steps.build.outcome == 'success'
+        run: |
+          docker run --rm ${{ matrix.docker-image }} python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi
 
       - name: Push
+        if: needs.docker-config.outputs.push == 'true'
         uses: docker/build-push-action@v2
         timeout-minutes: 60
         with:
