@@ -682,7 +682,8 @@ def main():
                 f'          file: ./docker/${{{{ matrix.docker-image }}}}/Dockerfile\n'
                 f'          load: true\n'
                 f'          push: false\n'
-                f'          tags: ${{{{ matrix.docker-image }}}}\n' +
+                f'          tags: horovod/${{{{ matrix.docker-image }}}}:test\n' +
+                f'          outputs: type=docker\n' +
                 f'\n'
                 f'      - name: List images\n'
                 f'        run: |\n'
@@ -692,7 +693,7 @@ def main():
                     f"      - name: Test image ({framework} {comm})\n" +
                     f'        if: always() && steps.build.outcome == \'success\'\n' +
                     f'        run: |\n' +
-                    f'          docker run --rm ${{{{ matrix.docker-image }}}} {example}\n'
+                    f'          docker run --rm horovod/${{{{ matrix.docker-image }}}}:test {example}\n'
                     for comm in ['gloo', 'mpi']
                     for example in [
 		        f'python /horovod/examples/mxnet/mxnet2_mnist.py --num-proc 2 --hosts localhost:2 --communication {comm}',
