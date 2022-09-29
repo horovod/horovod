@@ -197,7 +197,7 @@ run_mpi_integration() {
     if [[ ${queue} != *gpu* ]]; then
       run_test "${test}" "${queue}" \
                ":muscle: MPI MXNet2 MNIST api (${test})" \
-               "bash -c \"${oneccl_env} python /horovod/examples/mxnet/mxnet2_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo\""
+               "bash -c \"${oneccl_env} python /horovod/examples/mxnet/mxnet2_mnist.py --num-proc 2 --hosts localhost:2 --communication mpi\""
     fi
   else
     run_test "${test}" "${queue}" \
