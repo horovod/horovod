@@ -4950,7 +4950,7 @@ jobs:
           df -h
           echo ::endgroup::
 
-      - name: Build
+      - name: Build image
         id: build
         uses: docker/build-push-action@v2
         timeout-minutes: 60
@@ -4995,7 +4995,7 @@ jobs:
         run: |
           docker run --rm ${{ matrix.docker-image }} python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi
 
-      - name: Push
+      - name: Push image
         if: needs.docker-config.outputs.push == 'true'
         uses: docker/build-push-action@v2
         timeout-minutes: 60

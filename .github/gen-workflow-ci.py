@@ -673,7 +673,7 @@ def main():
                 f'          df -h\n'
                 f'          echo ::endgroup::\n'
                 f'\n'
-                f'      - name: Build\n'
+                f'      - name: Build image\n'
                 f'        id: build\n'
                 f'        uses: docker/build-push-action@v2\n'
                 f'        timeout-minutes: 60\n'
@@ -702,7 +702,7 @@ def main():
                     for framework in [re.sub('\/.*', '', re.sub('.*\/examples\/', '', example))]
                 ]) +
                 f'\n'
-                f'      - name: Push\n'
+                f'      - name: Push image\n'
                 f'        if: needs.docker-config.outputs.push == \'true\'\n'
                 f'        uses: docker/build-push-action@v2\n'
                 f'        timeout-minutes: 60\n'
