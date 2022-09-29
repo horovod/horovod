@@ -4963,7 +4963,7 @@ jobs:
           file: ./docker/${{ matrix.docker-image }}/Dockerfile
           load: true
           push: false
-          tags: horovod/${{ matrix.docker-image }}:test
+          tags: horovod-test
           outputs: type=docker
 
       - name: Revert Dockerfiles
@@ -4977,32 +4977,32 @@ jobs:
       - name: Test image (mxnet gloo)
         if: always() && steps.build.outcome == 'success'
         run: |
-          docker run --rm horovod/${{ matrix.docker-image }}:test python /horovod/examples/mxnet/mxnet_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo
+          docker run --rm horovod-test:latest python /horovod/examples/mxnet/mxnet_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo
 
       - name: Test image (pytorch gloo)
         if: always() && steps.build.outcome == 'success'
         run: |
-          docker run --rm horovod/${{ matrix.docker-image }}:test python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo
+          docker run --rm horovod-test:latest python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication gloo
 
       - name: Test image (tensorflow2 gloo)
         if: always() && steps.build.outcome == 'success'
         run: |
-          docker run --rm horovod/${{ matrix.docker-image }}:test python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 gloo
+          docker run --rm horovod-test:latest python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 gloo
 
       - name: Test image (mxnet mpi)
         if: always() && steps.build.outcome == 'success'
         run: |
-          docker run --rm horovod/${{ matrix.docker-image }}:test python /horovod/examples/mxnet/mxnet_mnist.py --num-proc 2 --hosts localhost:2 --communication mpi
+          docker run --rm horovod-test:latest python /horovod/examples/mxnet/mxnet_mnist.py --num-proc 2 --hosts localhost:2 --communication mpi
 
       - name: Test image (pytorch mpi)
         if: always() && steps.build.outcome == 'success'
         run: |
-          docker run --rm horovod/${{ matrix.docker-image }}:test python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi
+          docker run --rm horovod-test:latest python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi
 
       - name: Test image (tensorflow2 mpi)
         if: always() && steps.build.outcome == 'success'
         run: |
-          docker run --rm horovod/${{ matrix.docker-image }}:test python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi
+          docker run --rm horovod-test:latest python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi
 
       - name: Build and push image
         if: needs.docker-config.outputs.push == 'true'
