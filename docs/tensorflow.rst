@@ -51,6 +51,7 @@ To use Horovod with TensorFlow, make the following modifications to your trainin
 
    For **TensorFlow v2**, when using a ``tf.GradientTape``, wrap the tape in ``hvd.DistributedGradientTape`` instead of wrapping the optimizer.
 
+   **Note:** For model parallel usecases there are local variables (layers) that their gradients need not to be synced (by allreduce or allgather). You can register those variables with the returned wrapper optimizer by calling its ``register_local_var()`` API. Additionally, when using ``tf.GradientTape``, wrap the tape in ``hvd.PartialDistributedGradientTape`` instead of ``DistributedGradientTape`` and pass the local layers to it in order to register their local variables.
 .. raw:: html
 
     <p/>

@@ -48,6 +48,8 @@ Horovod supports Keras and regular TensorFlow in similar ways. To use Horovod wi
 
    The distributed optimizer delegates gradient computation to the original optimizer, averages gradients using *allreduce* or *allgather*, and then applies those averaged gradients.
 
+   **Note:** For model parallel usecases there are local variables (layers) that their gradients need not to be synced (by allreduce or allgather). You can register those variables with the returned wrapper optimizer by calling its ``register_local_var()`` API.
+
 .. raw:: html
 
     <p/>
@@ -55,6 +57,8 @@ Horovod supports Keras and regular TensorFlow in similar ways. To use Horovod wi
 5. Add ``hvd.callbacks.BroadcastGlobalVariablesCallback(0)`` to broadcast initial variable states from rank 0 to all other processes.
 
    This is necessary to ensure consistent initialization of all workers when training is started with random weights or restored from a checkpoint.
+
+   **Note:** For model parallel use cases there are local variables (layers) that their weights need not to be broadcasted. You can pass those local variables to this callback by adding ``hvd.callbacks.BroadcastGlobalVariablesCallback(0, local_variables=[list of local variables])`` instead.
 
 .. raw:: html
 
