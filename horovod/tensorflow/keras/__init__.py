@@ -62,7 +62,8 @@ def DistributedOptimizer(optimizer, name=None,
                          average_aggregated_gradients=False,
                          num_groups=0,
                          groups=None,
-                         process_set=global_process_set):
+                         process_set=global_process_set,
+                         scale_local_gradients=True):
     """
     An optimizer that wraps another keras.optimizers.Optimizer, using an allreduce to
     average gradient values before applying gradients to model weights.
@@ -109,6 +110,7 @@ def DistributedOptimizer(optimizer, name=None,
                 Defaults as None, which is no explicit groups.
       process_set: Gradients will only be reduced over Horovod processes belonging
                    to this process set. Defaults to the global process set.
+      scale_local_gradients: Whether to scale the gradients of local variables. Default is set to True.
     """
     if gradient_predivide_factor != 1.0 and rocm_built():
             raise ValueError('gradient_predivide_factor not supported yet with ROCm')
@@ -141,6 +143,7 @@ def DistributedOptimizer(optimizer, name=None,
         average_aggregated_gradients=average_aggregated_gradients,
         groups=groups,
         process_set=process_set,
+        scale_local_gradients=scale_local_gradients
     )
 
 

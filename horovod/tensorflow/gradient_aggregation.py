@@ -38,7 +38,8 @@ class LocalGradientAggregationHelper:
             average_aggregated_gradients,
             rank,
             optimizer_type,
-            process_set=global_process_set):
+            process_set=global_process_set,
+            scale_local_gradients=True):
         self._allreduce_grads = allreduce_func
 
         # backward_passes_per_step controls how often gradient updates are
@@ -72,6 +73,7 @@ class LocalGradientAggregationHelper:
         self.num_none_grad_updates = 0
 
         self.process_set = process_set
+        self.scale_local_gradients = scale_local_gradients
         self._local_vars = set()
 
     def register_local_var(self, var):
@@ -189,20 +191,22 @@ class LocalGradientAggregationHelper:
                 for rv, rg in zip(rv, rg):
                     v2g[rv.ref()] = rg
 
-                # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
-                for v_ref in v2g:
-                    if v_ref in self._local_vars and v2g[v_ref] is not None:
-                        v2g[v_ref] /= horovod_size
+                if self.scale_local_gradients:
+                    # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
+                    for v_ref in v2g:
+                        if v_ref in self._local_vars and v2g[v_ref] is not None:
+                            v2g[v_ref] /= horovod_size
 
                 return [v2g[rv.ref()] for rv in vars]
             else:
                 for rv, rg in zip(rv, rg):
                     v2g[rv] = rg
 
-                # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
-                for v in v2g:
-                    if v in self._local_vars and v2g[v] is not None:
-                        v2g[v] /= horovod_size
+                if self.scale_local_gradients:
+                    # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
+                    for v in v2g:
+                        if v in self._local_vars and v2g[v] is not None:
+                            v2g[v] /= horovod_size
      
                 return [v2g[rv] for rv in vars]
 

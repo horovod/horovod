@@ -31,7 +31,8 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                                  compression, sparse_as_dense, gradient_predivide_factor,
                                  op, backward_passes_per_step=1,
                                  average_aggregated_gradients=False,
-                                 groups=None, process_set=hvd.global_process_set):
+                                 groups=None, process_set=hvd.global_process_set,
+                                 scale_local_gradients=True):
     class _DistributedOptimizer(keras.optimizers.Optimizer):
         _HAS_AGGREGATE_GRAD = True
 
@@ -54,6 +55,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
 
             self._local_vars = set()
             self.process_set = process_set
+            self.scale_local_gradients = scale_local_gradients
             self._agg_helper = None
             if backward_passes_per_step > 1:
                 if hvd._executing_eagerly():
@@ -62,7 +64,8 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                         allreduce_func=self._allreduce_grads,
                         sparse_as_dense=sparse_as_dense,
                         average_aggregated_gradients=average_aggregated_gradients,
-                        process_set=process_set
+                        process_set=process_set,
+                        scale_local_gradients=scale_local_gradients
                     )
                 else:
                     self._agg_helper = LocalGradientAggregationHelper(
@@ -72,7 +75,8 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                         average_aggregated_gradients=average_aggregated_gradients,
                         rank=rank(),
                         optimizer_type=LocalGradientAggregationHelper._OPTIMIZER_TYPE_KERAS,
-                        process_set=process_set
+                        process_set=process_set,
+                        scale_local_gradients=scale_local_gradients
                     )
 
         def register_local_var(self, var):
@@ -160,20 +164,22 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                         for rv, rg in zip(rv, rg):
                             v2g[rv.ref()] = rg
 
-                        # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
-                        for v_ref in v2g:
-                            if v_ref in self._local_vars and v2g[v_ref] is not None:
-                                v2g[v_ref] /= horovod_size
+                        if self.scale_local_gradients:
+                            # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
+                            for v_ref in v2g:
+                                if v_ref in self._local_vars and v2g[v_ref] is not None:
+                                    v2g[v_ref] /= horovod_size
 
                         return [v2g[rv.ref()] for rv in vars]
                     else:
                         for rv, rg in zip(rv, rg):
                             v2g[rv] = rg
 
-                        # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
-                        for v in v2g:
-                            if v in self._local_vars and v2g[v] is not None:
-                                v2g[v] /= horovod_size
+                        if self.scale_local_gradients:
+                            # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
+                            for v in v2g:
+                                if v in self._local_vars and v2g[v] is not None:
+                                    v2g[v] /= horovod_size
 
                         return [v2g[rv] for rv in vars]
                 return __filtered_reduce_grads(grads, vars)
