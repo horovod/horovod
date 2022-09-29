@@ -14,12 +14,12 @@ Running on a single machine
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 After the container is built, run it using `nvidia-docker <https://github.com/NVIDIA/nvidia-docker>`__.
 
-**Note**: You can replace ``horovod:latest`` with the `specific <https://hub.docker.com/r/horovod/horovod/tags>`__ pre-build
+**Note**: You can replace ``horovod/horovod:latest`` with the `specific <https://hub.docker.com/r/horovod/horovod/tags>`__ pre-build
 Docker container with Horovod instead of building it by yourself.
 
 .. code-block:: bash
 
-    $ nvidia-docker run -it horovod:latest
+    $ nvidia-docker run -it horovod/horovod:latest
     root@c278c88dd552:/examples# horovodrun -np 4 -H localhost:4 python keras_mnist_advanced.py
 
 
@@ -47,7 +47,7 @@ Primary worker:
 
 .. code-block:: bash
 
-    host1$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod:latest
+    host1$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod/horovod:latest
     root@c278c88dd552:/examples# horovodrun -np 16 -H host1:4,host2:4,host3:4,host4:4 -p 12345 python keras_mnist_advanced.py
 
 
@@ -55,19 +55,19 @@ Secondary workers:
 
 .. code-block:: bash
 
-    host2$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod:latest \
+    host2$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod/horovod:latest \
         bash -c "/usr/sbin/sshd -p 12345; sleep infinity"
 
 
 .. code-block:: bash
 
-    host3$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod:latest \
+    host3$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod/horovod:latest \
         bash -c "/usr/sbin/sshd -p 12345; sleep infinity"
 
 
 .. code-block:: bash
 
-    host4$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod:latest \
+    host4$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod/horovod:latest \
         bash -c "/usr/sbin/sshd -p 12345; sleep infinity"
 
 
@@ -78,7 +78,7 @@ and enable the IPC_LOCK capability for memory registration:
 
 .. code-block:: bash
 
-   $ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh --cap-add=IPC_LOCK --device=/dev/infiniband horovod:latest 
+   $ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh --cap-add=IPC_LOCK --device=/dev/infiniband horovod/horovod:latest 
    root@c278c88dd552:/examples# ...
 
 
