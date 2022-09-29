@@ -154,7 +154,6 @@ bool GPUAllreduce::Enabled(const ParameterManager& param_manager,
   return entries[0].device != CPU_DEVICE_ID;
 }
 
-#if HAVE_GPU
 void GPUAllreduce::MemcpyInFusionBuffer(
     const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
     void*& buffer_data, size_t& buffer_len) {
@@ -221,9 +220,7 @@ void GPUAllreduce::MemcpyInFusionBuffer(
   // Set the input data to originate from the buffer.
   fused_input_data = buffer_data;
 }
-#endif
 
-#if HAVE_GPU
 void GPUAllreduce::ScaleMemcpyInFusionBuffer(
     const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
     void*& buffer_data, size_t& buffer_len, double scale_factor) {
@@ -295,7 +292,6 @@ void GPUAllreduce::ScaleMemcpyInFusionBuffer(
   // Set the input data to originate from the buffer.
   fused_input_data = buffer_data;
 }
-#endif
 
 void GPUAllreduce::MemcpyEntryInFusionBuffer(
     const std::vector<TensorTableEntry>& entries, const TensorTableEntry& e,
@@ -307,7 +303,6 @@ void GPUAllreduce::MemcpyEntryInFusionBuffer(
           ->streams[global_state_->current_nccl_stream][first_entry.device]);
 }
 
-#if HAVE_GPU
 void GPUAllreduce::MemcpyOutFusionBuffer(
     const void* buffer_data, std::vector<TensorTableEntry>& entries) {
   if (global_state_->batch_d2d_memcopies) {
@@ -360,9 +355,7 @@ void GPUAllreduce::MemcpyOutFusionBuffer(
     }
   }
 }
-#endif
 
-#if HAVE_GPU
 void GPUAllreduce::ScaleMemcpyOutFusionBuffer(
     void* buffer_data, size_t buffer_len, double scale_factor,
     std::vector<TensorTableEntry>& entries) {
@@ -424,7 +417,6 @@ void GPUAllreduce::ScaleMemcpyOutFusionBuffer(
     }
   }
 }
-#endif
 
 void GPUAllreduce::MemcpyEntryOutFusionBuffer(
     const std::vector<TensorTableEntry>& entries,
@@ -459,7 +451,6 @@ bool GPUAllgather::Enabled(const ParameterManager& param_manager,
 }
 
 
-#if HAVE_GPU
 void GPUAllgather::MemcpyInFusionBuffer(
     const std::vector<TensorTableEntry>& entries, const int* displcmnts,
     int element_size, void*& buffer_data) {
@@ -522,7 +513,6 @@ void GPUAllgather::MemcpyInFusionBuffer(
     }
   }
 }
-#endif
 
 void GPUAllgather::MemcpyEntryInFusionBuffer(
     const std::vector<TensorTableEntry>& entries, const TensorTableEntry& e,
@@ -534,7 +524,6 @@ void GPUAllgather::MemcpyEntryInFusionBuffer(
           ->streams[global_state_->current_nccl_stream][first_entry.device]);
 }
 
-#if HAVE_GPU
 void GPUAllgather::MemcpyOutFusionBuffer(
     const int64_t* const* entry_component_offsets,
     const int64_t* const* entry_component_sizes, const void* buffer_data,
@@ -630,7 +619,6 @@ void GPUAllgather::MemcpyOutFusionBuffer(
     }
   }
 }
-#endif
 
 void GPUAllgather::MemcpyEntryOutFusionBuffer(
     const std::vector<TensorTableEntry>& entries,
@@ -693,7 +681,6 @@ void GPUReducescatter::MemcpyEntryOutFusionBuffer(
       gpu_context_->streams[global_state_->current_nccl_stream][e.device]);
 }
 
-#if HAVE_GPU
 void GPUReducescatter::MemcpyInFusionBuffer(
     const std::vector<TensorTableEntry>& entries,
     const std::vector<std::vector<TensorShape>>& output_shapes,
@@ -801,7 +788,6 @@ void GPUReducescatter::MemcpyOutFusionBuffer(
     ReducescatterOp::MemcpyOutFusionBuffer(buffer_data, entries);
   }
 }
-#endif // HAVE_GPU
 
 } // namespace common
 } // namespace horovod
