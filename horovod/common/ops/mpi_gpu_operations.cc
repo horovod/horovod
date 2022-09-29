@@ -150,6 +150,14 @@ Status MPI_GPUAllgather::Execute(std::vector<TensorTableEntry>& entries, const R
   timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
   Status status = AllocateOutput(entries, response, entry_component_sizes);
   if (!status.ok()) {
+    for (size_t ec = 0; ec < entries.size(); ++ec) {
+      delete[] entry_component_sizes[ec];
+      delete[] entry_component_offsets[ec];
+    }
+    delete[] entry_component_sizes;
+    delete[] entry_component_offsets;
+    delete[] recvcounts;
+    delete[] displcmnts;
     return status;
   }
   timeline.ActivityEndAll(entries);
