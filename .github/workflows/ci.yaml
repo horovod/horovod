@@ -4950,7 +4950,11 @@ jobs:
           df -h
           echo ::endgroup::
 
-      - name: Build image
+      - name: Prepare Dockerfiles for test
+        run: |
+          grep "RUN sed" Dockerfile.test.cpu >> "docker/${{ matrix.docker-image }}/Dockerfile"
+
+      - name: Build image for test
         id: build
         uses: docker/build-push-action@v2
         timeout-minutes: 60
@@ -4961,6 +4965,10 @@ jobs:
           push: false
           tags: horovod/${{ matrix.docker-image }}:test
           outputs: type=docker
+
+      - name: Revert Dockerfiles
+        run: |
+          git checkout "docker/${{ matrix.docker-image }}/Dockerfile"
 
       - name: List images
         run: |
@@ -4996,7 +5004,7 @@ jobs:
         run: |
           docker run --rm horovod/${{ matrix.docker-image }}:test python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi
 
-      - name: Push image
+      - name: Build and push image
         if: needs.docker-config.outputs.push == 'true'
         uses: docker/build-push-action@v2
         timeout-minutes: 60

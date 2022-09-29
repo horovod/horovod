@@ -673,7 +673,11 @@ def main():
                 f'          df -h\n'
                 f'          echo ::endgroup::\n'
                 f'\n'
-                f'      - name: Build image\n'
+                f'      - name: Prepare Dockerfiles for test\n'
+                f'        run: |\n'
+                f'          grep "RUN sed" Dockerfile.test.cpu >> "docker/${{{{ matrix.docker-image }}}}/Dockerfile"\n'
+                f'\n'
+                f'      - name: Build image for test\n'
                 f'        id: build\n'
                 f'        uses: docker/build-push-action@v2\n'
                 f'        timeout-minutes: 60\n'
@@ -684,6 +688,10 @@ def main():
                 f'          push: false\n'
                 f'          tags: horovod/${{{{ matrix.docker-image }}}}:test\n' +
                 f'          outputs: type=docker\n' +
+                f'\n'
+                f'      - name: Revert Dockerfiles\n'
+                f'        run: |\n'
+                f'          git checkout "docker/${{{{ matrix.docker-image }}}}/Dockerfile"\n'
                 f'\n'
                 f'      - name: List images\n'
                 f'        run: |\n'
@@ -703,7 +711,7 @@ def main():
                     for framework in [re.sub('\/.*', '', re.sub('.*\/examples\/', '', example))]
                 ]) +
                 f'\n'
-                f'      - name: Push image\n'
+                f'      - name: Build and push image\n'
                 f'        if: needs.docker-config.outputs.push == \'true\'\n'
                 f'        uses: docker/build-push-action@v2\n'
                 f'        timeout-minutes: 60\n'
