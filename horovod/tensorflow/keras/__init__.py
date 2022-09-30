@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import os
 import inspect
 import warnings
 
@@ -21,6 +22,8 @@ import tensorflow as tf
 from tensorflow import keras
 
 from horovod.common.util  import is_version_greater_equal_than
+from horovod.tensorflow.mpi_ops import size_op
+
 
 if is_version_greater_equal_than(tf.__version__, "2.6.0"):
     from keras import backend as K
@@ -129,6 +132,12 @@ def DistributedOptimizer(optimizer, name=None,
             raise ValueError('groups should be a non-negative integer or '
                             'a list of list of tf.Variable.')
 
+    if scale_local_gradients:
+        horovod_size = size_op(process_set_id=process_set.process_set_id) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else process_set.size()
+        local_gradients_scaling_factor = float(horovod_size)
+    else:
+        local_gradients_scaling_factor = 1.0
+
     return _impl.create_distributed_optimizer(
         keras=keras,
         optimizer=optimizer,
@@ -142,8 +151,7 @@ def DistributedOptimizer(optimizer, name=None,
         backward_passes_per_step=backward_passes_per_step,
         average_aggregated_gradients=average_aggregated_gradients,
         groups=groups,
-        process_set=process_set,
-        scale_local_gradients=scale_local_gradients
+        local_gradients_scaling_factor=local_gradients_scaling_factor
     )
 
 

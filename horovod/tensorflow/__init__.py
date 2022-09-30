@@ -596,7 +596,7 @@ if _LegacyOptimizer is not None:
                     device_sparse='', compression=Compression.none,
                     sparse_as_dense=False, op=Average, gradient_predivide_factor=1.0,
                     backward_passes_per_step=1, average_aggregated_gradients=False,
-                    groups=None, process_set=global_process_set, scale_local_gradients=True):
+                    groups=None, process_set=global_process_set, local_gradients_scaling_factor=1.0):
             if name is None:
                 name = "Distributed{}".format(type(optimizer).__name__)
             super(_DistributedOptimizer, self).__init__(name=name, use_locking=use_locking)
@@ -608,7 +608,7 @@ if _LegacyOptimizer is not None:
 
             self.process_set = process_set
             self._local_vars = set()
-            self.scale_local_gradients = scale_local_gradients
+            self.local_gradients_scaling_factor = local_gradients_scaling_factor
             self._agg_helper = None
             if backward_passes_per_step > 1:
                 if _executing_eagerly():
@@ -624,8 +624,7 @@ if _LegacyOptimizer is not None:
                     average_aggregated_gradients=average_aggregated_gradients,
                     rank=rank(),
                     optimizer_type=LocalGradientAggregationHelper._OPTIMIZER_TYPE_LEGACY,
-                    process_set=process_set,
-                    scale_local_gradients=scale_local_gradients
+                    local_gradients_scaling_factor=local_gradients_scaling_factor
                 )
 
         def register_local_var(self, var):
@@ -669,27 +668,26 @@ if _LegacyOptimizer is not None:
                                 rg.append(grad)
 
                     rg = self._allreduce_grads(rg, rv)
-                    horovod_size = size_op(process_set_id=self.process_set.process_set_id) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else self.process_set.size()
                     if _IS_TF2:
                         for rv,rg in zip(rv, rg):
                             v2g[rv.ref()] = rg
 
-                        if self.scale_local_gradients:
+                        if self.local_gradients_scaling_factor > 1.0:
                             # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
                             for v_ref in v2g:
                                 if v_ref in self._local_vars and v2g[v_ref]:
-                                    v2g[v.ref()] /= horovod_size
+                                    v2g[v.ref()] /= self.local_gradients_scaling_factor
 
                         return [v2g[rv.ref()] for rv in vars]
                     else:
                         for rv, rg in zip(rv, rg):
                             v2g[rv] = rg
 
-                        if self.scale_local_gradients:
+                        if self.local_gradients_scaling_factor > 1.0:
                             # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
                             for v in v2g:
                                 if v in self._local_vars and v2g[v]:
-                                    v2g[v] /= horovod_size
+                                    v2g[v] /= self.local_gradients_scaling_factor
 
                         return [v2g[rv] for rv in vars]
 
@@ -914,6 +912,11 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
             return _DistributedAdasumOptimizer(optimizer, name, use_locking, device_dense,
                                             device_sparse, compression, backward_passes_per_step)
 
+        if scale_local_gradients:
+            horovod_size = size_op(process_set_id=process_set.process_set_id) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else process_set.size()
+            local_gradients_scaling_factor = float(horovod_size)
+        else:
+            local_gradients_scaling_factor = 1.0
         return _DistributedOptimizer(
             optimizer=optimizer,
             name=name,
@@ -928,7 +931,7 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
             average_aggregated_gradients=average_aggregated_gradients,
             groups=groups,
             process_set=process_set,
-            scale_local_gradients=scale_local_gradients
+            local_gradients_scaling_factor=local_gradients_scaling_factor
         )
     elif isinstance(optimizer, tf.keras.optimizers.Optimizer):
         if op == Adasum:
@@ -957,7 +960,7 @@ if hasattr(tf, 'GradientTape'):
     class _DistributedGradientTape(tf.GradientTape):
         def __init__(self, tape, device_dense, device_sparse, compression, sparse_as_dense, op,
                      gradient_predivide_factor, groups, persistent=False,
-                     watch_accessed_variables=True, process_set=global_process_set, scale_local_gradients=True):
+                     watch_accessed_variables=True, process_set=global_process_set, local_gradients_scaling_factor=1.0):
             if hasattr(tape, '_watch_accessed_variables'):
                 super(self.__class__, self).__init__(persistent, watch_accessed_variables)
             else:
@@ -969,7 +972,7 @@ if hasattr(tf, 'GradientTape'):
                 sparse_as_dense, op, gradient_predivide_factor, groups, process_set)
 
             self.process_set=process_set
-            self.scale_local_gradients = scale_local_gradients
+            self.local_gradients_scaling_factor = local_gradients_scaling_factor
             self._local_sources = set()
 
         def register_local_source(self, source):
@@ -1003,29 +1006,27 @@ if hasattr(tf, 'GradientTape'):
             # Reduce grads
             rg = self._allreduce_grads(rg, rs, use_generic_names)
 
-            horovod_size = size_op(process_set_id=self.process_set.process_set_id) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else self.process_set.size()
-
             # Replace dict entries with reduced grads
             if _IS_TF2:
                 for rs, rg in zip(rs, rg):
                     s2g[rs.ref()] = rg
 
-                if self.scale_local_gradients:
+                if self.local_gradients_scaling_factor > 1.0:
                     # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
                     for s_ref in s2g:
                         if s_ref in self._local_sources and s2g[s_ref] is not None:
-                            s2g[s_ref] /= horovod_size
+                            s2g[s_ref] /= self.local_gradients_scaling_factor
 
                 return [s2g[s.ref()] for s in sources]
             else:
                 for rs, rg in zip(rs, rg):
                     s2g[rs] = rg
 
-                if self.scale_local_gradients:
+                if self.local_gradients_scaling_factor > 1.0:
                     # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
                     for s in s2g:
                         if s in self._local_sources and s2g[s] is not None:
-                            s2g[s] /= horovod_size
+                            s2g[s] /= self.local_gradients_scaling_factor
 
                 return [s2g[s] for s in sources]
 
@@ -1096,15 +1097,22 @@ if hasattr(tf, 'GradientTape'):
 
         cls = type(gradtape.__class__.__name__, (gradtape.__class__,),
                    dict(_DistributedGradientTape.__dict__))
+
+        if scale_local_gradients:
+            horovod_size = size_op(process_set_id=process_set.process_set_id) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else process_set.size()
+            local_gradients_scaling_factor = float(horovod_size)
+        else:
+            local_gradients_scaling_factor = 1.0
+
         if hasattr(gradtape, '_watch_accessed_variables'):
             return cls(gradtape._tape, device_dense, device_sparse, compression,
                        sparse_as_dense, op, gradient_predivide_factor, groups,
                        gradtape._persistent, gradtape._watch_accessed_variables,
-                       process_set=process_set)
+                       process_set=process_set, local_gradients_scaling_factor=local_gradients_scaling_factor)
         else:
             return cls(gradtape._tape, device_dense, device_sparse, compression,
                        sparse_as_dense, op, gradient_predivide_factor, groups,
-                       gradtape._persistent, process_set=process_set)
+                       gradtape._persistent, process_set=process_set, local_gradients_scaling_factor=local_gradients_scaling_factor)
 
 
     def PartialDistributedGradientTape(gradtape, device_dense='', device_sparse='',

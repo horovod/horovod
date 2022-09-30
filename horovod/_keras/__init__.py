@@ -13,14 +13,13 @@
 # limitations under the License.
 # ==============================================================================
 
-import os
 from packaging import version
 
 import horovod.tensorflow as hvd
 import tensorflow as tf
 from horovod.tensorflow.gradient_aggregation import LocalGradientAggregationHelper
 from horovod.tensorflow.gradient_aggregation_eager import LocalGradientAggregationHelperEager
-from horovod.tensorflow.mpi_ops import rank, size_op
+from horovod.tensorflow.mpi_ops import rank
 
 
 _PRE_TF_2_4_0 = version.parse(tf.__version__) < version.parse('2.4.0')
@@ -32,7 +31,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                                  op, backward_passes_per_step=1,
                                  average_aggregated_gradients=False,
                                  groups=None, process_set=hvd.global_process_set,
-                                 scale_local_gradients=True):
+                                 local_gradients_scaling_factor=1.0):
     class _DistributedOptimizer(keras.optimizers.Optimizer):
         _HAS_AGGREGATE_GRAD = True
 
@@ -54,8 +53,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                 process_set=process_set)
 
             self._local_vars = set()
-            self.process_set = process_set
-            self.scale_local_gradients = scale_local_gradients
+            self.local_gradients_scaling_factor = local_gradients_scaling_factor
             self._agg_helper = None
             if backward_passes_per_step > 1:
                 if hvd._executing_eagerly():
@@ -64,8 +62,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                         allreduce_func=self._allreduce_grads,
                         sparse_as_dense=sparse_as_dense,
                         average_aggregated_gradients=average_aggregated_gradients,
-                        process_set=process_set,
-                        scale_local_gradients=scale_local_gradients
+                        local_gradients_scaling_factor=local_gradients_scaling_factor
                     )
                 else:
                     self._agg_helper = LocalGradientAggregationHelper(
@@ -75,8 +72,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                         average_aggregated_gradients=average_aggregated_gradients,
                         rank=rank(),
                         optimizer_type=LocalGradientAggregationHelper._OPTIMIZER_TYPE_KERAS,
-                        process_set=process_set,
-                        scale_local_gradients=scale_local_gradients
+                        local_gradients_scaling_factor=local_gradients_scaling_factor
                     )
 
         def register_local_var(self, var):
@@ -159,27 +155,26 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                                 rg.append(grad)
 
                     rg = self._allreduce_grads(rg, rv)
-                    horovod_size = size_op(process_set_id=self.process_set.process_set_id) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else self.process_set.size()
                     if _IS_TF2:
                         for rv, rg in zip(rv, rg):
                             v2g[rv.ref()] = rg
 
-                        if self.scale_local_gradients:
+                        if self.local_gradients_scaling_factor > 1.0:
                             # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
                             for v_ref in v2g:
                                 if v_ref in self._local_vars and v2g[v_ref] is not None:
-                                    v2g[v_ref] /= horovod_size
+                                    v2g[v_ref] /= self.local_gradients_scaling_factor
 
                         return [v2g[rv.ref()] for rv in vars]
                     else:
                         for rv, rg in zip(rv, rg):
                             v2g[rv] = rg
 
-                        if self.scale_local_gradients:
+                        if self.local_gradients_scaling_factor > 1.0:
                             # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
                             for v in v2g:
                                 if v in self._local_vars and v2g[v] is not None:
-                                    v2g[v] /= horovod_size
+                                    v2g[v] /= self.local_gradients_scaling_factor
 
                         return [v2g[rv] for rv in vars]
                 return __filtered_reduce_grads(grads, vars)
