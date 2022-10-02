@@ -635,8 +635,6 @@ def main():
                 f'            type=semver,pattern={{{{major}}}}\n'
                 f'            type=sha\n'
                 f'\n'
-                f'      - name: Set up QEMU\n'
-                f'        uses: docker/setup-qemu-action@v2\n'
                 f'      - name: Set up Docker Buildx\n'
                 f'        uses: docker/setup-buildx-action@v2\n'
                 f'        with:\n'
