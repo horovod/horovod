@@ -1,25 +1,25 @@
-ARG CUDA_DOCKER_VERSION=11.3.1-devel-ubuntu20.04
+ARG CUDA_DOCKER_VERSION=11.2.2-devel-ubuntu20.04
 FROM nvidia/cuda:${CUDA_DOCKER_VERSION}
 
 # Arguments for the build. CUDA_DOCKER_VERSION needs to be repeated because
 # the first usage only applies to the FROM tag.
-ARG CUDA_DOCKER_VERSION=11.3.1-devel-ubuntu20.04
-ARG CUDNN_VERSION=8.2.1.32-1+cuda11.3
-ARG NCCL_VERSION=2.9.9-1+cuda11.3
+ARG CUDA_DOCKER_VERSION=11.2.2-devel-ubuntu20.04
+ARG CUDNN_VERSION=8.1.1.33-1+cuda11.2
+ARG NCCL_VERSION=2.8.4-1+cuda11.2
 ARG MPI_KIND=OpenMPI
 ARG PYTHON_VERSION=3.8
 ARG GPP_VERSION=7
-ARG TENSORFLOW_PACKAGE=tensorflow-gpu==2.9.2
-ARG KERAS_PACKAGE=keras==2.9.0
-ARG PYTORCH_PACKAGE=torch==1.12.1+cu113
+ARG TENSORFLOW_PACKAGE=tensorflow-gpu==2.8.0
+ARG KERAS_PACKAGE=keras==2.8.0
+ARG PYTORCH_PACKAGE=torch==1.8.1+cu111
 ARG PYTORCH_LIGHTNING_PACKAGE=pytorch_lightning==1.5.9
-ARG TORCHVISION_PACKAGE=torchvision==0.13.1+cu113
-ARG MXNET_PACKAGE=mxnet-cu112==1.9.1
-ARG PYSPARK_PACKAGE=pyspark==3.3.0
+ARG TORCHVISION_PACKAGE=torchvision==0.9.1+cu111
+ARG MXNET_PACKAGE=mxnet-cu112==1.8.0.post0
+ARG PYSPARK_PACKAGE=pyspark==3.2.1
 # if SPARK_PACKAGE is set, installs Spark into /spark from the tgz archive
 # if SPARK_PACKAGE is a preview version, installs PySpark from the tgz archive
 # see https://archive.apache.org/dist/spark/ for available packages, version must match PYSPARK_PACKAGE
-ARG SPARK_PACKAGE=spark-3.3.0/spark-3.3.0-bin-hadoop2.tgz
+ARG SPARK_PACKAGE=spark-3.2.1/spark-3.2.1-bin-hadoop2.7.tgz
 ARG HOROVOD_BUILD_FLAGS="HOROVOD_GPU_OPERATIONS=NCCL"
 ARG HOROVOD_MIXED_INSTALL=0
 
