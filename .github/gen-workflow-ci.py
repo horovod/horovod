@@ -686,9 +686,9 @@ def main():
                 f'          tags: horovod-test\n' +
                 f'          outputs: type=docker\n' +
                 f'\n'
-                f'      - name: List images\n'
+                f'      - name: List image\n'
                 f'        run: |\n'
-                f'          docker image ls -a\n' +
+                f'          docker image ls horovod-test\n' +
                 f'\n'
                 f'      - name: Prepare container for test\n'
                 f'        run: |\n'

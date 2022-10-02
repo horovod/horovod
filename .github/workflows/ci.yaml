@@ -5189,9 +5189,9 @@ jobs:
           tags: horovod-test
           outputs: type=docker
 
-      - name: List images
+      - name: List image
         run: |
-          docker image ls -a
+          docker image ls horovod-test
 
       - name: Prepare container for test
         run: |
