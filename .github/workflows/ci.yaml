@@ -5198,7 +5198,7 @@ jobs:
           grep "RUN sed" Dockerfile.test.cpu | sed "s/^RUN //" | docker run -i --name horovod-test horovod-test:latest /bin/bash
 
       - name: Test image (mxnet gloo)
-        if: always() && steps.build.outcome == 'success'
+        if: always() && steps.build.outcome == 'success' && matrix.docker-image != 'horovod-ray'
         run: |
           docker start -ai horovod-test <<<"python /horovod/examples/mxnet/mxnet_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo"
 
@@ -5213,17 +5213,17 @@ jobs:
           docker start -ai horovod-test <<<"python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 gloo"
 
       - name: Test image (mxnet mpi)
-        if: always() && steps.build.outcome == 'success'
+        if: always() && steps.build.outcome == 'success' && matrix.docker-image != 'horovod-ray'
         run: |
           docker start -ai horovod-test <<<"python /horovod/examples/mxnet/mxnet_mnist.py --num-proc 2 --hosts localhost:2 --communication mpi"
 
       - name: Test image (pytorch mpi)
-        if: always() && steps.build.outcome == 'success'
+        if: always() && steps.build.outcome == 'success' && matrix.docker-image != 'horovod-ray'
         run: |
           docker start -ai horovod-test <<<"python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication mpi"
 
       - name: Test image (tensorflow2 mpi)
-        if: always() && steps.build.outcome == 'success'
+        if: always() && steps.build.outcome == 'success' && matrix.docker-image != 'horovod-ray'
         run: |
           docker start -ai horovod-test <<<"python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 mpi"
 

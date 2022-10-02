@@ -696,7 +696,7 @@ def main():
                 ''.join([
                     f'\n' +
                     f"      - name: Test image ({framework} {comm})\n" +
-                    f'        if: always() && steps.build.outcome == \'success\'\n' +
+                    f'        if: always() && steps.build.outcome == \'success\'' + (' && matrix.docker-image != \'horovod-ray\'' if comm == 'mpi' or 'mxnet' in example else '') + '\n' +
                     f'        run: |\n' +
                     f'          docker start -ai horovod-test <<<"{example}"\n'
                     for comm in ['gloo', 'mpi']
