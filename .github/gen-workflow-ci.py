@@ -639,6 +639,8 @@ def main():
                 f'        uses: docker/setup-qemu-action@v2\n'
                 f'      - name: Set up Docker Buildx\n'
                 f'        uses: docker/setup-buildx-action@v2\n'
+                f'        with:\n'
+                f'          driver: docker\n'
                 f'\n'
                 f'      - name: Login to DockerHub\n'
                 f'        if: needs.docker-config.outputs.push == \'true\'\n'
