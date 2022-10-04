@@ -72,7 +72,6 @@ def main(args):
 
         return train_iter, val_iter
 
-
     # Function to define neural network
     def conv_nets():
         net = gluon.nn.HybridSequential()
@@ -86,7 +85,6 @@ def main(args):
             net.add(gluon.nn.Dense(10))
         return net
 
-
     # Function to evaluate accuracy for a model
     def evaluate(model, data_iter, context):
         data_iter.reset()
@@ -98,7 +96,6 @@ def main(args):
             metric.update([label], [output])
 
         return metric.get()
-
 
     # Initialize Horovod
     hvd.init()
