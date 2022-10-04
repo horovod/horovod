@@ -49,7 +49,7 @@ RUN pip install --no-cache-dir \
     h5py
 
 USER ray
-RUN sudo mkdir -p /horovod && sudo chown ray:users /horovod
+RUN sudo mkdir -p /horovod /data && sudo chown ray:users /horovod /data
 WORKDIR /horovod
 
 # Install Horovod, temporarily using CUDA stubs
