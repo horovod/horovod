@@ -19,6 +19,7 @@ import os
 import numpy as np
 import tensorflow as tf
 
+from packaging import version
 from pyspark import keyword_only
 from pyspark.ml.util import MLWritable, MLReadable
 from pyspark.ml.param.shared import Param, Params, TypeConverters
@@ -228,8 +229,13 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
         if optimizer:
             if isinstance(optimizer, str):
                 pass
-            elif not isinstance(optimizer, tf.keras.optimizers.Optimizer):
-                raise ValueError("optimizer has to be an instance of tensorflow.keras.optimizers.Optimizer")
+            else:
+                if version.parse(tf.keras.__version__) < version.parse("2.11"):
+                    if not isinstance(optimizer, tf.keras.optimizers.Optimizer):
+                        raise ValueError(f"optimizer has to be an instance of tensorflow.keras.optimizers.Optimizer before Keras 2.11: {type(optimizer).__name__}")
+                else:
+                    if not isinstance(optimizer, tf.keras.optimizers.legacy.Optimizer):
+                        raise ValueError(f"optimizer has to be an instance of tensorflow.keras.optimizers.legacy.Optimizer starting from Keras 2.11: {type(optimizer).__name__}")
 
         return TFKerasUtil
 
