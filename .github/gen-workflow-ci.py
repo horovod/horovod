@@ -700,11 +700,11 @@ def main():
                     f'        run: |\n' +
                     f'          docker start -ai horovod-test <<<"{example}"\n'
                     for comm in ['gloo', 'mpi']
-                    for example in [
-		        f'python /horovod/examples/mxnet/mxnet_mnist.py --num-proc 2 --hosts localhost:2 --communication {comm}',
-		        f'python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication {comm}',
-		        f'python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 {comm}',
-                    ]
+                    for example in ([
+                        f'horovodrun -np 2 -H localhost:2 --{comm} python /horovod/examples/mxnet/mxnet_mnist.py',
+                        f'python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication {comm}',
+                        f'python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 {comm}',
+                    ])
                     for framework in [re.sub('\/.*', '', re.sub('.*\/examples\/', '', example))]
                 ]) +
                 f'\n'

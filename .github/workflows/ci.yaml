@@ -5145,7 +5145,7 @@ jobs:
       - name: Test image (mxnet gloo)
         if: always() && steps.build.outcome == 'success' && matrix.docker-image != 'horovod-ray'
         run: |
-          docker start -ai horovod-test <<<"python /horovod/examples/mxnet/mxnet_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo"
+          docker start -ai horovod-test <<<"horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet_mnist.py"
 
       - name: Test image (pytorch gloo)
         if: always() && steps.build.outcome == 'success'
@@ -5160,7 +5160,7 @@ jobs:
       - name: Test image (mxnet mpi)
         if: always() && steps.build.outcome == 'success' && matrix.docker-image != 'horovod-ray'
         run: |
-          docker start -ai horovod-test <<<"python /horovod/examples/mxnet/mxnet_mnist.py --num-proc 2 --hosts localhost:2 --communication mpi"
+          docker start -ai horovod-test <<<"horovodrun -np 2 -H localhost:2 --mpi python /horovod/examples/mxnet/mxnet_mnist.py"
 
       - name: Test image (pytorch mpi)
         if: always() && steps.build.outcome == 'success' && matrix.docker-image != 'horovod-ray'
