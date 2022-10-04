@@ -220,4 +220,3 @@ RUN pip list --format=freeze | sort
 # Export HOROVOD_MIXED_INSTALL
 ENV HOROVOD_MIXED_INSTALL=${HOROVOD_MIXED_INSTALL}
 
-ENTRYPOINT ["/bin/bash"]
