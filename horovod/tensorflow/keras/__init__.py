@@ -111,9 +111,10 @@ def DistributedOptimizer(optimizer, name=None,
                 inner list will be assigned to the same group, while parameter that does
                 not appear in any list will form a group itself.
                 Defaults as None, which is no explicit groups.
-      process_set: Gradients will only be reduced over Horovod processes belonging
+        process_set: Gradients will only be reduced over Horovod processes belonging
                    to this process set. Defaults to the global process set.
-      scale_local_gradients: Whether to scale the gradients of local variables. Default is set to True.
+        scale_local_gradients: Whether to scale the gradients of local variables. Default is set to True.
+
     """
     if gradient_predivide_factor != 1.0 and rocm_built():
             raise ValueError('gradient_predivide_factor not supported yet with ROCm')
