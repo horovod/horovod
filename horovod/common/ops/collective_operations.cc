@@ -197,18 +197,18 @@ Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
 
 void AllgatherOp::SetRecvcounts(const int64_t* const* entry_component_sizes,
                                 size_t num_entries, int global_size,
-                                int*& recvcounts) {
+                                int*& recvcounts, int rank_padding_elements) {
   assert(num_entries > 0);
   for (int rc = 0; rc < global_size; ++rc) {
     recvcounts[rc] = (int)entry_component_sizes[0][rc];
-  }
-  for (size_t ec = 1; ec < num_entries; ++ec) {
-    for (int rc = 0; rc < global_size; ++rc) {
+    for (size_t ec = 1; ec < num_entries; ++ec) {
       recvcounts[rc] += (int)entry_component_sizes[ec][rc];
     }
+    recvcounts[rc] =
+        rank_padding_elements *
+        ((recvcounts[rc] + rank_padding_elements - 1) / rank_padding_elements);
   }
 }
-
 
 void AllgatherOp::SetDisplacements(const int* recvcounts, int*& displcmnts,
                                    int global_size) {

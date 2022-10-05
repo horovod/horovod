@@ -471,12 +471,11 @@ void GPUAllgather::MemcpyInFusionBuffer(
   buffer_data = const_cast<void*>(buffer->AccessData(first_entry.context));
   auto& process_set =
       global_state_->process_set_table.Get(first_entry.process_set_id);
+  // offset incorporates rank padding via displcmnts
   int64_t offset = (int64_t)displcmnts[process_set.controller->GetRank()] *
                    (int64_t)element_size;
 
   if (global_state_->batch_d2d_memcopies) {
-    // enabled by default but can be modified via HOROVOD_BATCH_D2D_MEMCOPIES
-    // env var
     int idx = 0;
     int count = 0;
     BatchedD2DParams d2d_params;
@@ -556,6 +555,7 @@ void GPUAllgather::MemcpyOutFusionBuffer(
       int global_size = process_set.controller->GetSize();
       int64_t copy_offset = 0;
       for (int rc = 0; rc < global_size; rc++) {
+        // entry_component_offsets includes rank padding
         int64_t entry_offset = entry_component_offsets[ec][rc] * element_size;
         int64_t entry_size = entry_component_sizes[ec][rc] * element_size;
         void* buffer_data_at_offset = (uint8_t*)buffer_data + entry_offset;
@@ -618,6 +618,7 @@ void GPUAllgather::MemcpyOutFusionBuffer(
       int global_size = process_set.controller->GetSize();
       int64_t copy_offset = 0;
       for (int rc = 0; rc < global_size; ++rc) {
+        // entry_component_offsets includes rank padding
         int64_t entry_offset = entry_component_offsets[ec][rc] * element_size;
         int64_t entry_size = entry_component_sizes[ec][rc] * element_size;
         const void* buffer_data_at_offset =

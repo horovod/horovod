@@ -18,7 +18,6 @@
 #include "controller.h"
 
 #include <atomic>
-#include <map>
 #include <queue>
 #include <set>
 #include <unordered_set>
@@ -944,7 +943,12 @@ void Controller::FuseResponses(std::deque<Response>& responses,
       const auto& entry =
           tensor_queue_.GetTensorEntry(response.tensor_names()[0]);
 
-      // This is size of first dimension.
+      int extra_bytes_for_padding = 0;
+#if HAVE_CUDA || HAVE_ROCM
+      // Add 16 byte pad per rank for efficient allgather. TODO: a bit too wasteful
+      extra_bytes_for_padding = GetSize() * BATCHED_D2D_PADDING;
+#endif
+      // response.tensor_sizes(): Size of first dimension for each rank.
       int64_t total_byte_size_of_output =
           TotalByteSizeOfAllgatherOutput(response.tensor_sizes(), entry);
 
@@ -967,7 +971,8 @@ void Controller::FuseResponses(std::deque<Response>& responses,
         if (response.response_type() == new_response.response_type() &&
             response.devices() == new_response.devices() &&
             entry.tensor->dtype() == new_entry.tensor->dtype() &&
-            total_byte_size_of_output + new_total_byte_size_of_output <=
+            total_byte_size_of_output + new_total_byte_size_of_output +
+                    extra_bytes_for_padding <=
                 TensorFusionThresholdBytes()) {
 
           // These tensors will fuse together well.
@@ -985,7 +990,8 @@ void Controller::FuseResponses(std::deque<Response>& responses,
           // ahead is allowed.
 
           skipped_size += new_total_byte_size_of_output;
-          if (total_byte_size_of_output + skipped_size <=
+          if (total_byte_size_of_output + skipped_size +
+                  extra_bytes_for_padding <=
               TensorFusionThresholdBytes()) {
             // Skip response and look ahead for more to fuse.
             skipped_responses.push_back(std::move(new_response));

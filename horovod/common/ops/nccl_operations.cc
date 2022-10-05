@@ -21,6 +21,13 @@
 #include "../mpi/mpi_context.h"
 #endif
 
+#if HAVE_CUDA
+#include "cuda/cuda_kernels.h"
+#endif
+#if HAVE_ROCM
+#include "rocm/hip_kernels.h"
+#endif
+
 namespace horovod {
 namespace common {
 
@@ -1017,12 +1024,18 @@ Status NCCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
   }
   global_state_->timeline.ActivityEndAll(entries);
 
-  SetRecvcounts(entry_component_sizes, entries.size(), global_size, recvcounts);
+  auto element_size = (int)DataType_Size(first_entry.tensor->dtype());
+  int padding_elements = 1;
+  if (entries.size() > 1) {
+    assert(BATCHED_D2D_PADDING % element_size == 0);
+    padding_elements = BATCHED_D2D_PADDING / element_size;
+  }
+
+  SetRecvcounts(entry_component_sizes, entries.size(), global_size, recvcounts,
+                padding_elements);
   SetDisplacements(recvcounts, displcmnts, global_size);
   SetEntryComponentOffsets(entry_component_sizes, recvcounts, entries.size(),
                            global_size, entry_component_offsets);
-
-  auto element_size = (int)DataType_Size(first_entry.tensor->dtype());
 
   const void* fused_input_data;
   void* buffer_data;

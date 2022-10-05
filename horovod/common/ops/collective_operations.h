@@ -140,7 +140,7 @@ protected:
 
   static void SetRecvcounts(const int64_t* const* entry_component_sizes,
                             size_t num_entries, int global_size,
-                            int*& recvcounts);
+                            int*& recvcounts, int rank_padding_elements = 1);
 
   static void SetDisplacements(const int* recvcounts, int*& displcmnts,
                                int global_size);
