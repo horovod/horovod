@@ -4613,21 +4613,21 @@ jobs:
             TORCHVISION: 0.7.0
             MXNET: 1.5.1.post0
 
-          - image: test-cpu-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_7_0_p2
+          - image: test-cpu-gloo-py3_8-tf2_9_2-keras2_9_0-torch1_11_0-mxnet1_7_0_p2
             HOROVOD_WITHOUT_MPI: 1
             HOROVOD_WITH_GLOO: 1
-            TENSORFLOW: 2.8.2
-            KERAS: 2.8.0
+            TENSORFLOW: 2.9.2
+            KERAS: 2.9.0
             PYTORCH: 1.11.0
             PYTORCH_LIGHTNING: 1.5.9
             TORCHVISION: 0.12.0
             MXNET: 1.7.0.post2
 
-          - image: test-openmpi-cpu-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1
+          - image: test-openmpi-cpu-gloo-py3_8-tf2_10_0-keras2_10_0-torch1_12_1-mxnet1_9_1
             HOROVOD_WITH_MPI: 1
             HOROVOD_WITH_GLOO: 1
-            TENSORFLOW: 2.9.1
-            KERAS: 2.9.0
+            TENSORFLOW: 2.10.0
+            KERAS: 2.10.0
             PYTORCH: 1.12.1
             PYTORCH_LIGHTNING: 1.5.9
             TORCHVISION: 0.13.1
