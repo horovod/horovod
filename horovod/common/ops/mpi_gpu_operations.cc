@@ -18,6 +18,13 @@
 #include "mpi_gpu_operations.h"
 #include "../mpi/mpi_context.h"
 
+#if HAVE_CUDA
+#include "cuda/cuda_kernels.h"
+#endif
+#if HAVE_ROCM
+#include "rocm/hip_kernels.h"
+#endif
+
 namespace horovod {
 namespace common {
 
@@ -139,6 +146,8 @@ Status MPI_GPUAllgather::Execute(std::vector<TensorTableEntry>& entries, const R
   auto** entry_component_offsets = new int64_t* [entries.size()];
 
   int global_size = process_set.controller->GetSize();
+  int rank = process_set.controller->GetRank();
+
   auto* recvcounts = new int[global_size]();
   auto* displcmnts = new int[global_size]();
 
@@ -162,16 +171,22 @@ Status MPI_GPUAllgather::Execute(std::vector<TensorTableEntry>& entries, const R
   }
   timeline.ActivityEndAll(entries);
 
-  SetRecvcounts(entry_component_sizes, entries.size(), global_size, recvcounts);
+  int element_size = mpi_context.GetMPITypeSize(first_entry.tensor->dtype());
+  int padding_elements = 1;
+  if (entries.size() > 1) {
+    assert(BATCHED_D2D_PADDING % element_size == 0);
+    padding_elements = BATCHED_D2D_PADDING / element_size;
+  }
+
+  SetRecvcounts(entry_component_sizes, entries.size(), global_size, recvcounts,
+                padding_elements);
   SetDisplacements(recvcounts, displcmnts, global_size);
   SetEntryComponentOffsets(entry_component_sizes, recvcounts, entries.size(),
                            global_size, entry_component_offsets);
 
-  int element_size = mpi_context.GetMPITypeSize(first_entry.tensor->dtype());
-
   const void* sendbuf = nullptr;
   void* buffer_data;
-  int64_t total_num_elements = NumElements(entries);
+  int sendcount = recvcounts[rank];  // includes rank padding if appropriate
 
   if (entries.size() > 1) {
     timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
@@ -188,7 +203,7 @@ Status MPI_GPUAllgather::Execute(std::vector<TensorTableEntry>& entries, const R
   global_state_->timeline.ActivityStartAll(entries, MPI_ALLGATHER);
   auto dtype = mpi_context.GetMPIDataType(first_entry.tensor->dtype());
   int op = MPI_Allgatherv(sendbuf != nullptr ? sendbuf : MPI_IN_PLACE,
-                          (int) total_num_elements,
+                          sendcount,
                           dtype,
                           buffer_data,
                           recvcounts,
