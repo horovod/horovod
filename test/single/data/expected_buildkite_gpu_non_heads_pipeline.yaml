@@ -548,24 +548,6 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v5111
-- label: ':muscle: Gloo MXNet MNIST api (test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_3_0)'
-  command: python /horovod/examples/mxnet/mxnet_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo
-  artifact_paths: "artifacts/**"
-  env:
-    COMPOSE_HTTP_TIMEOUT: 300
-  plugins:
-  - docker-compose#v3.10.0:
-      run: test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_3_0
-      volumes: "./artifacts:/artifacts"
-      config: docker-compose.test.yml
-      pull-retries: 3
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 10
-  retry:
-    automatic: true
-  agents:
-    queue: 2x-gpu-v5111
 - label: ':factory: Elastic Tests (test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_3_0)'
   command: bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow.py test_elastic_tensorflow_keras.py"
   artifact_paths: "artifacts/**"
@@ -782,24 +764,6 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v5111
-- label: ':muscle: Gloo MXNet MNIST api (test-gpu-gloo-py3_8-tf2_7_3-keras2_7_0-torch1_10_2-mxnet1_7_0_p1-pyspark3_3_0)'
-  command: python /horovod/examples/mxnet/mxnet_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo
-  artifact_paths: "artifacts/**"
-  env:
-    COMPOSE_HTTP_TIMEOUT: 300
-  plugins:
-  - docker-compose#v3.10.0:
-      run: test-gpu-gloo-py3_8-tf2_7_3-keras2_7_0-torch1_10_2-mxnet1_7_0_p1-pyspark3_3_0
-      volumes: "./artifacts:/artifacts"
-      config: docker-compose.test.yml
-      pull-retries: 3
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 10
-  retry:
-    automatic: true
-  agents:
-    queue: 2x-gpu-v5111
 - label: ':factory: Elastic Tests (test-gpu-gloo-py3_8-tf2_7_3-keras2_7_0-torch1_10_2-mxnet1_7_0_p1-pyspark3_3_0)'
   command: bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow2.py"
   artifact_paths: "artifacts/**"
@@ -964,24 +928,6 @@ steps:
     queue: 2x-gpu-v5111
 - label: ':muscle: Gloo MXNet MNIST horovodrun (test-gpu-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_8_0_p0-pyspark3_3_0)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet_mnist.py
-  artifact_paths: "artifacts/**"
-  env:
-    COMPOSE_HTTP_TIMEOUT: 300
-  plugins:
-  - docker-compose#v3.10.0:
-      run: test-gpu-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_8_0_p0-pyspark3_3_0
-      volumes: "./artifacts:/artifacts"
-      config: docker-compose.test.yml
-      pull-retries: 3
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 10
-  retry:
-    automatic: true
-  agents:
-    queue: 2x-gpu-v5111
-- label: ':muscle: Gloo MXNet MNIST api (test-gpu-gloo-py3_8-tf2_8_2-keras2_8_0-torch1_11_0-mxnet1_8_0_p0-pyspark3_3_0)'
-  command: python /horovod/examples/mxnet/mxnet_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
@@ -1466,24 +1412,6 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v5111
-- label: ':muscle: Gloo MXNet MNIST api (test-mixed-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark3_3_0)'
-  command: python /horovod/examples/mxnet/mxnet_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo
-  artifact_paths: "artifacts/**"
-  env:
-    COMPOSE_HTTP_TIMEOUT: 300
-  plugins:
-  - docker-compose#v3.10.0:
-      run: test-mixed-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark3_3_0
-      volumes: "./artifacts:/artifacts"
-      config: docker-compose.test.yml
-      pull-retries: 3
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 10
-  retry:
-    automatic: true
-  agents:
-    queue: 2x-gpu-v5111
 - label: ':factory: Elastic Tests (test-mixed-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark3_3_0)'
   command: bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow2.py"
   artifact_paths: "artifacts/**"
@@ -1540,24 +1468,6 @@ steps:
     queue: 2x-gpu-v5111
 - label: ':muscle: MPI MXNet MNIST horovodrun (test-mixed-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark3_3_0)'
   command: bash -c " OMP_NUM_THREADS=1 \$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet_mnist.py"
-  artifact_paths: "artifacts/**"
-  env:
-    COMPOSE_HTTP_TIMEOUT: 300
-  plugins:
-  - docker-compose#v3.10.0:
-      run: test-mixed-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark3_3_0
-      volumes: "./artifacts:/artifacts"
-      config: docker-compose.test.yml
-      pull-retries: 3
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 10
-  retry:
-    automatic: true
-  agents:
-    queue: 2x-gpu-v5111
-- label: ':muscle: MPI MXNet MNIST api (test-mixed-openmpi-gloo-py3_8-tf2_9_1-keras2_9_0-torch1_12_1-mxnet1_9_1-pyspark3_3_0)'
-  command: bash -c " python /horovod/examples/mxnet/mxnet_mnist.py --num-proc 2 --hosts localhost:2 --communication mpi"
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
