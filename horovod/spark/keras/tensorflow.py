@@ -42,6 +42,12 @@ def save_tf_keras_optimizer(optimizer, h5py_file):
             'You will have to compile your model again after loading it. '
             'Prefer using a Keras optimizer instead '
             '(see keras.io/optimizers).')
+    elif (hasattr(optimizers, "optimizer_experimental.Optimizer") and
+          isinstance(optimizer, optimizers.optimizer_experimental.Optimizer)):
+        logging.warning(
+            'Horovod Spark Keras estimator does not support Keras reworked optimizers after Keras 2.11'
+            'You will have to change to tf.keras.optimizers.legacy.Optimizer in Keras 2.11+.'
+            '(see reworked optimizers at https://github.com/keras-team/keras/tree/master/keras/optimizers/optimizer_experimental)')
     else:
         h5py_file.attrs['training_config'] = json.dumps(
             {

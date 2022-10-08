@@ -17,14 +17,21 @@ import io
 
 import h5py
 
+from packaging import version
 from horovod.runner.common.util import codec
 
 
 def serialize_bare_keras_optimizer(x):
     import keras
     from horovod.spark.keras.bare import save_bare_keras_optimizer
+
+    if version.parse(keras.__version__) < version.parse("2.11"):
+        optimizer_class = keras.optimizers.Optimizer
+    else:
+        optimizer_class = keras.optimizers.legacy.Optimizer
+
     return _serialize_keras_optimizer(x,
-                                      optimizer_class=keras.optimizers.Optimizer,
+                                      optimizer_class=optimizer_class,
                                       save_optimizer_fn=save_bare_keras_optimizer)
 
 
@@ -38,8 +45,13 @@ def serialize_tf_keras_optimizer(x):
     import tensorflow as tf
     from horovod.spark.keras.tensorflow import save_tf_keras_optimizer
 
+    if version.parse(tf.keras.__version__) < version.parse("2.11"):
+        optimizer_class = tf.keras.optimizers.Optimizer
+    else:
+        optimizer_class = tf.keras.optimizers.legacy.Optimizer
+
     return _serialize_keras_optimizer(x,
-                                      optimizer_class=tf.keras.optimizers.Optimizer,
+                                      optimizer_class=optimizer_class,
                                       save_optimizer_fn=save_tf_keras_optimizer)
 
 
@@ -60,7 +72,7 @@ def _serialize_keras_optimizer(opt, optimizer_class, save_optimizer_fn):
         return codec.dumps_base64(bio.getvalue())
     else:
         raise \
-            ValueError('Keras optimizer has to be an instance of str or keras.optimizers.Optimizer')
+            ValueError(f'Keras optimizer has to be an instance of str or {optimizer_class}')
 
 
 def is_string(obj):

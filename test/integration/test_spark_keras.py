@@ -79,6 +79,14 @@ def get_mock_fit_fn():
     return fit
 
 
+def get_sgd_optimizer():
+    if version.parse(tf.keras.__version__) < version.parse("2.11"):
+        optimizer = tf.keras.optimizers.SGD(lr=0.1)
+    else:
+        optimizer = tf.keras.optimizers.legacy.SGD(lr=0.1)
+    return optimizer
+
+
 class SparkKerasTests(tf.test.TestCase):
     def __init__(self, *args, **kwargs):
         super(SparkKerasTests, self).__init__(*args, **kwargs)
@@ -87,7 +95,7 @@ class SparkKerasTests(tf.test.TestCase):
 
     def test_fit_model(self):
         model = create_xor_model()
-        optimizer = tf.keras.optimizers.SGD(lr=0.1)
+        optimizer = get_sgd_optimizer()
         loss = 'binary_crossentropy'
 
         with spark_session('test_fit_model') as spark:
@@ -127,7 +135,7 @@ class SparkKerasTests(tf.test.TestCase):
         from horovod.spark.keras.datamodule import NVTabularDataModule
 
         model = create_xor_model()
-        optimizer = tf.keras.optimizers.SGD(lr=0.1)
+        optimizer = get_sgd_optimizer()
         loss = 'binary_crossentropy'
 
         with spark_session('test_fit_model_nvtabular_vector') as spark:
@@ -180,7 +188,7 @@ class SparkKerasTests(tf.test.TestCase):
                 model = tf.keras.Model(inputs=[c1, c2], outputs=output)
                 model.summary()
 
-                optimizer = tf.keras.optimizers.SGD(lr=0.1)
+                optimizer = get_sgd_optimizer()
                 loss = tf.keras.losses.MeanSquaredError()
 
                 keras_estimator = hvd.KerasEstimator(
@@ -204,7 +212,10 @@ class SparkKerasTests(tf.test.TestCase):
 
     def test_fit_model_multiclass(self):
         model = create_mnist_model()
-        optimizer = tf.keras.optimizers.Adadelta(1.0)
+        if version.parse(tf.keras.__version__) < version.parse("2.11"):
+            optimizer = tf.keras.optimizers.Adadelta(1.0)
+        else:
+            optimizer = tf.keras.optimizers.legacy.Adadelta(1.0)
         loss = tf.keras.losses.categorical_crossentropy
 
         for num_cores in [2, constants.TOTAL_BUFFER_MEMORY_CAP_GIB + 1]:
@@ -245,7 +256,7 @@ class SparkKerasTests(tf.test.TestCase):
         mock_pin_gpu_fn.return_value = mock.Mock()
 
         model = create_xor_model()
-        optimizer = tf.keras.optimizers.SGD(lr=0.1)
+        optimizer = get_sgd_optimizer()
         loss = 'binary_crossentropy'
 
         with spark_session('test_restore_from_checkpoint') as spark:
@@ -308,7 +319,7 @@ class SparkKerasTests(tf.test.TestCase):
                                            label_columns=['y'],
                                            validation=validation):
                         model = create_xor_model()
-                        optimizer = tf.keras.optimizers.SGD(lr=0.1)
+                        optimizer = get_sgd_optimizer()
                         loss = 'binary_crossentropy'
 
                         for inmemory_cache_all in [False, True]:
@@ -388,7 +399,7 @@ class SparkKerasTests(tf.test.TestCase):
                                        feature_columns=['features'],
                                        label_columns=['y']):
                     model = create_xor_model()
-                    optimizer = tf.keras.optimizers.SGD(lr=0.1)
+                    optimizer = get_sgd_optimizer()
                     loss = 'binary_crossentropy'
 
                     # Test when the checkpoint callback is not set, the correct one is created
@@ -432,7 +443,7 @@ class SparkKerasTests(tf.test.TestCase):
     @mock.patch('horovod.spark.keras.estimator.remote.RemoteTrainer')
     def test_model_serialization(self, mock_remote_trainer):
         model = create_xor_model()
-        optimizer = tf.keras.optimizers.SGD(lr=0.1)
+        optimizer = get_sgd_optimizer()
         loss = 'binary_crossentropy'
 
         def train(serialized_model, train_rows, val_rows, avg_row_size):

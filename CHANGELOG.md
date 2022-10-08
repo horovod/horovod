@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - Default Petastorm reader pool is changed from `process` to `thread` for lower memory usage. ([#3665](https://github.com/horovod/horovod/pull/3665))
+- Keras: Support only legacy optimizers in Keras 2.11+. ([#3725](https://github.com/horovod/horovod/pull/3725))
 
 ### Deprecated
 
