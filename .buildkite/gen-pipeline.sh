@@ -200,9 +200,13 @@ run_mpi_integration() {
                "bash -c \"${oneccl_env} python /horovod/examples/mxnet/mxnet2_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo\""
     fi
   else
-      run_test "${test}" "${queue}" \
-               ":muscle: MPI MXNet MNIST (${test})" \
-               "bash -c \"${oneccl_env} OMP_NUM_THREADS=1 \\\$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet_mnist.py\""
+    run_test "${test}" "${queue}" \
+             ":muscle: MPI MXNet MNIST horovodrun (${test})" \
+             "bash -c \"${oneccl_env} OMP_NUM_THREADS=1 \\\$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet_mnist.py\""
+    # MXNet MNIST does not work through the horovod API: https://github.com/horovod/horovod/issues/3724
+    #run_test "${test}" "${queue}" \
+    #         ":muscle: MPI MXNet MNIST api (${test})" \
+    #         "bash -c \"${oneccl_env} python /horovod/examples/mxnet/mxnet_mnist.py --num-proc 2 --hosts localhost:2 --communication mpi\""
   fi
 
   # tests that should be executed only with the latest release since they don't test
@@ -354,8 +358,12 @@ run_gloo_integration() {
     fi
   else
       run_test "${test}" "${queue}" \
-               ":muscle: Gloo MXNet MNIST (${test})" \
+               ":muscle: Gloo MXNet MNIST horovodrun (${test})" \
                "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet_mnist.py"
+      # MXNet MNIST does not work through the horovod API: https://github.com/horovod/horovod/issues/3724
+      #run_test "${test}" "${queue}" \
+      #         ":muscle: Gloo MXNet MNIST api (${test})" \
+      #         "python /horovod/examples/mxnet/mxnet_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo"
   fi
 
   # Elastic Horovod

@@ -635,14 +635,14 @@ def main():
                 f'            type=semver,pattern={{{{major}}}}\n'
                 f'            type=sha\n'
                 f'\n'
-                f'      - name: Set up QEMU\n'
-                f'        uses: docker/setup-qemu-action@v1\n'
                 f'      - name: Set up Docker Buildx\n'
-                f'        uses: docker/setup-buildx-action@v1\n'
+                f'        uses: docker/setup-buildx-action@v2\n'
+                f'        with:\n'
+                f'          driver: docker\n'
                 f'\n'
                 f'      - name: Login to DockerHub\n'
                 f'        if: needs.docker-config.outputs.push == \'true\'\n'
-                f'        uses: docker/login-action@v1\n'
+                f'        uses: docker/login-action@v2\n'
                 f'        with:\n'
                 f'          username: ${{{{ secrets.DOCKERHUB_USERNAME }}}}\n'
                 f'          password: ${{{{ secrets.DOCKERHUB_TOKEN }}}}\n'
@@ -673,8 +673,43 @@ def main():
                 f'          df -h\n'
                 f'          echo ::endgroup::\n'
                 f'\n'
-                f'      - name: Build and push\n'
-                f'        uses: docker/build-push-action@v2\n'
+                f'      - name: Build image\n'
+                f'        id: build\n'
+                f'        uses: docker/build-push-action@v3\n'
+                f'        timeout-minutes: 60\n'
+                f'        with:\n'
+                f'          context: .\n'
+                f'          file: ./docker/${{{{ matrix.docker-image }}}}/Dockerfile\n'
+                f'          pull: true\n'
+                f'          push: false\n'
+                f'          load: true\n'
+                f'          tags: horovod-test\n' +
+                f'          outputs: type=docker\n' +
+                f'\n'
+                f'      - name: List image\n'
+                f'        run: |\n'
+                f'          docker image ls horovod-test\n' +
+                f'\n'
+                f'      - name: Prepare container for test\n'
+                f'        run: |\n'
+                f'          grep "RUN sed" Dockerfile.test.cpu | sed "s/^RUN //" | docker run -i --name horovod-test horovod-test:latest /bin/bash\n' +
+                ''.join([
+                    f'\n' +
+                    f"      - name: Test image ({framework} {comm})\n" +
+                    f'        if: always() && steps.build.outcome == \'success\'' + (' && matrix.docker-image != \'horovod-ray\'' if comm == 'mpi' or 'mxnet' in example else '') + '\n' +
+                    f'        run: |\n' +
+                    f'          docker start -ai horovod-test <<<"{example}"\n'
+                    for comm in ['gloo', 'mpi']
+                    for example in ([
+                        f'python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication {comm}',
+                        f'python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 {comm}',
+                    ])
+                    for framework in [re.sub('\/.*', '', re.sub('.*\/examples\/', '', example))]
+                ]) +
+                f'\n'
+                f'      - name: Push image\n'
+                f'        if: needs.docker-config.outputs.push == \'true\'\n'
+                f'        uses: docker/build-push-action@v3\n'
                 f'        timeout-minutes: 60\n'
                 f'        with:\n'
                 f'          context: .\n'

@@ -5,10 +5,11 @@ FROM rayproject/ray:${RAY_DOCKER_VERSION}-gpu
 # the first usage only applies to the FROM tag.
 # TensorFlow version is tightly coupled to CUDA and cuDNN so it should be selected carefully
 ARG RAY_DOCKER_VERSION=nightly
-ARG TENSORFLOW_VERSION=2.7.3
-ARG PYTORCH_VERSION=1.8.1+cu111
+ARG TENSORFLOW_VERSION=2.9.2
+ARG PYTORCH_VERSION=1.12.1+cu113
 ARG PYTORCH_LIGHTNING_VERSION=1.5.9
-ARG TORCHVISION_VERSION=0.9.1+cu111
+ARG TORCHVISION_VERSION=0.13.1+cu113
+ARG MXNET_VERSION=1.9.1
 
 # to avoid interaction with apt-get
 ENV DEBIAN_FRONTEND=noninteractive
@@ -48,7 +49,7 @@ RUN pip install --no-cache-dir \
     h5py
 
 USER ray
-RUN sudo mkdir -p /horovod && sudo chown ray:users /horovod
+RUN sudo mkdir -p /horovod /data && sudo chown ray:users /horovod /data
 WORKDIR /horovod
 
 # Install Horovod, temporarily using CUDA stubs
