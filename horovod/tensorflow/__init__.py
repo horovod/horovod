@@ -606,7 +606,6 @@ if _LegacyOptimizer is not None:
                 name, device_dense, device_sparse, compression, sparse_as_dense, op,
                 gradient_predivide_factor, groups, process_set=process_set)
 
-            self.process_set = process_set
             self._local_vars = set()
             self.local_gradients_scaling_factor = local_gradients_scaling_factor
             self._agg_helper = None
@@ -971,7 +970,6 @@ if hasattr(tf, 'GradientTape'):
                 'DistributedGradientTape', device_dense, device_sparse, compression,
                 sparse_as_dense, op, gradient_predivide_factor, groups, process_set)
 
-            self.process_set=process_set
             self.local_gradients_scaling_factor = local_gradients_scaling_factor
             self._local_sources = set()
 

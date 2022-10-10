@@ -152,6 +152,7 @@ def DistributedOptimizer(optimizer, name=None,
         backward_passes_per_step=backward_passes_per_step,
         average_aggregated_gradients=average_aggregated_gradients,
         groups=groups,
+        process_set=process_set,
         local_gradients_scaling_factor=local_gradients_scaling_factor
     )
 
