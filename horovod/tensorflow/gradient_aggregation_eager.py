@@ -22,7 +22,8 @@ class LocalGradientAggregationHelperEager:
         allreduce_func,
         sparse_as_dense,
         average_aggregated_gradients,
-        local_gradients_scaling_factor=1.0
+        process_set=global_process_set,
+        scale_local_gradients=True
     ):
         self.allreduce_grads = allreduce_func
         self.sparse_as_dense = sparse_as_dense
@@ -46,7 +47,8 @@ class LocalGradientAggregationHelperEager:
         # is equal to 0.
         self.counter = tf.Variable(initial_value=0)
 
-        self.local_gradients_scaling_factor = local_gradients_scaling_factor
+        self.process_set = process_set
+        self.scale_local_gradients = scale_local_gradients
         self._local_vars = set()
 
     def register_local_var(self, var):
@@ -134,26 +136,27 @@ class LocalGradientAggregationHelperEager:
                         rg.append(grad)
 
             rg = self.allreduce_grads(rg, rv)
+            horovod_size = size_op(process_set_id=self.process_set.process_set_id) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else self.process_set.size()
             if _IS_TF2:
                 for rv, rg in zip(rv, rg):
                     v2g[rv.ref()] = rg
 
-                if self.local_gradients_scaling_factor > 1.0:
+                if self.scale_local_gradients and len(self._local_vars):
                     # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
                     for v_ref in v2g:
                         if v_ref in self._local_vars and v2g[v_ref] is not None:
-                            v2g[v_ref] /= self.local_gradients_scaling_factor
+                            v2g[v_ref] /= horovod_size
 
                 return [v2g[rv.ref()] for rv in vars]
             else:
                 for rv, rg in zip(rv, rg):
                     v2g[rv] = rg
 
-                if self.local_gradients_scaling_factor > 1.0:
+                if self.scale_local_gradients and len(self._local_vars):
                     # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
                     for v in v2g:
                         if v in self._local_vars and v2g[v] is not None:
-                            v2g[v] /= self.local_gradients_scaling_factor
+                            v2g[v] /= horovod_size
 
                 return [v2g[rv] for rv in vars]
 
