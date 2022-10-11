@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+import os
 
 
 class TaskInfo(object):
@@ -23,7 +24,7 @@ _info = TaskInfo()
 
 
 def get_available_devices():
-    if 'gpu' not in _info.resources:
+    if 'gpu' not in _info.resources or os.getenv('USE_DEFAULT_GPU_INDEX') == '1':
         return []
     return _info.resources['gpu'].addresses
 
