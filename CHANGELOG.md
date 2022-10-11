@@ -46,7 +46,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - Default Petastorm reader pool is changed from `process` to `thread` for lower memory usage. ([#3665](https://github.com/horovod/horovod/pull/3665))
-- Renamed `GPUReduceScatter` to `GPUReducescatter` for consistency. ([#3640](https://github.com/horovod/horovod/pull/3640))
 - Keras: Support only legacy optimizers in Keras 2.11+. ([#3725](https://github.com/horovod/horovod/pull/3725))
 - Gloo: When negotiating, use `gather` rather than `allgather`. ([#3633](https://github.com/horovod/horovod/pull/3633))
 - Use `packaging.version` instead of `distutils` version classes. ([#3700](https://github.com/horovod/horovod/pull/3700))
