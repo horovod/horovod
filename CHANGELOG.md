@@ -17,7 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 
-## [v0.26.0] - YYYY-MM-DD
+## [v0.26.0] - 2022-10-13
 
 ### Added
 
@@ -57,7 +57,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Removed
 
-- Build: Remove std::regex use for better cxxabi11 compatibility ([#3584](https://github.com/horovod/horovod/pull/3584))
+- Build: Remove std::regex use for better cxxabi11 compatibility. ([#3584](https://github.com/horovod/horovod/pull/3584))
 
 ### Fixed
 
