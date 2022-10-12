@@ -44,10 +44,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Added warning messages if output tensor memory allocations fail. ([#3594](https://github.com/horovod/horovod/pull/3594))
 - Added `register_local_source` and `use_generic_names` funtionality to `DistributedGradientTape`. ([#3628](https://github.com/horovod/horovod/pull/3628))
 - Added `PartialDistributedGradientTape()` API for model parallel use cases. ([#3643](https://github.com/horovod/horovod/pull/3643))
+<<<<<<< HEAD
 - Spark/Lightning: Added `reader_worker_count` and `reader_pool_type`. ([#3612](https://github.com/horovod/horovod/pull/3612))
 - Spark/Lightning: Added `transformation_edit_fields` and `transformation_removed_fields` param for `EstimatorParams`. ([#3651](https://github.com/horovod/horovod/pull/3651))
 - TensorFlow: Added doc string for `hvd.grouped_allreduce()`. ([#3594](https://github.com/horovod/horovod/pull/3594))
 - ROCm: Enabled `alltoall`. ([#3654](https://github.com/horovod/horovod/pull/3654))
+=======
+- Enable use of native `ncclAvg` op for NCCL allreduces. ([#3646](https://github.com/horovod/horovod/pull/3646))
+- Tensorflow: Added `register_local_var` functionality to distributed optimizers and local gradient aggregators. ([3695](https://github.com/horovod/horovod/pull/3695))
+- Tensorflow: Added support for local variables for `BroadcastGlobalVariablesCallback`. ([3703](https://github.com/horovod/horovod/pull/3703))
+- Tensorflow: Added `PartialDistributedOptimizer()` API for model parallel use cases. ([3738](https://github.com/horovod/horovod/pull/3738))
+>>>>>>> 35e07d6 (Update CHANGELOG)
 
 ### Changed
 
