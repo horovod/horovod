@@ -50,6 +50,23 @@ jobs:
         name: Event File
         path: ${{ github.event_path }}
 
+  setup-py:
+    name: "setup.py"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Test setup.py
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install setuptools wheel
+          python setup.py sdist
+          pip install dist/horovod-*.tar.gz
+
   init-workflow:
     name: "Init Workflow"
     runs-on: ubuntu-latest

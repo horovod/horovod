@@ -172,6 +172,23 @@ def main():
                '        name: Event File\n' \
                '        path: ${{ github.event_path }}\n' \
                '\n' + \
+               '  setup-py:\n' \
+               '    name: "setup.py"\n' \
+               '    runs-on: ubuntu-latest\n' \
+               '    steps:\n' \
+               '      - name: Checkout\n' \
+               '        uses: actions/checkout@v2\n' \
+               '      - name: Setup Python\n' \
+               '        uses: actions/setup-python@v2\n' \
+               '        with:\n' \
+               '          python-version: 3.8\n' \
+               '      - name: Test setup.py\n' \
+               '        run: |\n' \
+               '          python -m pip install --upgrade pip\n' \
+               '          python -m pip install setuptools wheel\n' \
+               '          python setup.py sdist\n' \
+               '          pip install dist/horovod-*.tar.gz\n' \
+               '\n' + \
                '\n'.join(jobs)
 
     def init_workflow_job() -> str:
