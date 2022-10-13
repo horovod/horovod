@@ -21,13 +21,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- Spark Estimator: Add support for custom data loaders in KerasEstimator. ([#3603](https://github.com/horovod/horovod/pull/3603))
-- Spark Estimator: Add NVTabular data loader for KerasEstimator. ([#3603](https://github.com/horovod/horovod/pull/3603))
-- Spark Estimator: Add gradient accumulation support to Spark torch estimator. ([#3681](https://github.com/horovod/horovod/pull/3681))
+- Spark Estimator: Added support for custom data loaders in KerasEstimator. ([#3603](https://github.com/horovod/horovod/pull/3603))
+- Spark Estimator: Added NVTabular data loader for KerasEstimator. ([#3603](https://github.com/horovod/horovod/pull/3603))
+- Spark Estimator: Added gradient accumulation support to Spark torch estimator. ([#3681](https://github.com/horovod/horovod/pull/3681))
 - TensorFlow: Added `register_local_var` functionality to distributed optimizers and local gradient aggregators. ([#3695](https://github.com/horovod/horovod/pull/3695))
 - TensorFlow: Added support for local variables for `BroadcastGlobalVariablesCallback`. ([#3703](https://github.com/horovod/horovod/pull/3703))
-- Enable use of native `ncclAvg` op for NCCL allreduces. ([#3646](https://github.com/horovod/horovod/pull/3646))
-- Add support for additional reduction operations for `allreduce` (min, max, product). ([#3660](https://github.com/horovod/horovod/pull/3660))
+- Enabled use of native `ncclAvg` op for NCCL allreduces. ([#3646](https://github.com/horovod/horovod/pull/3646))
+- Added support for additional reduction operations for `allreduce` (min, max, product). ([#3660](https://github.com/horovod/horovod/pull/3660))
 - Added 2D torus `allreduce` using NCCL. ([#3608](https://github.com/horovod/horovod/pull/3608))
 - Added support for Petastorm reader level parallel shuffling. ([#3665](https://github.com/horovod/horovod/pull/3665))
 - Added random seed support for Lightning datamodule to generate reproducible data loading outputs. ([#3665](https://github.com/horovod/horovod/pull/3665))
@@ -38,10 +38,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Added warning messages if output tensor memory allocations fail. ([#3594](https://github.com/horovod/horovod/pull/3594))
 - Added `register_local_source` and `use_generic_names` funtionality to `DistributedGradientTape`. ([#3628](https://github.com/horovod/horovod/pull/3628))
 - Added `PartialDistributedGradientTape()` API for model parallel use cases. ([#3643](https://github.com/horovod/horovod/pull/3643))
-- Spark/Lightning: Spark/Lightning: add `reader_worker_count` and `reader_pool_type`. ([#3612](https://github.com/horovod/horovod/pull/3612))
+- Spark/Lightning: Added `reader_worker_count` and `reader_pool_type`. ([#3612](https://github.com/horovod/horovod/pull/3612))
 - Spark/Lightning: Added `transformation_edit_fields` and `transformation_removed_fields` param for `EstimatorParams`. ([#3651](https://github.com/horovod/horovod/pull/3651))
 - TensorFlow: Added doc string for `hvd.grouped_allreduce()`. ([#3594](https://github.com/horovod/horovod/pull/3594))
-- ROCm: Enable `alltoall`. ([#3654](https://github.com/horovod/horovod/pull/3654))
+- ROCm: Enabled `alltoall`. ([#3654](https://github.com/horovod/horovod/pull/3654))
 
 ### Changed
 
@@ -56,12 +56,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Removed
 
-- Build: Remove std::regex use for better cxxabi11 compatibility. ([#3584](https://github.com/horovod/horovod/pull/3584))
+- Build: Removed std::regex use for better cxxabi11 compatibility. ([#3584](https://github.com/horovod/horovod/pull/3584))
 
 ### Fixed
 
 - TensorFlow: Fixed the optimizer iteration increments when `backward_passes_per_step > 1`. ([#3631](https://github.com/horovod/horovod/pull/3631))
-- Fix `FuseResponses()` on `BATCHED_D2D_PADDING` edge cases for Reducescatter and/or ROCm. ([#3621](https://github.com/horovod/horovod/pull/3621))
+- Fixed `FuseResponses()` on `BATCHED_D2D_PADDING` edge cases for Reducescatter and/or ROCm. ([#3621](https://github.com/horovod/horovod/pull/3621))
 - PyTorch: Fixed Reducescatter functions to raise `HorovodInternalError` rather than `RuntimeError`. ([#3594](https://github.com/horovod/horovod/pull/3594))
 - PyTorch on GPUs without GPU operations: Fixed grouped allreduce to set CPU device in tensor table. ([#3594](https://github.com/horovod/horovod/pull/3594))
 - Fixed race condition in PyTorch allocation handling. ([#3639](https://github.com/horovod/horovod/pull/3639))
@@ -70,7 +70,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Updated Eigen submodule to fix build on macOS with aarch64. ([#3619](https://github.com/horovod/horovod/pull/3619))
 - Build: Correctly select files in `torch/` directory to be hipified. ([#3588](https://github.com/horovod/horovod/pull/3588))
 - Build: Modify regex match for CUDA|ROCm in `FindPytorch.cmake`. ([#3593](https://github.com/horovod/horovod/pull/3593))
-- Build: Fix ROCm-specific build failure. ([#3630](https://github.com/horovod/horovod/pull/3630))
+- Build: Fixed ROCm-specific build failure. ([#3630](https://github.com/horovod/horovod/pull/3630))
 
 ## [v0.25.0] - 2022-06-20
 
