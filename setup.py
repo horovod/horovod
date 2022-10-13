@@ -27,7 +27,6 @@ import textwrap
 
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
-from packaging import version
 
 from horovod import __version__
 
@@ -65,6 +64,8 @@ def is_build_action():
         return True
 
 def get_cmake_bin():
+    from packaging import version
+
     if 'HOROVOD_CMAKE' in os.environ:
         return os.environ['HOROVOD_CMAKE']
 
