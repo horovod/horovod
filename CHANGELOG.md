@@ -16,8 +16,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
-- Fixed packaging import during install to occur after install_requires. ([#3741](https://github.com/horovod/horovod/pull/3741))
 
+## [v0.26.1] - 2022-10-14
+
+### Fixed
+
+- Fixed packaging import during install to occur after install_requires. ([#3741](https://github.com/horovod/horovod/pull/3741))
 
 ## [v0.26.0] - 2022-10-13
 
