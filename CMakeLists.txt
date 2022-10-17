@@ -209,6 +209,9 @@ if(DEFINED HOROVOD_GPU_ALLREDUCE OR DEFINED HOROVOD_GPU_ALLGATHER OR DEFINED HOR
         set(CMAKE_CXX_FLAGS "${ROCM_COMPILE_FLAGS} ${CMAKE_CXX_FLAGS}")
         list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/hip_operations.cc"
                             "${PROJECT_SOURCE_DIR}/horovod/common/ops/gpu_operations.cc")
+        if(HAVE_MPI)
+            list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/mpi_gpu_operations.cc")
+        endif()
         add_definitions(-DHAVE_ROCM=1 -DHAVE_GPU=1)
         set(HAVE_ROCM TRUE)
     else()
