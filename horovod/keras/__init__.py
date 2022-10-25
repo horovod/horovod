@@ -17,6 +17,7 @@ import warnings
 
 import keras
 import keras.backend as K
+import tensorflow as tf
 
 from horovod.tensorflow import init
 from horovod.tensorflow import shutdown
@@ -27,6 +28,7 @@ from horovod.tensorflow import gloo_enabled, gloo_built
 from horovod.tensorflow import nccl_built, ddl_built, ccl_built, cuda_built, rocm_built
 from horovod.tensorflow import Average, Sum, Adasum
 from horovod.tensorflow.compression import Compression
+from horovod.tensorflow.mpi_ops import global_process_set
 
 
 from horovod.keras import callbacks, elastic
@@ -107,6 +109,79 @@ def DistributedOptimizer(optimizer, name=None,
         op=op,
         groups=groups,
     )
+
+def PartialDistributedOptimizer(optimizer, name=None,
+                         device_dense='', device_sparse='',
+                         compression=Compression.none,
+                         sparse_as_dense=False,
+                         gradient_predivide_factor=1.0,
+                         op=Average,
+                         num_groups=0,
+                         groups=None,
+                         process_set=global_process_set,
+                         local_layers=None, scale_local_gradients=True):
+    """
+    An optimizer that wraps another keras.optimizers.Optimizer, using an allreduce to
+    average gradient values before applying gradients to model weights.
+
+    Args:
+        optimizer: Optimizer to use for computing gradients and applying updates.
+        process_set: Gradients will only be reduced over Horovod processes belonging
+                   to this process set. Defaults to the global process set.  
+        local_layers: A collection of type tf.keras.layers.Layer local layers that their gradients need not
+            to be synced accross ranks and is kept and applied locally.
+            If not provided, the functionality of PartialDistributedOptimizer is
+            identical to DistributedOptimizer.
+        scale_local_gradients: Whether to scale the gradients of local variables. Default is set to True.
+
+        The rest of the arguments are similar to those of DistributedOptimizer.
+
+    """
+    if gradient_predivide_factor != 1.0 and rocm_built():
+            raise ValueError('gradient_predivide_factor not supported yet with ROCm')
+
+    if op != Average and op != Sum:
+        raise ValueError('op currently only supports Average and Sum')
+
+    if num_groups != 0:
+        warnings.warn('Parameter `num_groups` has been replaced by `groups` '
+                      'and will be removed in v0.23.0.', DeprecationWarning)
+        if groups is None:
+            groups = num_groups
+
+    if groups is not None:
+        if not (isinstance(groups, list) or groups > 0):
+            raise ValueError('groups should be a non-negative integer or '
+                            'a list of list of tf.Variable.')
+
+    if local_layers is None:
+            local_layers = []
+    elif isinstance(local_layers, tf.keras.layers.Layer):
+            local_layers = [local_layers]
+    elif not all(isinstance(layer, tf.keras.layers.Layer) for layer in local_layers):
+            raise ValueError("All local layers must be of tf.keras.layers.Layer type.")
+
+    local_vars = [var for layer in local_layers for var in layer.trainable_weights]
+
+    _opt = _impl.create_distributed_optimizer(
+        keras=keras,
+        optimizer=optimizer,
+        name=name,
+        device_dense=device_dense,
+        device_sparse=device_sparse,
+        compression=compression,
+        sparse_as_dense=sparse_as_dense,
+        gradient_predivide_factor=gradient_predivide_factor,
+        op=op,
+        groups=groups,
+        process_set=process_set,
+        scale_local_gradients=scale_local_gradients
+    )
+    if hasattr(_opt, 'register_local_var'):
+        for var in local_vars:
+            _opt.register_local_var(var)
+
+    return _opt
 
 
 def broadcast_global_variables(root_rank):

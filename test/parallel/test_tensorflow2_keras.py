@@ -36,6 +36,7 @@ if is_version_greater_equal_than(tf.__version__, "2.6.0"):
 else:
     from tensorflow.python.keras.optimizer_v2 import optimizer_v2
 
+import horovod.keras as hvd_keras
 import horovod.tensorflow.keras as hvd
 
 
@@ -560,7 +561,7 @@ class Tf2KerasTests(tf.test.TestCase):
             # deem local layers
             local_layers = model.layers[:num_local_layers]
 
-            opt = hvd.PartialDistributedOptimizer(opt, sparse_as_dense=True, local_layers=local_layers)
+            opt = hvd_keras.PartialDistributedOptimizer(opt, sparse_as_dense=True, local_layers=local_layers)
             gradients_vars_opt = opt._compute_gradients(l, model.trainable_weights, tape=tape)
 
             var_grad_tape = {var.ref():grad for var,grad in zip(model.trainable_weights, gradients_tape)}

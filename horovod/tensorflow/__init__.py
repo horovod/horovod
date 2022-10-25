@@ -953,57 +953,6 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
                          'TensorFlow or Keras optimizer: %s' % optimizer)
 
 
-def PartialDistributedOptimizer(optimizer, name=None,
-                         device_dense='', device_sparse='',
-                         compression=Compression.none,
-                         sparse_as_dense=False,
-                         gradient_predivide_factor=1.0,
-                         op=Average,
-                         backward_passes_per_step=1,
-                         average_aggregated_gradients=False,
-                         num_groups=0,
-                         groups=None,
-                         process_set=global_process_set,
-                         local_layers=None, scale_local_gradients=True):
-    """
-    An optimizer that wraps another keras.optimizers.Optimizer similar to
-        DistributedOptimizer except it skips allreducing gradients of the local layers
-        passed in local_layers parameter.
-
-    Args:
-        optimizer: Optimizer to use for computing gradients and applying updates.
-        local_layers: A collection of type tf.keras.layers.Layer local layers that their gradients need not
-            to be synced accross ranks and is kept and applied locally.
-            If not provided, the functionality of PartialDistributedOptimizer is
-            identical to DistributedOptimizer.
-
-        The rest of the arguments are similar to those of DistributedOptimizer.
-
-    """
-    if local_layers is None:
-            local_layers = []
-    elif isinstance(local_layers, tf.keras.layers.Layer):
-            local_layers = [local_layers]
-    elif not all(isinstance(layer, tf.keras.layers.Layer) for layer in local_layers):
-            raise ValueError("All local layers must be of tf.keras.layers.Layer type.")
-
-    local_vars = [var for layer in local_layers for var in layer.trainable_weights]
-
-    _opt = DistributedOptimizer(optimizer, name,
-                                device_dense, device_sparse,
-                                compression, sparse_as_dense,
-                                gradient_predivide_factor, op,
-                                backward_passes_per_step,
-                                average_aggregated_gradients,
-                                num_groups, groups, process_set,
-                                scale_local_gradients)
-
-    if hasattr(_opt, 'register_local_var'):
-        for var in local_vars:
-            _opt.register_local_var(var)
-    return _opt
-
-
 if hasattr(tf, 'GradientTape'):
     class _DistributedGradientTape(tf.GradientTape):
         def __init__(self, tape, device_dense, device_sparse, compression, sparse_as_dense, op,
