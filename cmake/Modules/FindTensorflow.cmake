@@ -25,6 +25,10 @@ if (LEN EQUAL "4")
     if (Tensorflow_VERSION VERSION_GREATER_EQUAL "2.6")
         # XLA implementations and helpers for resource variables are in _pywrap_tensorflow_internal.so
         set(Tensorflow_LIBRARIES "${Tensorflow_LIBRARIES} ${Tensorflow_LIB_PATH}/python/_pywrap_tensorflow_internal.so")
+        if (Tensorflow_VERSION VERSION_GREATER_EQUAL "2.12")
+            # https://github.com/tensorflow/tensorflow/pull/55941 moves implementations to libtensorflow_cc.so
+            set(Tensorflow_LIBRARIES "${Tensorflow_LIBRARIES} ${Tensorflow_LIB_PATH}/libtensorflow_cc.so.2")
+        endif()
     endif()
     message("Tensorflow_LIBRARIES := ${Tensorflow_LIBRARIES}")
     list(GET Tensorflow_OUTPUT 3 Tensorflow_COMPILE_FLAGS)
