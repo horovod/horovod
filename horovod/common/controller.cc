@@ -956,7 +956,21 @@ void Controller::FuseResponses(std::deque<Response>& responses,
           // sequence causing breakups in fusion. To counter this some look
           // ahead is allowed.
 
-          skipped_size += new_tensor_size;
+          if (new_response.response_type() ==
+              Response::ResponseType::ALLGATHER) {
+            // Allgather: Not counting padding for skipped_size estimate.
+            assert(new_response.tensor_names().size() == 1);
+            const auto& new_entry =
+                tensor_queue_.GetTensorEntry(new_response.tensor_names()[0]);
+            SetTensorByteSizesForAllgatheredTensors(
+                allgather_new_tensor_byte_sizes, new_response.tensor_sizes(),
+                new_entry);
+            skipped_size +=
+                std::accumulate(allgather_new_tensor_byte_sizes.begin(),
+                                allgather_new_tensor_byte_sizes.end(), 0LL);
+          } else {
+            skipped_size += new_tensor_size;
+          }
           if (tensor_size + skipped_size <= TensorFusionThresholdBytes()) {
             // Skip response and look ahead for more to fuse.
             skipped_responses.push_back(std::move(new_response));
@@ -979,6 +993,7 @@ void Controller::FuseResponses(std::deque<Response>& responses,
 
       int rankwise_padding_bytes = 1;
 #if HAVE_CUDA || HAVE_ROCM
+      // 16 byte pad for efficient allgather
       rankwise_padding_bytes = BATCHED_D2D_PADDING;
 #endif
       // response.tensor_sizes(): Size of first dimension for each rank.
@@ -1026,12 +1041,18 @@ void Controller::FuseResponses(std::deque<Response>& responses,
 
           auto total_byte_size_of_output =
               SumPadded(allgather_tensor_byte_sizes, rankwise_padding_bytes);
-          // The skipped_size estimate is valid even if new_response is not of
-          // type ALLGATHER, but, e.g., ALLREDUCE. Not counting padding here.
-          skipped_size +=
-              std::accumulate(allgather_new_tensor_byte_sizes.begin(),
-                              allgather_new_tensor_byte_sizes.end(), 0LL);
-
+          // Not counting padding for skipped_size estimate.
+          if (new_response.response_type() ==
+              Response::ResponseType::ALLGATHER) {
+            skipped_size +=
+                std::accumulate(allgather_new_tensor_byte_sizes.begin(),
+                                allgather_new_tensor_byte_sizes.end(), 0LL);
+          } else {
+            skipped_size += new_response.tensor_sizes().empty()
+                                ? 0
+                                : new_response.tensor_sizes()[0] *
+                                      GetTypeSize(new_response.tensor_type());
+          }
           if (total_byte_size_of_output + skipped_size <=
               TensorFusionThresholdBytes()) {
             // Skip response and look ahead for more to fuse.
