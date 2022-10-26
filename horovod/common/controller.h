@@ -171,10 +171,9 @@ protected:
                      HorovodGlobalState& state,
                      ResponseList& response_list);
 
-  // Byte size of each allgathered tensor.
-  std::vector<int64_t>
-  ByteSizeOfEachAllgatheredTensor(const std::vector<int64_t>& tensor_sizes,
-                                  const TensorTableEntry& entry);
+  void SetTensorByteSizesForAllgatheredTensors(
+      std::vector<int64_t>& tensor_byte_sizes,
+      const std::vector<int64_t>& tensor_sizes, const TensorTableEntry& entry);
 
   // Store the Request for a name, and return whether the total count of
   // Requests for that tensor is now equal to the HOROVOD size (and thus we are
