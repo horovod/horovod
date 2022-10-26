@@ -110,16 +110,16 @@ def DistributedOptimizer(optimizer, name=None,
         groups=groups,
     )
 
+
 def PartialDistributedOptimizer(optimizer, name=None,
-                         device_dense='', device_sparse='',
-                         compression=Compression.none,
-                         sparse_as_dense=False,
-                         gradient_predivide_factor=1.0,
-                         op=Average,
-                         num_groups=0,
-                         groups=None,
-                         process_set=global_process_set,
-                         local_layers=None, scale_local_gradients=True):
+                                device_dense='', device_sparse='',
+                                compression=Compression.none,
+                                sparse_as_dense=False,
+                                gradient_predivide_factor=1.0,
+                                op=Average,
+                                groups=None,
+                                process_set=global_process_set,
+                                local_layers=None, scale_local_gradients=True):
     """
     An optimizer that wraps another keras.optimizers.Optimizer, using an allreduce to
     average gradient values before applying gradients to model weights.
@@ -138,28 +138,22 @@ def PartialDistributedOptimizer(optimizer, name=None,
 
     """
     if gradient_predivide_factor != 1.0 and rocm_built():
-            raise ValueError('gradient_predivide_factor not supported yet with ROCm')
+        raise ValueError('gradient_predivide_factor not supported yet with ROCm')
 
     if op != Average and op != Sum:
         raise ValueError('op currently only supports Average and Sum')
 
-    if num_groups != 0:
-        warnings.warn('Parameter `num_groups` has been replaced by `groups` '
-                      'and will be removed in v0.23.0.', DeprecationWarning)
-        if groups is None:
-            groups = num_groups
-
     if groups is not None:
         if not (isinstance(groups, list) or groups > 0):
             raise ValueError('groups should be a non-negative integer or '
-                            'a list of list of tf.Variable.')
+                             'a list of list of tf.Variable.')
 
     if local_layers is None:
-            local_layers = []
+        local_layers = []
     elif isinstance(local_layers, tf.keras.layers.Layer):
-            local_layers = [local_layers]
+        local_layers = [local_layers]
     elif not all(isinstance(layer, tf.keras.layers.Layer) for layer in local_layers):
-            raise ValueError("All local layers must be of tf.keras.layers.Layer type.")
+        raise ValueError("All local layers must be of tf.keras.layers.Layer type.")
 
     local_vars = [var for layer in local_layers for var in layer.trainable_weights]
 
