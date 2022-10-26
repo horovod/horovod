@@ -1,10 +1,10 @@
 steps:
-- label: ':docker: Build test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0'
+- label: ':docker: Build test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1'
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.10.0:
-      build: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      build: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1
       image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
       config: docker-compose.test.yml
       push-retries: 5
@@ -17,14 +17,14 @@ steps:
     queue: cpu-v5111
 - wait
 - wait
-- label: ':pytest: Gloo Parallel PyTests (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0)'
+- label: ':pytest: Gloo Parallel PyTests (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1)'
   command: bash -c "HOROVOD_TEST_GPU=1 cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo /bin/bash /pytest.sh gloo)"
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.10.0:
-      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -35,14 +35,14 @@ steps:
     automatic: true
   agents:
     queue: 4x-gpu-v5111
-- label: ':pytest: Gloo Single PyTests (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0)'
+- label: ':pytest: Gloo Single PyTests (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1)'
   command: bash -c "HOROVOD_TEST_GPU=1 cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh gloo)"
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.10.0:
-      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -53,14 +53,14 @@ steps:
     automatic: true
   agents:
     queue: 4x-gpu-v5111
-- label: ':pytest: Gloo Cluster PyTests (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0)'
+- label: ':pytest: Gloo Cluster PyTests (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1)'
   command: bash -c "HOROVOD_TEST_GPU=1 /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.static.xml test_static_run.py"
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.10.0:
-      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -71,14 +71,14 @@ steps:
     automatic: true
   agents:
     queue: 4x-gpu-v5111
-- label: ':pytest: MPI Parallel PyTests (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0)'
+- label: ':pytest: MPI Parallel PyTests (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1)'
   command: bash -c " HOROVOD_TEST_GPU=1 cd /horovod/test/parallel && (ls -1 test_*.py | xargs -n 1 \$(cat /mpirun_command) /bin/bash /pytest.sh mpi)"
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.10.0:
-      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -89,14 +89,14 @@ steps:
     automatic: true
   agents:
     queue: 4x-gpu-v5111
-- label: ':pytest: MPI Single PyTests (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0)'
+- label: ':pytest: MPI Single PyTests (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1)'
   command: bash -c " HOROVOD_TEST_GPU=1 cd /horovod/test/single && (ls -1 test_*.py | xargs -n 1 /bin/bash /pytest_standalone.sh mpi)"
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.10.0:
-      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -107,14 +107,14 @@ steps:
     automatic: true
   agents:
     queue: 4x-gpu-v5111
-- label: ':pytest: MPI Cluster PyTests (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0)'
+- label: ':pytest: MPI Cluster PyTests (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1)'
   command: bash -c " HOROVOD_TEST_GPU=1 /etc/init.d/ssh start && cd /horovod/test/integration && pytest --forked -v --capture=fd --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.static.xml test_static_run.py"
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.10.0:
-      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -126,14 +126,14 @@ steps:
   agents:
     queue: 4x-gpu-v5111
 - wait
-- label: ':tensorflow: Gloo TensorFlow 2.0 MNIST horovodrun (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0)'
+- label: ':tensorflow: Gloo TensorFlow 2.0 MNIST horovodrun (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.10.0:
-      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -144,14 +144,14 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v5111
-- label: ':tensorflow: Gloo TensorFlow 2.0 Keras MNIST horovodrun (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0)'
+- label: ':tensorflow: Gloo TensorFlow 2.0 Keras MNIST horovodrun (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.10.0:
-      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -162,14 +162,14 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v5111
-- label: ':tensorflow: Gloo TensorFlow 2.0 MNIST Elastic horovodrun (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0)'
+- label: ':tensorflow: Gloo TensorFlow 2.0 MNIST Elastic horovodrun (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1)'
   command: horovodrun -np 2 --min-np 2 --max-np 2 -H localhost:2,127.0.0.1:2 --gloo python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.10.0:
-      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -180,14 +180,14 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v5111
-- label: ':fire: Gloo PyTorch MNIST horovodrun (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0)'
+- label: ':fire: Gloo PyTorch MNIST horovodrun (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.10.0:
-      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -198,14 +198,14 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v5111
-- label: ':muscle: Gloo MXNet2 MNIST horovodrun (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0)'
+- label: ':muscle: Gloo MXNet2 MNIST horovodrun (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet2_mnist.py
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.10.0:
-      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -216,14 +216,14 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v5111
-- label: ':factory: Elastic Tests (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0)'
+- label: ':factory: Elastic Tests (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1)'
   command: bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow2.py"
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.10.0:
-      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -234,14 +234,14 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v5111
-- label: ':jupyter: Run PyTests test_interactiverun (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0)'
+- label: ':jupyter: Run PyTests test_interactiverun (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1)'
   command: bash -c "cd /horovod/test && pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.mpi.integration.xml integration/test_interactiverun.py"
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.10.0:
-      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -252,14 +252,14 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v5111
-- label: ':fire: MPI PyTorch MNIST horovodrun (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0)'
+- label: ':fire: MPI PyTorch MNIST horovodrun (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1)'
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.10.0:
-      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -270,14 +270,14 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v5111
-- label: ':muscle: MPI MXNet2 MNIST horovodrun (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0)'
+- label: ':muscle: MPI MXNet2 MNIST horovodrun (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1)'
   command: bash -c " OMP_NUM_THREADS=1 \$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet2_mnist.py"
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.10.0:
-      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -288,14 +288,14 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v5111
-- label: ':tensorflow: MPI TensorFlow 2.0 MNIST horovodrun (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0)'
+- label: ':tensorflow: MPI TensorFlow 2.0 MNIST horovodrun (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1)'
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.10.0:
-      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -306,14 +306,14 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v5111
-- label: ':tensorflow: MPI TensorFlow 2.0 Keras MNIST horovodrun (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0)'
+- label: ':tensorflow: MPI TensorFlow 2.0 Keras MNIST horovodrun (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1)'
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.10.0:
-      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -324,14 +324,14 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v5111
-- label: ':spark: Spark TensorFlow 2.0 MNIST Data Service (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0)'
+- label: ':spark: Spark TensorFlow 2.0 MNIST Data Service (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1)'
   command: bash -c "cd /horovod/examples/spark/tensorflow2; spark-submit --master \"local[2]\" \"/horovod/horovod/spark/tensorflow/compute_worker.py\" /tmp/compute.json & OMP_NUM_THREADS=1 /spark_env.sh spark-submit --master \"local[2]\" --py-files tensorflow2_mnist_data_service_train_fn_compute_side_dispatcher.py,tensorflow2_mnist_data_service_train_fn_training_side_dispatcher.py tensorflow2_mnist_data_service.py /tmp/compute.json"
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.10.0:
-      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -342,14 +342,14 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v5111
-- label: ':spark: Spark Torch MNIST (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0)'
+- label: ':spark: Spark Torch MNIST (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1)'
   command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.10.0:
-      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
@@ -360,14 +360,14 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v5111
-- label: ':spark: Spark Lightning MNIST (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0)'
+- label: ':spark: Spark Lightning MNIST (test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1)'
   command: bash -c "OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.10.0:
-      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_0
+      run: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3

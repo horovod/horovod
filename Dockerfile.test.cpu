@@ -61,9 +61,7 @@ RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python${PYTHON_VERSION/%.*/}
 RUN wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
 
-# pinning pip to 21.0.0 as 22.0.0 cannot fetch pytorch packages from html linl
-# https://github.com/pytorch/pytorch/issues/72045
-RUN pip install --no-cache-dir -U --force pip~=21.0.0 setuptools requests pytest mock pytest-forked parameterized
+RUN pip install --no-cache-dir -U --force requests pytest mock pytest-forked parameterized
 
 # Add launch helper scripts
 RUN echo "env SPARK_HOME=/spark SPARK_DRIVER_MEM=512m PYSPARK_PYTHON=/usr/bin/python${PYTHON_VERSION} PYSPARK_DRIVER_PYTHON=/usr/bin/python${PYTHON_VERSION} \"\$@\"" > /spark_env.sh
