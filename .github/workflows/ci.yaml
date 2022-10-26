@@ -115,15 +115,15 @@ jobs:
             if [[ -z "$changes" ]]
             then
               echo "No code changes, no need to build and test"
-              echo "::set-output name=needed::false"
+              echo "needed=false" >> $GITHUB_OUTPUT
             else
               echo "Code changes, we need to build and test:"
               echo "$changes"
-              echo "::set-output name=needed::true"
+              echo "needed=true" >> $GITHUB_OUTPUT
             fi
           else
             echo "This is not part of a pull request, we need to build and test"
-            echo "::set-output name=needed::true"
+            echo "needed=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Configure Buildkite Build
@@ -141,13 +141,13 @@ jobs:
             # we add this label to the branch used by Buildkite to avoid it cancelling one of concurrent schedule and push builds on master
             branch_label="${branch} (schedule)"
           fi
-          echo "::set-output name=branch-label::${branch_label}"
+          echo "branch-label=${branch_label}" >> $GITHUB_OUTPUT
 
           if [[ "${{ github.event_name }}" == "pull_request" ]]
           then
             head_sha="${{ github.event.pull_request.head.sha }}"
             message="$(gh api https://api.github.com/repos/horovod/horovod/commits/${head_sha} -q .commit.message | head -n1)"
-            echo "::set-output name=message::${message}"
+            echo "message=${message}" >> $GITHUB_OUTPUT
           fi
 
       - name: Provide PR meta
@@ -4684,7 +4684,7 @@ jobs:
 
           artifacts_path="$(pwd)/artifacts/${{ matrix.image }}-macos-run-1"
           mkdir -p "$artifacts_path"
-          echo "::set-output name=artifacts-path::$artifacts_path"
+          echo "artifacts-path=$artifacts_path" >> $GITHUB_OUTPUT
           echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=$artifacts_path/junit.\$1.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.\$2.xml \${@:2} > pytest.sh
           chmod u+x pytest.sh
 
@@ -4703,7 +4703,7 @@ jobs:
 
           artifacts_path="$(pwd)/artifacts/${{ matrix.image }}-macos-run-2"
           mkdir -p "$artifacts_path"
-          echo "::set-output name=artifacts-path::$artifacts_path"
+          echo "artifacts-path=$artifacts_path" >> $GITHUB_OUTPUT
           echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=$artifacts_path/junit.\$1.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.\$2.xml \${@:2} > pytest.sh
           chmod u+x pytest.sh
 
@@ -4722,7 +4722,7 @@ jobs:
 
           artifacts_path="$(pwd)/artifacts/${{ matrix.image }}-macos-run-3"
           mkdir -p "$artifacts_path"
-          echo "::set-output name=artifacts-path::$artifacts_path"
+          echo "artifacts-path=$artifacts_path" >> $GITHUB_OUTPUT
           echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=$artifacts_path/junit.\$1.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.\$2.xml \${@:2} > pytest.sh
           chmod u+x pytest.sh
 
@@ -4881,9 +4881,9 @@ jobs:
           echo Repository: ${{ github.repository }}
           echo Event: ${{ github.event_name }}
           echo Run: $run
-          echo "::set-output name=run::$run"
+          echo "run=$run" >> $GITHUB_OUTPUT
           echo Push: $push
-          echo "::set-output name=push::$push"
+          echo "push=$push" >> $GITHUB_OUTPUT
 
   docker-build:
     name: Build docker image ${{ matrix.docker-image }} (push=${{ needs.docker-config.outputs.push }})
