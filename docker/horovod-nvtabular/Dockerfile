@@ -74,9 +74,7 @@ RUN wget -q https://repo.continuum.io/miniconda/Miniconda3-py38_4.12.0-Linux-x86
     conda install -y -c nvidia -c rapidsai -c numba -c conda-forge nvtabular python=${PYTHON_VERSION} cudatoolkit=${CUDA_DOCKER_VERSION:0:4} && \
     conda clean --all
 
-# pinning pip to 21.0.0 as 22.0.0 cannot fetch pytorch packages from html linl
-# https://github.com/pytorch/pytorch/issues/72045
-RUN pip install --no-cache-dir -U --force pip~=21.0.0 "setuptools<60.1.0" requests pytest mock pytest-forked parameterized
+RUN pip install --no-cache-dir -U --force requests pytest mock pytest-forked parameterized
 
 # Add launch helper scripts
 RUN echo "env SPARK_HOME=/spark SPARK_DRIVER_MEM=512m PYSPARK_PYTHON=/usr/bin/python${PYTHON_VERSION} PYSPARK_DRIVER_PYTHON=/usr/bin/python${PYTHON_VERSION} \"\$@\"" > /spark_env.sh

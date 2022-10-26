@@ -71,12 +71,9 @@ RUN cat /etc/ssh/ssh_config | grep -v StrictHostKeyChecking > /etc/ssh/ssh_confi
 
 RUN ln -s /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 
-# pinning pip to 21.0.0 as 22.0.0 cannot fetch pytorch packages from html linl
-# https://github.com/pytorch/pytorch/issues/72045
 RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
     python get-pip.py && \
-    rm get-pip.py && \
-    pip install --no-cache-dir -U --force pip~=21.0.0
+    rm get-pip.py
 
 # Install PyTorch, TensorFlow, Keras and MXNet
 RUN pip install --no-cache-dir \
