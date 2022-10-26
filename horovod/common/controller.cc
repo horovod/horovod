@@ -878,7 +878,7 @@ int64_t SumPairwisePadded(const std::vector<int64_t>& vec1,
 void AddVectorToVector(std::vector<int64_t>& vec1,
                        const std::vector<int64_t>& vec2) {
   assert(vec1.size() == vec2.size());
-  for (std::size_t i = 0; i < vec1.size(); ++i) {
+  for (size_t i = 0; i < vec1.size(); ++i) {
     vec1[i] += vec2[i];
   }
 }

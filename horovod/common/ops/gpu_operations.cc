@@ -462,7 +462,7 @@ void GPUAllgather::MemcpyInFusionBuffer(
   buffer_data = const_cast<void*>(buffer->AccessData(first_entry.context));
   auto& process_set =
       global_state_->process_set_table.Get(first_entry.process_set_id);
-  // offset incorporates rank padding via displcmnts
+  // offset incorporates rank padding via displacements
   int64_t offset = (int64_t)displcmnts[process_set.controller->GetRank()] *
                    (int64_t)element_size;
 
