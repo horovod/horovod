@@ -21,6 +21,13 @@
 #include "../mpi/mpi_context.h"
 #endif
 
+#if HAVE_CUDA
+#include "cuda/cuda_kernels.h"
+#endif
+#if HAVE_ROCM
+#include "rocm/hip_kernels.h"
+#endif
+
 namespace horovod {
 namespace common {
 
@@ -903,8 +910,7 @@ Status NCCLBroadcast::Execute(std::vector<TensorTableEntry>& entries,
 
 Status NCCLAllgather::AllocateOutput(std::vector<TensorTableEntry>& entries,
                                    const Response& response,
-                                   int64_t**& entry_component_sizes,
-                                   int*& recvcounts) {
+                                   int64_t**& entry_component_sizes) {
   for (size_t ec = 0; ec < entries.size(); ++ec) {
     auto& e = entries[ec];
     auto& process_set = global_state_->process_set_table.Get(e.process_set_id);
@@ -924,10 +930,6 @@ Status NCCLAllgather::AllocateOutput(std::vector<TensorTableEntry>& entries,
     for (int rc = 0; rc < global_size; ++rc) {
       auto component_size = tensor_sizes[ec * global_size + rc];
       total_entry_dimension_size += component_size;
-
-      if (recvcounts) {
-        recvcounts[rc] += component_size * single_slice_shape.num_elements();
-      }
 
       if (entry_component_sizes) {
         entry_component_sizes[ec][rc] =
@@ -1008,7 +1010,7 @@ Status NCCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
 
   global_state_->timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
   Status status =
-      AllocateOutput(entries, response, entry_component_sizes, recvcounts);
+      AllocateOutput(entries, response, entry_component_sizes);
   if (!status.ok()) {
     for (size_t ec = 0; ec < entries.size(); ++ec) {
       delete[] entry_component_sizes[ec];
@@ -1022,11 +1024,18 @@ Status NCCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
   }
   global_state_->timeline.ActivityEndAll(entries);
 
-  SetDisplacements(recvcounts, displcmnts, global_size);
-  SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts,
-                           entry_component_offsets);
+  auto element_size = (int)DataType_Size(first_entry.tensor->dtype());
+  int padding_elements = 1;
+  if (entries.size() > 1) {
+    assert(BATCHED_D2D_PADDING % element_size == 0);
+    padding_elements = BATCHED_D2D_PADDING / element_size;
+  }
 
-  size_t element_size = DataType_Size(first_entry.tensor->dtype());
+  SetRecvcounts(entry_component_sizes, entries.size(), global_size, recvcounts,
+                padding_elements);
+  SetDisplacements(recvcounts, displcmnts, global_size);
+  SetEntryComponentOffsets(entry_component_sizes, recvcounts, entries.size(),
+                           global_size, entry_component_offsets);
 
   const void* fused_input_data;
   void* buffer_data;
@@ -1057,7 +1066,7 @@ Status NCCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
         break;
       }
     }
-    if (same_shape == false) {
+    if (!same_shape) {
       break;
     }
   }

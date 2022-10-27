@@ -147,7 +147,7 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
   }
 
   timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
-  Status status = AllocateOutput(entries, response, entry_component_sizes, recvcounts);
+  Status status = AllocateOutput(entries, response, entry_component_sizes);
   if (!status.ok()) {
     /* Cleanup */
     for (size_t ec = 0; ec < entries.size(); ++ec) {
@@ -162,8 +162,10 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
   }
   timeline.ActivityEndAll(entries);
 
+  SetRecvcounts(entry_component_sizes, entries.size(), global_size, recvcounts);
   SetDisplacements(recvcounts, displcmnts, global_size);
-  SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts, entry_component_offsets);
+  SetEntryComponentOffsets(entry_component_sizes, recvcounts, entries.size(),
+                           global_size, entry_component_offsets);
 
   int element_size = mpi_context.GetMPITypeSize(first_entry.tensor->dtype());
 
@@ -247,7 +249,7 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
   }
 
   timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
-  Status status = AllocateOutput(entries, response, entry_component_sizes, recvcounts);
+  Status status = AllocateOutput(entries, response, entry_component_sizes);
   if (!status.ok()) {
     /* Cleanup */
     for (size_t ec = 0; ec < entries.size(); ++ec) {
@@ -262,8 +264,10 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
   }
   timeline.ActivityEndAll(entries);
 
+  SetRecvcounts(entry_component_sizes, entries.size(), global_size, recvcounts);
   SetDisplacements(recvcounts, displcmnts, global_size);
-  SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts, entry_component_offsets);
+  SetEntryComponentOffsets(entry_component_sizes, recvcounts, entries.size(),
+                           global_size, entry_component_offsets);
 
   int element_size = mpi_context.GetMPITypeSize(first_entry.tensor->dtype());
 

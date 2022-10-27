@@ -32,11 +32,12 @@ namespace common {
 
 class MPIAllreduce : public AllreduceOp {
 public:
-  MPIAllreduce(HorovodGlobalState* global_state);
+  explicit MPIAllreduce(HorovodGlobalState* global_state);
 
-  virtual ~MPIAllreduce() = default;
+  ~MPIAllreduce() override = default;
 
-  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
 
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
@@ -45,9 +46,10 @@ public:
 
 class MPIAllgather : public AllgatherOp {
 public:
-  MPIAllgather(HorovodGlobalState* global_state);
+  explicit MPIAllgather(HorovodGlobalState* global_state);
 
-  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
 
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
@@ -56,9 +58,10 @@ public:
 
 class MPIHierarchicalAllgather : public MPIAllgather {
 public:
-  MPIHierarchicalAllgather(HorovodGlobalState* global_state);
+  explicit MPIHierarchicalAllgather(HorovodGlobalState* global_state);
 
-  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
 
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
@@ -70,9 +73,10 @@ private:
 
 class MPIBroadcast : public BroadcastOp {
 public:
-  MPIBroadcast(HorovodGlobalState* global_state);
+  explicit MPIBroadcast(HorovodGlobalState* global_state);
 
-  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
 
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
@@ -81,9 +85,10 @@ public:
 
 class MPIAlltoall : public AlltoallOp {
 public:
-  MPIAlltoall(HorovodGlobalState* global_state);
+  explicit MPIAlltoall(HorovodGlobalState* global_state);
 
-  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
 
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
@@ -92,7 +97,7 @@ public:
 
 class MPIReducescatter : public ReducescatterOp {
 public:
-  MPIReducescatter(HorovodGlobalState* global_state);
+  explicit MPIReducescatter(HorovodGlobalState* global_state);
 
   ~MPIReducescatter() override = default;
 

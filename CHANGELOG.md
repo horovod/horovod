@@ -10,11 +10,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Improved NCCL performance for fused allgather operations through padding for better memory alignment. ([#3727](https://github.com/horovod/horovod/pull/3727))
+- Improved look-ahead tensor fusion buffer size estimates when allgather and other operations are mixed. ([#3727](https://github.com/horovod/horovod/pull/3727))
+
 ### Deprecated
 
 ### Removed
 
 ### Fixed
+
+- Fixed memory leak in MPI_GPUAllgather. ([#3727](https://github.com/horovod/horovod/pull/3727))
 
 
 ## [v0.26.1] - 2022-10-14

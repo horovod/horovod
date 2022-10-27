@@ -382,9 +382,7 @@ Status CCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
   // shortcut for single rank
   if (global_state_->global_controller->GetSize() == 1) {
     int64_t** entry_component_sizes = nullptr;
-    int* recvcounts = nullptr;
-    status =
-        AllocateOutput(entries, response, entry_component_sizes, recvcounts);
+    status = AllocateOutput(entries, response, entry_component_sizes);
     return status.ok() ? cpyIn2Out(entries, this->ccl_context_->opctxt_)
                        : status;
   }
@@ -406,12 +404,14 @@ Status CCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
   }
 
   timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
-  status = AllocateOutput(entries, response, entry_component_sizes, recvcounts);
+  status = AllocateOutput(entries, response, entry_component_sizes);
   if (status.ok()) {
     timeline.ActivityEndAll(entries);
+    SetRecvcounts(entry_component_sizes, entries.size(), global_size,
+                  recvcounts);
     SetDisplacements(recvcounts, displcmnts, global_size);
-    SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts,
-                             entry_component_offsets);
+    SetEntryComponentOffsets(entry_component_sizes, recvcounts, entries.size(),
+                             global_size, entry_component_offsets);
 
     int element_size = global_state_->global_controller->GetTypeSize(
         first_entry.tensor->dtype());
