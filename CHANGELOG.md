@@ -16,6 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Fixed install with `--use-pep517` by specifying build-system dependencies. ([#3758](https://github.com/horovod/horovod/pull/3758))
+
 
 ## [v0.26.1] - 2022-10-14
 
