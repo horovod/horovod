@@ -36,6 +36,7 @@ if is_version_greater_equal_than(tf.__version__, "2.6.0"):
 else:
     from tensorflow.python.keras.optimizer_v2 import optimizer_v2
 
+import horovod.keras as hvd_keras
 import horovod.tensorflow.keras as hvd
 
 
@@ -523,7 +524,7 @@ class Tf2KerasTests(tf.test.TestCase):
         aggregation_counter = hvd_optimizer._agg_helper.counter.numpy()
         assert aggregation_counter == total_num_of_steps % backward_passes_per_step
 
-    def test_distributed_optimizer_with_local_vars(self):
+    def test_partial_distributed_optimizer(self):
         """ Note: test makes most sense with more than 1 nodes. """
         if hvd.size() == 1:
             self.skipTest("Only one worker available")
@@ -559,12 +560,8 @@ class Tf2KerasTests(tf.test.TestCase):
 
             # deem local layers
             local_layers = model.layers[:num_local_layers]
-            local_vars = [var for layer in local_layers for var in layer.trainable_weights]
 
-            opt = hvd.DistributedOptimizer(opt, sparse_as_dense=True)
-            # register local vars to the opt
-            for var in local_vars:
-                opt.register_local_var(var)
+            opt = hvd_keras.PartialDistributedOptimizer(opt, sparse_as_dense=True, local_layers=local_layers)
             gradients_vars_opt = opt._compute_gradients(l, model.trainable_weights, tape=tape)
 
             var_grad_tape = {var.ref():grad for var,grad in zip(model.trainable_weights, gradients_tape)}

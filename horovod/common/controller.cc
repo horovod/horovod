@@ -18,7 +18,6 @@
 #include "controller.h"
 
 #include <atomic>
-#include <map>
 #include <queue>
 #include <set>
 #include <unordered_set>
@@ -857,9 +856,43 @@ void Controller::CoordinateCacheAndState(CacheCoordinator& cache_coordinator) {
   }
 }
 
+namespace {
+int64_t SumPadded(const std::vector<int64_t>& vec, int padding) {
+  int64_t result = 0;
+  for (auto el : vec) {
+    result += padding * ((el + padding - 1) / padding);
+  }
+  return result;
+}
+
+int64_t SumPairwisePadded(const std::vector<int64_t>& vec1,
+                          const std::vector<int64_t>& vec2, int padding) {
+  int64_t result = 0;
+  assert(vec1.size() == vec2.size());
+  for (size_t i = 0; i < vec1.size(); ++i) {
+    result += padding * ((vec1[i] + vec2[i] + padding - 1) / padding);
+  }
+  return result;
+}
+
+void AddVectorToVector(std::vector<int64_t>& vec1,
+                       const std::vector<int64_t>& vec2) {
+  assert(vec1.size() == vec2.size());
+  for (size_t i = 0; i < vec1.size(); ++i) {
+    vec1[i] += vec2[i];
+  }
+}
+} // namespace
+
 void Controller::FuseResponses(std::deque<Response>& responses,
                                HorovodGlobalState& state,
                                ResponseList& response_list) {
+  // Avoid re-allocating these vectors inside loop
+  std::vector<int64_t> allgather_tensor_byte_sizes;
+  allgather_tensor_byte_sizes.reserve(GetSize());
+  std::vector<int64_t> allgather_new_tensor_byte_sizes;
+  allgather_new_tensor_byte_sizes.reserve(GetSize());
+
   while (!responses.empty()) {
 
     auto response = responses.front();
@@ -923,7 +956,21 @@ void Controller::FuseResponses(std::deque<Response>& responses,
           // sequence causing breakups in fusion. To counter this some look
           // ahead is allowed.
 
-          skipped_size += new_tensor_size;
+          if (new_response.response_type() ==
+              Response::ResponseType::ALLGATHER) {
+            // Allgather: Not counting padding for skipped_size estimate.
+            assert(new_response.tensor_names().size() == 1);
+            const auto& new_entry =
+                tensor_queue_.GetTensorEntry(new_response.tensor_names()[0]);
+            SetTensorByteSizesForAllgatheredTensors(
+                allgather_new_tensor_byte_sizes, new_response.tensor_sizes(),
+                new_entry);
+            skipped_size +=
+                std::accumulate(allgather_new_tensor_byte_sizes.begin(),
+                                allgather_new_tensor_byte_sizes.end(), 0LL);
+          } else {
+            skipped_size += new_tensor_size;
+          }
           if (tensor_size + skipped_size <= TensorFusionThresholdBytes()) {
             // Skip response and look ahead for more to fuse.
             skipped_responses.push_back(std::move(new_response));
@@ -944,9 +991,14 @@ void Controller::FuseResponses(std::deque<Response>& responses,
       const auto& entry =
           tensor_queue_.GetTensorEntry(response.tensor_names()[0]);
 
-      // This is size of first dimension.
-      int64_t total_byte_size_of_output =
-          TotalByteSizeOfAllgatherOutput(response.tensor_sizes(), entry);
+      int rankwise_padding_bytes = 1;
+#if HAVE_CUDA || HAVE_ROCM
+      // 16 byte pad for efficient allgather
+      rankwise_padding_bytes = BATCHED_D2D_PADDING;
+#endif
+      // response.tensor_sizes(): Size of first dimension for each rank.
+      SetTensorByteSizesForAllgatheredTensors(allgather_tensor_byte_sizes,
+                                              response.tensor_sizes(), entry);
 
       std::deque<Response> skipped_responses;
       int64_t skipped_size = 0;
@@ -961,17 +1013,20 @@ void Controller::FuseResponses(std::deque<Response>& responses,
         const auto& new_entry =
             tensor_queue_.GetTensorEntry(new_response.tensor_names()[0]);
 
-        int64_t new_total_byte_size_of_output = TotalByteSizeOfAllgatherOutput(
-            new_response.tensor_sizes(), new_entry);
+        SetTensorByteSizesForAllgatheredTensors(allgather_new_tensor_byte_sizes,
+                                                new_response.tensor_sizes(),
+                                                new_entry);
 
         if (response.response_type() == new_response.response_type() &&
             response.devices() == new_response.devices() &&
             entry.tensor->dtype() == new_entry.tensor->dtype() &&
-            total_byte_size_of_output + new_total_byte_size_of_output <=
-                TensorFusionThresholdBytes()) {
+            SumPairwisePadded(
+                allgather_tensor_byte_sizes, allgather_new_tensor_byte_sizes,
+                rankwise_padding_bytes) <= TensorFusionThresholdBytes()) {
 
           // These tensors will fuse together well.
-          total_byte_size_of_output += new_total_byte_size_of_output;
+          AddVectorToVector(allgather_tensor_byte_sizes,
+                            allgather_new_tensor_byte_sizes);
           response.add_allgather_response(new_response);
           responses.pop_front();
 
@@ -984,7 +1039,20 @@ void Controller::FuseResponses(std::deque<Response>& responses,
           // sequence causing breakups in fusion. To counter this some look
           // ahead is allowed.
 
-          skipped_size += new_total_byte_size_of_output;
+          auto total_byte_size_of_output =
+              SumPadded(allgather_tensor_byte_sizes, rankwise_padding_bytes);
+          // Not counting padding for skipped_size estimate.
+          if (new_response.response_type() ==
+              Response::ResponseType::ALLGATHER) {
+            skipped_size +=
+                std::accumulate(allgather_new_tensor_byte_sizes.begin(),
+                                allgather_new_tensor_byte_sizes.end(), 0LL);
+          } else {
+            skipped_size += new_response.tensor_sizes().empty()
+                                ? 0
+                                : new_response.tensor_sizes()[0] *
+                                      GetTypeSize(new_response.tensor_type());
+          }
           if (total_byte_size_of_output + skipped_size <=
               TensorFusionThresholdBytes()) {
             // Skip response and look ahead for more to fuse.
@@ -1008,26 +1076,22 @@ void Controller::FuseResponses(std::deque<Response>& responses,
   }
 }
 
-int64_t Controller::TotalByteSizeOfAllgatherOutput(
+void Controller::SetTensorByteSizesForAllgatheredTensors(
+    std::vector<int64_t>& tensor_byte_sizes,
     const std::vector<int64_t>& tensor_sizes, const TensorTableEntry& entry) {
-  int64_t total_dimension_size = 0;
-  for (auto sz : tensor_sizes) {
-    total_dimension_size += sz;
-  }
   // Every tensor participating in Allgather operation may have
   // different first dimension size, but the rest of dimensions are same
-  // for all tensors.  Here we get shape of tensor sliced by first
-  // dimension. Allgather output will have shape of: (sum of first
-  // dimension of every tensor) x (tensor slice shape).
-  int64_t total_count_of_output_entries = total_dimension_size;
+  // for all tensors.
+  int64_t outer_dimensions_factor = 1;
   for (int i = 1; i < entry.tensor->shape().dims(); ++i) {
-    total_count_of_output_entries *= entry.tensor->shape().dim_size(i);
+    outer_dimensions_factor *= entry.tensor->shape().dim_size(i);
   }
   int element_size = GetTypeSize(entry.tensor->dtype());
-  int64_t total_byte_size_of_output =
-      total_count_of_output_entries * element_size;
 
-  return total_byte_size_of_output;
+  tensor_byte_sizes.clear();
+  for (auto sz : tensor_sizes) {
+    tensor_byte_sizes.push_back(sz * outer_dimensions_factor * element_size);
+  }
 }
 
 int Controller::GetLocalSizeAtCrossRank(int i) {

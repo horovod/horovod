@@ -26,17 +26,19 @@ namespace common {
 class MPI_GPUAllreduce : public GPUAllreduce {
 public:
   MPI_GPUAllreduce(GPUContext* gpu_context, HorovodGlobalState* global_state);
-  virtual ~MPI_GPUAllreduce()=default;
+  ~MPI_GPUAllreduce() override = default;
 
-  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
 };
 
 class MPI_GPUAllgather : public GPUAllgather {
 public:
   MPI_GPUAllgather(GPUContext* gpu_context, HorovodGlobalState* global_state);
-  virtual ~MPI_GPUAllgather()=default;
+  ~MPI_GPUAllgather() override = default;
 
-  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
 };
 
 // TODO: Add MPI_GPUBroadcast implementation
@@ -44,9 +46,10 @@ public:
 class MPI_GPUAlltoall : public GPUAlltoall {
 public:
   MPI_GPUAlltoall(GPUContext* gpu_context, HorovodGlobalState* global_state);
-  virtual ~MPI_GPUAlltoall()=default;
+  ~MPI_GPUAlltoall() override = default;
 
-  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
 };
 
 class MPI_GPUReducescatter : public GPUReducescatter {

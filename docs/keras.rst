@@ -48,7 +48,7 @@ Horovod supports Keras and regular TensorFlow in similar ways. To use Horovod wi
 
    The distributed optimizer delegates gradient computation to the original optimizer, averages gradients using *allreduce* or *allgather*, and then applies those averaged gradients.
 
-   **Note:** For model parallel usecases there are local variables (layers) that their gradients need not to be synced (by allreduce or allgather). You can register those variables with the returned wrapper optimizer by calling its ``register_local_var()`` API.
+   **Note:** For model parallel usecases there are local variables (layers) that their gradients need not to be synced (by allreduce or allgather). You can register those variables with the returned wrapper optimizer by calling its register_local_var() API. Alternatively, you can use the ``horovod.keras.PartialDistributedOptimizer`` API and and pass the local layers to this API in order to register their local variables.
 
 .. raw:: html
 

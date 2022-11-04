@@ -296,8 +296,7 @@ public:
 protected:
   Status AllocateOutput(std::vector<TensorTableEntry>& entries,
                         const Response& response,
-                        int64_t**& entry_component_sizes,
-                        int*& recvcounts) override;
+                        int64_t**& entry_component_sizes) override;
 
   void WaitForData(std::vector<TensorTableEntry>& entries) override;
 
