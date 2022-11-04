@@ -1,3 +1,5 @@
 [build-system]
 requires = ["packaging", "setuptools"]
+build-backend = "backend"
+backend-path = ["_custom_build"]
 

@@ -28,7 +28,7 @@ import textwrap
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
 
-from horovod import __version__
+__version__ = "0.26.1"
 
 _FRAMEWORK_METADATA_FILE = 'horovod/metadata.json'
 
