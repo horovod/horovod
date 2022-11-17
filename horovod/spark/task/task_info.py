@@ -24,7 +24,7 @@ _info = TaskInfo()
 
 
 def get_available_devices():
-    if 'gpu' not in _info.resources or os.getenv('USE_DEFAULT_GPU_INDEX') == '1':
+    if 'gpu' not in _info.resources or os.getenv('HOROVOD_USE_DEFAULT_GPU_INDEX') == '1':
         return []
     return _info.resources['gpu'].addresses
 
