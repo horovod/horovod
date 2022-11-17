@@ -28,7 +28,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 from base_test_mxnet import *
 
 
-@pytest.mark.skipif(version.parse(mx.__version__) < version.parse('2.0.0'), reason='MXNet v2 tests')
+@pytest.mark.skipif(version.parse(mx.__version__).major != 2, reason='MXNet v2 tests')
 class MX2Tests(MXTests, unittest.TestCase):
     """
     Tests for ops in horovod.mxnet. This tests MXNet 2.x specifically.
