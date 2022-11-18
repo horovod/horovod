@@ -189,17 +189,34 @@ def train_model(args):
 
     callbacks = [MyDummyCallback()]
 
-    # added EarlyStopping and ModelCheckpoint
-    from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
-    callbacks.append(ModelCheckpoint(monitor='val_loss', mode="min",
-                                     save_top_k=1, verbose=True))
+    if version.parse(torch.__version__) < version.parse('1.13'):
+        """
+        torch.distributed.ReduceOp is used in ModelCheckpoint and EarlyStopping.
+        Since torch 1.13, it doesn't support condition check in Lightning code.
+        Broken line in lightning code (https://github.com/Lightning-AI/lightning/blob/master/src/pytorch_lightning/strategies/horovod.py#L179)
+        Below error will be thrown:
+        >>> from torch.distributed import ReduceOp
+        >>> op = None
+        >>> op in (ReduceOp.SUM, None)
+        Traceback (most recent call last):
+            File "<stdin>", line 1, in <module>
+            TypeError: __eq__(): incompatible function arguments. The following argument types are supported:
+            1. (self: torch._C._distributed_c10d.ReduceOp, arg0: c10d::ReduceOp::RedOpType) -> bool
+            2. (self: torch._C._distributed_c10d.ReduceOp, arg0: torch._C._distributed_c10d.ReduceOp) -> bool
 
-    from pytorch_lightning.callbacks.early_stopping import EarlyStopping
-    callbacks.append(EarlyStopping(monitor='val_loss',
-                                   min_delta=0.001,
-                                   patience=3,
-                                   verbose=True,
-                                   mode='min'))
+        Invoked with: <torch.distributed.distributed_c10d.ReduceOp object at 0x7fba78c9e0b0>, None
+        """
+        # ModelCheckpoint
+        from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
+        callbacks.append(ModelCheckpoint(monitor='val_loss', mode="min",
+                                         save_top_k=1, verbose=True))
+        # EarlyStopping
+        from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+        callbacks.append(EarlyStopping(monitor='val_loss',
+                                       min_delta=0.001,
+                                       patience=3,
+                                       verbose=True,
+                                       mode='min'))
 
     torch_estimator = hvd.TorchEstimator(backend=backend,
                                          store=store,
