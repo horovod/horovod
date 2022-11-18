@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased] - YYYY-MM-DD
 
 ### Added
+- Added `HOROVOD_USE_DEFAULT_GPU_INDEX` environment variable to support manually pin to default GPU index in spark estimators. ([#3737](https://github.com/horovod/horovod/pull/3737))
 
 ### Changed
 
