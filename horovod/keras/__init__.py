@@ -15,6 +15,8 @@
 
 import warnings
 
+from packaging import version
+
 import keras
 import keras.backend as K
 import tensorflow as tf
@@ -280,5 +282,8 @@ def load_model(filepath, custom_optimizers=None, custom_objects=None, compressio
     """
     def wrap_optimizer(cls):
         return lambda **kwargs: DistributedOptimizer(cls(**kwargs), compression=compression)
-    optimizer_modules = {keras.optimizers.Optimizer.__module__}
+    if version.parse(keras.__version__) < version.parse("2.11"):
+        optimizer_modules = {keras.optimizers.Optimizer.__module__}
+    else:
+        optimizer_modules = {keras.optimizers.legacy.Optimizer.__module__}
     return _impl.load_model(keras, wrap_optimizer, optimizer_modules, filepath, custom_optimizers, custom_objects)

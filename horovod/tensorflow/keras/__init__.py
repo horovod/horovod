@@ -16,6 +16,8 @@
 import inspect
 import warnings
 
+from packaging import version
+
 import tensorflow as tf
 
 from tensorflow import keras
@@ -47,8 +49,13 @@ from horovod.tensorflow.keras import callbacks, elastic
 try:
     # In later versions of TensorFlow, optimizers are spread across multiple modules. This set is used to distinguish
     # stock optimizers that come with tf.keras from custom optimizers that may need to be wrapped specially.
+    if version.parse(keras.__version__) < version.parse("2.11"):
+        optimizer_type = tf.keras.optimizers.Optimizer
+    else:
+        optimizer_type = keras.optimizers.legacy.Optimizer
+
     _OPTIMIZER_MODULES = set([obj.__module__ for name, obj in inspect.getmembers(tf.keras.optimizers)
-                              if isinstance(obj, type(tf.keras.optimizers.Optimizer))])
+                              if isinstance(obj, type(optimizer_type))])
 except:
     _OPTIMIZER_MODULES = set()
 
