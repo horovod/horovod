@@ -209,6 +209,10 @@ if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
 def get_package_version():
     return __version__ + "+" + os.environ['HOROVOD_LOCAL_VERSION'] if 'HOROVOD_LOCAL_VERSION' in os.environ else __version__
 
+# record local version in __init__.py
+if 'HOROVOD_LOCAL_VERSION' in os.environ:
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'horovod/__init__.py'), 'a') as f:
+        f.write("__local_version__ = '{}'".format(os.environ['HOROVOD_LOCAL_VERSION']))
 
 setup(name='horovod',
       version=get_package_version(),
