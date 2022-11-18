@@ -313,7 +313,7 @@ def _pin_gpu_tensorflow2_fn():
             tf.config.experimental.set_memory_growth(gpu, True)
         if gpus:
             tf.config.experimental.set_visible_devices(
-                gpus[_get_assigned_gpu_or_default(default=hvd.local_rank())], 'GPU')
+                gpus[_get_assigned_gpu_or_default(default=hvd.local_rank(), hvd=hvd)], 'GPU')
     return fn
 
 
@@ -322,7 +322,7 @@ def _pin_gpu_tensorflow1_fn():
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
         config.gpu_options.visible_device_list = \
-            str(_get_assigned_gpu_or_default(default=hvd.local_rank()))
+            str(_get_assigned_gpu_or_default(default=hvd.local_rank(), hvd=hvd))
         keras.backend.set_session(tf.Session(config=config))
     return fn
 
