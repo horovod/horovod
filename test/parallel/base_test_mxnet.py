@@ -1687,7 +1687,7 @@ class MXTests:
         g = mx.random.uniform(shape=shape, ctx=ctx, dtype=np.float32)
         
         # Update that is only averaged over even_set
-        if version.parse(mx.__version__) >= version.parse('2.0.0'):
+        if version.parse(mx.__version__).major >= 2:
             opt.update([0], [w], [g], [opt.create_state(0, w)])
         else:
             opt.update(0, w, g, opt.create_state(0, w))

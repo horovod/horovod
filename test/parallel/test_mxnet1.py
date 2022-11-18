@@ -35,7 +35,7 @@ else:
 
 
 @pytest.mark.skipif(not HAS_MXNET, reason='MXNet unavailable')
-@pytest.mark.skipif(version.parse(mx.__version__) >= version.parse('2.0.0'), reason='MXNet v1.x tests')
+@pytest.mark.skipif(version.parse(mx.__version__).major != 1, reason='MXNet v1.x tests')
 class MX1Tests(MXTests, unittest.TestCase):
     """
     Tests for ops in horovod.mxnet. This tests MXNet 1.x specifically.
