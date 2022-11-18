@@ -167,7 +167,7 @@ def main():
                '    runs-on: ubuntu-latest\n' \
                '    steps:\n' \
                '    - name: Upload\n' \
-               '      uses: actions/upload-artifact@v2\n' \
+               '      uses: actions/upload-artifact@v3\n' \
                '      with:\n' \
                '        name: Event File\n' \
                '        path: ${{ github.event_path }}\n' \
@@ -177,9 +177,9 @@ def main():
                '    runs-on: ubuntu-latest\n' \
                '    steps:\n' \
                '      - name: Checkout\n' \
-               '        uses: actions/checkout@v2\n' \
+               '        uses: actions/checkout@v3\n' \
                '      - name: Setup Python\n' \
-               '        uses: actions/setup-python@v2\n' \
+               '        uses: actions/setup-python@v4\n' \
                '        with:\n' \
                '          python-version: 3.8\n' \
                '      - name: Test setup.py\n' \
@@ -210,9 +210,9 @@ def main():
                 f'\n'
                 f'    steps:\n'
                 f'      - name: Checkout\n'
-                f'        uses: actions/checkout@v2\n'
+                f'        uses: actions/checkout@v3\n'
                 f'      - name: Setup Python\n'
-                f'        uses: actions/setup-python@v2\n'
+                f'        uses: actions/setup-python@v4\n'
                 f'        with:\n'
                 f'          python-version: 3.8\n'
                 f'      - name: Pip install dependencies\n'
@@ -287,7 +287,7 @@ def main():
                 f'          cat pr.json\n'
                 f'\n'
                 f'      - name: Upload PR meta\n'
-                f'        uses: actions/upload-artifact@v2\n'
+                f'        uses: actions/upload-artifact@v3\n'
                 f"        if: github.event_name == 'pull_request'\n"
                 f'        with:\n'
                 f'          name: PR Meta\n'
@@ -357,12 +357,12 @@ def main():
                 f'          echo ::endgroup::\n'
                 f'\n'
                 f'      - name: Checkout\n'
-                f'        uses: actions/checkout@v2\n'
+                f'        uses: actions/checkout@v3\n'
                 f'        with:\n'
                 f'          submodules: recursive\n'
                 f'\n'
                 f'      - name: Setup Python\n'
-                f'        uses: actions/setup-python@v2\n'
+                f'        uses: actions/setup-python@v4\n'
                 f'        with:\n'
                 f'          python-version: 3.8\n'
                 f'\n'
@@ -389,7 +389,7 @@ def main():
                            for attempt in range(1, attempts+1)]) +
                 f'\n'
                 f'      - name: Upload Test Results\n'
-                f'        uses: actions/upload-artifact@v2\n'
+                f'        uses: actions/upload-artifact@v3\n'
                 f'        if: always() && contains(matrix.image, \'-cpu-\')\n'
                 f'        with:\n'
                 f'          name: Unit Test Results - ${{{{ matrix.image }}}}\n'
@@ -446,7 +446,7 @@ def main():
                 f'\n'
                 f'    steps:\n'
                 f'      - name: Checkout\n'
-                f'        uses: actions/checkout@v2\n'
+                f'        uses: actions/checkout@v3\n'
                 f'        with:\n'
                 f'          submodules: recursive\n'
                 f'\n'
@@ -504,7 +504,7 @@ def main():
                            for attempt in range(1, attempts+1)]) +
                 f'\n'
                 f'      - name: Upload Test Results\n'
-                f'        uses: actions/upload-artifact@v2\n'
+                f'        uses: actions/upload-artifact@v3\n'
                 f'        if: always()\n'
                 f'        with:\n'
                 f'          name: Unit Test Results - ${{{{ matrix.image }}}}-macos\n'
@@ -557,7 +557,7 @@ def main():
                 f'          output_path: artifacts/Unit Test Results - {mode} on Builtkite\n'
                 f'\n'
                 f'      - name: Upload Test Results\n'
-                f'        uses: actions/upload-artifact@v2\n'
+                f'        uses: actions/upload-artifact@v3\n'
                 f'        if: always()\n'
                 f'        with:\n'
                 f'          name: Unit Test Results - {mode} on Builtkite\n'
@@ -637,7 +637,7 @@ def main():
                 f'\n'
                 f'    steps:\n'
                 f'      - name: Checkout\n'
-                f'        uses: actions/checkout@v2\n'
+                f'        uses: actions/checkout@v3\n'
                 f'        with:\n'
                 f'          submodules: \'recursive\'\n'
                 f'\n'
@@ -781,7 +781,7 @@ def main():
                 f'\n'
                 f'    steps:\n'
                 f'      - name: Checkout\n'
-                f'        uses: actions/checkout@v1\n'
+                f'        uses: actions/checkout@v3\n'
                 f'\n'
                 f'      - name: Diffing ${{{{ matrix.left_file }}}} with ${{{{ matrix.right_file }}}}\n'
                 f'        env:\n'

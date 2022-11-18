@@ -125,7 +125,7 @@ jobs:
           output_path: artifacts/Unit Test Results - GPU NON HEADS on Builtkite
 
       - name: Upload Test Results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: always()
         with:
           name: Unit Test Results - GPU NON HEADS on Builtkite
@@ -215,7 +215,7 @@ jobs:
           output_path: artifacts/Unit Test Results - GPU HEADS on Builtkite
 
       - name: Upload Test Results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: always()
         with:
           name: Unit Test Results - GPU HEADS on Builtkite
@@ -282,7 +282,7 @@ jobs:
           done
 
       - name: Download Buildkite Artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           path: artifacts
 
@@ -314,7 +314,7 @@ jobs:
           event_file: artifacts/Event File/event.json
           event_name: ${{ github.event.workflow_run.event }}
           commit: ${{ github.event.workflow_run.head_sha }}
-          files: "${{ env.LAST_RUNS }}"
+          junit_files: "${{ env.LAST_RUNS }}"
 
       - name: Publish Unit Test Results (with flaky tests)
         uses: EnricoMi/publish-unit-test-result-action@v2
@@ -324,5 +324,5 @@ jobs:
           event_file: artifacts/Event File/event.json
           event_name: ${{ github.event.workflow_run.event }}
           commit: ${{ github.event.workflow_run.head_sha }}
-          files: "artifacts/Unit Test Results */**/*.xml"
+          junit_files: "artifacts/Unit Test Results */**/*.xml"
           fail_on: errors
