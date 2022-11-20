@@ -354,8 +354,7 @@ for the spark task from which ``get_available_devices()`` is called.
 See `keras_spark3_rossmann.py <../examples/spark/keras/keras_spark3_rossmann.py>`__ for an example of using
 ``get_available_devices()`` with the Run API.
 
-In some cases, ``get_available_devices()`` may not return the correct list of GPUs if the GPUs resource are not configured correctly
-in the spark cluster. In this case, you can set environment variable ``HOROVOD_USE_DEFAULT_GPU_INDEX`` to ``1`` to use the default
-GPU index (local rank) for each task.
+In some cases, you may want to set the GPU index manually. You can set environment variable ``HOROVOD_USE_DEFAULT_GPU_INDEX`` to
+``1`` to use the default GPU index (local rank) for each task.
 
 .. inclusion-marker-end-do-not-remove
