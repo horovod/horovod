@@ -769,6 +769,9 @@ class SparkLightningTests(unittest.TestCase):
             self.skipTest('Spark PyTorch Lightning tests conflict with Tensorflow 2.5.x: '
                           'https://github.com/horovod/horovod/pull/3263')
 
+        if version.parse(torch.__version__) >= version.parse('1.13'):
+            self.skipTest('Torch 1.13+ fails EarlyStopping CB usage with Horovod.')
+
         from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
         with spark_session('test_fit_model') as spark:
