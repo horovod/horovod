@@ -254,9 +254,14 @@ def reducescatter(backend, value, name, op):
 
 
 def load_model(keras, wrap_optimizer, optimizer_modules, filepath, custom_optimizers, custom_objects):
+    if version.parse(keras.__version__) < version.parse("2.11"):
+        keras_subclasses = keras.optimizers.Optimizer.__subclasses__()
+    else:
+        keras_subclasses = keras.optimizers.legacy.Optimizer.__subclasses__()
+
     horovod_objects = {
         subclass.__name__.lower(): wrap_optimizer(subclass)
-        for subclass in keras.optimizers.Optimizer.__subclasses__()
+        for subclass in keras_subclasses
         if subclass.__module__ in optimizer_modules
     }
 
