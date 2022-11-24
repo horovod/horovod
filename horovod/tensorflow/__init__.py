@@ -625,7 +625,8 @@ if _LegacyOptimizer is not None:
                     rank=rank(),
                     optimizer_type=LocalGradientAggregationHelper._OPTIMIZER_TYPE_LEGACY,
                     process_set=process_set,
-                    scale_local_gradients=scale_local_gradients
+                    scale_local_gradients=scale_local_gradients,
+                    name=name,
                 )
 
         def register_local_var(self, var):
