@@ -251,7 +251,7 @@ jobs:
             Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-gloo-py3_8-tf2_11_0-keras2_11_0-torch1_13_0-mxnet1_9_1-pyspark3_2_2
+          - image: test-cpu-gloo-py3_8-tf2_11_0-keras2_11_0-torch1_13_0-mxnet1_9_1-pyspark3_2_3
             Elastic_Spark_TensorFlow_Tests_1: true
             Elastic_Spark_Torch_Tests: true
             Elastic_Tests_1: true

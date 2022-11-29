@@ -23,7 +23,7 @@ tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${B
   # we vary the baseline along the Python dimension and PySpark together
   # run_gloo_integration expects these to have Gloo mpi kind to run 'Elastic Spark * Tests'
   printf "test-cpu-gloo-py3_7-tf2_11_0-keras2_11_0-torch1_13_0-mxnet1_9_1-pyspark2_4_8 "
-  printf "test-cpu-gloo-py3_8-tf2_11_0-keras2_11_0-torch1_13_0-mxnet1_9_1-pyspark3_2_2 "
+  printf "test-cpu-gloo-py3_8-tf2_11_0-keras2_11_0-torch1_13_0-mxnet1_9_1-pyspark3_2_3 "
   # our baseline
   printf "$baseline "
 

@@ -125,13 +125,13 @@ services:
         PYTHON_VERSION: 3.7
         PYSPARK_PACKAGE: pyspark==2.4.8
         SPARK_PACKAGE: spark-2.4.8/spark-2.4.8-bin-hadoop2.7.tgz
-  test-cpu-gloo-py3_8-tf2_11_0-keras2_11_0-torch1_13_0-mxnet1_9_1-pyspark3_2_2:
+  test-cpu-gloo-py3_8-tf2_11_0-keras2_11_0-torch1_13_0-mxnet1_9_1-pyspark3_2_3:
     extends: test-cpu-base
     build:
       args:
         PYTHON_VERSION: 3.8
-        PYSPARK_PACKAGE: pyspark==3.2.2
-        SPARK_PACKAGE: spark-3.2.2/spark-3.2.2-bin-hadoop2.7.tgz
+        PYSPARK_PACKAGE: pyspark==3.2.3
+        SPARK_PACKAGE: spark-3.2.3/spark-3.2.3-bin-hadoop2.7.tgz
   # then our baseline again, omitted ...
 
   test-gpu-base:
