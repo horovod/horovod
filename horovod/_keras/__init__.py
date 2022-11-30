@@ -170,7 +170,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                                 if v_ref in self._local_vars and v2g[v_ref] is not None:
                                     grad = v2g[v_ref]
                                     if isinstance(grad, tf.IndexedSlices):
-                                        grad = tf.IndexedSlices(grad.values / hvd.size(), grad.indices, grad.dense_shape)
+                                        grad = tf.IndexedSlices(grad.values / horovod_size, grad.indices, grad.dense_shape)
                                     else:
                                         grad /= horovod_size
 
@@ -185,7 +185,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                                 if v in self._local_vars and v2g[v] is not None:
                                     grad = v2g[v]
                                     if isinstance(grad, tf.IndexedSlices):
-                                        grad = tf.IndexedSlices(grad.values / hvd.size(), grad.indices, grad.dense_shape)
+                                        grad = tf.IndexedSlices(grad.values / horovod_size, grad.indices, grad.dense_shape)
                                     else:
                                         grad /= horovod_size
 
