@@ -173,6 +173,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                                         grad = tf.IndexedSlices(grad.values / horovod_size, grad.indices, grad.dense_shape)
                                     else:
                                         grad /= horovod_size
+                                    v2g[v_ref] = grad
 
                         return [v2g[rv.ref()] for rv in vars]
                     else:
@@ -188,6 +189,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                                         grad = tf.IndexedSlices(grad.values / horovod_size, grad.indices, grad.dense_shape)
                                     else:
                                         grad /= horovod_size
+                                    v2g[v] = grad
 
                         return [v2g[rv] for rv in vars]
                 return __filtered_reduce_grads(grads, vars)
