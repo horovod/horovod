@@ -175,8 +175,8 @@ RUN if [[ ${PYTORCH_PACKAGE} != "torch-nightly" ]]; then \
         else \
             pip install --no-cache-dir "Pillow!=8.3.0" --no-deps; \
         fi; \
+        pip install ${PYTORCH_LIGHTNING_PACKAGE}; \
     fi
-RUN pip install ${PYTORCH_LIGHTNING_PACKAGE}
 
 
 # Install MXNet (releases).
@@ -215,6 +215,7 @@ RUN if [[ ${TENSORFLOW_PACKAGE} == "tf-nightly" ]]; then \
 RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
         pip install --no-cache-dir --pre torch ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html; \
         pip install --no-cache-dir "Pillow!=8.3.0" --no-deps; \
+        pip install ${PYTORCH_LIGHTNING_PACKAGE}; \
     fi
 
 # Install MXNet (nightly).
