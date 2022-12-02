@@ -83,9 +83,9 @@ class PetastormDataModule(DataModule):
 
     def __exit__(self, type, value, traceback):
         if self.has_val and self.val_reader:
-            self.val_reader.stop()
+            self.val_reader.__exit__(type, value, traceback)
         if self.train_reader:
-            self.train_reader.stop()
+            self.train_reader.__exit__(type, value, traceback)
         super().__exit__(type, value, traceback)
 
     @contextlib.contextmanager
