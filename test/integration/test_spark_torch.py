@@ -13,9 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
-import io
 import logging
 import os
+import pytest
 import sys
 import unittest
 import warnings
@@ -44,6 +44,11 @@ sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 from common import tempdir, spawn, is_built
 from spark_common import CallbackBackend, create_xor_data, create_xor_data_with_val, local_store, spark_session
 
+try:
+    import nvtabular
+    HAS_NVTABULAR=True
+except ImportError:
+    HAS_NVTABULAR=False
 
 class XOR(nn.Module):
     def __init__(self, input_dim, output_dim):
@@ -87,6 +92,44 @@ class SparkTorchTests(unittest.TestCase):
                     loss=loss,
                     input_shapes=[[2]],
                     feature_cols=['features'],
+                    label_cols=['y'],
+                    batch_size=1,
+                    epochs=3,
+                    random_seed=1,
+                    verbose=2,
+                    backward_passes_per_step=3,
+                    sample_weight_col='weight')
+
+                torch_model = torch_estimator.fit(df)
+
+                trained_model = torch_model.getModel()
+                pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
+                assert len(pred) == 1
+                assert pred.dtype == torch.float32
+
+    @pytest.mark.skipif(not HAS_NVTABULAR, reason='NVTabular unavailable')
+    def test_fit_model_nvtabular(self):
+        from horovod.spark.torch.datamodule import NVTabularDataModule
+
+        model = create_xor_model()
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+        loss = F.binary_cross_entropy
+
+        with spark_session('test_fit_model') as spark:
+            df = create_xor_data(spark)
+
+            with local_store() as store:
+                torch_estimator = hvd_spark.TorchEstimator(
+                    data_module=NVTabularDataModule,
+                    num_proc=1,
+                    store=store,
+                    model=model,
+                    optimizer=optimizer,
+                    loss=loss,
+                    input_shapes=[[2]],
+                    feature_cols=['features'],
+                    continuous_cols=['features'],
+                    categorical_cols=[],
                     label_cols=['y'],
                     batch_size=1,
                     epochs=3,

@@ -110,6 +110,7 @@ class NVTabularDataModule(DataModule):
         self.label_cols = label_cols
         self.categorical_cols = categorical_cols
         self.continuous_cols = continuous_cols
+        self.kwargs = kwargs
 
     @staticmethod
     def seed_fn():
@@ -141,8 +142,8 @@ class NVTabularDataModule(DataModule):
 
     def train_data(self):
         import horovod.tensorflow.keras as hvd
-        from nvtabular.loader.tensorflow import KerasSequenceLoader
-        return KerasSequenceLoader(self.train_dir,
+        from nvtabular.loader.tensorflow import KerasSequenceLoader, Dataset
+        return KerasSequenceLoader(Dataset(self.train_dir, engine="parquet", calculate_divisions=True, **self.kwargs),
                                    batch_size=self.train_batch_size,
                                    label_names=self.label_cols,
                                    cat_names=self.categorical_cols,
@@ -157,8 +158,8 @@ class NVTabularDataModule(DataModule):
 
     def val_data(self):
         import horovod.tensorflow.keras as hvd
-        from nvtabular.loader.tensorflow import KerasSequenceLoader
-        return KerasSequenceLoader(self.val_dir,
+        from nvtabular.loader.tensorflow import KerasSequenceLoader, Dataset
+        return KerasSequenceLoader(Dataset(self.train_dir, engine="parquet", calculate_divisions=True, **self.kwargs),
                                    batch_size=self.val_batch_size,
                                    label_names=self.label_cols,
                                    cat_names=self.categorical_cols,

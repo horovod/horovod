@@ -1,4 +1,5 @@
 # Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
+# Modifications copyright (C) 2022, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,6 +34,7 @@ from horovod.spark.common.params import EstimatorParams
 from horovod.spark.common.serialization import \
     HorovodParamsWriter, HorovodParamsReader
 from horovod.spark.torch import remote
+from horovod.spark.torch.datamodule import PetastormDataModule
 from horovod.spark.torch.util import deserialize_fn, serialize_fn, \
     save_into_bio
 
@@ -95,6 +97,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     Args:
         num_proc: Number of Horovod processes.  Defaults to `spark.default.parallelism`.
+        data_module: (Optional) DataModule class used for training and validation, if not set, defaults to the PetastormDataModule.
         model: PyTorch model to train.
         backend: Optional Backend object for running distributed training function. Defaults to SparkBackend with
                  `num_proc` worker processes. Cannot be specified if `num_proc` is also provided.
@@ -108,6 +111,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         gradient_compression: Gradient compression used by `hvd.DistributedOptimizer`.
         feature_cols: Column names used as feature inputs to the model. Must be a list with each feature
                       mapping to a sequential argument in the model's forward() function.
+        continuous_cols: Column names of all columns with continuous features.
+        categorical_cols: Column names of all columns with categorical features.
         input_shapes: List of shapes for each input tensor to the model.
         validation: Optional validation column name (string) where every row in the column is either 1/True or 0/False,
                     or validation split (float) giving percent of data to be randomly selected for validation.
@@ -156,6 +161,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                                   reducing and applying them. Defaults to 1.
     """
 
+    data_module = Param(Params._dummy(), 'data_module', 'data module class to use when reading data')
     input_shapes = Param(Params._dummy(), 'input_shapes', 'input layer shapes')
     loss_constructors = Param(Params._dummy(), 'loss_constructors',
                               'functions that construct the loss')
@@ -165,6 +171,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     @keyword_only
     def __init__(self,
                  num_proc=None,
+                 data_module=None,
                  model=None,
                  backend=None,
                  store=None,
@@ -176,6 +183,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  sample_weight_col=None,
                  gradient_compression=None,
                  feature_cols=None,
+                 continuous_cols=None,
+                 categorical_cols=None,
                  input_shapes=None,
                  validation=None,
                  label_cols=None,
@@ -203,7 +212,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  backward_passes_per_step=1):
 
         super(TorchEstimator, self).__init__()
-        self._setDefault(loss_constructors=None,
+        self._setDefault(data_module=PetastormDataModule,
+                         loss_constructors=None,
                          input_shapes=None,
                          train_minibatch_fn=None,
                          transformation_fn=None)
@@ -212,11 +222,17 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
         if EstimatorParams.loss.name in kwargs and TorchEstimator.loss_constructors.name in kwargs:
             raise ValueError("only one of loss_constructors and loss parameters can be specified.")
-        
+
         if backward_passes_per_step <= 0:
             raise ValueError("backward_passes_per_step must be > 0")
 
         self.setParams(**kwargs)
+
+    def setDataModule(self, value):
+        return self._set(data_module=value)
+
+    def getDataModule(self):
+        return self.getOrDefault(self.data_module)
 
     def setTrainMinibatchFn(self, value):
         return self._set(train_minibatch_fn=value)
@@ -294,8 +310,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def _load_checkpoint(self, run_id):
         store = self.getStore()
-        last_ckpt_path = os.path.join(store.get_checkpoint_path(run_id),store.get_checkpoint_filename())
-        
+        last_ckpt_path = os.path.join(store.get_checkpoint_path(run_id), store.get_checkpoint_filename())
+
         if not store.fs.exists(last_ckpt_path):
             return None
 
