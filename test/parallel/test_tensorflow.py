@@ -4200,7 +4200,7 @@ class TensorFlowTests(BaseTensorFlowTests):
 
         mp_model = DummyMPModel2Devices()
         optimizer = tf.keras.optimizers.SGD(learning_rate=1)
-        bce = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE, from_logits=True)
+        bce = tf.keras.losses.BinaryCrossentropy(from_logits=True)
         labels = tf.constant([1.])
 
         if rank == 0:
