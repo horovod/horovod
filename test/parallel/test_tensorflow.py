@@ -4198,15 +4198,27 @@ class TensorFlowTests(BaseTensorFlowTests):
         rank = hvd.rank()
         local_rank = hvd.local_rank()
 
-        mp_model = DummyMPModel2Devices()
-        optimizer = tf.keras.optimizers.SGD(learning_rate=1)
-        bce = tf.keras.losses.BinaryCrossentropy(from_logits=True)
-        labels = tf.constant(1., shape=[1, 1])
+        if tf.test.is_gpu_available(cuda_only=True):
+            with tf.device("/gpu:%d" % local_rank):
+                mp_model = DummyMPModel2Devices()
+                optimizer = tf.keras.optimizers.SGD(learning_rate=1.)
+                bce = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+                labels = tf.constant(1., shape=[1, 1])
 
-        if rank == 0:
-            dp_inputs = tf.constant([rank + 1, rank], dtype=tf.int64)
+                if rank == 0:
+                    dp_inputs = tf.constant([rank + 1, rank], dtype=tf.int64)
+                else:
+                    dp_inputs = tf.constant([rank + 2, rank + 3], dtype=tf.int64)
         else:
-            dp_inputs = tf.constant([rank + 2, rank + 3], dtype=tf.int64)
+            mp_model = DummyMPModel2Devices()
+            optimizer = tf.keras.optimizers.SGD(learning_rate=1.)
+            bce = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+            labels = tf.constant(1., shape=[1, 1])
+
+            if rank == 0:
+                dp_inputs = tf.constant([rank + 1, rank], dtype=tf.int64)
+            else:
+                dp_inputs = tf.constant([rank + 2, rank + 3], dtype=tf.int64)
 
         @tf.function
         def mp_train_step(inputs):
