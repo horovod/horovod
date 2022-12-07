@@ -4201,7 +4201,7 @@ class TensorFlowTests(BaseTensorFlowTests):
         mp_model = DummyMPModel2Devices()
         optimizer = tf.keras.optimizers.SGD(learning_rate=1)
         bce = tf.keras.losses.BinaryCrossentropy(from_logits=True)
-        labels = tf.constant([1.])
+        labels = tf.constant(1., shape=[1, 1])
 
         if rank == 0:
             dp_inputs = tf.constant([rank + 1, rank], dtype=tf.int64)
