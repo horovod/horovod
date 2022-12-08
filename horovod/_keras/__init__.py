@@ -254,7 +254,7 @@ def reducescatter(backend, value, name, op):
 
 
 def load_model(keras, wrap_optimizer, optimizer_modules, filepath, custom_optimizers, custom_objects):
-    if version.parse(keras.__version__) < version.parse("2.11"):
+    if version.parse(keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
         keras_subclasses = keras.optimizers.Optimizer.__subclasses__()
     else:
         keras_subclasses = keras.optimizers.legacy.Optimizer.__subclasses__()

@@ -282,7 +282,7 @@ def load_model(filepath, custom_optimizers=None, custom_objects=None, compressio
     """
     def wrap_optimizer(cls):
         return lambda **kwargs: DistributedOptimizer(cls(**kwargs), compression=compression)
-    if version.parse(keras.__version__) < version.parse("2.11"):
+    if version.parse(keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
         optimizer_modules = {keras.optimizers.Optimizer.__module__}
     else:
         optimizer_modules = {keras.optimizers.legacy.Optimizer.__module__}

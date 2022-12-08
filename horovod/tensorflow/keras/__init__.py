@@ -49,7 +49,7 @@ from horovod.tensorflow.keras import callbacks, elastic
 try:
     # In later versions of TensorFlow, optimizers are spread across multiple modules. This set is used to distinguish
     # stock optimizers that come with tf.keras from custom optimizers that may need to be wrapped specially.
-    if version.parse(keras.__version__) < version.parse("2.11"):
+    if version.parse(keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
         optimizer_type = tf.keras.optimizers.Optimizer
     else:
         optimizer_type = keras.optimizers.legacy.Optimizer

@@ -25,7 +25,7 @@ def serialize_bare_keras_optimizer(x):
     import keras
     from horovod.spark.keras.bare import save_bare_keras_optimizer
 
-    if version.parse(keras.__version__) < version.parse("2.11"):
+    if version.parse(keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
         optimizer_class = keras.optimizers.Optimizer
     else:
         optimizer_class = keras.optimizers.legacy.Optimizer
@@ -45,7 +45,7 @@ def serialize_tf_keras_optimizer(x):
     import tensorflow as tf
     from horovod.spark.keras.tensorflow import save_tf_keras_optimizer
 
-    if version.parse(tf.keras.__version__) < version.parse("2.11"):
+    if version.parse(tf.keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
         optimizer_class = tf.keras.optimizers.Optimizer
     else:
         optimizer_class = tf.keras.optimizers.legacy.Optimizer

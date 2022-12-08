@@ -230,7 +230,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
             if isinstance(optimizer, str):
                 pass
             else:
-                if version.parse(tf.keras.__version__) < version.parse("2.11"):
+                if version.parse(tf.keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
                     if not isinstance(optimizer, tf.keras.optimizers.Optimizer):
                         raise ValueError(f"optimizer has to be an instance of tensorflow.keras.optimizers.Optimizer before Keras 2.11: {type(optimizer).__name__}")
                 else:
