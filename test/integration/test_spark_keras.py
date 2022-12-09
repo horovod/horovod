@@ -80,7 +80,7 @@ def get_mock_fit_fn():
 
 
 def get_sgd_optimizer():
-    if version.parse(tf.keras.__version__) < version.parse("2.11"):
+    if version.parse(tf.keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
         optimizer = tf.keras.optimizers.SGD(lr=0.1)
     else:
         optimizer = tf.keras.optimizers.legacy.SGD(lr=0.1)
@@ -212,7 +212,7 @@ class SparkKerasTests(tf.test.TestCase):
 
     def test_fit_model_multiclass(self):
         model = create_mnist_model()
-        if version.parse(tf.keras.__version__) < version.parse("2.11"):
+        if version.parse(tf.keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
             optimizer = tf.keras.optimizers.Adadelta(1.0)
         else:
             optimizer = tf.keras.optimizers.legacy.Adadelta(1.0)
