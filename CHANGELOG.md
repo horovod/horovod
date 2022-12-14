@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - Fixed memory leak in MPI_GPUAllgather. ([#3727](https://github.com/horovod/horovod/pull/3727))
+- Handle tf.IndexedSlices types when scaling local gradients in TF. ([#3786](https://github.com/horovod/horovod/pull/3786))
 
 
 ## [v0.26.1] - 2022-10-14
