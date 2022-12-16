@@ -1,6 +1,7 @@
 [submodule "third_party/lbfgs"]
 	path = third_party/lbfgs
-	url = https://github.com/yixuan/LBFGSpp.git
+	#url = https://github.com/yixuan/LBFGSpp.git
+	url = git@gitent.corp.nuro.team:Nuro-ai/lbfgs.git
 [submodule "third_party/eigen"]
 	path = third_party/eigen
 	url = https://gitlab.com/cantonios/eigen.git
@@ -45,7 +46,8 @@
 	url = https://github.com/boostorg/predef.git
 [submodule "third_party/flatbuffers"]
 	path = third_party/flatbuffers
-	url = https://github.com/google/flatbuffers.git
+	#url = https://github.com/google/flatbuffers.git
+	url = git@gitent.corp.nuro.team:Nuro-ai/flatbuffers.git
 [submodule "third_party/gloo"]
 	path = third_party/gloo
 	url = https://github.com/facebookincubator/gloo.git
