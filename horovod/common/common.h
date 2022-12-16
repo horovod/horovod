@@ -340,7 +340,7 @@ public:
     if (output_index == 0) {
       return AllocateOutput(std::move(shape), tensor);
     } else {
-      throw std::logic_error("output_index != 0 not supported");
+      //throw std::logic_error("output_index != 0 not supported");
     }
   }
   virtual Status AllocateZeros(int64_t num_elements, DataType dtype,

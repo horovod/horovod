@@ -4,7 +4,10 @@
 #if HAVE_NVTX
 #include <memory>
 #include <nvtx3/nvToolsExt.h>
+#else
+#include <cstdint>
 #endif // HAVE_NVTX
+
 
 namespace horovod {
 namespace common {

@@ -102,8 +102,8 @@ namespace {
     return DT_DOUBLE;
   case common::HOROVOD_BOOL:
     return DT_BOOL;
-  default:
-    throw std::logic_error("Invalid data type.");
+  //default:
+    //throw std::logic_error("Invalid data type.");
   }
 }
 
@@ -253,7 +253,7 @@ TFPersistentBuffer::TFPersistentBuffer(OpKernelContext* context, int64_t size) {
   buffer_shape.AddDim(size);
   Status status = context->allocate_temp(DT_INT8, buffer_shape, tensor_.get());
   if (!status.ok()) {
-    throw status;
+    //throw status;
   }
 #if HAVE_GPU
   // On GPU allocation is asynchronous, we need to wait for it to
@@ -294,8 +294,8 @@ const common::DataType TFTensor::dtype() const {
     return common::HOROVOD_FLOAT64;
   case DT_BOOL:
     return common::HOROVOD_BOOL;
-  default:
-    throw std::logic_error("Invalid tensor type.");
+  //default:
+    //throw std::logic_error("Invalid tensor type.");
   }
 }
 
@@ -329,12 +329,12 @@ TFOpContext::TFOpContext(OpKernelContext* context) : context_(context) {}
 
 common::Status TFOpContext::AllocatePersistent(
     int64_t size, std::shared_ptr<common::PersistentBuffer>* tensor) {
-  try {
+ // try {
     *tensor = std::make_shared<TFPersistentBuffer>(context_, size);
     return common::Status::OK();
-  } catch (Status& status) {
-    return ConvertStatus(status);
-  }
+  //} catch (Status& status) {
+    //return ConvertStatus(status);
+  //}
 }
 
 common::Status

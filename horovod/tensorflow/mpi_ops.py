@@ -52,7 +52,8 @@ except Exception as e:
     check_installed_version('tensorflow', tf.__version__, e)
     raise e
 else:
-    check_installed_version('tensorflow', tf.__version__)
+    pass
+    #check_installed_version('tensorflow', tf.__version__)
 
 _basics = _HorovodBasics(__file__, 'mpi_lib')
 
