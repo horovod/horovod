@@ -22,6 +22,7 @@ cc_library(
     ],
     deps=[
         "@local_config_cuda//cuda:cuda_headers",
+	"@local_config_cuda//cuda"
     ],
     alwayslink = True,
     copts = [
@@ -30,8 +31,10 @@ cc_library(
         "-DGOOGLE_CUDA=1", 
         "-x cuda",
         "--cuda-gpu-arch=sm_62",
+        "--cuda-gpu-arch=sm_70",
         "--cuda-gpu-arch=sm_80",
         "-Ilocal_config_cuda/cuda/include",
+	"--cuda-path=external/local_config_cuda/cuda",
     ],
     linkopts = [],
     visibility = ["//visibility:public"],
