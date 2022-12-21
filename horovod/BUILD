@@ -31,6 +31,7 @@ cc_library(
         "-x cuda",
         "--cuda-gpu-arch=sm_62",
         "--cuda-gpu-arch=sm_80",
+        "-Ilocal_config_cuda/cuda/include",
     ],
     linkopts = [],
     visibility = ["//visibility:public"],
@@ -54,7 +55,8 @@ cc_library(
     ),
     copts = [
         "-Iexternal/mpi",
-        "-DHAVE_MPI=true"
+        "-DHAVE_MPI=true",
+        "-DHAVE_NCCL=true",
     ],
     deps = [
         "@eigen_archive//:eigen3",
@@ -107,7 +109,7 @@ cc_library(
     deps = [
         "@mpi//:mpi"
     ],
-    local_defines = ["HAVE_MPI"]
+    local_defines = ["HAVE_MPI", "HAVE_NCCL"]
 )
 
 cc_library(
@@ -178,7 +180,14 @@ cc_library(
         "@eigen_archive//:eigen3",
         "@local_config_nccl//:nccl",
     ],
-    local_defines = ["HAVE_MPI", "HAVE_CUDA", "HAVE_GPU"],
+    copts = ["-Inccl/src"],
+    local_defines = [
+        "HAVE_MPI",
+        "HAVE_CUDA",
+        "HAVE_GPU",
+        "HAVE_NCCL",
+        "HOROVOD_GPU_ALLREDUCE=N"
+    ],
     alwayslink = True
 )
 
@@ -230,12 +239,19 @@ cc_library(
         "@boost//:lockfree",
         "//third_party/flatbuffers",
         "@mpi//:mpi",
+        "@local_config_cuda//cuda:cuda_headers",
+        "@local_config_nccl//:nccl",
     ],
     copts = [
         "-Iexternal/eigen",
         "-Iexternal/mpi",
     ],
-    local_defines = ["HAVE_MPI"],
+    local_defines = [
+        "HAVE_MPI",
+        "HAVE_CUDA",
+        #"HAVE_NCCL",
+        #"HAVE_GPU"
+    ],
     alwayslink = True
 )
 
