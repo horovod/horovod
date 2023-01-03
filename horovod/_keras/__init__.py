@@ -168,7 +168,12 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                             # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
                             for v_ref in v2g:
                                 if v_ref in self._local_vars and v2g[v_ref] is not None:
-                                    v2g[v_ref] /= horovod_size
+                                    grad = v2g[v_ref]
+                                    if isinstance(grad, tf.IndexedSlices):
+                                        grad = tf.IndexedSlices(grad.values / horovod_size, grad.indices, grad.dense_shape)
+                                    else:
+                                        grad /= horovod_size
+                                    v2g[v_ref] = grad
 
                         return [v2g[rv.ref()] for rv in vars]
                     else:
@@ -179,7 +184,12 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                             # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
                             for v in v2g:
                                 if v in self._local_vars and v2g[v] is not None:
-                                    v2g[v] /= horovod_size
+                                    grad = v2g[v]
+                                    if isinstance(grad, tf.IndexedSlices):
+                                        grad = tf.IndexedSlices(grad.values / horovod_size, grad.indices, grad.dense_shape)
+                                    else:
+                                        grad /= horovod_size
+                                    v2g[v] = grad
 
                         return [v2g[rv] for rv in vars]
                 return __filtered_reduce_grads(grads, vars)

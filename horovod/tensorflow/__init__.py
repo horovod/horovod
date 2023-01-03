@@ -678,7 +678,12 @@ if _LegacyOptimizer is not None:
                             # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
                             for v_ref in v2g:
                                 if v_ref in self._local_vars and v2g[v_ref]:
-                                    v2g[v.ref()] /= horovod_size
+                                    grad = v2g[v_ref]
+                                    if isinstance(grad, tf.IndexedSlices):
+                                        grad = tf.IndexedSlices(grad.values / horovod_size, grad.indices, grad.dense_shape)
+                                    else:
+                                        grad /= horovod_size
+                                    v2g[v_ref] = grad
 
                         return [v2g[rv.ref()] for rv in vars]
                     else:
@@ -689,7 +694,12 @@ if _LegacyOptimizer is not None:
                             # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
                             for v in v2g:
                                 if v in self._local_vars and v2g[v]:
-                                    v2g[v] /= horovod_size
+                                    grad = v2g[v]
+                                    if isinstance(grad, tf.IndexedSlices):
+                                        grad = tf.IndexedSlices(grad.values / horovod_size, grad.indices, grad.dense_shape)
+                                    else:
+                                        grad /= horovod_size
+                                    v2g[v] = grad
 
                         return [v2g[rv] for rv in vars]
 
@@ -1013,7 +1023,12 @@ if hasattr(tf, 'GradientTape'):
                     # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
                     for s_ref in s2g:
                         if s_ref in self._local_sources and s2g[s_ref] is not None:
-                            s2g[s_ref] /= horovod_size
+                            grad = s2g[s_ref]
+                            if isinstance(grad, tf.IndexedSlices):
+                                grad = tf.IndexedSlices(grad.values / horovod_size, grad.indices, grad.dense_shape)
+                            else:
+                                grad /= horovod_size
+                            s2g[s_ref] = grad
 
                 return [s2g[s.ref()] for s in sources]
             else:
@@ -1024,7 +1039,12 @@ if hasattr(tf, 'GradientTape'):
                     # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
                     for s in s2g:
                         if s in self._local_sources and s2g[s] is not None:
-                            s2g[s] /= horovod_size
+                            grad = s2g[s]
+                            if isinstance(grad, tf.IndexedSlices):
+                                grad = tf.IndexedSlices(grad.values / horovod_size, grad.indices, grad.dense_shape)
+                            else:
+                                grad /= horovod_size
+                            s2g[s] = grad
 
                 return [s2g[s] for s in sources]
 

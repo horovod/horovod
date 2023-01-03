@@ -4169,7 +4169,77 @@ class TensorFlowTests(BaseTensorFlowTests):
                         # non-local gradients shouldn't be equal given that the initial weights are set to ranks
                         self.assertNotAllClose(grad, var_grad[var])
 
+    def test_model_parallel_model(self):
+        class DummyMPModel2Devices(tf.keras.Model):
+            def __init__(self):
+                # For demonstation purpose, only supports 2 way parallel
+                super().__init__()
+                if hvd.rank() == 0:
+                    self.embedding = tf.keras.layers.Embedding(7, 3, embeddings_initializer=tf.keras.initializers.Constant(1.))
+                else:
+                    self.embedding = tf.keras.layers.Embedding(9, 3, embeddings_initializer=tf.keras.initializers.Constant(2.))
+                self.concat = tf.keras.layers.Concatenate()
+                self.dense = tf.keras.layers.Dense(
+                    1, use_bias=False, kernel_initializer=tf.keras.initializers.Constant(1.))
 
+
+            def call(self, inputs):
+                x = self.embedding(inputs)
+                y = hvd.alltoall(x)
+                out = self.dense(tf.reshape(y, [1, 6]))
+                return out
+
+        tf.config.set_soft_device_placement(True)
+
+        hvd.init()
+        if hvd.size() != 2:
+            self.skipTest("Test requires 2 workers.")
+
+        rank = hvd.rank()
+        local_rank = hvd.local_rank()
+
+        if tf.test.is_gpu_available(cuda_only=True):
+            with tf.device("/gpu:%d" % local_rank):
+                mp_model = DummyMPModel2Devices()
+                optimizer = tf.keras.optimizers.SGD(learning_rate=1.)
+                bce = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+                labels = tf.constant(1., shape=[1, 1])
+
+                if rank == 0:
+                    dp_inputs = tf.constant([rank + 1, rank], dtype=tf.int64)
+                else:
+                    dp_inputs = tf.constant([rank + 2, rank + 3], dtype=tf.int64)
+        else:
+            mp_model = DummyMPModel2Devices()
+            optimizer = tf.keras.optimizers.SGD(learning_rate=1.)
+            bce = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+            labels = tf.constant(1., shape=[1, 1])
+
+            if rank == 0:
+                dp_inputs = tf.constant([rank + 1, rank], dtype=tf.int64)
+            else:
+                dp_inputs = tf.constant([rank + 2, rank + 3], dtype=tf.int64)
+
+        @tf.function
+        def mp_train_step(inputs):
+            with tf.GradientTape() as tape:
+                predictions = mp_model(inputs)
+                loss = tf.math.reduce_mean(bce(labels, predictions))
+            tape = hvd.DistributedGradientTape(tape)
+            tape.register_local_source(mp_model.embedding.weights[0])
+            gradients = tape.gradient(loss, mp_model.trainable_variables)
+            optimizer.apply_gradients(zip(gradients, mp_model.trainable_variables))
+            return loss
+
+        if tf.test.is_gpu_available(cuda_only=True):
+            with tf.device("/gpu:%d" % local_rank):
+                # "Transpose" input from data parallel to model parallel
+                mp_inputs = hvd.alltoall(dp_inputs)
+                mp_loss = mp_train_step(mp_inputs)
+        else:
+            # "Transpose" input from data parallel to model parallel
+            mp_inputs = hvd.alltoall(dp_inputs)
+            mp_loss = mp_train_step(mp_inputs)
 
 
 from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
