@@ -1261,6 +1261,12 @@ Status NCCLReducescatter::Execute(std::vector<TensorTableEntry>& entries,
                    process_set_rank * recvcounts[0] * element_size;
     // ncclReduceScatter() will be performed in place on the fusion buffer, cf.:
     // https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/inplace.html
+
+    if (global_state_->timeline.Initialized()) {
+      gpu_context_->RecordEvent(gpu_op_context_.event_queue,
+                                MEMCPY_IN_FUSION_BUFFER,
+                                *gpu_op_context_.stream);
+    }
   } else {
     fused_input_data = first_entry.tensor->data();
     buffer_data = (void*)first_entry.output->data();
