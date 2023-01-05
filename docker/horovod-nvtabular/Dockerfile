@@ -131,7 +131,7 @@ RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly-gpu" ]]; then \
         pip install --no-cache-dir ${TENSORFLOW_PACKAGE} "protobuf<4"; \
         if [[ ${KERAS_PACKAGE} != "None" ]]; then \
             pip uninstall -y keras; \
-            pip install --no-cache-dir ${KERAS_PACKAGE} "scipy!=1.4.0" "pandas<1.1.0"; \
+            pip install --no-cache-dir ${KERAS_PACKAGE} "scipy!=1.4.0" "pandas<1.1.0" "numpy<1.24.0"; \
         fi; \
         mkdir -p ~/.keras; \
         ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs; \
@@ -140,7 +140,7 @@ RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly-gpu" ]]; then \
     fi
 
 # Pin h5py < 3 for tensorflow: https://github.com/tensorflow/tensorflow/issues/44467
-RUN pip install 'h5py<3.0' --force-reinstall
+RUN pip install 'h5py<3.0' 'numpy<1.24.0' --force-reinstall
 
 # Install PyTorch (releases).
 # Pin Pillow<7.0 for torchvision < 0.5.0: https://github.com/pytorch/vision/issues/1718
@@ -157,7 +157,7 @@ RUN pip install ${PYTORCH_LIGHTNING_PACKAGE}
 
 # Install MXNet (releases).
 RUN if [[ ${MXNET_PACKAGE} != "mxnet-nightly-cu"* ]]; then \
-        pip install --no-cache-dir ${MXNET_PACKAGE} ; \
+        pip install --no-cache-dir ${MXNET_PACKAGE} "numpy<1.24.0"; \
     fi
 
 # Prefetch Spark MNIST dataset.
@@ -185,7 +185,7 @@ RUN if [[ ${TENSORFLOW_PACKAGE} == "tf-nightly-gpu" ]]; then \
         pip install --no-cache-dir ${TENSORFLOW_PACKAGE}; \
         if [[ ${KERAS_PACKAGE} != "None" ]]; then \
             pip uninstall -y keras-nightly; \
-            pip install --no-cache-dir ${KERAS_PACKAGE} "scipy!=1.4.0" "pandas<1.1.0"; \
+            pip install --no-cache-dir ${KERAS_PACKAGE} "scipy!=1.4.0" "pandas<1.1.0" "numpy<1.24.0"; \
         fi; \
         mkdir -p ~/.keras; \
         ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs; \
