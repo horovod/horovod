@@ -157,7 +157,7 @@ RUN pip install ${PYTORCH_LIGHTNING_PACKAGE}
 
 # Install MXNet (releases).
 RUN if [[ ${MXNET_PACKAGE} != "mxnet-nightly-cu"* ]]; then \
-        pip install --no-cache-dir ${MXNET_PACKAGE} ; \
+        pip install --no-cache-dir ${MXNET_PACKAGE} "numpy<1.24.0"; \
     fi
 
 # Prefetch Spark MNIST dataset.

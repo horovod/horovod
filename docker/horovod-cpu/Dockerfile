@@ -69,7 +69,7 @@ RUN pip install --no-cache-dir \
     keras \
     h5py
 
-RUN pip install --no-cache-dir mxnet==${MXNET_VERSION}
+RUN pip install --no-cache-dir mxnet==${MXNET_VERSION} "numpy<1.24.0"
 
 # Install Spark stand-alone cluster.
 RUN wget --progress=dot:giga "https://www.apache.org/dyn/closer.lua/spark/${SPARK_PACKAGE}?action=download" -O - | tar -xzC /tmp; \
