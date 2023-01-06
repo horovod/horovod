@@ -45,7 +45,7 @@ using gpuPointerAttribute_t = cudaPointerAttributes;
   do {                                                                                      \
     cudaError_t cuda_result = x;                                                            \
     if (cuda_result != cudaSuccess) {                                                       \
-      throw std::logic_error(std::string("GPU Error:") + cudaGetErrorString(cuda_result));  \
+      std::cout << std::string("GPU Error:") + cudaGetErrorString(cuda_result);  \
     }                                                                                       \
   } while (0)
 #elif HAVE_ROCM

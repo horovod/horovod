@@ -22,7 +22,7 @@ cc_library(
     ],
     deps=[
         "@local_config_cuda//cuda:cuda_headers",
-	"@local_config_cuda//cuda"
+	    "@local_config_cuda//cuda"
     ],
     alwayslink = True,
     copts = [
@@ -34,7 +34,7 @@ cc_library(
         "--cuda-gpu-arch=sm_70",
         "--cuda-gpu-arch=sm_80",
         "-Ilocal_config_cuda/cuda/include",
-	"--cuda-path=external/local_config_cuda/cuda",
+	    "--cuda-path=external/local_config_cuda/cuda",
     ],
     linkopts = [],
     visibility = ["//visibility:public"],
@@ -53,7 +53,9 @@ cc_library(
         ],
         exclude = [
             "common/ops/ddl_operations.h",
-            "common/mpi/ddl_mpi_context_manager.h"
+            "common/mpi/ddl_mpi_context_manager.h",
+            "common/ops/gpu_operations.h",
+            "common/ops/mpi_gpu_operations.h",
         ]
     ),
     copts = [
@@ -65,8 +67,10 @@ cc_library(
         "@eigen_archive//:eigen3",
         "@boost//:fiber",
         "@boost//:lockfree",
-        "@mpi//:mpi"
+        "@mpi//:mpi",
+        "@local_config_cuda//cuda:cuda_headers",
     ],
+    local_defines = ["HAVE_GPU", "HAVE_CUDA"],
     alwayslink = True
 )
 
@@ -112,7 +116,10 @@ cc_library(
     deps = [
         "@mpi//:mpi"
     ],
-    local_defines = ["HAVE_MPI", "HAVE_NCCL"]
+    local_defines = [
+        "HAVE_MPI",
+        "HAVE_NCCL"
+    ]
 )
 
 cc_library(
@@ -144,8 +151,9 @@ cc_library(
         "@boost//:lockfree",
         ":common_ops_optim",
         ":common_ops_utils",
+        "@local_config_cuda//cuda:cuda_headers",
     ],
-    local_defines = [],
+    local_defines = ["HAVE_GPU", "HAVE_CUDA"],
     alwayslink = True
 )
 
@@ -181,15 +189,14 @@ cc_library(
         ":common_ops_cuda_headers",
         "@mpi//:mpi",
         "@eigen_archive//:eigen3",
-        "@local_config_nccl//:nccl",
+        "@local_config_nccl//:include_hdrs",
+        "@local_config_nccl//:src_hdrs",
     ],
     copts = ["-Inccl/src"],
     local_defines = [
         "HAVE_MPI",
         "HAVE_CUDA",
         "HAVE_GPU",
-        "HAVE_NCCL",
-        "HOROVOD_GPU_ALLREDUCE=N"
     ],
     alwayslink = True
 )
@@ -224,7 +231,15 @@ tf_custom_op_library(
         "common/nvtx_op_range.h",
         "common/operations.h",
     ], 
-    copts = ["-DTENSORFLOW_VERSION=2009000000"],
+    copts = [
+        "-DTENSORFLOW_VERSION=2009000000",
+        "-DHOROVOD_GPU_ALLREDUCE=78",
+        "-DHOROVOD_GPU_BROADCAST=78",
+        "-DHOROVOD_GPU_ALLGATHER=78",
+        "-DHOROVOD_GPU_REDUCESCATTER=78",
+        "-DHOROVOD_GPU_ALLTOALL=78"
+    ],
+    local_defines = ["HAVE_GPU", "HAVE_CUDA"],
     deps = [
     ],
 )
@@ -248,12 +263,18 @@ cc_library(
     copts = [
         "-Iexternal/eigen",
         "-Iexternal/mpi",
+        "-Inccl/src",
     ],
     local_defines = [
         "HAVE_MPI",
         "HAVE_CUDA",
-        #"HAVE_NCCL",
-        #"HAVE_GPU"
+        "HAVE_NCCL",
+        "HAVE_GPU",
+        "HOROVOD_GPU_ALLREDUCE=78",
+        "-DHOROVOD_GPU_BROADCAST=78",
+        "-DHOROVOD_GPU_ALLGATHER=78",
+        "-DHOROVOD_GPU_REDUCESCATTER=78",
+        "-DHOROVOD_GPU_ALLTOALL=78"
     ],
     alwayslink = True
 )
@@ -269,7 +290,7 @@ tf_custom_op_library(
         "common/nvtx_op_range.h",
         "common/operations.h",
     ],
-    copts = ["-DTENSORFLOW_VERSION=2006000000"],
+    copts = ["-DTENSORFLOW_VERSION=2009000000"],
     deps = [
         ":common_ops_cuda",
         ":common_mpi",
@@ -280,7 +301,17 @@ tf_custom_op_library(
         #"@org_tensorflow//tensorflow/compiler/xla:xla_headers_lib",
         #"@org_tensorflow//tensorflow/compiler/xla/service:xla_service_headers_lib",
     ],
-    local_defines = ["EXT_SUFFIX"]
+    local_defines = [
+        "EXT_SUFFIX",
+        "HAVE_GPU",
+        "HAVE_CUDA",
+        "HAVE_NCCL",
+        "HOROVOD_GPU_ALLREDUCE=78",
+        "-DHOROVOD_GPU_BROADCAST=78",
+        "-DHOROVOD_GPU_ALLGATHER=78",
+        "-DHOROVOD_GPU_REDUCESCATTER=78",
+        "-DHOROVOD_GPU_ALLTOALL=78"
+    ]
 )
 
 
