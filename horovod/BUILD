@@ -271,10 +271,10 @@ cc_library(
         "HAVE_NCCL",
         "HAVE_GPU",
         "HOROVOD_GPU_ALLREDUCE=78",
-        "-DHOROVOD_GPU_BROADCAST=78",
-        "-DHOROVOD_GPU_ALLGATHER=78",
-        "-DHOROVOD_GPU_REDUCESCATTER=78",
-        "-DHOROVOD_GPU_ALLTOALL=78"
+        "HOROVOD_GPU_BROADCAST=78",
+        "HOROVOD_GPU_ALLGATHER=78",
+        "HOROVOD_GPU_REDUCESCATTER=78",
+        "HOROVOD_GPU_ALLTOALL=78"
     ],
     alwayslink = True
 )
@@ -307,10 +307,10 @@ tf_custom_op_library(
         "HAVE_CUDA",
         "HAVE_NCCL",
         "HOROVOD_GPU_ALLREDUCE=78",
-        "-DHOROVOD_GPU_BROADCAST=78",
-        "-DHOROVOD_GPU_ALLGATHER=78",
-        "-DHOROVOD_GPU_REDUCESCATTER=78",
-        "-DHOROVOD_GPU_ALLTOALL=78"
+        "HOROVOD_GPU_BROADCAST=78",
+        "HOROVOD_GPU_ALLGATHER=78",
+        "HOROVOD_GPU_REDUCESCATTER=78",
+        "HOROVOD_GPU_ALLTOALL=78"
     ]
 )
 
