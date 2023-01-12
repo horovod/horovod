@@ -270,19 +270,20 @@ def grouped_allreduce(tensors, average=None, device_dense='', device_sparse='',
                                       'workaround please pass sparse_as_dense=True to DistributedOptimizer')
         with tf.device(device_sparse):
             new_values = []
+            new_indices = []
             for tensor in tensors:
                 # For IndexedSlices, do two allgathers instead of an allreduce.
                 horovod_size = tf.cast(size_op(process_set_id=process_set.process_set_id)
                                        if int(os.environ.get("HOROVOD_ELASTIC", 0)) else process_set.size(),
                                        dtype=tensor.values.dtype)
                 values = allgather(tensor.values, process_set=process_set, ignore_name_scope=ignore_name_scope)
-                indices = allgather(tensor.indices, process_set=process_set, ignore_name_scope=ignore_name_scope)
+                new_indices += allgather(tensor.indices, process_set=process_set, ignore_name_scope=ignore_name_scope)
 
                 # To make this operation into an average, divide allgathered values by
                 # the Horovod size.
                 new_values += (values / horovod_size) if op == Average else values
-        return [tf.IndexedSlices(x, indices,
-                                 dense_shape=t.dense_shape) for x,t in zip(new_values, tensors)]
+        return [tf.IndexedSlices(x, i,
+                                 dense_shape=t.dense_shape) for x,i,t in zip(new_values, new_indices, tensors)]
     else:
         with tf.device(device_dense):
             tensors_compressed, ctxs = zip(*[compression.compress(tensor) for tensor in tensors])
