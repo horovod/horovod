@@ -763,20 +763,20 @@ def to_list(var, length):
     return var
 
 
-def _get_assigned_gpu_or_default(local_rank, local_size):
+def _get_assigned_gpu_or_default(default, hvd=None):
     from horovod.spark.task import get_available_devices
     available_devices = get_available_devices()
     if available_devices:
-        if len(available_devices) >= local_size:
+        if hvd and len(available_devices) >= hvd.local_size():
             # if GPU-aware scheduling is available, pin to one of the assigned GPUs
             # pin to GPU based on local rank index
-            return int(available_devices[local_rank])
+            return int(available_devices[hvd.local_rank()])
         else:
             # pin to first assigned GPU
             return int(available_devices[0])
     else:
         # pin to default GPU index (local rank)
-        return local_rank
+        return default
 
 
 def is_databricks():
