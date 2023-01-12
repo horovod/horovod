@@ -222,7 +222,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             if cuda_available:
                 # Horovod: pin GPU to local rank or the assigned GPU from spark.
-                torch.cuda.set_device(_get_assigned_gpu_or_default(default=hvd.local_rank(), hvd=hvd))
+                torch.cuda.set_device(_get_assigned_gpu_or_default(default=hvd.local_rank()))
                 # Move model to GPU.
                 model.cuda()
 
