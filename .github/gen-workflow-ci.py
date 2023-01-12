@@ -405,7 +405,7 @@ def main():
                 f'    if: >\n'
                 f"      needs.init-workflow.outputs.run-at-all == 'true' &&\n"
                 f"      needs.init-workflow.outputs.run-builds-and-tests == 'true'\n"
-                f'    runs-on: macos-latest\n'
+                f'    runs-on: macos-11\n'
                 f'\n'
                 f'    strategy:\n'
                 f'      max-parallel: 3\n'
