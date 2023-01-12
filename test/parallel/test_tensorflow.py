@@ -126,7 +126,7 @@ class TensorFlowTests(BaseTensorFlowTests):
                 minval = -maxval if dtype not in [tf.uint8] else 0
                 tensor = self.random_uniform([17] * dim, minval, maxval)
                 tensor = tf.cast(tensor, dtype=dtype)
-                summed = hvd.allreduce(tensor, average=False)
+                summed = hvd.allreduce(tensor, op=hvd.Sum)
             multiplied = tensor * size
             difference = summed - multiplied
             difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
@@ -158,7 +158,7 @@ class TensorFlowTests(BaseTensorFlowTests):
                 minval = -maxval if dtype not in [tf.uint8] else 0
                 tensor = self.random_uniform([17] * dim, minval, maxval)
                 tensor = tf.cast(tensor, dtype=dtype)
-                averaged = hvd.allreduce(tensor, average=True)
+                averaged = hvd.allreduce(tensor, op=hvd.Average)
             # handle int8, uint8 overflows when allreduce sums up and averages the values
             tensor = tf.cast((tensor*size)/size, dtype=dtype)
             difference = tf.cast(averaged, dtype=dtype) - tensor
@@ -269,7 +269,7 @@ class TensorFlowTests(BaseTensorFlowTests):
                 minval = -maxval if dtype not in [tf.uint8] else 0
                 tensor = self.random_uniform([17] * dim, minval, maxval)
                 tensor = tf.cast(tensor, dtype=dtype)
-                summed = hvd.allreduce(tensor, average=False)
+                summed = hvd.allreduce(tensor, op=hvd.Sum)
             multiplied = tensor * size
             difference = summed - multiplied
             difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
@@ -310,7 +310,7 @@ class TensorFlowTests(BaseTensorFlowTests):
                 minval = -maxval if dtype not in [tf.uint8] else 0
                 tensor = self.random_uniform([17] * dim, minval, maxval)
                 tensor = tf.cast(tensor, dtype=dtype)
-                summed = hvd.allreduce(tensor, average=False,
+                summed = hvd.allreduce(tensor, op=hvd.Sum,
                                        prescale_factor=factor)
 
                 # Scaling done in FP64 math for integer types, FP32 math for FP16 on CPU
@@ -354,7 +354,7 @@ class TensorFlowTests(BaseTensorFlowTests):
                 minval = -maxval if dtype not in [tf.uint8] else 0
                 tensor = self.random_uniform([17] * dim, minval, maxval)
                 tensor = tf.cast(tensor, dtype=dtype)
-                summed = hvd.allreduce(tensor, average=False,
+                summed = hvd.allreduce(tensor, op=hvd.Sum,
                                        postscale_factor=factor)
 
                 multiplied = tensor * size
@@ -636,7 +636,7 @@ class TensorFlowTests(BaseTensorFlowTests):
                 minval = -maxval if dtype not in [tf.uint8] else 0
                 tensor = self.random_uniform([17] * dim, minval, maxval)
                 tensor = tf.cast(tensor, dtype=dtype)
-                summed = hvd.allreduce(tensor, average=False)
+                summed = hvd.allreduce(tensor, op=hvd.Sum)
             multiplied = tensor * size
             difference = summed - multiplied
             difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
@@ -678,7 +678,7 @@ class TensorFlowTests(BaseTensorFlowTests):
                 minval = -maxval if dtype not in [tf.uint8] else 0
                 tensor = self.random_uniform([17] * dim, minval, maxval)
                 tensor = tf.cast(tensor, dtype=dtype)
-                averaged = hvd.allreduce(tensor, average=True)
+                averaged = hvd.allreduce(tensor, op=hvd.Average)
             # handle int8, uint8 overflows when allreduce sums up and averages the values
             tensor = tf.cast((tensor*size)/size, dtype=dtype)
             difference = tf.cast(averaged, dtype=dtype) - tensor
@@ -829,7 +829,7 @@ class TensorFlowTests(BaseTensorFlowTests):
                 minval = -maxval if dtype not in [tf.uint8] else 0
                 tensor = self.random_uniform([17] * dim, minval, maxval)
                 tensor = tf.cast(tensor, dtype=dtype)
-                summed = hvd.allreduce(tensor, average=False)
+                summed = hvd.allreduce(tensor, op=hvd.Sum)
             multiplied = tensor * size
             difference = summed - multiplied
             difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
@@ -885,7 +885,7 @@ class TensorFlowTests(BaseTensorFlowTests):
                 minval = -maxval if dtype not in [tf.uint8] else 0
                 tensor = self.random_uniform([17] * dim, minval, maxval)
                 tensor = tf.cast(tensor, dtype=dtype)
-                summed = hvd.allreduce(tensor, average=False)
+                summed = hvd.allreduce(tensor, op=hvd.Sum)
             multiplied = tensor * size
             difference = summed - multiplied
             difference = tf.cast(difference, tf.int32) if dtype == tf.uint8 else difference
@@ -932,7 +932,7 @@ class TensorFlowTests(BaseTensorFlowTests):
                 minval = -maxval if dtype not in [tf.uint8] else 0
                 tensor = self.random_uniform([17] * dim, minval, maxval)
                 tensor = tf.cast(tensor, dtype=dtype)
-                summed = hvd.allreduce(tensor, average=False,
+                summed = hvd.allreduce(tensor, op=hvd.Sum,
                                        prescale_factor=factor)
 
                 # Scaling done in FP64 math for integer types.
@@ -983,7 +983,7 @@ class TensorFlowTests(BaseTensorFlowTests):
                 minval = -maxval if dtype not in [tf.uint8] else 0
                 tensor = self.random_uniform([17] * dim, minval, maxval)
                 tensor = tf.cast(tensor, dtype=dtype)
-                summed = hvd.allreduce(tensor, average=False,
+                summed = hvd.allreduce(tensor, op=hvd.Sum,
                                        postscale_factor=factor)
 
                 multiplied = tensor * size
@@ -1096,11 +1096,11 @@ class TensorFlowTests(BaseTensorFlowTests):
                     tensor = self.tfe.Variable(self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype))
                     with tf.GradientTape() as tape:
-                        summed = hvd.allreduce(tensor, average=False)
+                        summed = hvd.allreduce(tensor, op=hvd.Sum)
                 else:
                     tensor = self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype)
-                    summed = hvd.allreduce(tensor, average=False)
+                    summed = hvd.allreduce(tensor, op=hvd.Sum)
 
                 grad_ys = tf.ones([5] * dim)
                 if _executing_eagerly():
@@ -1130,11 +1130,11 @@ class TensorFlowTests(BaseTensorFlowTests):
                     tensor = self.tfe.Variable(self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype))
                     with tf.GradientTape() as tape:
-                        averaged = hvd.allreduce(tensor, average=True)
+                        averaged = hvd.allreduce(tensor, op=hvd.Average)
                 else:
                     tensor = self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype)
-                    averaged = hvd.allreduce(tensor, average=True)
+                    averaged = hvd.allreduce(tensor, op=hvd.Average)
 
                 grad_ys = tf.ones([5] * dim, dtype=dtype)
                 if _executing_eagerly():
@@ -1173,10 +1173,10 @@ class TensorFlowTests(BaseTensorFlowTests):
                     tensor = self.tfe.Variable(
                         self.random_uniform([5] * dim, -100, 100, dtype=dtype))
                     with tf.GradientTape() as tape:
-                        summed = hvd.allreduce(tensor, average=False)
+                        summed = hvd.allreduce(tensor, op=hvd.Sum)
                 else:
                     tensor = self.random_uniform([5] * dim, -100, 100, dtype=dtype)
-                    summed = hvd.allreduce(tensor, average=False)
+                    summed = hvd.allreduce(tensor, op=hvd.Sum)
 
                 grad_ys = tf.ones([5] * dim)
                 if _executing_eagerly():
@@ -1215,10 +1215,10 @@ class TensorFlowTests(BaseTensorFlowTests):
                     tensor = self.tfe.Variable(
                         self.random_uniform([5] * dim, -100, 100, dtype=dtype))
                     with tf.GradientTape() as tape:
-                        averaged = hvd.allreduce(tensor, average=True)
+                        averaged = hvd.allreduce(tensor, op=hvd.Average)
                 else:
                     tensor = self.random_uniform([5] * dim, -100, 100, dtype=dtype)
-                    averaged = hvd.allreduce(tensor, average=True)
+                    averaged = hvd.allreduce(tensor, op=hvd.Average)
 
                 grad_ys = tf.ones([5] * dim, dtype=dtype)
                 if _executing_eagerly():
@@ -1245,7 +1245,7 @@ class TensorFlowTests(BaseTensorFlowTests):
                 minval = -maxval if dtype not in [tf.uint8] else 0
                 tensors = [tf.cast(self.random_uniform(
                     [17] * dim, minval, maxval), dtype=dtype) for _ in range(5)]
-                summed = hvd.grouped_allreduce(tensors, average=False)
+                summed = hvd.grouped_allreduce(tensors, op=hvd.Sum)
             multiplied = [tensor * size for tensor in tensors]
             differences = [t1 - t2 for t1, t2 in zip(summed, multiplied)]
             differences = [tf.cast(diff, tf.int32) if dtype == tf.uint8 else diff for diff in differences]
@@ -1657,7 +1657,7 @@ class TensorFlowTests(BaseTensorFlowTests):
                 minval = -maxval if dtype not in [tf.uint8] else 0
                 tensors = [tf.cast(self.random_uniform(
                     [17] * dim, minval, maxval), dtype=dtype) for _ in range(5)]
-                summed = hvd.grouped_allreduce(tensors, average=False)
+                summed = hvd.grouped_allreduce(tensors, op=hvd.Sum)
             multiplied = [tensor * size for tensor in tensors]
             differences = [t1 - t2 for t1, t2 in zip(summed, multiplied)]
             differences = [tf.cast(diff, tf.int32) if dtype == tf.uint8 else diff for diff in differences]
@@ -2091,11 +2091,11 @@ class TensorFlowTests(BaseTensorFlowTests):
                     tensors = [self.tfe.Variable(self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype)) for _ in range(5)]
                     with tf.GradientTape(persistent=True) as tape:
-                        summed = hvd.grouped_allreduce(tensors, average=False)
+                        summed = hvd.grouped_allreduce(tensors, op=hvd.Sum)
                 else:
                     tensors = [self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype) for _ in range(5)]
-                    summed = hvd.grouped_allreduce(tensors, average=False)
+                    summed = hvd.grouped_allreduce(tensors, op=hvd.Sum)
 
                 grads_ys = [tf.ones([5] * dim, dtype=dtype) for _ in range(5)]
                 if _executing_eagerly():
@@ -2135,11 +2135,11 @@ class TensorFlowTests(BaseTensorFlowTests):
                     tensors = [self.tfe.Variable(self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype)) for _ in range(5)]
                     with tf.GradientTape(persistent=True) as tape:
-                        summed = hvd.grouped_allreduce(tensors, average=False)
+                        summed = hvd.grouped_allreduce(tensors, op=hvd.Sum)
                 else:
                     tensors = [self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype) for _ in range(5)]
-                    summed = hvd.grouped_allreduce(tensors, average=False)
+                    summed = hvd.grouped_allreduce(tensors, op=hvd.Sum)
 
                 grads_ys = [tf.ones([5] * dim, dtype=dtype) for _ in range(5)]
                 if _executing_eagerly():
@@ -4055,7 +4055,7 @@ class TensorFlowTests(BaseTensorFlowTests):
                 if local_rank == first_join_rank:
                     ret = self.evaluate(hvd.join())
                 else:
-                    summed = hvd.allreduce(tensor, average=False)
+                    summed = hvd.allreduce(tensor, op=hvd.Sum)
                     multiplied = tensor * (size-1)
                     max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
