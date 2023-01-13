@@ -104,6 +104,10 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
         if op == Adasum:
             raise NotImplementedError('The Adasum reduction does not currently support sparse tensors. As a '
                                       'workaround please pass sparse_as_dense=True to DistributedOptimizer')
+        if op != Sum and op != Average:
+            raise NotImplementedError('Only Sum and Average ops are not supported with tf.IndexedSlices')
+
+
         with tf.device(device_sparse):
             # For IndexedSlices, do two allgathers instead of an allreduce.
             horovod_size = tf.cast(size_op(process_set_id=process_set.process_set_id)
@@ -115,6 +119,8 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
             # To make this operation into an average, divide allgathered values by
             # the Horovod size.
             new_values = (values / horovod_size) if op == Average else values
+            if (prescale_factor != 1.0 or postscale_factor != 1.0):
+                raise NotImplementedError("Pre/postscale_factor are not supported with tf.IndexedSlices")
         return tf.IndexedSlices(new_values, indices,
                                 dense_shape=tensor.dense_shape)
     else:
@@ -263,30 +269,54 @@ def grouped_allreduce(tensors, average=None, device_dense='', device_sparse='',
         average_in_framework = op == Average or op == Adasum
         op = Sum if op == Average else op
 
-    if any(isinstance(t, tf.IndexedSlices) for t in tensors):
+    # Split list of tensors into indexed slices and normal tensors to handle separately.
+    tensor_list, tensor_list_idx = [], []
+    indexed_slices_list, indexed_slices_list_idx = [], []
+    new_tensors_merged = [None] * len(tensors)
+
+    for i, t in enumerate(tensors):
+        if isinstance(t, tf.IndexedSlices):
+            indexed_slices_list.append(t)
+            indexed_slices_list_idx.append(i)
+        else:
+            tensor_list.append(t)
+            tensor_list_idx.append(i)
+
+    if indexed_slices_list:
         # TODO: Need to fix this to actuall call Adasum
         if op == Adasum:
             raise NotImplementedError('The Adasum reduction does not currently support sparse tensors. As a '
                                       'workaround please pass sparse_as_dense=True to DistributedOptimizer')
+        if op != Sum and op != Average:
+            raise NotImplementedError('Only Sum and Average ops are supported with tf.IndexedSlices')
+
         with tf.device(device_sparse):
             new_values = []
             new_indices = []
-            for tensor in tensors:
-                # For IndexedSlices, do two allgathers instead of an allreduce.
+            # For IndexedSlices, do two grouped_allgathers instead of a grouped_allreduce.
+            values = grouped_allgather([x.values for x in indexed_slices_list], process_set=process_set,
+                                       ignore_name_scope=ignore_name_scope)
+            new_indices = grouped_allgather([x.indices for x in indexed_slices_list], process_set=process_set,
+                                            ignore_name_scope=ignore_name_scope)
+
+            # To make this operation into an average, divide allgathered values by
+            # the Horovod size.
+            for x in values:
                 horovod_size = tf.cast(size_op(process_set_id=process_set.process_set_id)
                                        if int(os.environ.get("HOROVOD_ELASTIC", 0)) else process_set.size(),
-                                       dtype=tensor.values.dtype)
-                values = allgather(tensor.values, process_set=process_set, ignore_name_scope=ignore_name_scope)
-                new_indices += allgather(tensor.indices, process_set=process_set, ignore_name_scope=ignore_name_scope)
+                                       dtype=x.dtype)
+                new_values.append(x / horovod_size if op == Average else x)
+            if (prescale_factor != 1.0 or postscale_factor != 1.0):
+                raise NotImplementedError("Pre/postscale_factor are not supported with tf.IndexedSlices")
+        new_indexed_slices = [tf.IndexedSlices(x, i,
+                                               dense_shape=t.dense_shape) for x,i,t in zip(new_values, new_indices, tensors)]
 
-                # To make this operation into an average, divide allgathered values by
-                # the Horovod size.
-                new_values += (values / horovod_size) if op == Average else values
-        return [tf.IndexedSlices(x, i,
-                                 dense_shape=t.dense_shape) for x,i,t in zip(new_values, new_indices, tensors)]
-    else:
+        for idx, indexed_slice in zip(indexed_slices_list_idx, new_indexed_slices):
+            new_tensors_merged[idx] = indexed_slice
+
+    if tensor_list:
         with tf.device(device_dense):
-            tensors_compressed, ctxs = zip(*[compression.compress(tensor) for tensor in tensors])
+            tensors_compressed, ctxs = zip(*[compression.compress(tensor) for tensor in tensor_list])
             summed_tensors_compressed = _grouped_allreduce(tensors_compressed, op=op,
                                                            prescale_factor=prescale_factor,
                                                            postscale_factor=postscale_factor,
@@ -332,7 +362,11 @@ def grouped_allreduce(tensors, average=None, device_dense='', device_sparse='',
                         new_tensors += (tensor / horovod_size) if average_in_framework else tensor
                 else:
                     new_tensors = summed_tensors
-        return new_tensors
+
+        for idx, tensor in zip(tensor_list_idx, new_tensors):
+            new_tensors_merged[idx] = tensor
+
+    return new_tensors_merged
 
 
 def _allreduce_cond(tensor, *args, process_set=global_process_set, **kwargs):
