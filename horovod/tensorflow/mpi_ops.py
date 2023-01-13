@@ -455,7 +455,8 @@ def _alltoall_grad(op, grad_wrt_output, grad_wrt_received_splits):
 
 
 def _reducescatter(tensor, name=None, op=Sum, ignore_name_scope=False,
-                   process_set=global_process_set):
+                   process_set=global_process_set, prescale_factor=1.0,
+                   postscale_factor=1.0,):
     """An op which reduces an input tensor over all the Horovod processes, then
     scatters the result across all the Horovod processes. The default reduction
     is a sum.
@@ -473,7 +474,9 @@ def _reducescatter(tensor, name=None, op=Sum, ignore_name_scope=False,
         name = 'HorovodReducescatter_%s' % _normalize_name(tensor.name)
     return MPI_LIB.horovod_reducescatter(tensor, name=name, reduce_op=op,
                                          ignore_name_scope=ignore_name_scope,
-                                         process_set_id=process_set.process_set_id)
+                                         process_set_id=process_set.process_set_id,
+                                         prescale_factor=prescale_factor,
+                                         postscale_factor=postscale_factor)
 
 
 @ops.RegisterGradient('HorovodReducescatter')
@@ -490,15 +493,22 @@ def _reducescatter_grad(op, grad):
     ignore_name_scope = op.get_attr('ignore_name_scope')
     process_set_id = op.get_attr('process_set_id')
     reduce_op = op.get_attr('reduce_op')
+    prescale_factor = op.get_attr('prescale_factor')
+    postscale_factor = op.get_attr('postscale_factor')
     process_set = _temp_process_set_object(process_set_id)
     if reduce_op == Sum:
         grad *= process_set.size()
+    if prescale_factor != 1.0:
+        grad *= prescale_factor
+    if postscale_factor != 1.0:
+        grad *= postscale_factor
     return allgather(grad, ignore_name_scope=ignore_name_scope,
                      process_set=process_set)
 
 
 def _grouped_reducescatter(tensors, name=None, op=Sum, ignore_name_scope=False,
-                           process_set=global_process_set):
+                           process_set=global_process_set,
+                           prescale_factor=1.0, postscale_factor=1.0,):
     """An op which sums an input tensor over all the Horovod processes, then
     scatters the result across all the Horovod processes.
 
@@ -518,7 +528,9 @@ def _grouped_reducescatter(tensors, name=None, op=Sum, ignore_name_scope=False,
         name = _normalize_name('HorovodGroupedReducescatter_%s_%s' % (tensors[0].name, tensors[-1].name))
     return MPI_LIB.horovod_grouped_reducescatter(tensors, name=name, reduce_op=op,
                                                  ignore_name_scope=ignore_name_scope,
-                                                 process_set_id=process_set.process_set_id)
+                                                 process_set_id=process_set.process_set_id,
+                                                 prescale_factor=prescale_factor,
+                                                 postscale_factor=postscale_factor)
 
 
 @ops.RegisterGradient('HorovodGroupedReducescatter')
@@ -535,9 +547,15 @@ def _grouped_reducescatter_grad(op, *grads):
     ignore_name_scope = op.get_attr('ignore_name_scope')
     process_set_id = op.get_attr('process_set_id')
     reduce_op = op.get_attr('reduce_op')
+    prescale_factor = op.get_attr('prescale_factor')
+    postscale_factor = op.get_attr('postscale_factor')
     process_set = _temp_process_set_object(process_set_id)
     if reduce_op == Sum:
         grads = [grad * process_set.size() for grad in grads]
+    if prescale_factor != 1.0:
+        grads = [grad * prescale_factor for grad in grads]
+    if postscale_factor != 1.0:
+        grads = [grad * postscale_factor for grad in grads]
     # Not using grouped_allgather here because all its input tensors need to be of the same dtype, but TensorFlow may
     # give us float32 zero gradients here despite non-zero gradients being, e.g, float64.
     return [allgather(g, ignore_name_scope=ignore_name_scope, process_set=process_set) for g in grads]

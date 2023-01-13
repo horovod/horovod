@@ -177,7 +177,8 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
 
 def reducescatter(tensor, device_dense='', compression=Compression.none, op=Average,
                   name=None, process_set=global_process_set,
-                  ignore_name_scope=False):
+                  ignore_name_scope=False,
+                  prescale_factor=1.0, postscale_factor=1.0):
     """Perform a reducescatter on a tf.Tensor.
 
     This function performs a bandwidth-optimal reduce and scatter on the input
@@ -198,25 +199,34 @@ def reducescatter(tensor, device_dense='', compression=Compression.none, op=Aver
         name: A name of the reduce_scatter operation
         ignore_name_scope: If True, ignores any outer name scope applied by
                            TensorFlow in the name used by the Horovod operation.
+        prescale_factor: Multiplicative factor to scale tensor before allreduce.
+        postscale_factor: Multiplicative factor to scale tensor after allreduce.
 
     Returns:
         A tensor of the same rank and type as `tensor`, summed across all processes.
         The shape is identical to the input shape, except for the first dimension,
         which will be divided across the different Horovod processes.
     """
-    # Averaging happens in framework code, so translate that to Sum for the actual call
-    true_op = Sum if op == Average else op
+    if rocm_built() and op == Average:
+        # Need to average in framework code
+        true_op = Sum
+    else:
+        true_op = op
 
     with tf.device(device_dense):
-        horovod_size = tf.cast(size_op(process_set_id=process_set.process_set_id)
-                               if int(os.environ.get("HOROVOD_ELASTIC", 0)) else process_set.size(),
-                               dtype=tensor.dtype)
         tensor_compressed, ctx = compression.compress(tensor)
         reduced_tensor_compressed = _reducescatter(tensor_compressed, op=true_op, name=name, process_set=process_set,
-                                                   ignore_name_scope=ignore_name_scope)
+                                                   ignore_name_scope=ignore_name_scope, prescale_factor=prescale_factor,
+                                                   postscale_factor=postscale_factor)
         reduced_tensor = compression.decompress(reduced_tensor_compressed, ctx)
-        new_tensor = (reduced_tensor / horovod_size) if op == Average else reduced_tensor
-    return new_tensor
+        if op == Average and true_op == Sum:
+            horovod_size = tf.cast(size_op(process_set_id=process_set.process_set_id)
+                                   if int(os.environ.get("HOROVOD_ELASTIC", 0)) else process_set.size(),
+                                   dtype=tensor.dtype)
+            new_tensor = reduced_tensor / horovod_size
+            return new_tensor
+        else:
+            return reduced_tensor
 
 
 def grouped_allreduce(tensors, average=None, device_dense='', device_sparse='',
@@ -400,7 +410,7 @@ def _grouped_allreduce_cond(tensors, *args, process_set=global_process_set, **kw
 
 
 def grouped_reducescatter(tensors, device_dense='', compression=Compression.none, op=Average,
-                          process_set=global_process_set):
+                          process_set=global_process_set, prescale_factor=1.0, postscale_factor=1.0):
     """Perform grouped reducescatters on a sequence of tf.Tensor.
 
     Arguments:
@@ -418,6 +428,8 @@ def grouped_reducescatter(tensors, device_dense='', compression=Compression.none
             Defaults to Average if None is given.
         process_set: Process set object to limit this operation to a subset of
             Horovod processes. Default is the global process set.
+        prescale_factor: Multiplicative factor to scale tensor before allreduce.
+        postscale_factor: Multiplicative factor to scale tensor after allreduce.
 
     Returns:
         A list of tensors of the same rank and type as those in `tensors`,
@@ -427,18 +439,26 @@ def grouped_reducescatter(tensors, device_dense='', compression=Compression.none
     """
     if not tensors:
         return tensors
-    # Averaging happens in framework code, so translate that to Sum for the actual call
-    true_op = Sum if op == Average else op
-    dtype = tensors[0].dtype  # HorovodGroupedReducescatterOp requires all input tensors to have the same dtype
+    if rocm_built() and op == Average:
+        # Need to average in framework code
+        true_op = Sum
+    else:
+        true_op = op
     with tf.device(device_dense):
-        horovod_size = tf.cast(size_op(process_set_id=process_set.process_set_id)
-                               if int(os.environ.get("HOROVOD_ELASTIC", 0)) else process_set.size(),
-                               dtype=dtype)
         tensors_compressed, ctxs = zip(*[compression.compress(tensor) for tensor in tensors])
-        reduced_tensors_compressed = _grouped_reducescatter(tensors_compressed, op=true_op, process_set=process_set)
+        reduced_tensors_compressed = _grouped_reducescatter(tensors_compressed, op=true_op, process_set=process_set,
+                                                            prescale_factor=prescale_factor,
+                                                            postscale_factor=postscale_factor)
         reduced_tensors = [compression.decompress(t, ctx) for t, ctx in zip(reduced_tensors_compressed, ctxs)]
-        new_tensors = [(rt / horovod_size) for rt in reduced_tensors] if op == Average else reduced_tensors
-    return new_tensors
+        if op == Average and true_op == Sum:
+            dtype = tensors[0].dtype  # HorovodGroupedReducescatterOp requires all input tensors to have the same dtype
+            horovod_size = tf.cast(size_op(process_set_id=process_set.process_set_id)
+                                   if int(os.environ.get("HOROVOD_ELASTIC", 0)) else process_set.size(),
+                                   dtype=dtype)
+            new_tensors = [(rt / horovod_size) for rt in reduced_tensors]
+            return new_tensors
+        else:
+            return reduced_tensors
 
 
 try:
