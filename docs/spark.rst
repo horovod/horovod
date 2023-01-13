@@ -103,9 +103,8 @@ to the Lightning DataModule, which abstracts the data loading and allows for alt
 the NVTabularDataModule integrates the `KerasSequenceLoader <https://github.com/NVIDIA-Merlin/NVTabular/blob/main/nvtabular/loader/tensorflow.py>`__
 from NVTabular to enable GPU-accelerated data loading.
 
-Note, however, due to the complexity of installation, NVTabular
-recommends the use of a `conda` environment or a pre-built docker image.  For users who want to build their own docker images,
-there is an `example Dockerfile <https://github.com/horovod/horovod/blob/master/docker/horovod-nvtabular/Dockerfile>`__ for building Horovod with NVTabular support.
+There is an `example Dockerfile <https://github.com/horovod/horovod/blob/master/docker/horovod-nvtabular/Dockerfile>`__
+for building Horovod with NVTabular support.
 
 .. code-block:: python
 
