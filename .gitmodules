@@ -48,7 +48,8 @@
 	url = https://github.com/google/flatbuffers.git
 [submodule "third_party/gloo"]
 	path = third_party/gloo
-	url = https://github.com/facebookincubator/gloo.git
+	url = https://github.com/EnricoMi/gloo.git
+	branch = branch-fix-integer-overflow
 [submodule "third_party/HTTPRequest"]
 	path = third_party/HTTPRequest
 	url = https://github.com/elnormous/HTTPRequest
