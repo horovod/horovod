@@ -98,9 +98,9 @@ enum ReduceOp : int8_t {
   ReduceOp_ADASUM = 2,
   ReduceOp_MIN_ = 3,
   ReduceOp_MAX_ = 4,
-  ReduceOp_PROD = 5,
+  ReduceOp_PRODUCT = 5,
   ReduceOp_MIN = ReduceOp_AVERAGE,
-  ReduceOp_MAX = ReduceOp_PROD
+  ReduceOp_MAX = ReduceOp_PRODUCT
 };
 
 inline const ReduceOp (&EnumValuesReduceOp())[6] {
@@ -110,7 +110,7 @@ inline const ReduceOp (&EnumValuesReduceOp())[6] {
     ReduceOp_ADASUM,
     ReduceOp_MIN_,
     ReduceOp_MAX_,
-    ReduceOp_PROD
+    ReduceOp_PRODUCT
   };
   return values;
 }
@@ -122,14 +122,14 @@ inline const char * const *EnumNamesReduceOp() {
     "ADASUM",
     "MIN_",
     "MAX_",
-    "PROD",
+    "PRODUCT",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameReduceOp(ReduceOp e) {
-  if (flatbuffers::IsOutRange(e, ReduceOp_AVERAGE, ReduceOp_PROD)) return "";
+  if (flatbuffers::IsOutRange(e, ReduceOp_AVERAGE, ReduceOp_PRODUCT)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesReduceOp()[index];
 }
