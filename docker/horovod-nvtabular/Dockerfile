@@ -1,29 +1,27 @@
-ARG CUDA_DOCKER_VERSION=11.2.2-devel-ubuntu20.04
+ARG CUDA_DOCKER_VERSION=11.6.2-devel-ubuntu20.04
 FROM nvidia/cuda:${CUDA_DOCKER_VERSION}
 
 # Arguments for the build. CUDA_DOCKER_VERSION needs to be repeated because
 # the first usage only applies to the FROM tag.
-ARG CUDA_DOCKER_VERSION=11.2.2-devel-ubuntu20.04
-ARG CUDNN_VERSION=8.1.1.33-1+cuda11.2
-ARG NCCL_VERSION=2.8.4-1+cuda11.2
+ARG CUDA_DOCKER_VERSION=11.6.2-devel-ubuntu20.04
+ARG CUDNN_VERSION=8.4.1.50-1+cuda11.6
+ARG NCCL_VERSION_OVERRIDE=2.11.4-1+cuda11.6
 ARG MPI_KIND=OpenMPI
 ARG PYTHON_VERSION=3.8
 ARG GPP_VERSION=7
-ARG TENSORFLOW_PACKAGE=tensorflow-gpu==2.8.0
-ARG KERAS_PACKAGE=keras==2.8.0
-ARG PYTORCH_PACKAGE=torch==1.8.1+cu111
+ARG TENSORFLOW_PACKAGE=tensorflow-gpu==2.10.0
+ARG KERAS_PACKAGE=keras==2.10.0
+ARG PYTORCH_PACKAGE=torch==1.12.1+cu116
 ARG PYTORCH_LIGHTNING_PACKAGE=pytorch_lightning==1.5.9
-ARG TORCHVISION_PACKAGE=torchvision==0.9.1+cu111
-ARG MXNET_PACKAGE=mxnet-cu112==1.8.0.post0
-ARG PYSPARK_PACKAGE=pyspark==3.2.1
+ARG TORCHVISION_PACKAGE=torchvision==0.13.1+cu116
+ARG MXNET_PACKAGE=mxnet-cu112==1.9.1
+ARG PYSPARK_PACKAGE=pyspark==3.3.1
 # if SPARK_PACKAGE is set, installs Spark into /spark from the tgz archive
 # if SPARK_PACKAGE is a preview version, installs PySpark from the tgz archive
 # see https://archive.apache.org/dist/spark/ for available packages, version must match PYSPARK_PACKAGE
-ARG SPARK_PACKAGE=spark-3.2.1/spark-3.2.1-bin-hadoop2.7.tgz
+ARG SPARK_PACKAGE=spark-3.3.1/spark-3.3.1-bin-hadoop2.tgz
 ARG HOROVOD_BUILD_FLAGS="HOROVOD_GPU_OPERATIONS=NCCL"
 ARG HOROVOD_MIXED_INSTALL=0
-
-ENV PATH=/root/miniconda3/bin:$PATH
 
 # to avoid interaction with apt-get
 ENV DEBIAN_FRONTEND=noninteractive
@@ -54,26 +52,19 @@ RUN CUDNN_MAJOR=$(cut -d '.' -f 1 <<< "${CUDNN_VERSION}"); \
         build-essential \
         g++-${GPP_VERSION} \
         moreutils \
-        libcudnn${CUDNN_MAJOR}=${CUDNN_VERSION} && \
+        openjdk-8-jdk-headless \
+        python3 python3-dev python3-pip python-is-python3 \
+        libcudnn${CUDNN_MAJOR}=${CUDNN_VERSION} \
+        libnccl2=${NCCL_VERSION_OVERRIDE} \
+        libnccl-dev=${NCCL_VERSION_OVERRIDE} && \
     rm -rf /var/lib/apt/lists/*
 
 # setup ssh service
 RUN ssh-keygen -f /root/.ssh/id_rsa -q -N ''
 RUN cp -v /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
 
-# install miniconda Python environment
-RUN wget -q https://repo.continuum.io/miniconda/Miniconda3-py38_4.12.0-Linux-x86_64.sh -O miniconda.sh && \
-    bash miniconda.sh -b && \
-    rm miniconda.sh && \
-    # Source conda.sh for all login and interactive shells.
-    ln -s /root/miniconda3/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
-    echo ". /etc/profile.d/conda.sh" >> ~/.bashrc && \
-    # Set always_yes for non-interactive shells.
-    conda config --system --set always_yes True && \
-    # Install NVTabular
-    conda install -y -c nvidia -c rapidsai -c numba -c conda-forge nvtabular python=${PYTHON_VERSION} cudatoolkit=${CUDA_DOCKER_VERSION:0:4} && \
-    conda clean --all
-
+RUN pip install --no-cache-dir cudf-cu11 dask-cudf-cu11 --extra-index-url=https://pypi.ngc.nvidia.com
+RUN pip install --no-cache-dir numba==0.56 nvidia-ml-py nvtabular
 RUN pip install --no-cache-dir -U --force requests pytest mock pytest-forked parameterized
 
 # Add launch helper scripts
@@ -128,7 +119,7 @@ RUN if [[ ${MPI_KIND} != "None" ]]; then \
 # Pin scipy!=1.4.0: https://github.com/scipy/scipy/issues/11237
 # Pin protobuf<4 for tensorflow: https://github.com/tensorflow/tensorflow/issues/56815
 RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly-gpu" ]]; then \
-        pip install --no-cache-dir ${TENSORFLOW_PACKAGE} "protobuf<4"; \
+        pip install --no-cache-dir ${TENSORFLOW_PACKAGE} "protobuf<3.20"; \
         if [[ ${KERAS_PACKAGE} != "None" ]]; then \
             pip uninstall -y keras; \
             pip install --no-cache-dir ${KERAS_PACKAGE} "scipy!=1.4.0" "pandas<1.1.0" "numpy<1.24.0"; \
@@ -140,7 +131,7 @@ RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly-gpu" ]]; then \
     fi
 
 # Pin h5py < 3 for tensorflow: https://github.com/tensorflow/tensorflow/issues/44467
-RUN pip install 'h5py<3.0' 'numpy<1.24.0' --force-reinstall
+RUN pip install "h5py<3.0" "numpy<1.24.0" --force-reinstall
 
 # Install PyTorch (releases).
 # Pin Pillow<7.0 for torchvision < 0.5.0: https://github.com/pytorch/vision/issues/1718
@@ -169,10 +160,8 @@ RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazo
 # Prefetch PyTorch datasets.
 RUN wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/pytorch_datasets.tgz -O - | tar -xzC /data
 
-# Update pip dependencies for nvtabular and apply patch per: https://github.com/NVIDIA-Merlin/NVTabular/pull/1587
-RUN CUDA_VER=$(echo ${CUDA_DOCKER_VERSION:0:4} | sed 's/\.//'); \
-    pip uninstall -y cupy && pip install --no-cache-dir cupy-cuda${CUDA_VER} "numpy<=1.22" petastorm && \
-    sed -i 's/warnings.warn(e)/warnings.warn(str(e))/' /root/miniconda3/lib/python3.8/site-packages/nvtabular/loader/tf_utils.py
+# Update pip dependencies for nvtabular
+RUN pip install --no-cache-dir "numpy<1.23"
 
 ### END OF CACHE ###
 COPY . /horovod
@@ -217,4 +206,3 @@ RUN pip list --format=freeze | sort
 
 # Export HOROVOD_MIXED_INSTALL
 ENV HOROVOD_MIXED_INSTALL=${HOROVOD_MIXED_INSTALL}
-
