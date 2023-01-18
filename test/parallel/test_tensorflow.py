@@ -1452,7 +1452,7 @@ class TensorFlowTests(BaseTensorFlowTests):
             self.assertTrue(diff <= threshold, "hvd.grouped_allreduce produces incorrect results")
 
     def test_horovod_grouped_allreduce_product_cpu(self):
-        """Test on CPU that the grouped allreduce correctly finds maximum of 1D, 2D, 3D tensors."""
+        """Test on CPU that the grouped allreduce correctly finds product of 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
         rank = hvd.rank()
@@ -1904,7 +1904,7 @@ class TensorFlowTests(BaseTensorFlowTests):
             self.assertTrue(diff <= threshold, "hvd.grouped_allreduce produces incorrect results")
 
     def test_horovod_grouped_allreduce_product_gpu(self):
-        """Test on GPU that the grouped allreduce correctly finds maximum of 1D, 2D, 3D tensors."""
+        """Test on GPU that the grouped allreduce correctly finds product of 1D, 2D, 3D tensors."""
         # Only do this test if there are GPUs available.
         if not tf.test.is_gpu_available(cuda_only=True):
             self.skipTest(("No GPUs available"))

@@ -105,7 +105,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
             raise NotImplementedError('The Adasum reduction does not currently support sparse tensors. As a '
                                       'workaround please pass sparse_as_dense=True to DistributedOptimizer')
         if op != Sum and op != Average:
-            raise NotImplementedError('Only Sum and Average ops are not supported with tf.IndexedSlices')
+            raise NotImplementedError('Only Sum and Average ops are supported with tf.IndexedSlices')
 
 
         with tf.device(device_sparse):
