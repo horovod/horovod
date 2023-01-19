@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Fixed memory leak in MPI_GPUAllgather. ([#3727](https://github.com/horovod/horovod/pull/3727))
 - Handle tf.IndexedSlices types when scaling local gradients in TF. ([#3786](https://github.com/horovod/horovod/pull/3786))
+- Several fixes for allreduce and grouped allreduce handling of tf.IndexedSlices. ([#3813](https://github.com/horovod/horovod/pull/3813))
 
 
 ## [v0.26.1] - 2022-10-14
