@@ -112,7 +112,7 @@ def _allreduce_async(tensor, output, name, op, prescale_factor, postscale_factor
     if op == Average:
         if rocm_built():
             # For ROCm, perform averaging at framework level
-            divisor = size()
+            divisor = process_set.size()
             op = Sum
         else:
             divisor = 1
@@ -338,7 +338,7 @@ def _grouped_allreduce_async(tensors, outputs, name, op, prescale_factor, postsc
     if op == Average:
         if rocm_built():
             # For ROCm, perform averaging at framework level
-            divisor = size()
+            divisor = process_set.size()
             op = Sum
         else:
             divisor = 1
