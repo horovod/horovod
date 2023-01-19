@@ -8,13 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 - Added `HOROVOD_SPARK_USE_LOCAL_RANK_GPU_INDEX` environment variable to ignore GPU device indices assigned by Spark and always use local rank GPU device in Spark estimators. ([#3737](https://github.com/horovod/horovod/pull/3737))
-
+ 
 - Reducescatter: Added support for prescale_factor and postscale_factor and moved averaging into Horovod backend. ([#3815](https://github.com/horovod/horovod/pull/3815))
 
 ### Changed
 
 - Improved NCCL performance for fused allgather operations through padding for better memory alignment. ([#3727](https://github.com/horovod/horovod/pull/3727))
 - Improved look-ahead tensor fusion buffer size estimates when allgather and other operations are mixed. ([#3727](https://github.com/horovod/horovod/pull/3727))
+- Improved reducescatter performance by allocating output tensors before enqueuing the operation. ([#3824](https://github.com/horovod/horovod/pull/3824))
 
 ### Deprecated
 
