@@ -199,8 +199,8 @@ def reducescatter(tensor, device_dense='', compression=Compression.none, op=Aver
         name: A name of the reduce_scatter operation
         ignore_name_scope: If True, ignores any outer name scope applied by
                            TensorFlow in the name used by the Horovod operation.
-        prescale_factor: Multiplicative factor to scale tensor before allreduce.
-        postscale_factor: Multiplicative factor to scale tensor after allreduce.
+        prescale_factor: Multiplicative factor to scale tensor before reducescatter.
+        postscale_factor: Multiplicative factor to scale tensor after reducescatter.
 
     Returns:
         A tensor of the same rank and type as `tensor`, summed across all processes.
@@ -428,8 +428,8 @@ def grouped_reducescatter(tensors, device_dense='', compression=Compression.none
             Defaults to Average if None is given.
         process_set: Process set object to limit this operation to a subset of
             Horovod processes. Default is the global process set.
-        prescale_factor: Multiplicative factor to scale tensor before allreduce.
-        postscale_factor: Multiplicative factor to scale tensor after allreduce.
+        prescale_factor: Multiplicative factor to scale tensors before reducescatter.
+        postscale_factor: Multiplicative factor to scale tensors after reducescatter.
 
     Returns:
         A list of tensors of the same rank and type as those in `tensors`,

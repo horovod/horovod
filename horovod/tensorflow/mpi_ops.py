@@ -456,7 +456,7 @@ def _alltoall_grad(op, grad_wrt_output, grad_wrt_received_splits):
 
 def _reducescatter(tensor, name=None, op=Sum, ignore_name_scope=False,
                    process_set=global_process_set, prescale_factor=1.0,
-                   postscale_factor=1.0,):
+                   postscale_factor=1.0):
     """An op which reduces an input tensor over all the Horovod processes, then
     scatters the result across all the Horovod processes. The default reduction
     is a sum.
@@ -508,7 +508,7 @@ def _reducescatter_grad(op, grad):
 
 def _grouped_reducescatter(tensors, name=None, op=Sum, ignore_name_scope=False,
                            process_set=global_process_set,
-                           prescale_factor=1.0, postscale_factor=1.0,):
+                           prescale_factor=1.0, postscale_factor=1.0):
     """An op which sums an input tensor over all the Horovod processes, then
     scatters the result across all the Horovod processes.
 
