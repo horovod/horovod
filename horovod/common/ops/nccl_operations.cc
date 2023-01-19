@@ -719,8 +719,6 @@ Status NCCLTorusAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                                        ? num_elements % local_size
                                        : num_elements;
 
-  size_t buffer_len_remaining = element_size * num_elements_remaining;
-
   void* buffer_data_remainder =
       (uint8_t*)buffer_data + buffer_len_per_rank * local_size;
 
@@ -733,9 +731,6 @@ Status NCCLTorusAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   int64_t total_num_elements =
       is_root_rank ? num_elements_per_rank + num_elements_remaining
                    : num_elements_per_rank;
-  int64_t total_buffer_len = is_root_rank
-                                 ? buffer_len_per_rank + buffer_len_remaining
-                                 : buffer_len_per_rank;
 
   auto& timeline = global_state_->timeline;
   if (num_elements_per_rank > 0) {
