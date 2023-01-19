@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Reducescatter: Added support for prescale_factor and postscale_factor and moved averaging into Horovod backend. ([#3815](https://github.com/horovod/horovod/pull/3815))
+
 ### Changed
 
 - Improved NCCL performance for fused allgather operations through padding for better memory alignment. ([#3727](https://github.com/horovod/horovod/pull/3727))
