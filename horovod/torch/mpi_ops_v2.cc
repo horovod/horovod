@@ -711,12 +711,16 @@ int DoAlltoallCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor splits,
 
 int DoReducescatter(::torch::Tensor tensor, ::torch::Tensor output,
                     const std::string& name, int reduce_op_int,
-                    int process_set_id) {
+                    int process_set_id, double prescale_factor,
+                    double postscale_factor) {
   ThrowIfError(common::CheckInitialized());
 
-  // For ReduceOp::AVERAGE, we do SUM reduction then divide on the device.
   auto reduce_op = static_cast<ReduceOp>(reduce_op_int);
-  auto request_op = reduce_op == ReduceOp::AVERAGE ? ReduceOp::SUM : reduce_op;
+  // ROCm only: For ReduceOp::AVERAGE, we do SUM reduction then divide on the
+  // device.
+  auto request_op = (horovod_rocm_built() && reduce_op == ReduceOp::AVERAGE)
+                        ? ReduceOp::SUM
+                        : reduce_op;
 
   auto handle = handle_manager.AllocateHandle();
   auto device = GetDeviceID(tensor);
@@ -739,13 +743,13 @@ int DoReducescatter(::torch::Tensor tensor, ::torch::Tensor output,
           HVD_GPU_CHECK(gpuStreamWaitEvent(stream, *(hvd_event.event), 0));
         }
 #endif
-        // Will execute in the `device` context.
-        if (reduce_op == ReduceOp::AVERAGE) {
+        if (horovod_rocm_built() && reduce_op == ReduceOp::AVERAGE) {
+          // Will execute in the `device` context.
           DivideInPlace(output, horovod_process_set_size(process_set_id));
         }
         handle_manager.MarkDone(handle, status);
       },
-      request_op, process_set_id);
+      request_op, process_set_id, prescale_factor, postscale_factor);
   ThrowIfError(enqueue_result);
 
   return handle;
@@ -753,12 +757,16 @@ int DoReducescatter(::torch::Tensor tensor, ::torch::Tensor output,
 
 int DoReducescatterCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output,
                              const std::string& name, int reduce_op_int,
-                             int process_set_id) {
+                             int process_set_id, double prescale_factor,
+                             double postscale_factor) {
   ThrowIfError(common::CheckInitialized());
 
-  // For ReduceOp::AVERAGE, we do SUM reduction then divide on the device.
   auto reduce_op = static_cast<ReduceOp>(reduce_op_int);
-  auto request_op = reduce_op == ReduceOp::AVERAGE ? ReduceOp::SUM : reduce_op;
+  // ROCm only: For ReduceOp::AVERAGE, we do SUM reduction then divide on the
+  // device.
+  auto request_op = (horovod_rocm_built() && reduce_op == ReduceOp::AVERAGE)
+                        ? ReduceOp::SUM
+                        : reduce_op;
 
   // Make async copy of input tensor to CPU tensor and record completion event.
   auto device = GetDeviceID(tensor);
@@ -786,12 +794,12 @@ int DoReducescatterCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output,
         // output needs to be resized before copying in the CPU tensor.
         output.resize_(cpu_output.sizes());
         output.copy_(cpu_output);
-        if (reduce_op == ReduceOp::AVERAGE) {
+        if (horovod_rocm_built() && reduce_op == ReduceOp::AVERAGE) {
           DivideInPlace(output, horovod_process_set_size(process_set_id));
         }
         handle_manager.MarkDone(handle, status);
       },
-      request_op, process_set_id);
+      request_op, process_set_id, prescale_factor, postscale_factor);
   ThrowIfError(enqueue_result);
 
   return handle;
@@ -800,16 +808,20 @@ int DoReducescatterCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output,
 int DoGroupedReducescatter(const std::vector<::torch::Tensor>& tensors,
                            const std::vector<::torch::Tensor>& outputs,
                            const std::string& name, int reduce_op_int,
-                           int process_set_id) {
+                           int process_set_id, double prescale_factor,
+                           double postscale_factor) {
   ThrowIfError(common::CheckInitialized());
 
   if (tensors.size() != outputs.size()) {
     throw std::logic_error("Number of tensors and outputs must be equal");
   }
 
-  // For ReduceOp::AVERAGE, we do SUM reduction then divide on the device.
   auto reduce_op = static_cast<ReduceOp>(reduce_op_int);
-  auto request_op = reduce_op == ReduceOp::AVERAGE ? ReduceOp::SUM : reduce_op;
+  // ROCm only: For ReduceOp::AVERAGE, we do SUM reduction then divide on the
+  // device.
+  auto request_op = (horovod_rocm_built() && reduce_op == ReduceOp::AVERAGE)
+                        ? ReduceOp::SUM
+                        : reduce_op;
 
   auto handle = handle_manager.AllocateHandle();
   auto device = GetDeviceID(tensors[0]);
@@ -857,8 +869,8 @@ int DoGroupedReducescatter(const std::vector<::torch::Tensor>& tensors,
         HVD_GPU_CHECK(gpuStreamWaitEvent(stream, *(hvd_event.event), 0));
       }
 #endif
-      // Will execute in the `device` context.
-      if (reduce_op == ReduceOp::AVERAGE) {
+      if (horovod_rocm_built() && reduce_op == ReduceOp::AVERAGE) {
+        // Will execute in the `device` context.
         DivideInPlace(output, horovod_process_set_size(process_set_id));
       }
       // Must only call MarkDone on last tensor.
@@ -871,8 +883,8 @@ int DoGroupedReducescatter(const std::vector<::torch::Tensor>& tensors,
   }
 
   auto enqueue_result = EnqueueTensorReducescatters(
-      hvd_contexts, hvd_tensors, ready_event_lists, names, device,
-      callbacks, request_op, process_set_id);
+      hvd_contexts, hvd_tensors, ready_event_lists, names, device, callbacks,
+      request_op, process_set_id, prescale_factor, postscale_factor);
   ThrowIfError(enqueue_result);
 
   return handle;
@@ -881,16 +893,20 @@ int DoGroupedReducescatter(const std::vector<::torch::Tensor>& tensors,
 int DoGroupedReducescatterCudaOnCPU(const std::vector<::torch::Tensor>& tensors,
                                     const std::vector<::torch::Tensor>& outputs,
                                     const std::string& name, int reduce_op_int,
-                                    int process_set_id) {
+                                    int process_set_id, double prescale_factor,
+                                    double postscale_factor) {
   ThrowIfError(common::CheckInitialized());
 
   if (tensors.size() != outputs.size()) {
     throw std::logic_error("Number of tensors and outputs must be equal");
   }
 
-  // For ReduceOp::AVERAGE, we do SUM reduction then divide on the device.
   auto reduce_op = static_cast<ReduceOp>(reduce_op_int);
-  auto request_op = reduce_op == ReduceOp::AVERAGE ? ReduceOp::SUM : reduce_op;
+  // ROCm only: For ReduceOp::AVERAGE, we do SUM reduction then divide on the
+  // device.
+  auto request_op = (horovod_rocm_built() && reduce_op == ReduceOp::AVERAGE)
+                        ? ReduceOp::SUM
+                        : reduce_op;
 
   auto handle = handle_manager.AllocateHandle();
   auto device = GetDeviceID(tensors[0]);
@@ -948,7 +964,7 @@ int DoGroupedReducescatterCudaOnCPU(const std::vector<::torch::Tensor>& tensors,
       // output needs to be resized before copying in the CPU tensor.
       output.resize_(cpu_output.sizes());
       output.copy_(cpu_output);
-      if (reduce_op == ReduceOp::AVERAGE) {
+      if (horovod_rocm_built() && reduce_op == ReduceOp::AVERAGE) {
         DivideInPlace(output, horovod_process_set_size(process_set_id));
       }
 
@@ -963,7 +979,7 @@ int DoGroupedReducescatterCudaOnCPU(const std::vector<::torch::Tensor>& tensors,
 
   auto enqueue_result = EnqueueTensorReducescatters(
       hvd_contexts, hvd_cpu_tensors, ready_event_lists, names, CPU_DEVICE_ID,
-      callbacks, request_op, process_set_id);
+      callbacks, request_op, process_set_id, prescale_factor, postscale_factor);
   ThrowIfError(enqueue_result);
 
   return handle;
