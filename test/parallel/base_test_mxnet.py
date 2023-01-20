@@ -2138,8 +2138,8 @@ class MXTests:
                 # For integer types, scaling done in FP64, FP32 math for FP16 on CPU
                 factor = factor.astype('float32' if dtype == 'float16' else
                                        'float64' if dtype in int_types else dtype)
-                tensor = [t.astype('float32' if dtype == 'float16' else
-                                   'float64' if dtype in int_types else dtype) for t in tensors]
+                tensors = [t.astype('float32' if dtype == 'float16' else
+                                    'float64' if dtype in int_types else dtype) for t in tensors]
 
             expected = [factor * t[rank * 4:(rank + 1) * 4] for t in tensors]
             expected = [e.astype(dtype) for e in expected]
@@ -2198,8 +2198,8 @@ class MXTests:
                 # For integer types, scaling done in FP64, FP32 math for FP16 on CPU
                 factor = factor.astype('float32' if dtype == 'float16' else
                                        'float64' if dtype in int_types else dtype)
-                tensor = [t.astype('float32' if dtype == 'float16' else
-                                   'float64' if dtype in int_types else dtype) for t in tensors]
+                tensors = [t.astype('float32' if dtype == 'float16' else
+                                    'float64' if dtype in int_types else dtype) for t in tensors]
 
             expected = [t[rank * 4:(rank + 1) * 4] * size for t in tensors]
             expected = [e * factor for e in expected]
