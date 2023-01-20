@@ -298,9 +298,9 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
     }
     case OperationType::REDUCESCATTER:
       enqueue_result = EnqueueTensorReducescatters(
-          hvd_contexts, hvd_tensors, ready_event_lists,
-          ops_param->op_names, device, callbacks,
-          ReduceOp::SUM, process_set_id);
+          hvd_contexts, hvd_tensors, ready_event_lists, ops_param->op_names,
+          device, callbacks, reduce_op, process_set_id, prescale_factor,
+          postscale_factor);
       break;
     default:
       throw std::logic_error("Unsupported Horovod operation type.");
@@ -514,9 +514,9 @@ void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
   }
   case OperationType::REDUCESCATTER:
     enqueue_result = EnqueueTensorReducescatters(
-        hvd_contexts, hvd_cpu_buffers, ready_event_lists,
-        ops_param->op_names, device, callbacks,
-        ReduceOp::SUM, process_set_id);
+        hvd_contexts, hvd_cpu_buffers, ready_event_lists, ops_param->op_names,
+        device, callbacks, reduce_op, process_set_id, prescale_factor,
+        postscale_factor);
     break;
   default:
     throw std::logic_error("Unsupported Horovod operation type.");
@@ -758,24 +758,45 @@ extern "C" int horovod_mxnet_alltoall_async(NDArray* input,
   MX_API_END();
 }
 
-extern "C" int horovod_mxnet_reducescatter_async(NDArray* const* inputs,
-                                                 NDArray* const* outputs,
-                                                 const char* name, int priority,
-                                                 int process_set_id,
-                                                 int num_tensors) {
+extern "C" int horovod_mxnet_reducescatter_async(
+    NDArray* const* inputs, NDArray* const* outputs, const char* name,
+    int priority, int process_set_id, int num_tensors, int reduce_op_int,
+    double prescale_factor, double postscale_factor) {
   MX_API_BEGIN();
+
+  auto reduce_op = static_cast<ReduceOp>(reduce_op_int);
+
+#if HAVE_ROCM
+  // Averaging left at framework level for ROCm until ScaleBuffer implementation
+  // added.
+  bool average_in_framework = (reduce_op == ReduceOp::AVERAGE);
+  reduce_op = ReduceOp::SUM;
+#endif
+
 
 #if HAVE_CUDA && !HOROVOD_GPU_REDUCESCATTER
   if (IsTensorOnCPU(inputs[0]) && IsTensorOnCPU(outputs[0])) {
     PushHorovodOperation(OperationType::REDUCESCATTER, inputs, outputs, name,
-                         priority, num_tensors, process_set_id, -1, ReduceOp::SUM);
+                         priority, num_tensors, process_set_id, -1, reduce_op,
+                         nullptr, nullptr, prescale_factor, postscale_factor);
   } else {
     PushHorovodOperationCudaOnCPU(OperationType::REDUCESCATTER, inputs, outputs,
-                                  name, priority, num_tensors, process_set_id, -1, ReduceOp::SUM);
+                                  name, priority, num_tensors, process_set_id,
+                                  -1, reduce_op, nullptr, nullptr,
+                                  prescale_factor, postscale_factor);
   }
 #else
   PushHorovodOperation(OperationType::REDUCESCATTER, inputs, outputs, name,
-                       priority, num_tensors, process_set_id, -1, ReduceOp::SUM);
+                       priority, num_tensors, process_set_id, -1, reduce_op,
+                       nullptr, nullptr, prescale_factor, postscale_factor);
+#endif
+
+#if HAVE_ROCM
+  if (average_in_framework) {
+    for (int i = 0; i < num_tensors; ++i) {
+      *outputs[i] /= horovod_size();
+    }
+  }
 #endif
 
   MX_API_END();

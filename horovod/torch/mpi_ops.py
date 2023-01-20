@@ -1116,7 +1116,6 @@ def reducescatter(tensor, name=None, compression=Compression.none, op=Average,
         prescale_factor: Multiplicative factor to scale tensor before reducescatter.
         postscale_factor: Multiplicative factor to scale tensor after reducescatter.
 
-
     Returns:
         A tensor of the same rank and type as `tensor` across all processes. The shape
         is identical to the input shape, except for the first dimension, which will be

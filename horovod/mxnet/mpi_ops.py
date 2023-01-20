@@ -539,7 +539,7 @@ def alltoall(tensor, splits=None, name=None, priority=0, process_set=global_proc
 
 
 def reducescatter(tensor, op=Average, name=None, priority=0,
-                  process_set=global_process_set):
+                  process_set=global_process_set, prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs asynchronous averaging or summation of the input tensor
     over all the Horovod processes, then scatters the results across all Horovod
@@ -563,6 +563,8 @@ def reducescatter(tensor, op=Average, name=None, priority=0,
                   are likely to be executed before other operations.
         process_set: Process set object to limit this operation to a subset of
                      Horovod processes. Default is the global process set.
+        prescale_factor: Multiplicative factor to scale tensor before reducescatter.
+        postscale_factor: Multiplicative factor to scale tensor after reducescatter.
 
     Returns:
         A tensor of the same rank and type as `tensor` across all processes.
@@ -583,19 +585,18 @@ def reducescatter(tensor, op=Average, name=None, priority=0,
 
     check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_reducescatter_async(
         ctypes.byref(c_in), ctypes.byref(c_out), c_name, ctypes.c_int(priority),
-        ctypes.c_int(process_set.process_set_id), ctypes.c_int(1)))
+        ctypes.c_int(process_set.process_set_id), ctypes.c_int(1),
+        ctypes.c_int(op), ctypes.c_double(prescale_factor), ctypes.c_double(postscale_factor))
+    )
 
     # Need to block here so changes to output tensor are visible
     output.wait_to_read()
-
-    if op == Average:
-        output /= process_set.size()
 
     return output
 
 
 def grouped_reducescatter(tensors, op=Average, name=None, priority=0,
-                          process_set=global_process_set):
+                          process_set=global_process_set, prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs reduction of a list of input tensors over all the
     Horovod processes, then scatters the results across all Horovod processes. The
@@ -619,6 +620,8 @@ def grouped_reducescatter(tensors, op=Average, name=None, priority=0,
                   are likely to be executed before other operations.
         process_set: Process set object to limit this operation to a subset of
                      Horovod processes. Default is the global process set.
+        prescale_factor: Multiplicative factor to scale tensors before reducescatter.
+        postscale_factor: Multiplicative factor to scale tensors after reducescatter.
 
     Returns:
         A list containing tensors of the same rank and type as in `tensors`. For each
@@ -639,14 +642,11 @@ def grouped_reducescatter(tensors, op=Average, name=None, priority=0,
 
     check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_reducescatter_async(
         c_in, c_out, c_name, ctypes.c_int(priority),
-        ctypes.c_int(process_set.process_set_id), ctypes.c_int(len(tensors))))
+        ctypes.c_int(process_set.process_set_id), ctypes.c_int(len(tensors)),
+        ctypes.c_int(op), ctypes.c_double(prescale_factor), ctypes.c_double(postscale_factor)))
 
     # Need to block here so changes to output tensors are visible
     for o in outputs:
         o.wait_to_read()
-
-    if op == Average:
-        for i in range(len(outputs)):
-            outputs[i] /= process_set.size()
 
     return outputs
