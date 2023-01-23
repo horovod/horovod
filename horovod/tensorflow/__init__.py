@@ -977,7 +977,8 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
             process_set=process_set,
             scale_local_gradients=scale_local_gradients
         )
-    elif isinstance(optimizer, get_keras_optimizer_base_type(tf.keras)):
+    elif (isinstance(optimizer, tf.keras.optimizers.Optimizer) or
+          isinstance(optimizer, tf.keras.optimizers.legacy.Optimizer)):
         if op == Adasum:
             raise ValueError('op == Adasum is not supported yet with Keras')
 
