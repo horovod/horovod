@@ -35,6 +35,7 @@ from horovod.spark.keras import remote
 from horovod.spark.keras.util import TFKerasUtil
 from horovod.spark.keras.datamodule import PetastormDataModule
 
+from horovod._keras import check_keras_optimizer_type
 
 class KerasEstimatorParamsWriter(HorovodParamsWriter):
     def saveImpl(self, path):
@@ -230,12 +231,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
             if isinstance(optimizer, str):
                 pass
             else:
-                if version.parse(tf.keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
-                    if not isinstance(optimizer, tf.keras.optimizers.Optimizer):
-                        raise ValueError(f"optimizer has to be an instance of tensorflow.keras.optimizers.Optimizer before Keras 2.11: {type(optimizer).__name__}")
-                else:
-                    if not isinstance(optimizer, tf.keras.optimizers.legacy.Optimizer):
-                        raise ValueError(f"optimizer has to be an instance of tensorflow.keras.optimizers.legacy.Optimizer starting from Keras 2.11: {type(optimizer).__name__}")
+                check_keras_optimizer_type(tf.keras, optimizer)
 
         return TFKerasUtil
 
