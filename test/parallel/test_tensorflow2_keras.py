@@ -41,6 +41,11 @@ else:
 import horovod.keras as hvd_keras
 import horovod.tensorflow.keras as hvd
 
+from packaging import version
+if version.parse(keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
+    from keras.optimizers import Optimizer
+else:
+    from keras.optimizers.legacy import Optimizer
 
 _PRE_TF_2_2_0 = version.parse(tf.__version__) < version.parse("2.2.0")
 
@@ -247,7 +252,7 @@ class Tf2KerasTests(tf.test.TestCase):
             [np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32),
              np.array([0.0, 0.0], dtype=np.float32)])
 
-        optimizer = tf.optimizers.Adam(0.001 * hvd.size())
+        optimizer = Optimizer.Adam(0.001 * hvd.size())
 
         state = hvd.elastic.KerasState(
             model1,

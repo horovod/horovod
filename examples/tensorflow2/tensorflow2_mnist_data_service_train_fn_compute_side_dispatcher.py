@@ -21,6 +21,11 @@ from filelock import FileLock
 import horovod.tensorflow.keras as hvd
 from horovod.tensorflow.data.compute_service import TfDataServiceConfig
 
+from packaging import version
+if version.parse(tf.keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
+    from tf.keras.optimizers import Optimizer
+else:
+    from tf.keras.optimizers.legacy import Optimizer
 
 # arguments reuse_dataset and round_robin only used when single dispatcher is present
 def train_fn(compute_config: TfDataServiceConfig, reuse_dataset: bool = False, round_robin: bool = False):
@@ -64,7 +69,7 @@ def train_fn(compute_config: TfDataServiceConfig, reuse_dataset: bool = False, r
 
     # Horovod: adjust learning rate based on number of GPUs.
     scaled_lr = 0.001 * hvd.size()
-    opt = tf.optimizers.Adam(scaled_lr)
+    opt = Optimizer.Adam(scaled_lr)
 
     # Horovod: add Horovod DistributedOptimizer.
     opt = hvd.DistributedOptimizer(
