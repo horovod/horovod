@@ -25,9 +25,9 @@ import horovod.tensorflow as hvd
 
 from packaging import version
 if version.parse(tf.keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
-    from tf.keras.optimizers import Optimizer
+    from tensorflow.keras.optimizers import Optimizer
 else:
-    from tf.keras.optimizers.legacy import Optimizer
+    from tensorflow.keras.optimizers.legacy import Optimizer
 
 parser = argparse.ArgumentParser(description='TensorFlow 2 Elastic Test',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
