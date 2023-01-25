@@ -20,6 +20,11 @@ import tensorflow as tf
 import horovod
 import horovod.tensorflow.keras as hvd
 
+from packaging import version
+if version.parse(tf.keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
+    from tensorflow.keras import optimizers
+else:
+    from tensorflow.keras.optimizers import legacy as optimizers
 
 def main():
     # Horovod: initialize Horovod.
@@ -54,7 +59,7 @@ def main():
 
     # Horovod: adjust learning rate based on number of GPUs.
     scaled_lr = 0.001 * hvd.size()
-    opt = tf.optimizers.Adam(scaled_lr)
+    opt = optimizers.Adam(scaled_lr)
 
     # Horovod: add Horovod DistributedOptimizer.
     opt = hvd.DistributedOptimizer(

@@ -43,9 +43,9 @@ import horovod.tensorflow.keras as hvd
 
 from packaging import version
 if version.parse(keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
-    from keras.optimizers import Optimizer
+    from keras import optimizers
 else:
-    from keras.optimizers.legacy import Optimizer
+    from keras.optimizers import legacy as optimizers
 
 _PRE_TF_2_2_0 = version.parse(tf.__version__) < version.parse("2.2.0")
 
@@ -71,10 +71,7 @@ class Tf2KerasTests(tf.test.TestCase):
 
     def test_train_model_lr_schedule(self):
         initial_lr = 0.1 * hvd.size()
-        if version.parse(tf.keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
-            opt = tf.keras.optimizers.Adam()
-        else:
-            opt = tf.keras.optimizers.legacy.Adam()
+        opt = optimizers.Adam()
         opt = hvd.DistributedOptimizer(opt)
 
         def linear_multiplier(epoch):
@@ -164,10 +161,7 @@ class Tf2KerasTests(tf.test.TestCase):
 
     def test_sparse_as_dense_with_grad_aggregation(self):
         backward_passes_per_step = 2
-        if version.parse(keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
-            opt = keras.optimizers.RMSprop(lr=0.0001)
-        else:
-            opt = keras.optimizers.legacy.RMSprop(lr=0.0001)
+        opt = optimizers.RMSprop(lr=0.0001)
         opt = hvd.DistributedOptimizer(
             opt,
             sparse_as_dense=True,
@@ -193,10 +187,7 @@ class Tf2KerasTests(tf.test.TestCase):
     def test_grad_aggregation_with_inf_grad(self):
         backward_passes_per_step = 2
         step_count = tf.Variable(0, trainable=False, dtype=tf.int32)
-        if version.parse(tf.keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
-            opt = tf.keras.optimizers.SGD()
-        else:
-            opt = tf.keras.optimizers.legacy.SGD()
+        opt = optimizers.SGD()
         opt = hvd.DistributedOptimizer(
             opt,
             backward_passes_per_step=backward_passes_per_step,
@@ -221,10 +212,7 @@ class Tf2KerasTests(tf.test.TestCase):
         assert tf.math.is_finite(grads_and_vars[0][0])
 
     def test_from_config(self):
-        if version.parse(keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
-            opt = keras.optimizers.Adam()
-        else:
-            opt = keras.optimizers.legacy.Adam()
+        opt = optimizers.Adam()
         hopt = hvd.DistributedOptimizer(opt)
         cfg = hopt.get_config()
 
@@ -252,7 +240,7 @@ class Tf2KerasTests(tf.test.TestCase):
             [np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32),
              np.array([0.0, 0.0], dtype=np.float32)])
 
-        optimizer = Optimizer.Adam(0.001 * hvd.size())
+        optimizer = optimizers.Adam(0.001 * hvd.size())
 
         state = hvd.elastic.KerasState(
             model1,
@@ -543,10 +531,7 @@ class Tf2KerasTests(tf.test.TestCase):
             model.add(tf.keras.layers.Dense(2, input_shape=(3,), kernel_initializer=initializer, bias_initializer=initializer))
             model.add(tf.keras.layers.RepeatVector(3))
             model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(3, kernel_initializer=initializer, bias_initializer=initializer)))
-            if version.parse(tf.keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
-                opt = tf.keras.optimizers.Adam()
-            else:
-                opt = tf.keras.optimizers.legacy.Adam()
+            opt = optimizers.legacy.Adam()
             model.compile(loss=tf.keras.losses.MSE,
                             metrics=[tf.keras.metrics.categorical_accuracy])
 

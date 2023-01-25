@@ -25,9 +25,9 @@ import horovod.tensorflow as hvd
 
 from packaging import version
 if version.parse(tf.keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
-    from tensorflow.keras.optimizers import Optimizer
+    from tensorflow.keras import optimizers
 else:
-    from tensorflow.keras.optimizers.legacy import Optimizer
+    from tensorflow.keras.optimizers import legacy as optimizers
 
 parser = argparse.ArgumentParser(description='TensorFlow 2 Elastic Test',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -64,7 +64,7 @@ target = tf.one_hot(indices, 2)
 
 lr = 0.001
 model = tf.keras.Sequential([tf.keras.layers.Dense(2, activation='softmax')])
-optimizer = Optimizer.SGD(lr * hvd.size())
+optimizer = optimizers.SGD(lr * hvd.size())
 
 hostname = os.environ.get('HOROVOD_HOSTNAME')
 start_rank = int(os.environ.get('HOROVOD_RANK', 0))
