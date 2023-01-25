@@ -810,9 +810,9 @@ int DoReducescatterCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output,
       tensor.to(::torch::Device(::torch::kCPU), /*non_blocking=*/true);
   auto hvd_cpu_tensor = std::make_shared<TorchTensor>(cpu_tensor);
 
-  auto cpu_output =
-      ::torch::empty({0}, cpu_tensor.options().merge_memory_format(
-                              LEGACY_CONTIGUOUS_MEMORY_FORMAT));
+  auto cpu_output = ::torch::empty(
+      {0}, cpu_tensor.options().merge_in(::torch::TensorOptions().memory_format(
+               LEGACY_CONTIGUOUS_MEMORY_FORMAT)));
   auto hvd_context =
       std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_output);
   std::shared_ptr<common::Tensor> hvd_cpu_output =
@@ -1000,9 +1000,10 @@ int DoGroupedReducescatterCudaOnCPU(const std::vector<::torch::Tensor>& tensors,
         tensors[i].to(::torch::Device(::torch::kCPU), /*non_blocking=*/true);
     auto hvd_cpu_tensor = std::make_shared<TorchTensor>(cpu_tensor);
 
-    auto cpu_output =
-        ::torch::empty({0}, cpu_tensor.options().merge_memory_format(
-                                LEGACY_CONTIGUOUS_MEMORY_FORMAT));
+    auto cpu_output = ::torch::empty(
+        {0},
+        cpu_tensor.options().merge_in(::torch::TensorOptions().memory_format(
+            LEGACY_CONTIGUOUS_MEMORY_FORMAT)));
     auto hvd_context =
         std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_outputs[i]);
     std::shared_ptr<common::Tensor> hvd_cpu_output =
