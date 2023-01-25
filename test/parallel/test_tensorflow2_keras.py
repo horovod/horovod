@@ -43,9 +43,9 @@ import horovod.tensorflow.keras as hvd
 
 from packaging import version
 if version.parse(keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
-    from keras import optimizers
+    from tensorflow.keras import optimizers
 else:
-    from keras.optimizers import legacy as optimizers
+    from tensorflow.keras.optimizers import legacy as optimizers
 
 _PRE_TF_2_2_0 = version.parse(tf.__version__) < version.parse("2.2.0")
 
