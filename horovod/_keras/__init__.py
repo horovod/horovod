@@ -27,23 +27,27 @@ _PRE_TF_2_4_0 = version.parse(tf.__version__) < version.parse('2.4.0')
 _IS_TF2 = version.parse(tf.__version__) >= version.parse('2.0.0')
 
 
-def support_non_legacy_keras_optimizers(keras):
-    return version.parse(keras.__version__.replace("-tf", "+tf")) < version.parse("2.11")
+def support_non_legacy_keras_optimizers(k):
+    return version.parse(k.__version__.replace("-tf", "+tf")) < version.parse("2.11")
 
 
-def get_keras_optimizer_base_type(keras):
-    if support_non_legacy_keras_optimizers(keras):
-        return keras.optimizers.Optimizer
+def get_keras_optimizer_base_type(k):
+    if support_non_legacy_keras_optimizers(k):
+        return k.optimizers.Optimizer
     else:
-        return keras.optimizers.legacy.Optimizer
+        # Optimizers from both tf.keras and keras come from keras package
+        import keras
+        return keras.optimizers.optimizer_v2.optimizer_v2.OptimizerV2
 
 
-def check_keras_optimizer_type(keras, optimizer):
-    if support_non_legacy_keras_optimizers(keras):
-        if not isinstance(optimizer, keras.optimizers.Optimizer):
+def check_keras_optimizer_type(k, optimizer):
+    if support_non_legacy_keras_optimizers(k):
+        if not isinstance(optimizer, k.optimizers.Optimizer):
             raise ValueError(f"Optimizer has to be an instance of tensorflow.keras.optimizers.Optimizer before Keras 2.11: {type(optimizer).__name__}")
     else:
-        if not isinstance(optimizer, keras.optimizers.legacy.Optimizer):
+        # Optimizers from both tf.keras and keras come from keras package
+        import keras
+        if not isinstance(optimizer, keras.optimizers.optimizer_v2.optimizer_v2.OptimizerV2):
             raise ValueError(f"Optimizer has to be an instance of tensorflow.keras.optimizers.legacy.Optimizer starting from Keras 2.11: {type(optimizer).__name__}")
 
 
