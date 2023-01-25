@@ -17,8 +17,7 @@ do
   if [ "$pattern" == "None" ]
   then
     continue
-  elif [[ "$pattern" == "tf-nightly" ]] ||
-       [[ "$pattern" == "tf-nightly-gpu" ]]
+  elif [[ "$pattern" == "tf-nightly" ]]
   then
     flag="-P"
     pattern="$pattern==.*\\.dev20\\d{6}"
