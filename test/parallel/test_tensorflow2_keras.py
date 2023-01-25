@@ -145,7 +145,7 @@ class Tf2KerasTests(tf.test.TestCase):
         self.assertAllClose(expected_loss_metrics_tensor, loss_metrics_tensor)
 
     def test_sparse_as_dense(self):
-        opt = keras.optimizers.RMSprop(lr=0.0001)
+        opt = optimizers.RMSprop(lr=0.0001)
         opt = hvd.DistributedOptimizer(opt, sparse_as_dense=True)
 
         model = keras.models.Sequential()
@@ -531,7 +531,7 @@ class Tf2KerasTests(tf.test.TestCase):
             model.add(tf.keras.layers.Dense(2, input_shape=(3,), kernel_initializer=initializer, bias_initializer=initializer))
             model.add(tf.keras.layers.RepeatVector(3))
             model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(3, kernel_initializer=initializer, bias_initializer=initializer)))
-            opt = optimizers.legacy.Adam()
+            opt = optimizers.Adam()
             model.compile(loss=tf.keras.losses.MSE,
                             metrics=[tf.keras.metrics.categorical_accuracy])
 
