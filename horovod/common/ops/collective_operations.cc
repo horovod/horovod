@@ -312,9 +312,10 @@ ReducescatterOp::ReducescatterOp(HorovodGlobalState* global_state)
     : HorovodOp(global_state) {}
 
 TensorShape ReducescatterOp::ComputeOutputShapeForRank(
-    const TensorShape& tensor_shape, int rank, int global_size) const {
+    const TensorShape& tensor_shape, int rank, int global_size) {
   // If tensor_shape.dim_size(0) % global_size != 0, the first ranks 0, ..., tensor_shape.dim_size(0) % global_size - 1
   // may receive a slightly larger tensor.
+  assert(tensor_shape.dims() > 0);
   int64_t min_size = tensor_shape.dim_size(0) / global_size;
   int64_t max_size = tensor_shape.dim_size(0) / global_size + 1;
   int64_t component_size = rank < tensor_shape.dim_size(0) % global_size ? max_size : min_size;
@@ -354,24 +355,6 @@ std::vector<int> ReducescatterOp::ComputeReceiveCounts(
   }
 
   return recvcounts;
-}
-
-Status
-ReducescatterOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
-                                const std::vector<TensorShape>& output_shapes) {
-  for (size_t ec = 0; ec < entries.size(); ++ec) {
-    auto& e = entries[ec];
-    const auto& output_shape = output_shapes[ec];
-    Status status =
-        e.context->AllocateOutput(e.output_index, output_shape, &e.output);
-    if (!status.ok()) {
-      LOG(WARNING) << "ReducescatterOp::AllocateOutput failed: "
-                   << status.reason();
-      return status;
-    }
-  }
-
-  return Status::OK();
 }
 
 void ReducescatterOp::MemcpyInFusionBuffer(

@@ -322,9 +322,6 @@ public:
                const Response& response) const override;
 
 protected:
-  Status AllocateOutput(std::vector<TensorTableEntry>& entries,
-                        const std::vector<TensorShape>& output_shapes) override;
-
   void WaitForData(std::vector<TensorTableEntry>& entries) override;
 
   NCCLContext* nccl_context_;

@@ -16,9 +16,13 @@
 
 #include <atomic>
 
-#include "../common/operations.h"
 #include "cuda_util.h"
 #include "mpi_ops.h"
+
+// Undef LOG macro from MXNet
+#undef LOG
+#include "../common/operations.h"
+#include "../common/ops/collective_operations.h"
 
 #if MXNET_MAJOR >= 2 || MXNET_ASYNC_GPU_ENGINE_SUPPORTED
 #define MXNET_ASYNC_GPU_ENGINE_SUPPORTED 1
@@ -133,6 +137,29 @@ ReadyEventList FormReadyEventList(NDArray* input, NDArray* output) {
   return ready_event_list;
 }
 
+namespace {
+TensorShape
+GetReducescatterOutputShape(int process_set_id,
+                            const TensorShape& horovod_input_tensor_shape) {
+  if (horovod_input_tensor_shape.dims() == 0) {
+    throw std::invalid_argument("Reducescatter does not support scalar inputs");
+  }
+  int process_set_size = horovod_process_set_size(process_set_id);
+  if (process_set_size < 0) {
+    throw std::invalid_argument("Invalid process set id for this rank: " +
+                                std::to_string(process_set_id));
+  }
+  int process_set_rank = horovod_process_set_rank(process_set_id);
+  if (process_set_rank < 0) {
+    throw std::invalid_argument("Invalid process set id for this rank: " +
+                                std::to_string(process_set_id));
+  }
+  auto output_shape = ReducescatterOp::ComputeOutputShapeForRank(
+      horovod_input_tensor_shape, process_set_rank, process_set_size);
+  return output_shape;
+}
+} // namespace
+
 #if MXNET_ASYNC_GPU_ENGINE_SUPPORTED
 void DoHorovodOperation(void*, void* on_start_ptr, void* on_complete_ptr, void* param) {
   auto on_start = *static_cast<CallbackOnStart*>(on_start_ptr);
@@ -173,11 +200,9 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
       throw std::logic_error("Tensors in list must be on same device.");
     }
     std::shared_ptr<MXOpContext> ctx;
-    if (ops_param->op_type == OperationType::ALLGATHER ||
-        ops_param->op_type == OperationType::REDUCESCATTER) {
-      // Grouped allgather and reducescatter operations will need to allocate
-      // the correct output tensor later on, therefore referring to all output
-      // tensors in context.
+    if (ops_param->op_type == OperationType::ALLGATHER) {
+      // Grouped allgather operations will need to allocate the correct output
+      // tensor later on, therefore referring to all output tensors in context.
       ctx = std::make_shared<MXOpContext>(device, ops_param->outputs);
     } else {
       ctx = std::make_shared<MXOpContext>(device, output);
@@ -187,13 +212,14 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
     }
     hvd_contexts.push_back(ctx);
     callbacks.emplace_back([on_complete, ops_param, callback_mutex, i](const Status& status) {
-      auto input_tensor = ops_param->input_tensors[i].get();
-      auto output_tensor = ops_param->output_tensors[i].get();
 #if HAVE_CUDA
       auto hvd_event = status.event;
       if (hvd_event.event) {
 #if MXNET_ASYNC_GPU_ENGINE_SUPPORTED
-        auto async_engine_enabled = dmlc::GetEnv("MXNET_ASYNC_GPU_ENGINE", false);
+        auto input_tensor = ops_param->input_tensors[i].get();
+        auto output_tensor = ops_param->output_tensors[i].get();
+        auto async_engine_enabled =
+            dmlc::GetEnv("MXNET_ASYNC_GPU_ENGINE", false);
         if (async_engine_enabled) {
           {
             auto &sync_obj = input_tensor->var()->sync_object;
@@ -296,12 +322,23 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
           ops_param->op_names[0], device, callbacks[0], process_set_id);
       break;
     }
-    case OperationType::REDUCESCATTER:
+    case OperationType::REDUCESCATTER: {
+      for (std::size_t i = 0; i < num_tensors; ++i) {
+        std::shared_ptr<Tensor> hvd_output =
+            std::make_shared<MXTensor>(ops_param->output_tensors[i].get());
+        auto output_shape = GetReducescatterOutputShape(
+            process_set_id, hvd_tensors[i]->shape());
+        hvd_contexts[i]->AllocateOutput(output_shape,
+                                        &hvd_output); // blocking
+        hvd_outputs.emplace_back(hvd_output);
+      }
+
       enqueue_result = EnqueueTensorReducescatters(
-          hvd_contexts, hvd_tensors, ready_event_lists, ops_param->op_names,
-          device, callbacks, reduce_op, process_set_id, prescale_factor,
-          postscale_factor);
+          hvd_contexts, hvd_tensors, hvd_outputs, ready_event_lists,
+          ops_param->op_names, device, callbacks, reduce_op, process_set_id,
+          prescale_factor, postscale_factor);
       break;
+    }
     default:
       throw std::logic_error("Unsupported Horovod operation type.");
   }
@@ -457,11 +494,9 @@ void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
       throw std::logic_error("Tensors in list must be on same device.");
     }
     std::shared_ptr<MXOpContext> ctx;
-    if (ops_param->op_type == OperationType::ALLGATHER ||
-        ops_param->op_type == OperationType::REDUCESCATTER) {
-      // Grouped allgather and reducescatter operations will need to allocate
-      // the correct output tensor later on, therefore referring to all output
-      // tensors in context.
+    if (ops_param->op_type == OperationType::ALLGATHER) {
+      // Grouped allgather operations will need to allocate the correct output
+      // tensor later on, therefore referring to all output tensors in context.
       ctx = std::make_shared<MXOpContext>(device, outputs);
     } else {
       ctx = std::make_shared<MXOpContext>(device, output);
@@ -512,12 +547,24 @@ void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
         ops_param->op_names[0], device, callbacks[0], process_set_id);
     break;
   }
-  case OperationType::REDUCESCATTER:
+  case OperationType::REDUCESCATTER: {
+    std::vector<std::shared_ptr<Tensor>> hvd_outputs;
+    hvd_outputs.reserve(num_tensors);
+    for (std::size_t i = 0; i < num_tensors; ++i) {
+      std::shared_ptr<Tensor> hvd_output =
+          std::make_shared<MXTensor>(outputs[i]);
+      auto output_shape = GetReducescatterOutputShape(
+          process_set_id, hvd_cpu_buffers[i]->shape());
+      hvd_contexts[i]->AllocateOutput(output_shape,
+                                      &hvd_output); // blocking
+      hvd_outputs.emplace_back(hvd_output);
+    }
     enqueue_result = EnqueueTensorReducescatters(
-        hvd_contexts, hvd_cpu_buffers, ready_event_lists, ops_param->op_names,
-        device, callbacks, reduce_op, process_set_id, prescale_factor,
-        postscale_factor);
+        hvd_contexts, hvd_cpu_buffers, hvd_outputs, ready_event_lists,
+        ops_param->op_names, device, callbacks, reduce_op, process_set_id,
+        prescale_factor, postscale_factor);
     break;
+  }
   default:
     throw std::logic_error("Unsupported Horovod operation type.");
   }

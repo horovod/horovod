@@ -1751,25 +1751,28 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
 // must be running before this function is called.
 Status EnqueueTensorReducescatter(
     std::shared_ptr<OpContext> context, std::shared_ptr<Tensor> tensor,
-    ReadyEventList ready_event_list, const std::string& name, const int device,
-    StatusCallback callback, ReduceOp reduce_op, int32_t process_set_id,
-    double prescale_factor, double postscale_factor) {
+    std::shared_ptr<Tensor> output, ReadyEventList ready_event_list,
+    const std::string& name, const int device, StatusCallback callback,
+    ReduceOp reduce_op, int32_t process_set_id, double prescale_factor,
+    double postscale_factor) {
   // Wrap inputs in std::vector and pass onto multi tensor implementation
   std::vector<std::shared_ptr<OpContext>> contexts;
   std::vector<std::shared_ptr<Tensor>> tensors;
+  std::vector<std::shared_ptr<Tensor>> outputs;
   std::vector<ReadyEventList> ready_event_lists;
   std::vector<std::string> names;
   std::vector<StatusCallback> callbacks;
 
   contexts.emplace_back(std::move(context));
   tensors.emplace_back(std::move(tensor));
+  outputs.emplace_back(std::move(output));
   ready_event_lists.emplace_back(std::move(ready_event_list));
   names.emplace_back(std::move(name));
   callbacks.emplace_back(std::move(callback));
 
   return EnqueueTensorReducescatters(
-      contexts, tensors, ready_event_lists, names, device, callbacks, reduce_op,
-      process_set_id, prescale_factor, postscale_factor);
+      contexts, tensors, outputs, ready_event_lists, names, device, callbacks,
+      reduce_op, process_set_id, prescale_factor, postscale_factor);
 }
 
 // Contexts and controller must be initialized and the background thread
@@ -1777,6 +1780,7 @@ Status EnqueueTensorReducescatter(
 Status
 EnqueueTensorReducescatters(std::vector<std::shared_ptr<OpContext>>& contexts,
                             std::vector<std::shared_ptr<Tensor>>& tensors,
+                            std::vector<std::shared_ptr<Tensor>>& outputs,
                             std::vector<ReadyEventList>& ready_event_lists,
                             std::vector<std::string>& names, int device,
                             std::vector<StatusCallback>& callbacks,
@@ -1845,7 +1849,7 @@ EnqueueTensorReducescatters(std::vector<std::shared_ptr<OpContext>>& contexts,
     e.tensor_name = names[n];
     e.context = std::move(contexts[n]);
     e.tensor = tensors[n];
-    e.output_index = n;
+    e.output = outputs[n];
     e.process_set_id = process_set_id;
     e.ready_event_list = std::move(ready_event_lists[n]);
     e.device = device;

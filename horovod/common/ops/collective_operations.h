@@ -278,20 +278,16 @@ public:
                        const std::vector<TensorTableEntry>& entries,
                        const Response& response) const = 0;
 
-protected:
-  virtual TensorShape ComputeOutputShapeForRank(const TensorShape& tensor_shape,
-                                                int rank,
-                                                int global_size) const;
+  static TensorShape ComputeOutputShapeForRank(const TensorShape& tensor_shape,
+                                               int rank, int global_size);
 
+protected:
   virtual std::vector<std::vector<TensorShape>>
   ComputeOutputShapes(const std::vector<TensorTableEntry>& entries,
                       int global_size) const;
 
   virtual std::vector<int> ComputeReceiveCounts(
       const std::vector<std::vector<TensorShape>>& output_shapes) const;
-
-  virtual Status AllocateOutput(std::vector<TensorTableEntry>& entries,
-                                const std::vector<TensorShape>& output_shapes);
 
   virtual void MemcpyInFusionBuffer(
       const std::vector<TensorTableEntry>& entries,

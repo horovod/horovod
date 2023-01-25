@@ -26,7 +26,10 @@
 #include <torch/extension.h>
 #include <torch/torch.h>
 
+// Undef LOG macro from Torch
+#undef LOG
 #include "../common/operations.h"
+#include "../common/ops/collective_operations.h"
 #include "adapter_v2.h"
 #include "cuda_util.h"
 #include "handle_manager.h"
@@ -709,6 +712,29 @@ int DoAlltoallCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor splits,
   return handle;
 }
 
+namespace {
+TensorShape
+GetReducescatterOutputShape(int process_set_id,
+                            const TensorShape& horovod_input_tensor_shape) {
+  if (horovod_input_tensor_shape.dims() == 0) {
+    throw std::invalid_argument("Reducescatter does not support scalar inputs");
+  }
+  int process_set_size = horovod_process_set_size(process_set_id);
+  if (process_set_size < 0) {
+    throw std::invalid_argument("Invalid process set id for this rank: " +
+                                std::to_string(process_set_id));
+  }
+  int process_set_rank = horovod_process_set_rank(process_set_id);
+  if (process_set_rank < 0) {
+    throw std::invalid_argument("Invalid process set id for this rank: " +
+                                std::to_string(process_set_id));
+  }
+  auto output_shape = ReducescatterOp::ComputeOutputShapeForRank(
+      horovod_input_tensor_shape, process_set_rank, process_set_size);
+  return output_shape;
+}
+} // namespace
+
 int DoReducescatter(::torch::Tensor tensor, ::torch::Tensor output,
                     const std::string& name, int reduce_op_int,
                     int process_set_id, double prescale_factor,
@@ -724,15 +750,25 @@ int DoReducescatter(::torch::Tensor tensor, ::torch::Tensor output,
 
   auto handle = handle_manager.AllocateHandle();
   auto device = GetDeviceID(tensor);
+  auto hvd_context = std::make_shared<TorchOpContext>(device, output);
+  std::shared_ptr<common::Tensor> hvd_output =
+      std::make_shared<TorchTensor>(output);
+  auto hvd_tensor = std::make_shared<TorchTensor>(tensor);
+  TensorShape output_shape =
+      GetReducescatterOutputShape(process_set_id, hvd_tensor->shape());
+
   common::ReadyEventList ready_event_list;
 #if HAVE_GPU
-  ready_event_list.AddReadyEvent(RecordReadyEvent(device));
-#endif
-  auto hvd_tensor = std::make_shared<TorchTensor>(tensor);
-  auto hvd_context = std::make_shared<TorchOpContext>(device, output);
+  std::shared_ptr<ReadyEvent> ready_event;
+  ThrowIfError(
+      hvd_context->AllocateOutput(output_shape, &hvd_output, &ready_event));
+  ready_event_list.AddReadyEvent(ready_event);
+#else
+  ThrowIfError(hvd_context->AllocateOutput(output_shape, &hvd_output));
+#endif // HAVE_GPU
 
   auto enqueue_result = EnqueueTensorReducescatter(
-      hvd_context, hvd_tensor, ready_event_list,
+      hvd_context, hvd_tensor, hvd_output, ready_event_list,
       GetOpName("reducescatter", name, handle), device,
       [handle, reduce_op, output, device,
        process_set_id](const Status& status) mutable {
@@ -773,18 +809,30 @@ int DoReducescatterCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output,
   auto cpu_tensor =
       tensor.to(::torch::Device(::torch::kCPU), /*non_blocking=*/true);
   auto hvd_cpu_tensor = std::make_shared<TorchTensor>(cpu_tensor);
-  common::ReadyEventList ready_event_list;
-#if HAVE_GPU
-  ready_event_list.AddReadyEvent(RecordReadyEvent(device));
-#endif
 
-  auto cpu_output = ::torch::empty_like(cpu_tensor);
+  auto cpu_output =
+      ::torch::empty({0}, cpu_tensor.options().merge_memory_format(
+                              LEGACY_CONTIGUOUS_MEMORY_FORMAT));
   auto hvd_context =
       std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_output);
+  std::shared_ptr<common::Tensor> hvd_cpu_output =
+      std::make_shared<TorchTensor>(cpu_output);
+  TensorShape output_shape =
+      GetReducescatterOutputShape(process_set_id, hvd_cpu_tensor->shape());
+
+  common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+  std::shared_ptr<ReadyEvent> ready_event;
+  ThrowIfError(
+      hvd_context->AllocateOutput(output_shape, &hvd_cpu_output, &ready_event));
+  ready_event_list.AddReadyEvent(ready_event);
+#else
+  ThrowIfError(hvd_context->AllocateOutput(output_shape, &hvd_output));
+#endif // HAVE_GPU
 
   auto handle = handle_manager.AllocateHandle();
   auto enqueue_result = EnqueueTensorReducescatter(
-      hvd_context, hvd_cpu_tensor, ready_event_list,
+      hvd_context, hvd_cpu_tensor, hvd_cpu_output, ready_event_list,
       GetOpName("reducescatter", name, handle), CPU_DEVICE_ID,
       [handle, reduce_op, cpu_output, output, device,
        process_set_id](const Status& status) mutable {
@@ -825,12 +873,9 @@ int DoGroupedReducescatter(const std::vector<::torch::Tensor>& tensors,
 
   auto handle = handle_manager.AllocateHandle();
   auto device = GetDeviceID(tensors[0]);
-  common::ReadyEventList ready_event_list;
-#if HAVE_GPU
-  ready_event_list.AddReadyEvent(RecordReadyEvent(device));
-#endif
 
   std::vector<std::shared_ptr<Tensor>> hvd_tensors;
+  std::vector<std::shared_ptr<Tensor>> hvd_outputs;
   std::vector<std::shared_ptr<OpContext>> hvd_contexts;
   std::vector<common::ReadyEventList> ready_event_lists;
   std::vector<StatusCallback> callbacks;
@@ -838,6 +883,7 @@ int DoGroupedReducescatter(const std::vector<::torch::Tensor>& tensors,
 
   auto num_tensors = tensors.size();
   hvd_tensors.reserve(num_tensors);
+  hvd_outputs.reserve(num_tensors);
   hvd_contexts.reserve(num_tensors);
   ready_event_lists.reserve(num_tensors);
   names.reserve(num_tensors);
@@ -851,11 +897,25 @@ int DoGroupedReducescatter(const std::vector<::torch::Tensor>& tensors,
     if (GetDeviceID(tensors[i]) != device) {
       throw std::logic_error("Tensors in list must be on same device.");
     }
-    hvd_tensors.emplace_back(std::make_shared<TorchTensor>(tensors[i]));
-    hvd_contexts.emplace_back(
-        std::make_shared<TorchOpContext>(device, outputs));
-    ready_event_lists.emplace_back(
-        ready_event_list); // Same for all tensors in group
+    auto hvd_context = std::make_shared<TorchOpContext>(device, outputs[i]);
+    std::shared_ptr<common::Tensor> hvd_output =
+        std::make_shared<TorchTensor>(outputs[i]);
+    auto hvd_tensor = std::make_shared<TorchTensor>(tensors[i]);
+    TensorShape output_shape =
+        GetReducescatterOutputShape(process_set_id, hvd_tensor->shape());
+    common::ReadyEventList ready_event_list;
+#if HAVE_GPU
+    std::shared_ptr<ReadyEvent> ready_event;
+    ThrowIfError(
+        hvd_context->AllocateOutput(output_shape, &hvd_output, &ready_event));
+    ready_event_list.AddReadyEvent(ready_event);
+#else
+    ThrowIfError(hvd_context->AllocateOutput((int)i, output_shape, &hvd_output));
+#endif // HAVE_GPU
+    hvd_tensors.emplace_back(hvd_tensor);
+    hvd_outputs.emplace_back(hvd_output);
+    hvd_contexts.emplace_back(hvd_context);
+    ready_event_lists.emplace_back(ready_event_list);
     names.emplace_back(base_name + "_" + std::to_string(i + 1) + "of" +
                        std::to_string(num_tensors));
     auto output = outputs[i];
@@ -883,8 +943,8 @@ int DoGroupedReducescatter(const std::vector<::torch::Tensor>& tensors,
   }
 
   auto enqueue_result = EnqueueTensorReducescatters(
-      hvd_contexts, hvd_tensors, ready_event_lists, names, device, callbacks,
-      request_op, process_set_id, prescale_factor, postscale_factor);
+      hvd_contexts, hvd_tensors, hvd_outputs, ready_event_lists, names, device,
+      callbacks, request_op, process_set_id, prescale_factor, postscale_factor);
   ThrowIfError(enqueue_result);
 
   return handle;
@@ -913,6 +973,7 @@ int DoGroupedReducescatterCudaOnCPU(const std::vector<::torch::Tensor>& tensors,
 
   std::vector<std::shared_ptr<Tensor>> hvd_cpu_tensors;
   std::vector<::torch::Tensor> cpu_outputs;
+  std::vector<std::shared_ptr<Tensor>> hvd_cpu_outputs;
   std::vector<std::shared_ptr<OpContext>> hvd_contexts;
   std::vector<common::ReadyEventList> ready_event_lists;
   std::vector<StatusCallback> callbacks;
@@ -921,6 +982,7 @@ int DoGroupedReducescatterCudaOnCPU(const std::vector<::torch::Tensor>& tensors,
   auto num_tensors = tensors.size();
   hvd_cpu_tensors.reserve(num_tensors);
   cpu_outputs.reserve(outputs.size());
+  hvd_cpu_outputs.reserve(outputs.size());
   hvd_contexts.reserve(num_tensors);
   ready_event_lists.reserve(num_tensors);
   names.reserve(num_tensors);
@@ -932,18 +994,39 @@ int DoGroupedReducescatterCudaOnCPU(const std::vector<::torch::Tensor>& tensors,
     if (GetDeviceID(tensors[i]) != device) {
       throw std::logic_error("Tensors in list must be on same device.");
     }
-    // Make async copy of input tensor to CPU tensor and record completion
-    // event.
+    // Make async copy of input tensor to CPU tensor, allocate output tensor,
+    // and record completion event.
     auto cpu_tensor =
         tensors[i].to(::torch::Device(::torch::kCPU), /*non_blocking=*/true);
-    hvd_cpu_tensors.emplace_back(std::make_shared<TorchTensor>(cpu_tensor));
+    auto hvd_cpu_tensor = std::make_shared<TorchTensor>(cpu_tensor);
+
+    auto cpu_output =
+        ::torch::empty({0}, cpu_tensor.options().merge_memory_format(
+                                LEGACY_CONTIGUOUS_MEMORY_FORMAT));
+    auto hvd_context =
+        std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_outputs[i]);
+    std::shared_ptr<common::Tensor> hvd_cpu_output =
+        std::make_shared<TorchTensor>(cpu_output);
+    TensorShape output_shape =
+        GetReducescatterOutputShape(process_set_id, hvd_cpu_tensor->shape());
+
     common::ReadyEventList ready_event_list;
 #if HAVE_GPU
-    ready_event_list.AddReadyEvent(RecordReadyEvent(device));
-#endif
+    std::shared_ptr<ReadyEvent> ready_event;
+    ThrowIfError(hvd_context->AllocateOutput(output_shape, &hvd_cpu_output,
+                                             &ready_event));
+    ready_event_list.AddReadyEvent(ready_event);
+#else
+    ThrowIfError(
+        hvd_context->AllocateOutput((int)i, output_shape, &hvd_output));
+#endif // HAVE_GPU
+
+    hvd_cpu_tensors.emplace_back(hvd_cpu_tensor);
+    cpu_outputs.emplace_back(cpu_output);
+    hvd_cpu_outputs.emplace_back(hvd_cpu_output);
+    hvd_contexts.emplace_back(
+        std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_outputs));
     ready_event_lists.emplace_back(ready_event_list);
-    cpu_outputs.emplace_back(
-        ::torch::empty_like(cpu_tensor, LEGACY_CONTIGUOUS_MEMORY_FORMAT));
     names.emplace_back(base_name + "_" + std::to_string(i + 1) + "of" +
                        std::to_string(num_tensors));
   }
@@ -951,8 +1034,6 @@ int DoGroupedReducescatterCudaOnCPU(const std::vector<::torch::Tensor>& tensors,
   auto callback_mutex = std::make_shared<std::mutex>();
   auto callback_count = std::make_shared<std::size_t>(0);
   for (std::size_t i = 0; i < num_tensors; ++i) {
-    hvd_contexts.emplace_back(
-        std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_outputs));
     auto output = outputs[i];
     auto cpu_output = cpu_outputs[i];
     callbacks.emplace_back([handle, reduce_op, cpu_output, output,
@@ -978,8 +1059,9 @@ int DoGroupedReducescatterCudaOnCPU(const std::vector<::torch::Tensor>& tensors,
   }
 
   auto enqueue_result = EnqueueTensorReducescatters(
-      hvd_contexts, hvd_cpu_tensors, ready_event_lists, names, CPU_DEVICE_ID,
-      callbacks, request_op, process_set_id, prescale_factor, postscale_factor);
+      hvd_contexts, hvd_cpu_tensors, hvd_cpu_outputs, ready_event_lists, names,
+      CPU_DEVICE_ID, callbacks, request_op, process_set_id, prescale_factor,
+      postscale_factor);
   ThrowIfError(enqueue_result);
 
   return handle;

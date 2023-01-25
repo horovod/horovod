@@ -3742,7 +3742,7 @@ class TorchTests(unittest.TestCase):
         hvd.init()
         rank = hvd.rank()
         scalar = self.cast_and_place(torch.tensor(rank), torch.FloatTensor)
-        with self.assertRaises((torch.FatalError, RuntimeError, hvd.HorovodInternalError)):
+        with self.assertRaises((torch.FatalError, RuntimeError, hvd.HorovodInternalError, ValueError)):
             _ = hvd.reducescatter(scalar, op=hvd.Average)
 
     def test_horovod_reducescatter_adasum(self):
@@ -4318,7 +4318,7 @@ class TorchTests(unittest.TestCase):
         rank = hvd.rank()
         scalar = self.cast_and_place(torch.tensor(rank), torch.FloatTensor)
         tensor = self.cast_and_place(torch.zeros((3,1)), torch.FloatTensor)
-        with self.assertRaises((torch.FatalError, RuntimeError, hvd.HorovodInternalError)):
+        with self.assertRaises((torch.FatalError, RuntimeError, hvd.HorovodInternalError, ValueError)):
             _ = hvd.grouped_reducescatter([tensor, scalar])
 
     def test_horovod_grouped_reducescatter_process_sets(self):
