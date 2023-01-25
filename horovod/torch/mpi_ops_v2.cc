@@ -827,7 +827,7 @@ int DoReducescatterCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output,
       hvd_context->AllocateOutput(output_shape, &hvd_cpu_output, &ready_event));
   ready_event_list.AddReadyEvent(ready_event);
 #else
-  ThrowIfError(hvd_context->AllocateOutput(output_shape, &hvd_output));
+  ThrowIfError(hvd_context->AllocateOutput(output_shape, &hvd_cpu_output));
 #endif // HAVE_GPU
 
   auto handle = handle_manager.AllocateHandle();
@@ -910,7 +910,7 @@ int DoGroupedReducescatter(const std::vector<::torch::Tensor>& tensors,
         hvd_context->AllocateOutput(output_shape, &hvd_output, &ready_event));
     ready_event_list.AddReadyEvent(ready_event);
 #else
-    ThrowIfError(hvd_context->AllocateOutput((int)i, output_shape, &hvd_output));
+    ThrowIfError(hvd_context->AllocateOutput(output_shape, &hvd_output));
 #endif // HAVE_GPU
     hvd_tensors.emplace_back(hvd_tensor);
     hvd_outputs.emplace_back(hvd_output);
@@ -1018,7 +1018,7 @@ int DoGroupedReducescatterCudaOnCPU(const std::vector<::torch::Tensor>& tensors,
     ready_event_list.AddReadyEvent(ready_event);
 #else
     ThrowIfError(
-        hvd_context->AllocateOutput((int)i, output_shape, &hvd_output));
+        hvd_context->AllocateOutput(output_shape, &hvd_cpu_output));
 #endif // HAVE_GPU
 
     hvd_cpu_tensors.emplace_back(hvd_cpu_tensor);
