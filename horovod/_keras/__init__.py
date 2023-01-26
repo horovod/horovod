@@ -21,14 +21,10 @@ import tensorflow as tf
 from horovod.tensorflow.gradient_aggregation import LocalGradientAggregationHelper
 from horovod.tensorflow.gradient_aggregation_eager import LocalGradientAggregationHelperEager
 from horovod.tensorflow.mpi_ops import rank, size_op
-
+from horovod.common.util import support_non_legacy_keras_optimizers
 
 _PRE_TF_2_4_0 = version.parse(tf.__version__) < version.parse('2.4.0')
 _IS_TF2 = version.parse(tf.__version__) >= version.parse('2.0.0')
-
-
-def support_non_legacy_keras_optimizers(k):
-    return version.parse(k.__version__.replace("-tf", "+tf")) < version.parse("2.11")
 
 
 def get_keras_optimizer_base_type(k):

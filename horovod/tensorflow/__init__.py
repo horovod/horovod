@@ -43,7 +43,7 @@ from horovod.tensorflow.util import _executing_eagerly, _make_subgraph, _cache, 
 from horovod.tensorflow.mpi_ops import join
 from horovod.tensorflow.sync_batch_norm import SyncBatchNormalization
 from horovod.tensorflow.gradient_aggregation import LocalGradientAggregationHelper
-from horovod._keras import support_non_legacy_keras_optimizers
+from horovod.common.util import support_non_legacy_keras_optimizers
 
 import tensorflow as tf
 _IS_TF2 = version.parse(tf.__version__) >= version.parse('2.0.0')
