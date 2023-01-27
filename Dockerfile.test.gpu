@@ -108,10 +108,10 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
             cd /tmp && tar -zxf /tmp/openmpi-4.1.4-bin.tar.gz && \
             mkdir openmpi-4.1.4/build && cd openmpi-4.1.4/build && ../configure --prefix=/usr/local && \
             make -j all && make install && ldconfig && \
-            echo "mpirun -allow-run-as-root -np 2 -H localhost:2 -bind-to none -map-by slot -mca mpi_abort_print_stack 1" > /mpirun_command; \
+            echo "mpirun -allow-run-as-root -np 2 -H localhost:2 -bind-to none -map-by slot -mca mpi_abort_print_stack 1 -tag-output" > /mpirun_command; \
     elif [[ ${MPI_KIND} == "MPICH" ]]; then \
         apt-get update -qq && apt-get install -y mpich && \
-            echo "mpirun -np 2" > /mpirun_command; \
+            echo "mpirun -np 2 -l" > /mpirun_command; \
     fi
 
 # Set default NCCL parameters
