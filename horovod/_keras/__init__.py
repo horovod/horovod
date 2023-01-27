@@ -31,16 +31,12 @@ def get_keras_optimizer_base_type(k):
     if support_non_legacy_keras_optimizers(k):
         return k.optimizers.Optimizer
     else:
-        # Optimizers from both tf.keras and keras come from keras package
-        import keras
-        return keras.optimizers.optimizer_v2.optimizer_v2.OptimizerV2
+        return tf.keras.optimizers.legacy.Optimizer
 
 
 def check_keras_optimizer_type(k, optimizer):
     if not support_non_legacy_keras_optimizers(k):
-        # Optimizers from both tf.keras and keras come from keras package
-        import keras
-        if not isinstance(optimizer, keras.optimizers.optimizer_v2.optimizer_v2.OptimizerV2):
+        if not isinstance(optimizer, tf.keras.optimizers.legacy.Optimizer):
             raise ValueError(f"Optimizer has to be an instance of tensorflow.keras.optimizers.legacy.Optimizer starting from Keras 2.11: {type(optimizer).__name__}")
 
 
