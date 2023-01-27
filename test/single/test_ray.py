@@ -175,7 +175,7 @@ def test_gpu_ids(ray_start_4_cpus_4_gpus):
     all_envs = hjob.execute(lambda _: os.environ.copy())
     all_cudas = {ev["CUDA_VISIBLE_DEVICES"] for ev in all_envs}
     assert len(all_cudas) == 1, all_cudas
-    assert len(all_envs[0]["CUDA_VISIBLE_DEVICES"].split(",")) == 4, all_envs[0]["CUDA_VISIBLE_DEVICES"]
+    assert len(set(all_envs[0]["CUDA_VISIBLE_DEVICES"].split(","))) == 4, all_envs[0]["CUDA_VISIBLE_DEVICES"]
     hjob.shutdown()
 
 
@@ -191,13 +191,13 @@ def test_gpu_ids_num_workers(ray_start_4_cpus_4_gpus):
     all_cudas = {ev["CUDA_VISIBLE_DEVICES"] for ev in all_envs}
 
     assert len(all_cudas) == 1, all_cudas
-    assert len(all_envs[0]["CUDA_VISIBLE_DEVICES"].split(",")) == 4, all_envs[0]["CUDA_VISIBLE_DEVICES"]
+    assert len(set(all_envs[0]["CUDA_VISIBLE_DEVICES"].split(","))) == 4, all_envs[0]["CUDA_VISIBLE_DEVICES"]
 
     def _test(worker):
         import horovod.torch as hvd
         hvd.init()
         local_rank = str(hvd.local_rank())
-        return local_rank in os.environ["CUDA_VISIBLE_DEVICES"]
+        return local_rank in os.environ["CUDA_VISIBLE_DEVICES"].split(",")
 
     all_valid_local_rank = hjob.execute(_test)
     assert all(all_valid_local_rank)

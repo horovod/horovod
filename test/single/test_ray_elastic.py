@@ -34,7 +34,7 @@ def ray_8_cpus():
 @pytest.fixture
 def ray_8_cpus_gpus():
     if "CUDA_VISIBLE_DEVICES" in os.environ:
-        if len(os.environ["CUDA_VISIBLE_DEVICES"].split(",")) < 8:
+        if len(set(os.environ["CUDA_VISIBLE_DEVICES"].split(","))) < 8:
             pytest.skip("Avoiding mismatched GPU machine.")
     ray.init(num_cpus=8, num_gpus=8, resources={
         f"node:host-{i}": 1 for i in range(10)})
