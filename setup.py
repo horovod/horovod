@@ -167,7 +167,7 @@ pytorch_require_list = ['torch']
 mxnet_require_list = ['mxnet>=1.4.1']
 pyspark_require_list = ['pyspark>=2.3.2;python_version<"3.8"',
                         'pyspark>=3.0.0;python_version>="3.8"']
-spark_require_list = ['numpy', 'petastorm>=0.12.0', 'pyarrow>=0.15.0', 'fsspec>=2021.07.0']
+spark_require_list = ['numpy', 'petastorm>=0.12.0', 'pyarrow>=0.15.0,<11.0', 'fsspec>=2021.07.0']
 # https://github.com/ray-project/ray/pull/17465
 # google-api-core>=2.9.0 depends on protobuf<5.0.0dev,>=3.20.1, which conflicts with
 #   tensorflow protobuf~=3.20 and pytorch-lightning protobuf<3.20,>=3.9.2
