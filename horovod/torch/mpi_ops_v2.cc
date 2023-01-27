@@ -1005,7 +1005,7 @@ int DoGroupedReducescatterCudaOnCPU(const std::vector<::torch::Tensor>& tensors,
         cpu_tensor.options().merge_in(::torch::TensorOptions().memory_format(
             LEGACY_CONTIGUOUS_MEMORY_FORMAT)));
     auto hvd_context =
-        std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_outputs[i]);
+        std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_output);
     std::shared_ptr<common::Tensor> hvd_cpu_output =
         std::make_shared<TorchTensor>(cpu_output);
     TensorShape output_shape =
