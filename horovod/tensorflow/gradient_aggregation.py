@@ -39,9 +39,10 @@ class LocalGradientAggregationHelper:
             rank,
             optimizer_type,
             process_set=global_process_set,
-            scale_local_gradients=True):
+            scale_local_gradients=True,
+            name=""):
         self._allreduce_grads = allreduce_func
-
+        self.name = name
         # backward_passes_per_step controls how often gradient updates are
         # synchronized.
         self.backward_passes_per_step = backward_passes_per_step
@@ -104,7 +105,7 @@ class LocalGradientAggregationHelper:
         Initializes the counter that is used when to communicate and aggregate gradients
         and the tensorflow variables that store the locally aggregated gradients.
         """
-        variable_scope_name = "aggregation_variables_" + str(self.rank)
+        variable_scope_name = "aggregation_variables_" + self.name + str(self.rank)
         with tf.compat.v1.variable_scope(variable_scope_name, reuse=tf.compat.v1.AUTO_REUSE):
             self.counter = tf.compat.v1.get_variable(
                 "aggregation_counter", shape=(), dtype=tf.int32,
