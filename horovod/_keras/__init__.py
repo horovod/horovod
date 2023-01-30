@@ -21,10 +21,23 @@ import tensorflow as tf
 from horovod.tensorflow.gradient_aggregation import LocalGradientAggregationHelper
 from horovod.tensorflow.gradient_aggregation_eager import LocalGradientAggregationHelperEager
 from horovod.tensorflow.mpi_ops import rank, size_op
-
+from horovod.common.util import support_non_legacy_keras_optimizers
 
 _PRE_TF_2_4_0 = version.parse(tf.__version__) < version.parse('2.4.0')
 _IS_TF2 = version.parse(tf.__version__) >= version.parse('2.0.0')
+
+
+def get_keras_optimizer_base_type(k):
+    if support_non_legacy_keras_optimizers(k):
+        return k.optimizers.Optimizer
+    else:
+        return tf.keras.optimizers.legacy.Optimizer
+
+
+def check_keras_optimizer_type(k, optimizer):
+    if not support_non_legacy_keras_optimizers(k):
+        if not isinstance(optimizer, tf.keras.optimizers.legacy.Optimizer):
+            raise ValueError(f"Optimizer has to be an instance of tensorflow.keras.optimizers.legacy.Optimizer starting from Keras 2.11: {type(optimizer).__name__}")
 
 
 def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sparse,
@@ -33,7 +46,9 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                                  average_aggregated_gradients=False,
                                  groups=None, process_set=hvd.global_process_set,
                                  scale_local_gradients=True):
-    class _DistributedOptimizer(keras.optimizers.Optimizer):
+    check_keras_optimizer_type(keras, optimizer)
+
+    class _DistributedOptimizer(get_keras_optimizer_base_type(keras)):
         _HAS_AGGREGATE_GRAD = True
 
         def __init__(self, **kwargs):
@@ -264,11 +279,7 @@ def reducescatter(backend, value, name, op):
 
 
 def load_model(keras, wrap_optimizer, optimizer_modules, filepath, custom_optimizers, custom_objects):
-    if version.parse(keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
-        keras_subclasses = keras.optimizers.Optimizer.__subclasses__()
-    else:
-        keras_subclasses = keras.optimizers.legacy.Optimizer.__subclasses__()
-
+    keras_subclasses = get_keras_optimizer_base_type(keras).__subclasses__()
     horovod_objects = {
         subclass.__name__.lower(): wrap_optimizer(subclass)
         for subclass in keras_subclasses
