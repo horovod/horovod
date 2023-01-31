@@ -1258,6 +1258,10 @@ public:
                    context->GetAttr("ignore_name_scope", &ignore_name_scope_));
     OP_REQUIRES_OK(context,
                    context->GetAttr("process_set_id", &process_set_id_));
+    OP_REQUIRES_OK(context,
+                   context->GetAttr("prescale_factor", &prescale_factor_));
+    OP_REQUIRES_OK(context,
+                   context->GetAttr("postscale_factor", &postscale_factor_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -1300,7 +1304,8 @@ public:
           context->SetStatus(ConvertStatus(status));
           done();
         },
-        reduce_op_, process_set_id_);
+        reduce_op_, process_set_id_, (double)prescale_factor_,
+        (double)postscale_factor_);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 
@@ -1308,6 +1313,8 @@ private:
   horovod::common::ReduceOp reduce_op_;
   bool ignore_name_scope_;
   int process_set_id_;
+  float prescale_factor_;
+  float postscale_factor_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodReducescatter").Device(DEVICE_CPU),
@@ -1321,6 +1328,8 @@ REGISTER_OP("HorovodReducescatter")
     .Attr("T: {int32, int64, float16, float32, float64}")
     .Attr("reduce_op: int")
     .Attr("ignore_name_scope: bool = False")
+    .Attr("prescale_factor: float")
+    .Attr("postscale_factor: float")
     .Attr("process_set_id: int = 0")
     .Input("tensor: T")
     .Output("output: T")
@@ -1357,9 +1366,15 @@ public:
     int reduce_op;
     OP_REQUIRES_OK(context, context->GetAttr("reduce_op", &reduce_op));
     reduce_op_ = static_cast<horovod::common::ReduceOp>(reduce_op);
-    OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
+    OP_REQUIRES_OK(context,
+                   context->GetAttr("ignore_name_scope", &ignore_name_scope_));
     OP_REQUIRES_OK(context, context->GetAttr("num_tensors", &num_tensors_));
-    OP_REQUIRES_OK(context, context->GetAttr("process_set_id", &process_set_id_));
+    OP_REQUIRES_OK(context,
+                   context->GetAttr("process_set_id", &process_set_id_));
+    OP_REQUIRES_OK(context,
+                   context->GetAttr("prescale_factor", &prescale_factor_));
+    OP_REQUIRES_OK(context,
+                   context->GetAttr("postscale_factor", &postscale_factor_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -1389,7 +1404,7 @@ public:
     auto callback_count = std::make_shared<int>(0);
     int num_tensors = num_tensors_;
 
-    // ReadyEvent makes sure input tensors are ready, and outputs are allocated.
+    // ReadyEvent makes sure input tensors are ready.
     common::ReadyEventList ready_event_list;
 #if HAVE_GPU
     ready_event_list.AddReadyEvent(
@@ -1429,7 +1444,8 @@ public:
 
     auto enqueue_result = EnqueueTensorReducescatters(
         hvd_contexts, hvd_tensors, ready_event_lists, names, device, callbacks,
-        reduce_op_, process_set_id_);
+        reduce_op_, process_set_id_, (double)prescale_factor_,
+        (double)postscale_factor_);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 
@@ -1438,6 +1454,8 @@ private:
   bool ignore_name_scope_;
   int num_tensors_;
   int process_set_id_;
+  float prescale_factor_;
+  float postscale_factor_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodGroupedReducescatter").Device(DEVICE_CPU),
@@ -1453,6 +1471,8 @@ REGISTER_OP("HorovodGroupedReducescatter")
     .Attr("ignore_name_scope: bool = False")
     .Attr("num_tensors: int")
     .Attr("process_set_id: int = 0")
+    .Attr("prescale_factor: float")
+    .Attr("postscale_factor: float")
     .Input("tensors: num_tensors*T")
     .Output("outputs: num_tensors*T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {

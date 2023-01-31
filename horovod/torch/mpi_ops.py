@@ -112,7 +112,7 @@ def _allreduce_async(tensor, output, name, op, prescale_factor, postscale_factor
     if op == Average:
         if rocm_built():
             # For ROCm, perform averaging at framework level
-            divisor = size()
+            divisor = process_set.size()
             op = Sum
         else:
             divisor = 1
@@ -338,7 +338,7 @@ def _grouped_allreduce_async(tensors, outputs, name, op, prescale_factor, postsc
     if op == Average:
         if rocm_built():
             # For ROCm, perform averaging at framework level
-            divisor = size()
+            divisor = process_set.size()
             op = Sum
         else:
             divisor = 1
@@ -1018,19 +1018,22 @@ def _reducescatter_function_factory(tensor):
     return 'horovod_torch_reducescatter_async_' + tensor.type().replace('.', '_')
 
 
-def _reducescatter_async(tensor, output, name, op, process_set: ProcessSet):
+def _reducescatter_async(tensor, output, name, op, process_set: ProcessSet,
+                         prescale_factor, postscale_factor):
     function = _check_function(_reducescatter_function_factory, tensor)
     try:
         handle = getattr(mpi_lib, function)(tensor, output,
                                             name.encode() if name is not None else _NULL,
-                                            op, process_set.process_set_id)
+                                            op, process_set.process_set_id,
+                                            prescale_factor, postscale_factor)
     except RuntimeError as e:
         raise HorovodInternalError(e)
     _handle_map[handle] = (tensor, output)
     return handle
 
 
-def reducescatter_async(tensor, name=None, op=Average, process_set=global_process_set):
+def reducescatter_async(tensor, name=None, op=Average, process_set=global_process_set,
+                        prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs asynchronous reduction of the input tensor over all the
     Horovod processes, then scatters the results across all Horovod processes. The
@@ -1052,35 +1055,44 @@ def reducescatter_async(tensor, name=None, op=Average, process_set=global_proces
             Defaults to Average.
         process_set: Process set object to limit this operation to a subset of
                      Horovod processes. Default is the global process set.
+        prescale_factor: Multiplicative factor to scale tensor before reducescatter.
+        postscale_factor: Multiplicative factor to scale tensor after reducescatter.
 
     Returns:
         A handle to the reducescatter operation that can be used with `poll()` or
         `synchronize()`.
     """
     output = tensor.new()
-    return _reducescatter_async(tensor, output, name, op, process_set)
+    return _reducescatter_async(tensor, output, name, op, process_set,
+                                prescale_factor, postscale_factor)
 
 
 class HorovodReducescatter(torch.autograd.Function):
     """An autograd function that performs reducescatter on a tensor."""
 
     @staticmethod
-    def forward(ctx, tensor, name, op, process_set):
+    def forward(ctx, tensor, name, op, process_set, prescale_factor, postscale_factor):
         ctx.op = op
         ctx.process_set = process_set
-        handle = reducescatter_async(tensor, name, op, process_set)
+        ctx.prescale_factor = prescale_factor
+        ctx.postscale_factor = postscale_factor
+        handle = reducescatter_async(tensor, name, op, process_set, prescale_factor, postscale_factor)
         return synchronize(handle)
 
     @staticmethod
     def backward(ctx, grad_output):
         if ctx.op == Sum:
             grad_output *= ctx.process_set.size()
+        if ctx.prescale_factor != 1.0:
+            grad_output *= ctx.prescale_factor
+        if ctx.postscale_factor != 1.0:
+            grad_output *= ctx.postscale_factor
 
-        return allgather(grad_output, process_set=ctx.process_set), None, None, None
+        return allgather(grad_output, process_set=ctx.process_set), None, None, None, None, None
 
 
 def reducescatter(tensor, name=None, compression=Compression.none, op=Average,
-                  process_set=global_process_set):
+                  process_set=global_process_set, prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs reduction of the input tensor over all the Horovod
     processes, then scatters the results across all Horovod processes. The input tensor
@@ -1101,7 +1113,8 @@ def reducescatter(tensor, name=None, compression=Compression.none, op=Average,
             Defaults to Average.
         process_set: Process set object to limit this operation to a subset of
                      Horovod processes. Default is the global process set.
-
+        prescale_factor: Multiplicative factor to scale tensor before reducescatter.
+        postscale_factor: Multiplicative factor to scale tensor after reducescatter.
 
     Returns:
         A tensor of the same rank and type as `tensor` across all processes. The shape
@@ -1109,7 +1122,8 @@ def reducescatter(tensor, name=None, compression=Compression.none, op=Average,
         divided across the different Horovod processes.
     """
     tensor_compressed, ctx = compression.compress(tensor)
-    reduced_tensor_compressed = HorovodReducescatter.apply(tensor_compressed, name, op, process_set)
+    reduced_tensor_compressed = HorovodReducescatter.apply(tensor_compressed, name, op, process_set,
+                                                           prescale_factor, postscale_factor)
     return compression.decompress(reduced_tensor_compressed, ctx)
 
 
@@ -1117,19 +1131,22 @@ def _grouped_reducescatter_function_factory(tensor):
     return 'horovod_torch_grouped_reducescatter_async_' + tensor.type().replace('.', '_')
 
 
-def _grouped_reducescatter_async(tensors, outputs, name, op, process_set: ProcessSet):
+def _grouped_reducescatter_async(tensors, outputs, name, op, process_set: ProcessSet,
+                                 prescale_factor, postscale_factor):
     function = _check_function(_grouped_reducescatter_function_factory, tensors[0])
     try:
         handle = getattr(mpi_lib, function)(tensors, outputs,
                                             name.encode() if name is not None else _NULL,
-                                            op, process_set.process_set_id)
+                                            op, process_set.process_set_id,
+                                            prescale_factor, postscale_factor)
     except RuntimeError as e:
         raise HorovodInternalError(e)
     _handle_map[handle] = (tuple(tensors), tuple(outputs))
     return handle
 
 
-def grouped_reducescatter_async(tensors, name=None, op=Average, process_set=global_process_set):
+def grouped_reducescatter_async(tensors, name=None, op=Average, process_set=global_process_set,
+                                prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs asynchronous reduction of a list of input tensors over all the
     Horovod processes, then scatters the results across all Horovod processes. The
@@ -1151,35 +1168,46 @@ def grouped_reducescatter_async(tensors, name=None, op=Average, process_set=glob
             Defaults to Average.
         process_set: Process set object to limit this operation to a subset of
                      Horovod processes. Default is the global process set.
+        prescale_factor: Multiplicative factor to scale tensors before reducescatter.
+        postscale_factor: Multiplicative factor to scale tensors after reducescatter.
 
     Returns:
         A handle to the group reducescatter operation that can be used with `poll()` or
         `synchronize()`.
     """
     outputs = [t.new() for t in tensors]
-    return _grouped_reducescatter_async(tensors, outputs, name, op, process_set)
+    return _grouped_reducescatter_async(tensors, outputs, name, op, process_set,
+                                        prescale_factor, postscale_factor)
 
 
 class HorovodGroupedReducescatter(torch.autograd.Function):
     """An autograd function that performs reducescatter on a list of tensors."""
 
     @staticmethod
-    def forward(ctx, name, op, process_set, *tensors):
+    def forward(ctx, name, op, process_set, prescale_factor, postscale_factor, *tensors):
         ctx.op = op
         ctx.process_set = process_set
-        handle = grouped_reducescatter_async(list(tensors), name, op, process_set)
+        ctx.prescale_factor = prescale_factor
+        ctx.postscale_factor = postscale_factor
+        handle = grouped_reducescatter_async(list(tensors), name, op, process_set,
+                                             prescale_factor, postscale_factor, )
         return synchronize(handle)
 
     @staticmethod
     def backward(ctx, *grad_output):
         if ctx.op == Sum:
             grad_output = [g * ctx.process_set.size() for g in grad_output]
+        if ctx.prescale_factor != 1.0:
+            grad_output = [ctx.prescale_factor * g for g in grad_output]
+        if ctx.postscale_factor != 1.0:
+            grad_output = [ctx.postscale_factor * g for g in grad_output]
 
-        return (None, None, None, *grouped_allgather(grad_output, process_set=ctx.process_set))
+        return (None, None, None, None, None,
+                *grouped_allgather(grad_output, process_set=ctx.process_set))
 
 
 def grouped_reducescatter(tensors, name=None, compression=Compression.none, op=Average,
-                          process_set=global_process_set):
+                          process_set=global_process_set, prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs reduction of a list of input tensors over all the
     Horovod processes, then scatters the results across all Horovod processes. The
@@ -1200,6 +1228,8 @@ def grouped_reducescatter(tensors, name=None, compression=Compression.none, op=A
             Defaults to Average.
         process_set: Process set object to limit this operation to a subset of
                      Horovod processes. Default is the global process set.
+        prescale_factor: Multiplicative factor to scale tensors before reducescatter.
+        postscale_factor: Multiplicative factor to scale tensors after reducescatter.
 
 
     Returns:
@@ -1213,7 +1243,9 @@ def grouped_reducescatter(tensors, name=None, compression=Compression.none, op=A
         tensor_compressed, ctx = compression.compress(tensor)
         tensors_compressed.append(tensor_compressed)
         ctxs.append(ctx)
-    reduced_tensors_compressed = HorovodGroupedReducescatter.apply(name, op, process_set, *tensors_compressed)
+    reduced_tensors_compressed = HorovodGroupedReducescatter.apply(name, op, process_set,
+                                                                   prescale_factor, postscale_factor,
+                                                                   *tensors_compressed)
     return [compression.decompress(reduced_tensor_compressed, ctx)
             for reduced_tensor_compressed, ctx in zip(reduced_tensors_compressed, ctxs)]
 

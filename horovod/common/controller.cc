@@ -569,12 +569,12 @@ Response Controller::ConstructResponse(const std::string& name, int joined_size)
     }
   }
 
-  // If we are doing an allreduce, check that prescaling and postscaling factors
+  // If we are doing a reduction, check that prescaling and postscaling factors
   // are identical across ranks.
   double prescale_factor;
   double postscale_factor;
-  if (message_type == Request::ALLREDUCE ||
-      message_type == Request::ADASUM) {
+  if (message_type == Request::ALLREDUCE || message_type == Request::ADASUM ||
+      message_type == Request::REDUCESCATTER) {
     prescale_factor = requests[0].prescale_factor();
     postscale_factor = requests[0].postscale_factor();
 
@@ -590,10 +590,10 @@ Response Controller::ConstructResponse(const std::string& name, int joined_size)
         error = true;
         error_message_stream
             << "Mismatched prescale and/or postscale factors: "
-            << "One rank sent factors (" << prescale_factor
-            << ", " << postscale_factor << "), but another rank "
-            << "sent factors (" << request_prescale_factor
-            << ", " << request_postscale_factor << ").";
+            << "One rank sent factors (" << prescale_factor << ", "
+            << postscale_factor << "), but another rank "
+            << "sent factors (" << request_prescale_factor << ", "
+            << request_postscale_factor << ").";
         break;
       }
     }
@@ -715,6 +715,18 @@ Response Controller::ConstructResponse(const std::string& name, int joined_size)
     } else {
       tensor_sizes.push_back(tensor_shape.num_elements());
     }
+    if (requests[0].prescale_factor() != 1.0) {
+      auto tensor_bytes = tensor_shape.num_elements() * GetTypeSize(data_type);
+      if (tensor_bytes > TensorFusionThresholdBytes()) {
+        error = true;
+        error_message_stream << "Reducescatter with prescale_factor == "
+                             << requests[0].prescale_factor()
+                             << " != 1.0: The fusion buffer is not large "
+                                "enough to hold the input tensor ("
+                             << tensor_bytes
+                             << " bytes); increase HOROVOD_FUSION_THRESHOLD.";
+      }
+    }
   }
 
   if (message_type == Request::ALLREDUCE || message_type == Request::ADASUM) {
@@ -807,6 +819,8 @@ Response Controller::ConstructResponse(const std::string& name, int joined_size)
       response.add_tensor_size(dim);
     }
     response.set_tensor_type(data_type);
+    response.set_prescale_factor(prescale_factor);
+    response.set_postscale_factor(postscale_factor);
   } else if (message_type == Request::ADASUM) {
     response.set_response_type(Response::ADASUM);
     for (auto dim : tensor_sizes) {

@@ -272,8 +272,8 @@ protected:
   void WaitForData(std::vector<TensorTableEntry>& entries) override;
 
   NCCLContext* local_nccl_context_;
-  NCCLOpContext local_nccl_op_context_;
   NCCLContext* cross_nccl_context_;
+  NCCLOpContext local_nccl_op_context_;
   NCCLOpContext cross_nccl_op_context_;
   HorovodGlobalState* global_state_;
 };

@@ -286,7 +286,11 @@ void PerformOperation(Response response, ProcessSet& process_set) {
       timeline.Start(e.tensor_name, response.response_type(), e.tensor->size());
     }
 
-    if (entries.size() > 1) {
+    if (entries.size() > 1 ||
+        (response.response_type() == Response::REDUCESCATTER &&
+         response.prescale_factor() != 1.0)) {
+      // For Reducescatter with prescaling we use the fusion buffer even for
+      // unfused operations. This avoids an extra temporary allocation.
       auto first_entry = entries[0];
       // Note: it is OK for different entries to come from different frameworks
       // since buffer allocated here is guaranteed to survive at least till the
@@ -1745,12 +1749,11 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
 
 // Contexts and controller must be initialized and the background thread
 // must be running before this function is called.
-Status EnqueueTensorReducescatter(std::shared_ptr<OpContext> context,
-                                  std::shared_ptr<Tensor> tensor,
-                                  ReadyEventList ready_event_list,
-                                  const std::string& name, const int device,
-                                  StatusCallback callback, ReduceOp reduce_op,
-                                  int32_t process_set_id) {
+Status EnqueueTensorReducescatter(
+    std::shared_ptr<OpContext> context, std::shared_ptr<Tensor> tensor,
+    ReadyEventList ready_event_list, const std::string& name, const int device,
+    StatusCallback callback, ReduceOp reduce_op, int32_t process_set_id,
+    double prescale_factor, double postscale_factor) {
   // Wrap inputs in std::vector and pass onto multi tensor implementation
   std::vector<std::shared_ptr<OpContext>> contexts;
   std::vector<std::shared_ptr<Tensor>> tensors;
@@ -1764,9 +1767,9 @@ Status EnqueueTensorReducescatter(std::shared_ptr<OpContext> context,
   names.emplace_back(std::move(name));
   callbacks.emplace_back(std::move(callback));
 
-  return EnqueueTensorReducescatters(contexts, tensors, ready_event_lists,
-                                     names, device, callbacks, reduce_op,
-                                     process_set_id);
+  return EnqueueTensorReducescatters(
+      contexts, tensors, ready_event_lists, names, device, callbacks, reduce_op,
+      process_set_id, prescale_factor, postscale_factor);
 }
 
 // Contexts and controller must be initialized and the background thread
@@ -1777,7 +1780,8 @@ EnqueueTensorReducescatters(std::vector<std::shared_ptr<OpContext>>& contexts,
                             std::vector<ReadyEventList>& ready_event_lists,
                             std::vector<std::string>& names, int device,
                             std::vector<StatusCallback>& callbacks,
-                            ReduceOp reduce_op, int32_t process_set_id) {
+                            ReduceOp reduce_op, int32_t process_set_id,
+                            double prescale_factor, double postscale_factor) {
   if (horovod_global.cpu_operation == LibType::CCL && device == CPU_DEVICE_ID) {
     return Status::InvalidArgument(
         "Reducescatter is not supported yet with oneCCL operations.");
@@ -1787,18 +1791,31 @@ EnqueueTensorReducescatters(std::vector<std::shared_ptr<OpContext>>& contexts,
         "Reducescatter: Process set provided does not "
         "exist, or has not been registered.");
   }
-
-  if (reduce_op != ReduceOp::SUM) {
-    // Note: AVERAGE is supported by enqueuing SUM and performing divide at the
-    // framework level.
-    LOG(ERROR, horovod_global.global_controller->GetRank())
-        << "Reducescatter currently only supports SUM.";
-    return Status::Aborted("Reducescatter currently only supports SUM.");
-  }
   if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
   }
+
   auto& process_set = horovod_global.process_set_table.Get(process_set_id);
+  switch (reduce_op) {
+
+  case ReduceOp::AVERAGE:
+#if !HAVE_ROCM
+    // Averaging happens via postscale_factor
+    postscale_factor /= process_set.controller->GetSize();
+#else
+    LOG(ERROR, horovod_global.global_controller->GetRank())
+        << "Enqueuing AVERAGE reducescatter is not allowed with ROCm.";
+    return status.Aborted("AVERAGE not allowed.");
+#endif
+    break;
+  case ReduceOp::SUM:
+    break;
+  default:
+    LOG(ERROR, horovod_global.global_controller->GetRank())
+        << "Reducescatter currently only supports AVERAGE and SUM.";
+    return Status::Aborted(
+        "Reducescatter currently only supports AVERAGE and SUM.");
+  }
 
   if (!process_set.IsCurrentProcessIncluded()) {
     return Status::InvalidArgument(
@@ -1820,6 +1837,8 @@ EnqueueTensorReducescatters(std::vector<std::shared_ptr<OpContext>>& contexts,
     message.set_device(device);
     message.set_request_type(Request::REDUCESCATTER);
     message.set_tensor_shape(tensors[n]->shape().to_vector());
+    message.set_prescale_factor(prescale_factor);
+    message.set_postscale_factor(postscale_factor);
     messages.push_back(std::move(message));
 
     TensorTableEntry e;

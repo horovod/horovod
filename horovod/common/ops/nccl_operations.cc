@@ -719,8 +719,6 @@ Status NCCLTorusAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                                        ? num_elements % local_size
                                        : num_elements;
 
-  size_t buffer_len_remaining = element_size * num_elements_remaining;
-
   void* buffer_data_remainder =
       (uint8_t*)buffer_data + buffer_len_per_rank * local_size;
 
@@ -733,9 +731,6 @@ Status NCCLTorusAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   int64_t total_num_elements =
       is_root_rank ? num_elements_per_rank + num_elements_remaining
                    : num_elements_per_rank;
-  int64_t total_buffer_len = is_root_rank
-                                 ? buffer_len_per_rank + buffer_len_remaining
-                                 : buffer_len_per_rank;
 
   auto& timeline = global_state_->timeline;
   if (num_elements_per_rank > 0) {
@@ -1236,6 +1231,9 @@ Status NCCLReducescatter::Execute(std::vector<TensorTableEntry>& entries,
 
   WaitForData(entries);
 
+  double prescale_factor = response.prescale_factor();
+  double postscale_factor = response.postscale_factor();
+
   int process_set_rank = process_set.controller->GetRank();
   int process_set_size = process_set.controller->GetSize();
   auto output_shapes = ComputeOutputShapes(entries, process_set_size);
@@ -1249,18 +1247,24 @@ Status NCCLReducescatter::Execute(std::vector<TensorTableEntry>& entries,
   global_state_->timeline.ActivityEndAll(entries);
 
   size_t element_size = DataType_Size(first_entry.tensor->dtype());
-  void* buffer_data = nullptr;
   void* recv_pointer = nullptr;
   const void* fused_input_data = nullptr;
 
-  // Copy memory into the fusion buffer.
-  if (entries.size() > 1) {
-    MemcpyInFusionBuffer(entries, output_shapes, element_size, buffer_data);
+  // Copy memory into the fusion buffer. Execute prescaling op if necessary.
+  if (entries.size() > 1 || prescale_factor != 1.0) {
+    void* buffer_data = nullptr;
+    ScaleMemcpyInFusionBuffer(entries, output_shapes, element_size, buffer_data,
+                              prescale_factor);
     fused_input_data = buffer_data;
-    recv_pointer = reinterpret_cast<int8_t*>(buffer_data) +
-                   process_set_rank * recvcounts[0] * element_size;
-    // ncclReduceScatter() will be performed in place on the fusion buffer, cf.:
-    // https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/inplace.html
+    if (entries.size() == 1) {
+      // Unfused prescaled: Send from fusion buffer, receive at output tensor
+      recv_pointer = (void*)first_entry.output->data();
+    } else {
+      // Fused: ncclReduceScatter() in place on the fusion buffer, cf.:
+      // https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/inplace.html
+      recv_pointer = reinterpret_cast<int8_t*>(buffer_data) +
+                     process_set_rank * recvcounts[0] * element_size;
+    }
 
     if (global_state_->timeline.Initialized()) {
       gpu_context_->RecordEvent(gpu_op_context_.event_queue,
@@ -1268,9 +1272,9 @@ Status NCCLReducescatter::Execute(std::vector<TensorTableEntry>& entries,
                                 *gpu_op_context_.stream);
     }
   } else {
+    // Unfused without prescaling
     fused_input_data = first_entry.tensor->data();
-    buffer_data = (void*)first_entry.output->data();
-    recv_pointer = buffer_data;
+    recv_pointer = (void*)first_entry.output->data();
   }
 
   // If a reduced tensor cannot be scattered evenly over the participating processes, the first ranks 0, ...,
@@ -1320,12 +1324,21 @@ Status NCCLReducescatter::Execute(std::vector<TensorTableEntry>& entries,
 
   // Copy memory out of the fusion buffer.
   if (entries.size() > 1) {
-    MemcpyOutFusionBuffer(recv_pointer, entries);
+    ScaleMemcpyOutFusionBuffer(recv_pointer, postscale_factor, entries);
 
     if (global_state_->timeline.Initialized()) {
       gpu_context_->RecordEvent(gpu_op_context_.event_queue,
                                 MEMCPY_OUT_FUSION_BUFFER,
                                 *gpu_op_context_.stream);
+    }
+  } else {
+    if (postscale_factor != 1.0) {
+      // Execute postscaling ops
+      for (auto& e : entries) {
+        ScaleBuffer(postscale_factor, entries, e.output->data(),
+                    const_cast<void*>(e.output->data()),
+                    e.output->shape().num_elements());
+      }
     }
   }
 

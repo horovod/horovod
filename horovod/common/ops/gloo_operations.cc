@@ -418,7 +418,12 @@ Status GlooReducescatter::Execute(std::vector<TensorTableEntry>& entries,
   auto& gloo_context = process_set.gloo_context;
   auto& timeline = global_state_->timeline;
 
+  double prescale_factor = response.prescale_factor();
+  double postscale_factor = response.postscale_factor();
+
   void* buffer_data = nullptr;
+  int num_elements = (int)NumElements(entries);
+
   int global_rank = process_set.controller->GetRank();
   int global_size = process_set.controller->GetSize();
   auto output_shapes = ComputeOutputShapes(entries, global_size);
@@ -438,13 +443,20 @@ Status GlooReducescatter::Execute(std::vector<TensorTableEntry>& entries,
   // Copy memory into the fusion buffer.
   timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
   if (entries.size() > 1) {
-    MemcpyInFusionBuffer(entries, output_shapes, element_size, buffer_data);
+    size_t buffer_len;
+    MemcpyInFusionBuffer(entries, output_shapes, element_size, buffer_data,
+                         buffer_len);
   } else {
     // Allocating a temp buffer because the Reducescatter will be performed
     // in place and the output tensor will be smaller than the input.
     buffer_data = new uint8_t[first_entry.tensor->size()];
     std::memcpy(buffer_data, first_entry.tensor->data(),
                 first_entry.tensor->size());
+  }
+  if (prescale_factor != 1.0) {
+    // Execute prescaling op
+    ScaleBuffer(prescale_factor, entries, buffer_data, buffer_data,
+                num_elements);
   }
   timeline.ActivityEndAll(entries);
 
@@ -453,7 +465,7 @@ Status GlooReducescatter::Execute(std::vector<TensorTableEntry>& entries,
   gloo_algos->Reducescatter(buffer_data, recvcounts);
   timeline.ActivityEndAll(entries);
 
-  // Copy memory out of the fusion buffer.
+  // Copy memory out of the fusion buffer. Optionally scale outputs in place.
   timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
   if (entries.size() > 1) {
     MemcpyOutFusionBuffer(buffer_data, entries);
@@ -463,6 +475,14 @@ Status GlooReducescatter::Execute(std::vector<TensorTableEntry>& entries,
     delete[] reinterpret_cast<uint8_t*>(buffer_data);
   }
   timeline.ActivityEndAll(entries);
+  if (postscale_factor != 1.0) {
+    // Execute postscaling ops
+    for (auto& e : entries) {
+      ScaleBuffer(postscale_factor, entries, e.output->data(),
+                  const_cast<void*>(e.output->data()),
+                  e.output->shape().num_elements());
+    }
+  }
 
   return Status::OK();
 }
