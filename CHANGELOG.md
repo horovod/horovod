@@ -7,10 +7,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased] - YYYY-MM-DD
 
 ### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+
+## [v0.27.0] - 2023-01-31
+
+### Added
+
+- Keras: Added `PartialDistributedOptimizer` API. ([#3738](https://github.com/horovod/horovod/pull/3738))
+- Added `HOROVOD_SPARK_USE_LOCAL_RANK_GPU_INDEX` environment variable to ignore GPU device indices assigned by Spark and always use local rank GPU device in Spark estimators. ([#3737](https://github.com/horovod/horovod/pull/3737))
+- Added support for reducescatter arguments `prescale_factor` and `postscale_factor` arguments and moved averaging into Horovod backend. ([#3815](https://github.com/horovod/horovod/pull/3815))
 - Spark Estimator: Added support for custom data loaders in TorchEstimator. ([#3787](https://github.com/horovod/horovod/pull/3787))
 - Spark Estimator: Added NVTabular data loader for TorchEstimator. ([#3787](https://github.com/horovod/horovod/pull/3787))
-- Added `HOROVOD_SPARK_USE_LOCAL_RANK_GPU_INDEX` environment variable to ignore GPU device indices assigned by Spark and always use local rank GPU device in Spark estimators. ([#3737](https://github.com/horovod/horovod/pull/3737))
-- Reducescatter: Added support for prescale_factor and postscale_factor and moved averaging into Horovod backend. ([#3815](https://github.com/horovod/horovod/pull/3815))
 
 ### Changed
 
@@ -23,10 +38,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
-- Fixed memory leak in MPI_GPUAllgather. ([#3727](https://github.com/horovod/horovod/pull/3727))
-- Handle tf.IndexedSlices types when scaling local gradients in TF. ([#3786](https://github.com/horovod/horovod/pull/3786))
-- Several fixes for allreduce and grouped allreduce handling of tf.IndexedSlices. ([#3813](https://github.com/horovod/horovod/pull/3813))
-- Fix broken TF DistributedOptimizer with Keras 2.11+, ([#3822](https://github.com/horovod/horovod/pull/3822))
+- ROCm: Fixed GPU MPI operations support in build. (([#3746]) https://github.com/horovod/horovod/pull/3746)
+- PyTorch: Fixed linking order to avoid using Gloo from PyTorch dynamic libraries. ([#3750](https://github.com/horovod/horovod/pull/3750))
+- Fixed memory leak in `MPI_GPUAllgather`. ([#3727](https://github.com/horovod/horovod/pull/3727))
+- TensorFlow: Fixed deprecation warnings when building with TensorFlow 2.11. ([#3767](https://github.com/horovod/horovod/pull/3767)) 
+- Keras: Added support for additional arguments to `SyncBatchNormalization._moments()`. ([#3775](https://github.com/horovod/horovod/pull/3775))
+- Fixed version number parsing with pypa/packaging 22.0. ([#3794](https://github.com/horovod/horovod/pull/3794))
+- TensorFlow: Fixed linking with nightly versions leading up to TensorFlow 2.12. ([#3755](https://github.com/horovod/horovod/pull/3755))
+- TensorFlow: Fixed handling of `tf.IndexedSlices` types when scaling local gradients. ([#3786](https://github.com/horovod/horovod/pull/3786))
+- Added missing `MEMCPY_IN_FUSION_BUFFER` timeline event for reducescatter. ([#3808](https://github.com/horovod/horovod/pull/3808))
+- Fixed build of Docker image horovod-nvtabular. ([#3817](https://github.com/horovod/horovod/pull/3817))
+- TensorFlow: Several fixes for allreduce and grouped allreduce handling of `tf.IndexedSlices`. ([#3813](https://github.com/horovod/horovod/pull/3813))
+- Spark: Restricted PyArrow to vesions < 11.0. ([#3830](https://github.com/horovod/horovod/pull/3830))
+- TensorFlow: Resolved conflicts between multiple optimizer wrappers reusing the same gradient accumulation counter. ([#3783](https://github.com/horovod/horovod/pull/3783))
+- TensorFlow/Keras: Fixed `DistributedOptimizer` with Keras 2.11+. ([#3822](https://github.com/horovod/horovod/pull/3822))
 - PyTorch, ROCm: Fixed allreduce average on process sets. ([#3815](https://github.com/horovod/horovod/pull/3815))
 
 ## [v0.26.1] - 2022-10-14
