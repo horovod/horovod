@@ -25,7 +25,7 @@ import tensorflow as tf
 from packaging import version
 from horovod.spark.common import constants
 from horovod.spark.common.store import DBFSLocalStore
-from horovod.spark.common.util import _get_assigned_gpu_or_default, _set_mp_start_method
+from horovod.spark.common.util import _get_assigned_gpu_or_local_rank, _set_mp_start_method
 from horovod.runner.common.util import codec
 
 TOTAL_BUFFER_MEMORY_CAP_GIB = constants.TOTAL_BUFFER_MEMORY_CAP_GIB
@@ -313,7 +313,7 @@ def _pin_gpu_tensorflow2_fn():
             tf.config.experimental.set_memory_growth(gpu, True)
         if gpus:
             tf.config.experimental.set_visible_devices(
-                gpus[_get_assigned_gpu_or_default(default=hvd.local_rank())], 'GPU')
+                gpus[_get_assigned_gpu_or_local_rank(local_rank=hvd.local_rank())], 'GPU')
     return fn
 
 
@@ -322,7 +322,7 @@ def _pin_gpu_tensorflow1_fn():
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
         config.gpu_options.visible_device_list = \
-            str(_get_assigned_gpu_or_default(default=hvd.local_rank()))
+            str(_get_assigned_gpu_or_local_rank(local_rank=hvd.local_rank()))
         keras.backend.set_session(tf.Session(config=config))
     return fn
 

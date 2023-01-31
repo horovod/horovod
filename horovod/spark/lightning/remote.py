@@ -28,7 +28,7 @@ from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger, CometLogger
 
 from horovod.spark.common import constants
-from horovod.spark.common.util import _get_assigned_gpu_or_default, _set_mp_start_method
+from horovod.spark.common.util import _get_assigned_gpu_or_local_rank, _set_mp_start_method
 from horovod.spark.lightning.datamodule import PetastormDataModule
 from horovod.spark.lightning.util import deserialize_fn
 
@@ -222,7 +222,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             if cuda_available:
                 # Horovod: pin GPU to local rank or the assigned GPU from spark.
-                torch.cuda.set_device(_get_assigned_gpu_or_default(default=hvd.local_rank()))
+                torch.cuda.set_device(_get_assigned_gpu_or_local_rank(local_rank=hvd.local_rank()))
                 # Move model to GPU.
                 model.cuda()
 

@@ -353,4 +353,8 @@ for the spark task from which ``get_available_devices()`` is called.
 See `keras_spark3_rossmann.py <../examples/spark/keras/keras_spark3_rossmann.py>`__ for an example of using
 ``get_available_devices()`` with the Run API.
 
+In some cases, you may want to ignore GPU devices assigned by Spark and always use the local rank as the GPU index.
+You can set environment variable ``HOROVOD_SPARK_USE_LOCAL_RANK_GPU_INDEX`` to ``1`` to have Horovod use the local rank
+as the GPU index for each task.
+
 .. inclusion-marker-end-do-not-remove
