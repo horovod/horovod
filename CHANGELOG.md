@@ -34,7 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
-- ROCm: Fixed GPU MPI operations support in build. (([#3746]) https://github.com/horovod/horovod/pull/3746)
+- ROCm: Fixed GPU MPI operations support in build. ([#3746](https://github.com/horovod/horovod/pull/3746))
 - PyTorch: Fixed linking order to avoid using Gloo from PyTorch dynamic libraries. ([#3750](https://github.com/horovod/horovod/pull/3750))
 - Fixed memory leak in `MPI_GPUAllgather`. ([#3727](https://github.com/horovod/horovod/pull/3727))
 - TensorFlow: Fixed deprecation warnings when building with TensorFlow 2.11. ([#3767](https://github.com/horovod/horovod/pull/3767)) 
@@ -45,7 +45,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Added missing `MEMCPY_IN_FUSION_BUFFER` timeline event for reducescatter. ([#3808](https://github.com/horovod/horovod/pull/3808))
 - Fixed build of Docker image horovod-nvtabular. ([#3817](https://github.com/horovod/horovod/pull/3817))
 - TensorFlow: Several fixes for allreduce and grouped allreduce handling of `tf.IndexedSlices`. ([#3813](https://github.com/horovod/horovod/pull/3813))
-- Spark: Restricted PyArrow to vesions < 11.0. ([#3830](https://github.com/horovod/horovod/pull/3830))
+- Spark: Restricted PyArrow to versions < 11.0. ([#3830](https://github.com/horovod/horovod/pull/3830))
 - TensorFlow: Resolved conflicts between multiple optimizer wrappers reusing the same gradient accumulation counter. ([#3783](https://github.com/horovod/horovod/pull/3783))
 - TensorFlow/Keras: Fixed `DistributedOptimizer` with Keras 2.11+. ([#3822](https://github.com/horovod/horovod/pull/3822))
 - PyTorch, ROCm: Fixed allreduce average on process sets. ([#3815](https://github.com/horovod/horovod/pull/3815))
