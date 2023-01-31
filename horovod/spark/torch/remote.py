@@ -24,7 +24,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from horovod.spark.common import constants
-from horovod.spark.common.util import _get_assigned_gpu_or_default, to_list, _set_mp_start_method
+from horovod.spark.common.util import _get_assigned_gpu_or_local_rank, to_list, _set_mp_start_method
 from horovod.spark.common.store import DBFSLocalStore
 from horovod.spark.torch.util import deserialize_fn
 
@@ -154,7 +154,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
 
         if cuda_available:
             # Horovod: pin GPU to local rank or the assigned GPU from spark.
-            torch.cuda.set_device(_get_assigned_gpu_or_default(default=hvd.local_rank()))
+            torch.cuda.set_device(_get_assigned_gpu_or_local_rank(local_rank=hvd.local_rank()))
             # Move model to GPU.
             model.cuda()
 

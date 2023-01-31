@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased] - YYYY-MM-DD
 
 ### Added
+- Added `HOROVOD_SPARK_USE_LOCAL_RANK_GPU_INDEX` environment variable to ignore GPU device indices assigned by Spark and always use local rank GPU device in Spark estimators. ([#3737](https://github.com/horovod/horovod/pull/3737))
 
 - Reducescatter: Added support for prescale_factor and postscale_factor and moved averaging into Horovod backend. ([#3815](https://github.com/horovod/horovod/pull/3815))
 
@@ -24,8 +25,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fixed memory leak in MPI_GPUAllgather. ([#3727](https://github.com/horovod/horovod/pull/3727))
 - Handle tf.IndexedSlices types when scaling local gradients in TF. ([#3786](https://github.com/horovod/horovod/pull/3786))
 - Several fixes for allreduce and grouped allreduce handling of tf.IndexedSlices. ([#3813](https://github.com/horovod/horovod/pull/3813))
+- Fix broken TF DistributedOptimizer with Keras 2.11+, ([#3822](https://github.com/horovod/horovod/pull/3822))
 - PyTorch, ROCm: Fixed allreduce average on process sets. ([#3815](https://github.com/horovod/horovod/pull/3815))
-
 
 ## [v0.26.1] - 2022-10-14
 

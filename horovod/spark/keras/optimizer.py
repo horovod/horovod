@@ -20,15 +20,13 @@ import h5py
 from packaging import version
 from horovod.runner.common.util import codec
 
+from horovod._keras import get_keras_optimizer_base_type
 
 def serialize_bare_keras_optimizer(x):
     import keras
     from horovod.spark.keras.bare import save_bare_keras_optimizer
 
-    if version.parse(keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
-        optimizer_class = keras.optimizers.Optimizer
-    else:
-        optimizer_class = keras.optimizers.legacy.Optimizer
+    optimizer_class = get_keras_optimizer_base_type(keras)
 
     return _serialize_keras_optimizer(x,
                                       optimizer_class=optimizer_class,
@@ -45,10 +43,7 @@ def serialize_tf_keras_optimizer(x):
     import tensorflow as tf
     from horovod.spark.keras.tensorflow import save_tf_keras_optimizer
 
-    if version.parse(tf.keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
-        optimizer_class = tf.keras.optimizers.Optimizer
-    else:
-        optimizer_class = tf.keras.optimizers.legacy.Optimizer
+    optimizer_class = get_keras_optimizer_base_type(tf.keras)
 
     return _serialize_keras_optimizer(x,
                                       optimizer_class=optimizer_class,

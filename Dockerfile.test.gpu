@@ -108,10 +108,10 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
             cd /tmp && tar -zxf /tmp/openmpi-4.1.4-bin.tar.gz && \
             mkdir openmpi-4.1.4/build && cd openmpi-4.1.4/build && ../configure --prefix=/usr/local && \
             make -j all && make install && ldconfig && \
-            echo "mpirun -allow-run-as-root -np 2 -H localhost:2 -bind-to none -map-by slot -mca mpi_abort_print_stack 1" > /mpirun_command; \
+            echo "mpirun -allow-run-as-root -np 2 -H localhost:2 -bind-to none -map-by slot -mca mpi_abort_print_stack 1 -tag-output" > /mpirun_command; \
     elif [[ ${MPI_KIND} == "MPICH" ]]; then \
         apt-get update -qq && apt-get install -y mpich && \
-            echo "mpirun -np 2" > /mpirun_command; \
+            echo "mpirun -np 2 -l" > /mpirun_command; \
     fi
 
 # Set default NCCL parameters
@@ -127,7 +127,7 @@ RUN if [[ ${MPI_KIND} != "None" ]]; then \
 # Install TensorFlow and Keras (releases).
 # Pin scipy!=1.4.0: https://github.com/scipy/scipy/issues/11237
 # Pin protobuf~=3.20 for tensorflow<2.6.5: https://github.com/tensorflow/tensorflow/issues/56077
-RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly-gpu" ]]; then \
+RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly" ]]; then \
         PROTOBUF_PACKAGE=""; \
         if [[ ${TENSORFLOW_PACKAGE} == tensorflow-gpu==1.15.* ]] || \
            [[ ${TENSORFLOW_PACKAGE} == tensorflow-gpu==2.[012345].* ]]; then \
@@ -181,7 +181,7 @@ COPY . /horovod
 
 # Install TensorFlow and Keras (nightly).
 # Pin scipy!=1.4.0: https://github.com/scipy/scipy/issues/11237
-RUN if [[ ${TENSORFLOW_PACKAGE} == "tf-nightly-gpu" ]]; then \
+RUN if [[ ${TENSORFLOW_PACKAGE} == "tf-nightly" ]]; then \
         pip install --no-cache-dir ${TENSORFLOW_PACKAGE}; \
         if [[ ${KERAS_PACKAGE} != "None" ]]; then \
             pip uninstall -y keras-nightly; \

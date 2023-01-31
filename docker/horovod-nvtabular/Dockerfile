@@ -118,7 +118,7 @@ RUN if [[ ${MPI_KIND} != "None" ]]; then \
 # Install TensorFlow and Keras (releases).
 # Pin scipy!=1.4.0: https://github.com/scipy/scipy/issues/11237
 # Pin protobuf<4 for tensorflow: https://github.com/tensorflow/tensorflow/issues/56815
-RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly-gpu" ]]; then \
+RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly" ]]; then \
         pip install --no-cache-dir ${TENSORFLOW_PACKAGE} "protobuf<3.20"; \
         if [[ ${KERAS_PACKAGE} != "None" ]]; then \
             pip uninstall -y keras; \
@@ -170,7 +170,7 @@ COPY . /horovod
 
 # Install TensorFlow and Keras (nightly).
 # Pin scipy!=1.4.0: https://github.com/scipy/scipy/issues/11237
-RUN if [[ ${TENSORFLOW_PACKAGE} == "tf-nightly-gpu" ]]; then \
+RUN if [[ ${TENSORFLOW_PACKAGE} == "tf-nightly" ]]; then \
         pip install --no-cache-dir ${TENSORFLOW_PACKAGE}; \
         if [[ ${KERAS_PACKAGE} != "None" ]]; then \
             pip uninstall -y keras-nightly; \
