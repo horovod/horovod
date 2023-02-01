@@ -83,9 +83,9 @@ class PetastormDataModule(DataModule):
 
     def __exit__(self, type, value, traceback):
         if self.has_val and self.val_reader:
-            self.val_reader.stop()
+            self.val_reader.__exit__(type, value, traceback)
         if self.train_reader:
-            self.train_reader.stop()
+            self.train_reader.__exit__(type, value, traceback)
         super().__exit__(type, value, traceback)
 
     @contextlib.contextmanager
@@ -110,6 +110,7 @@ class NVTabularDataModule(DataModule):
         self.label_cols = label_cols
         self.categorical_cols = categorical_cols
         self.continuous_cols = continuous_cols
+        self.kwargs = kwargs
 
     @staticmethod
     def seed_fn():
@@ -141,8 +142,8 @@ class NVTabularDataModule(DataModule):
 
     def train_data(self):
         import horovod.tensorflow.keras as hvd
-        from nvtabular.loader.tensorflow import KerasSequenceLoader
-        return KerasSequenceLoader(self.train_dir,
+        from nvtabular.loader.tensorflow import KerasSequenceLoader, Dataset
+        return KerasSequenceLoader(Dataset(self.train_dir, engine="parquet", calculate_divisions=True, **self.kwargs),
                                    batch_size=self.train_batch_size,
                                    label_names=self.label_cols,
                                    cat_names=self.categorical_cols,
@@ -157,8 +158,8 @@ class NVTabularDataModule(DataModule):
 
     def val_data(self):
         import horovod.tensorflow.keras as hvd
-        from nvtabular.loader.tensorflow import KerasSequenceLoader
-        return KerasSequenceLoader(self.val_dir,
+        from nvtabular.loader.tensorflow import KerasSequenceLoader, Dataset
+        return KerasSequenceLoader(Dataset(self.train_dir, engine="parquet", calculate_divisions=True, **self.kwargs),
                                    batch_size=self.val_batch_size,
                                    label_names=self.label_cols,
                                    cat_names=self.categorical_cols,

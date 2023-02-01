@@ -1,4 +1,5 @@
 # Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
+# Modifications copyright (C) 2022, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +14,6 @@
 # limitations under the License.
 # ==============================================================================
 
-import contextlib
 import io
 import math
 import os
@@ -37,11 +37,14 @@ CUSTOM_SPARSE = constants.CUSTOM_SPARSE
 
 def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_idx):
     # Estimator parameters
+    data_module = estimator.getDataModule()
     gradient_compression = estimator.getGradientCompression()
     input_shapes = estimator.getInputShapes()
     label_shapes = estimator.getLabelShapes()
     feature_columns = estimator.getFeatureCols()
     label_columns = estimator.getLabelCols()
+    categorical_columns = estimator.getCategoricalCols()
+    continuous_columns = estimator.getContinuousCols()
     num_labels = len(label_columns)
     should_validate = estimator.getValidation()
     batch_size = estimator.getBatchSize()
@@ -101,18 +104,12 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     is_dbfs = isinstance(store, DBFSLocalStore)
     storage_options = store.storage_options
 
-    @contextlib.contextmanager
-    def empty_batch_reader():
-        yield None
-
     def train(serialized_model, optimizer_cls, model_opt_state_serialized,
               train_rows, val_rows, avg_row_size):
         # If not empty, set it before everything else.
         if mp_start_method:
             _set_mp_start_method(mp_start_method, user_verbose)
 
-        from petastorm import TransformSpec, make_reader, make_batch_reader
-        from petastorm.pytorch import BatchedDataLoader, InMemBatchedDataLoader
         import torch
         import horovod.torch as hvd
 
@@ -181,13 +178,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
 
         # Horovod: broadcast parameters & optimizer state.
         hvd.broadcast_parameters(model.state_dict(), root_rank=0)
-
-        for group in optimizer.param_groups:
-            for p in group['params']:
-                if id(p) not in optimizer.state_dict()['state']:
-                    p.grad = p.data.new(p.size()).zero_()
-        optimizer.step()
-        hvd.broadcast_optimizer_state(optimizer, root_rank=0)
+        hvd.broadcast_optimizer_state(optimizer, root_rank=0, model=model)
 
         dist_optimizer_args = dict(optimizer=optimizer,
                                    named_parameters=model.named_parameters())
@@ -203,10 +194,6 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
         # This is important the retraining of the model. User may retrain the model with
         # different number of workers and we need the raw learning rate to adjust with the
         # new number of workers.
-
-        transform_spec = None
-        if transformation:
-            transform_spec = TransformSpec(transformation)
 
         schema_fields = feature_columns + label_columns
         if sample_weight_col:
@@ -239,213 +226,187 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                       f"Train rows: {train_rows}, Train batch size: {batch_size}, Train_steps_per_epoch: {steps_per_epoch}\n"
                       f"Shuffle: {shuffle}, Random seed: {random_seed}\n"
                       f"Checkpoint file: {ckpt_file}, Logs dir: {logs_dir}\n")
-            # In general, make_batch_reader is faster than make_reader for reading the dataset.
-            # However, we found out that make_reader performs data transformations much faster than
-            # make_batch_reader with parallel worker processes. Therefore, the default reader
-            # we choose is make_batch_reader unless there are data transformations.
-            reader_factory = None
-            reader_factory_kwargs = dict()
-            if transform_spec:
-                reader_factory = make_reader
-                reader_factory_kwargs['pyarrow_serialize'] = True
+
+            if validation_steps_per_epoch is None:
+                validation_steps = int(math.ceil(float(val_rows) / val_batch_size / hvd.size())) if should_validate else None
             else:
-                reader_factory = make_batch_reader
+                validation_steps = validation_steps_per_epoch
 
-            # Petastorm: read data from the store with the correct shard for this rank
-            # setting num_epochs=None will cause an infinite iterator
-            # and enables ranks to perform training and validation with
-            # unequal number of samples
-            with reader_factory(remote_store.train_data_path,
-                                num_epochs=None,
-                                cur_shard=hvd.rank(),
-                                reader_pool_type=reader_pool_type,
-                                workers_count=train_reader_worker_count,
-                                shard_count=hvd.size(),
-                                hdfs_driver=PETASTORM_HDFS_DRIVER,
-                                schema_fields=schema_fields,
-                                transform_spec=transform_spec,
-                                storage_options=storage_options,
-                                shuffle_rows=shuffle,
-                                shuffle_row_groups=shuffle,
-                                seed=random_seed,
-                                **reader_factory_kwargs) as train_reader:
-                with reader_factory(remote_store.val_data_path,
-                                    num_epochs=None,
-                                    cur_shard=hvd.rank(),
-                                    reader_pool_type=reader_pool_type,
-                                    workers_count=val_reader_worker_count,
-                                    shard_count=hvd.size(),
-                                    hdfs_driver=PETASTORM_HDFS_DRIVER,
-                                    schema_fields=schema_fields,
-                                    transform_spec=transform_spec,
-                                    storage_options=storage_options,
-                                    shuffle_rows=False,
-                                    shuffle_row_groups=False,
-                                    seed=random_seed,
-                                    **reader_factory_kwargs) \
-                    if should_validate else empty_batch_reader() as val_reader:
+            data_module_kwargs = {
+                'label_cols': label_columns,                    # nvtabular
+                'continuous_cols': continuous_columns,          # nvtabular
+                'categorical_cols': categorical_columns,        # nvtabular
+                'random_seed': random_seed,                     # petastorm
+                'train_dir': remote_store.train_data_path,
+                'val_dir': remote_store.val_data_path,
+                'num_train_epochs': epochs,
+                'has_val': should_validate is not None,
+                'train_batch_size': batch_size,
+                'val_batch_size': val_batch_size,
+                'reader_pool_type': reader_pool_type,
+                'train_reader_worker_count': train_reader_worker_count,
+                'val_reader_worker_count': val_reader_worker_count,
+                'transform_fn': transformation_fn,
+                'inmemory_cache_all': inmemory_cache_all,
+                'cur_shard': hvd.rank(),
+                'shard_count': hvd.size(),
+                'schema_fields': schema_fields,
+                'storage_options': storage_options,
+                'steps_per_epoch_train': steps_per_epoch,
+                'steps_per_epoch_val': validation_steps,
+                'verbose': user_verbose
+            }
+            if user_verbose:
+                print("data_module: {}".format(data_module))
 
-                    if inmemory_cache_all:
-                        # Petastorm introduced InMemBatchedDataLoader class in v0.11.0
-                        train_loader = InMemBatchedDataLoader(train_reader,
-                                                              batch_size=batch_size,
-                                                              num_epochs=epochs,
-                                                              rows_capacity=steps_per_epoch*batch_size,
-                                                              shuffle=shuffle)
+            def prepare_batch(row):
+                if isinstance(row, tuple) and len(row) == 2:
+                    # handle iterators that return (features, label)
+                    inputs = [
+                        prepare_np_data(
+                            row[0][col].float(), col, metadata).reshape(shape)
+                        for col, shape in zip(feature_columns, input_shapes)]
+                    labels = [
+                        prepare_np_data(
+                            row[1].float(), col, metadata)
+                        for col in label_columns]
+                    sample_weights = row[0].get(sample_weight_col, None)
+                else:
+                    inputs = [
+                        prepare_np_data(
+                            row[col].float(), col, metadata).reshape(shape)
+                        for col, shape in zip(feature_columns, input_shapes)]
+                    labels = [
+                        prepare_np_data(
+                            row[col].float(), col, metadata)
+                        for col in label_columns]
+                    sample_weights = row.get(sample_weight_col, None)
+
+                if sample_weights is not None:
+                    sample_weights = sample_weights.float()
+                if cuda_available:
+                    inputs = [input.cuda() for input in inputs]
+                    labels = [label.cuda() for label in labels]
+                    if sample_weights is not None:
+                        sample_weights = sample_weights.cuda()
+                return inputs, labels, sample_weights
+
+            def transform_outputs(outputs, labels):
+                if not isinstance(outputs, tuple) and not isinstance(outputs,  list):
+                    outputs = [outputs]
+
+                # reshape labels to match the output shape of the model
+                if hasattr(outputs[0], 'shape'):
+                    if label_shapes:
+                        labels = [label.reshape(label_shape)
+                                  for label, label_shape in zip(labels, label_shapes)]
                     else:
-                        train_loader = BatchedDataLoader(train_reader,
-                                                         batch_size=batch_size,
-                                                         # No need to shuffle again in dataloader level
-                                                         shuffling_queue_capacity=0)
-                    train_loader_iter = iter(train_loader)
+                        # If label_shapes parameter is not provided, reshape the label
+                        # columns data to match the shape of the model output
+                        labels = [label.reshape(output.shape) if
+                                  output.shape.numel() == label.shape.numel() else label
+                                  for label, output in zip(labels, outputs)]
 
-                    def prepare_batch(row):
-                        inputs = [
-                            prepare_np_data(
-                                row[col].float(), col, metadata).reshape(shape)
-                            for col, shape in zip(feature_columns, input_shapes)]
-                        labels = [
-                            prepare_np_data(
-                                row[col].float(), col, metadata)
-                            for col in label_columns]
+                return outputs, labels
 
-                        sample_weights = row.get(sample_weight_col, None)
-                        if sample_weights is not None:
-                            sample_weights = sample_weights.float()
-                        if cuda_available:
-                            inputs = [input.cuda() for input in inputs]
-                            labels = [label.cuda() for label in labels]
-                            if sample_weights is not None:
-                                sample_weights = sample_weights.cuda()
-                        return inputs, labels, sample_weights
+            def aggregate_metrics(stage, epoch, loss, metric_value_groups):
+                all_metric_groups_values = get_metric_avgs(metric_value_groups)
+                if remote_store.saving_runs:
+                    write_metrics_summary(
+                        stage, epoch, loss, all_metric_groups_values, log_writer)
+                return {
+                    loss.name: loss.avg.item(),
+                    'all_metrics': all_metric_groups_values
+                }
 
-                    def transform_outputs(outputs, labels):
-                        if not isinstance(outputs, tuple) and not isinstance(outputs,  list):
-                            outputs = [outputs]
+            def loss_fn(outputs, labels, sample_weights):
+                loss = calculate_loss(outputs, labels, loss_weights, loss_fns, sample_weights)
+                return loss
 
-                        # reshape labels to match the output shape of the model
-                        if hasattr(outputs[0], 'shape'):
-                            if label_shapes:
-                                labels = [label.reshape(label_shape)
-                                          for label, label_shape in zip(labels, label_shapes)]
-                            else:
-                                # If label_shapes parameter is not provided, reshape the label
-                                # columns data to match the shape of the model output
-                                labels = [label.reshape(output.shape) if
-                                          output.shape.numel() == label.shape.numel() else label
-                                          for label, output in zip(labels, outputs)]
+            def print_metrics(batch_idx, loss, metric_value_groups, phase):
+                if user_verbose > 0 and hvd.rank() == 0 and \
+                        batch_idx % METRIC_PRINT_FREQUENCY == 0:
+                    print("{phase}\tepoch:\t{epoch}\tstep\t{batch_idx}:\t{metrics}".
+                          format(phase=phase,
+                                 epoch=epoch,
+                                 batch_idx=batch_idx,
+                                 metrics=aggregate_metrics(phase, epoch, loss,
+                                                           metric_value_groups)))
 
-                        return outputs, labels
+            def _train(epoch, train_loader_iter):
+                model.train()
+                train_loss = metric_cls('loss', hvd)
+                metric_value_groups = construct_metric_value_holders(
+                    metric_cls, metric_fn_groups, label_columns, hvd)
 
-                    def aggregate_metrics(stage, epoch, loss, metric_value_groups):
-                        all_metric_groups_values = get_metric_avgs(metric_value_groups)
-                        if remote_store.saving_runs:
-                            write_metrics_summary(
-                                stage, epoch, loss, all_metric_groups_values, log_writer)
-                        return {
-                            loss.name: loss.avg.item(),
-                            'all_metrics': all_metric_groups_values
-                        }
+                # iterate on one epoch
+                for batch_idx in range(steps_per_epoch):
+                    row = next(train_loader_iter)
+                    inputs, labels, sample_weights = prepare_batch(row)
+                    outputs, loss = train_minibatch(model, optimizer, transform_outputs,
+                                                    loss_fn, inputs, labels, sample_weights,
+                                                    backward_passes_per_step, batch_idx)
+                    update_metrics(metric_value_groups, outputs, labels)
+                    train_loss.update(loss)
+                    print_metrics(batch_idx, train_loss, metric_value_groups, 'train')
+                optimizer.step()
 
-                    def loss_fn(outputs, labels, sample_weights):
-                        loss = calculate_loss(outputs, labels, loss_weights, loss_fns, sample_weights)
-                        return loss
+                return aggregate_metrics('train', epoch, train_loss, metric_value_groups)
 
-                    def print_metrics(batch_idx, loss, metric_value_groups, phase):
-                        if user_verbose > 0 and hvd.rank() == 0 and \
-                                batch_idx % METRIC_PRINT_FREQUENCY == 0:
-                            print("{phase}\tepoch:\t{epoch}\tstep\t{batch_idx}:\t{metrics}".
-                                  format(phase=phase,
-                                         epoch=epoch,
-                                         batch_idx=batch_idx,
-                                         metrics=aggregate_metrics(phase, epoch, loss,
-                                                                   metric_value_groups)))
+            if should_validate:
+                if hvd.rank() == 0 and user_verbose:
+                    print(f"Val rows: {val_rows}, Val batch size: {val_batch_size}, Val_steps_per_epoch: {validation_steps}\n")
 
-                    def _train(epoch):
-                        model.train()
-                        train_loss = metric_cls('loss', hvd)
-                        metric_value_groups = construct_metric_value_holders(
-                            metric_cls, metric_fn_groups, label_columns, hvd)
+                def _validate(epoch, val_loader_iter):
+                    model.eval()
+                    val_loss = metric_cls('loss', hvd)
 
-                        # iterate on one epoch
-                        for batch_idx in range(steps_per_epoch):
-                            row = next(train_loader_iter)
-                            inputs, labels, sample_weights = prepare_batch(row)
-                            outputs, loss = train_minibatch(model, optimizer, transform_outputs,
-                                                            loss_fn, inputs, labels, sample_weights,
-                                                            backward_passes_per_step, batch_idx)
-                            update_metrics(metric_value_groups, outputs, labels)
-                            train_loss.update(loss)
-                            print_metrics(batch_idx, train_loss, metric_value_groups, 'train')
-                        optimizer.step()
+                    metric_value_groups = construct_metric_value_holders(
+                        metric_cls, metric_fn_groups, label_columns, hvd)
 
-                        return aggregate_metrics('train', epoch, train_loss, metric_value_groups)
+                    # iterate on one epoch
+                    for batch_idx in range(validation_steps):
+                        row = next(val_loader_iter)
+                        inputs, labels, sample_weights = prepare_batch(row)
+
+                        outputs = model(*inputs)
+                        outputs, labels = transform_outputs(outputs, labels)
+
+                        loss = calculate_loss(
+                            outputs, labels, loss_weights, loss_fns, sample_weights)
+                        val_loss.update(loss)
+                        update_metrics(metric_value_groups, outputs, labels)
+                        print_metrics(batch_idx, val_loss, metric_value_groups, 'val')
+                    return aggregate_metrics('val', epoch, val_loss, metric_value_groups)
+
+            history = []
+
+            with data_module(**data_module_kwargs) as dm:
+                train_loader_iter = iter(dm.train_data())
+                if should_validate:
+                    val_loader_iter = iter(dm.val_data())
+
+                for epoch in range(epochs):
+
+                    epoch_metrics = {
+                        'epoch': epoch,
+                        'train': _train(epoch, train_loader_iter)
+                    }
 
                     if should_validate:
-                        if validation_steps_per_epoch is None:
-                            validation_steps = int(math.ceil(float(val_rows) / val_batch_size / hvd.size()))
-                        else:
-                            validation_steps = validation_steps_per_epoch
+                        epoch_metrics['validation'] = _validate(epoch, val_loader_iter)
 
-                        if hvd.rank() == 0 and user_verbose:
-                            print(f"Val rows: {val_rows}, Val batch size: {val_batch_size}, Val_steps_per_epoch: {validation_steps}\n")
+                    if user_verbose > 0:
+                        pdt_dt = datetime.now(timezone.utc)
+                        pdt_time_str = pdt_dt.strftime("%Y-%b-%d %H:%M:%S UTC")
+                        print(pdt_time_str, epoch_metrics)
 
-                        if inmemory_cache_all:
-                            # Petastorm introduced InMemBatchedDataLoader class in v0.11.0
-                            val_loader = InMemBatchedDataLoader(val_reader,
-                                                                batch_size=val_batch_size,
-                                                                num_epochs=epochs,
-                                                                rows_capacity=validation_steps*val_batch_size,
-                                                                shuffle=False)
-                        else:
-                            val_loader = BatchedDataLoader(val_reader,
-                                                           batch_size=val_batch_size,
-                                                           shuffling_queue_capacity=0)
-                        val_loader_iter = iter(val_loader)
-
-                        def _validate(epoch):
-                            model.eval()
-                            val_loss = metric_cls('loss', hvd)
-
-                            metric_value_groups = construct_metric_value_holders(
-                                metric_cls, metric_fn_groups, label_columns, hvd)
-
-                            # iterate on one epoch
-                            for batch_idx in range(validation_steps):
-                                row = next(val_loader_iter)
-                                inputs, labels, sample_weights = prepare_batch(row)
-
-                                outputs = model(*inputs)
-                                outputs, labels = transform_outputs(outputs, labels)
-
-                                loss = calculate_loss(
-                                    outputs, labels, loss_weights, loss_fns, sample_weights)
-                                val_loss.update(loss)
-                                update_metrics(metric_value_groups, outputs, labels)
-                                print_metrics(batch_idx, val_loss, metric_value_groups, 'val')
-                            return aggregate_metrics('val', epoch, val_loss, metric_value_groups)
-
-                    history = []
-                    for epoch in range(epochs):
-                        epoch_metrics = {
-                            'epoch': epoch,
-                            'train': _train(epoch)
-                        }
-
-                        if should_validate:
-                            epoch_metrics['validation'] = _validate(epoch)
-
-                        if user_verbose > 0:
-                            pdt_dt = datetime.now(timezone.utc)
-                            pdt_time_str = pdt_dt.strftime("%Y-%b-%d %H:%M:%S UTC")
-                            print(pdt_time_str, epoch_metrics)
-
-                        history.append(epoch_metrics)
-                        if hvd.rank() == 0:
-                            # Save model after every epoch
-                            save_checkpoint()
-                            if remote_store.saving_runs:
-                                remote_store.sync(run_output_dir)
+                    history.append(epoch_metrics)
+                    if hvd.rank() == 0:
+                        # Save model after every epoch
+                        save_checkpoint()
+                        if remote_store.saving_runs:
+                            remote_store.sync(run_output_dir)
 
             if hvd.rank() == 0:
                 best_checkpoint = torch.load(ckpt_file)
