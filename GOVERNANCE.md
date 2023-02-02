@@ -37,6 +37,7 @@ Current non-voting members of the Horovod TSC:
 * [Abin Shahab](https://github.com/ashahab) - LinkedIn
 * [TJ Xu](https://github.com/Tixxx) - NVIDIA
 * [Keqiu Hu](https://github.com/oliverhu) - LinkedIn
+* [Peng Zhang](https://github.com/irasit) - Uber
 
 Emeritus members of the Horovod TSC:
 * [Lin Yuan](https://github.com/apeforest)
