@@ -1805,7 +1805,7 @@ EnqueueTensorReducescatters(std::vector<std::shared_ptr<OpContext>>& contexts,
 #else
     LOG(ERROR, horovod_global.global_controller->GetRank())
         << "Enqueuing AVERAGE reducescatter is not allowed with ROCm.";
-    return status.Aborted("AVERAGE not allowed.");
+    return Status::Aborted("AVERAGE not allowed.");
 #endif
     break;
   case ReduceOp::SUM:
