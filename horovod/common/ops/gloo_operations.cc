@@ -424,17 +424,9 @@ Status GlooReducescatter::Execute(std::vector<TensorTableEntry>& entries,
   void* buffer_data = nullptr;
   int num_elements = (int)NumElements(entries);
 
-  int global_rank = process_set.controller->GetRank();
   int global_size = process_set.controller->GetSize();
   auto output_shapes = ComputeOutputShapes(entries, global_size);
   std::vector<int> recvcounts = ComputeReceiveCounts(output_shapes);
-
-  timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
-  Status status = AllocateOutput(entries, output_shapes[global_rank]);
-  if (!status.ok()) {
-    return status;
-  }
-  timeline.ActivityEndAll(entries);
 
   std::unique_ptr<IGlooAlgorithms> gloo_algos(
       GetAlgorithmsForType(first_entry.tensor->dtype(), &gloo_context));

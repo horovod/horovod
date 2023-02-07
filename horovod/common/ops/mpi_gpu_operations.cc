@@ -303,17 +303,9 @@ Status MPI_GPUReducescatter::Execute(std::vector<TensorTableEntry>& entries,
   const void* sendbuf = nullptr;
   void* recvbuf = nullptr;
 
-  int global_rank = process_set.controller->GetRank();
   int global_size = process_set.controller->GetSize();
   auto output_shapes = ComputeOutputShapes(entries, global_size);
   std::vector<int> recvcounts = ComputeReceiveCounts(output_shapes);
-
-  timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
-  Status status = AllocateOutput(entries, output_shapes[global_rank]);
-  if (!status.ok()) {
-    return status;
-  }
-  timeline.ActivityEndAll(entries);
 
   // Copy memory into the fusion buffer. Execute prescaling op if necessary.
   if (entries.size() > 1 || prescale_factor != 1.0) {

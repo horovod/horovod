@@ -238,14 +238,15 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
 
 Status EnqueueTensorReducescatter(
     std::shared_ptr<OpContext> context, std::shared_ptr<Tensor> tensor,
-    ReadyEventList ready_event_list, const std::string& name, int device,
-    StatusCallback callback, ReduceOp reduce_op = ReduceOp::SUM,
-    int32_t process_set_id = 0, double prescale_factor = 1.0,
-    double postscale_factor = 1.0);
+    std::shared_ptr<Tensor> output, ReadyEventList ready_event_list,
+    const std::string& name, int device, StatusCallback callback,
+    ReduceOp reduce_op = ReduceOp::SUM, int32_t process_set_id = 0,
+    double prescale_factor = 1.0, double postscale_factor = 1.0);
 
 Status EnqueueTensorReducescatters(
     std::vector<std::shared_ptr<OpContext>>& contexts,
     std::vector<std::shared_ptr<Tensor>>& tensors,
+    std::vector<std::shared_ptr<Tensor>>& outputs,
     std::vector<ReadyEventList>& ready_event_lists,
     std::vector<std::string>& names, int device,
     std::vector<StatusCallback>& callbacks, ReduceOp reduce_op = ReduceOp::SUM,

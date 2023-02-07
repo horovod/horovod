@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Improved reducescatter performance by allocating output tensors before enqueuing the operation. ([#3824](https://github.com/horovod/horovod/pull/3824))
+
 ### Deprecated
 
 ### Removed

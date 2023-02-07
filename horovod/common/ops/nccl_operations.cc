@@ -1239,13 +1239,6 @@ Status NCCLReducescatter::Execute(std::vector<TensorTableEntry>& entries,
   auto output_shapes = ComputeOutputShapes(entries, process_set_size);
   std::vector<int> recvcounts = ComputeReceiveCounts(output_shapes);
 
-  global_state_->timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
-  Status status = AllocateOutput(entries, output_shapes[process_set_rank]);
-  if (!status.ok()) {
-    return status;
-  }
-  global_state_->timeline.ActivityEndAll(entries);
-
   size_t element_size = DataType_Size(first_entry.tensor->dtype());
   void* recv_pointer = nullptr;
   const void* fused_input_data = nullptr;
@@ -1350,31 +1343,6 @@ bool NCCLReducescatter::Enabled(const ParameterManager& param_manager,
                                 const std::vector<TensorTableEntry>& entries,
                                 const Response& response) const {
   return entries[0].device != CPU_DEVICE_ID;
-}
-
-Status NCCLReducescatter::AllocateOutput(
-    std::vector<TensorTableEntry>& entries, const std::vector<TensorShape>& output_shapes) {
-  for (size_t ec = 0; ec < entries.size(); ++ec) {
-    auto& e = entries[ec];
-    const auto& output_shape = output_shapes[ec];
-
-    std::shared_ptr<ReadyEvent> event;
-    Status status = e.context->AllocateOutput(e.output_index, output_shape,
-                                              &e.output, &event);
-    if (!status.ok()) {
-      LOG(WARNING) << "NCCLReducescatter::AllocateOutput failed: "
-                   << status.reason();
-      return status;
-    }
-
-    // Add event dependency for output allocation to stream
-    if (event) {
-      HVD_GPU_CHECK(gpuStreamWaitEvent(*gpu_op_context_.stream, event->event(), 0));
-    }
-
-  }
-
-  return Status::OK();
 }
 
 void NCCLReducescatter::WaitForData(std::vector<TensorTableEntry>& entries) {
