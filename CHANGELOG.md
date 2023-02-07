@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Fixed build with ROCm. ([#3839](https://github.com/horovod/horovod/pull/3839))
+
 
 ## [v0.27.0] - 2023-02-01
 
