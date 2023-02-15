@@ -809,7 +809,7 @@ def main():
     with open(path.joinpath('workflows', 'ci.yaml').absolute(), 'wt') as w:
         mins = ['tfmin', 'torchmin', 'mxnetmin']
         heads = ['tfhead', 'torchhead', 'mxnethead']
-        rcs = ['tf', 'torch', 'mxnet']
+        rcs = ['tf', 'keras', 'torch', 'mxnet']
         rc_images = [image for image in images if any(re.match(f'.*{rc}[0-9]+_[0-9]+_[0-9]+rc[^-]+-.*', image) for rc in rcs)]
         non_rc_images = [image for image in images if image not in rc_images]
         allmin_images = [image for image in images if all(min in image for min in mins)]
