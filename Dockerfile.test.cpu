@@ -95,8 +95,7 @@ RUN if [[ ${PYSPARK_PACKAGE} == "pyspark==2."* ]]; then \
     fi
 
 # Install Ray.
-# Updating to 1.7.0 to pass ray tests
-RUN pip install --no-cache-dir ray==1.7.0
+RUN pip install --no-cache-dir ray
 
 # Install MPI.
 RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
