@@ -74,7 +74,7 @@ list(APPEND PYTORCH_SOURCES "${PROJECT_SOURCE_DIR}/horovod/torch/handle_manager.
                             "${PROJECT_SOURCE_DIR}/horovod/torch/ready_event_hip.cc"
                             "${PROJECT_SOURCE_DIR}/horovod/torch/hip_util.cc"
                             "${PROJECT_SOURCE_DIR}/horovod/torch/mpi_ops_v2_hip.cc"
-                            "${PROJECT_SOURCE_DIR}/horovod/torch/adapter_v2.cc")
+                            "${PROJECT_SOURCE_DIR}/horovod/torch/adapter_v2_hip.cc")
 else()
 list(APPEND PYTORCH_SOURCES "${PROJECT_SOURCE_DIR}/horovod/torch/handle_manager.cc"
                             "${PROJECT_SOURCE_DIR}/horovod/torch/ready_event.cc"
