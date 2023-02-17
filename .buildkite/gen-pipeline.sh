@@ -12,7 +12,7 @@ gpux2_queue="2x-gpu-v5111"
 gpux4_queue="4x-gpu-v5111"
 
 # our baseline test is
-baseline="test-cpu-gloo-py3_8-tf2_11_0-keras2_11_0-torch1_13_1-mxnet1_9_1-pyspark3_3_1"
+baseline="test-cpu-gloo-py3_8-tf2_11_0-keras2_11_0-torch1_13_1-mxnet1_9_1-pyspark3_3_2"
 # in run_gloo_integration we run 'Elastic Spark * Tests' for this baseline
 # so it has to have Gloo mpi kind
 
@@ -29,12 +29,12 @@ tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${B
 
   # then we vary the baseline along mpi kinds dimension
   # our baseline again
-# printf "test-cpu-gloo-py3_8-tf2_11_0-keras2_11_0-torch1_13_1-mxnet1_9_1-pyspark3_3_1 "
-  printf "test-cpu-mpich-py3_8-tf2_11_0-keras2_11_0-torch1_13_1-mxnet1_9_1-pyspark3_3_1 "
-  printf "test-cpu-oneccl-py3_8-tf2_11_0-keras2_11_0-torch1_13_1-mxnet1_9_1-pyspark3_3_1 "
-  printf "test-cpu-openmpi-py3_8-tf2_11_0-keras2_11_0-torch1_13_1-mxnet1_9_1-pyspark3_3_1 "
+# printf "test-cpu-gloo-py3_8-tf2_11_0-keras2_11_0-torch1_13_1-mxnet1_9_1-pyspark3_3_2 "
+  printf "test-cpu-mpich-py3_8-tf2_11_0-keras2_11_0-torch1_13_1-mxnet1_9_1-pyspark3_3_2 "
+  printf "test-cpu-oneccl-py3_8-tf2_11_0-keras2_11_0-torch1_13_1-mxnet1_9_1-pyspark3_3_2 "
+  printf "test-cpu-openmpi-py3_8-tf2_11_0-keras2_11_0-torch1_13_1-mxnet1_9_1-pyspark3_3_2 "
   # note: we test openmpi-gloo mpi kind in this variation in each of [cpu, gpu, mixed]
-  printf "test-cpu-openmpi-gloo-py3_8-tf2_11_0-keras2_11_0-torch1_13_1-mxnet1_9_1-pyspark3_3_1 "
+  printf "test-cpu-openmpi-gloo-py3_8-tf2_11_0-keras2_11_0-torch1_13_1-mxnet1_9_1-pyspark3_3_2 "
 
   # then we vary the baseline along the framework dimensions all together
   # run_gloo_integration expects tf1 to have Gloo mpi kind to run 'Elastic Spark * Tests'
@@ -42,12 +42,12 @@ tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${B
   # Python 3.7 is only available on Ubuntu 18.04
   # torch==1.8.1 is the latest we can test in this setup
   # see test-gpu-gloo-py3_7-tf1_15_5-... below why we have to test with mxnet 1.5.1 here
-  printf "test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_3_1 "
-  printf "test-cpu-gloo-py3_8-tf2_9_3-keras2_9_0-torch1_11_0-mxnet1_7_0_p2-pyspark3_3_1 "
-  printf "test-cpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_3_1 "
+  printf "test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_3_2 "
+  printf "test-cpu-gloo-py3_8-tf2_9_3-keras2_9_0-torch1_11_0-mxnet1_7_0_p2-pyspark3_3_2 "
+  printf "test-cpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_3_2 "
   # our baseline again
-# printf "test-cpu-gloo-py3_8-tf2_11_0-keras2_11_0-torch1_13_1-mxnet1_9_1-pyspark3_3_1 "
-  printf "test-cpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1 "
+# printf "test-cpu-gloo-py3_8-tf2_11_0-keras2_11_0-torch1_13_1-mxnet1_9_1-pyspark3_3_2 "
+  printf "test-cpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_2 "
   # these are the lowest framework versions that Horovod compiles with, but they are not tested
   printf "test-cpu-openmpi-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin "
 
@@ -58,17 +58,17 @@ tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${B
   # there is no mxnet-1.6.0.post0 and mxnet-1.6.0 does not work with horovod
   # https://github.com/apache/incubator-mxnet/issues/16193
   # so we test with mxnet 1.5.1
-  printf "test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_3_1 "
+  printf "test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_3_2 "
   # here we deviate from mxnet==1.7.0.post2 as there is none for cu101, only post1
-  printf "test-gpu-gloo-py3_8-tf2_9_3-keras2_9_0-torch1_11_0-mxnet1_7_0_p1-pyspark3_3_1 "
-  printf "test-gpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_3_1 "
-  printf "test-gpu-openmpi-gloo-py3_8-tf2_11_0-keras2_11_0-torch1_13_1-mxnet1_9_1-pyspark3_3_1 "
-  printf "test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_1 "
+  printf "test-gpu-gloo-py3_8-tf2_9_3-keras2_9_0-torch1_11_0-mxnet1_7_0_p1-pyspark3_3_2 "
+  printf "test-gpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_3_2 "
+  printf "test-gpu-openmpi-gloo-py3_8-tf2_11_0-keras2_11_0-torch1_13_1-mxnet1_9_1-pyspark3_3_2 "
+  printf "test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_3_2 "
   # these are the lowest framework versions that Horovod compiles with, but they are not tested
   printf "test-gpu-openmpi-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin "
 
   # and one final test with mixed cpu+gpu
-  printf "test-mixed-openmpi-gloo-py3_8-tf2_11_0-keras2_11_0-torch1_13_1-mxnet1_9_1-pyspark3_3_1 "
+  printf "test-mixed-openmpi-gloo-py3_8-tf2_11_0-keras2_11_0-torch1_13_1-mxnet1_9_1-pyspark3_3_2 "
 fi | if [[ "${PIPELINE_MODE:-}" == "GPU"* ]]; then sed -E "s/[^ ]*-cpu-[^ ]*//g"; else cat; fi \
    | if [[ "${PIPELINE_MODE:-}" == "GPU HEADS" ]]; then sed -E "s/ /\n/g" | grep -e "-tfhead-keras_none-torchhead-mxnethead-" | paste -s -d " " -; else cat; fi \
    | if [[ "${PIPELINE_MODE:-}" == "GPU NON HEADS" ]]; then sed -E "s/[^ ]*-tfhead-keras_none-torchhead-mxnethead-[^ ]*//g"; else cat; fi)
@@ -382,7 +382,7 @@ run_gloo_integration() {
   # Elastic Horovod on Spark tests are very expensive (high timeout)
   # We only need to run this for our baseline test image, baseline with tensorflow1, and pyspark variations
   # *-gloo-* does intentionally not match -openmpi-gloo- here
-  if [[ ${test} == ${baseline} ]] || [[ ${test} == test-cpu-gloo-*-tf1_* ]] || [[ ${test} != *pyspark3_3_1* ]]; then
+  if [[ ${test} == ${baseline} ]] || [[ ${test} == test-cpu-gloo-*-tf1_* ]] || [[ ${test} != *pyspark3_3_2* ]]; then
     run_test "${test}" "${queue}" \
       ":factory: Elastic Spark TensorFlow Tests (${test})" \
       "bash -c \"cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml ${elastic_spark_tensorflow}\"" \
@@ -391,7 +391,7 @@ run_gloo_integration() {
 
   # Elastic Horovod on Spark tests are very expensive (high timeout)
   # We only need to run this for our baseline test image and pyspark variations
-  if [[ ${test} == ${baseline} ]] || [[ ${test} != *pyspark3_3_1* ]]; then
+  if [[ ${test} == ${baseline} ]] || [[ ${test} != *pyspark3_3_2* ]]; then
     run_test "${test}" "${queue}" \
       ":factory: Elastic Spark Torch Tests (${test})" \
       "bash -c \"cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py\"" \
