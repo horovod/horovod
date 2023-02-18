@@ -92,7 +92,7 @@ services:
     build:
       args:
         MPI_KIND: OpenMPI
-        TENSORFLOW_PACKAGE: tf-nightly
+        TENSORFLOW_PACKAGE: tf-nightly==2.13.0.dev20230215
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: torchvision
@@ -229,7 +229,7 @@ services:
         CUDNN_VERSION: 8.6.0.163-1+cuda11.8
         NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
         MPI_KIND: OpenMPI
-        TENSORFLOW_PACKAGE: tf-nightly
+        TENSORFLOW_PACKAGE: tf-nightly==2.13.0.dev20230215
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch-nightly-cu116
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
