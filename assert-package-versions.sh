@@ -30,6 +30,11 @@ do
   then
     flag="-P"
     pattern="${pattern/-nightly/}==.*20\\d{6}"
+  elif [[ "$pattern" == "http"* ]]
+  then
+    flag="-Fx"
+    file=$(basename "$pattern")
+    pattern="$(echo "${file/%.tar.gz/}" | sed -E "s/-[0-9.]+//") @ $pattern"
   else
     flag="-Fx"
   fi
