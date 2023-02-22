@@ -85,18 +85,27 @@ RUN chmod a+x /pytest_standalone.sh
 
 # Install Spark stand-alone cluster.
 RUN if [[ -n ${SPARK_PACKAGE} ]]; then \
-        wget --progress=dot:giga "https://www.apache.org/dyn/closer.lua/spark/${SPARK_PACKAGE}?action=download" -O - | tar -xzC /tmp; \
+        if [[ ${SPARK_PACKAGE} != http* ]]; then \
+            wget --progress=dot:giga "https://www.apache.org/dyn/closer.lua/spark/${SPARK_PACKAGE}?action=download" -O - | tar -xzC /tmp; \
+        else \
+            wget --progress=dot:giga "${SPARK_PACKAGE}" -O - | tar -xzC /tmp; \
+        fi; \
         archive=$(basename "${SPARK_PACKAGE}") bash -c "mv -v /tmp/\${archive/%.tgz/} /spark"; \
     fi
 
 # Install PySpark.
 RUN apt-get update -qq && apt install -y openjdk-8-jdk-headless
-RUN if [[ ${SPARK_PACKAGE} != *"-preview"* ]]; then \
-        pip install --no-cache-dir ${PYSPARK_PACKAGE}; \
-    else \
+RUN if [[ ${SPARK_PACKAGE} == *"-preview"* ]]; then \
         apt-get update -qq && apt-get install pandoc; \
         pip install --no-cache-dir pypandoc; \
         (cd /spark/python && python setup.py sdist && pip install --no-cache-dir dist/pyspark-*.tar.gz && rm dist/pyspark-*); \
+    elif [[ ${PYSPARK_PACKAGE} == http* ]]; then \
+        archive="/tmp/$(basename "${PYSPARK_PACKAGE}")"; \
+        wget --progress=dot:giga "${PYSPARK_PACKAGE}" -O "$archive"; \
+        pip install --no-cache-dir "$archive"; \
+        rm -rf "$archive"; \
+    else \
+        pip install --no-cache-dir ${PYSPARK_PACKAGE}; \
     fi
 
 # Install Ray.
