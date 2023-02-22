@@ -83,17 +83,12 @@ RUN if [[ -n ${SPARK_PACKAGE} ]]; then \
 
 # Install PySpark.
 RUN apt-get update -qq && apt install -y openjdk-8-jdk-headless
-RUN if [[ ${SPARK_PACKAGE} == *"-preview"* ]]; then \
+RUN if [[ ${SPARK_PACKAGE} != *"-preview"* ]]; then \
+        pip install --no-cache-dir ${PYSPARK_PACKAGE}; \
+    else \
         apt-get update -qq && apt-get install pandoc; \
         pip install --no-cache-dir pypandoc; \
         (cd /spark/python && python setup.py sdist && pip install --no-cache-dir dist/pyspark-*.tar.gz && rm dist/pyspark-*); \
-    elif [[ ${PYSPARK_PACKAGE} == http* ]]; then \
-        archive="/tmp/$(basename "${PYSPARK_PACKAGE}")"; \
-        wget --progress=dot:giga "${PYSPARK_PACKAGE}" -O "$archive"; \
-        pip install --no-cache-dir "$archive"; \
-        rm -rf "$archive"; \
-    else \
-        pip install --no-cache-dir ${PYSPARK_PACKAGE}; \
     fi
 
 # Pin cloudpickle to 1.3.0
