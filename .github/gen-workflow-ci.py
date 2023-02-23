@@ -530,7 +530,7 @@ def main():
                 f'    steps:\n'
                 f'      - name: Trigger Buildkite Pipeline\n'
                 f'        id: build\n'
-                f'        uses: EnricoMi/trigger-pipeline-action@master\n'
+                f'        uses: buildkite/trigger-pipeline-action@v1.3.1\n'
                 f'        env:\n'
                 f'          PIPELINE: "horovod/horovod"\n'
                 f'          # COMMIT is taken from GITHUB_SHA\n'
