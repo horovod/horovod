@@ -1107,7 +1107,7 @@ if hasattr(tf, 'GradientTape'):
 
                 return [s2g[s] for s in sources]
 
-        def decoupled_gradient(self, target, sources, output_gradients=None, use_generic_names=False):
+        def get_local_and_global_gradients(self, target, sources, output_gradients=None, use_generic_names=False):
             gradients = self.gradient(target=target, sources=sources, output_gradients=output_gradients, use_generic_names=use_generic_names)
             # gradients are in the same order as sources.
             local_vars_grads, global_vars_grads = [], []

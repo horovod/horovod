@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- TensorFlow: Added new `decoupled_gradient` to PartialDistributedGradientTape to retrieve local and non-local gradients separately. ([#3859](https://github.com/horovod/horovod/pull/3859))
+- TensorFlow: Added new `get_local_and_global_gradients` to PartialDistributedGradientTape to retrieve local and non-local gradients separately. ([#3859](https://github.com/horovod/horovod/pull/3859))
 
 ### Changed
 

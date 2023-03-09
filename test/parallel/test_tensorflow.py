@@ -5497,11 +5497,11 @@ class TensorFlowTests(BaseTensorFlowTests):
                 with tf.device("/gpu:%d" % local_rank):
                     tape = hvd.PartialDistributedGradientTape(tape, local_layers=local_layers)
                     allreduced_gradients = tape.gradient(l, model.trainable_weights)
-                    local_vars_grads, global_vars_grads = tape.decoupled_gradient(l, model.trainable_weights)
+                    local_vars_grads, global_vars_grads = tape.get_local_and_global_gradients(l, model.trainable_weights)
             else:
                 tape = hvd.PartialDistributedGradientTape(tape, local_layers=local_layers)
                 allreduced_gradients = tape.gradient(l, model.trainable_weights)
-                local_vars_grads, global_vars_grads = tape.decoupled_gradient(l, model.trainable_weights)
+                local_vars_grads, global_vars_grads = tape.get_local_and_global_gradients(l, model.trainable_weights)
 
             for var,grad in zip(model.trainable_weights, allreduced_gradients):
                 if _IS_TF2:
