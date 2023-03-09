@@ -1120,7 +1120,6 @@ if hasattr(tf, 'GradientTape'):
             del gradients
             return local_vars_grads, global_vars_grads
 
-
     def DistributedGradientTape(gradtape, device_dense='', device_sparse='',
                                 compression=Compression.none, sparse_as_dense=False,
                                 op=Average, gradient_predivide_factor=1.0,
