@@ -33,7 +33,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                                  average_aggregated_gradients=False,
                                  groups=None, process_set=hvd.global_process_set,
                                  scale_local_gradients=True):
-    class _DistributedOptimizer(keras.optimizers.Optimizer):
+    class _DistributedOptimizer(*optimizer.__class__.__bases__):
         _HAS_AGGREGATE_GRAD = True
 
         def __init__(self, **kwargs):
@@ -263,16 +263,14 @@ def reducescatter(backend, value, name, op):
     return _eval(backend, hvd.reducescatter(tf.constant(value, name=name), op=op))
 
 
-def load_model(keras, wrap_optimizer, optimizer_modules, filepath, custom_optimizers, custom_objects):
-    if version.parse(keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
-        keras_subclasses = keras.optimizers.Optimizer.__subclasses__()
-    else:
-        keras_subclasses = keras.optimizers.legacy.Optimizer.__subclasses__()
+def load_model(keras, wrap_optimizer, filepath, custom_optimizers, custom_objects):
+    keras_subclasses = keras.optimizers.Optimizer.__subclasses__()
+    if hasattr(keras.optimizers, 'legacy'):
+        keras_subclasses.extend(keras.optimizers.legacy.Optimizer.__subclasses__())
 
     horovod_objects = {
         subclass.__name__.lower(): wrap_optimizer(subclass)
         for subclass in keras_subclasses
-        if subclass.__module__ in optimizer_modules
     }
 
     if custom_optimizers is not None:

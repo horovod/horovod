@@ -129,7 +129,7 @@ def PartialDistributedOptimizer(optimizer, name=None,
     Args:
         optimizer: Optimizer to use for computing gradients and applying updates.
         process_set: Gradients will only be reduced over Horovod processes belonging
-                   to this process set. Defaults to the global process set.  
+                   to this process set. Defaults to the global process set.
         local_layers: A collection of type tf.keras.layers.Layer local layers that their gradients need not
             to be synced accross ranks and is kept and applied locally.
             If not provided, the functionality of PartialDistributedOptimizer is
@@ -282,8 +282,4 @@ def load_model(filepath, custom_optimizers=None, custom_objects=None, compressio
     """
     def wrap_optimizer(cls):
         return lambda **kwargs: DistributedOptimizer(cls(**kwargs), compression=compression)
-    if version.parse(keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
-        optimizer_modules = {keras.optimizers.Optimizer.__module__}
-    else:
-        optimizer_modules = {keras.optimizers.legacy.Optimizer.__module__}
-    return _impl.load_model(keras, wrap_optimizer, optimizer_modules, filepath, custom_optimizers, custom_objects)
+    return _impl.load_model(keras, wrap_optimizer, filepath, custom_optimizers, custom_objects)

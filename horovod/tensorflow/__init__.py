@@ -695,7 +695,7 @@ if _LegacyOptimizer is not None:
         def register_local_var(self, var):
             """Registers a source/variable as worker local. Horovod will not perform any global
             operations on gradients corresponding to these sources and will instead return the local
-            gradient."""    
+            gradient."""
             if self._agg_helper:
                 self._agg_helper.register_local_var(var)
             elif _IS_TF2:
@@ -1004,7 +1004,7 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
             process_set=process_set,
             scale_local_gradients=scale_local_gradients
         )
-    elif isinstance(optimizer, tf.keras.optimizers.Optimizer):
+    else:
         if op == Adasum:
             raise ValueError('op == Adasum is not supported yet with Keras')
 
@@ -1022,9 +1022,6 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
             process_set=process_set,
             scale_local_gradients=scale_local_gradients
         )
-    else:
-        raise ValueError('Provided optimizer doesn\'t inherit from either legacy '
-                         'TensorFlow or Keras optimizer: %s' % optimizer)
 
 
 if hasattr(tf, 'GradientTape'):

@@ -60,10 +60,7 @@ class Tf2KerasProcessSetsTests(tf.test.TestCase):
         if size == 1:
             self.skipTest("Only one worker available")
 
-        if version.parse(keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
-            optimizer_class = keras.optimizers.Optimizer
-        else:
-            optimizer_class = keras.optimizers.legacy.Optimizer
+        optimizer_class = keras.optimizers.Optimizer
 
         class TestOptimizer(optimizer_class):
             def __init__(self, name, **kwargs):
