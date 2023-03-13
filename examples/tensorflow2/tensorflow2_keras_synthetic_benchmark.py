@@ -21,6 +21,12 @@ import tensorflow as tf
 import horovod.tensorflow.keras as hvd
 from tensorflow.keras import applications
 
+from packaging import version
+if version.parse(tf.keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
+    from tensorflow.keras import optimizers
+else:
+    from tensorflow.keras.optimizers import legacy as optimizers
+
 # Benchmark settings
 parser = argparse.ArgumentParser(description='TensorFlow Synthetic Benchmark',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -64,7 +70,7 @@ else:
 
 # Set up standard model.
 model = getattr(applications, args.model)(weights=None)
-opt = tf.optimizers.SGD(0.01)
+opt = optimizers.SGD(0.01)
 
 # Synthetic dataset
 data = tf.random.uniform([args.batch_size, 224, 224, 3])
