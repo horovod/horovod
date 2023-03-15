@@ -1104,7 +1104,7 @@ private:
     {
       Var* var;
       mutex* mu = GetTrainingVariableMutex<Device, T>(context, tensor_index,
-                                                      sparse, &var);
+                                                      &var);
       std::vector<Var*> vars;
       if (var) {
         vars.reserve(1);
