@@ -1098,13 +1098,18 @@ private:
     const bool do_lock = true;
     const bool sparse = false;
     // Here we need to replicate the functionality provided by
-    // MaybeLockVariableInputMutexesInOrder(). That function currently does
+    // MaybeLockVariableInputMutexesInOrder(). With TF < 2.8.0 the function does
     // not work as intended for input_ids not starting at 0. See:
     // https://github.com/tensorflow/tensorflow/issues/51686
     {
       Var* var;
+#if TENSORFLOW_VERSION >= 2013000000
+      mutex* mu =
+          GetTrainingVariableMutex<Device, T>(context, tensor_index, &var);
+#else
       mutex* mu = GetTrainingVariableMutex<Device, T>(context, tensor_index,
-                                                      &var);
+                                                      sparse, &var);
+#endif // TENSORFLOW_VERSION >= 2013000000
       std::vector<Var*> vars;
       if (var) {
         vars.reserve(1);
