@@ -65,6 +65,7 @@ class Tf2KerasProcessSetsTests(tf.test.TestCase):
         class TestOptimizer(optimizer_class):
             def __init__(self, name, **kwargs):
                 super(TestOptimizer, self).__init__(name, **kwargs)
+                self.learning_rate = 0.1
 
             def get_gradients(self, loss, params):
                 assert len(params) == 1

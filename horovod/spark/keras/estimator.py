@@ -319,7 +319,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
 
         metrics = self.getMetrics()
         gradient_compression = self.getGradientCompression()
-        optimizer_weight_values = optimizer.get_weights()
+        optimizer_weight_values = optimizer.variables()
 
         dist_optimizer_args = dict(optimizer=optimizer)
         if gradient_compression:

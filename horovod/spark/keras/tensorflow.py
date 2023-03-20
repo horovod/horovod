@@ -59,7 +59,7 @@ def save_tf_keras_optimizer(optimizer, h5py_file):
             default=serialization.get_json_type).encode('utf8')
 
         # Save optimizer weights.
-        symbolic_weights = getattr(optimizer, 'weights')
+        symbolic_weights = getattr(optimizer, 'variables')
         if symbolic_weights:
             optimizer_weights_group = h5py_file.create_group('optimizer_weights')
             weight_values = K.batch_get_value(symbolic_weights)

@@ -235,9 +235,9 @@ class KerasTests(tf.test.TestCase):
                 self.assertEqual(len(model.optimizer.weights), 5)
 
     def _check_optimizer_weights(self, opt, new_opt):
-        self.assertEqual(len(opt.get_weights()), len(new_opt.get_weights()))
-        for weights, new_weights in zip(opt.get_weights(),
-                                        new_opt.get_weights()):
+        self.assertEqual(len(opt.variables()), len(new_opt.variables()))
+        for weights, new_weights in zip(opt.variables(),
+                                        new_opt.variables()):
             if np.isscalar(weights):
                 self.assertEqual(weights, new_weights)
             else:

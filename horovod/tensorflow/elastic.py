@@ -140,7 +140,7 @@ class TensorFlowKerasState(ObjectState):
             self._saved_optimizer_state = [tf.identity(var) for var in self.optimizer.variables()]
         else:
             self._saved_model_state = self.model.get_weights()
-            self._saved_optimizer_state = self.optimizer.get_weights()
+            self._saved_optimizer_state = self.optimizer.variables()
 
     def _load_model(self):
         if _executing_eagerly():
