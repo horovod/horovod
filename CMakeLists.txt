@@ -152,7 +152,7 @@ endif()
 # CUDA and ROCM
 set(CMAKE_CUDA_HOST_COMPILER "${CMAKE_CXX_COMPILER}")
 if(NOT DEFINED CMAKE_CUDA_RUNTIME_LIBRARY)
-    set(CMAKE_CUDA_RUNTIME_LIBRARY "Shared")  # Set to "Static" or "Shared"
+    set(CMAKE_CUDA_RUNTIME_LIBRARY "Static")  # Set to "Static" or "Shared", effective from CMake 3.17
 endif()
 if(DEFINED ENV{HOROVOD_CUDA_HOME})
     set(CMAKE_CUDA_COMPILER "$ENV{HOROVOD_CUDA_HOME}/bin/nvcc")
@@ -229,6 +229,13 @@ if(HOROVOD_GPU_ALLREDUCE STREQUAL "N" OR HOROVOD_GPU_ALLGATHER STREQUAL "N" OR H
         find_package(NCCL REQUIRED)
         if (NCCL_MAJOR_VERSION LESS "2")
             message(FATAL_ERROR "Horovod requires NCCL 2.0 or later version please upgrade.")
+        endif()
+        string(TOLOWER "${CMAKE_CUDA_RUNTIME_LIBRARY}" lowercase_CMAKE_CUDA_RUNTIME_LIBRARY)
+        get_filename_component(NCCL_LIBRARY_FILE_NAME ${NCCL_LIBRARIES} NAME)
+        if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.17
+            AND lowercase_CMAKE_CUDA_RUNTIME_LIBRARY STREQUAL "shared"
+            AND NCCL_LIBRARY_FILE_NAME MATCHES "static")
+            message(WARNING "Linking NCCL statically, but linking CUDA runtime library dynamically. This combination is not supported with typical builds of NCCL.")
         endif()
         include_directories(SYSTEM ${NCCL_INCLUDE_DIRS})
         list(APPEND LINKER_LIBS ${NCCL_LIBRARIES})
