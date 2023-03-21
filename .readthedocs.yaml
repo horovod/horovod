@@ -28,6 +28,6 @@ formats: []
 
 # Requirements for building docs
 python:
-  version: 3.7
+  version: 3.8
   install:
     - requirements: docs/requirements.txt
