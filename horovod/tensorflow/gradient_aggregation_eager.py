@@ -200,7 +200,7 @@ class LocalGradientAggregationHelperEager:
                 # We account for this by calling `_aggregate_gradients()` for steps where we do
                 # not call `apply_gradients()`.
                 transformed_grads_and_vars = optimizer._transform_unaggregated_gradients(
-                    args[0])
+                    args[0]) if hasattr(optimizer, '_transform_unaggregated_gradients') else args[0]
                 _ = optimizer._aggregate_gradients(transformed_grads_and_vars)
 
             return increment_optimizer_iteration()
