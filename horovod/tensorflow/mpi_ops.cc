@@ -128,18 +128,17 @@ Status ConvertStatus(const common::Status& status) {
 }
 
 common::Status ConvertStatus(const Status& status) {
-  switch (status.code()) {
-  case error::Code::OK:
+  if (status.code() == error::Code::OK) {
     return common::Status::OK();
-  case error::Code::UNKNOWN:
+  } else if (status.code() == error::Code::UNKNOWN) {
     return common::Status::UnknownError(status.error_message());
-  case error::Code::FAILED_PRECONDITION:
+  } else if (status.code() == error::Code::FAILED_PRECONDITION) {
     return common::Status::PreconditionError(status.error_message());
-  case error::Code::ABORTED:
+  } else if (status.code() == error::Code::ABORTED) {
     return common::Status::Aborted(status.error_message());
-  case error::Code::INVALID_ARGUMENT:
+  } else if (status.code() == error::Code::INVALID_ARGUMENT) {
     return common::Status::InvalidArgument(status.error_message());
-  default:
+  } else {
     return common::Status::UnknownError("Unknown error.");
   }
 }
