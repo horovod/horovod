@@ -260,7 +260,10 @@ TFPersistentBuffer::TFPersistentBuffer(OpKernelContext* context, int64_t size) {
   // complete.
   auto device_context = context->op_device_context();
   if (device_context != nullptr) {
-    device_context->stream()->BlockHostUntilDone();
+    status = device_context->stream()->BlockHostUntilDone();
+    if (!status.ok()) {
+      throw status;
+    }
   }
 #endif
 }
@@ -367,7 +370,10 @@ TFOpContext::AllocateOutput(int output_index, common::TensorShape shape,
   auto device_context = context_->op_device_context();
   if (device_context != nullptr) {
     if (event == nullptr) {
-      device_context->stream()->BlockHostUntilDone();
+      auto status_gpu = device_context->stream()->BlockHostUntilDone();
+      if (!status_gpu.ok()) {
+        return ConvertStatus(status_gpu);
+      }
     } else {
       *event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context_));
     }
@@ -414,7 +420,10 @@ TFOpContext::AllocateZeros(int64_t num_elements, common::DataType dtype,
   // complete.
   auto device_context = context_->op_device_context();
   if (device_context != nullptr) {
-    device_context->stream()->BlockHostUntilDone();
+    auto status_gpu = device_context->stream()->BlockHostUntilDone();
+    if (!status_gpu.ok()) {
+      return ConvertStatus(status_gpu);
+    }
   }
 #endif
   return ConvertStatus(status);
