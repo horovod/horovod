@@ -315,6 +315,7 @@ jobs:
           event_name: ${{ github.event.workflow_run.event }}
           commit: ${{ github.event.workflow_run.head_sha }}
           junit_files: "${{ env.LAST_RUNS }}"
+          log_level: DEBUG
 
       - name: Publish Unit Test Results (with flaky tests)
         uses: EnricoMi/publish-unit-test-result-action@v2
@@ -325,4 +326,5 @@ jobs:
           event_name: ${{ github.event.workflow_run.event }}
           commit: ${{ github.event.workflow_run.head_sha }}
           junit_files: "artifacts/Unit Test Results */**/*.xml"
+          log_level: DEBUG
           fail_on: errors
