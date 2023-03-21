@@ -231,7 +231,7 @@ services:
         MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tf-nightly
         KERAS_PACKAGE: None
-        PYTORCH_PACKAGE: torch-nightly-cu116
+        PYTORCH_PACKAGE: torch-nightly-cu118
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision
         MXNET_PACKAGE: mxnet-nightly-cu112
