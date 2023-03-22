@@ -1,6 +1,6 @@
 load("@pip_deps//:requirements.bzl", "requirement")
 load("@pip_deps_tf21//:requirements.bzl", requirement21 = "requirement")
-load("@org_tensorflow_hv//tensorflow:tensorflow.bzl", "tf_custom_op_library")
+load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_custom_op_library")
 
 cc_library(
     name = "common_ops_cuda_headers",
@@ -214,8 +214,8 @@ cc_binary(
     ],
     copts = ["-DTENSORFLOW_VERSION=2009000000"],
     deps = [
-        "@org_tensorflow_hv//tensorflow/core:framework",
-        "@org_tensorflow_hv//tensorflow/core/kernels:resource_variable_ops",
+        "@org_tensorflow//tensorflow/core:framework",
+        "@org_tensorflow//tensorflow/core/kernels:resource_variable_ops",
     ],
     linkshared = 1,
 )
@@ -296,10 +296,10 @@ tf_custom_op_library(
         ":common_mpi",
         ":common",
         ":common_ops",
-        "@org_tensorflow_hv//tensorflow/core/kernels:training_op_helpers_headers",
-        #"@org_tensorflow_hv//tensorflow/compiler/tf2xla:xla_compiler_headers_lib",
-        #"@org_tensorflow_hv//tensorflow/compiler/xla:xla_headers_lib",
-        #"@org_tensorflow_hv//tensorflow/compiler/xla/service:xla_service_headers_lib",
+        "@org_tensorflow//tensorflow/core/kernels:training_op_helpers_headers",
+        #"@org_tensorflow//tensorflow/compiler/tf2xla:xla_compiler_headers_lib",
+        #"@org_tensorflow//tensorflow/compiler/xla:xla_headers_lib",
+        #"@org_tensorflow//tensorflow/compiler/xla/service:xla_service_headers_lib",
     ],
     local_defines = [
         "EXT_SUFFIX",
@@ -396,7 +396,7 @@ py_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "@org_tensorflow_hv//tensorflow/python",
+        "@org_tensorflow//tensorflow/python",
         ":common_py",
         ":runner_py",
         ":tensorflow_keras",
