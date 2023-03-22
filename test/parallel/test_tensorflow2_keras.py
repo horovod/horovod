@@ -30,11 +30,11 @@ from horovod.common.util import is_version_greater_equal_than
 
 if is_version_greater_equal_than(tf.__version__, "2.6.0"):
     if version.parse(keras.__version__.replace("-tf", "+tf")) < version.parse("2.9.0"):
-        from keras.optimizer_v2 import optimizer_v2
+        from keras.optimizer_v2.optimizer_v2 import OptimizerV2 as Optimizer
     else:
-        from keras.optimizers.optimizer_v2 import optimizer_v2
+        from tensorflow.keras.optimizers import Optimizer
 else:
-    from tensorflow.python.keras.optimizer_v2 import optimizer_v2
+    from tensorflow.python.keras.optimizer_v2.optimizer_v2 import OptimizerV2 as Optimizer
 
 import horovod.keras as hvd_keras
 import horovod.tensorflow.keras as hvd
@@ -153,7 +153,7 @@ class Tf2KerasTests(tf.test.TestCase):
         model.train_on_batch(x, y)
 
     def test_legacy_optimizer(self):
-        if not (keras.optimizers, 'legacy'):
+        if not hasattr(keras.optimizers, 'legacy'):
             self.skipTest("Keras legacy optimizers not available")
 
         opt = keras.optimizers.legacy.Adam(lr=0.0001)
@@ -304,7 +304,7 @@ class Tf2KerasTests(tf.test.TestCase):
         [False]
     ])
     def test_gradient_aggregation(self, average_aggregated_gradients):
-        class TestingOptimizer(optimizer_v2.OptimizerV2):
+        class TestingOptimizer(Optimizer):
             """
             Custom optimizer we use for testing gradient aggregation.
             """
@@ -407,7 +407,7 @@ class Tf2KerasTests(tf.test.TestCase):
         [False]
     ])
     def test_gradient_aggregation_with_local_vars(self, average_aggregated_gradients):
-        class TestingOptimizer(optimizer_v2.OptimizerV2):
+        class TestingOptimizer(Optimizer):
             """
             Custom optimizer we use for testing gradient aggregation.
             """
