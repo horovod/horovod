@@ -23,6 +23,11 @@
 namespace horovod {
 namespace common {
 
+const Status DUPLICATE_NAME_ERROR = Status::InvalidArgument(
+    "Requested to allreduce, allgather, or broadcast a tensor with the same "
+    "name as another tensor that is currently being processed.  If you want "
+    "to request another tensor, use a different tensor name.");
+
 // Add a TensorTableEntry as well as its message to the queue.
 Status TensorQueue::AddToTensorQueue(TensorTableEntry& e, Request& message) {
   std::lock_guard<std::mutex> guard(mutex_);

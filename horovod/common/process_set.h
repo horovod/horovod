@@ -83,13 +83,17 @@ struct ProcessSet {
   ProcessSet(const ProcessSet&) = delete;
 };
 
-const Status PROCESS_SET_HAS_BEEN_REMOVED =
-    Status::Aborted("Process set has been removed");
+/*
+const Status *PROCESS_SET_HAS_BEEN_REMOVED =
+    &Status::Aborted("Process set has been removed");
+*/
 
 class ProcessSetTable {
 public:
   ProcessSetTable();
   ProcessSetTable(const ProcessSetTable&) = delete;
+
+  static Status PROCESS_SET_HAS_BEEN_REMOVED;
 
   // Initialize table and the global process set with id 0, to be called in
   // background thread.

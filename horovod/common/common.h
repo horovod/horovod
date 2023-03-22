@@ -224,6 +224,7 @@ private:
   Status(StatusType type, std::string reason);
 };
 
+/*
 // Common error status
 const Status NOT_INITIALIZED_ERROR = Status::PreconditionError(
     "Horovod has not been initialized; use hvd.init().");
@@ -239,6 +240,7 @@ const Status DUPLICATE_NAME_ERROR = Status::InvalidArgument(
     "Requested to allreduce, allgather, or broadcast a tensor with the same "
     "name as another tensor that is currently being processed.  If you want "
     "to request another tensor, use a different tensor name.");
+*/
 
 class TensorShape {
 public:

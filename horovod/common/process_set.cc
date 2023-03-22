@@ -161,6 +161,9 @@ void ProcessSet::Finalize(const Status& status) {
   initialization_done = false;
 }
 
+Status ProcessSetTable::PROCESS_SET_HAS_BEEN_REMOVED =
+    Status::Aborted("Process set has been removed");
+
 ProcessSetTable::ProcessSetTable() {
   auto process_set_id = RegisterProcessSet();
   assert(process_set_id == 0);
