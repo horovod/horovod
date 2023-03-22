@@ -80,7 +80,7 @@ class Tf2KerasProcessSetsTests(tf.test.TestCase):
                 config = super(TestOptimizer, self).get_config()
                 return config
 
-        opt = TestOptimizer(name="TestOpti", learning_rate=0.1)
+        opt = TestOptimizer(name="TestOpti", lr=0.1)
         opt = hvd.DistributedOptimizer(opt, process_set=self.even_set)
 
         variable = tf.Variable([0.0])

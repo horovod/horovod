@@ -333,6 +333,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                       metrics=metrics)
 
         if optimizer_weight_values:
+            if hasattr(optimizer, 'build'):
+                model.optimizer.build(model.trainable_weights)
             model.optimizer.set_weights(optimizer_weight_values)
 
         return keras_utils.serialize_model(model)
