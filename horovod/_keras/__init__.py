@@ -281,10 +281,11 @@ def reducescatter(backend, value, name, op):
     return _eval(backend, hvd.reducescatter(tf.constant(value, name=name), op=op))
 
 
-def load_model(keras, wrap_optimizer, filepath, custom_optimizers, custom_objects):
-    keras_subclasses = keras.optimizers.Optimizer.__subclasses__()
-    if hasattr(keras.optimizers, 'legacy'):
-        keras_subclasses.extend(keras.optimizers.legacy.Optimizer.__subclasses__())
+def load_model(keras, wrap_optimizer, filepath, custom_optimizers, custom_objects, legacy_opts=False):
+    if legacy_opts:
+        keras_subclasses = keras.optimizers.legacy.Optimizer.__subclasses__()
+    else:
+        keras_subclasses = keras.optimizers.Optimizer.__subclasses__()
 
     horovod_objects = {
         subclass.__name__.lower(): wrap_optimizer(subclass)

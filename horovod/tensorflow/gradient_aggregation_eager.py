@@ -191,7 +191,7 @@ class LocalGradientAggregationHelperEager:
             # property instead of the unsafe `_iterations`.
 
             if hasattr(optimizer, "iterations") and optimizer.iterations is not None:
-                if hasattr(super(self.__class__, optimizer), '_compute_gradients'):
+                if hasattr(super(optimizer.__class__, optimizer), '_compute_gradients'):
                     return optimizer.iterations.assign_add(1).op
                 else:
                     return optimizer.iterations.assign_add(1)

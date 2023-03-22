@@ -309,6 +309,9 @@ class Tf2KerasTests(tf.test.TestCase):
             Custom optimizer we use for testing gradient aggregation.
             """
 
+            def __init__(self, name, **kwargs):
+                super(self.__class__, self).__init__(name, **kwargs)
+
             def get_config(self):
                 config = super(TestingOptimizer, self).get_config()
                 return config
@@ -322,7 +325,7 @@ class Tf2KerasTests(tf.test.TestCase):
 
         backward_passes_per_step = 4
         hvd_optimizer = hvd.DistributedOptimizer(
-            optimizer=TestingOptimizer("test"),
+            optimizer=TestingOptimizer("test", lr=0.1),
             backward_passes_per_step=backward_passes_per_step,
             average_aggregated_gradients=average_aggregated_gradients,
             sparse_as_dense=True,
@@ -412,6 +415,9 @@ class Tf2KerasTests(tf.test.TestCase):
             Custom optimizer we use for testing gradient aggregation.
             """
 
+            def __init__(self, name, **kwargs):
+                super(self.__class__, self).__init__(name, **kwargs)
+
             def get_config(self):
                 config = super(TestingOptimizer, self).get_config()
                 return config
@@ -425,7 +431,7 @@ class Tf2KerasTests(tf.test.TestCase):
 
         backward_passes_per_step = 4
         hvd_optimizer = hvd.DistributedOptimizer(
-            optimizer=TestingOptimizer("test"),
+            optimizer=TestingOptimizer("test", lr=0.1),
             backward_passes_per_step=backward_passes_per_step,
             average_aggregated_gradients=average_aggregated_gradients,
             sparse_as_dense=True,
