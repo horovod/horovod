@@ -37,7 +37,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
         _HAS_AGGREGATE_GRAD = True
 
         def __init__(self, **kwargs):
-            super().__init__(**kwargs)
+            super(self.__class__, self).__init__(**kwargs)
 
             self._name = name or "Distributed%s" % self.__class__.__base__.__name__
             self._aggregated_gradients = False
