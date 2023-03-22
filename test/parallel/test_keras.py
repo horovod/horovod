@@ -104,7 +104,7 @@ class KerasTests(tf.test.TestCase):
     def test_load_model_custom_optimizers(self):
         class TestOptimizer(keras.optimizers.RMSprop):
             def __init__(self, **kwargs):
-                super(TestOptimizer, self).__init__(**kwargs)
+                super().__init__(**kwargs)
 
         with self.test_session(config=self.config) as sess:
             K.set_session(sess)
@@ -139,7 +139,7 @@ class KerasTests(tf.test.TestCase):
     def test_load_model_custom_objects(self):
         class TestOptimizer(keras.optimizers.RMSprop):
             def __init__(self, **kwargs):
-                super(TestOptimizer, self).__init__(**kwargs)
+                super().__init__(**kwargs)
 
         with self.test_session(config=self.config) as sess:
             K.set_session(sess)

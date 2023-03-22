@@ -310,10 +310,12 @@ class Tf2KerasTests(tf.test.TestCase):
             """
 
             def __init__(self, name, **kwargs):
-                super(self.__class__, self).__init__(name, **kwargs)
+                super().__init__(name, **kwargs)
+                if hasattr(self, '_build_learning_rate'):
+                    self._learning_rate = self._build_learning_rate(0.1)
 
             def get_config(self):
-                config = super(TestingOptimizer, self).get_config()
+                config = super().get_config()
                 return config
 
             def _create_slots(self, var_list):
@@ -325,7 +327,7 @@ class Tf2KerasTests(tf.test.TestCase):
 
         backward_passes_per_step = 4
         hvd_optimizer = hvd.DistributedOptimizer(
-            optimizer=TestingOptimizer("test", lr=0.1),
+            optimizer=TestingOptimizer("test"),
             backward_passes_per_step=backward_passes_per_step,
             average_aggregated_gradients=average_aggregated_gradients,
             sparse_as_dense=True,
@@ -416,10 +418,12 @@ class Tf2KerasTests(tf.test.TestCase):
             """
 
             def __init__(self, name, **kwargs):
-                super(self.__class__, self).__init__(name, **kwargs)
+                super().__init__(name, **kwargs)
+                if hasattr(self, '_build_learning_rate'):
+                    self._learning_rate = self._build_learning_rate(0.1)
 
             def get_config(self):
-                config = super(TestingOptimizer, self).get_config()
+                config = super().get_config()
                 return config
 
             def _create_slots(self, var_list):
@@ -431,7 +435,7 @@ class Tf2KerasTests(tf.test.TestCase):
 
         backward_passes_per_step = 4
         hvd_optimizer = hvd.DistributedOptimizer(
-            optimizer=TestingOptimizer("test", lr=0.1),
+            optimizer=TestingOptimizer("test"),
             backward_passes_per_step=backward_passes_per_step,
             average_aggregated_gradients=average_aggregated_gradients,
             sparse_as_dense=True,

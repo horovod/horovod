@@ -155,7 +155,7 @@ class TfKerasTests(tf.test.TestCase):
     def test_load_model_custom_optimizers(self):
         class TestOptimizer(keras.optimizers.RMSprop):
             def __init__(self, **kwargs):
-                super(TestOptimizer, self).__init__(**kwargs)
+                super().__init__(**kwargs)
 
         with self.test_session(config=self.config) as sess:
             K.set_session(sess)
@@ -190,7 +190,7 @@ class TfKerasTests(tf.test.TestCase):
     def test_load_model_custom_objects(self):
         class TestOptimizer(keras.optimizers.RMSprop):
             def __init__(self, **kwargs):
-                super(TestOptimizer, self).__init__(**kwargs)
+                super().__init__(**kwargs)
 
         with self.test_session(config=self.config) as sess:
             K.set_session(sess)
@@ -378,7 +378,7 @@ class TfKerasTests(tf.test.TestCase):
                 Custom optimizer we use for testing gradient aggregation.
                 """
                 def get_config(self):
-                    config = super(TestingOptimizer, self).get_config()
+                    config = super().get_config()
                     return config
 
                 def _create_slots(self, var_list):
