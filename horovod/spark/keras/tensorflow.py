@@ -125,7 +125,5 @@ def load_tf_keras_optimizer(h5py_file, custom_objects=None):
         optimizer_weight_values = [optimizer_weights_group[n].value for n in
                                    optimizer_weight_names]
     if optimizer_weight_values:
-        if hasattr(optimizer, 'build'):
-            model.optimizer.build(model.trainable_weights)
         optimizer.set_weights(optimizer_weight_values)
     return optimizer

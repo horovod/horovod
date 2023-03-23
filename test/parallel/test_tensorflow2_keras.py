@@ -311,8 +311,8 @@ class Tf2KerasTests(tf.test.TestCase):
 
             def __init__(self, name, **kwargs):
                 super().__init__(name, **kwargs)
-                if hasattr(self, '_build_learning_rate'):
-                    self._learning_rate = self._build_learning_rate(0.1)
+                # if hasattr(self, '_build_learning_rate'):
+                #     self._learning_rate = self._build_learning_rate(0.1)
 
             def get_config(self):
                 config = super().get_config()
@@ -325,9 +325,9 @@ class Tf2KerasTests(tf.test.TestCase):
             def _resource_apply_dense(self, grad, var, apply_state=None):
                 return var.assign_add(grad)
 
-            def update_step(self, gradient, variable):
-                lr = tf.cast(self.learning_rate, variable.dtype)
-                variable.assign_add(-gradient * lr)
+            # def update_step(self, gradient, variable):
+            #     lr = tf.cast(self.learning_rate, variable.dtype)
+            #     variable.assign_add(-gradient * lr)
 
         backward_passes_per_step = 4
         hvd_optimizer = hvd.DistributedOptimizer(
@@ -423,8 +423,8 @@ class Tf2KerasTests(tf.test.TestCase):
 
             def __init__(self, name, **kwargs):
                 super().__init__(name, **kwargs)
-                if hasattr(self, '_build_learning_rate'):
-                    self._learning_rate = self._build_learning_rate(0.1)
+                # if hasattr(self, '_build_learning_rate'):
+                #     self._learning_rate = self._build_learning_rate(0.1)
 
             def get_config(self):
                 config = super().get_config()
@@ -437,9 +437,9 @@ class Tf2KerasTests(tf.test.TestCase):
             def _resource_apply_dense(self, grad, var, apply_state=None):
                 return var.assign_add(grad)
 
-            def update_step(self, gradient, variable):
-                lr = tf.cast(self.learning_rate, variable.dtype)
-                variable.assign_add(-gradient * lr)
+            # def update_step(self, gradient, variable):
+            #     lr = tf.cast(self.learning_rate, variable.dtype)
+            #     variable.assign_add(-gradient * lr)
 
         backward_passes_per_step = 4
         hvd_optimizer = hvd.DistributedOptimizer(
