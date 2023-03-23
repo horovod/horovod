@@ -32,7 +32,7 @@ if is_version_greater_equal_than(tf.__version__, "2.6.0"):
     if version.parse(keras.__version__.replace("-tf", "+tf")) < version.parse("2.9.0"):
         from keras.optimizer_v2.optimizer_v2 import OptimizerV2 as Optimizer
     else:
-        from tensorflow.keras.optimizers import Optimizer
+        from tensorflow.keras.optimizers import SGD as Optimizer
 else:
     from tensorflow.python.keras.optimizer_v2.optimizer_v2 import OptimizerV2 as Optimizer
 
@@ -325,6 +325,10 @@ class Tf2KerasTests(tf.test.TestCase):
             def _resource_apply_dense(self, grad, var, apply_state=None):
                 return var.assign_add(grad)
 
+            def update_step(self, gradient, variable):
+                lr = tf.cast(self.learning_rate, variable.dtype)
+                variable.assign_add(-gradient * lr)
+
         backward_passes_per_step = 4
         hvd_optimizer = hvd.DistributedOptimizer(
             optimizer=TestingOptimizer("test"),
@@ -432,6 +436,10 @@ class Tf2KerasTests(tf.test.TestCase):
 
             def _resource_apply_dense(self, grad, var, apply_state=None):
                 return var.assign_add(grad)
+
+            def update_step(self, gradient, variable):
+                lr = tf.cast(self.learning_rate, variable.dtype)
+                variable.assign_add(-gradient * lr)
 
         backward_passes_per_step = 4
         hvd_optimizer = hvd.DistributedOptimizer(

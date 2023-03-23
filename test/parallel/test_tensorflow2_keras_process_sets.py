@@ -82,6 +82,10 @@ class Tf2KerasProcessSetsTests(tf.test.TestCase):
                 config = super().get_config()
                 return config
 
+            def update_step(self, gradient, variable):
+                lr = tf.cast(self.learning_rate, variable.dtype)
+                variable.assign_add(-gradient * lr)
+
         opt = TestOptimizer(name="TestOpti")
         opt = hvd.DistributedOptimizer(opt, process_set=self.even_set)
 
