@@ -325,9 +325,8 @@ class Tf2KerasTests(tf.test.TestCase):
             def _resource_apply_dense(self, grad, var, apply_state=None):
                 return var.assign_add(grad)
 
-            # def update_step(self, gradient, variable):
-            #     lr = tf.cast(self.learning_rate, variable.dtype)
-            #     variable.assign_add(-gradient * lr)
+            def update_step(self, gradient, variable):
+                variable.assign_add(gradient)
 
         backward_passes_per_step = 4
         hvd_optimizer = hvd.DistributedOptimizer(
@@ -437,9 +436,8 @@ class Tf2KerasTests(tf.test.TestCase):
             def _resource_apply_dense(self, grad, var, apply_state=None):
                 return var.assign_add(grad)
 
-            # def update_step(self, gradient, variable):
-            #     lr = tf.cast(self.learning_rate, variable.dtype)
-            #     variable.assign_add(-gradient * lr)
+            def update_step(self, gradient, variable):
+                variable.assign_add(gradient)
 
         backward_passes_per_step = 4
         hvd_optimizer = hvd.DistributedOptimizer(
