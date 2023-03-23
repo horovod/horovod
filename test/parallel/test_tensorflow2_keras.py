@@ -310,7 +310,7 @@ class Tf2KerasTests(tf.test.TestCase):
             """
 
             def __init__(self, name, **kwargs):
-                super().__init__(name, **kwargs)
+                super().__init__(name=name, **kwargs)
                 # if hasattr(self, '_build_learning_rate'):
                 #     self._learning_rate = self._build_learning_rate(0.1)
 
@@ -422,7 +422,7 @@ class Tf2KerasTests(tf.test.TestCase):
             """
 
             def __init__(self, name, **kwargs):
-                super().__init__(name, **kwargs)
+                super().__init__(name=name, **kwargs)
                 # if hasattr(self, '_build_learning_rate'):
                 #     self._learning_rate = self._build_learning_rate(0.1)
 

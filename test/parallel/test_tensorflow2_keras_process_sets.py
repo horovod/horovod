@@ -60,13 +60,13 @@ class Tf2KerasProcessSetsTests(tf.test.TestCase):
         if size == 1:
             self.skipTest("Only one worker available")
 
-        optimizer_class = keras.optimizers.Optimizer
+        optimizer_class = keras.optimizers.SGD  # .Optimizer
 
         class TestOptimizer(optimizer_class):
             def __init__(self, name, **kwargs):
-                super().__init__(name, **kwargs)
-                if hasattr(self, '_build_learning_rate'):
-                    self._learning_rate = self._build_learning_rate(0.1)
+                super().__init__(name=name, **kwargs)
+                # if hasattr(self, '_build_learning_rate'):
+                #     self._learning_rate = self._build_learning_rate(0.1)
 
             def get_gradients(self, loss, params):
                 assert len(params) == 1
@@ -82,9 +82,9 @@ class Tf2KerasProcessSetsTests(tf.test.TestCase):
                 config = super().get_config()
                 return config
 
-            def update_step(self, gradient, variable):
-                lr = tf.cast(self.learning_rate, variable.dtype)
-                variable.assign_add(-gradient * lr)
+            # def update_step(self, gradient, variable):
+            #     lr = tf.cast(self.learning_rate, variable.dtype)
+            #     variable.assign_add(-gradient * lr)
 
         opt = TestOptimizer(name="TestOpti")
         opt = hvd.DistributedOptimizer(opt, process_set=self.even_set)

@@ -80,10 +80,10 @@ class KerasEstimatorParamsReader(HorovodParamsReader):
         model_name = EstimatorParams.model.name
         if model_name in dict:
             model = _param_deserializer_fn(model_name, dict[model_name], TFKerasUtil, custom_objects)
-            dict[model_name] = model
+
         for key, val in dict.items():
             if key == model_name:
-                continue
+                dict[model_name] = model
             dict[key] = _param_deserializer_fn(key, val, TFKerasUtil, custom_objects, model)
         return dict
 
