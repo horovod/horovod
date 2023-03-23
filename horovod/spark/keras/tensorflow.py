@@ -79,7 +79,7 @@ def save_tf_keras_optimizer(optimizer, h5py_file):
     h5py_file.flush()
 
 
-def load_tf_keras_optimizer(h5py_file, custom_objects=None):
+def load_tf_keras_optimizer(h5py_file, custom_objects=None, model=None):
     if not custom_objects:
         custom_objects = {}
 
@@ -125,5 +125,7 @@ def load_tf_keras_optimizer(h5py_file, custom_objects=None):
         optimizer_weight_values = [optimizer_weights_group[n].value for n in
                                    optimizer_weight_names]
     if optimizer_weight_values:
+        if hasattr(optimizer, 'build'):
+            optimizer.build(model.trainable_weights)
         optimizer.set_weights(optimizer_weight_values)
     return optimizer

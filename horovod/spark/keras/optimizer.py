@@ -39,10 +39,10 @@ def serialize_tf_keras_optimizer(x):
                                       save_optimizer_fn=save_tf_keras_optimizer)
 
 
-def deserialize_tf_keras_optimizer(x):
+def deserialize_tf_keras_optimizer(x, model=None):
     from horovod.spark.keras.tensorflow import load_tf_keras_optimizer
 
-    return _deserialize_keras_optimizer(x,
+    return _deserialize_keras_optimizer(x, model,
                                         load_keras_optimizer_fn=load_tf_keras_optimizer)
 
 
@@ -60,9 +60,9 @@ def is_string(obj):
     return isinstance(obj, str)
 
 
-def _deserialize_keras_optimizer(serialized_opt, load_keras_optimizer_fn):
+def _deserialize_keras_optimizer(serialized_opt, model, load_keras_optimizer_fn):
     if is_string(serialized_opt):
         return serialized_opt
     bio = io.BytesIO(serialized_opt)
     with h5py.File(bio, 'r') as f:
-        return load_keras_optimizer_fn(f)
+        return load_keras_optimizer_fn(f, model=model)

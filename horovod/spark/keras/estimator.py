@@ -51,7 +51,7 @@ class KerasEstimatorParamsWritable(MLWritable):
 
 class KerasEstimatorParamsReader(HorovodParamsReader):
     def _deserialize_dict(self, dict):
-        def _param_deserializer_fn(name, param_val, keras_utils, custom_objects):
+        def _param_deserializer_fn(name, param_val, keras_utils, custom_objects, model=None):
             if param_val is None:
                 return param_val
 
@@ -64,7 +64,7 @@ class KerasEstimatorParamsReader(HorovodParamsReader):
                                                      load_model_fn=load_model_fn)
             elif name == KerasEstimator.optimizer.name:
                 opt_base64_encoded = codec.loads_base64(param_val)
-                return keras_utils.deserialize_optimizer(opt_base64_encoded)
+                return keras_utils.deserialize_optimizer(opt_base64_encoded, model=model)
             else:
                 return codec.loads_base64(param_val)
 
@@ -76,8 +76,15 @@ class KerasEstimatorParamsReader(HorovodParamsReader):
                                                     dict[KerasEstimator.custom_objects.name],
                                                     None, None)
 
+        model = None
+        model_name = EstimatorParams.model.name
+        if model_name in dict:
+            model = _param_deserializer_fn(model_name, dict[model_name], TFKerasUtil, custom_objects)
+            dict[model_name] = model
         for key, val in dict.items():
-            dict[key] = _param_deserializer_fn(key, val, TFKerasUtil, custom_objects)
+            if key == model_name:
+                continue
+            dict[key] = _param_deserializer_fn(key, val, TFKerasUtil, custom_objects, model)
         return dict
 
 
@@ -333,7 +340,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                       metrics=metrics)
 
         if optimizer_weight_values:
-            if hasattr(optimizer, 'build'):
+            if hasattr(model.optimizer, 'build'):
                 model.optimizer.build(model.trainable_weights)
             model.optimizer.set_weights(optimizer_weight_values)
 
