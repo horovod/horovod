@@ -32,7 +32,7 @@ if is_version_greater_equal_than(tf.__version__, "2.6.0"):
     if version.parse(keras.__version__.replace("-tf", "+tf")) < version.parse("2.9.0"):
         from keras.optimizer_v2.optimizer_v2 import OptimizerV2 as Optimizer
     else:
-        from tensorflow.keras.optimizers import SGD as Optimizer
+        from tensorflow.keras.optimizers import Optimizer
 else:
     from tensorflow.python.keras.optimizer_v2.optimizer_v2 import OptimizerV2 as Optimizer
 
@@ -311,8 +311,8 @@ class Tf2KerasTests(tf.test.TestCase):
 
             def __init__(self, name, **kwargs):
                 super().__init__(name=name, **kwargs)
-                # if hasattr(self, '_build_learning_rate'):
-                #     self._learning_rate = self._build_learning_rate(0.1)
+                if hasattr(self, '_build_learning_rate'):
+                    self._learning_rate = self._build_learning_rate(0.1)
 
             def get_config(self):
                 config = super().get_config()
@@ -422,8 +422,8 @@ class Tf2KerasTests(tf.test.TestCase):
 
             def __init__(self, name, **kwargs):
                 super().__init__(name=name, **kwargs)
-                # if hasattr(self, '_build_learning_rate'):
-                #     self._learning_rate = self._build_learning_rate(0.1)
+                if hasattr(self, '_build_learning_rate'):
+                    self._learning_rate = self._build_learning_rate(0.1)
 
             def get_config(self):
                 config = super().get_config()
@@ -456,7 +456,7 @@ class Tf2KerasTests(tf.test.TestCase):
         X = [tf.Variable([x_0]) for x_0 in X_0]
         Y = [tf.Variable([y_0, y_1]) for y_0, y_1 in zip(Y_0, Y_1)]
         variables = [X, Y]
-
+        flatten_variables = [item for sublist in variables for item in sublist]
         for i in range(num_local_vars):
             x_var = X[i]
             y_var = Y[i]
@@ -528,7 +528,7 @@ class Tf2KerasTests(tf.test.TestCase):
         total_num_of_steps = 10
         for idx in range(total_num_of_steps):
             if _PRE_TF_2_2_0:
-                compute_and_apply_gradients_in_tf_function(var_list=variables)
+                compute_and_apply_gradients_in_tf_function(var_list=flatten_variables)
             else:
                 # In 2.2 and 2.3 the horovod optimizer sets `_HAS_AGGREGATE_GRAD = True`.
                 # This configures tf.keras to call `_aggregate_gradients()` outside of
@@ -536,7 +536,7 @@ class Tf2KerasTests(tf.test.TestCase):
                 # False when calling `apply_gradients()` to prevent it from calling
                 # `_aggregate_gradients()` again.
                 compute_and_apply_gradients_in_tf_function(
-                    var_list=variables,
+                    var_list=flatten_variables,
                     experimental_aggregate_gradients=False)
 
             expected_x, expected_y = compute_expected_value(idx)
