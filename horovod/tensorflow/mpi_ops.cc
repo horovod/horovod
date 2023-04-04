@@ -128,18 +128,17 @@ Status ConvertStatus(const common::Status& status) {
 }
 
 common::Status ConvertStatus(const Status& status) {
-  switch (status.code()) {
-  case error::Code::OK:
+  if (status.code() == error::Code::OK) {
     return common::Status::OK();
-  case error::Code::UNKNOWN:
+  } else if (status.code() == error::Code::UNKNOWN) {
     return common::Status::UnknownError(status.error_message());
-  case error::Code::FAILED_PRECONDITION:
+  } else if (status.code() == error::Code::FAILED_PRECONDITION) {
     return common::Status::PreconditionError(status.error_message());
-  case error::Code::ABORTED:
+  } else if (status.code() == error::Code::ABORTED) {
     return common::Status::Aborted(status.error_message());
-  case error::Code::INVALID_ARGUMENT:
+  } else if (status.code() == error::Code::INVALID_ARGUMENT) {
     return common::Status::InvalidArgument(status.error_message());
-  default:
+  } else {
     return common::Status::UnknownError("Unknown error.");
   }
 }
@@ -261,7 +260,10 @@ TFPersistentBuffer::TFPersistentBuffer(OpKernelContext* context, int64_t size) {
   // complete.
   auto device_context = context->op_device_context();
   if (device_context != nullptr) {
-    device_context->stream()->BlockHostUntilDone();
+    status = device_context->stream()->BlockHostUntilDone();
+    if (!status.ok()) {
+      throw status;
+    }
   }
 #endif
 }
@@ -368,7 +370,10 @@ TFOpContext::AllocateOutput(int output_index, common::TensorShape shape,
   auto device_context = context_->op_device_context();
   if (device_context != nullptr) {
     if (event == nullptr) {
-      device_context->stream()->BlockHostUntilDone();
+      auto status_gpu = device_context->stream()->BlockHostUntilDone();
+      if (!status_gpu.ok()) {
+        return ConvertStatus(status_gpu);
+      }
     } else {
       *event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context_));
     }
@@ -415,7 +420,10 @@ TFOpContext::AllocateZeros(int64_t num_elements, common::DataType dtype,
   // complete.
   auto device_context = context_->op_device_context();
   if (device_context != nullptr) {
-    device_context->stream()->BlockHostUntilDone();
+    auto status_gpu = device_context->stream()->BlockHostUntilDone();
+    if (!status_gpu.ok()) {
+      return ConvertStatus(status_gpu);
+    }
   }
 #endif
   return ConvertStatus(status);
@@ -1098,13 +1106,18 @@ private:
     const bool do_lock = true;
     const bool sparse = false;
     // Here we need to replicate the functionality provided by
-    // MaybeLockVariableInputMutexesInOrder(). That function currently does
+    // MaybeLockVariableInputMutexesInOrder(). With TF < 2.8.0 the function does
     // not work as intended for input_ids not starting at 0. See:
     // https://github.com/tensorflow/tensorflow/issues/51686
     {
       Var* var;
+#if TENSORFLOW_VERSION >= 2013000000
+      mutex* mu =
+          GetTrainingVariableMutex<Device, T>(context, tensor_index, &var);
+#else
       mutex* mu = GetTrainingVariableMutex<Device, T>(context, tensor_index,
                                                       sparse, &var);
+#endif // TENSORFLOW_VERSION >= 2013000000
       std::vector<Var*> vars;
       if (var) {
         vars.reserve(1);
