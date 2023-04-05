@@ -1107,6 +1107,19 @@ if hasattr(tf, 'GradientTape'):
 
                 return [s2g[s] for s in sources]
 
+        def get_local_and_global_gradients(self, target, sources, output_gradients=None, use_generic_names=False):
+            gradients = self.gradient(target=target, sources=sources, output_gradients=output_gradients, use_generic_names=use_generic_names)
+            # gradients are in the same order as sources.
+            local_vars_grads, global_vars_grads = [], []
+            for s, g in zip(sources, gradients):
+                is_local_source = s.ref() in self._local_sources if _IS_TF2 else s in self._local_sources
+                if is_local_source:
+                    local_vars_grads.append((s,g))
+                else:
+                    global_vars_grads.append((s,g))
+            del gradients
+            return local_vars_grads, global_vars_grads
+
     def DistributedGradientTape(gradtape, device_dense='', device_sparse='',
                                 compression=Compression.none, sparse_as_dense=False,
                                 op=Average, gradient_predivide_factor=1.0,

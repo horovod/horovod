@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- TensorFlow: Added new `get_local_and_global_gradients` to PartialDistributedGradientTape to retrieve local and non-local gradients separately. ([#3859](https://github.com/horovod/horovod/pull/3859))
+
 ### Changed
 
 - Improved reducescatter performance by allocating output tensors before enqueuing the operation. ([#3824](https://github.com/horovod/horovod/pull/3824))
@@ -43,7 +45,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - ROCm: Fixed GPU MPI operations support in build. ([#3746](https://github.com/horovod/horovod/pull/3746))
 - PyTorch: Fixed linking order to avoid using Gloo from PyTorch dynamic libraries. ([#3750](https://github.com/horovod/horovod/pull/3750))
 - Fixed memory leak in `MPI_GPUAllgather`. ([#3727](https://github.com/horovod/horovod/pull/3727))
-- TensorFlow: Fixed deprecation warnings when building with TensorFlow 2.11. ([#3767](https://github.com/horovod/horovod/pull/3767)) 
+- TensorFlow: Fixed deprecation warnings when building with TensorFlow 2.11. ([#3767](https://github.com/horovod/horovod/pull/3767))
 - Keras: Added support for additional arguments to `SyncBatchNormalization._moments()`. ([#3775](https://github.com/horovod/horovod/pull/3775))
 - Fixed version number parsing with pypa/packaging 22.0. ([#3794](https://github.com/horovod/horovod/pull/3794))
 - TensorFlow: Fixed linking with nightly versions leading up to TensorFlow 2.12. ([#3755](https://github.com/horovod/horovod/pull/3755))
