@@ -387,12 +387,16 @@ def _allreduce_cond(tensor, *args, process_set=global_process_set, **kwargs):
     def id_fn():
         return tensor
 
-    return tf.cond(tf.logical_and(
-        tf.equal(process_set_included_op(process_set.process_set_id), 1),
-        tf.greater(size_op(process_set.process_set_id), 1))
-                   if int(os.environ.get("HOROVOD_ELASTIC", 0)) else (
-        tf.convert_to_tensor(process_set.included() and process_set.size() > 1)),
-                   allreduce_fn, id_fn)
+    with tf.device("cpu"):
+        if int(os.environ.get("HOROVOD_ELASTIC", 0)):
+            cond = tf.logical_and(
+                tf.equal(process_set_included_op(process_set.process_set_id), 1),
+                tf.greater(size_op(process_set.process_set_id), 1)
+            )
+        else:
+            cond = tf.convert_to_tensor(process_set.included() and process_set.size() > 1)
+
+    return tf.cond(cond, allreduce_fn, id_fn)
 
 
 def _grouped_allreduce_cond(tensors, *args, process_set=global_process_set, **kwargs):
@@ -402,12 +406,16 @@ def _grouped_allreduce_cond(tensors, *args, process_set=global_process_set, **kw
     def id_fn():
         return tensors
 
-    return tf.cond(tf.logical_and(
-        tf.equal(process_set_included_op(process_set.process_set_id), 1),
-        tf.greater(size_op(process_set.process_set_id), 1))
-                   if int(os.environ.get("HOROVOD_ELASTIC", 0)) else (
-        tf.convert_to_tensor(process_set.included() and process_set.size() > 1)),
-                   allreduce_fn, id_fn)
+    with tf.device("cpu"):
+        if int(os.environ.get("HOROVOD_ELASTIC", 0)):
+            cond = tf.logical_and(
+                tf.equal(process_set_included_op(process_set.process_set_id), 1),
+                tf.greater(size_op(process_set.process_set_id), 1)
+            )
+        else:
+            cond = tf.convert_to_tensor(process_set.included() and process_set.size() > 1)
+
+    return tf.cond(cond, allreduce_fn, id_fn)
 
 
 def grouped_reducescatter(tensors, device_dense='', compression=Compression.none, op=Average,

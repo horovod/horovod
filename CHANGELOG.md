@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - Improved reducescatter performance by allocating output tensors before enqueuing the operation. ([#3824](https://github.com/horovod/horovod/pull/3824))
+- Force tf.logical_and in hvd allreduce condition running on CPU. ([#3885](https://github.com/horovod/horovod/pull/3885))
 
 ### Deprecated
 
