@@ -29,11 +29,13 @@ from tensorflow import keras
 from horovod.common.util  import is_version_greater_equal_than
 
 if is_version_greater_equal_than(tf.__version__, "2.6.0"):
+    from keras import backend as K
     if version.parse(tf.__version__.replace("-tf", "+tf")) < version.parse("2.9.0"):
         from keras.optimizer_v2.optimizer_v2 import OptimizerV2 as Optimizer
     else:
         from tensorflow.keras.optimizers import Optimizer
 else:
+    from tensorflow.python.keras import backend as K
     from tensorflow.python.keras.optimizer_v2.optimizer_v2 import OptimizerV2 as Optimizer
 
 import horovod.tensorflow.keras as hvd
