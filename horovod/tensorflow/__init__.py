@@ -43,7 +43,6 @@ from horovod.tensorflow.util import _executing_eagerly, _make_subgraph, _cache, 
 from horovod.tensorflow.mpi_ops import join
 from horovod.tensorflow.sync_batch_norm import SyncBatchNormalization
 from horovod.tensorflow.gradient_aggregation import LocalGradientAggregationHelper
-from horovod.common.util import support_non_legacy_keras_optimizers
 
 import tensorflow as tf
 _IS_TF2 = version.parse(tf.__version__) >= version.parse('2.0.0')
@@ -1005,9 +1004,7 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
             process_set=process_set,
             scale_local_gradients=scale_local_gradients
         )
-    elif (isinstance(optimizer, tf.keras.optimizers.Optimizer) or
-          (not support_non_legacy_keras_optimizers(tf.keras) and
-           isinstance(optimizer, tf.keras.optimizers.legacy.Optimizer))):
+    else:
         if op == Adasum:
             raise ValueError('op == Adasum is not supported yet with Keras')
 
@@ -1025,9 +1022,6 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
             process_set=process_set,
             scale_local_gradients=scale_local_gradients
         )
-    else:
-        raise ValueError('Provided optimizer doesn\'t inherit from either legacy '
-                         'TensorFlow or Keras optimizer: %s' % optimizer)
 
 
 if hasattr(tf, 'GradientTape'):

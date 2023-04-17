@@ -29,23 +29,16 @@ from tensorflow import keras
 from horovod.common.util import is_version_greater_equal_than
 
 if is_version_greater_equal_than(tf.__version__, "2.6.0"):
-    if version.parse(keras.__version__.replace("-tf", "+tf")) < version.parse("2.9.0"):
-        from keras.optimizer_v2 import optimizer_v2
-    elif version.parse(keras.__version__.replace("-tf", "+tf")) < version.parse("2.12.0"):
-        from keras.optimizers.optimizer_v2 import optimizer_v2
+    if version.parse(tf.__version__.replace("-tf", "+tf")) < version.parse("2.9.0"):
+        from keras.optimizer_v2.optimizer_v2 import OptimizerV2 as Optimizer
     else:
-        from keras.optimizers.legacy import optimizer_v2
+        from tensorflow.keras.optimizers import Optimizer
 else:
-    from tensorflow.python.keras.optimizer_v2 import optimizer_v2
+    from tensorflow.python.keras.optimizer_v2.optimizer_v2 import OptimizerV2 as Optimizer
 
 import horovod.keras as hvd_keras
 import horovod.tensorflow.keras as hvd
 
-from packaging import version
-if version.parse(keras.__version__.replace("-tf", "+tf")) < version.parse("2.11"):
-    from tensorflow.keras import optimizers
-else:
-    from tensorflow.keras.optimizers import legacy as optimizers
 
 _PRE_TF_2_2_0 = version.parse(tf.__version__) < version.parse("2.2.0")
 
@@ -71,7 +64,7 @@ class Tf2KerasTests(tf.test.TestCase):
 
     def test_train_model_lr_schedule(self):
         initial_lr = 0.1 * hvd.size()
-        opt = optimizers.Adam()
+        opt = tf.keras.optimizers.Adam()
         opt = hvd.DistributedOptimizer(opt)
 
         def linear_multiplier(epoch):
@@ -145,7 +138,7 @@ class Tf2KerasTests(tf.test.TestCase):
         self.assertAllClose(expected_loss_metrics_tensor, loss_metrics_tensor)
 
     def test_sparse_as_dense(self):
-        opt = optimizers.RMSprop(lr=0.0001)
+        opt = keras.optimizers.RMSprop(lr=0.0001)
         opt = hvd.DistributedOptimizer(opt, sparse_as_dense=True)
 
         model = keras.models.Sequential()
@@ -159,9 +152,30 @@ class Tf2KerasTests(tf.test.TestCase):
         # No assertions, we just need to verify that it doesn't hang
         model.train_on_batch(x, y)
 
+    def test_legacy_optimizer(self):
+        if not hasattr(keras.optimizers, 'legacy'):
+            self.skipTest("Keras legacy optimizers not available")
+
+        opt = keras.optimizers.legacy.Adam(lr=0.0001)
+        opt = hvd.DistributedOptimizer(opt)
+
+        model = keras.models.Sequential()
+        model.add(keras.layers.Dense(2, input_shape=(3,)))
+        model.add(keras.layers.RepeatVector(3))
+        model.add(keras.layers.ThresholdedReLU(0.5))
+        model.compile(loss=keras.losses.mean_squared_error,
+                      optimizer=opt,
+                      metrics=[keras.metrics.categorical_accuracy],
+                      experimental_run_tf_function=False)
+        x = np.random.random((10, 3))
+        y = np.random.random((10, 3, 2))
+
+        # No assertions, we just need to verify that it doesn't crash
+        model.train_on_batch(x, y)
+
     def test_sparse_as_dense_with_grad_aggregation(self):
         backward_passes_per_step = 2
-        opt = optimizers.RMSprop(lr=0.0001)
+        opt = keras.optimizers.RMSprop(lr=0.0001)
         opt = hvd.DistributedOptimizer(
             opt,
             sparse_as_dense=True,
@@ -187,7 +201,7 @@ class Tf2KerasTests(tf.test.TestCase):
     def test_grad_aggregation_with_inf_grad(self):
         backward_passes_per_step = 2
         step_count = tf.Variable(0, trainable=False, dtype=tf.int32)
-        opt = optimizers.SGD()
+        opt = tf.keras.optimizers.SGD()
         opt = hvd.DistributedOptimizer(
             opt,
             backward_passes_per_step=backward_passes_per_step,
@@ -212,7 +226,7 @@ class Tf2KerasTests(tf.test.TestCase):
         assert tf.math.is_finite(grads_and_vars[0][0])
 
     def test_from_config(self):
-        opt = optimizers.Adam()
+        opt = keras.optimizers.Adam()
         hopt = hvd.DistributedOptimizer(opt)
         cfg = hopt.get_config()
 
@@ -240,7 +254,7 @@ class Tf2KerasTests(tf.test.TestCase):
             [np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32),
              np.array([0.0, 0.0], dtype=np.float32)])
 
-        optimizer = optimizers.Adam(0.001 * hvd.size())
+        optimizer = tf.optimizers.Adam(0.001 * hvd.size())
 
         state = hvd.elastic.KerasState(
             model1,
@@ -290,13 +304,18 @@ class Tf2KerasTests(tf.test.TestCase):
         [False]
     ])
     def test_gradient_aggregation(self, average_aggregated_gradients):
-        class TestingOptimizer(optimizer_v2.OptimizerV2):
+        class TestingOptimizer(Optimizer):
             """
             Custom optimizer we use for testing gradient aggregation.
             """
 
+            def __init__(self, name, **kwargs):
+                super().__init__(name=name, **kwargs)
+                if hasattr(self, '_build_learning_rate'):
+                    self._learning_rate = self._build_learning_rate(0.1)
+
             def get_config(self):
-                config = super(TestingOptimizer, self).get_config()
+                config = super().get_config()
                 return config
 
             def _create_slots(self, var_list):
@@ -305,6 +324,9 @@ class Tf2KerasTests(tf.test.TestCase):
 
             def _resource_apply_dense(self, grad, var, apply_state=None):
                 return var.assign_add(grad)
+
+            def update_step(self, gradient, variable):
+                variable.assign_add(gradient)
 
         backward_passes_per_step = 4
         hvd_optimizer = hvd.DistributedOptimizer(
@@ -393,13 +415,18 @@ class Tf2KerasTests(tf.test.TestCase):
         [False]
     ])
     def test_gradient_aggregation_with_local_vars(self, average_aggregated_gradients):
-        class TestingOptimizer(optimizer_v2.OptimizerV2):
+        class TestingOptimizer(Optimizer):
             """
             Custom optimizer we use for testing gradient aggregation.
             """
 
+            def __init__(self, name, **kwargs):
+                super().__init__(name=name, **kwargs)
+                if hasattr(self, '_build_learning_rate'):
+                    self._learning_rate = self._build_learning_rate(0.1)
+
             def get_config(self):
-                config = super(TestingOptimizer, self).get_config()
+                config = super().get_config()
                 return config
 
             def _create_slots(self, var_list):
@@ -408,6 +435,9 @@ class Tf2KerasTests(tf.test.TestCase):
 
             def _resource_apply_dense(self, grad, var, apply_state=None):
                 return var.assign_add(grad)
+
+            def update_step(self, gradient, variable):
+                variable.assign_add(gradient)
 
         backward_passes_per_step = 4
         hvd_optimizer = hvd.DistributedOptimizer(
@@ -426,7 +456,7 @@ class Tf2KerasTests(tf.test.TestCase):
         X = [tf.Variable([x_0]) for x_0 in X_0]
         Y = [tf.Variable([y_0, y_1]) for y_0, y_1 in zip(Y_0, Y_1)]
         variables = [X, Y]
-
+        flatten_variables = [item for sublist in variables for item in sublist]
         for i in range(num_local_vars):
             x_var = X[i]
             y_var = Y[i]
@@ -498,7 +528,7 @@ class Tf2KerasTests(tf.test.TestCase):
         total_num_of_steps = 10
         for idx in range(total_num_of_steps):
             if _PRE_TF_2_2_0:
-                compute_and_apply_gradients_in_tf_function(var_list=variables)
+                compute_and_apply_gradients_in_tf_function(var_list=flatten_variables)
             else:
                 # In 2.2 and 2.3 the horovod optimizer sets `_HAS_AGGREGATE_GRAD = True`.
                 # This configures tf.keras to call `_aggregate_gradients()` outside of
@@ -506,7 +536,7 @@ class Tf2KerasTests(tf.test.TestCase):
                 # False when calling `apply_gradients()` to prevent it from calling
                 # `_aggregate_gradients()` again.
                 compute_and_apply_gradients_in_tf_function(
-                    var_list=variables,
+                    var_list=flatten_variables,
                     experimental_aggregate_gradients=False)
 
             expected_x, expected_y = compute_expected_value(idx)
@@ -531,7 +561,7 @@ class Tf2KerasTests(tf.test.TestCase):
             model.add(tf.keras.layers.Dense(2, input_shape=(3,), kernel_initializer=initializer, bias_initializer=initializer))
             model.add(tf.keras.layers.RepeatVector(3))
             model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(3, kernel_initializer=initializer, bias_initializer=initializer)))
-            opt = optimizers.Adam()
+            opt = tf.keras.optimizers.Adam()
             model.compile(loss=tf.keras.losses.MSE,
                             metrics=[tf.keras.metrics.categorical_accuracy])
 

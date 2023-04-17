@@ -191,7 +191,10 @@ class LocalGradientAggregationHelperEager:
             # property instead of the unsafe `_iterations`.
 
             if hasattr(optimizer, "iterations") and optimizer.iterations is not None:
-                return optimizer.iterations.assign_add(1).op
+                if hasattr(super(optimizer.__class__, optimizer), '_compute_gradients'):
+                    return optimizer.iterations.assign_add(1).op
+                else:
+                    return optimizer.iterations.assign_add(1)
             return tf.no_op()
 
         def non_aggregation_step():
@@ -200,7 +203,7 @@ class LocalGradientAggregationHelperEager:
                 # We account for this by calling `_aggregate_gradients()` for steps where we do
                 # not call `apply_gradients()`.
                 transformed_grads_and_vars = optimizer._transform_unaggregated_gradients(
-                    args[0])
+                    args[0]) if hasattr(optimizer, '_transform_unaggregated_gradients') else args[0]
                 _ = optimizer._aggregate_gradients(transformed_grads_and_vars)
 
             return increment_optimizer_iteration()

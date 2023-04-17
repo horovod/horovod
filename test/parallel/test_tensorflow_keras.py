@@ -30,15 +30,13 @@ from horovod.common.util  import is_version_greater_equal_than
 
 if is_version_greater_equal_than(tf.__version__, "2.6.0"):
     from keras import backend as K
-    if version.parse(keras.__version__.replace("-tf", "+tf")) < version.parse("2.9.0"):
-        from keras.optimizer_v2 import optimizer_v2
-    elif version.parse(keras.__version__.replace("-tf", "+tf")) < version.parse("2.12.0"):
-        from keras.optimizers.optimizer_v2 import optimizer_v2
+    if version.parse(tf.__version__.replace("-tf", "+tf")) < version.parse("2.9.0"):
+        from keras.optimizer_v2.optimizer_v2 import OptimizerV2 as Optimizer
     else:
-        from keras.optimizers.legacy import optimizer_v2
+        from tensorflow.keras.optimizers import Optimizer
 else:
     from tensorflow.python.keras import backend as K
-    from tensorflow.python.keras.optimizer_v2 import optimizer_v2
+    from tensorflow.python.keras.optimizer_v2.optimizer_v2 import OptimizerV2 as Optimizer
 
 import horovod.tensorflow.keras as hvd
 
@@ -155,7 +153,7 @@ class TfKerasTests(tf.test.TestCase):
     def test_load_model_custom_optimizers(self):
         class TestOptimizer(keras.optimizers.RMSprop):
             def __init__(self, **kwargs):
-                super(TestOptimizer, self).__init__(**kwargs)
+                super().__init__(**kwargs)
 
         with self.test_session(config=self.config) as sess:
             K.set_session(sess)
@@ -190,7 +188,7 @@ class TfKerasTests(tf.test.TestCase):
     def test_load_model_custom_objects(self):
         class TestOptimizer(keras.optimizers.RMSprop):
             def __init__(self, **kwargs):
-                super(TestOptimizer, self).__init__(**kwargs)
+                super().__init__(**kwargs)
 
         with self.test_session(config=self.config) as sess:
             K.set_session(sess)
@@ -288,9 +286,9 @@ class TfKerasTests(tf.test.TestCase):
                 self.assertEqual(len(model.optimizer.weights), 5)
 
     def _check_optimizer_weights(self, opt, new_opt):
-        self.assertEqual(len(opt.get_weights()), len(new_opt.get_weights()))
-        for weights, new_weights in zip(opt.get_weights(),
-                                        new_opt.get_weights()):
+        self.assertEqual(len(opt.variables()), len(new_opt.variables()))
+        for weights, new_weights in zip(opt.variables(),
+                                        new_opt.variables()):
             if np.isscalar(weights):
                 self.assertEqual(weights, new_weights)
             else:
@@ -373,12 +371,12 @@ class TfKerasTests(tf.test.TestCase):
     def test_gradient_aggregation(self):
         with self.test_session(config=self.config) as sess:
 
-            class TestingOptimizer(optimizer_v2.OptimizerV2):
+            class TestingOptimizer(Optimizer):
                 """
                 Custom optimizer we use for testing gradient aggregation.
                 """
                 def get_config(self):
-                    config = super(TestingOptimizer, self).get_config()
+                    config = super().get_config()
                     return config
 
                 def _create_slots(self, var_list):

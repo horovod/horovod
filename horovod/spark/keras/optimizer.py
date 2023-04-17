@@ -20,16 +20,10 @@ import h5py
 from packaging import version
 from horovod.runner.common.util import codec
 
-from horovod._keras import get_keras_optimizer_base_type
 
 def serialize_bare_keras_optimizer(x):
-    import keras
     from horovod.spark.keras.bare import save_bare_keras_optimizer
-
-    optimizer_class = get_keras_optimizer_base_type(keras)
-
     return _serialize_keras_optimizer(x,
-                                      optimizer_class=optimizer_class,
                                       save_optimizer_fn=save_bare_keras_optimizer)
 
 
@@ -40,43 +34,35 @@ def deserialize_bare_keras_optimizer(x):
 
 
 def serialize_tf_keras_optimizer(x):
-    import tensorflow as tf
     from horovod.spark.keras.tensorflow import save_tf_keras_optimizer
-
-    optimizer_class = get_keras_optimizer_base_type(tf.keras)
-
     return _serialize_keras_optimizer(x,
-                                      optimizer_class=optimizer_class,
                                       save_optimizer_fn=save_tf_keras_optimizer)
 
 
-def deserialize_tf_keras_optimizer(x):
+def deserialize_tf_keras_optimizer(x, model=None):
     from horovod.spark.keras.tensorflow import load_tf_keras_optimizer
 
-    return _deserialize_keras_optimizer(x,
+    return _deserialize_keras_optimizer(x, model,
                                         load_keras_optimizer_fn=load_tf_keras_optimizer)
 
 
-def _serialize_keras_optimizer(opt, optimizer_class, save_optimizer_fn):
+def _serialize_keras_optimizer(opt, save_optimizer_fn):
     if isinstance(opt, str):
         return opt
-    elif isinstance(opt, optimizer_class):
+    else:
         bio = io.BytesIO()
         with h5py.File(bio, 'w') as f:
             save_optimizer_fn(opt, f)
         return codec.dumps_base64(bio.getvalue())
-    else:
-        raise \
-            ValueError(f'Keras optimizer has to be an instance of str or {optimizer_class}')
 
 
 def is_string(obj):
     return isinstance(obj, str)
 
 
-def _deserialize_keras_optimizer(serialized_opt, load_keras_optimizer_fn):
+def _deserialize_keras_optimizer(serialized_opt, model, load_keras_optimizer_fn):
     if is_string(serialized_opt):
         return serialized_opt
     bio = io.BytesIO(serialized_opt)
     with h5py.File(bio, 'r') as f:
-        return load_keras_optimizer_fn(f)
+        return load_keras_optimizer_fn(f, model=model)

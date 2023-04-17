@@ -46,17 +46,6 @@ import horovod._keras as _impl
 from horovod.tensorflow.keras import callbacks, elastic
 
 
-try:
-    # In later versions of TensorFlow, optimizers are spread across multiple modules. This set is used to distinguish
-    # stock optimizers that come with tf.keras from custom optimizers that may need to be wrapped specially.
-    optimizer_type = _impl.get_keras_optimizer_base_type(tf.keras)
-
-    _OPTIMIZER_MODULES = set([obj.__module__ for name, obj in inspect.getmembers(tf.keras.optimizers)
-                              if isinstance(obj, type(optimizer_type))])
-except:
-    _OPTIMIZER_MODULES = set()
-
-
 def DistributedOptimizer(optimizer, name=None,
                          device_dense='', device_sparse='',
                          compression=Compression.none,
@@ -242,7 +231,7 @@ def reducescatter(value, name=None, op=Average):
     return _impl.reducescatter(K, value, name, op)
 
 
-def load_model(filepath, custom_optimizers=None, custom_objects=None, compression=Compression.none):
+def load_model(filepath, custom_optimizers=None, custom_objects=None, compression=Compression.none, legacy_opts=False):
     """
     Loads a saved Keras model with a Horovod DistributedOptimizer.
 
@@ -265,6 +254,7 @@ def load_model(filepath, custom_optimizers=None, custom_objects=None, compressio
         compression: Compression algorithm used to reduce the amount of data
                      sent and received by each worker node.  Defaults to not
                      using compression.
+        legacy_opts: If True, model uses tf.keras.optimizers.legacy.* optimizers
 
     Returns:
         A Keras model instance.
@@ -275,4 +265,4 @@ def load_model(filepath, custom_optimizers=None, custom_objects=None, compressio
     """
     def wrap_optimizer(cls):
         return lambda **kwargs: DistributedOptimizer(cls(**kwargs), compression=compression)
-    return _impl.load_model(keras, wrap_optimizer, _OPTIMIZER_MODULES, filepath, custom_optimizers, custom_objects)
+    return _impl.load_model(keras, wrap_optimizer, filepath, custom_optimizers, custom_objects, legacy_opts)

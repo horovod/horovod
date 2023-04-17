@@ -35,7 +35,6 @@ from horovod.spark.keras import remote
 from horovod.spark.keras.util import TFKerasUtil
 from horovod.spark.keras.datamodule import PetastormDataModule
 
-from horovod._keras import check_keras_optimizer_type
 
 class KerasEstimatorParamsWriter(HorovodParamsWriter):
     def saveImpl(self, path):
@@ -52,7 +51,7 @@ class KerasEstimatorParamsWritable(MLWritable):
 
 class KerasEstimatorParamsReader(HorovodParamsReader):
     def _deserialize_dict(self, dict):
-        def _param_deserializer_fn(name, param_val, keras_utils, custom_objects):
+        def _param_deserializer_fn(name, param_val, keras_utils, custom_objects, model=None):
             if param_val is None:
                 return param_val
 
@@ -65,7 +64,7 @@ class KerasEstimatorParamsReader(HorovodParamsReader):
                                                      load_model_fn=load_model_fn)
             elif name == KerasEstimator.optimizer.name:
                 opt_base64_encoded = codec.loads_base64(param_val)
-                return keras_utils.deserialize_optimizer(opt_base64_encoded)
+                return keras_utils.deserialize_optimizer(opt_base64_encoded, model=model)
             else:
                 return codec.loads_base64(param_val)
 
@@ -77,8 +76,15 @@ class KerasEstimatorParamsReader(HorovodParamsReader):
                                                     dict[KerasEstimator.custom_objects.name],
                                                     None, None)
 
+        model = None
+        model_name = EstimatorParams.model.name
+        if model_name in dict:
+            model = _param_deserializer_fn(model_name, dict[model_name], TFKerasUtil, custom_objects)
+
         for key, val in dict.items():
-            dict[key] = _param_deserializer_fn(key, val, TFKerasUtil, custom_objects)
+            if key == model_name:
+                dict[model_name] = model
+            dict[key] = _param_deserializer_fn(key, val, TFKerasUtil, custom_objects, model)
         return dict
 
 
@@ -225,14 +231,6 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
             if not isinstance(model, tf.keras.Model):
                 raise ValueError(
                     "model has to be an instance of tensorflow.keras.Model")
-
-        optimizer = self.getOptimizer()
-        if optimizer:
-            if isinstance(optimizer, str):
-                pass
-            else:
-                check_keras_optimizer_type(tf.keras, optimizer)
-
         return TFKerasUtil
 
     def setCustomObjects(self, value):
@@ -328,7 +326,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
 
         metrics = self.getMetrics()
         gradient_compression = self.getGradientCompression()
-        optimizer_weight_values = optimizer.get_weights()
+        optimizer_weight_values = optimizer.variables()
 
         dist_optimizer_args = dict(optimizer=optimizer)
         if gradient_compression:
@@ -342,6 +340,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                       metrics=metrics)
 
         if optimizer_weight_values:
+            if hasattr(model.optimizer, 'build'):
+                model.optimizer.build(model.trainable_weights)
             model.optimizer.set_weights(optimizer_weight_values)
 
         return keras_utils.serialize_model(model)

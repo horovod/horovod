@@ -23,7 +23,6 @@ import sysconfig
 import warnings
 
 from contextlib import contextmanager
-from packaging import version
 
 from horovod.common.exceptions import get_version_mismatch_message, HorovodVersionMismatchError
 
@@ -287,7 +286,3 @@ def is_version_greater_equal_than(ver, target):
                          "of: major.minor.patch. Received: {}".format(target))
 
     return version.parse(ver) >= version.parse(target)
-
-
-def support_non_legacy_keras_optimizers(k):
-    return version.parse(k.__version__.replace("-tf", "+tf")) < version.parse("2.11")
