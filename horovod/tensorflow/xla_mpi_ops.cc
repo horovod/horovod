@@ -408,7 +408,7 @@ private:
   typedef absl::flat_hash_map<uint64, Queue*> Table;
 
   mutex mu_;
-  Table table_ GUARDED_BY(mu_);
+  Table table_ TF_GUARDED_BY(mu_);
 };
 
 /*static*/ HVDCustomCallRendezvous* GetHVDCustomCallRendezvous() {
