@@ -77,11 +77,11 @@ services:
         PYTORCH_PACKAGE: torch==1.11.0+cpu
         TORCHVISION_PACKAGE: torchvision==0.12.0+cpu
         MXNET_PACKAGE: mxnet==1.7.0.post2
-  test-cpu-gloo-py3_8-tf2_11_0-keras2_11_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0:
+  test-cpu-gloo-py3_8-tf2_11_1-keras2_11_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0:
     extends: test-cpu-base
     build:
       args:
-        TENSORFLOW_PACKAGE: tensorflow-cpu==2.11.0
+        TENSORFLOW_PACKAGE: tensorflow-cpu==2.11.1
         KERAS_PACKAGE: keras==2.11.0
         PYTORCH_PACKAGE: torch==1.12.1+cpu
         TORCHVISION_PACKAGE: torchvision==0.13.1+cpu
@@ -199,14 +199,14 @@ services:
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision==0.12.0+cu102
         MXNET_PACKAGE: mxnet-cu101==1.7.0.post1
-  test-gpu-gloo-py3_8-tf2_11_0-keras2_11_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0:
+  test-gpu-gloo-py3_8-tf2_11_1-keras2_11_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0:
     extends: test-gpu-base
     build:
       args:
         CUDA_DOCKER_VERSION: 11.6.1-devel-ubuntu20.04
         CUDNN_VERSION: 8.4.1.50-1+cuda11.6
         NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
-        TENSORFLOW_PACKAGE: tensorflow-gpu==2.11.0
+        TENSORFLOW_PACKAGE: tensorflow-gpu==2.11.1
         KERAS_PACKAGE: keras==2.11.0
         PYTORCH_PACKAGE: torch==1.12.1+cu116
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9

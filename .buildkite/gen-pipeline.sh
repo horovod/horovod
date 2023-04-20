@@ -46,7 +46,7 @@ tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${B
   # see test-gpu-gloo-py3_7-tf1_15_5-... below why we have to test with mxnet 1.5.1 here
   printf "test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_4_0 "
   printf "test-cpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_11_0-mxnet1_7_0_p2-pyspark3_4_0 "
-  printf "test-cpu-gloo-py3_8-tf2_11_0-keras2_11_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0 "
+  printf "test-cpu-gloo-py3_8-tf2_11_1-keras2_11_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0 "
   # our baseline again
 # printf "test-cpu-gloo-py3_8-tf2_12_0-keras2_12_0-torch1_13_1-mxnet1_9_1-pyspark3_4_0 "
   printf "test-cpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_4_0 "
@@ -63,7 +63,7 @@ tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${B
   printf "test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_4_0 "
   # here we deviate from mxnet==1.7.0.post2 as there is none for cu101, only post1
   printf "test-gpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_11_0-mxnet1_7_0_p1-pyspark3_4_0 "
-  printf "test-gpu-gloo-py3_8-tf2_11_0-keras2_11_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0 "
+  printf "test-gpu-gloo-py3_8-tf2_11_1-keras2_11_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0 "
   printf "test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch1_13_1-mxnet1_9_1-pyspark3_4_0 "
   printf "test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_4_0 "
   # these are the lowest framework versions that Horovod compiles with, but they are not tested
