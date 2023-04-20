@@ -206,7 +206,8 @@ services:
         CUDA_DOCKER_VERSION: 11.6.1-devel-ubuntu20.04
         CUDNN_VERSION: 8.4.1.50-1+cuda11.6
         NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
-        TENSORFLOW_PACKAGE: tensorflow-gpu==2.11.1
+        # tensorflow package supports GPU from 2.11.1 and 2.12.0 on
+        TENSORFLOW_PACKAGE: tensorflow==2.11.1
         KERAS_PACKAGE: keras==2.11.0
         PYTORCH_PACKAGE: torch==1.12.1+cu116
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
@@ -220,7 +221,8 @@ services:
         CUDNN_VERSION: 8.4.1.50-1+cuda11.6
         NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
         MPI_KIND: OpenMPI
-        TENSORFLOW_PACKAGE: tensorflow-gpu==2.12.0
+        # tensorflow package supports GPU from 2.11.1 and 2.12.0 on
+        TENSORFLOW_PACKAGE: tensorflow==2.12.0
         KERAS_PACKAGE: keras==2.12.0
         PYTORCH_PACKAGE: torch==1.13.1+cu116
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
@@ -267,7 +269,8 @@ services:
         CUDNN_VERSION: 8.4.1.50-1+cuda11.6
         NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
         MPI_KIND: OpenMPI
-        TENSORFLOW_PACKAGE: tensorflow-gpu==2.12.0
+        # tensorflow package supports GPU from 2.11.1 and 2.12.0 on
+        TENSORFLOW_PACKAGE: tensorflow==2.12.0
         KERAS_PACKAGE: keras==2.12.0
         PYTORCH_PACKAGE: torch==1.13.1+cu116
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
