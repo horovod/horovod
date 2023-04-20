@@ -32,7 +32,7 @@ from horovod.tensorflow.util import _executing_eagerly
 from tensorflow.python.ops import resource_variable_ops
 try:
     from tensorflow.python.ops.variables import RefVariable
-except:
+except ImportError:
     # TF 2.13+
     from tensorflow.python.ops.ref_variable import RefVariable
 
