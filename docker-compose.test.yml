@@ -228,9 +228,9 @@ services:
         # tensorflow package supports GPU from 2.11.1 and 2.12.0 on
         TENSORFLOW_PACKAGE: tensorflow==2.12.0
         KERAS_PACKAGE: keras==2.12.0
-        PYTORCH_PACKAGE: torch==2.0.0+cu116
+        PYTORCH_PACKAGE: torch==2.0.0+cu118
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
-        TORCHVISION_PACKAGE: torchvision==0.15.1+cu116
+        TORCHVISION_PACKAGE: torchvision==0.15.1+cu118
         MXNET_PACKAGE: mxnet-cu112==1.9.1
   test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_4_0:
     extends: test-gpu-base
@@ -276,9 +276,9 @@ services:
         # tensorflow package supports GPU from 2.11.1 and 2.12.0 on
         TENSORFLOW_PACKAGE: tensorflow==2.12.0
         KERAS_PACKAGE: keras==2.12.0
-        PYTORCH_PACKAGE: torch==2.0.0+cu116
+        PYTORCH_PACKAGE: torch==2.0.0+cu118
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
-        TORCHVISION_PACKAGE: torchvision==0.15.1+cu116
+        TORCHVISION_PACKAGE: torchvision==0.15.1+cu118
         MXNET_PACKAGE: mxnet-cu112==1.9.1
         HOROVOD_BUILD_FLAGS: ""
         HOROVOD_MIXED_INSTALL: 1
