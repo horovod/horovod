@@ -30,7 +30,11 @@ import sys
 import tensorflow as tf
 from horovod.tensorflow.util import _executing_eagerly
 from tensorflow.python.ops import resource_variable_ops
-from tensorflow.python.ops import variables as tf_ops_variables
+try:
+    from tensorflow.python.ops.variables import RefVariable
+except ImportError:
+    # TF 2.13+
+    from tensorflow.python.ops.ref_variable import RefVariable
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
@@ -2821,7 +2825,7 @@ class TensorFlowTests(BaseTensorFlowTests):
                         if use_resource:
                             var = resource_variable_ops.ResourceVariable(initial_value)
                         else:
-                            var = tf_ops_variables.RefVariable(initial_value)
+                            var = RefVariable(initial_value)
                         init = tf.compat.v1.global_variables_initializer()
                         self.evaluate(init)
                     else:
@@ -2881,7 +2885,7 @@ class TensorFlowTests(BaseTensorFlowTests):
                         if use_resource:
                             var = resource_variable_ops.ResourceVariable(initial_value)
                         else:
-                            var = tf_ops_variables.RefVariable(initial_value)
+                            var = RefVariable(initial_value)
                         init = tf.compat.v1.global_variables_initializer()
                         self.evaluate(init)
                     else:
@@ -2926,7 +2930,7 @@ class TensorFlowTests(BaseTensorFlowTests):
                             if use_resource:
                                 var = resource_variable_ops.ResourceVariable(initial_value, name=f"dim_{dim}_var")
                             else:
-                                var = tf_ops_variables.RefVariable(initial_value, name=f"dim_{dim}_var")
+                                var = RefVariable(initial_value, name=f"dim_{dim}_var")
                             init = tf.compat.v1.global_variables_initializer()
                             self.evaluate(init)
                         else:

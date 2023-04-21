@@ -84,6 +84,9 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                 return super(self.__class__, self).variables()
             return self.get_weights()
 
+        if version.parse(tf.__version__) >= version.parse('2.12.0'):
+            variables = property(variables)
+
         def register_local_var(self, var):
             """Registers a source/variable as worker local. Horovod will not perform any global
             operations on gradients corresponding to these sources and will instead return the local
