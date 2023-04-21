@@ -31,7 +31,7 @@ from tensorflow.python.util import serialization
 
 
 def save_tf_keras_optimizer(optimizer, h5py_file):
-    if isinstance(optimizer, optimizers.TFOptimizer):
+    if hasattr(optimizers, "TFOptimizer") and isinstance(optimizer, optimizers.TFOptimizer):
         logging.warning(
             'TensorFlow optimizers do not '
             'make it possible to access '
