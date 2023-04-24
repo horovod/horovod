@@ -223,7 +223,7 @@ services:
       args:
         CUDA_DOCKER_VERSION: 11.8.0-devel-ubuntu20.04
         CUDNN_VERSION: 8.6.0.163-1+cuda11.8
-        NCCL_VERSION_OVERRIDE: 2.15.1-1+cuda11.8
+        NCCL_VERSION_OVERRIDE: 2.16.5-1+cuda11.8
         MPI_KIND: OpenMPI
         # tensorflow package supports GPU from 2.11.1 and 2.12.0 on
         TENSORFLOW_PACKAGE: tensorflow==2.12.0
@@ -238,7 +238,7 @@ services:
       args:
         CUDA_DOCKER_VERSION: 11.8.0-devel-ubuntu20.04
         CUDNN_VERSION: 8.6.0.163-1+cuda11.8
-        NCCL_VERSION_OVERRIDE: 2.15.1-1+cuda11.8
+        NCCL_VERSION_OVERRIDE: 2.16.5-1+cuda11.8
         MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: tf-nightly
         KERAS_PACKAGE: None
@@ -271,7 +271,7 @@ services:
       args:
         CUDA_DOCKER_VERSION: 11.8.0-devel-ubuntu20.04
         CUDNN_VERSION: 8.6.0.163-1+cuda11.8
-        NCCL_VERSION_OVERRIDE: 2.15.1-1+cuda11.8
+        NCCL_VERSION_OVERRIDE: 2.16.5-1+cuda11.8
         MPI_KIND: OpenMPI
         # tensorflow package supports GPU from 2.11.1 and 2.12.0 on
         TENSORFLOW_PACKAGE: tensorflow==2.12.0
