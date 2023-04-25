@@ -193,7 +193,8 @@ class StaticRunTests(unittest.TestCase):
             self.fail('unknown run argument {}'.format(run))
 
         if controller == 'mpi':
-            exception = 'mpirun failed with exit code 1'
+            exception = 'mpirun failed with exit code ([1-9]|[1-9][0-9]|[1-9][0-9][0-9])'
+            # mpirun "multinode" failcase run doesn't guarantee exit code 1
         else:
             exception = 'Horovod detected that one or more processes exited with non-zero status'
 
@@ -208,7 +209,7 @@ class StaticRunTests(unittest.TestCase):
                 self.assertEqual('/bin/sh', args[0])
                 self.assertEqual('-c', args[1])
                 exit_code = safe_shell_exec.execute(args[2], env)
-                self.assertEqual(1, exit_code)
+                self.assertNotEqual(0, exit_code) # mpirun "multinode" failcase run doesn't guarantee exit code 1
             else:
                 with pytest.raises(RuntimeError, match=exception):
                     _run(hargs)
