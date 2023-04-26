@@ -234,7 +234,7 @@ if(HOROVOD_GPU_ALLREDUCE STREQUAL "N" OR HOROVOD_GPU_ALLGATHER STREQUAL "N" OR H
         include_directories(SYSTEM ${NCCL_INCLUDE_DIRS})
         list(APPEND LINKER_LIBS ${NCCL_LIBRARIES})
         if(NCCL_LIBRARY_FILE_NAME MATCHES "static" AND lowercase_CMAKE_CUDA_RUNTIME_LIBRARY STREQUAL "static")
-            # ensure that weak symbols from NCCL's enhcompat.cc are properly overwritten by symbols from libcudart_static.a
+            # ensure that weak symbols from NCCL's enhcompat.cc are properly overwritten by symbols from libcudart_static.a (https://github.com/horovod/horovod/pull/3846)
             list(APPEND LINKER_LIBS -Wl,--whole-archive cudart_static -Wl,--no-whole-archive)
         endif()
     endif()
