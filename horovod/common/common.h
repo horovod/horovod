@@ -207,10 +207,10 @@ class Status {
 public:
   Status();
   static Status OK();
-  static Status UnknownError(std::string_view message);
-  static Status PreconditionError(std::string_view message);
-  static Status Aborted(std::string_view message);
-  static Status InvalidArgument(std::string_view message);
+  static Status UnknownError(const std::string& message);
+  static Status PreconditionError(const std::string& message);
+  static Status Aborted(const std::string& message);
+  static Status InvalidArgument(const std::string& message);
   static Status InProgress();
   bool ok() const;
   bool in_progress() const;
@@ -221,7 +221,7 @@ public:
 private:
   StatusType type_ = StatusType::OK;
   std::string reason_;
-  Status(StatusType type, std::string_view reason);
+  Status(StatusType type, std::string reason);
 };
 
 // Common error status

@@ -132,7 +132,7 @@ common::Status ConvertStatus(const Status& status) {
     return common::Status::OK();
   } else {
 #if TENSORFLOW_VERSION >= 2013000000
-    auto message(status.message()); // string_view
+    std::string message(status.message()); // copy from string_view
 #else
     const std::string& message = status.error_message();
 #endif
