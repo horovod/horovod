@@ -79,13 +79,15 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                         scale_local_gradients=scale_local_gradients
                     )
 
-        def variables(self):
-            if _IS_TF2:
-                return super(self.__class__, self).variables()
-            return self.get_weights()
-
         if version.parse(tf.__version__) >= version.parse('2.12.0'):
-            variables = property(variables)
+            @property
+            def variables(self):
+                return CallableList(super(self.__class__, self).variables())
+        else:
+            def variables(self):
+                if _IS_TF2:
+                    return super(self.__class__, self).variables()
+                return self.get_weights()
 
         def register_local_var(self, var):
             """Registers a source/variable as worker local. Horovod will not perform any global
@@ -251,6 +253,13 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                dict(_DistributedOptimizer.__dict__))
 
     return cls.from_config(optimizer.get_config())
+
+
+class CallableList(list):
+    """Temporary shim to support both `opt.variables()` and `opt.variables`."""
+
+    def __call__(self):
+        return self
 
 
 def _eval(backend, op_or_result):
