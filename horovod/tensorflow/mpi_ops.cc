@@ -130,16 +130,23 @@ Status ConvertStatus(const common::Status& status) {
 common::Status ConvertStatus(const Status& status) {
   if (status.code() == error::Code::OK) {
     return common::Status::OK();
-  } else if (status.code() == error::Code::UNKNOWN) {
-    return common::Status::UnknownError(status.error_message());
-  } else if (status.code() == error::Code::FAILED_PRECONDITION) {
-    return common::Status::PreconditionError(status.error_message());
-  } else if (status.code() == error::Code::ABORTED) {
-    return common::Status::Aborted(status.error_message());
-  } else if (status.code() == error::Code::INVALID_ARGUMENT) {
-    return common::Status::InvalidArgument(status.error_message());
   } else {
-    return common::Status::UnknownError("Unknown error.");
+#if TENSORFLOW_VERSION >= 2013000000
+    auto message(status.message()); // string_view
+#else
+    const std::string& message = status.error_message();
+#endif
+    if (status.code() == error::Code::UNKNOWN) {
+      return common::Status::UnknownError(message);
+    } else if (status.code() == error::Code::FAILED_PRECONDITION) {
+      return common::Status::PreconditionError(message);
+    } else if (status.code() == error::Code::ABORTED) {
+      return common::Status::Aborted(message);
+    } else if (status.code() == error::Code::INVALID_ARGUMENT) {
+      return common::Status::InvalidArgument(message);
+    } else {
+      return common::Status::UnknownError("Unknown error.");
+    }
   }
 }
 

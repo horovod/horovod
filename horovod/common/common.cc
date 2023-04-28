@@ -28,27 +28,27 @@ namespace common {
 
 Status::Status() = default;
 
-Status::Status(StatusType type, std::string reason)
-    : type_(type), reason_(std::move(reason)) {
+Status::Status(StatusType type, std::string_view reason)
+    : type_(type), reason_(reason) {
 }
 
 Status Status::OK() {
   return Status();
 }
 
-Status Status::UnknownError(const std::string& message) {
+Status Status::UnknownError(std::string_view message) {
   return Status(StatusType::UNKNOWN_ERROR, message);
 }
 
-Status Status::PreconditionError(const std::string& message) {
+Status Status::PreconditionError(std::string_view message) {
   return Status(StatusType::PRECONDITION_ERROR, message);
 }
 
-Status Status::Aborted(const std::string& message) {
+Status Status::Aborted(std::string_view message) {
   return Status(StatusType::ABORTED, message);
 }
 
-Status Status::InvalidArgument(const std::string& message) {
+Status Status::InvalidArgument(std::string_view message) {
   return Status(StatusType::INVALID_ARGUMENT, message);
 }
 
