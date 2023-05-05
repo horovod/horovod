@@ -80,6 +80,18 @@ using gpuPointerAttribute_t = hipPointerAttribute_t;
       throw std::logic_error(std::string("GPU Error:") + hipGetErrorString(hip_result));  \
     }                                                                                     \
   } while (0)
+#define HVD_GPU_DRIVER_CHECK(x)                                                           \
+  do {                                                                                    \
+    hipError_t hip_result = x;                                                            \
+    if (hip_result != hipSuccess) {                                                       \
+      const char* hip_err_string = nullptr;                                               \
+      if (hipGetErrorString(hip_result, &hip_err_string) != hipSuccess) {                 \
+        throw std::logic_error(std::string("GPU Error: unknown error"));                  \
+      } else {                                                                            \
+        throw std::logic_error(std::string("GPU Error:") + std::string(hip_err_string));  \
+      }                                                                                   \
+    }                                                                                     \
+  } while (0)
 #endif
 #endif
 
