@@ -32,7 +32,18 @@ with_device::with_device(int device) {
     restore_device_ = CPU_DEVICE_ID;
   } else {
 #if HAVE_GPU
-    C10_CUDA_CHECK(cudaGetDevice(&restore_device_));
+    CUdevice cudev;
+    auto err = cuCtxGetDevice(&cudev);
+    if (err == CUDA_ERROR_NOT_INITIALIZED ||
+        err == CUDA_ERROR_INVALID_CONTEXT) {
+      // If device has never been set on this thread,
+      // restore to supplied device.
+      restore_device_ = device;
+     } else if (err == CUDA_SUCCESS) {
+       restore_device_ = static_cast<int>(cudev);
+     } else {
+       HVD_GPU_DRIVER_CHECK(err);
+     }
     C10_CUDA_CHECK(cudaSetDevice(device));
 #else
     throw std::logic_error("Internal error. Requested device context manager "

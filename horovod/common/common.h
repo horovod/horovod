@@ -48,6 +48,19 @@ using gpuPointerAttribute_t = cudaPointerAttributes;
       throw std::logic_error(std::string("GPU Error:") + cudaGetErrorString(cuda_result));  \
     }                                                                                       \
   } while (0)
+#define HVD_GPU_DRIVER_CHECK(x)                                                             \
+  do {                                                                                      \
+    CUresult cu_result = x;                                                                 \
+    if (cu_result != CUDA_SUCCESS) {                                                        \
+      const char* err = nullptr;                                                            \
+      CUresult e = cuGetErrorString(e, &err);                                               \
+      if (e != CUDA_SUCCESS) {                                                              \
+        throw std::logic_error(std::string("GPU Error: unknown error"));                    \
+      } else {                                                                              \
+        throw std::logic_error(std::string("GPU Error:") + std::string(err));               \
+      }                                                                                     \
+    }                                                                                       \
+  } while (0)
 #elif HAVE_ROCM
 #include <hip/hip_runtime_api.h>
 using gpuError_t = hipError_t;

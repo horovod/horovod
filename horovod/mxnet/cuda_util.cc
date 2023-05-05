@@ -32,8 +32,19 @@ with_device::with_device(int device) {
     restore_device_ = CPU_DEVICE_ID;
   } else {
 #if HAVE_CUDA
-    CUDA_CALL(cudaGetDevice(&restore_device_));
-    CUDA_CALL(cudaSetDevice(device));
+    CUdevice cudev;
+    auto err = cuCtxGetDevice(&cudev);
+    if (err == CUDA_ERROR_NOT_INITIALIZED ||
+        err == CUDA_ERROR_INVALID_CONTEXT) {
+      // If device has never been set on this thread,
+      // restore to supplied device.
+      restore_device_ = device;
+     } else if (err == CUDA_SUCCESS) {
+       restore_device_ = static_cast<int>(cudev);
+     } else {
+       HVD_GPU_DRIVER_CHECK(err);
+     }
+     CUDA_CALL(cudaSetDevice(device));
 #else
     throw std::logic_error("Internal error. Requested device context manager "
                            "with GPU device but not compiled with CUDA.");
