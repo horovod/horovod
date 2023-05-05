@@ -180,6 +180,7 @@ endif()
 macro(ADD_CUDA)
     find_package(CUDAToolkit REQUIRED)
     include_directories(SYSTEM ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+    list(APPEND LINKER_LIBS CUDA::cuda_driver)
     list(APPEND SOURCES "${PROJECT_SOURCE_DIR}/horovod/common/ops/cuda_operations.cc"
                         "${PROJECT_SOURCE_DIR}/horovod/common/ops/gpu_operations.cc")
     # CUDA + MPI
