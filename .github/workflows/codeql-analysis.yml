@@ -149,7 +149,7 @@ jobs:
     - name: Build Horovod
       shell: bash
       run: |
-        pip install docker-compose
+        pip install docker-compose "requests<2.29.2"
         image=$(grep mixed docker-compose.test.yml | sed -e "s/[ :]//g")
         docker-compose -f docker-compose.test.yml build ${image}
         docker run --name horovod horovod_${image} ls -lah /home/runner/work/_temp/codeql_databases

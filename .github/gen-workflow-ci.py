@@ -367,7 +367,7 @@ def main():
                 f'          python-version: 3.8\n'
                 f'\n'
                 f'      - name: Setup docker-compose\n'
-                f'        run: pip install docker-compose\n'
+                f'        run: pip install docker-compose "requests<2.29.2"\n' # pin requests to work around https://github.com/docker/docker-py/issues/3113
                 f'\n'
                 f'      - name: Build\n'
                 f'        id: build\n'

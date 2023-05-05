@@ -442,7 +442,7 @@ jobs:
           python-version: 3.8
 
       - name: Setup docker-compose
-        run: pip install docker-compose
+        run: pip install docker-compose "requests<2.29.2"
 
       - name: Build
         id: build
@@ -2438,7 +2438,7 @@ jobs:
           python-version: 3.8
 
       - name: Setup docker-compose
-        run: pip install docker-compose
+        run: pip install docker-compose "requests<2.29.2"
 
       - name: Build
         id: build
@@ -4402,7 +4402,7 @@ jobs:
           python-version: 3.8
 
       - name: Setup docker-compose
-        run: pip install docker-compose
+        run: pip install docker-compose "requests<2.29.2"
 
       - name: Build
         id: build
