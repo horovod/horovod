@@ -442,7 +442,6 @@ jobs:
           python-version: 3.8
 
       - name: Setup docker-compose
-        # pin requests to work around https://github.com/docker/docker-py/issues/3113
         run: pip install docker-compose requests<2.2.29
 
       - name: Build
@@ -2439,7 +2438,7 @@ jobs:
           python-version: 3.8
 
       - name: Setup docker-compose
-        run: pip install docker-compose
+        run: pip install docker-compose requests<2.2.29
 
       - name: Build
         id: build
@@ -4403,7 +4402,7 @@ jobs:
           python-version: 3.8
 
       - name: Setup docker-compose
-        run: pip install docker-compose
+        run: pip install docker-compose requests<2.2.29
 
       - name: Build
         id: build
