@@ -52,12 +52,11 @@ using gpuPointerAttribute_t = cudaPointerAttributes;
   do {                                                                                      \
     CUresult cu_result = x;                                                                 \
     if (cu_result != CUDA_SUCCESS) {                                                        \
-      const char* err = nullptr;                                                            \
-      CUresult e = cuGetErrorString(e, &err);                                               \
-      if (e != CUDA_SUCCESS) {                                                              \
+      const char* cu_err_string = nullptr;                                                  \
+      if (cuGetErrorString(cu_result, &cu_err_string) != CUDA_SUCCESS) {                    \
         throw std::logic_error(std::string("GPU Error: unknown error"));                    \
       } else {                                                                              \
-        throw std::logic_error(std::string("GPU Error:") + std::string(err));               \
+        throw std::logic_error(std::string("GPU Error:") + std::string(cu_err_string));     \
       }                                                                                     \
     }                                                                                       \
   } while (0)
