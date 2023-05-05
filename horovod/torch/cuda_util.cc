@@ -36,9 +36,9 @@ with_device::with_device(int device) {
     auto err = cuCtxGetDevice(&cudev);
     if (err == CUDA_ERROR_NOT_INITIALIZED ||
         err == CUDA_ERROR_INVALID_CONTEXT) {
-      // If device has never been set on this thread,
-      // restore to supplied device.
-      restore_device_ = device;
+       // If device has never been set on this thread,
+       // restore to supplied device.
+       restore_device_ = device;
      } else if (err == CUDA_SUCCESS) {
        restore_device_ = static_cast<int>(cudev);
      } else {
