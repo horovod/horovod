@@ -41,11 +41,11 @@ class CMakeExtension(Extension):
 
 
 tensorflow_mpi_lib = CMakeExtension('horovod.tensorflow.mpi_lib',
-                                     cmake_lists_dir='.', sources=[])
+                                    cmake_lists_dir='.', sources=[])
 torch_mpi_lib_v2 = CMakeExtension('horovod.torch.mpi_lib_v2',
-                                     cmake_lists_dir='.', sources=[])
+                                  cmake_lists_dir='.', sources=[])
 mxnet_mpi_lib = CMakeExtension('horovod.mxnet.mpi_lib',
-                                     cmake_lists_dir='.', sources=[])
+                               cmake_lists_dir='.', sources=[])
 
 def is_build_action():
     if len(sys.argv) <= 1:
