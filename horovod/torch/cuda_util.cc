@@ -54,8 +54,8 @@ with_device::with_device(int device) {
   if (device == CPU_DEVICE_ID) {
     restore_device_ = CPU_DEVICE_ID;
   } else {
-    if (!cudalib) initialize_driver_api();
 #if HAVE_GPU
+    if (!cudalib) initialize_driver_api();
     CUdevice cudev;
     auto err = pfn_cuCtxGetDevice(&cudev);
     if (err == CUDA_ERROR_NOT_INITIALIZED ||
