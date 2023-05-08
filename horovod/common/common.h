@@ -48,18 +48,6 @@ using gpuPointerAttribute_t = cudaPointerAttributes;
       throw std::logic_error(std::string("GPU Error:") + cudaGetErrorString(cuda_result));  \
     }                                                                                       \
   } while (0)
-#define HVD_GPU_DRIVER_CHECK(x)                                                             \
-  do {                                                                                      \
-    CUresult cu_result = x;                                                                 \
-    if (cu_result != CUDA_SUCCESS) {                                                        \
-      const char* cu_err_string = nullptr;                                                  \
-      if (cuGetErrorString(cu_result, &cu_err_string) != CUDA_SUCCESS) {                    \
-        throw std::logic_error(std::string("GPU Error: unknown error"));                    \
-      } else {                                                                              \
-        throw std::logic_error(std::string("GPU Error:") + std::string(cu_err_string));     \
-      }                                                                                     \
-    }                                                                                       \
-  } while (0)
 #elif HAVE_ROCM
 #include <hip/hip_runtime_api.h>
 using gpuError_t = hipError_t;
@@ -78,18 +66,6 @@ using gpuPointerAttribute_t = hipPointerAttribute_t;
     hipError_t hip_result = x;                                                            \
     if (hip_result != hipSuccess) {                                                       \
       throw std::logic_error(std::string("GPU Error:") + hipGetErrorString(hip_result));  \
-    }                                                                                     \
-  } while (0)
-#define HVD_GPU_DRIVER_CHECK(x)                                                           \
-  do {                                                                                    \
-    hipError_t hip_result = x;                                                            \
-    if (hip_result != hipSuccess) {                                                       \
-      const char* hip_err_string = nullptr;                                               \
-      if (hipGetErrorString(hip_result, &hip_err_string) != hipSuccess) {                 \
-        throw std::logic_error(std::string("GPU Error: unknown error"));                  \
-      } else {                                                                            \
-        throw std::logic_error(std::string("GPU Error:") + std::string(hip_err_string));  \
-      }                                                                                   \
     }                                                                                     \
   } while (0)
 #endif
