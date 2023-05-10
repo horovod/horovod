@@ -8,13 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- TensorFlow: Added new `get_local_and_global_gradients` to PartialDistributedGradientTape to retrieve local and non-local gradients separately. ([#3859](https://github.com/horovod/horovod/pull/3859))
-
 ### Changed
-
-- Improved reducescatter performance by allocating output tensors before enqueuing the operation. ([#3824](https://github.com/horovod/horovod/pull/3824))
-- Force tf.logical_and in hvd allreduce condition running on CPU. ([#3885](https://github.com/horovod/horovod/pull/3885))
-- Support TF Keras 2.11+ optimizers. ([#3860](https://github.com/horovod/horovod/pull/3860))
 
 ### Deprecated
 
@@ -22,10 +16,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+
+## [v0.28.0] - 2023-05-10
+
+### Added
+
+- TensorFlow: Added new `get_local_and_global_gradients` to PartialDistributedGradientTape to retrieve local and non-local gradients separately. ([#3859](https://github.com/horovod/horovod/pull/3859))
+
+### Changed
+
+- Improved reducescatter performance by allocating output tensors before enqueuing the operation. ([#3824](https://github.com/horovod/horovod/pull/3824))
+- TensorFlow: Ensured that `tf.logical_and` within allreduce `tf.cond` runs on CPU. ([#3885](https://github.com/horovod/horovod/pull/3885))
+- TensorFlow: Added support for Keras 2.11+ optimizers. ([#3860](https://github.com/horovod/horovod/pull/3860))
+- `CUDA_VISIBLE_DEVICES` environment variable is no longer passed to remote nodes. ([#3865](https://github.com/horovod/horovod/pull/3865))
+
+### Fixed
+
 - Fixed build with ROCm. ([#3839](https://github.com/horovod/horovod/pull/3839), [#3848](https://github.com/horovod/horovod/pull/3848))
 - Fixed build of Docker image horovod-nvtabular. ([#3851](https://github.com/horovod/horovod/pull/3851))
 - Fixed linking recent NCCL by defaulting CUDA runtime library linkage to static and ensuring that weak symbols are overridden. ([#3867](https://github.com/horovod/horovod/pull/3867), [#3846](https://github.com/horovod/horovod/pull/3846))
-- Update with_device functions in MXNet and PyTorch to skip unnecessary cudaSetDevice calls. ([#3912](https://github.com/horovod/horovod/pull/3912))
+- Fixed compatibility with TensorFlow 2.12 and recent nightly versions. ([#3864](https://github.com/horovod/horovod/pull/3864), [#3894](https://github.com/horovod/horovod/pull/3894), [#3906](https://github.com/horovod/horovod/pull/3906), [#3907](https://github.com/horovod/horovod/pull/3907))
+- Fixed missing arguments of Keras allreduce function. ([#3905](https://github.com/horovod/horovod/pull/3905))
+- Updated with_device functions in MXNet and PyTorch to skip unnecessary cudaSetDevice calls. ([#3912](https://github.com/horovod/horovod/pull/3912))
+
 
 ## [v0.27.0] - 2023-02-01
 
