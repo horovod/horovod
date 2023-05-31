@@ -30,7 +30,10 @@ When installing Horovod for usage with Spark, use the extra ``[spark]`` to insta
 
 .. code-block:: bash
 
-    pip install horovod[spark]
+    pip install "horovod[spark]"
+
+Note that the other Horovod dependencies (e.g., `CMake <https://cmake.org/install/>`__) should also be installed
+as described in `Install <https://github.com/horovod/horovod#install>`__.
 
 Note that Horovod Spark Estimators require the following:
 
@@ -48,7 +51,7 @@ Horovod Spark Estimators additionally require at least one of these combinations
 Horovod Spark Estimators
 ~~~~~~~~~~~~~~~~~~~~~~~~
 Horovod Spark Estimators allow you to train your deep neural network directly on an existing Spark DataFrame,
-leveraging Horovod’s ability to scale across multiple workers, without any specialized code for distributed training:
+leveraging Horovod's ability to scale across multiple workers, without any specialized code for distributed training:
 
 .. code-block:: python
 
