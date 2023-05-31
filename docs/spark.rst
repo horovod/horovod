@@ -140,7 +140,7 @@ and leverages the code of the notebook referenced in the article. The example is
 #. The second part defines a Keras model and performs a distributed training of the model using Horovod on Spark.
 #. The third part performs prediction using the best model and creates a submission file.
 
-To run the example, be sure to install Horovod with ``[spark]``, then:
+To run the example, be sure to install Horovod with ``[spark]`` (as described in the `Installation`_ section above), then:
 
 .. code-block:: bash
 
