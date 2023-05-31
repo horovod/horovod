@@ -86,7 +86,7 @@ leveraging Horovod's ability to scale across multiple workers, without any speci
         .setOutputCols(['predict'])
     predict_df = keras_model.transform(test_df)
 
-The Estimator hides the complexity of gluing Spark DataFrames to a deep learning training script, reading data into a
+The `KerasEstimator <https://github.com/horovod/horovod/blob/master/horovod/spark/keras/estimator.py#L98>`__ hides the complexity of gluing Spark DataFrames to a deep learning training script, reading data into a
 format interpretable by the training framework, and distributing the training using Horovod.  The user only needs to
 provide a Keras or PyTorch model, and the Estimator will do the work of fitting it to the DataFrame.
 
