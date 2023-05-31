@@ -215,7 +215,7 @@ Once the data has been prepared, you can reuse it in future Spark applications w
 ``util.prepare_data`` again.
 
 Horovod Spark Run
-~~~~~~~~~~~~~~~~~
+-----------------
 You can also use Horovod on Spark to run the same code you would within an ordinary training script using any
 framework supported by Horovod.  To do so, simply write your training logic within a function, then use
 ``horovod.spark.run`` to execute the function in parallel with MPI on top of Spark.
@@ -272,13 +272,13 @@ shows how you can use the low level ``horovod.spark.run`` API to train a model e
 
 
 Spark cluster setup
-~~~~~~~~~~~~~~~~~~~
+-------------------
 As deep learning workloads tend to have very different resource requirements
 from typical data processing workloads, there are certain considerations
 for DL Spark cluster setup.
 
 GPU training
-------------
+~~~~~~~~~~~~
 For GPU training, one approach is to set up a separate GPU Spark cluster
 and configure each executor with ``# of CPU cores`` = ``# of GPUs``. This can
 be accomplished in standalone mode as follows:
@@ -295,7 +295,7 @@ requested per process (defaults to 1).
 Note that `Spark 3.0.0 <https://issues.apache.org/jira/browse/SPARK-24615>`__ introduced GPU-aware resource scheduling.
 
 CPU training
-------------
+~~~~~~~~~~~~
 For CPU training, one approach is to specify the ``spark.task.cpus`` setting
 during the training session creation:
 
