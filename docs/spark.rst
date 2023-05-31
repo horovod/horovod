@@ -286,11 +286,10 @@ be accomplished in standalone mode as follows:
     $ /path/to/spark/sbin/start-all.sh
 
 
-This approach turns the ``spark.task.cpus`` setting to control # of GPUs
+This approach turns the `spark.task.cpus <https://spark.apache.org/docs/latest/configuration.html#scheduling>`__ setting to control # of GPUs
 requested per process (defaults to 1).
 
-The ongoing `SPARK-24615 <https://issues.apache.org/jira/browse/SPARK-24615>`__ effort aims to
-introduce GPU-aware resource scheduling in future versions of Spark.
+Note that `Spark 3.0.0 <https://issues.apache.org/jira/browse/SPARK-24615>`__ introduced GPU-aware resource scheduling.
 
 CPU training
 ------------
