@@ -30,7 +30,7 @@ When installing Horovod for usage with Spark, use the extra ``[spark]`` to insta
 
 .. code-block:: bash
 
-    $ ... pip install horovod[spark]
+    pip install horovod[spark]
 
 Note that Horovod Spark Estimators require the following:
 
