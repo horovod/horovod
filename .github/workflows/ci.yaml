@@ -336,21 +336,27 @@ jobs:
             Single_PyTorch_MNIST: true
             build_timeout: 30
 
-          - image: test-cpu-oneccl-py3_8-tf2_8_0-keras2_8_0-torch1_11_0-mxnet1_9_0-pyspark3_2_1
+          - image: test-cpu-oneccl-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
             MPI_Cluster_PyTests_ONECCL_MPI: true
             MPI_Cluster_PyTests_ONECCL_OFI: true
-            MPI_MXNet_MNIST_ONECCL_MPI: true
-            MPI_MXNet_MNIST_ONECCL_OFI: true
+            MPI_MXNet_MNIST_horovodrun_ONECCL_MPI: true
+            MPI_MXNet_MNIST_horovodrun_ONECCL_OFI: true
             MPI_Parallel_PyTests_ONECCL_MPI: true
             MPI_Parallel_PyTests_ONECCL_OFI: true
-            MPI_PyTorch_MNIST_ONECCL_MPI: true
-            MPI_PyTorch_MNIST_ONECCL_OFI: true
+            MPI_PyTorch_MNIST_api_ONECCL_MPI: true
+            MPI_PyTorch_MNIST_api_ONECCL_OFI: true
+            MPI_PyTorch_MNIST_horovodrun_ONECCL_MPI: true
+            MPI_PyTorch_MNIST_horovodrun_ONECCL_OFI: true
             MPI_Single_PyTests_ONECCL_MPI: true
             MPI_Single_PyTests_ONECCL_OFI: true
-            MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_MPI: true
-            MPI_TensorFlow_2_0_Keras_MNIST_ONECCL_OFI: true
-            MPI_TensorFlow_2_0_MNIST_ONECCL_MPI: true
-            MPI_TensorFlow_2_0_MNIST_ONECCL_OFI: true
+            MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_MPI: true
+            MPI_TensorFlow_2_0_Keras_MNIST_api_ONECCL_OFI: true
+            MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_MPI: true
+            MPI_TensorFlow_2_0_Keras_MNIST_horovodrun_ONECCL_OFI: true
+            MPI_TensorFlow_2_0_MNIST_api_ONECCL_MPI: true
+            MPI_TensorFlow_2_0_MNIST_api_ONECCL_OFI: true
+            MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_MPI: true
+            MPI_TensorFlow_2_0_MNIST_horovodrun_ONECCL_OFI: true
             Single_MXNet_MNIST_ONECCL_MPI: true
             Single_MXNet_MNIST_ONECCL_OFI: true
             Single_PyTorch_MNIST_ONECCL_MPI: true
