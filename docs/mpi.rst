@@ -61,7 +61,7 @@ multiprocessing issues that Open MPI has with RDMA which typically results in se
 does not have noticeable performance impact since most of the heavy communication is done by NCCL, which will use RDMA
 via RoCE or InfiniBand if they're available (see `Horovod on GPU <gpus.rst>`_).  Notable exceptions from this rule are
 models that heavily use ``hvd.broadcast()`` and ``hvd.allgather()`` operations.  To make those operations use RDMA,
-read the :ref:`Open MPI with RDMA<open-mpi-with-rdma>` section below.
+read the :ref:`Open MPI with RDMA` section below.
 
 With the ``-x`` option you can specify (``-x NCCL_DEBUG=INFO``) or copy (``-x LD_LIBRARY_PATH``) an environment variable to
 all the workers.
@@ -82,8 +82,6 @@ Specify custom SSH ports with ``-mca plm_rsh_args "-p <port>"`` as follows:
         python train.py
 
 This is frequently useful in the case of `running Horovod in Docker environment <docker.rst>`_.
-
-.. _open-mpi-with-rdma:
 
 Open MPI with RDMA
 ~~~~~~~~~~~~~~~~~~
