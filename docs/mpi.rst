@@ -83,6 +83,8 @@ Specify custom SSH ports with ``-mca plm_rsh_args "-p <port>"`` as follows:
 
 This is frequently useful in the case of `running Horovod in Docker environment <docker.rst>`_.
 
+.. _open-mpi-with-rdma:
+
 Open MPI with RDMA
 ~~~~~~~~~~~~~~~~~~
 
