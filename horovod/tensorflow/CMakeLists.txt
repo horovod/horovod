@@ -76,7 +76,9 @@ set(Tensorflow_CXX17 ${Tensorflow_CXX17} PARENT_SCOPE)
 
 # TF SOURCES
 list(APPEND TF_SOURCES "${PROJECT_SOURCE_DIR}/horovod/tensorflow/mpi_ops.cc")
-list(APPEND TF_SOURCES "${PROJECT_SOURCE_DIR}/horovod/tensorflow/xla_mpi_ops.cc")
+if(NOT USE_GPU_CCL)
+    list(APPEND TF_SOURCES "${PROJECT_SOURCE_DIR}/horovod/tensorflow/xla_mpi_ops.cc")
+endif()
 
 # Create library
 set_output_dir()

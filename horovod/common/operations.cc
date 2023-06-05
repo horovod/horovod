@@ -1,7 +1,7 @@
 // Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 // Modifications copyright (C) 2019 Uber Technologies, Inc.
 // Modifications copyright (C) 2019, NVIDIA CORPORATION. All rights reserved.
-// Modifications copyright (C) 2019 Intel Corporation
+// Modifications copyright (C) 2019-2023 Intel Corporation.
 // Modifications copyright Microsoft
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -72,7 +72,11 @@
 #endif
 
 #if HAVE_CCL
+#if HAVE_GPU
+#include "ops/ccl_gpu_operations.h"
+#else
 #include "ops/ccl_operations.h"
+#endif
 #endif
 
 #if HAVE_GLOO
@@ -138,7 +142,11 @@ DDLContext ddl_context;
 #endif
 
 #if HAVE_CCL
+#if HAVE_GPU
+CCLGPUContext ccl_gpu_context;
+#else
 CCLContext ccl_context;
+#endif
 #endif
 
 std::unique_ptr<OperationManager> op_manager;
@@ -154,7 +162,7 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   std::vector<std::shared_ptr<AllreduceOp>> adasum_ops;
   std::vector<std::shared_ptr<AlltoallOp>> alltoall_ops;
 
-#if HAVE_MPI && HAVE_GPU
+#if HAVE_MPI && HAVE_GPU && !HAVE_SYCL
   if (global_mpi_context.IsEnabled()) {
 #if HOROVOD_GPU_ALLREDUCE == 'M'
     allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
@@ -234,6 +242,14 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #endif
 
 #if HAVE_CCL
+#if HAVE_GPU
+  if (HOROVOD_GPU_ALLREDUCE == 'C')
+    allreduce_ops.push_back(std::make_shared<CCLGPUAllreduce>(
+        &ccl_gpu_context, &gpu_context, &state));
+  if (HOROVOD_GPU_BROADCAST == 'C')
+    broadcast_ops.push_back(std::make_shared<CCLGPUBroadcast>(
+        &ccl_gpu_context, &gpu_context, &state));
+#else
   if (state.cpu_operation == LibType::CCL) {
     allreduce_ops.push_back(
         std::make_shared<CCLAllreduce>(&ccl_context, &state));
@@ -243,6 +259,7 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
         std::make_shared<CCLBroadcast>(&ccl_context, &state));
     alltoall_ops.push_back(std::make_shared<CCLAlltoall>(&ccl_context, &state));
   }
+#endif
 #endif
 
 #if HAVE_MPI
@@ -408,11 +425,12 @@ bool RunLoopOnce(HorovodGlobalState& state);
 
 void BackgroundThreadLoop(HorovodGlobalState& state) {
 #if HAVE_CCL
-  // Initialize ccl context
-  if (state.cpu_operation == LibType::CCL) {
-    ccl_context.Initialize();
-  }
+#if HAVE_GPU
+  ccl_gpu_context.Initialize(state);
+#else
+  ccl_context.Initialize();
 #endif
+#endif // HAVE_CCL
 
 #if HAVE_MPI
   // Initialize mpi context
@@ -462,11 +480,16 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
 #if HAVE_GPU
   // Set number of GPU streams to use
+#if HAVE_SYCL
+  // Always set num_nccl_streams to 1 for oneCCL
+  state.num_nccl_streams = 1;
+#else
   auto horovod_num_nccl_streams = std::getenv(HOROVOD_NUM_NCCL_STREAMS);
   if (horovod_num_nccl_streams != nullptr &&
       std::stol(horovod_num_nccl_streams, nullptr, 10) > 0) {
     state.num_nccl_streams = std::atoi(horovod_num_nccl_streams);
   }
+#endif
 
 #if HAVE_NCCL
   nccl_context.nccl_comms.resize(state.num_nccl_streams);
@@ -737,14 +760,19 @@ shutdown:
   global_gloo_context.Finalize();
 #endif
 
-#if HAVE_MPI
-  global_mpi_context.Finalize(mpi_ctx_manager);
-#endif
-
+  // finalize CCL before MPI
 #if HAVE_CCL
+#if HAVE_GPU
+  ccl_gpu_context.Finalize();
+#else
   if (state.cpu_operation == LibType::CCL) {
     ccl_context.Finalize();
   }
+#endif
+#endif
+
+#if HAVE_MPI
+  global_mpi_context.Finalize(mpi_ctx_manager);
 #endif
 }
 
@@ -1234,6 +1262,14 @@ bool horovod_cuda_built() {
 
 bool horovod_rocm_built() {
 #if HAVE_ROCM
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool horovod_sycl_built() {
+#if HAVE_SYCL
   return true;
 #else
   return false;

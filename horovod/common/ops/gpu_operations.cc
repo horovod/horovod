@@ -1,5 +1,6 @@
 // Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 // Modifications copyright (C) 2019 Uber Technologies, Inc.
+// Modifications copyright (C) 2023 Intel Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +22,9 @@
 #if HAVE_ROCM
 #include "rocm/hip_kernels.h"
 #endif
+#if HAVE_SYCL
+#include "sycl/sycl_kernels.h"
+#endif
 
 #include <thread>
 
@@ -40,7 +44,11 @@ void GPUOpContext::InitGPU(const std::vector<TensorTableEntry>& entries) {
       gpu_context_
           ->streams[global_state_->current_nccl_stream][first_entry.device];
   if (stream == nullptr) {
+#if HAVE_SYCL
+    gpu_context_->StreamCreate(first_entry, stream);
+#else
     gpu_context_->StreamCreate(&stream);
+#endif
   }
 }
 
@@ -196,6 +204,11 @@ void GPUAllreduce::MemcpyInFusionBuffer(
             d2d_params, count,
             gpu_context_->streams[global_state_->current_nccl_stream]
                                  [first_entry.device]);
+#elif HAVE_SYCL
+        BatchedD2DMemcpySYCLImpl(
+            d2d_params, count,
+            gpu_context_->streams[global_state_->current_nccl_stream]
+                                 [first_entry.device]);
 #endif
         // TODO: https://github.com/horovod/horovod/issues/2230
         // gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl",
@@ -259,6 +272,11 @@ void GPUAllreduce::ScaleMemcpyInFusionBuffer(
                                  [first_entry.device]);
 #elif HAVE_ROCM
         BatchedScaledD2DMemcpyROCmImpl(
+            d2d_params, count, scale_factor, first_entry.tensor->dtype(),
+            gpu_context_->streams[global_state_->current_nccl_stream]
+                                 [first_entry.device]);
+#elif HAVE_SYCL
+        BatchedScaledD2DMemcpySYCLImpl(
             d2d_params, count, scale_factor, first_entry.tensor->dtype(),
             gpu_context_->streams[global_state_->current_nccl_stream]
                                  [first_entry.device]);
@@ -337,6 +355,11 @@ void GPUAllreduce::MemcpyOutFusionBuffer(
             d2d_params, count,
             gpu_context_->streams[global_state_->current_nccl_stream]
                                  [first_entry.device]);
+#elif HAVE_SYCL
+        BatchedD2DMemcpySYCLImpl(
+            d2d_params, count,
+            gpu_context_->streams[global_state_->current_nccl_stream]
+                                 [first_entry.device]);
 #endif
         // TODO: https://github.com/horovod/horovod/issues/2230
         // gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl",
@@ -389,6 +412,11 @@ void GPUAllreduce::ScaleMemcpyOutFusionBuffer(
                                  [first_entry.device]);
 #elif HAVE_ROCM
         BatchedScaledD2DMemcpyROCmImpl(
+            d2d_params, count, scale_factor, first_entry.tensor->dtype(),
+            gpu_context_->streams[global_state_->current_nccl_stream]
+                                 [first_entry.device]);
+#elif HAVE_SYCL
+        BatchedScaledD2DMemcpySYCLImpl(
             d2d_params, count, scale_factor, first_entry.tensor->dtype(),
             gpu_context_->streams[global_state_->current_nccl_stream]
                                  [first_entry.device]);
@@ -495,6 +523,11 @@ void GPUAllgather::MemcpyInFusionBuffer(
             d2d_params, count,
             gpu_context_->streams[global_state_->current_nccl_stream]
                                  [first_entry.device]);
+#elif HAVE_SYCL
+        BatchedD2DMemcpySYCLImpl(
+            d2d_params, count,
+            gpu_context_->streams[global_state_->current_nccl_stream]
+                                 [first_entry.device]);
 #endif
         // (kvignesh142): Keeping in sync with all-reduce based implementation
         // TODO: https://github.com/horovod/horovod/issues/2230
@@ -570,6 +603,11 @@ void GPUAllgather::MemcpyOutFusionBuffer(
               d2d_params, count,
               gpu_context_->streams[global_state_->current_nccl_stream]
                                    [first_entry.device]);
+#elif HAVE_SYCL
+          BatchedD2DMemcpySYCLImpl(
+              d2d_params, count,
+              gpu_context_->streams[global_state_->current_nccl_stream]
+                                   [first_entry.device]);
 #endif
           // (kvignesh142): Keeping in sync with all-reduce based implementation
           // TODO: https://github.com/horovod/horovod/issues/2230
@@ -588,6 +626,11 @@ void GPUAllgather::MemcpyOutFusionBuffer(
                                 [first_entry.device]);
 #elif HAVE_ROCM
       BatchedD2DMemcpyROCmImpl(
+          d2d_params, count,
+          gpu_context_->streams[global_state_->current_nccl_stream]
+                                [first_entry.device]);
+#elif HAVE_SYCL
+      BatchedD2DMemcpySYCLImpl(
           d2d_params, count,
           gpu_context_->streams[global_state_->current_nccl_stream]
                                 [first_entry.device]);
@@ -730,6 +773,11 @@ void GPUReducescatter::MemcpyInFusionBuffer(
               d2d_params, count,
               gpu_context_->streams[global_state_->current_nccl_stream]
                                    [first_entry.device]);
+#elif HAVE_SYCL
+          BatchedD2DMemcpySYCLImpl(
+              d2d_params, count,
+              gpu_context_->streams[global_state_->current_nccl_stream]
+                                    [first_entry.device]);
 #endif
           // TODO: https://github.com/horovod/horovod/issues/2230
           // gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl",
@@ -796,6 +844,11 @@ void GPUReducescatter::ScaleMemcpyInFusionBuffer(
               d2d_params, count, scale_factor, first_entry.tensor->dtype(),
               gpu_context_->streams[global_state_->current_nccl_stream]
                                    [first_entry.device]);
+#elif HAVE_SYCL
+          BatchedScaledD2DMemcpySYCLImpl(
+              d2d_params, count, scale_factor, first_entry.tensor->dtype(),
+              gpu_context_->streams[global_state_->current_nccl_stream]
+                                  [first_entry.device]);
 #endif
           // TODO: https://github.com/horovod/horovod/issues/2230
           // gpu_context_->ErrorCheck("BatchedScaledD2DMemcpyCudaImpl",
@@ -849,6 +902,10 @@ void GPUReducescatter::MemcpyOutFusionBuffer(
         BatchedD2DMemcpyROCmImpl(
             d2d_params, count,
             gpu_context_->streams[global_state_->current_nccl_stream][device]);
+#elif HAVE_SYCL
+        BatchedD2DMemcpySYCLImpl(
+            d2d_params, count,
+            gpu_context_->streams[global_state_->current_nccl_stream][device]);
 #endif
         // TODO: https://github.com/horovod/horovod/issues/2230
         // gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl",
@@ -892,6 +949,10 @@ void GPUReducescatter::ScaleMemcpyOutFusionBuffer(
             gpu_context_->streams[global_state_->current_nccl_stream][device]);
 #elif HAVE_ROCM
         BatchedScaledD2DMemcpyROCmImpl(
+            d2d_params, count, scale_factor, first_entry.tensor->dtype(),
+            gpu_context_->streams[global_state_->current_nccl_stream][device]);
+#elif HAVE_SYCL
+        BatchedScaledD2DMemcpySYCLImpl(
             d2d_params, count, scale_factor, first_entry.tensor->dtype(),
             gpu_context_->streams[global_state_->current_nccl_stream][device]);
 #endif

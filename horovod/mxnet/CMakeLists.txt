@@ -2,6 +2,10 @@ if("$ENV{HOROVOD_WITHOUT_MXNET}" STREQUAL "1")
     return()
 endif()
 
+if("$ENV{HOROVOD_WITH_MXNET}" STREQUAL "1" AND USE_DPCPP)
+    message(FATAL_ERROR, "Horovod with MXNet on intel GPU is not supported yet.")
+endif()
+
 set(Mxnet_TARGET_LIB "mxnet")
 
 # Find MXNet

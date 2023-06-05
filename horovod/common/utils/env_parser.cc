@@ -42,7 +42,7 @@ std::string TypeName(LibType type) {
 LibType ParseCPUOpsFromEnv() {
   // set default cpu operations for data transferring
   LibType cpu_operation = LibType::MPI;
-#if HAVE_CCL
+#if HAVE_CCL && !HAVE_GPU
   cpu_operation = LibType::CCL;
 #endif
 

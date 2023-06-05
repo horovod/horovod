@@ -37,7 +37,7 @@ from horovod.tensorflow import size, local_size, cross_size, rank, local_rank, c
 from horovod.tensorflow import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.tensorflow import gloo_enabled, gloo_built
 from horovod.tensorflow.mpi_ops import ProcessSet, global_process_set, add_process_set, remove_process_set
-from horovod.tensorflow import nccl_built, ddl_built, ccl_built, cuda_built, rocm_built
+from horovod.tensorflow import nccl_built, ddl_built, ccl_built, cuda_built, rocm_built, sycl_built
 from horovod.tensorflow import Average, Sum
 from horovod.tensorflow.compression import Compression
 

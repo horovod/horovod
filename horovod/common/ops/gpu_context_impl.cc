@@ -18,7 +18,11 @@ Event GPUContext::RecordEvent(gpuStream_t& stream) {
 }
 
 void GPUContext::ReleaseEvent(Event event) {
+#if HAVE_SYCL
+  pimpl->ReleaseGpuEvent(event);
+#else
   pimpl->ErrorCheck("ReleaseGpuEvent", pimpl->ReleaseGpuEvent(event));
+#endif
 }
 
 void GPUContext::WaitForEvents(
@@ -44,9 +48,15 @@ void GPUContext::ClearEvents(
                      elastic);
 }
 
+#if HAVE_SYCL
+void GPUContext::StreamCreate(const TensorTableEntry& e, gpuStream_t& stream) {
+  pimpl->StreamCreate(e, stream);
+}
+#else
 void GPUContext::StreamCreate(gpuStream_t* stream) {
   pimpl->StreamCreate(stream);
 }
+#endif
 
 void GPUContext::StreamSynchronize(gpuStream_t stream) {
   pimpl->StreamSynchronize(stream);

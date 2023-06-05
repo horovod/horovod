@@ -1,5 +1,5 @@
 // Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
-// Modifications copyright (C) 2019 Intel Corporation
+// Modifications copyright (C) 2019-2023 Intel Corporation.
 // Modifications copyright (C) 2020, NVIDIA CORPORATION. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -68,6 +68,11 @@ using gpuPointerAttribute_t = hipPointerAttribute_t;
       throw std::logic_error(std::string("GPU Error:") + hipGetErrorString(hip_result));  \
     }                                                                                     \
   } while (0)
+#elif HAVE_SYCL
+#include <sycl/sycl.hpp>
+using gpuEvent_t = sycl::event;
+using gpuStream_t = std::shared_ptr<sycl::queue>;
+using gpuError_t = sycl::errc;
 #endif
 #endif
 
@@ -102,6 +107,7 @@ namespace common {
 #define NCCL_ALLTOALL "NCCL_ALLTOALL"
 #define COPY_ALLGATHER_OUTPUT "COPY_ALLGATHER_OUTPUT"
 #define ALLOCATE_SHARED_BUFFER "ALLOCATE_SHARED_BUFFER"
+#define INIT_CCL "INIT_CCL"
 #define CCL_ALLREDUCE "CCL_ALLREDUCE"
 #define CCL_ALLGATHER "CCL_ALLGATHER"
 #define CCL_BCAST "CCL_BCAST"
@@ -347,6 +353,10 @@ public:
                                 std::shared_ptr<Tensor>* tensor) = 0;
   virtual Framework framework() const = 0;
   virtual ~OpContext() = default;
+#if HAVE_GPU && HAVE_SYCL
+  // return framework's stream for given device
+  virtual sycl::queue SYCLQueue() const = 0;
+#endif
 };
 
 // A callback to call after the communication completes. Since the

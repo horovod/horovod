@@ -373,6 +373,14 @@ class HorovodBasics(object):
         """
         return bool(self.MPI_LIB_CTYPES.horovod_rocm_built())
 
+    def sycl_built(self):
+        """Returns True if Horovod was compiled with SYCL support.
+
+        Returns:
+          A boolean value indicating whether SYCL support was compiled.
+        """
+        return bool(self.MPI_LIB_CTYPES.horovod_sycl_built())
+
     def _add_process_set_impl(self, ranks: Sequence[int]) -> Optional[int]:
         """ Add a new process set and return its id. If a process set containing the same ranks exists already, return
          None.

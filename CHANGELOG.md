@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Enable Allreduce/Broadcast Tensorflow ops by Intel® oneAPI (DPC++ compiler/oneCCL/IMPI included) software stack on Intel GPU device.
+
 ### Changed
 
 ### Deprecated

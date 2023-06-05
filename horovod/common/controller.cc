@@ -1,6 +1,7 @@
 // Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
 // Modifications copyright Microsoft
 // Modifications copyright (C) 2020, NVIDIA CORPORATION. All rights reserved.
+// Modifications copyright (C) 2019-2023 Intel Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,6 +31,8 @@
 #include "ops/cuda/cuda_kernels.h"
 #elif HAVE_ROCM
 #include "ops/rocm/hip_kernels.h"
+#elif HAVE_SYCL
+#include "ops/sycl/sycl_kernels.h"
 #endif
 
 
@@ -919,7 +922,7 @@ void Controller::FuseResponses(std::deque<Response>& responses,
       // Attempt to add more responses to this fused response.
 
       tensor_size = response.tensor_sizes()[0] * GetTypeSize(response.tensor_type());
-#if HAVE_CUDA || HAVE_ROCM
+#if HAVE_CUDA || HAVE_ROCM || HAVE_SYCL
       if (state.batch_d2d_memcopies &&
           response.response_type() != Response::ResponseType::REDUCESCATTER) {
         // Add 16 byte pad for batched memcpy op
@@ -927,7 +930,7 @@ void Controller::FuseResponses(std::deque<Response>& responses,
             BATCHED_D2D_PADDING *
             ((tensor_size + BATCHED_D2D_PADDING - 1) / BATCHED_D2D_PADDING);
       }
-#endif // HAVE_CUDA || HAVE_ROCM
+#endif // HAVE_CUDA || HAVE_ROCM || HAVE_SYCL
       std::deque<Response> skipped_responses;
       int64_t skipped_size = 0;
       while (!responses.empty()) {
@@ -939,7 +942,7 @@ void Controller::FuseResponses(std::deque<Response>& responses,
                                       : new_response.tensor_sizes()[0] *
                                         GetTypeSize(new_response.tensor_type());
 
-#if HAVE_CUDA || HAVE_ROCM
+#if HAVE_CUDA || HAVE_ROCM || HAVE_SYCL
         if (state.batch_d2d_memcopies &&
             response.response_type() != Response::ResponseType::REDUCESCATTER) {
           // Add 16 byte pad for batched memcpy op
@@ -947,7 +950,7 @@ void Controller::FuseResponses(std::deque<Response>& responses,
                             ((new_tensor_size + BATCHED_D2D_PADDING - 1) /
                              BATCHED_D2D_PADDING);
         }
-#endif // HAVE_CUDA || HAVE_ROCM
+#endif // HAVE_CUDA || HAVE_ROCM || HAVE_SYCL
 
         if (response.response_type() == new_response.response_type() &&
             response.devices() == new_response.devices() &&
@@ -1006,7 +1009,7 @@ void Controller::FuseResponses(std::deque<Response>& responses,
           tensor_queue_.GetTensorEntry(response.tensor_names()[0]);
 
       int rankwise_padding_bytes = 1;
-#if HAVE_CUDA || HAVE_ROCM
+#if HAVE_CUDA || HAVE_ROCM || HAVE_SYCL
       // 16 byte pad for efficient allgather
       rankwise_padding_bytes = BATCHED_D2D_PADDING;
 #endif

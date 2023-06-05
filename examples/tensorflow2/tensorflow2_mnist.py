@@ -25,11 +25,12 @@ def main():
     hvd.init()
 
     # Horovod: pin GPU to be used to process local rank (one GPU per process)
-    gpus = tf.config.experimental.list_physical_devices('GPU')
+    device_name = 'XPU' if hvd.sycl_built() else 'GPU'
+    gpus = tf.config.experimental.list_physical_devices(device_name)
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
     if gpus:
-        tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
+        tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], device_name)
 
     (mnist_images, mnist_labels), _ = \
         tf.keras.datasets.mnist.load_data(path='mnist-%d.npz' % hvd.rank())

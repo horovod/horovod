@@ -1,6 +1,7 @@
 // Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 // Modifications copyright (C) 2019 Uber Technologies, Inc.
 // Modifications copyright (C) 2020, NVIDIA CORPORATION. All rights reserved.
+// Modifications copyright (C) 2023 Intel Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -89,8 +90,12 @@ public:
                    Timeline& timeline,
                    const std::function<void()>& error_check_callback = nullptr,
                    bool elastic = false);
-
+#if HAVE_SYCL
+  // SYCL does not support SetDevice, we set device with framework stream
+  void StreamCreate(const TensorTableEntry& e, gpuStream_t& stream);
+#else
   void StreamCreate(gpuStream_t* stream);
+#endif
   void StreamSynchronize(gpuStream_t stream);
 
   int GetDevice();

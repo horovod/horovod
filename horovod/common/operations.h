@@ -1,5 +1,6 @@
 // Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
 // Modifications copyright Microsoft
+// Modifications copyright (C) 2023 Intel Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -98,6 +99,9 @@ bool horovod_cuda_built();
 
 // C interface to return flag indicating whether Horovod was compiled with ROCm support.
 bool horovod_rocm_built();
+
+// C interface to return flag indicating whether Horovod was compiled with SYCL support.
+bool horovod_sycl_built();
 
 // C interface to return value of the ReduceOp::AVERAGE enum field.
 int horovod_reduce_op_average();
