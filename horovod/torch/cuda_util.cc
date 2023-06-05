@@ -49,7 +49,6 @@ static void initialize_driver_api() {
   }
 }
 #endif
-#endif
 
 with_device::with_device(int device) {
   if (device == CPU_DEVICE_ID) {
