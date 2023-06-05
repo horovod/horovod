@@ -55,7 +55,7 @@ with_device::with_device(int device) {
     restore_device_ = CPU_DEVICE_ID;
   } else {
 #if HAVE_GPU
-#ifndef __HIP_PLATFORM_HCC__
+#if !HAVE_ROCM
     if (!cudalib)
       initialize_driver_api();
     CUdevice cudev;
