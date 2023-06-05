@@ -29,8 +29,7 @@
 namespace horovod {
 namespace torch {
 
-#ifndef __HIP_PLATFORM_HCC__
-#if HAVE_GPU
+#if HAVE_GPU && !HAVE_ROCM
 typedef CUresult(CUDAAPI* PFN_cuCtxGetDevice)(CUdevice* device);
 static void* cudalib = nullptr;
 static PFN_cuCtxGetDevice pfn_cuCtxGetDevice = nullptr;
