@@ -17,6 +17,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 
+## [v0.28.1] - 2023-06-12
+
+### Fixed
+
+- Fixed build with gcc 12. ([#3925](https://github.com/horovod/horovod/pull/3925))
+- PyTorch: Fixed build on ROCm. ([#3928](https://github.com/horovod/horovod/pull/3928))
+- TensorFlow: Fixed local_rank_op. ([#3940](https://github.com/horovod/horovod/pull/3940))
+
+
 ## [v0.28.0] - 2023-05-10
 
 ### Added
