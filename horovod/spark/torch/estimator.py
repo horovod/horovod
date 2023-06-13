@@ -516,7 +516,7 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
         override_fields = df.limit(1).rdd.mapPartitions(predict).toDF().schema.fields[-len(output_cols):]
         for name, override, label in zip(output_cols, override_fields, label_cols):
             # default data type as label type
-            data_type = metadata[label]['spark_data_type']()
+            data_type = metadata[label]['spark_data_type']
 
             if type(override.dataType) == VectorUDT:
                 # Override output to vector. This is mainly for torch's classification loss
