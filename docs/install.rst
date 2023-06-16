@@ -158,7 +158,8 @@ Tensor Operations
 -----------------
 
 For running on GPUs with optimal performance, we recommend installing Horovod with NCCL support following the
-`Horovod on GPU <gpus.rst>`_ guide.
+`Horovod on GPU <gpus.rst>`_ guide or installing Horovod with oneCCL GPU support following the
+`Horovod on Intel GPU <intel_gpus.rst>`_ guide.
 
 For tensor data on CPU, you can use MPI, Gloo, and Intel's oneCCL. By default, the framework used by your controller
 will be used for CPU operations. You can override this by setting ``HOROVOD_CPU_OPERATIONS`` in your environment.
@@ -174,6 +175,19 @@ environment to specify building with CUDA or ROCm. CUDA will be assumed if not s
 
 Note that Alltoall requires NCCL version >= 2.7.0.
 
+oneCCL
+~~~~~~
+
+`oneCCL(oneAPI Collective Communications Library) <https://www.intel.com/content/www/us/en/developer/tools/oneapi/oneccl.html>`_
+provides an efficient implementation of collective operations like Reduce, Allreduce, Broadcast, Allgather, Reducescatter
+and Alltoall, which are supported on both Intel CPU and Intel GPU devices.
+
+To enable oneCCL operations on Intel GPUs, see `Horovod with oneCCL on Intel GPU <intel_gpus.rst>`_ for details.
+
+To enable oneCCL operations on Intel CPUs, see `Horovod with oneCCL on Intel CPU <oneccl.rst>`_ for details.
+
+**Note**: Horovod does not support oneCCL as CPU operations and GPU operations at the same time. If you enable oneCCL with Intel GPU, then CPU operations will fallback to use MPI.
+
 MPI
 ~~~
 
@@ -188,15 +202,6 @@ Gloo
 ~~~~
 
 When using a Gloo controller, Gloo will be used in place of MPI for CPU operations by default.
-
-oneCCL
-~~~~~~
-
-oneCCL is an Intel library for accelerated collective operations on CPU. See
-`Horovod with Intel(R) oneCCL <oneccl.rst>`_ for more details.
-
-Set ``HOROVOD_CPU_OPERATIONS=CCL`` to use oneCCL.
-
 
 Check Build
 -----------

@@ -18,6 +18,8 @@
 namespace horovod {
 namespace common {
 
+template <typename T, typename TS> class ScaleBufferSYCLKernelImpl;
+
 template <typename TL, typename T, typename TS>
 void BatchedScaledMemcpyDatatype(size_t idx, const T* input, T* output,
                                  size_t size, const TS scale_factor,
@@ -226,6 +228,68 @@ void BatchedScaledD2DMemcpySYCLImpl(BatchedD2DParams& params, int num_copies,
   default:
     throw std::logic_error("Type " + DataType_Name(dtype) +
                            " not supported by BatchedScaledD2DMemcpySYCLImpl.");
+  }
+}
+
+template <typename T, typename TS>
+void ScaleBufferSYCLKernel(const T* input, T* output, int64_t num_elements,
+                           TS scale_factor, gpuStream_t stream) {
+  const int wg_size =
+      stream->get_device().get_info<sycl::info::device::max_work_group_size>();
+  const int num_workgroups = (num_elements + wg_size - 1) / wg_size;
+  stream->submit([&](sycl::handler& h) {
+    sycl::range<1> global(num_workgroups * wg_size);
+    sycl::range<1> local(wg_size);
+    h.parallel_for<ScaleBufferSYCLKernelImpl<T, TS>>(
+        sycl::nd_range<1>(global, local), [=](sycl::nd_item<1> it) {
+          auto id = it.get_global_linear_id();
+          if (id >= num_elements)
+            return;
+          output[id] = scale_factor * input[id];
+        });
+  });
+}
+
+void ScaleBufferSYCLImpl(const void* fused_input_data, void* buffer_data,
+                         int64_t num_elements, double scale_factor,
+                         DataType dtype, gpuStream_t stream) {
+  auto float_scale_factor = (float)scale_factor;
+  switch (dtype) {
+  case HOROVOD_UINT8:
+    ScaleBufferSYCLKernel((const uint8_t*)fused_input_data,
+                          (uint8_t*)buffer_data, num_elements,
+                          float_scale_factor, stream);
+    break;
+  case HOROVOD_INT8:
+    ScaleBufferSYCLKernel((const int8_t*)fused_input_data, (int8_t*)buffer_data,
+                          num_elements, float_scale_factor, stream);
+    break;
+  case HOROVOD_INT32:
+    ScaleBufferSYCLKernel((const int32_t*)fused_input_data,
+                          (int32_t*)buffer_data, num_elements,
+                          float_scale_factor, stream);
+    break;
+  case HOROVOD_INT64:
+    ScaleBufferSYCLKernel((const int64_t*)fused_input_data,
+                          (int64_t*)buffer_data, num_elements,
+                          float_scale_factor, stream);
+    break;
+  case HOROVOD_FLOAT16:
+    ScaleBufferSYCLKernel((const sycl::half*)fused_input_data,
+                          (sycl::half*)buffer_data, num_elements,
+                          (sycl::half)float_scale_factor, stream);
+    break;
+  case HOROVOD_FLOAT32:
+    ScaleBufferSYCLKernel((const float*)fused_input_data, (float*)buffer_data,
+                          num_elements, float_scale_factor, stream);
+    break;
+  case HOROVOD_FLOAT64:
+    ScaleBufferSYCLKernel((const double*)fused_input_data, (double*)buffer_data,
+                          num_elements, scale_factor, stream);
+    break;
+  default:
+    throw std::logic_error("Type " + DataType_Name(dtype) +
+                           " not supported by ScaleBufferSyclImpl.");
   }
 }
 

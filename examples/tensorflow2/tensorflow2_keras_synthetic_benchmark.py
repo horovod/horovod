@@ -54,12 +54,12 @@ if hvd.rank() == 0:
 
 # Horovod: pin GPU to be used to process local rank (one GPU per process)
 if args.cuda:
-    device_name = 'XPU' if hvd.sycl_built() else 'GPU'
-    gpus = tf.config.experimental.list_physical_devices(device_name)
+    device_type = 'XPU' if hvd.sycl_built() else 'GPU'
+    gpus = tf.config.experimental.list_physical_devices(device_type)
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
     if gpus:
-        tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], device_name)
+        tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], device_type)
 else:
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 

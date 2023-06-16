@@ -41,6 +41,10 @@ void BatchedD2DMemcpySYCLImpl(BatchedD2DParams& params, int num_copies,
 void BatchedScaledD2DMemcpySYCLImpl(BatchedD2DParams& params, int num_copies,
                                     double scale_factor, DataType dtype,
                                     std::shared_ptr<sycl::queue> stream);
+// Scales buffer by scalar
+void ScaleBufferSYCLImpl(const void* fused_input_data, void* buffer_data,
+                         const int64_t num_elements, double scale_factor,
+                         DataType dtype, std::shared_ptr<sycl::queue> stream);
 } // namespace common
 } // namespace horovod
 

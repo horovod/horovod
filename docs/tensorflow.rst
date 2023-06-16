@@ -24,11 +24,14 @@ To use Horovod with TensorFlow, make the following modifications to your trainin
 
    .. code-block:: python
 
-       gpus = tf.config.experimental.list_physical_devices('GPU')
+       device_type = 'XPU' if hvd.sycl_built() else 'GPU'
+       gpus = tf.config.experimental.list_physical_devices(device_type)
        for gpu in gpus:
            tf.config.experimental.set_memory_growth(gpu, True)
        if gpus:
-           tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
+           tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], device_type)
+
+   **Note**: For Nvidia GPU devices, their device_type are ``GPU`` in Tensorflow. For Intel GPU devices, follow `Horovod on Intel GPU <intel_gpus.rst>`_ to install software dependency and use ``XPU`` device_type as a device abstraction for Intel computation architectures.
 
 .. raw:: html
 
@@ -136,11 +139,12 @@ TensorFlow v2 Example (from the `MNIST <https://github.com/horovod/horovod/blob/
     hvd.init()
 
     # Pin GPU to be used to process local rank (one GPU per process)
-    gpus = tf.config.experimental.list_physical_devices('GPU')
+    device_type = 'XPU' if hvd.sycl_built() else 'GPU'
+    gpus = tf.config.experimental.list_physical_devices(device_type)
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
     if gpus:
-        tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
+        tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], device_type)
 
     # Build model and dataset
     dataset = ...

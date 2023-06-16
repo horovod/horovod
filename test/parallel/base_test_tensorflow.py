@@ -84,6 +84,6 @@ class BaseTensorFlowTests(tf.test.TestCase):
             return tf.random_uniform(*args, **kwargs)
 
     def filter_supported_types(self, types):
-        if 'CCL_ROOT' in os.environ:
+        if 'CCL_ROOT' in os.environ and not 'CMPLR_ROOT' in os.environ:
            types = [t for t in types if t in ccl_supported_types]
         return types

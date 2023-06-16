@@ -1,8 +1,12 @@
 .. inclusion-marker-start-do-not-remove
 
-Horovod with Intel(R) oneCCL
-============================
-To use Horovod with the Intel(R) oneAPI Collective Communications Library (oneCCL), follow the steps below.
+Horovod with oneCCL on Intel CPU
+================================
+
+`oneCCL(oneAPI Collective Communications Library) <https://www.intel.com/content/www/us/en/developer/tools/oneapi/oneccl.html>`_
+provides an efficient implementation of collective operations. 
+
+This document guides users to enable Horovod with oneCCL operations on Intel CPU.
 
 1. Install `oneCCL <https://github.com/intel/oneccl>`_.
 
