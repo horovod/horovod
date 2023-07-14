@@ -134,13 +134,15 @@ To install Horovod on Linux or macOS:
 
       $ pip install horovod
 
-   To run on GPUs with NCCL:
+   To run on Nvidia GPUs with NCCL:
 
    .. code-block:: bash
 
       $ HOROVOD_GPU_OPERATIONS=NCCL pip install horovod
 
-For more details on installing Horovod with GPU support, read `Horovod on GPU <gpus.rst>`_.
+For more details on installing Horovod with Nvidia GPU support, read `Horovod on GPU <gpus.rst>`_.
+
+For more details on installing Horovod with Intel GPU support, read `Horovod on Intel GPU <intel_gpus.rst>`_.
 
 For the full list of Horovod installation options, read the `Installation Guide <install.rst>`_.
 

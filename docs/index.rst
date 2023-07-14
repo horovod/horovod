@@ -119,6 +119,8 @@ Guides
 
    gpus_include
 
+   intel_gpus
+
    mpi_include
 
    oneccl_include

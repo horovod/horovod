@@ -29,7 +29,7 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
     """
     def __init__(self, *args, **kwargs):
         super(TensorFlowProcessSetsTests, self).__init__(*args, **kwargs)
-        if tf.config.list_physical_devices('XPU'):
+        if hvd.sycl_built():
             import os
             os.environ['ITEX_LIMIT_MEMORY_SIZE_IN_MB'] = '4096'
 
@@ -117,7 +117,7 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
     def test_horovod_allreduce_gpu_process_sets(self):
         """ Test on GPU that allreduce correctly sums if restricted to non-global process sets"""
         # Only do this test if there are GPUs available.
-        if not tf.test.is_gpu_available(cuda_only=True) and not tf.config.list_physical_devices('XPU'):
+        if not tf.test.is_gpu_available(cuda_only=True) and not hvd.sycl_built():
             self.skipTest("No GPUs available")
 
         if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
@@ -280,7 +280,7 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
 
     def test_horovod_grouped_allreduce_gpu_process_sets(self):
         """Test on GPU that the grouped allreduce correctly sums if restricted to non-global process sets"""
-        if not tf.test.is_gpu_available(cuda_only=True) and not tf.config.list_physical_devices('XPU'):
+        if not tf.test.is_gpu_available(cuda_only=True) and not hvd.sycl_built():
             self.skipTest("No GPUs available")
         if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
             # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
@@ -590,7 +590,7 @@ class TensorFlowProcessSetsTests(BaseTensorFlowTests):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors on GPU
          if restricted to non-global process sets"""
         # Only do this test if there are GPUs available.
-        if not tf.test.is_gpu_available(cuda_only=True) and not tf.config.list_physical_devices('XPU'):
+        if not tf.test.is_gpu_available(cuda_only=True) and not hvd.sycl_built():
             self.skipTest("No GPUs available")
 
         if int(os.environ.get('HOROVOD_MIXED_INSTALL', 0)):
