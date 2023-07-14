@@ -2,7 +2,7 @@ if("$ENV{HOROVOD_WITHOUT_MXNET}" STREQUAL "1")
     return()
 endif()
 
-if("$ENV{HOROVOD_WITH_MXNET}" STREQUAL "1" AND USE_DPCPP)
+if("$ENV{HOROVOD_WITH_MXNET}" STREQUAL "1" AND HAVE_SYCL)
     message(FATAL_ERROR, "Horovod with MXNet on intel GPU is not supported yet.")
 endif()
 

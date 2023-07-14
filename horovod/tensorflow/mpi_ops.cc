@@ -255,6 +255,7 @@ gpuEvent_t TFReadyEvent::event() const {
 TFReadyEvent::TFReadyEvent(OpKernelContext* context) {
   ctx_ = new TFOpContext(context);
   auto stream = ctx_->SYCLQueue();
+  // `ext_oneapi_submit_barrier` is supported by intel DPC++ only
   event_ = stream.ext_oneapi_submit_barrier();
 }
 bool TFReadyEvent::Ready() const {
@@ -305,8 +306,7 @@ TFPersistentBuffer::TFPersistentBuffer(OpKernelContext* context, int64_t size) {
   if (!status.ok()) {
     throw status;
   }
-
-#if HAVE_GPU && !HAVE_SYCL
+#if HAVE_GPU
   // On GPU allocation is asynchronous, we need to wait for it to
   // complete.
   auto device_context = context->op_device_context();
@@ -466,9 +466,6 @@ TFOpContext::AllocateZeros(int64_t num_elements, common::DataType dtype,
   }
 
   Status status = context_->allocate_temp(tf_data_type, ::tensorflow::TensorShape({num_elements}), zero_tensor.get(), tf_attribute);
-#if HAVE_GPU && HAVE_SYCL
-  gpuEvent_t ev;
-#endif // HAVE_GPU && HAVE_SYCL
 
   if (device_ != CPU_DEVICE_ID) {
 #if HAVE_GPU
@@ -478,7 +475,7 @@ TFOpContext::AllocateZeros(int64_t num_elements, common::DataType dtype,
     auto stream = this->SYCLQueue();
     void *ptr = (void*)zero_tensor->tensor_data().data();
     auto size = zero_tensor->tensor_data().size();
-    ev = stream.memset(ptr, 0, size);
+    stream.memset(ptr, 0, size);
 #else
     auto stream = (device_context != nullptr) ? stream_executor::gpu::AsGpuStreamValue(device_context->stream()) : 0;
     void *ptr = (void*)zero_tensor->tensor_data().data();
@@ -494,9 +491,6 @@ TFOpContext::AllocateZeros(int64_t num_elements, common::DataType dtype,
   }
 
 #if HAVE_GPU
-#if HAVE_SYCL
-  ev.wait();
-#else
   // On GPU allocation is asynchronous, we need to wait for it to
   // complete.
   auto device_context = context_->op_device_context();
@@ -506,7 +500,6 @@ TFOpContext::AllocateZeros(int64_t num_elements, common::DataType dtype,
       return ConvertStatus(status_gpu);
     }
   }
-#endif // HAVE_SYCL
 #endif // HAVE_GPU
   return ConvertStatus(status);
 }

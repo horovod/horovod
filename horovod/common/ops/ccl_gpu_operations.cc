@@ -122,6 +122,9 @@ void CCLGPUOpContext::InitCCLComm(const gpuStream_t& stream,
     process_set.controller->Barrier(Communicator::GLOBAL);
     timeline.ActivityEndAll(entries);
   }
+
+  ccl4hvd_ = &ccl_context_->ccl_comms[global_state_->current_nccl_stream].
+                              at(std::make_tuple(process_set_id, ccl_device_map));
 }
 
 // helpers
@@ -145,22 +148,6 @@ void CCLGPUOpContext::PopulateCCLCommStrategy(int& ccl_rank, int& ccl_size,
 bool CCLGPUOpContext::IsEnabled(
     const std::vector<TensorTableEntry>& entries) const {
   return entries[0].device != CPU_DEVICE_ID;
-}
-
-ccl::communicator&
-CCLGPUOpContext::GetCCLComm(const TensorTableEntry& entry,
-                            const std::vector<int32_t>& devices) {
-  return ccl_context_->ccl_comms[global_state_->current_nccl_stream]
-      .at(std::make_tuple(entry.process_set_id, devices))
-      .ccl_comm_;
-}
-
-ccl::stream&
-CCLGPUOpContext::GetCCLStream(const TensorTableEntry& entry,
-                              const std::vector<int32_t>& devices) {
-  return ccl_context_->ccl_comms[global_state_->current_nccl_stream]
-      .at(std::make_tuple(entry.process_set_id, devices))
-      .ccl_stream_;
 }
 
 // Allreduce
@@ -263,8 +250,8 @@ Status CCLGPUAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     ccl::allreduce(
         fused_input_data, buffer_data, (size_t)num_elements,
         GetCCLDataType(first_entry.tensor), ccl_reduction_op,
-        ccl_op_context_.GetCCLComm(first_entry, response.devices()),
-        ccl_op_context_.GetCCLStream(first_entry, response.devices()), attr)
+        ccl_op_context_.ccl4hvd_->ccl_comm_,
+        ccl_op_context_.ccl4hvd_->ccl_stream_, attr)
         .wait();
   });
 
@@ -310,10 +297,11 @@ void CCLGPUAllreduce::WaitForData(std::vector<TensorTableEntry>& entries) {
     for (auto& e : entries) {
       e.ready_event_list.PushEventsToSet(event_set);
     }
-
-    for (auto ev : event_set) {
-      ev.wait();
-    }
+    std::vector<gpuEvent_t> wait_list(event_set.cbegin(), event_set.cend());
+    auto stream =
+        gpu_context_
+            ->streams[global_state_->current_nccl_stream][entries[0].device];
+    stream->ext_oneapi_submit_barrier(wait_list);
   }
 }
 
@@ -351,8 +339,8 @@ Status CCLGPUBroadcast::Execute(std::vector<TensorTableEntry>& entries,
         /* size */ first_entry.tensor->shape().num_elements() *
             DataType_Size(first_entry.tensor->dtype()),
         ccl::datatype::int8, first_entry.root_rank,
-        ccl_op_context_.GetCCLComm(first_entry, response.devices()),
-        ccl_op_context_.GetCCLStream(first_entry, response.devices()), attr)
+        ccl_op_context_.ccl4hvd_->ccl_comm_,
+        ccl_op_context_.ccl4hvd_->ccl_stream_, attr)
         .wait();
   });
 
@@ -381,9 +369,11 @@ void CCLGPUBroadcast::WaitForData(std::vector<TensorTableEntry>& entries) {
     for (auto& e : entries) {
       e.ready_event_list.PushEventsToSet(event_set);
     }
-    for (auto ev : event_set) {
-      ev.wait();
-    }
+    std::vector<gpuEvent_t> wait_list(event_set.cbegin(), event_set.cend());
+    auto stream =
+        gpu_context_
+            ->streams[global_state_->current_nccl_stream][entries[0].device];
+    stream->ext_oneapi_submit_barrier(wait_list);
   }
 }
 

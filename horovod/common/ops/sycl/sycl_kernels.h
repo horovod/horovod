@@ -19,7 +19,6 @@
 #include <sycl/sycl.hpp>
 
 #include "../../common.h"
-#include "../../global_state.h"
 #include "../../message.h"
 
 #define BATCHED_D2D_CAPACITY 80

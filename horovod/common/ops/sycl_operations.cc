@@ -65,6 +65,7 @@ public:
                    std::string name, gpuStream_t& stream) {
     Event event;
     GetGpuEvent(&event, stream);
+    // `ext_oneapi_submit_barrier` is supported by intel DPC++ only
     *(event.event) = stream->ext_oneapi_submit_barrier();
     event_queue.emplace(name, event);
   }

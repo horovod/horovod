@@ -84,7 +84,7 @@ public:
                             const std::vector<int32_t>& devices);
 
   std::shared_ptr<ccl::kvs> kvs_;
-
+  ccl4hvd* ccl4hvd_;
   // oneCCL does not support async error check
   std::function<void()> error_check_callback_;
 

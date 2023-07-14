@@ -777,7 +777,7 @@ void GPUReducescatter::MemcpyInFusionBuffer(
           BatchedD2DMemcpySYCLImpl(
               d2d_params, count,
               gpu_context_->streams[global_state_->current_nccl_stream]
-                                    [first_entry.device]);
+                                   [first_entry.device]);
 #endif
           // TODO: https://github.com/horovod/horovod/issues/2230
           // gpu_context_->ErrorCheck("BatchedD2DMemcpyCudaImpl",
@@ -848,7 +848,7 @@ void GPUReducescatter::ScaleMemcpyInFusionBuffer(
           BatchedScaledD2DMemcpySYCLImpl(
               d2d_params, count, scale_factor, first_entry.tensor->dtype(),
               gpu_context_->streams[global_state_->current_nccl_stream]
-                                  [first_entry.device]);
+                                   [first_entry.device]);
 #endif
           // TODO: https://github.com/horovod/horovod/issues/2230
           // gpu_context_->ErrorCheck("BatchedScaledD2DMemcpyCudaImpl",
