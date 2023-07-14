@@ -282,3 +282,24 @@ services:
         MXNET_PACKAGE: mxnet-cu112==1.9.1
         HOROVOD_BUILD_FLAGS: ""
         HOROVOD_MIXED_INSTALL: 1
+
+  test-xpu-base:
+    build:
+      context: .
+      dockerfile: Dockerfile.test.xpu
+      args:
+        UBUNTU_VERSION: 22.04
+        ICD_VER: 23.05.25593.18-601~22.04
+        LEVEL_ZERO_GPU_VER: 1.3.25593.18-601~22.04
+        LEVEL_ZERO_VER: 1.9.4+i589~22.04
+        LEVEL_ZERO_DEV_VER: 1.9.4+i589~22.04
+        DPCPP_VER: 2023.1.0-46305
+        MKL_VER: 2023.1.0-46342
+        CCL_VER: 2021.9.0-43543
+        PYTHON_VERSION: "3.10"
+        TENSORFLOW_PACKAGE: tensorflow==2.12.0
+    privileged: true
+    shm_size: 8gb
+
+  test-xpu-impi-py3_10-tf2_12_0:
+    extends: test-xpu-base

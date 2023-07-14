@@ -95,6 +95,22 @@ steps:
     automatic: true
   agents:
     queue: cpu-v5111
+- label: ':docker: Build test-xpu-impi-py3_10-tf2_12_0'
+  env:
+    COMPOSE_HTTP_TIMEOUT: 300
+  plugins:
+  - docker-compose#v3.10.0:
+      build: test-xpu-impi-py3_10-tf2_12_0
+      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
+      config: docker-compose.test.yml
+      push-retries: 5
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 40
+  retry:
+    automatic: true
+  agents:
+    queue: cpu-v5111
 - wait
 - wait
 - label: ':pytest: Gloo Parallel PyTests (test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_4_0)'

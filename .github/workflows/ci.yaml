@@ -404,6 +404,9 @@ jobs:
           - image: test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
             build_timeout: 40
 
+          - image: test-xpu-impi-py3_10-tf2_12_0
+            build_timeout: 40
+
     steps:
       - name: Clean up disk space
         # deleting these paths frees 38 GB disk space:
