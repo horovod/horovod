@@ -119,6 +119,8 @@ def PartialDistributedOptimizer(optimizer, name=None,
                                 sparse_as_dense=False,
                                 gradient_predivide_factor=1.0,
                                 op=Average,
+                                backward_passes_per_step=1,
+                                average_aggregated_gradients=False,
                                 groups=None,
                                 process_set=global_process_set,
                                 local_layers=None, scale_local_gradients=True):
@@ -130,6 +132,14 @@ def PartialDistributedOptimizer(optimizer, name=None,
         optimizer: Optimizer to use for computing gradients and applying updates.
         process_set: Gradients will only be reduced over Horovod processes belonging
                    to this process set. Defaults to the global process set.
+        backward_passes_per_step: Number of backward passes to perform before calling
+                                  hvd.allreduce. This allows accumulating updates over
+                                  multiple mini-batches before reducing and applying them.
+        average_aggregated_gradients: Whether to average the aggregated gradients that
+                                      have been accumulated over multiple mini-batches.
+                                      If true divides gradient updates by
+                                      backward_passes_per_step.
+                                      Only applicable for backward_passes_per_step > 1.
         local_layers: A collection of type tf.keras.layers.Layer local layers that their gradients need not
             to be synced accross ranks and is kept and applied locally.
             If not provided, the functionality of PartialDistributedOptimizer is
@@ -169,6 +179,8 @@ def PartialDistributedOptimizer(optimizer, name=None,
         sparse_as_dense=sparse_as_dense,
         gradient_predivide_factor=gradient_predivide_factor,
         op=op,
+        backward_passes_per_step=backward_passes_per_step,
+        average_aggregated_gradients=average_aggregated_gradients,
         groups=groups,
         process_set=process_set,
         scale_local_gradients=scale_local_gradients
