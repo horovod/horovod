@@ -244,7 +244,7 @@ services:
         MXNET_PACKAGE: mxnet-nightly-cu112
   # these are the lowest TensorFlow and PyTorch versions that Horovod compiles with on CUDA 11.x container, but they are not tested
   # (MXNet uses a more recent version, for which a cu112 version is available)
-  test-gpu-openmpi-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin:
+  test-gpu-openmpi-gloo-py3_8-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin:
     extends: test-gpu-base
     build:
       args:
@@ -252,7 +252,7 @@ services:
         CUDNN_VERSION: 8.4.1.50-1+cuda11.6
         NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
         MPI_KIND: OpenMPI
-        PYTHON_VERSION: 3.3
+        PYTHON_VERSION: 3.8
         TENSORFLOW_PACKAGE: nvidia-tensorflow==1.15.5+nv23.3
         KERAS_PACKAGE: keras==2.2.4
         # torch ships its own CUDA libraries

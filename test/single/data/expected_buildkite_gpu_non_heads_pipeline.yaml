@@ -63,12 +63,12 @@ steps:
     automatic: true
   agents:
     queue: cpu-v5111
-- label: ':docker: Build test-gpu-openmpi-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin'
+- label: ':docker: Build test-gpu-openmpi-gloo-py3_8-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin'
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
   - docker-compose#v3.10.0:
-      build: test-gpu-openmpi-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin
+      build: test-gpu-openmpi-gloo-py3_8-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin
       image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
       config: docker-compose.test.yml
       push-retries: 5

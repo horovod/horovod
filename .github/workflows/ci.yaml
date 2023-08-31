@@ -4361,7 +4361,7 @@ jobs:
           - image: test-cpu-openmpi-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin
             build_timeout: 30
 
-          - image: test-gpu-openmpi-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin
+          - image: test-gpu-openmpi-gloo-py3_8-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin
             build_timeout: 40
 
     steps:
