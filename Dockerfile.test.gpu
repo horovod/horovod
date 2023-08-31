@@ -128,9 +128,13 @@ RUN if [[ ${MPI_KIND} != "None" ]]; then \
 # Pin scipy!=1.4.0: https://github.com/scipy/scipy/issues/11237
 # Pin protobuf~=3.20 for tensorflow<2.6.5: https://github.com/tensorflow/tensorflow/issues/56077
 RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly" ]]; then \
+        if [[ ${TENSORFLOW_PACKAGE} == nvidia-tensorflow==* ]]; then \
+            pip install nvidia-pyindex; \
+        fi; \
         PROTOBUF_PACKAGE=""; \
         if [[ ${TENSORFLOW_PACKAGE} == tensorflow-gpu==1.15.* ]] || \
-           [[ ${TENSORFLOW_PACKAGE} == tensorflow-gpu==2.[012345].* ]]; then \
+           [[ ${TENSORFLOW_PACKAGE} == tensorflow-gpu==2.[012345].* ]] || \
+           [[ ${TENSORFLOW_PACKAGE} == nvidia-tensorflow==* ]]; then \
             PROTOBUF_PACKAGE="protobuf~=3.20"; \
         fi; \
         pip install --no-cache-dir ${TENSORFLOW_PACKAGE} ${PROTOBUF_PACKAGE}; \
