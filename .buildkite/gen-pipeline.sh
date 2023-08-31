@@ -44,7 +44,9 @@ tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${B
   # Tensorflow 1.15.5 is only available for Python 3.7
   # Python 3.7 is only available on Ubuntu 18.04
   # torch==1.8.1 is the latest we can test in this setup
-  # see test-gpu-gloo-py3_7-tf1_15_5-... below why we have to test with mxnet 1.5.1 here
+  # there is no mxnet-1.6.0.post0 and mxnet-1.6.0 does not work with horovod
+  # https://github.com/apache/incubator-mxnet/issues/16193
+  # so we test with mxnet 1.5.1
   printf "test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_4_0 "
   printf "test-cpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_7_0_p2-pyspark3_4_0 "
   printf "test-cpu-gloo-py3_8-tf2_11_1-keras2_11_0-torch1_13_1-mxnet1_8_0_p0-pyspark3_4_0 "
@@ -55,15 +57,9 @@ tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${B
   printf "test-cpu-openmpi-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin "
 
   # then we vary the frameworks for gpu
-  # we need CUDA 10.0 as tensorflow-gpu==1.15.5 is compiled against and linked to CUDA 10.0
-  # torch==1.8.1 is the latest we can test in this setup
-  # mxnet-cu100==1.7.0 does not contain mkldnn headers, and there is no 1.7.0.postx that would have them
-  # there is no mxnet-1.6.0.post0 and mxnet-1.6.0 does not work with horovod
-  # https://github.com/apache/incubator-mxnet/issues/16193
-  # so we test with mxnet 1.5.1
-  printf "test-gpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_4_0 "
-  # here we deviate from mxnet==1.7.0.post2 as there is none for cu101, only post1
-  printf "test-gpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_7_0_p1-pyspark3_4_0 "
+  printf "test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0 "
+  # The container isn't provided for CUDA 10 anymore. The lowest version of mxnet available for cu112 is 1.8.0.post0.
+  printf "test-gpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0 "
   printf "test-gpu-gloo-py3_8-tf2_11_1-keras2_11_0-torch1_13_1-mxnet1_8_0_p0-pyspark3_4_0 "
   printf "test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0 "
   printf "test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_4_0 "
