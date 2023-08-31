@@ -179,7 +179,7 @@ services:
         CUDNN_VERSION: 8.4.1.50-1+cuda11.6
         NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
         PYTHON_VERSION: 3.8
-        TENSORFLOW_PACKAGE: nvidia-tensorflow==1.15.5
+        TENSORFLOW_PACKAGE: nvidia-tensorflow==1.15.5+nv23.3
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: torch==1.12.1+cu116
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
