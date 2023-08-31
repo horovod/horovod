@@ -188,21 +188,20 @@ services:
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision==0.9.1+cu101
         MXNET_PACKAGE: mxnet-cu100==1.5.1.post0
-  # here we deviate from mxnet==1.7.0.post2 as there is none for cu101, only post1
-  test-gpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_7_0_p1-pyspark3_4_0:
+  # The container isn't provided for CUDA 10 anymore. The lowest version of mxnet available for cu112 is 1.8.0.post0.
+  test-gpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_8_0_p2-pyspark3_4_0:
     extends: test-gpu-base
     build:
       args:
-        # CUDA 10.x devel image is only available with Ubuntu 18.04
-        CUDA_DOCKER_VERSION: 10.1-devel-ubuntu18.04
-        CUDNN_VERSION: 8.0.5.39-1+cuda10.1
-        NCCL_VERSION_OVERRIDE: 2.8.4-1+cuda10.2
+        CUDA_DOCKER_VERSION: 11.6.2-devel-ubuntu20.04
+        CUDNN_VERSION: 8.4.1.50-1+cuda11.6
+        NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.10.1
         KERAS_PACKAGE: keras==2.10.0
-        PYTORCH_PACKAGE: torch==1.12.1+cu102
+        PYTORCH_PACKAGE: torch==1.12.1+cu116
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
-        TORCHVISION_PACKAGE: torchvision==0.13.1+cu102
-        MXNET_PACKAGE: mxnet-cu101==1.7.0.post1
+        TORCHVISION_PACKAGE: torchvision==0.13.1+cu116
+        MXNET_PACKAGE: mxnet-cu112==1.8.0.post0
   test-gpu-gloo-py3_8-tf2_11_1-keras2_11_0-torch1_13_1-mxnet1_8_0_p0-pyspark3_4_0:
     extends: test-gpu-base
     build:
