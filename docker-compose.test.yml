@@ -242,22 +242,24 @@ services:
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision
         MXNET_PACKAGE: mxnet-nightly-cu112
-  # these are the lowest framework versions that Horovod compiles with, but they are not tested
+  # these are the lowest TensorFlow and PyTorch versions that Horovod compiles with on CUDA 11.x container, but they are not tested
+  # (MXNet uses a more recent version, for which a cu112 version is available)
   test-gpu-openmpi-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 10.0-devel-ubuntu18.04
-        CUDNN_VERSION: 8.0.5.39-1+cuda10.1
-        NCCL_VERSION_OVERRIDE: 2.8.4-1+cuda10.2
+        CUDA_DOCKER_VERSION: 11.6.2-devel-ubuntu20.04
+        CUDNN_VERSION: 8.4.1.50-1+cuda11.6
+        NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
         MPI_KIND: OpenMPI
-        PYTHON_VERSION: 3.7
-        TENSORFLOW_PACKAGE: tensorflow-gpu==1.15.0
+        PYTHON_VERSION: 3.3
+        TENSORFLOW_PACKAGE: nvidia-tensorflow==1.15.5+nv23.3
         KERAS_PACKAGE: keras==2.2.4
+        # torch ships its own CUDA libraries
         PYTORCH_PACKAGE: torch==1.5.0+cu101
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==0.7.3
         TORCHVISION_PACKAGE: torchvision==0.6.0+cu101
-        MXNET_PACKAGE: mxnet-cu100==1.4.1
+        MXNET_PACKAGE: mxnet-cu112==1.8.0.post0
         PYSPARK_PACKAGE: pyspark==2.4.0
         SPARK_PACKAGE: spark-2.4.0/spark-2.4.0-bin-hadoop2.7.tgz
 
