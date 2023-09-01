@@ -260,8 +260,9 @@ services:
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==0.7.3
         TORCHVISION_PACKAGE: torchvision==0.6.0+cu101
         MXNET_PACKAGE: mxnet-cu112==1.8.0.post0
-        PYSPARK_PACKAGE: pyspark==2.4.0
-        SPARK_PACKAGE: spark-2.4.0/spark-2.4.0-bin-hadoop2.7.tgz
+        # On Python 3.8 Spark 3.0.0 is the lowest supported version
+        PYSPARK_PACKAGE: pyspark==3.0.0
+        SPARK_PACKAGE: spark-3.0.0/spark-3.0.0-bin-hadoop2.7.tgz
 
   test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0:
     extends: test-gpu-base
