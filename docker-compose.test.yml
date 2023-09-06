@@ -170,7 +170,7 @@ services:
 
   # Mainline tensorflow-gpu==1.15.5 is compiled against and linked to CUDA 10.0, but appropriate containers aren't
   # available anymore. Hence, we use the updated Python 3.8 wheel provided by Nvidia, see
-  # https://github.com/NVIDIA/tensorflow.
+  # https://github.com/NVIDIA/tensorflow. For this reason versions of torch and mxnet also deviate from the CPU path.
   test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0:
     extends: test-gpu-base
     build:
@@ -242,8 +242,8 @@ services:
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision
         MXNET_PACKAGE: mxnet-nightly-cu112
-  # these are the lowest TensorFlow and PyTorch versions that Horovod compiles with on CUDA 11.x container, but they are not tested
-  # (MXNet uses a more recent version, for which a cu112 version is available)
+  # These are the lowest framework versions that Horovod compiles with on the CUDA 11.x container, but they are not tested.
+  # Versions of python, mxnet, and pyspark differ from the CPU build with minimum versions.
   test-gpu-openmpi-gloo-py3_8-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin:
     extends: test-gpu-base
     build:
