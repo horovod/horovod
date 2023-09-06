@@ -11,9 +11,9 @@ services:
         PYTHON_VERSION: 3.8
         TENSORFLOW_PACKAGE: tensorflow-cpu==2.12.0
         KERAS_PACKAGE: keras==2.12.0
-        PYTORCH_PACKAGE: torch==2.0.0+cpu
+        PYTORCH_PACKAGE: torch==2.0.1+cpu
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
-        TORCHVISION_PACKAGE: torchvision==0.15.1+cpu
+        TORCHVISION_PACKAGE: torchvision==0.15.2+cpu
         MXNET_PACKAGE: mxnet==1.9.1
         PYSPARK_PACKAGE: pyspark==3.4.0
         SPARK_PACKAGE: spark-3.4.0/spark-3.4.0-bin-hadoop3.tgz
@@ -22,29 +22,29 @@ services:
     shm_size: 8gb
 
   # our baseline first
-  test-cpu-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0:
+  test-cpu-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0:
     extends: test-cpu-base
 
   # permute MPI kinds
-  test-cpu-mpich-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0:
+  test-cpu-mpich-py3_8-tf2_12_0-keras2_12_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: MPICH
         HOROVOD_BUILD_FLAGS: HOROVOD_WITHOUT_GLOO=1
-  test-cpu-oneccl-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0:
+  test-cpu-oneccl-py3_8-tf2_12_0-keras2_12_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: ONECCL
         HOROVOD_BUILD_FLAGS: HOROVOD_WITHOUT_GLOO=1
-  test-cpu-openmpi-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0:
+  test-cpu-openmpi-py3_8-tf2_12_0-keras2_12_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: OpenMPI
         HOROVOD_BUILD_FLAGS: HOROVOD_WITHOUT_GLOO=1
-  test-cpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0:
+  test-cpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0:
     extends: test-cpu-base
     build:
       args:
@@ -136,7 +136,7 @@ services:
         TORCHVISION_PACKAGE: torchvision==0.14.1+cpu
         PYSPARK_PACKAGE: pyspark==2.4.8
         SPARK_PACKAGE: spark-2.4.8/spark-2.4.8-bin-hadoop2.7.tgz
-  test-cpu-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_3_2:
+  test-cpu-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_1-mxnet1_9_1-pyspark3_3_2:
     extends: test-cpu-base
     build:
       args:
@@ -213,7 +213,7 @@ services:
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision==0.14.1+cu116
         MXNET_PACKAGE: mxnet-cu112==1.8.0.post0
-  test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0:
+  test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0:
     extends: test-gpu-base
     build:
       args:
@@ -224,9 +224,9 @@ services:
         # tensorflow package supports GPU from 2.11.1 and 2.12.0 on
         TENSORFLOW_PACKAGE: tensorflow==2.12.0
         KERAS_PACKAGE: keras==2.12.0
-        PYTORCH_PACKAGE: torch==2.0.0+cu118
+        PYTORCH_PACKAGE: torch==2.0.1+cu118
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
-        TORCHVISION_PACKAGE: torchvision==0.15.1+cu118
+        TORCHVISION_PACKAGE: torchvision==0.15.2+cu118
         MXNET_PACKAGE: mxnet-cu112==1.9.1
   test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_4_0:
     extends: test-gpu-base
@@ -264,7 +264,7 @@ services:
         PYSPARK_PACKAGE: pyspark==3.0.0
         SPARK_PACKAGE: spark-3.0.0/spark-3.0.0-bin-hadoop2.7.tgz
 
-  test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0:
+  test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0:
     extends: test-gpu-base
     build:
       args:
@@ -275,9 +275,9 @@ services:
         # tensorflow package supports GPU from 2.11.1 and 2.12.0 on
         TENSORFLOW_PACKAGE: tensorflow==2.12.0
         KERAS_PACKAGE: keras==2.12.0
-        PYTORCH_PACKAGE: torch==2.0.0+cu118
+        PYTORCH_PACKAGE: torch==2.0.1+cu118
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
-        TORCHVISION_PACKAGE: torchvision==0.15.1+cu118
+        TORCHVISION_PACKAGE: torchvision==0.15.2+cu118
         MXNET_PACKAGE: mxnet-cu112==1.9.1
         HOROVOD_BUILD_FLAGS: ""
         HOROVOD_MIXED_INSTALL: 1
