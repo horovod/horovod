@@ -746,7 +746,7 @@ if _LegacyOptimizer is not None:
                                     if isinstance(grad, tf.IndexedSlices):
                                         grad = tf.IndexedSlices(grad.values / horovod_size, grad.indices, grad.dense_shape)
                                     else:
-                                        grad /= horovod_size
+                                        grad /= float(horovod_size)
                                     v2g[v_ref] = grad
 
                         return [v2g[rv.ref()] for rv in vars]
@@ -762,7 +762,7 @@ if _LegacyOptimizer is not None:
                                     if isinstance(grad, tf.IndexedSlices):
                                         grad = tf.IndexedSlices(grad.values / horovod_size, grad.indices, grad.dense_shape)
                                     else:
-                                        grad /= horovod_size
+                                        grad /= float(horovod_size)
                                     v2g[v] = grad
 
                         return [v2g[rv] for rv in vars]
@@ -1088,7 +1088,7 @@ if hasattr(tf, 'GradientTape'):
                             if isinstance(grad, tf.IndexedSlices):
                                 grad = tf.IndexedSlices(grad.values / horovod_size, grad.indices, grad.dense_shape)
                             else:
-                                grad /= horovod_size
+                                grad /= float(horovod_size)
                             s2g[s_ref] = grad
 
                 return [s2g[s.ref()] for s in sources]
@@ -1104,7 +1104,7 @@ if hasattr(tf, 'GradientTape'):
                             if isinstance(grad, tf.IndexedSlices):
                                 grad = tf.IndexedSlices(grad.values / horovod_size, grad.indices, grad.dense_shape)
                             else:
-                                grad /= horovod_size
+                                grad /= float(horovod_size)
                             s2g[s] = grad
 
                 return [s2g[s] for s in sources]
