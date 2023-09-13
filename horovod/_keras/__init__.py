@@ -182,7 +182,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                                 rg.append(grad)
 
                     rg = self._allreduce_grads(rg, rv)
-                    horovod_size = size_op(process_set_id=self.process_set.process_set_id) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else self.process_set.size()
+                    horovod_size = float(size_op(process_set_id=self.process_set.process_set_id)) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else self.process_set.size()
                     if _IS_TF2:
                         for rv, rg in zip(rv, rg):
                             v2g[rv.ref()] = rg
@@ -195,7 +195,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                                     if isinstance(grad, tf.IndexedSlices):
                                         grad = tf.IndexedSlices(grad.values / horovod_size, grad.indices, grad.dense_shape)
                                     else:
-                                        grad /= float(horovod_size)
+                                        grad /= horovod_size
                                     v2g[v_ref] = grad
 
                         return [v2g[rv.ref()] for rv in vars]
@@ -211,7 +211,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                                     if isinstance(grad, tf.IndexedSlices):
                                         grad = tf.IndexedSlices(grad.values / horovod_size, grad.indices, grad.dense_shape)
                                     else:
-                                        grad /= float(horovod_size)
+                                        grad /= horovod_size
                                     v2g[v] = grad
 
                         return [v2g[rv] for rv in vars]
