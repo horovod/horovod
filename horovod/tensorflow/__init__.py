@@ -733,7 +733,7 @@ if _LegacyOptimizer is not None:
                                 rg.append(grad)
 
                     rg = self._allreduce_grads(rg, rv)
-                    horovod_size = float(size_op(process_set_id=self.process_set.process_set_id)) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else self.process_set.size()
+                    horovod_size = tf.cast(size_op(process_set_id=self.process_set.process_set_id), tf.float32) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else self.process_set.size()
                     if _IS_TF2:
                         for rv,rg in zip(rv, rg):
                             v2g[rv.ref()] = rg
@@ -1074,7 +1074,7 @@ if hasattr(tf, 'GradientTape'):
 
             # Reduce grads
             rg = self._allreduce_grads(rg, rs, use_generic_names)
-            horovod_size = float(size_op(process_set_id=self.process_set.process_set_id)) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else self.process_set.size()
+            horovod_size = tf.cast(size_op(process_set_id=self.process_set.process_set_id), tf.float32) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else self.process_set.size()
             # Replace dict entries with reduced grads
             if _IS_TF2:
                 for rs, rg in zip(rs, rg):

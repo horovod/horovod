@@ -182,7 +182,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                                 rg.append(grad)
 
                     rg = self._allreduce_grads(rg, rv)
-                    horovod_size = float(size_op(process_set_id=self.process_set.process_set_id)) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else self.process_set.size()
+                    horovod_size = tf.cast(size_op(process_set_id=self.process_set.process_set_id), tf.float32) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else self.process_set.size()
                     if _IS_TF2:
                         for rv, rg in zip(rv, rg):
                             v2g[rv.ref()] = rg
