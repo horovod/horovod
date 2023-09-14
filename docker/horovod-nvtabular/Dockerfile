@@ -63,7 +63,8 @@ RUN CUDNN_MAJOR=$(cut -d '.' -f 1 <<< "${CUDNN_VERSION}"); \
 RUN ssh-keygen -f /root/.ssh/id_rsa -q -N ''
 RUN cp -v /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
 
-RUN pip install --no-cache-dir cudf-cu11 dask-cudf-cu11 --extra-index-url=https://pypi.nvidia.com
+# Pinning older versions of cudf-cu11 and dask-cudf-cu11 for Python 3.8
+RUN pip install --no-cache-dir cudf-cu11==23.4.1 dask-cudf-cu11==23.4.1 --extra-index-url=https://pypi.nvidia.com
 RUN pip install --no-cache-dir numba==0.56 nvidia-ml-py nvtabular
 RUN pip install --no-cache-dir -U --force requests pytest mock pytest-forked parameterized
 
