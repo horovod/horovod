@@ -103,7 +103,7 @@ def _get_mpi_implementation(env=None):
             return _OMPI_IMPL
         elif 'IBM Spectrum MPI' in output:
             return _SMPI_IMPL
-        elif 'MPICH' in output:
+        elif 'MPICH' in output or 'HYDRA' in output:
             return _MPICH_IMPL
         elif 'Intel(R) MPI' in output:
             return _IMPI_IMPL
