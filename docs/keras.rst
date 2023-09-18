@@ -25,7 +25,7 @@ Horovod supports Keras and regular TensorFlow in similar ways. To use Horovod wi
 
    .. code-block:: python
 
-       device_type = 'XPU' if hvd.sycl_built() else 'GPU'
+       device_type = 'GPU'
        gpus = tf.config.experimental.list_physical_devices(device_type)
        for gpu in gpus:
            tf.config.experimental.set_memory_growth(gpu, True)
@@ -191,7 +191,7 @@ TensorFlow v2 Keras Example (from the `MNIST <https://github.com/horovod/horovod
     hvd.init()
 
     # Pin GPU to be used to process local rank (one GPU per process)
-    device_type = 'XPU' if hvd.sycl_built() else 'GPU'
+    device_type = 'GPU' # use 'XPU' here if you are using Intel GPU devices with oneAPI
     gpus = tf.config.experimental.list_physical_devices(device_type)
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
