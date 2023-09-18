@@ -744,7 +744,7 @@ if _LegacyOptimizer is not None:
                                 if v_ref in self._local_vars and v2g[v_ref]:
                                     grad = v2g[v_ref]
                                     if isinstance(grad, tf.IndexedSlices):
-                                        grad = tf.IndexedSlices(grad.values / horovod_size, grad.indices, grad.dense_shape)
+                                        grad = tf.IndexedSlices(grad.values / float(horovod_size), grad.indices, grad.dense_shape)
                                     else:
                                         grad /= float(horovod_size)
                                     v2g[v_ref] = grad
@@ -760,7 +760,7 @@ if _LegacyOptimizer is not None:
                                 if v in self._local_vars and v2g[v]:
                                     grad = v2g[v]
                                     if isinstance(grad, tf.IndexedSlices):
-                                        grad = tf.IndexedSlices(grad.values / horovod_size, grad.indices, grad.dense_shape)
+                                        grad = tf.IndexedSlices(grad.values / float(horovod_size), grad.indices, grad.dense_shape)
                                     else:
                                         grad /= float(horovod_size)
                                     v2g[v] = grad
@@ -1086,7 +1086,7 @@ if hasattr(tf, 'GradientTape'):
                         if s_ref in self._local_sources and s2g[s_ref] is not None:
                             grad = s2g[s_ref]
                             if isinstance(grad, tf.IndexedSlices):
-                                grad = tf.IndexedSlices(grad.values / horovod_size, grad.indices, grad.dense_shape)
+                                grad = tf.IndexedSlices(grad.values / float(horovod_size), grad.indices, grad.dense_shape)
                             else:
                                 grad /= float(horovod_size)
                             s2g[s_ref] = grad
@@ -1102,7 +1102,7 @@ if hasattr(tf, 'GradientTape'):
                         if s in self._local_sources and s2g[s] is not None:
                             grad = s2g[s]
                             if isinstance(grad, tf.IndexedSlices):
-                                grad = tf.IndexedSlices(grad.values / horovod_size, grad.indices, grad.dense_shape)
+                                grad = tf.IndexedSlices(grad.values / float(horovod_size), grad.indices, grad.dense_shape)
                             else:
                                 grad /= float(horovod_size)
                             s2g[s] = grad
