@@ -39,10 +39,17 @@ parser.add_argument('--num-iters', type=int, default=10,
 
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
+parser.add_argument('--xpu', action='store_true', default=False,
+                    help='run on Intel GPU devices with oneAPI')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda
-device = 'GPU' if args.cuda else 'CPU'
+if args.cuda:
+    device = 'GPU'
+elif args.xpu:
+    device = 'XPU'
+else:
+    device = 'CPU'
 
 # Horovod: initialize Horovod.
 hvd.init()
@@ -54,14 +61,20 @@ if hvd.rank() == 0:
 
 # Horovod: pin GPU to be used to process local rank (one GPU per process)
 if args.cuda:
-    device_type = 'XPU' if hvd.sycl_built() else 'GPU'
-    gpus = tf.config.experimental.list_physical_devices(device_type)
+    gpus = tf.config.experimental.list_physical_devices('GPU')
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
     if gpus:
-        tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], device_type)
+        tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
+elif args.xpu:
+    xpus = tf.config.experimental.list_physical_devices('XPU')
+    for xpu in xpus:
+        tf.config.experimental.set_memory_growth(xpu, True)
+    if xpus:
+        tf.config.experimental.set_visible_devices(xpus[hvd.local_rank()], 'XPU')
 else:
-    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    cpus = tf.config.experimental.list_physical_devices('CPU')
+    tf.config.experimental.set_visible_devices(cpus)
 
 # Set up standard model.
 model = getattr(applications, args.model)(weights=None)

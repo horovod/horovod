@@ -28,12 +28,11 @@ def train_fn(compute_config: TfDataServiceConfig, reuse_dataset: bool = False, r
     hvd.init()
 
     # Horovod: pin GPU to be used to process local rank (one GPU per process)
-    device_type = 'XPU' if hvd.sycl_built() else 'GPU'
-    gpus = tf.config.experimental.list_physical_devices(device_type)
+    gpus = tf.config.experimental.list_physical_devices('GPU')
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
     if gpus:
-        tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], device_type)
+        tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
 
     # this lock guarantees only one training task downloads the dataset
     with FileLock(os.path.expanduser("~/.horovod_lock")):
