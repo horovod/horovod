@@ -140,7 +140,7 @@ services:
     extends: test-cpu-base
     build:
       args:
-        PYTHON_VERSION: 3.8
+        PYTHON_VERSION: 3.9
         PYSPARK_PACKAGE: pyspark==3.3.2
         SPARK_PACKAGE: spark-3.3.2/spark-3.3.2-bin-hadoop2.tgz
   # then our baseline again, omitted ...
@@ -152,7 +152,7 @@ services:
       args:
         GPP_VERSION: 7
         MPI_KIND: None
-        PYTHON_VERSION: 3.8
+        PYTHON_VERSION: 3.9
         PYSPARK_PACKAGE: pyspark==3.4.0
         SPARK_PACKAGE: spark-3.4.0/spark-3.4.0-bin-hadoop3.tgz
         HOROVOD_BUILD_FLAGS: HOROVOD_GPU_OPERATIONS=NCCL
