@@ -12,7 +12,7 @@ gpux2_queue="2x-gpu-v5111"
 gpux4_queue="4x-gpu-v5111"
 
 # our baseline test is
-baseline="test-cpu-gloo-py3_8-tf2_14_0-keras2_14_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0"
+baseline="test-cpu-gloo-py3_9-tf2_14_0-keras2_14_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0"
 # in run_gloo_integration we run 'Elastic Spark * Tests' for this baseline
 # so it has to have Gloo mpi kind
 
@@ -26,18 +26,18 @@ tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${B
   # Tensorflow 2.11.0 is the last version that supports that Python
   # Torch 1.13.1 is the last version that supports that Python
   printf "test-cpu-gloo-py3_7-tf2_11_0-keras2_11_0-torch1_13_1-mxnet1_9_1-pyspark2_4_8 "
-  printf "test-cpu-gloo-py3_8-tf2_14_0-keras2_14_0-torch2_0_1-mxnet1_9_1-pyspark3_3_2 "
+  printf "test-cpu-gloo-py3_9-tf2_14_0-keras2_14_0-torch2_0_1-mxnet1_9_1-pyspark3_3_2 "
   # our baseline
   printf "$baseline "
 
   # then we vary the baseline along mpi kinds dimension
   # our baseline again
-# printf "test-cpu-gloo-py3_8-tf2_14_0-keras2_14_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0 "
-  printf "test-cpu-mpich-py3_8-tf2_14_0-keras2_14_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0 "
-  printf "test-cpu-oneccl-py3_8-tf2_14_0-keras2_14_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0 "
-  printf "test-cpu-openmpi-py3_8-tf2_14_0-keras2_14_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0 "
+# printf "test-cpu-gloo-py3_9-tf2_14_0-keras2_14_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0 "
+  printf "test-cpu-mpich-py3_9-tf2_14_0-keras2_14_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0 "
+  printf "test-cpu-oneccl-py3_9-tf2_14_0-keras2_14_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0 "
+  printf "test-cpu-openmpi-py3_9-tf2_14_0-keras2_14_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0 "
   # note: we test openmpi-gloo mpi kind in this variation in each of [cpu, gpu, mixed]
-  printf "test-cpu-openmpi-gloo-py3_8-tf2_14_0-keras2_14_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0 "
+  printf "test-cpu-openmpi-gloo-py3_9-tf2_14_0-keras2_14_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0 "
 
   # then we vary the baseline along the framework dimensions all together
   # run_gloo_integration expects tf1 to have Gloo mpi kind to run 'Elastic Spark * Tests'
@@ -48,26 +48,26 @@ tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${B
   # https://github.com/apache/incubator-mxnet/issues/16193
   # so we test with mxnet 1.5.1
   printf "test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_4_0 "
-  printf "test-cpu-gloo-py3_8-tf2_12_1-keras2_12_0-torch1_12_1-mxnet1_7_0_p2-pyspark3_4_0 "
-  printf "test-cpu-gloo-py3_8-tf2_13_0-keras2_13_1-torch1_13_1-mxnet1_8_0_p0-pyspark3_4_0 "
+  printf "test-cpu-gloo-py3_9-tf2_12_1-keras2_12_0-torch1_12_1-mxnet1_7_0_p2-pyspark3_4_0 "
+  printf "test-cpu-gloo-py3_9-tf2_13_0-keras2_13_1-torch1_13_1-mxnet1_8_0_p0-pyspark3_4_0 "
   # our baseline again
-# printf "test-cpu-gloo-py3_8-tf2_14_0-keras2_14_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0 "
-  printf "test-cpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_4_0 "
+# printf "test-cpu-gloo-py3_9-tf2_14_0-keras2_14_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0 "
+  printf "test-cpu-openmpi-gloo-py3_9-tfhead-keras_none-torchhead-mxnethead-pyspark3_4_0 "
   # these are the lowest framework versions that Horovod compiles with, but they are not tested
   printf "test-cpu-openmpi-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin "
 
   # then we vary the frameworks for gpu
   # There is no CUDA10 nvidia/cuda image any more, so we move to nvidia-tensorflow==1.15.5+nv... (with CUDA 11.6) from mainline tensorflow-gpu==1.15.5, which requires us to deviate from CPU versions for python, torch, and mxnet.
   printf "test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0 "
-  printf "test-gpu-gloo-py3_8-tf2_12_1-keras2_12_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0 "
-  printf "test-gpu-gloo-py3_8-tf2_13_0-keras2_13_1-torch1_13_1-mxnet1_8_0_p0-pyspark3_4_0 "
-  printf "test-gpu-openmpi-gloo-py3_8-tf2_14_0-keras2_14_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0 "
-  printf "test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_4_0 "
+  printf "test-gpu-gloo-py3_9-tf2_12_1-keras2_12_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0 "
+  printf "test-gpu-gloo-py3_9-tf2_13_0-keras2_13_1-torch1_13_1-mxnet1_8_0_p0-pyspark3_4_0 "
+  printf "test-gpu-openmpi-gloo-py3_9-tf2_14_0-keras2_14_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0 "
+  printf "test-gpu-openmpi-gloo-py3_9-tfhead-keras_none-torchhead-mxnethead-pyspark3_4_0 "
   # these are the lowest framework versions that Horovod compiles with, but they are not tested
   printf "test-gpu-openmpi-gloo-py3_8-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin "
 
   # and one final test with mixed cpu+gpu
-  printf "test-mixed-openmpi-gloo-py3_8-tf2_14_0-keras2_14_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0 "
+  printf "test-mixed-openmpi-gloo-py3_9-tf2_14_0-keras2_14_0-torch2_0_1-mxnet1_9_1-pyspark3_4_0 "
 fi | if [[ "${PIPELINE_MODE:-}" == "GPU"* ]]; then sed -E "s/[^ ]*-cpu-[^ ]*//g"; else cat; fi \
    | if [[ "${PIPELINE_MODE:-}" == "GPU HEADS" ]]; then sed -E "s/ /\n/g" | grep -e "-tfhead-keras_none-torchhead-mxnethead-" | paste -s -d " " -; else cat; fi \
    | if [[ "${PIPELINE_MODE:-}" == "GPU NON HEADS" ]]; then sed -E "s/[^ ]*-tfhead-keras_none-torchhead-mxnethead-[^ ]*//g"; else cat; fi)
