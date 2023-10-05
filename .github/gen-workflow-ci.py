@@ -480,7 +480,7 @@ def main():
                 f'          if [[ ${{TENSORFLOW}} == 1.* ]] || [[ ${{TENSORFLOW}} == 2.[012345].* ]]; then pip install "h5py<3" "protobuf~=3.20"; fi\n'
                 f'          pip install torch==${{PYTORCH}} pytorch_lightning==${{PYTORCH_LIGHTNING}} torchvision==${{TORCHVISION}}\n'
                 f'          pip install mxnet==${{MXNET}}\n'
-                f'          HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir .[test]\n'
+                f'          HOROVOD_WITH_TENSORFLOW=${{TENSORFLOW}} HOROVOD_WITH_PYTORCH=${{PYTORCH}} HOROVOD_WITH_MXNET=${{MXNET}} pip install --no-cache-dir .[test]\n'
                 f'          horovodrun --check-build\n'
                 f'\n' +
                 '\n'.join([f'      - name: Test [attempt {attempt} of {attempts}]\n'
