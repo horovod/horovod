@@ -16,6 +16,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+## [0.29.0] - 2022-10-05
+
+### Changed
+- Installation environment variables to enable a PEP517 compliant build process. ([#3991](https://github.com/horovod/horovod/pull/3991)
 
 ## [v0.28.1] - 2023-06-12
 
