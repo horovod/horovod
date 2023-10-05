@@ -23,12 +23,13 @@ import sysconfig
 import warnings
 
 from contextlib import contextmanager
+from importlib import metadata
 
 from horovod.common.exceptions import get_version_mismatch_message, HorovodVersionMismatchError
 
 
-EXTENSIONS = ['tensorflow', 'torch', 'mxnet']
-
+EXTENSIONS = {'tensorflow': 'HOROVOD_WITH_TENSORFLOW', 'torch': 'HOROVOD_WITH_PYTORCH',
+              'mxnet': 'HOROVOD_WITH_MXNET'}
 
 def get_ext_suffix():
     """Determine library extension for various versions of Python."""
@@ -55,8 +56,8 @@ def check_extension(ext_name, ext_env_var, pkg_path, *args):
     if not os.path.exists(full_path):
         raise ImportError(
             'Extension {} has not been built: {} not found\n'
-            'If this is not expected, reinstall Horovod with {}=1 to debug the build error.'.format(
-                ext_name, full_path, ext_env_var
+            'If this is not expected, reinstall Horovod with {}={} to debug the build error.'.format(
+                ext_name, full_path, ext_env_var, metadata.version(ext_name.split('.')[-1])
             )
         )
 
@@ -253,11 +254,14 @@ def check_installed_version(name, version, exception=None):
         os.pardir, "metadata.json"))
     with open(file_path) as f:
         installed_version = json.load(f).get(name)
+        extension_flag = EXTENSIONS['torch'] if name == 'pytorch' else EXTENSIONS[name]
+        # Anything after a + is useless for pip, i.e. torch==2.0.0+cu117 finds nothing.
+        build_flag = f"{extension_flag}=={version.split('+')[0]}"
         if installed_version != version:
             if exception is None:
-                warnings.warn(get_version_mismatch_message(name, version, installed_version))
+                warnings.warn(get_version_mismatch_message(name, version, installed_version, build_flag))
             else:
-                raise HorovodVersionMismatchError(name, version, installed_version) from exception
+                raise HorovodVersionMismatchError(name, version, installed_version, build_flag) from exception
 
 def is_iterable(x):
     try:

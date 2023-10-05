@@ -227,6 +227,10 @@ Environment Variables
 
 Optional environment variables that can be set to configure the installation process for Horovod.
 
+Due to `PEP-517 <https://peps.python.org/pep-0517/>`_ we can't rely on any DL library being installed into
+the build env, therefore we need to tell the build env specific DL library versions we require.
+This isn't the prettiest solution, however it is the most pragmatic.
+
 Possible values are given in curly brackets: {}.
 
 * ``HOROVOD_DEBUG`` - {1}. Install a debug build of Horovod with checked assertions, disabled compiler optimizations etc.
@@ -252,11 +256,11 @@ Possible values are given in curly brackets: {}.
 * ``HOROVOD_ALLOW_MIXED_GPU_IMPL`` - {1}. Allow Horovod to install with NCCL allreduce and MPI GPU allgather / broadcast / alltoall / reducescatter.  Not recommended due to a possible deadlock.
 * ``HOROVOD_CPU_OPERATIONS`` - {MPI, GLOO, CCL}. Framework to use for CPU tensor allreduce, allgather, and broadcast.
 * ``HOROVOD_CMAKE`` - path to the CMake binary used to build Horovod.
-* ``HOROVOD_WITH_TENSORFLOW`` - {1}. Require Horovod to install with TensorFlow support enabled.
+* ``HOROVOD_WITH_TENSORFLOW`` - {TF pypi version}. If set require Horovod to install with specific TensorFlow version support enabled.
 * ``HOROVOD_WITHOUT_TENSORFLOW`` - {1}. Skip installing TensorFlow support.
-* ``HOROVOD_WITH_PYTORCH`` - {1}. Require Horovod to install with PyTorch support enabled.
+* ``HOROVOD_WITH_PYTORCH`` - {PyTorch pypi version}. If set require Horovod to install with specific PyTorch version support enabled.
 * ``HOROVOD_WITHOUT_PYTORCH`` - {1}. Skip installing PyTorch support.
-* ``HOROVOD_WITH_MXNET`` - {1}. Require Horovod to install with MXNet support enabled.
+* ``HOROVOD_WITH_MXNET`` - {MXNet pypi version}. If set require Horovod to install with specific MXNet version support enabled.
 * ``HOROVOD_WITHOUT_MXNET`` - {1}. Skip installing MXNet support.
 
 .. inclusion-marker-end-do-not-remove

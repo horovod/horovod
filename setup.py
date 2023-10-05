@@ -26,6 +26,7 @@ import tempfile
 import textwrap
 
 from setuptools import setup, Extension, find_packages
+from setuptools.command.build_py import build_py as _build_py
 from setuptools.command.build_ext import build_ext
 
 from horovod import __version__
@@ -95,8 +96,8 @@ def get_cmake_bin():
 
     return cmake_bin
 
-
 class custom_build_ext(build_ext):
+
     def build_extensions(self):
         if os.getenv('HOROVOD_SKIP_COMPILE') == '1':
             # Skip building extensions using CMake
