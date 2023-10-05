@@ -41,12 +41,12 @@ From *inside* the Horovod root directory, install Horovod in develop/editable mo
 
 .. code-block:: bash
 
-    $ HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 pip install -v -e .
+    $ HOROVOD_WITH_PYTORCH={YOUR_PYTORCH_VERSION} HOROVOD_WITH_TENSORFLOW={YOUR_TF_VERSION} pip install -v -e .
 
 Set ``HOROVOD_WITHOUT_[FRAMEWORK]=1`` to disable building Horovod plugins for that framework.
 This is useful when you’re testing a feature of one framework in particular and wish to save time.
 
-Set ``HOROVOD_WITH_[FRAMEWORK]=1`` to generate an error if the Horovod plugin for that framework failed to build.
+Set ``HOROVOD_WITH_[FRAMEWORK]={FRAMEWORK_VERSION}`` to generate an error if the Horovod plugin for that framework failed to build.
 
 Set ``HOROVOD_DEBUG=1`` for a debug build with checked assertions, disabled compiler optimizations etc.
 

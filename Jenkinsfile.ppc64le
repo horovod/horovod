@@ -26,7 +26,7 @@ pipeline {
                       . ${CONDA_INIT}
                       conda activate ${CONDA_ENV}
                       set -xe
-                      HOROVOD_WITHOUT_MXNET=1 HOROVOD_WITHOUT_GLOO=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 \
+                      HOROVOD_WITHOUT_MXNET=1 HOROVOD_WITHOUT_GLOO=1 HOROVOD_WITH_PYTORCH=1.9.1 HOROVOD_WITH_TENSORFLOW=2.6.0 \
                           HOROVOD_CUDA_HOME="/usr/local/cuda" HOROVOD_GPU_OPERATIONS=NCCL \
                           pip install -v . --no-cache-dir --no-deps
                 '''

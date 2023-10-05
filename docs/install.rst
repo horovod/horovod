@@ -54,7 +54,7 @@ To ensure that Horovod is built with TensorFlow support enabled:
 
 .. code-block:: bash
 
-    $ HOROVOD_WITH_TENSORFLOW=1 pip install horovod[tensorflow]
+    $ HOROVOD_WITH_TENSORFLOW={YOUR_TF_VERSION} pip install horovod[tensorflow]
 
 To skip TensorFlow, set ``HOROVOD_WITHOUT_TENSORFLOW=1`` in your environment.
 
@@ -65,7 +65,7 @@ To ensure that Horovod is built with PyTorch support enabled:
 
 .. code-block:: bash
 
-    $ HOROVOD_WITH_PYTORCH=1 pip install horovod[pytorch]
+    $ HOROVOD_WITH_PYTORCH={YOUR_PyTorch_VERSION} pip install horovod[pytorch]
 
 To skip PyTorch, set ``HOROVOD_WITHOUT_PYTORCH=1`` in your environment.
 
@@ -76,7 +76,7 @@ To ensure that Horovod is built with MXNet CPU support enabled:
 
 .. code-block:: bash
 
-    $ HOROVOD_WITH_MXNET=1 pip install horovod[mxnet]
+    $ HOROVOD_WITH_MXNET={YOUR_MXNet_VERSION} pip install horovod[mxnet]
 
 Some MXNet versions do not work with Horovod:
 
@@ -95,7 +95,7 @@ To ensure that Horovod is built with Keras support available:
 
 .. code-block:: bash
 
-    $ HOROVOD_WITH_TENSORFLOW=1 pip install horovod[tensorflow,keras]
+    $ HOROVOD_WITH_TENSORFLOW={YOUR_TF_VERSION} pip install horovod[tensorflow,keras]
 
 There are no plugins built for Keras, but the TensorFlow plugin must be enabled in order to use Horovod with Keras.
 

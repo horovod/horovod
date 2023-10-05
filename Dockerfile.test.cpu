@@ -236,7 +236,7 @@ RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
     fi; \
     cd /horovod && \
     python setup.py sdist && \
-    bash -c "${HOROVOD_BUILD_FLAGS} HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]"
+    bash -c "${HOROVOD_BUILD_FLAGS} HOROVOD_WITH_TENSORFLOW=${TENSORFLOW_VERSION} HOROVOD_WITH_PYTORCH=${PYTORCH_VERSION} HOROVOD_WITH_MXNET=${MXNET_VERSION} pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]"
 
 # Show the effective python package version to easily spot version differences
 RUN pip freeze | sort
