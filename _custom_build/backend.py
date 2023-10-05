@@ -10,6 +10,7 @@ build_wheel = _orig.__legacy__.build_wheel
 build_sdist = _orig.__legacy__.build_sdist
 get_requires_for_build_sdist = _orig.__legacy__.get_requires_for_build_sdist
 
+
 def get_requires_for_build_wheel(self, config_settings=None):
     """
         Custom backend to enable PEP517, utilises env variables to define which extra build
@@ -28,13 +29,16 @@ def get_requires_for_build_wheel(self, config_settings=None):
             try:
                 version.Version(version_string)
             except version.InvalidVersion:
-                raise version.InvalidVersion(f"Invalid Version String, {version_string}, for {key}")
+                raise version.InvalidVersion(
+                    f"Invalid Version String, {version_string}, for {key}")
             new_pkgs.append(f"{key_pkg_map[key]}=={version_string}")
             if key_pkg_map[key] == MXNET:
-                # MxNet has np.bool everywhere which is removed in newer versions...
+                # MxNet has np.bool everywhere which is removed in newer
+                # versions...
                 new_pkgs.append("numpy==1.20.3")
-        except:
+        except BaseException:
             # Pass for now, elsewhere will alert the user has built this wrong.
             ...
 
-    return _orig.__legacy__.get_requires_for_build_wheel(config_settings) + new_pkgs
+    return _orig.__legacy__.get_requires_for_build_wheel(
+        config_settings) + new_pkgs

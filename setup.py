@@ -33,6 +33,7 @@ from horovod import __version__
 
 _FRAMEWORK_METADATA_FILE = 'horovod/metadata.json'
 
+
 class CMakeExtension(Extension):
     def __init__(self, name, cmake_lists_dir='.', sources=None, **kwa):
         if sources is None:
@@ -47,6 +48,7 @@ torch_mpi_lib_v2 = CMakeExtension('horovod.torch.mpi_lib_v2',
                                   cmake_lists_dir='.', sources=[])
 mxnet_mpi_lib = CMakeExtension('horovod.mxnet.mpi_lib',
                                cmake_lists_dir='.', sources=[])
+
 
 def is_build_action():
     if len(sys.argv) <= 1:
@@ -64,6 +66,7 @@ def is_build_action():
     if sys.argv[1].startswith('develop'):
         return True
 
+
 def get_cmake_bin():
     from packaging import version
 
@@ -76,18 +79,24 @@ def get_cmake_bin():
     except OSError:
         cmake_installed_version = version.parse("0.0")
     else:
-        cmake_installed_version = version.parse(re.search(r'version\s*([\d.]+)', out.decode()).group(1))
+        cmake_installed_version = version.parse(
+            re.search(r'version\s*([\d.]+)', out.decode()).group(1))
 
     if cmake_installed_version < version.parse("3.13.0"):
-        print("Could not find a recent CMake to build Horovod. "
-              "Attempting to install CMake 3.13 to a temporary location via pip.", flush=True)
-        cmake_temp_dir = tempfile.TemporaryDirectory(prefix="horovod-cmake-tmp")
+        print(
+            "Could not find a recent CMake to build Horovod. "
+            "Attempting to install CMake 3.13 to a temporary location via pip.",
+            flush=True)
+        cmake_temp_dir = tempfile.TemporaryDirectory(
+            prefix="horovod-cmake-tmp")
         atexit.register(cmake_temp_dir.cleanup)
         try:
-            _ = subprocess.check_output(["pip", "install", "--target", cmake_temp_dir.name, "cmake~=3.13.0"])
+            _ = subprocess.check_output(
+                ["pip", "install", "--target", cmake_temp_dir.name, "cmake~=3.13.0"])
         except Exception:
-            raise RuntimeError("Failed to install temporary CMake. "
-                               "Please update your CMake to 3.13+ or set HOROVOD_CMAKE appropriately.")
+            raise RuntimeError(
+                "Failed to install temporary CMake. "
+                "Please update your CMake to 3.13+ or set HOROVOD_CMAKE appropriately.")
         cmake_bin = os.path.join(cmake_temp_dir.name, "bin", "run_cmake")
         with io.open(cmake_bin, "w") as f_run_cmake:
             f_run_cmake.write(
@@ -95,6 +104,7 @@ def get_cmake_bin():
         os.chmod(cmake_bin, 0o755)
 
     return cmake_bin
+
 
 class custom_build_ext(build_ext):
 
@@ -106,14 +116,17 @@ class custom_build_ext(build_ext):
 
         cmake_bin = get_cmake_bin()
 
-        config = 'Debug' if self.debug or os.environ.get('HOROVOD_DEBUG') == "1" else 'RelWithDebInfo'
+        config = 'Debug' if self.debug or os.environ.get(
+            'HOROVOD_DEBUG') == "1" else 'RelWithDebInfo'
 
         ext_name = self.extensions[0].name
-        build_dir = self.get_ext_fullpath(ext_name).replace(self.get_ext_filename(ext_name), '')
+        build_dir = self.get_ext_fullpath(ext_name).replace(
+            self.get_ext_filename(ext_name), '')
         build_dir = os.path.abspath(build_dir)
 
         cmake_args = ['-DCMAKE_BUILD_TYPE=' + config,
-                      '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}'.format(config.upper(), build_dir),
+                      '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}'.format(config.upper(),
+                                                                      build_dir),
                       '-DPYTHON_EXECUTABLE:FILEPATH=' + sys.executable]
 
         make_args = ['-j8'] if not os.environ.get('MAKEFLAGS') else []
@@ -149,14 +162,28 @@ class custom_build_ext(build_ext):
 
         if sys.argv[1].startswith('develop'):
             # Copy over metadata.json file from build directory
-            shutil.copyfile(os.path.join(build_dir, _FRAMEWORK_METADATA_FILE),
-                            os.path.join(self.extensions[0].cmake_lists_dir, _FRAMEWORK_METADATA_FILE))
-            # Remove unfound frameworks, otherwise develop mode will fail the install
-            self.extensions = [x for x in self.extensions if os.path.exists(self.get_ext_fullpath(x.name))]
+            shutil.copyfile(
+                os.path.join(
+                    build_dir,
+                    _FRAMEWORK_METADATA_FILE),
+                os.path.join(
+                    self.extensions[0].cmake_lists_dir,
+                    _FRAMEWORK_METADATA_FILE))
+            # Remove unfound frameworks, otherwise develop mode will fail the
+            # install
+            self.extensions = [
+                x for x in self.extensions if os.path.exists(
+                    self.get_ext_fullpath(
+                        x.name))]
 
 
 # python packages required to use horovod in general
-require_list = ['cloudpickle', 'psutil', 'pyyaml', 'dataclasses;python_version<"3.7"', 'packaging']
+require_list = [
+    'cloudpickle',
+    'psutil',
+    'pyyaml',
+    'dataclasses;python_version<"3.7"',
+    'packaging']
 
 # framework dependencies
 tensorflow_require_list = ['tensorflow']
@@ -168,28 +195,33 @@ pytorch_require_list = ['torch']
 mxnet_require_list = ['mxnet>=1.4.1']
 pyspark_require_list = ['pyspark>=2.3.2;python_version<"3.8"',
                         'pyspark>=3.0.0;python_version>="3.8"']
-spark_require_list = ['numpy', 'petastorm>=0.12.0', 'pyarrow>=0.15.0,<11.0', 'fsspec>=2021.07.0']
+spark_require_list = [
+    'numpy',
+    'petastorm>=0.12.0',
+    'pyarrow>=0.15.0,<11.0',
+    'fsspec>=2021.07.0']
 # https://github.com/ray-project/ray/pull/17465
 # google-api-core>=2.9.0 depends on protobuf<5.0.0dev,>=3.20.1, which conflicts with
 #   tensorflow protobuf~=3.20 and pytorch-lightning protobuf<3.20,>=3.9.2
 ray_require_list = ['ray', 'aioredis<2', 'google-api-core<2.9.0']
 pytorch_spark_require_list = pytorch_require_list + \
-                             spark_require_list + \
-                             pyspark_require_list + \
-                             ['pytorch_lightning>=1.3.8,<1.5.10']
+    spark_require_list + \
+    pyspark_require_list + \
+    ['pytorch_lightning>=1.3.8,<1.5.10']
 
 # all frameworks' dependencies
 all_frameworks_require_list = tensorflow_require_list + \
-                              keras_require_list + \
-                              pytorch_require_list + \
-                              mxnet_require_list + \
-                              spark_require_list + \
-                              pyspark_require_list
+    keras_require_list + \
+    pytorch_require_list + \
+    mxnet_require_list + \
+    spark_require_list + \
+    pyspark_require_list
 
 # python packages required / recommended to develop horovod
 # these are the earliest versions to work with Python 3.8
 # keep in sync with Dockerfile.test.cpu
-# NOTE: do not use versions with +cpu or +gpu here as users would need to add --find-links to pip
+# NOTE: do not use versions with +cpu or +gpu here as users would need to
+# add --find-links to pip
 dev_require_list = ['tensorflow-cpu==2.2.0',
                     'keras==2.3.1',
                     'torch==1.4.0',
@@ -200,7 +232,12 @@ dev_require_list = ['tensorflow-cpu==2.2.0',
 # torchvision 0.5.0 depends on torch==1.4.0
 
 # python packages required only to run tests
-test_require_list = ['mock', 'pytest', 'pytest-forked', 'pytest-subtests', 'parameterized']
+test_require_list = [
+    'mock',
+    'pytest',
+    'pytest-forked',
+    'pytest-subtests',
+    'parameterized']
 
 # Skip cffi if pytorch extension explicitly disabled
 if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
@@ -208,7 +245,8 @@ if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
 
 
 def get_package_version():
-    return __version__ + "+" + os.environ['HOROVOD_LOCAL_VERSION'] if 'HOROVOD_LOCAL_VERSION' in os.environ else __version__
+    return __version__ + "+" + \
+        os.environ['HOROVOD_LOCAL_VERSION'] if 'HOROVOD_LOCAL_VERSION' in os.environ else __version__
 
 
 setup(name='horovod',
@@ -221,7 +259,14 @@ setup(name='horovod',
           Horovod is a distributed training framework for TensorFlow, Keras, PyTorch, and Apache MXNet.
           The goal of Horovod is to make distributed Deep Learning fast and easy to use.'''),
       url='https://github.com/horovod/horovod',
-      keywords=['deep learning', 'tensorflow', 'keras', 'pytorch', 'mxnet', 'spark', 'AI'],
+      keywords=[
+          'deep learning',
+          'tensorflow',
+          'keras',
+          'pytorch',
+          'mxnet',
+          'spark',
+          'AI'],
       classifiers=[
           'License :: OSI Approved :: Apache Software License',
           'Development Status :: 4 - Beta',

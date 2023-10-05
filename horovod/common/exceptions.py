@@ -27,6 +27,7 @@ class HostsUpdatedInterrupt(RuntimeError):
 
     In elastic mode, this will result in a reset event without a restore to committed state.
     """
+
     def __init__(self, skip_sync):
         self.skip_sync = skip_sync
 
@@ -41,8 +42,14 @@ class HorovodVersionMismatchError(ImportError):
     """Internal error raised when the runtime version of a framework mismatches its version at
     Horovod installation time.
     """
+
     def __init__(self, name, version, installed_version, build_flag):
-        super().__init__(get_version_mismatch_message(name, version, installed_version, build_flag))
+        super().__init__(
+            get_version_mismatch_message(
+                name,
+                version,
+                installed_version,
+                build_flag))
         self.name = name
         self.version = version
         self.installed_version = installed_version
