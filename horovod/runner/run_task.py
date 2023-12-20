@@ -21,8 +21,13 @@ from horovod.runner.http.http_client import read_data_from_kvstore, put_data_int
 
 def main(addr, port):
     func = read_data_from_kvstore(addr, port, 'runfunc', 'func')
+    ret_val=""
     try:
         ret_val = func()
+    except SystemExit as e:
+        if e.code:
+            raise e
+        print("run finished.")
     except BaseException as e:
         sys.stderr.write("User function raise error: {error}".format(error=str(e)))
         raise e
