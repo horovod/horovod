@@ -366,13 +366,10 @@ def main():
                 f'        with:\n'
                 f'          python-version: 3.8\n'
                 f'\n'
-                f'      - name: Setup docker-compose\n'
-                f'        run: pip install docker-compose\n'
-                f'\n'
                 f'      - name: Build\n'
                 f'        id: build\n'
                 f'        run: |\n'
-                f'          .github/timeout-and-retry.sh ${{{{ matrix.build_timeout }}}}m 3 10 docker-compose -f docker-compose.test.yml build ${{{{ matrix.image }}}}\n'
+                f'          .github/timeout-and-retry.sh ${{{{ matrix.build_timeout }}}}m 3 10 docker compose -f docker-compose.test.yml build ${{{{ matrix.image }}}}\n'
                 f'        env:\n'
                 f'          COMPOSE_DOCKER_CLI_BUILD: 1\n'
                 f'          DOCKER_BUILDKIT: 1\n'
@@ -383,7 +380,7 @@ def main():
                            f'        if: always() && steps.build.outcome == \'success\' && matrix.{test_id} && {"true" if attempt == 1 else f"steps.{test_id}_run_{attempt-1}.outcome == {failure}"}\n'
                            f'        run: |\n'
                            f'          mkdir -p artifacts/${{{{ matrix.image }}}}/{test_id}_run_{attempt}\n'
-                           f'          docker-compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{{{ matrix.image }}}}/{test_id}_run_{attempt}:/artifacts" ${{{{ matrix.image }}}} /usr/bin/timeout {test["timeout"]}m {test["command"]}\n'
+                           f'          docker compose -f docker-compose.test.yml run -e GITHUB_ACTIONS --rm --volume "$(pwd)/artifacts/${{{{ matrix.image }}}}/{test_id}_run_{attempt}:/artifacts" ${{{{ matrix.image }}}} /usr/bin/timeout {test["timeout"]}m {test["command"]}\n'
                            f'        shell: bash\n'
                            for test_id, test in sorted(tests.items(), key=lambda test: test[0])
                            for attempt in range(1, attempts+1)]) +
