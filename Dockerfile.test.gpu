@@ -155,8 +155,11 @@ RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly" ]]; then \
         ldconfig; \
     fi
 
-# Pin h5py < 3 for tensorflow: https://github.com/tensorflow/tensorflow/issues/44467
-RUN pip install 'h5py<3.0' 'numpy<1.24.0' --force-reinstall --use-pep517
+# Pin h5py < 3 for tensorflow < 2.4.0: https://github.com/tensorflow/tensorflow/issues/44467
+RUN if [[ ${TENSORFLOW_PACKAGE} == tensorflow-gpu==1.15.* ]] || \
+       [[ ${TENSORFLOW_PACKAGE} == tensorflow-gpu==2.[0123].* ]]; then \
+      pip install 'h5py<3.0' 'numpy<1.24.0' --force-reinstall; \
+    fi
 
 # Install PyTorch (releases).
 # Pin Pillow<7.0 for torchvision < 0.5.0: https://github.com/pytorch/vision/issues/1718
