@@ -115,7 +115,12 @@ class custom_build_ext(build_ext):
                       '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}'.format(config.upper(), build_dir),
                       '-DPYTHON_EXECUTABLE:FILEPATH=' + sys.executable]
 
-        make_args = ['-j' + str(min(8, len(os.sched_getaffinity(0))))] if not os.environ.get('MAKEFLAGS') else []
+        try:
+            # only linux
+            ncpus = len(os.sched_getaffinity(0))
+        except AttributeError:
+            ncpus = os.cpu_count()
+        make_args = ['-j' + str(min(8, ncpus))] if not os.environ.get('MAKEFLAGS') else []
         if self.verbose:
             make_args.append('VERBOSE=1')
 
