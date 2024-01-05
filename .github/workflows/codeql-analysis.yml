@@ -73,14 +73,18 @@ jobs:
         df -h
         echo ::endgroup::
 
-        for dir in /opt/ghc \
+        for dir in /opt/az \
                    /opt/google/chrome \
                    /opt/hostedtoolcache/go \
                    /usr/lib/google-cloud-sdk \
                    /usr/lib/mono \
+                   /usr/libexec/gcc \
+                   /usr/local/.ghcup \
                    /usr/local/lib/android \
                    /usr/local/share/chromium \
-                   /usr/share/dotnet
+                   /usr/local/share/powershell \
+                   /usr/share/dotnet \
+                   /usr/share/swift
         do
           echo ::group::Deleting "$dir"
           sudo du -hsc $dir | tail -n1 || true
