@@ -73,11 +73,14 @@ jobs:
         df -h
         echo ::endgroup::
 
-        for dir in /usr/share/dotnet/sdk/\*/nuGetPackagesArchive.lzma \
-                   /usr/share/dotnet/shared \
-                   /usr/local/lib/android/sdk/ndk \
-                   /usr/local/lib/android/sdk/build-tools \
-                   /opt/ghc
+        for dir in /opt/ghc \
+                   /opt/google/chrome \
+                   /opt/hostedtoolcache/go \
+                   /usr/lib/google-cloud-sdk \
+                   /usr/lib/mono \
+                   /usr/local/lib/android \
+                   /usr/local/share/chromium \
+                   /usr/share/dotnet
         do
           echo ::group::Deleting "$dir"
           sudo du -hsc $dir | tail -n1 || true
