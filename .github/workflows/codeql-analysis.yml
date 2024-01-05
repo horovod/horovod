@@ -129,7 +129,7 @@ jobs:
         # Build Horovod (C++)
         RUN mkdir -p build/temp
         RUN cd build/temp; source /home/runner/work/_temp/codeql_databases/temp/tracingEnvironment/start-tracing.sh; cmake /home/runner/work/horovod/horovod -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO=/home/runner/work/horovod/horovod/build/temp/lib.linux-x86_64-3.8 -DPYTHON_EXECUTABLE:FILEPATH=/usr/bin/python
-        RUN cd build/temp; source /home/runner/work/_temp/codeql_databases/temp/tracingEnvironment/start-tracing.sh; cmake --build . --config RelWithDebInfo -- VERBOSE=1
+        RUN cd build/temp; source /home/runner/work/_temp/codeql_databases/temp/tracingEnvironment/start-tracing.sh; cmake --build . --config RelWithDebInfo -- VERBOSE=0
         EOF
         )
         sed -i -e "s%^# Install Horovod.$%${command//$'\n'/\\n}\n\n# Install Horovod.%" Dockerfile.test.?pu
