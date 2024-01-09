@@ -201,8 +201,12 @@ dev_require_list = ['tensorflow-cpu==2.2.0',
 # python packages required only to run tests
 test_require_list = ['mock', 'pytest', 'pytest-forked', 'pytest-subtests', 'parameterized']
 
+# cffi is required for PyTorch
 # Skip cffi if pytorch extension explicitly disabled
-if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
+# If cffi is specified in setup_requires, it will need libffi to be installed on the machine,
+# which is undesirable.  Luckily, `install` action will install cffi before executing build,
+# so it's only necessary for `build*` or `bdist*` actions.
+if not os.environ.get('HOROVOD_WITHOUT_PYTORCH') and is_build_action():
     require_list.append('cffi>=1.4.0')
 
 
@@ -229,11 +233,7 @@ setup(name='horovod',
       ],
       ext_modules=[tensorflow_mpi_lib, torch_mpi_lib_v2, mxnet_mpi_lib],
       cmdclass={'build_ext': custom_build_ext},
-      # cffi is required for PyTorch
-      # If cffi is specified in setup_requires, it will need libffi to be installed on the machine,
-      # which is undesirable.  Luckily, `install` action will install cffi before executing build,
-      # so it's only necessary for `build*` or `bdist*` actions.
-      setup_requires=require_list if is_build_action() else [],
+      setup_requires=require_list,
       install_requires=require_list,
       tests_require=test_require_list,
       extras_require={
