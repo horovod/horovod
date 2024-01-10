@@ -28,10 +28,9 @@ def get_requires_for_build_wheel(self, config_settings=None):
             version_string = os.environ[key]
             try:
                 version.Version(version_string)
+                new_pkgs.append(f"{key_pkg_map[key]}=={version_string}")
             except version.InvalidVersion:
-                raise version.InvalidVersion(
-                    f"Invalid Version String, {version_string}, for {key}")
-            new_pkgs.append(f"{key_pkg_map[key]}=={version_string}")
+                new_pkgs.append(f"{version_string}")
             if key_pkg_map[key] == MXNET:
                 # MxNet has np.bool everywhere which is removed in newer
                 # versions...
