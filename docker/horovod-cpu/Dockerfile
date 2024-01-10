@@ -82,7 +82,7 @@ RUN pip install --no-cache-dir ${PYSPARK_PACKAGE}
 WORKDIR /horovod
 COPY . .
 RUN python setup.py sdist && \
-    bash -c "HOROVOD_WITH_TENSORFLOW=${TENSORFLOW_VERSION} HOROVOD_WITH_PYTORCH=${PYTORCH_VERSION} HOROVOD_WITH_MXNET=${MXNET_VERSION} pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]" && \
+    bash -c "HOROVOD_WITH_TENSORFLOW=${TENSORFLOW_VERSION} HOROVOD_WITH_PYTORCH=${PYTORCH_VERSION} HOROVOD_WITH_MXNET=${MXNET_VERSION} pip install --no-cache-dir --use-pep517 -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]" && \
     horovodrun --check-build
 
 # Check all frameworks are working correctly

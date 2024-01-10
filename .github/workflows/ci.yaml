@@ -69,9 +69,8 @@ jobs:
           HOROVOD_WITHOUT_MPI: 1
         run: |
           python -m pip install --upgrade pip
-          python -m pip install setuptools wheel
           python setup.py sdist
-          pip -v install dist/horovod-*.tar.gz
+          pip -v install --use-pep517 dist/horovod-*.tar.gz
 
   init-workflow:
     name: "Init Workflow"
@@ -4499,7 +4498,7 @@ jobs:
           if [[ ${TENSORFLOW} == 1.* ]] || [[ ${TENSORFLOW} == 2.[012345].* ]]; then pip install "h5py<3" "protobuf~=3.20"; fi
           pip install torch==${PYTORCH} pytorch_lightning==${PYTORCH_LIGHTNING} torchvision==${TORCHVISION}
           pip install mxnet==${MXNET}
-          HOROVOD_WITH_TENSORFLOW=${TENSORFLOW} HOROVOD_WITH_PYTORCH=${PYTORCH} HOROVOD_WITH_MXNET=${MXNET} pip install --no-cache-dir .[test]
+          HOROVOD_WITH_TENSORFLOW=${TENSORFLOW} HOROVOD_WITH_PYTORCH=${PYTORCH} HOROVOD_WITH_MXNET=${MXNET} pip install --no-cache-dir --use-pep517 .[test]
           horovodrun --check-build
 
       - name: Test [attempt 1 of 3]

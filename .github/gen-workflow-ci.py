@@ -191,9 +191,8 @@ def main():
                '          HOROVOD_WITHOUT_MPI: 1\n' \
                '        run: |\n' \
                '          python -m pip install --upgrade pip\n' \
-               '          python -m pip install setuptools wheel\n' \
                '          python setup.py sdist\n' \
-               '          pip -v install dist/horovod-*.tar.gz\n' \
+               '          pip -v install --use-pep517 dist/horovod-*.tar.gz\n' \
                '\n' + \
                '\n'.join(jobs)
 
@@ -480,7 +479,7 @@ def main():
                 f'          if [[ ${{TENSORFLOW}} == 1.* ]] || [[ ${{TENSORFLOW}} == 2.[012345].* ]]; then pip install "h5py<3" "protobuf~=3.20"; fi\n'
                 f'          pip install torch==${{PYTORCH}} pytorch_lightning==${{PYTORCH_LIGHTNING}} torchvision==${{TORCHVISION}}\n'
                 f'          pip install mxnet==${{MXNET}}\n'
-                f'          HOROVOD_WITH_TENSORFLOW=${{TENSORFLOW}} HOROVOD_WITH_PYTORCH=${{PYTORCH}} HOROVOD_WITH_MXNET=${{MXNET}} pip install --no-cache-dir .[test]\n'
+                f'          HOROVOD_WITH_TENSORFLOW=${{TENSORFLOW}} HOROVOD_WITH_PYTORCH=${{PYTORCH}} HOROVOD_WITH_MXNET=${{MXNET}} pip install --no-cache-dir --use-pep517 .[test]\n'
                 f'          horovodrun --check-build\n'
                 f'\n' +
                 '\n'.join([f'      - name: Test [attempt {attempt} of {attempts}]\n'

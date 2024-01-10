@@ -56,7 +56,7 @@ WORKDIR /horovod
 COPY --chown=ray:users . .
 RUN python setup.py sdist && \
     sudo ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
-    HOROVOD_GPU_OPERATIONS=NCCL HOROVOD_WITH_TENSORFLOW=${TENSORFLOW_VERSION} HOROVOD_WITH_PYTORCH=${PYTORCH_VERSION} pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[ray] && \
+    HOROVOD_GPU_OPERATIONS=NCCL HOROVOD_WITH_TENSORFLOW=${TENSORFLOW_VERSION} HOROVOD_WITH_PYTORCH=${PYTORCH_VERSION} pip install --no-cache-dir --use-pep517 -v $(ls /horovod/dist/horovod-*.tar.gz)[ray] && \
     horovodrun --check-build && \
     sudo ldconfig
 
