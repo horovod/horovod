@@ -3,12 +3,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       build: test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
       config: docker-compose.test.yml
       push-retries: 5
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 40
   retry:
@@ -19,12 +19,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       build: test-gpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
       config: docker-compose.test.yml
       push-retries: 5
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 40
   retry:
@@ -35,12 +35,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       build: test-gpu-gloo-py3_8-tf2_11_1-keras2_11_0-torch1_13_1-mxnet1_8_0_p0-pyspark3_4_0
       image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
       config: docker-compose.test.yml
       push-retries: 5
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 40
   retry:
@@ -51,12 +51,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       build: test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
       config: docker-compose.test.yml
       push-retries: 5
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 40
   retry:
@@ -67,12 +67,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       build: test-gpu-openmpi-gloo-py3_8-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin
       image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
       config: docker-compose.test.yml
       push-retries: 5
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 40
   retry:
@@ -83,12 +83,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       build: test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
       config: docker-compose.test.yml
       push-retries: 5
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 40
   retry:
@@ -103,12 +103,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 15
   retry:
@@ -121,12 +121,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 15
   retry:
@@ -139,12 +139,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -157,12 +157,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 15
   retry:
@@ -175,12 +175,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 15
   retry:
@@ -193,12 +193,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -211,12 +211,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_11_1-keras2_11_0-torch1_13_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 15
   retry:
@@ -229,12 +229,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_11_1-keras2_11_0-torch1_13_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 15
   retry:
@@ -247,12 +247,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_11_1-keras2_11_0-torch1_13_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -265,12 +265,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 15
   retry:
@@ -283,12 +283,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 15
   retry:
@@ -301,12 +301,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -319,12 +319,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 15
   retry:
@@ -337,12 +337,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 15
   retry:
@@ -355,12 +355,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -373,12 +373,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 15
   retry:
@@ -391,12 +391,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 15
   retry:
@@ -409,12 +409,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -427,12 +427,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 15
   retry:
@@ -445,12 +445,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 15
   retry:
@@ -463,12 +463,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -482,12 +482,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -500,12 +500,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -518,12 +518,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -536,12 +536,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -554,12 +554,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 15
   retry:
@@ -572,12 +572,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -590,12 +590,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -608,12 +608,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -626,12 +626,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -644,12 +644,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -662,12 +662,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -680,12 +680,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -698,12 +698,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -716,12 +716,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -734,12 +734,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -752,12 +752,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -770,12 +770,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 15
   retry:
@@ -788,12 +788,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -806,12 +806,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -824,12 +824,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -842,12 +842,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_11_1-keras2_11_0-torch1_13_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -860,12 +860,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_11_1-keras2_11_0-torch1_13_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -878,12 +878,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_11_1-keras2_11_0-torch1_13_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -896,12 +896,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_11_1-keras2_11_0-torch1_13_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -914,12 +914,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_11_1-keras2_11_0-torch1_13_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -932,12 +932,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_11_1-keras2_11_0-torch1_13_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 15
   retry:
@@ -950,12 +950,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_11_1-keras2_11_0-torch1_13_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -968,12 +968,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_11_1-keras2_11_0-torch1_13_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -986,12 +986,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-gloo-py3_8-tf2_11_1-keras2_11_0-torch1_13_1-mxnet1_8_0_p0-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1004,12 +1004,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1022,12 +1022,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1040,12 +1040,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1058,12 +1058,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1076,12 +1076,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1094,12 +1094,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 15
   retry:
@@ -1112,12 +1112,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1130,12 +1130,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1148,12 +1148,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1166,12 +1166,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1184,12 +1184,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1202,12 +1202,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1220,12 +1220,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1238,12 +1238,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1256,12 +1256,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1274,12 +1274,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1292,12 +1292,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1310,12 +1310,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1328,12 +1328,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1346,12 +1346,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 15
   retry:
@@ -1364,12 +1364,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1382,12 +1382,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1400,12 +1400,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1418,12 +1418,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1436,12 +1436,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1454,12 +1454,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1472,12 +1472,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
@@ -1490,12 +1490,12 @@ steps:
   env:
     COMPOSE_HTTP_TIMEOUT: 300
   plugins:
-  - docker-compose#v3.10.0:
+  - docker-compose#v5.2.0:
       run: test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0
       volumes: "./artifacts:/artifacts"
       config: docker-compose.test.yml
       pull-retries: 3
-  - ecr#v1.2.0:
+  - ecr#v2.8.0:
       login: true
   timeout_in_minutes: 10
   retry:
