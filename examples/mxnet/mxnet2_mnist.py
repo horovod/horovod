@@ -43,7 +43,7 @@ def main(args):
         data_dir = "data-%d" % rank
         if not os.path.isdir(data_dir):
             os.makedirs(data_dir)
-        zip_file_path = download('http://data.mxnet.io/mxnet/data/mnist.zip',
+        zip_file_path = download('https://horovod-datasets.s3.amazonaws.com/mnist.zip',
                                  dirname=data_dir)
         with zipfile.ZipFile(zip_file_path) as zf:
             zf.extractall(data_dir)
