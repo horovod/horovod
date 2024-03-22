@@ -4561,7 +4561,7 @@ jobs:
             ${{ steps.test-3.outputs.artifacts-path }}
   buildkite-trigger:
     name: "Build and Test GPU (trigger Builtkite)"
-    needs: [init-workflow, build-and-test]
+    needs: [init-workflow]
     runs-on: ubuntu-latest
     if: >
       github.repository == 'horovod/horovod' &&
@@ -4618,7 +4618,7 @@ jobs:
 
   buildkite-heads-trigger:
     name: "Build and Test GPU heads (trigger Builtkite)"
-    needs: [init-workflow, build-and-test]
+    needs: [init-workflow]
     runs-on: ubuntu-latest
     if: >
       github.repository == 'horovod/horovod' &&
