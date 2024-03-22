@@ -5,8 +5,8 @@ steps:
   plugins:
   - docker-compose#v5.2.0:
       build: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_4_0
-      image-repository: 823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
       config: docker-compose.test.yml
+      push: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_4_0:823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
       push-retries: 5
   - ecr#v2.8.0:
       login: true
