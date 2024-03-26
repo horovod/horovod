@@ -23,11 +23,15 @@ import sysconfig
 import warnings
 
 from contextlib import contextmanager
+from importlib import metadata
 
 from horovod.common.exceptions import get_version_mismatch_message, HorovodVersionMismatchError
 
 
-EXTENSIONS = ['tensorflow', 'torch', 'mxnet']
+EXTENSIONS = {
+    'tensorflow': 'HOROVOD_WITH_TENSORFLOW',
+    'torch': 'HOROVOD_WITH_PYTORCH',
+    'mxnet': 'HOROVOD_WITH_MXNET'}
 
 
 def get_ext_suffix():
@@ -55,8 +59,8 @@ def check_extension(ext_name, ext_env_var, pkg_path, *args):
     if not os.path.exists(full_path):
         raise ImportError(
             'Extension {} has not been built: {} not found\n'
-            'If this is not expected, reinstall Horovod with {}=1 to debug the build error.'.format(
-                ext_name, full_path, ext_env_var
+            'If this is not expected, reinstall Horovod with {}={} to debug the build error.'.format(
+                ext_name, full_path, ext_env_var, metadata.version(ext_name.split('.')[-1])
             )
         )
 
@@ -72,8 +76,10 @@ def _check_extension_lambda(ext_base_name, fn, fn_desc, verbose):
         import traceback
 
         if verbose:
-            print('Checking whether extension {ext_base_name} was {fn_desc}.'.format(
-                ext_base_name=ext_base_name, fn_desc=fn_desc))
+            print(
+                'Checking whether extension {ext_base_name} was {fn_desc}.'.format(
+                    ext_base_name=ext_base_name,
+                    fn_desc=fn_desc))
         else:
             # Suppress output
             sys.stdout = open(os.devnull, 'w')
@@ -82,14 +88,17 @@ def _check_extension_lambda(ext_base_name, fn, fn_desc, verbose):
         try:
             ext = importlib.import_module('.' + ext_base_name, 'horovod')
             result = fn(ext)
-        except:
+        except BaseException:
             traceback.print_exc()
             result = None
 
         if verbose:
-            print('Extension {ext_base_name} {flag} {fn_desc}.'.format(
-                ext_base_name=ext_base_name, flag=('was' if result else 'was NOT'),
-                fn_desc=fn_desc))
+            print(
+                'Extension {ext_base_name} {flag} {fn_desc}.'.format(
+                    ext_base_name=ext_base_name,
+                    flag=(
+                        'was' if result else 'was NOT'),
+                    fn_desc=fn_desc))
 
         queue.put(result)
 
@@ -105,7 +114,7 @@ def _check_extension_lambda(ext_base_name, fn, fn_desc, verbose):
 
 
 def extension_available(ext_base_name, verbose=False):
-    available_fn = lambda ext: ext is not None
+    def available_fn(ext): return ext is not None
     return _check_extension_lambda(
         ext_base_name, available_fn, 'built', verbose) or False
 
@@ -128,7 +137,7 @@ def _cache(f):
 
 @_cache
 def gpu_available(ext_base_name, verbose=False):
-    available_fn = lambda ext: ext._check_has_gpu()
+    def available_fn(ext): return ext._check_has_gpu()
     return _check_extension_lambda(
         ext_base_name, available_fn, 'running with GPU', verbose) or False
 
@@ -136,7 +145,7 @@ def gpu_available(ext_base_name, verbose=False):
 @_cache
 def mpi_built(verbose=False):
     for ext_base_name in EXTENSIONS:
-        built_fn = lambda ext: ext.mpi_built()
+        def built_fn(ext): return ext.mpi_built()
         result = _check_extension_lambda(
             ext_base_name, built_fn, 'built with MPI', verbose)
         if result is not None:
@@ -147,42 +156,46 @@ def mpi_built(verbose=False):
 @_cache
 def gloo_built(verbose=False):
     for ext_base_name in EXTENSIONS:
-        built_fn = lambda ext: ext.gloo_built()
+        def built_fn(ext): return ext.gloo_built()
         result = _check_extension_lambda(
             ext_base_name, built_fn, 'built with Gloo', verbose)
         if result is not None:
             return result
     return None
 
+
 @_cache
 def nccl_built(verbose=False):
     for ext_base_name in EXTENSIONS:
-        built_fn = lambda ext: ext.nccl_built()
+        def built_fn(ext): return ext.nccl_built()
         result = _check_extension_lambda(
             ext_base_name, built_fn, 'built with NCCL', verbose)
         if result is not None:
             return result
     return None
 
+
 @_cache
 def ddl_built(verbose=False):
     for ext_base_name in EXTENSIONS:
-        built_fn = lambda ext: ext.ddl_built()
+        def built_fn(ext): return ext.ddl_built()
         result = _check_extension_lambda(
             ext_base_name, built_fn, 'built with DDL', verbose)
         if result is not None:
             return result
     return None
 
+
 @_cache
 def ccl_built(verbose=False):
     for ext_base_name in EXTENSIONS:
-        built_fn = lambda ext: ext.ccl_built()
+        def built_fn(ext): return ext.ccl_built()
         result = _check_extension_lambda(
             ext_base_name, built_fn, 'built with CCL', verbose)
         if result is not None:
             return result
     return None
+
 
 @contextmanager
 def env(**kwargs):
@@ -221,11 +234,13 @@ def get_average_backwards_compatibility_fun(reduce_ops):
     def impl(op, average):
         if op is not None:
             if average is not None:
-                raise ValueError('The op parameter supersedes average. Please provide only one of them.')
+                raise ValueError(
+                    'The op parameter supersedes average. Please provide only one of them.')
             return op
         elif average is not None:
-            warnings.warn('Parameter `average` has been replaced with `op` and will be removed in v1.0',
-                          DeprecationWarning)
+            warnings.warn(
+                'Parameter `average` has been replaced with `op` and will be removed in v1.0',
+                DeprecationWarning)
             return reduce_ops.Average if average else reduce_ops.Sum
         else:
             return reduce_ops.Average
@@ -238,7 +253,8 @@ def num_rank_is_power_2(num_rank):
     for Adasum allreduce.
     TODO support non-power of 2 ranks.
     """
-    return num_rank != 0 and ((num_rank & (num_rank -1)) == 0)
+    return num_rank != 0 and ((num_rank & (num_rank - 1)) == 0)
+
 
 def split_list(l, n):
     """
@@ -249,15 +265,30 @@ def split_list(l, n):
 
 
 def check_installed_version(name, version, exception=None):
-    file_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),\
-        os.pardir, "metadata.json"))
+    file_path = os.path.abspath(
+        os.path.join(
+            os.path.dirname(
+                os.path.abspath(__file__)),
+            os.pardir,
+            "metadata.json"))
     with open(file_path) as f:
         installed_version = json.load(f).get(name)
+        extension_flag = EXTENSIONS['torch'] if name == 'pytorch' else EXTENSIONS[name]
+        # Anything after a + is useless for pip, i.e. torch==2.0.0+cu117 finds
+        # nothing.
+        build_flag = f"{extension_flag}=={version.split('+')[0]}"
         if installed_version != version:
             if exception is None:
-                warnings.warn(get_version_mismatch_message(name, version, installed_version))
+                warnings.warn(
+                    get_version_mismatch_message(
+                        name,
+                        version,
+                        installed_version,
+                        build_flag))
             else:
-                raise HorovodVersionMismatchError(name, version, installed_version) from exception
+                raise HorovodVersionMismatchError(
+                    name, version, installed_version, build_flag) from exception
+
 
 def is_iterable(x):
     try:
@@ -271,15 +302,14 @@ def is_iterable(x):
 def is_version_greater_equal_than(ver, target):
     from packaging import version
     if any([not isinstance(_str, str) for _str in (ver, target)]):
-        raise ValueError("This function only accepts string arguments. \n"
-                         "Received:\n"
-                         "\t- ver (type {type_ver}: {val_ver})"
-                         "\t- target (type {type_target}: {val_target})".format(
-                            type_ver=(type(ver)),
-                            val_ver=ver,
-                            type_target=(type(target)),
-                            val_target=target,
-                         ))
+        raise ValueError(
+            "This function only accepts string arguments. \n"
+            "Received:\n"
+            "\t- ver (type {type_ver}: {val_ver})"
+            "\t- target (type {type_target}: {val_target})".format(
+                type_ver=(
+                    type(ver)), val_ver=ver, type_target=(
+                    type(target)), val_target=target, ))
 
     if len(target.split(".")) != 3:
         raise ValueError("We only accepts target version values in the form "
