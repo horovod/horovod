@@ -7,9 +7,9 @@ set -eu
 repository=823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
 
 # our queues
-cpu_queue="cpu-v5111"
-gpux2_queue="2x-gpu-v5111"
-gpux4_queue="4x-gpu-v5111"
+cpu_queue="cpu-v6170"
+gpux2_queue="2x-gpu-v6170"
+gpux4_queue="4x-gpu-v6170"
 
 # our baseline test is
 baseline="test-cpu-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0"
@@ -81,12 +81,12 @@ build_test() {
   echo "  env:"
   echo "    COMPOSE_HTTP_TIMEOUT: 300"
   echo "  plugins:"
-  echo "  - docker-compose#v3.10.0:"
+  echo "  - docker-compose#v5.2.0:"
   echo "      build: ${test}"
-  echo "      image-repository: ${repository}"
   echo "      config: docker-compose.test.yml"
+  echo "      push: ${test}:${repository}"
   echo "      push-retries: 5"
-  echo "  - ecr#v1.2.0:"
+  echo "  - ecr#v2.8.0:"
   echo "      login: true"
   echo "  timeout_in_minutes: 40"
   echo "  retry:"
@@ -108,12 +108,12 @@ run_test() {
   echo "  env:"
   echo "    COMPOSE_HTTP_TIMEOUT: 300"
   echo "  plugins:"
-  echo "  - docker-compose#v3.10.0:"
+  echo "  - docker-compose#v5.2.0:"
   echo "      run: ${test}"
   echo "      volumes: \"./artifacts:/artifacts\""
   echo "      config: docker-compose.test.yml"
   echo "      pull-retries: 3"
-  echo "  - ecr#v1.2.0:"
+  echo "  - ecr#v2.8.0:"
   echo "      login: true"
   echo "  timeout_in_minutes: ${timeout}"
   echo "  retry:"
