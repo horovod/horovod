@@ -189,25 +189,6 @@ run_mpi_integration() {
     fi
   fi
 
-  if [[ ${test} == *"mxnet2_"* ]] || [[ ${test} == *"mxnethead"* ]]; then
-      run_test "${test}" "${queue}" \
-               ":muscle: MPI MXNet2 MNIST horovodrun (${test})" \
-               "bash -c \"${oneccl_env} OMP_NUM_THREADS=1 \\\$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet2_mnist.py\""
-    if [[ ${queue} != *gpu* ]]; then
-      run_test "${test}" "${queue}" \
-               ":muscle: MPI MXNet2 MNIST api (${test})" \
-               "bash -c \"${oneccl_env} python /horovod/examples/mxnet/mxnet2_mnist.py --num-proc 2 --hosts localhost:2 --communication mpi\""
-    fi
-  else
-    run_test "${test}" "${queue}" \
-             ":muscle: MPI MXNet MNIST horovodrun (${test})" \
-             "bash -c \"${oneccl_env} OMP_NUM_THREADS=1 \\\$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet_mnist.py\""
-    # MXNet MNIST does not work through the horovod API: https://github.com/horovod/horovod/issues/3724
-    #run_test "${test}" "${queue}" \
-    #         ":muscle: MPI MXNet MNIST api (${test})" \
-    #         "bash -c \"${oneccl_env} python /horovod/examples/mxnet/mxnet_mnist.py --num-proc 2 --hosts localhost:2 --communication mpi\""
-  fi
-
   # tests that should be executed only with the latest release since they don't test
   # a framework-specific functionality
   if [[ ${test} == *"tf1_15_0"* ]]; then
@@ -346,25 +327,6 @@ run_gloo_integration() {
     fi
   fi
 
-  if [[ ${test} == *"mxnet2_"* ]] || [[ ${test} == *"mxnethead"* ]]; then
-      run_test "${test}" "${queue}" \
-               ":muscle: Gloo MXNet2 MNIST horovodrun (${test})" \
-               "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet2_mnist.py"
-    if [[ ${queue} != *gpu* ]]; then
-      run_test "${test}" "${queue}" \
-               ":muscle: Gloo MXNet2 MNIST api (${test})" \
-               "python /horovod/examples/mxnet/mxnet2_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo"
-    fi
-  else
-      run_test "${test}" "${queue}" \
-               ":muscle: Gloo MXNet MNIST horovodrun (${test})" \
-               "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet_mnist.py"
-      # MXNet MNIST does not work through the horovod API: https://github.com/horovod/horovod/issues/3724
-      #run_test "${test}" "${queue}" \
-      #         ":muscle: Gloo MXNet MNIST api (${test})" \
-      #         "python /horovod/examples/mxnet/mxnet_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo"
-  fi
-
   # Elastic Horovod
   local elastic_tensorflow="test_elastic_tensorflow.py test_elastic_tensorflow_keras.py"
   local elastic_spark_tensorflow="test_elastic_spark_tensorflow.py"
@@ -467,16 +429,6 @@ run_single_integration() {
     run_test "${test}" "${queue}" \
       ":fire: Single PyTorch MNIST (${test})" \
       "bash -c \"${oneccl_env} python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets\""
-  fi
-
-  if [[ ${test} == *"mxnet2_"* ]] || [[ ${test} == *"mxnethead"* ]]; then
-      run_test "${test}" "${queue}" \
-               ":muscle: Single MXNet2 MNIST (${test})" \
-               "bash -c \"${oneccl_env} python /horovod/examples/mxnet/mxnet2_mnist.py --epochs 3\""
-  else
-      run_test "${test}" "${queue}" \
-               ":muscle: Single MXNet MNIST (${test})" \
-               "bash -c \"${oneccl_env} python /horovod/examples/mxnet/mxnet_mnist.py --epochs 3\""
   fi
 }
 
