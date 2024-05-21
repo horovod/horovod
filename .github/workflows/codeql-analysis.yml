@@ -39,7 +39,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Install Python dependencies
       # install all `install_requires` dependencies but no `extras_require` dependencies
@@ -48,13 +48,13 @@ jobs:
         pip install $(head -n $(( $(grep -m 1 -n -e "^\[" horovod.egg-info/requires.txt | cut -d : -f 1) - 1 )) horovod.egg-info/requires.txt)
 
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v2
+      uses: github/codeql-action/init@v3
       with:
         languages: python
         setup-python-dependencies: false
 
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v2
+      uses: github/codeql-action/analyze@v3
 
   analyze-cpp:
     name: Analyze C++
@@ -90,12 +90,12 @@ jobs:
         echo ::endgroup::
 
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         submodules: recursive
 
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v2
+      uses: github/codeql-action/init@v3
       with:
         languages: cpp
 
@@ -142,7 +142,7 @@ jobs:
         git diff
 
     - name: Setup Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.8'
 
@@ -157,4 +157,4 @@ jobs:
         docker cp horovod:/home/runner/work/_temp/codeql_databases /home/runner/work/_temp/
 
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v2
+      uses: github/codeql-action/analyze@v3
