@@ -24,7 +24,7 @@
 #define NCCL_P2P_SUPPORTED
 #endif
 #elif HAVE_ROCM
-#include <rccl.h>
+#include <rccl/rccl.h>
 #define NCCL_P2P_SUPPORTED
 #endif
 
