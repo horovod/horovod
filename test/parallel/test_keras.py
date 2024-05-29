@@ -15,7 +15,7 @@
 
 """Tests for horovod.keras."""
 
-from distutils.version import LooseVersion
+from packaging import version
 import os
 import sys
 
@@ -38,7 +38,7 @@ from common import temppath
 
 
 @pytest.mark.skipif(not _HAS_KERAS, reason='Keras not available')
-@pytest.mark.skipif(LooseVersion(tf.__version__) >= LooseVersion('2.0.0'), reason='TensorFlow v1 tests')
+@pytest.mark.skipif(version.parse(tf.__version__) >= version.parse('2.0.0'), reason='TensorFlow v1 tests')
 class KerasTests(tf.test.TestCase):
     """
     Tests for ops in horovod.keras.
@@ -104,7 +104,7 @@ class KerasTests(tf.test.TestCase):
     def test_load_model_custom_optimizers(self):
         class TestOptimizer(keras.optimizers.RMSprop):
             def __init__(self, **kwargs):
-                super(TestOptimizer, self).__init__(**kwargs)
+                super().__init__(**kwargs)
 
         with self.test_session(config=self.config) as sess:
             K.set_session(sess)
@@ -139,7 +139,7 @@ class KerasTests(tf.test.TestCase):
     def test_load_model_custom_objects(self):
         class TestOptimizer(keras.optimizers.RMSprop):
             def __init__(self, **kwargs):
-                super(TestOptimizer, self).__init__(**kwargs)
+                super().__init__(**kwargs)
 
         with self.test_session(config=self.config) as sess:
             K.set_session(sess)
@@ -235,9 +235,9 @@ class KerasTests(tf.test.TestCase):
                 self.assertEqual(len(model.optimizer.weights), 5)
 
     def _check_optimizer_weights(self, opt, new_opt):
-        self.assertEqual(len(opt.get_weights()), len(new_opt.get_weights()))
-        for weights, new_weights in zip(opt.get_weights(),
-                                        new_opt.get_weights()):
+        self.assertEqual(len(opt.variables()), len(new_opt.variables()))
+        for weights, new_weights in zip(opt.variables(),
+                                        new_opt.variables()):
             if np.isscalar(weights):
                 self.assertEqual(weights, new_weights)
             else:

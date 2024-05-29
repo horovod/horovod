@@ -32,6 +32,26 @@ Status MPIAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
       global_state_->process_set_table.Get(first_entry.process_set_id);
   const auto& mpi_context = process_set.mpi_context;
 
+  MPI_Op mpiOp = mpi_context.GetMPISumOp(first_entry.tensor->dtype());
+  double prescale_factor = response.prescale_factor();
+  double postscale_factor = response.postscale_factor();
+
+  if (response.reduce_op() == ReduceOp::AVERAGE) {
+    mpiOp = mpi_context.GetMPISumOp(first_entry.tensor->dtype());
+    // Averaging happens via postscale_factor
+    postscale_factor /= process_set.controller->GetSize();
+  } else if (response.reduce_op() == ReduceOp::SUM) {
+    mpiOp = mpi_context.GetMPISumOp(first_entry.tensor->dtype());
+  } else if (response.reduce_op() == ReduceOp::MIN) {
+    mpiOp = mpi_context.GetMPIMinOp(first_entry.tensor->dtype());
+  } else if (response.reduce_op() == ReduceOp::MAX) {
+    mpiOp = mpi_context.GetMPIMaxOp(first_entry.tensor->dtype());
+  } else if (response.reduce_op() == ReduceOp::PRODUCT) {
+    mpiOp = mpi_context.GetMPIProdOp(first_entry.tensor->dtype());
+  } else {
+    throw std::logic_error("Reduction op type not supported.");
+  }
+
   const void* fused_input_data;
   void* buffer_data;
   size_t buffer_len;
@@ -49,9 +69,9 @@ Status MPIAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
     buffer_len = (size_t) first_entry.output->size();
   }
 
-  if (response.prescale_factor() != 1.0) {
+  if (prescale_factor != 1.0) {
     // Execute prescaling op
-    ScaleBuffer(response.prescale_factor(), entries, fused_input_data, buffer_data, num_elements);
+    ScaleBuffer(prescale_factor, entries, fused_input_data, buffer_data, num_elements);
     fused_input_data = buffer_data; // for unfused, scale is done out of place
   }
 
@@ -62,16 +82,16 @@ Status MPIAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
   int op =
       MPI_Allreduce(sendbuf, buffer_data, (int)num_elements,
                     mpi_context.GetMPIDataType(first_entry.tensor),
-                    mpi_context.GetMPISumOp(first_entry.tensor->dtype()),
+                    mpiOp,
                     mpi_context.GetMPICommunicator(Communicator::GLOBAL));
   if (op != MPI_SUCCESS) {
     throw std::runtime_error("MPI_Allreduce failed, see MPI output for details.");
   }
   timeline.ActivityEndAll(entries);
 
-  if (response.postscale_factor() != 1.0) {
+  if (postscale_factor != 1.0) {
     // Execute postscaling op
-    ScaleBuffer(response.postscale_factor(), entries, buffer_data, buffer_data, num_elements);
+    ScaleBuffer(postscale_factor, entries, buffer_data, buffer_data, num_elements);
   }
 
   // Copy memory out of the fusion buffer.
@@ -127,7 +147,7 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
   }
 
   timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
-  Status status = AllocateOutput(entries, response, entry_component_sizes, recvcounts);
+  Status status = AllocateOutput(entries, response, entry_component_sizes);
   if (!status.ok()) {
     /* Cleanup */
     for (size_t ec = 0; ec < entries.size(); ++ec) {
@@ -142,8 +162,10 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
   }
   timeline.ActivityEndAll(entries);
 
+  SetRecvcounts(entry_component_sizes, entries.size(), global_size, recvcounts);
   SetDisplacements(recvcounts, displcmnts, global_size);
-  SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts, entry_component_offsets);
+  SetEntryComponentOffsets(entry_component_sizes, recvcounts, entries.size(),
+                           global_size, entry_component_offsets);
 
   int element_size = mpi_context.GetMPITypeSize(first_entry.tensor->dtype());
 
@@ -227,7 +249,7 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
   }
 
   timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
-  Status status = AllocateOutput(entries, response, entry_component_sizes, recvcounts);
+  Status status = AllocateOutput(entries, response, entry_component_sizes);
   if (!status.ok()) {
     /* Cleanup */
     for (size_t ec = 0; ec < entries.size(); ++ec) {
@@ -242,8 +264,10 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
   }
   timeline.ActivityEndAll(entries);
 
+  SetRecvcounts(entry_component_sizes, entries.size(), global_size, recvcounts);
   SetDisplacements(recvcounts, displcmnts, global_size);
-  SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts, entry_component_offsets);
+  SetEntryComponentOffsets(entry_component_sizes, recvcounts, entries.size(),
+                           global_size, entry_component_offsets);
 
   int element_size = mpi_context.GetMPITypeSize(first_entry.tensor->dtype());
 
@@ -467,35 +491,52 @@ Status MPIReducescatter::Execute(std::vector<TensorTableEntry>& entries,
 
   auto& timeline = global_state_->timeline;
 
+  double prescale_factor = response.prescale_factor();
+  double postscale_factor = response.postscale_factor();
+
+  void* fusion_buffer = nullptr;
   const void* sendbuf = nullptr;
-  void* buffer_data = nullptr;
-  int global_rank = process_set.controller->GetRank();
+  void* recvbuf = nullptr;
+
   int global_size = process_set.controller->GetSize();
   auto output_shapes = ComputeOutputShapes(entries, global_size);
   std::vector<int> recvcounts = ComputeReceiveCounts(output_shapes);
 
-  timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
-  Status status = AllocateOutput(entries, output_shapes[global_rank]);
-  if (!status.ok()) {
-    return status;
-  }
-  timeline.ActivityEndAll(entries);
-
-  // Copy memory into the fusion buffer.
-  if (entries.size() > 1) {
+  // Copy memory into the fusion buffer. Execute prescaling op if necessary.
+  if (entries.size() > 1 || prescale_factor != 1.0) {
     timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
     int element_size = mpi_context.GetMPITypeSize(first_entry.tensor->dtype());
-    MemcpyInFusionBuffer(entries, output_shapes, element_size, buffer_data);
+    size_t buffer_len;
+    MemcpyInFusionBuffer(entries, output_shapes, element_size, fusion_buffer,
+                         buffer_len);
+    if (prescale_factor != 1.0) {
+      // Prescale in place on the fusion buffer.
+      int64_t num_elements =
+          buffer_len / DataType_Size(first_entry.tensor->dtype());
+      ScaleBuffer(prescale_factor, entries, fusion_buffer, fusion_buffer,
+                  num_elements);
+      if (entries.size() == 1) {
+        // Unfused prescaled: Send from fusion buffer, receive at output tensor
+        sendbuf = fusion_buffer;
+        recvbuf = (void*)first_entry.output->data();
+      }
+    }
+    if (entries.size() > 1) {
+      // Fused: MPI_Reduce_scatter in place
+      sendbuf = nullptr;
+      recvbuf = fusion_buffer;
+    }
     timeline.ActivityEndAll(entries);
   } else {
+    // Unfused without prescaling
     sendbuf = first_entry.tensor->data();
-    buffer_data = (void*)first_entry.output->data();
+    recvbuf = (void*)first_entry.output->data();
   }
 
   // Do reducescatter.
   timeline.ActivityStartAll(entries, MPI_REDUCESCATTER);
   int op = MPI_Reduce_scatter(
-      sendbuf != nullptr ? sendbuf : MPI_IN_PLACE, buffer_data,
+      sendbuf != nullptr ? sendbuf : MPI_IN_PLACE, recvbuf,
       recvcounts.data(), mpi_context.GetMPIDataType(first_entry.tensor),
       mpi_context.GetMPISumOp(first_entry.tensor->dtype()),
       mpi_context.GetMPICommunicator(Communicator::GLOBAL));
@@ -508,8 +549,16 @@ Status MPIReducescatter::Execute(std::vector<TensorTableEntry>& entries,
   // Copy memory out of the fusion buffer.
   if (entries.size() > 1) {
     timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
-    MemcpyOutFusionBuffer(buffer_data, entries);
+    MemcpyOutFusionBuffer(fusion_buffer, entries);
     timeline.ActivityEndAll(entries);
+  }
+  if (postscale_factor != 1.0) {
+    // Execute postscaling ops
+    for (auto& e : entries) {
+      ScaleBuffer(postscale_factor, entries, e.output->data(),
+                  const_cast<void*>(e.output->data()),
+                  e.output->shape().num_elements());
+    }
   }
 
   return Status::OK();

@@ -26,6 +26,10 @@ parser.add_argument('--momentum', type=float, default=0.9,
                     help='SGD momentum (default: 0.9)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disable training on GPU (default: False)')
+parser.add_argument('--fp16-allreduce', action='store_true', default=False,
+                    help='use fp16 compression during allreduce')
+parser.add_argument('--gradient-predivide-factor', type=float, default=1.0,
+                    help='apply gradient predivide factor in optimizer (default: 1.0)')
 
 # Arguments when not run through horovodrun
 parser.add_argument('--num-proc', type=int)
@@ -39,7 +43,7 @@ def main(args):
         data_dir = "data-%d" % rank
         if not os.path.isdir(data_dir):
             os.makedirs(data_dir)
-        zip_file_path = download('http://data.mxnet.io/mxnet/data/mnist.zip',
+        zip_file_path = download('https://horovod-datasets.s3.amazonaws.com/mnist.zip',
                                  dirname=data_dir)
         with zipfile.ZipFile(zip_file_path) as zf:
             zf.extractall(data_dir)
@@ -123,7 +127,9 @@ def main(args):
         hvd.broadcast_parameters(params, root_rank=0)
 
     # Horovod: create DistributedTrainer, a subclass of gluon.Trainer
-    trainer = hvd.DistributedTrainer(params, opt)
+    compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
+    trainer = hvd.DistributedTrainer(params, opt, compression=compression,
+                                     gradient_predivide_factor=args.gradient_predivide_factor)
 
     # Create loss function and train metric
     loss_fn = gluon.loss.SoftmaxCrossEntropyLoss()

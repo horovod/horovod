@@ -18,7 +18,7 @@ import os
 import sys
 import itertools
 import unittest
-from distutils.version import LooseVersion
+from packaging import version
 
 import pytest
 import numpy as np
@@ -29,13 +29,13 @@ from base_test_mxnet import *
 if HAS_MXNET:
     # MXNet 1.4.x will kill test MPI process if error occurs during operation enqueue. Skip
     # those tests for versions earlier than 1.5.0.
-    _skip_enqueue_errors = LooseVersion(mx.__version__) < LooseVersion('1.5.0')
+    _skip_enqueue_errors = version.parse(mx.__version__) < version.parse('1.5.0')
 else:
     _skip_enqueue_errors = False
 
 
 @pytest.mark.skipif(not HAS_MXNET, reason='MXNet unavailable')
-@pytest.mark.skipif(LooseVersion(mx.__version__) >= LooseVersion('2.0.0'), reason='MXNet v1.x tests')
+@pytest.mark.skipif(version.parse(mx.__version__).major != 1, reason='MXNet v1.x tests')
 class MX1Tests(MXTests, unittest.TestCase):
     """
     Tests for ops in horovod.mxnet. This tests MXNet 1.x specifically.

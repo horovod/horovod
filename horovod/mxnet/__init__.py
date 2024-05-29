@@ -32,7 +32,7 @@ from horovod.mxnet.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.mxnet.mpi_ops import gloo_enabled, gloo_built
 from horovod.mxnet.mpi_ops import nccl_built, ddl_built, ccl_built, cuda_built, rocm_built
 from horovod.mxnet.mpi_ops import ProcessSet, global_process_set, add_process_set, remove_process_set
-from horovod.mxnet.mpi_ops import Average, Sum, Adasum
+from horovod.mxnet.mpi_ops import Average, Sum, Adasum, Min, Max, Product
 
 import mxnet as mx
 from collections import OrderedDict, defaultdict
@@ -47,10 +47,16 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
             raise ValueError('gradient_predivide_factor not supported yet with ROCm')
 
         self._optimizer = optimizer
-        # Normalizing rescale_grad by Horovod size, which is equivalent to
-        # performing average in allreduce, has better performance.
-        self._optimizer.rescale_grad *= (gradient_predivide_factor / process_set.size())
         self._gradient_predivide_factor = gradient_predivide_factor
+        self._average_in_framework=False
+        # C++ backend will apply additional 1 / size() factor to postscale_factor for op == Average.
+        self._postscale_factor = self._gradient_predivide_factor
+        if rocm_built() or nccl_built() < 21000:
+          # Perform average in framework via rescale_grad for ROCM or older NCCL versions
+          # without average support
+          self._optimizer.rescale_grad *= (gradient_predivide_factor / process_set.size())
+          self._postscale_factor = 1.0
+          self._average_in_framework=True
         self._num_groups = num_groups
         self._process_set = process_set
 
@@ -72,18 +78,21 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
                 index_split = split_list(index, self._num_groups)
 
                 for i, (grads, indices) in enumerate(zip(grad_split, index_split)):
-                    grouped_allreduce_(tensors=grads, average=False, name="{}:{}".format(indices[0], indices[-1]), priority=-i,
+                    grouped_allreduce_(tensors=grads, average=not self._average_in_framework, name="{}:{}".format(indices[0], indices[-1]), priority=-i,
                                        prescale_factor=1.0 / self._gradient_predivide_factor,
+                                       postscale_factor=self._postscale_factor,
                                        process_set=self._process_set)
             else:
               for i in range(len(index)):
-                  allreduce_(grad[i], average=False,
+                  allreduce_(grad[i], average=not self._average_in_framework,
                              name=str(index[i]), priority=-i,
                              prescale_factor=1.0 / self._gradient_predivide_factor,
+                             postscale_factor=self._postscale_factor,
                              process_set=self._process_set)
         else:
-            allreduce_(grad, average=False, name=str(index),
+            allreduce_(grad, average=not self._average_in_framework, name=str(index),
                        prescale_factor=1.0 / self._gradient_predivide_factor,
+                       postscale_factor=self._postscale_factor,
                        process_set=self._process_set)
 
     def update(self, index, weight, grad, state):
@@ -155,11 +164,16 @@ class DistributedTrainer(mx.gluon.Trainer):
         super(DistributedTrainer, self).__init__(
             params, optimizer, optimizer_params=optimizer_params, kvstore=None)
 
-        # _scale is used to check and set rescale_grad for optimizer in Trainer.step()
-        # function. Normalizing it by Horovod size, which is equivalent to performing
-        # average in allreduce, has better performance. 
-        self._scale *= (gradient_predivide_factor / process_set.size())
         self._gradient_predivide_factor = gradient_predivide_factor
+        self._average_in_framework=False
+        # C++ backend will apply additional 1 / size() factor to postscale_factor for op == Average.
+        self._postscale_factor = self._gradient_predivide_factor
+        if rocm_built() or nccl_built() < 21000:
+          # Perform average in framework via rescale_grad for ROCM or older NCCL versions
+          # without average support
+          self._scale *= (gradient_predivide_factor / process_set.size())
+          self._postscale_factor = 1.0
+          self._average_in_framework=True
         assert prefix is None or isinstance(prefix, str)
         self._prefix = prefix if prefix else ""
         self._num_groups = num_groups
@@ -193,8 +207,10 @@ class DistributedTrainer(mx.gluon.Trainer):
 
                 for entries in entries_by_dtype.values():
                     grads, names = zip(*entries)
-                    grouped_allreduce_(tensors=grads, average=False, name="{}:{}".format(names[0], names[-1]), priority=-i,
+                    grouped_allreduce_(tensors=grads, average=not self._average_in_framework,
+                                       name="{}:{}".format(names[0], names[-1]), priority=-i,
                                        prescale_factor=1.0 / self._gradient_predivide_factor,
+                                       postscale_factor=self._postscale_factor,
                                        process_set=self._process_set)
 
             if self._compression != Compression.none:
@@ -208,9 +224,10 @@ class DistributedTrainer(mx.gluon.Trainer):
             for i, param in enumerate(self._params):
                 if param.grad_req != 'null':
                     tensor_compressed, ctx = self._compression.compress(param.list_grad()[0])
-                    allreduce_(tensor_compressed, average=False,
+                    allreduce_(tensor_compressed, average=not self._average_in_framework,
                                name=self._prefix + str(i), priority=-i,
                                prescale_factor=1.0 / self._gradient_predivide_factor,
+                               postscale_factor=self._postscale_factor,
                                process_set=self._process_set)
 
                     if self._compression != Compression.none:

@@ -235,6 +235,28 @@ Status CCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   auto& c4h =
       this->ccl_context_->opctxt_->GetCCL4HVD(first_entry, global_state_);
 
+  auto cclOp = ccl::reduction::sum;
+  double prescale_factor = response.prescale_factor();
+  double postscale_factor = response.postscale_factor();
+
+  if (response.reduce_op() == ReduceOp::AVERAGE) {
+    cclOp = ccl::reduction::sum;
+    auto process_set_id = first_entry.process_set_id;
+    auto& process_set = global_state_->process_set_table.Get(process_set_id);
+    // Averaging happens via postscale_factor
+    postscale_factor /= process_set.controller->GetSize();
+  } else if (response.reduce_op() == ReduceOp::SUM) {
+    cclOp = ccl::reduction::sum;
+  } else if (response.reduce_op() == ReduceOp::MIN) {
+    cclOp = ccl::reduction::min;
+  } else if (response.reduce_op() == ReduceOp::MAX) {
+    cclOp = ccl::reduction::max;
+  } else if (response.reduce_op() == ReduceOp::PRODUCT) {
+    cclOp = ccl::reduction::prod;
+  } else {
+    throw std::logic_error("Reduction op type not supported.");
+  }
+
   const void* fused_input_data;
   void* buffer_data;
   size_t buffer_len;
@@ -253,9 +275,9 @@ Status CCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     buffer_len = (size_t)first_entry.output->size();
   }
 
-  if (response.prescale_factor() != 1.0) {
+  if (prescale_factor != 1.0) {
     // Execute prescaling op
-    ScaleBuffer(response.prescale_factor(), entries, fused_input_data,
+    ScaleBuffer(prescale_factor, entries, fused_input_data,
                 buffer_data, num_elements);
     fused_input_data = buffer_data; // for unfused, scale is done out of place
   }
@@ -272,11 +294,11 @@ Status CCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     std::string match_id = "dt_" + DataType_Name(first_entry.tensor->dtype()) +
                            "_len_" + std::to_string(buffer_len);
 
-    if (response.prescale_factor() != 1.0) {
-      match_id += "_prescale_" + std::to_string(response.prescale_factor());
+    if (prescale_factor != 1.0) {
+      match_id += "_prescale_" + std::to_string(prescale_factor);
     }
-    if (response.postscale_factor() != 1.0) {
-      match_id += "_postscale_" + std::to_string(response.postscale_factor());
+    if (postscale_factor != 1.0) {
+      match_id += "_postscale_" + std::to_string(postscale_factor);
     }
     for (size_t idx = 0; idx < entries.size(); idx++) {
       match_id += "_" + entries[idx].tensor_name;
@@ -296,14 +318,14 @@ Status CCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   }
 
   ccl::allreduce((void*)sendbuf, buffer_data, num_elements,
-                 GetCCLDataType(first_entry.tensor), ccl::reduction::sum,
+                 GetCCLDataType(first_entry.tensor), cclOp,
                  c4h.comm_, c4h.stream_, attr)
       .wait();
   timeline.ActivityEndAll(entries);
 
-  if (response.postscale_factor() != 1.0) {
+  if (postscale_factor != 1.0) {
     // Execute postscaling op
-    ScaleBuffer(response.postscale_factor(), entries, buffer_data, buffer_data,
+    ScaleBuffer(postscale_factor, entries, buffer_data, buffer_data,
                 num_elements);
   }
 
@@ -360,9 +382,7 @@ Status CCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
   // shortcut for single rank
   if (global_state_->global_controller->GetSize() == 1) {
     int64_t** entry_component_sizes = nullptr;
-    int* recvcounts = nullptr;
-    status =
-        AllocateOutput(entries, response, entry_component_sizes, recvcounts);
+    status = AllocateOutput(entries, response, entry_component_sizes);
     return status.ok() ? cpyIn2Out(entries, this->ccl_context_->opctxt_)
                        : status;
   }
@@ -384,12 +404,14 @@ Status CCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
   }
 
   timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
-  status = AllocateOutput(entries, response, entry_component_sizes, recvcounts);
+  status = AllocateOutput(entries, response, entry_component_sizes);
   if (status.ok()) {
     timeline.ActivityEndAll(entries);
+    SetRecvcounts(entry_component_sizes, entries.size(), global_size,
+                  recvcounts);
     SetDisplacements(recvcounts, displcmnts, global_size);
-    SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts,
-                             entry_component_offsets);
+    SetEntryComponentOffsets(entry_component_sizes, recvcounts, entries.size(),
+                             global_size, entry_component_offsets);
 
     int element_size = global_state_->global_controller->GetTypeSize(
         first_entry.tensor->dtype());

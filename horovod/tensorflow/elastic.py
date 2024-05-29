@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from distutils.version import LooseVersion
+from packaging import version
 
 import tensorflow as tf
 
@@ -25,7 +25,7 @@ from horovod.tensorflow.functions import broadcast_object, broadcast_object_fn, 
 from horovod.tensorflow.mpi_ops import _executing_eagerly, init, rank, shutdown
 
 
-_IS_TF2 = LooseVersion(tf.__version__) >= LooseVersion('2.0.0')
+_IS_TF2 = version.parse(tf.__version__) >= version.parse('2.0.0')
 
 
 def run(func):
@@ -140,7 +140,7 @@ class TensorFlowKerasState(ObjectState):
             self._saved_optimizer_state = [tf.identity(var) for var in self.optimizer.variables()]
         else:
             self._saved_model_state = self.model.get_weights()
-            self._saved_optimizer_state = self.optimizer.get_weights()
+            self._saved_optimizer_state = [var.numpy() for var in self.optimizer.variables()] if _IS_TF2 else self.optimizer.get_weights()
 
     def _load_model(self):
         if _executing_eagerly():

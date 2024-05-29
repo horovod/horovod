@@ -1,4 +1,5 @@
 # Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
+# Modifications copyright (C) 2022, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,23 +14,20 @@
 # limitations under the License.
 # ==============================================================================
 
-import contextlib
 import io
 import math
 import os
+import warnings
 
 import h5py
 import tensorflow as tf
 
-from distutils.version import LooseVersion
-
+from packaging import version
 from horovod.spark.common import constants
 from horovod.spark.common.store import DBFSLocalStore
-from horovod.spark.common.util import _get_assigned_gpu_or_default, _set_mp_start_method
+from horovod.spark.common.util import _get_assigned_gpu_or_local_rank, _set_mp_start_method
 from horovod.runner.common.util import codec
 
-
-PETASTORM_HDFS_DRIVER = constants.PETASTORM_HDFS_DRIVER
 TOTAL_BUFFER_MEMORY_CAP_GIB = constants.TOTAL_BUFFER_MEMORY_CAP_GIB
 BYTES_PER_GIB = constants.BYTES_PER_GIB
 
@@ -38,6 +36,8 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     # Estimator parameters
     label_columns = estimator.getLabelCols()
     feature_columns = estimator.getFeatureCols()
+    continuous_columns = estimator.getContinuousCols()
+    categorical_columns = estimator.getCategoricalCols()
     user_callbacks = estimator.getCallbacks()
     batch_size = estimator.getBatchSize()
     val_batch_size = estimator.getValBatchSize() if estimator.getValBatchSize() else batch_size
@@ -49,6 +49,9 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     should_validate = estimator.getValidation()
     random_seed = estimator.getRandomSeed()
     user_shuffle_buffer_size = estimator.getShufflingBufferSize()
+    if user_shuffle_buffer_size is not None:
+        warnings.warn('shuffle_buffer_size is deprecated, use shuffle instead', DeprecationWarning)
+    shuffle = estimator.getShuffle()
     user_verbose = estimator.getVerbose()
     checkpoint_callback = estimator.getCheckpointCallback()
     inmemory_cache_all = estimator.getInMemoryCacheAll()
@@ -56,6 +59,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     mp_start_method = estimator.getMpStartMethod()
 
     # Data reader parameters
+    data_module = estimator.getDataModule()
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
     val_reader_worker_count = estimator.getValReaderNumWorker()
     reader_pool_type = estimator.getReaderPoolType()
@@ -79,12 +83,10 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
         label_shapes=label_shapes if label_shapes else output_shapes,
         output_names=output_names)
     fit = keras_utils.fit_fn(epochs)
-    transformation_fn = estimator.getTransformationFn()
-    transformation = transformation_fn if transformation_fn else None
+    transform_fn = estimator.getTransformationFn()
 
     # Utility functions
     deserialize_keras_model = _deserialize_keras_model_fn()
-    calculate_shuffle_buffer_size = _calculate_shuffle_buffer_size_fn()
     pin_gpu = _pin_gpu_fn()
 
     # Storage
@@ -100,16 +102,11 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
 
         return _SyncCallback()
 
-    @contextlib.contextmanager
-    def empty_batch_reader():
-        yield None
-
     def train(serialized_model, train_rows, val_rows, avg_row_size):
         # If not empty, set it before everything else.
         if mp_start_method:
             _set_mp_start_method(mp_start_method, user_verbose)
 
-        from petastorm import TransformSpec, make_reader, make_batch_reader
         import horovod as _horovod
         k = get_keras()
         k.backend.set_floatx(floatx)
@@ -129,19 +126,10 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 print("Skip pinning current process to the GPU.")
 
         if random_seed is not None:
-            if LooseVersion(tf.__version__) < LooseVersion('2.0.0'):
+            if version.parse(tf.__version__) < version.parse('2.0.0'):
                 tf.random.set_random_seed(random_seed)
             else:
                 tf.random.set_seed(random_seed)
-
-        # If user specifies any user_shuffle_buffer_size (even 0), we should honor it.
-        if user_shuffle_buffer_size is None:
-            shuffle_buffer_size = calculate_shuffle_buffer_size(
-                hvd, avg_row_size, train_rows / hvd.size())
-        else:
-            if user_shuffle_buffer_size < 0:
-                raise ValueError("user_shuffle_buffer_size cannot be negative!")
-            shuffle_buffer_size = user_shuffle_buffer_size
 
         # needs to be deserialized in the with scope
         with k.utils.custom_object_scope(custom_objects):
@@ -152,13 +140,8 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
         scaled_lr = k.backend.get_value(model.optimizer.lr) * hvd.size()
         k.backend.set_value(model.optimizer.lr, scaled_lr)
 
-
         if verbose:
             print(f"Shared lib path is pointing to: {_horovod.common.process_sets._basics.MPI_LIB_CTYPES}")
-
-        transform_spec = None
-        if transformation:
-            transform_spec = TransformSpec(transformation)
 
         # The inital_lr needs to be set to scaled learning rate in the checkpointing callbacks.
         for callback in user_callbacks:
@@ -193,7 +176,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 if _checkpoint_callback:
                     _checkpoint_callback.filepath = ckpt_file
                 else:
-                    if is_dbfs and LooseVersion(tf.__version__) < LooseVersion("2.0.0"):
+                    if is_dbfs and version.parse(tf.__version__) < version.parse("2.0.0"):
                         # Because DBFS local file APIs does not support random write which is
                         # required by h5 format, save_weights_only=True is needed for switching
                         # to the TensorFlow SavedModel format.
@@ -238,59 +221,47 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
 
             if verbose:
                 print(f"Training parameters: Epochs: {epochs}, Scaled lr: {scaled_lr}, "
-                      f"Shuffle size: {shuffle_buffer_size}, random_seed: {random_seed}\n"
+                      f"Shuffle: {shuffle}, random_seed: {random_seed}\n"
                       f"Train rows: {train_rows}, Train batch size: {batch_size}, Train_steps_per_epoch: {steps_per_epoch}\n"
                       f"Val rows: {val_rows}, Val batch size: {val_batch_size}, Val_steps_per_epoch: {validation_steps}\n"
                       f"Checkpoint file: {remote_store.checkpoint_path}, Logs dir: {remote_store.logs_path}\n")
-            # In general, make_batch_reader is faster than make_reader for reading the dataset.
-            # However, we found out that make_reader performs data transformations much faster than
-            # make_batch_reader with parallel worker processes. Therefore, the default reader
-            # we choose is make_batch_reader unless there are data transformations.
-            reader_factory_kwargs = dict()
-            if transform_spec:
-                reader_factory = make_reader
-                reader_factory_kwargs['pyarrow_serialize'] = True
-                is_batch_reader = False
-            else:
-                reader_factory = make_batch_reader
-                is_batch_reader = True
 
-            with reader_factory(remote_store.train_data_path,
-                                num_epochs=1,
-                                cur_shard=hvd.rank(),
-                                reader_pool_type=reader_pool_type,
-                                workers_count=train_reader_worker_count,
-                                shard_count=hvd.size(),
-                                hdfs_driver=PETASTORM_HDFS_DRIVER,
-                                schema_fields=schema_fields,
-                                transform_spec=transform_spec,
-                                storage_options=storage_options,
-                                # Don't shuffle row groups if shuffle_buffer_size is 0 (non-shuffle case).
-                                shuffle_row_groups=True if shuffle_buffer_size > 0 else False,
-                                **reader_factory_kwargs) as train_reader:
-                with reader_factory(remote_store.val_data_path,
-                                    num_epochs=1,
-                                    cur_shard=hvd.rank(),
-                                    reader_pool_type=reader_pool_type,
-                                    workers_count=val_reader_worker_count,
-                                    shard_count=hvd.size(),
-                                    hdfs_driver=PETASTORM_HDFS_DRIVER,
-                                    schema_fields=schema_fields,
-                                    transform_spec=transform_spec,
-                                    storage_options=storage_options,
-                                    shuffle_row_groups=False,
-                                    **reader_factory_kwargs) \
-                    if should_validate else empty_batch_reader() as val_reader:
+            data_module_kwargs = {
+                # common
+                'train_dir': remote_store.train_data_path,
+                'val_dir': remote_store.val_data_path,
+                'num_train_epochs': epochs,
+                'has_val': should_validate is not None,
+                'train_batch_size': batch_size,
+                'val_batch_size': val_batch_size,
+                'shuffle': shuffle,
+                'transform_fn': transform_fn,
+                'inmemory_cache_all': inmemory_cache_all,
+                'cur_shard': hvd.rank(),
+                'shard_count': hvd.size(),
+                'schema_fields': schema_fields,
+                'storage_options': storage_options,
+                'steps_per_epoch_train': steps_per_epoch,
+                'steps_per_epoch_val': validation_steps,
+                'verbose': verbose,
+                # petastorm
+                'make_dataset': make_dataset,
+                'random_seed': random_seed,
+                'reader_pool_type': reader_pool_type,
+                'train_reader_worker_count': train_reader_worker_count,
+                'val_reader_worker_count': val_reader_worker_count,
+                # nvtabular
+                'categorical_cols': categorical_columns,
+                'continuous_cols': continuous_columns,
+                'label_cols': label_columns,
+            }
+            if verbose:
+                print("data_module: {}".format(data_module))
 
-                    train_data = make_dataset(train_reader, batch_size, shuffle_buffer_size,
-                                              is_batch_reader, shuffle=True if shuffle_buffer_size > 0 else False,
-                                              cache=inmemory_cache_all, seed=random_seed)
-                    val_data = make_dataset(val_reader, val_batch_size, shuffle_buffer_size,
-                                            is_batch_reader, shuffle=False, cache=inmemory_cache_all) \
-                        if val_reader else None
+            dm = data_module(**data_module_kwargs)
 
-                    history = fit(model, train_data, val_data, steps_per_epoch,
-                                  validation_steps, callbacks, verbose)
+            history = fit(model, dm, steps_per_epoch,
+                            validation_steps, callbacks, verbose)
 
             # Dataset API usage currently displays a wall of errors upon termination.
             # This global model registration ensures clean termination.
@@ -299,7 +270,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
 
             if hvd.rank() == 0:
                 if is_dbfs:
-                    if LooseVersion(tf.__version__) < LooseVersion("2.0.0"):
+                    if version.parse(tf.__version__) < version.parse("2.0.0"):
                         model.load_weights(ckpt_file)
                     else:
                         # needs to be deserialized in the with scope
@@ -307,7 +278,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                             model = k.models.load_model(ckpt_file)
                     serialized_model = keras_utils.serialize_model(model)
                 else:
-                    if LooseVersion(tf.__version__) >= LooseVersion("2.0.0"):
+                    if version.parse(tf.__version__) >= version.parse("2.0.0"):
                         with k.utils.custom_object_scope(custom_objects):
                             model = k.models.load_model(ckpt_file)
                         serialized_model = keras_utils.serialize_model(model)
@@ -329,50 +300,9 @@ def _deserialize_keras_model_fn():
     return deserialize_keras_model
 
 
-def _calculate_shuffle_buffer_size_fn():
-    def calculate_shuffle_buffer_size(hvd, avg_row_size, train_row_count_per_worker):
-        """
-        Determines the shuffling buffer size such that each worker gets at most 1GB for shuffling
-        buffer such that on a single machine, among all the workers on that machine, at most
-        memory_cap_gb GB are allocated for shuffling buffer. Also, it ensures that the buffer size
-        is identical among all the workers.
-
-        example 1:
-        memory_cap_gb = 4
-        machine1: 8 workers
-        machine2: 3 workers
-        shuffle_buffer_size = 0.5 GB
-
-        example 2:
-        memory_cap_gb = 4
-            machine1: 2 workers
-            machine2: 3 workers
-        shuffle_buffer_size = 1 GB
-
-        example 3:
-        memory_cap_gb = 4
-            machine1: 2 workers
-            machine2: 8 workers
-            machine3: 5 workers
-        shuffle_buffer_size = 0.5 GB
-        """
-        local_size = hvd.local_size()
-        local_sizes = hvd.allgather([local_size])
-        max_local_size = int(max(local_sizes))
-
-        if max_local_size > TOTAL_BUFFER_MEMORY_CAP_GIB:
-            shuffle_buffer_size = TOTAL_BUFFER_MEMORY_CAP_GIB * BYTES_PER_GIB / avg_row_size / max_local_size
-        else:
-            shuffle_buffer_size = BYTES_PER_GIB / avg_row_size
-
-        return int(min(shuffle_buffer_size, train_row_count_per_worker))
-
-    return calculate_shuffle_buffer_size
-
-
 def _pin_gpu_fn():
     # Horovod: pin GPU to be used to process local rank (one GPU per process)
-    return _pin_gpu_tensorflow2_fn() if LooseVersion(tf.__version__) >= LooseVersion('2.0.0') \
+    return _pin_gpu_tensorflow2_fn() if version.parse(tf.__version__) >= version.parse('2.0.0') \
         else _pin_gpu_tensorflow1_fn()
 
 
@@ -383,7 +313,7 @@ def _pin_gpu_tensorflow2_fn():
             tf.config.experimental.set_memory_growth(gpu, True)
         if gpus:
             tf.config.experimental.set_visible_devices(
-                gpus[_get_assigned_gpu_or_default(default=hvd.local_rank())], 'GPU')
+                gpus[_get_assigned_gpu_or_local_rank(local_rank=hvd.local_rank())], 'GPU')
     return fn
 
 
@@ -392,13 +322,13 @@ def _pin_gpu_tensorflow1_fn():
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
         config.gpu_options.visible_device_list = \
-            str(_get_assigned_gpu_or_default(default=hvd.local_rank()))
+            str(_get_assigned_gpu_or_local_rank(local_rank=hvd.local_rank()))
         keras.backend.set_session(tf.Session(config=config))
     return fn
 
 
 def _pin_cpu_fn():
-    return _pin_cpu_tensorflow2_fn() if LooseVersion(tf.__version__) >= LooseVersion('2.0.0') \
+    return _pin_cpu_tensorflow2_fn() if version.parse(tf.__version__) >= version.parse('2.0.0') \
         else _pin_cpu_tensorflow1_fn()
 
 

@@ -49,6 +49,28 @@ Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
     throw std::logic_error("DDL does not support more than one GPU device per process.");
   }
 
+  DDL_Op ddlOp = DDL_OP_SUM;
+  double prescale_factor = response.prescale_factor();
+  double postscale_factor = response.postscale_factor();
+
+  if (response.reduce_op() == ReduceOp::AVERAGE) {
+    ddlOp = DDL_OP_SUM;
+    auto process_set_id = first_entry.process_set_id;
+    auto& process_set = global_state_->process_set_table.Get(process_set_id);
+    // Averaging happens via postscale_factor
+    postscale_factor /= process_set.controller->GetSize();
+  } else if (response.reduce_op() == ReduceOp::SUM) {
+    ddlOp = DDL_OP_SUM;
+  } else if (response.reduce_op() == ReduceOp::MIN) {
+    ddlOp = DDL_OP_MIN;
+  } else if (response.reduce_op() == ReduceOp::MAX) {
+    ddlOp = DDL_OP_MAX;
+  } else if (response.reduce_op() == ReduceOp::PRODUCT) {
+    ddlOp = DDL_OP_PRODUCT;
+  } else {
+    throw std::logic_error("Reduction op type not supported.");
+  }
+
   const void* fused_input_data;
   void* buffer_data;
   size_t buffer_len;
@@ -68,9 +90,9 @@ Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
 
   int64_t num_elements = buffer_len / DataType_Size(first_entry.tensor->dtype());
 
-  if (response.prescale_factor() != 1.0) {
+  if (prescale_factor != 1.0) {
     // Execute prescaling op
-    ScaleBuffer(response.prescale_factor(), entries, fused_input_data, buffer_data, num_elements);
+    ScaleBuffer(prescale_factor, entries, fused_input_data, buffer_data, num_elements);
     fused_input_data = buffer_data; // for unfused, scale is done out of place
   }
 
@@ -87,14 +109,14 @@ Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
 
   DDL_Type ddl_data_type = GetDDLDataType(first_entry.tensor);
   auto ddl_result = ddl_allreduce(buffer_data, (size_t) num_elements, ddl_data_type,
-                                  DDL_OP_SUM);
+                                  ddlOp);
   if (ddl_result != DDL_SUCCESS) {
     throw std::logic_error("ddl_allreduce failed.");
   }
 
-  if (response.postscale_factor() != 1.0) {
+  if (postscale_factor != 1.0) {
     // Execute postscaling op
-    ScaleBuffer(response.postscale_factor(), entries, buffer_data, buffer_data, num_elements);
+    ScaleBuffer(postscale_factor, entries, buffer_data, buffer_data, num_elements);
   }
 
   // Copy memory out of the fusion buffer.

@@ -20,6 +20,7 @@
 
 #include <functional>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -129,6 +130,7 @@ namespace common {
 #define HOROVOD_STALL_SHUTDOWN_TIME_SECONDS "HOROVOD_STALL_SHUTDOWN_TIME_SECONDS"
 #define HOROVOD_HIERARCHICAL_ALLREDUCE "HOROVOD_HIERARCHICAL_ALLREDUCE"
 #define HOROVOD_HIERARCHICAL_ALLGATHER "HOROVOD_HIERARCHICAL_ALLGATHER"
+#define HOROVOD_TORUS_ALLREDUCE "HOROVOD_TORUS_ALLREDUCE"
 #define HOROVOD_CACHE_CAPACITY "HOROVOD_CACHE_CAPACITY"
 #define HOROVOD_BATCH_D2D_MEMCOPIES "HOROVOD_BATCH_D2D_MEMCOPIES"
 #define HOROVOD_NUM_NCCL_STREAMS "HOROVOD_NUM_NCCL_STREAMS"
@@ -364,8 +366,8 @@ struct TensorTableEntry {
   std::shared_ptr<Tensor> tensor;
   // Pre-allocated output tensor.
   std::shared_ptr<Tensor> output;
-  // Grouped Reducescatter or Allgather ops will need to allocate memory for
-  // a specific output_index >= 0.
+  // Grouped Allgather ops will need to allocate memory for a specific
+  // output_index >= 0.
   int32_t output_index = 0;
   // Identifier for the subset of Horovod processes partaking in this operation.
   int32_t process_set_id = 0;

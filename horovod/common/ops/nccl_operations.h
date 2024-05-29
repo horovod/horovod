@@ -23,6 +23,9 @@
 #if NCCL_VERSION_CODE >= NCCL_VERSION(2, 7, 0)
 #define NCCL_P2P_SUPPORTED
 #endif
+#if NCCL_VERSION_CODE >= NCCL_VERSION(2, 10, 0)
+#define NCCL_AVG_SUPPORTED
+#endif
 #elif HAVE_ROCM
 #include <rccl/rccl.h>
 #define NCCL_P2P_SUPPORTED
@@ -247,6 +250,34 @@ private:
 };
 #endif
 
+class NCCLTorusAllreduce : public GPUAllreduce {
+public:
+  NCCLTorusAllreduce(NCCLContext* local_nccl_context, NCCLContext* cross_nccl_context,
+                     GPUContext* gpu_context, HorovodGlobalState* global_state)
+      : GPUAllreduce(gpu_context, global_state),
+        local_nccl_context_(local_nccl_context),
+        cross_nccl_context_(cross_nccl_context),
+        local_nccl_op_context_(local_nccl_context, global_state, Communicator::LOCAL),
+        cross_nccl_op_context_(cross_nccl_context, global_state, Communicator::CROSS),
+        global_state_(global_state){};
+
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
+
+  bool Enabled(const ParameterManager& param_manager,
+               const std::vector<TensorTableEntry>& entries,
+               const Response& response) const override;
+
+protected:
+  void WaitForData(std::vector<TensorTableEntry>& entries) override;
+
+  NCCLContext* local_nccl_context_;
+  NCCLContext* cross_nccl_context_;
+  NCCLOpContext local_nccl_op_context_;
+  NCCLOpContext cross_nccl_op_context_;
+  HorovodGlobalState* global_state_;
+};
+
 class NCCLAllgather : public GPUAllgather {
 public:
   NCCLAllgather(NCCLContext* nccl_context, GPUContext* gpu_context,
@@ -265,8 +296,7 @@ public:
 protected:
   Status AllocateOutput(std::vector<TensorTableEntry>& entries,
                         const Response& response,
-                        int64_t**& entry_component_sizes,
-                        int*& recvcounts) override;
+                        int64_t**& entry_component_sizes) override;
 
   void WaitForData(std::vector<TensorTableEntry>& entries) override;
 
@@ -292,9 +322,6 @@ public:
                const Response& response) const override;
 
 protected:
-  Status AllocateOutput(std::vector<TensorTableEntry>& entries,
-                        const std::vector<TensorShape>& output_shapes) override;
-
   void WaitForData(std::vector<TensorTableEntry>& entries) override;
 
   NCCLContext* nccl_context_;

@@ -63,7 +63,7 @@ def ray_start_4_cpus_4_gpus():
 
 @pytest.fixture
 def ray_start_client():
-    def ray_connect_handler(job_config=None):
+    def ray_connect_handler(job_config=None, *vargs, **kwargs):
         # Ray client will disconnect from ray when
         # num_clients == 0.
         if ray.is_initialized():

@@ -1,8 +1,12 @@
-from distutils.version import LooseVersion
-
+import os
 import tensorflow as tf
+from packaging import version
+from horovod.tensorflow.mpi_ops import size_op
+from horovod.tensorflow.mpi_ops import global_process_set
 
-_POST_TF_2_4_0 = LooseVersion(tf.__version__) >= LooseVersion('2.4.0')
+
+_POST_TF_2_4_0 = version.parse(tf.__version__) >= version.parse('2.4.0')
+_IS_TF2 = version.parse(tf.__version__) >= version.parse('2.0.0')
 
 
 class LocalGradientAggregationHelperEager:
@@ -18,6 +22,8 @@ class LocalGradientAggregationHelperEager:
         allreduce_func,
         sparse_as_dense,
         average_aggregated_gradients,
+        process_set=global_process_set,
+        scale_local_gradients=True
     ):
         self.allreduce_grads = allreduce_func
         self.sparse_as_dense = sparse_as_dense
@@ -40,6 +46,19 @@ class LocalGradientAggregationHelperEager:
         # is equal to `self.backward_passes_per_step`. We apply gradients when `self.counter`
         # is equal to 0.
         self.counter = tf.Variable(initial_value=0)
+
+        self.process_set = process_set
+        self.scale_local_gradients = scale_local_gradients
+        self._local_vars = set()
+
+    def register_local_var(self, var):
+        """Registers a source/variable as worker local. Horovod will not perform any global
+        operations on gradients corresponding to these sources and will instead return the local
+        gradient."""
+        if _IS_TF2:
+            self._local_vars.add(var.ref())
+        else:
+            self._local_vars.add(var)
 
     def compute_gradients(self, grads, vars):
         # On steps where allreduce happens, resulting_grads returns the allreduced
@@ -100,7 +119,48 @@ class LocalGradientAggregationHelperEager:
         return resulting_grads
 
     def _allreduce_helper(self, grads, vars):
-        allreduced_grads = self.allreduce_grads(grads, vars)
+        def __filtered_reduce_grads(grads, vars):
+            rv = []
+            rg = []
+            if _IS_TF2:
+                v2g = {var.ref(): grad for var, grad in zip(vars, grads)}
+                for var, grad in zip(vars, grads):
+                    if var.ref() not in self._local_vars:
+                        rv.append(var)
+                        rg.append(grad)
+            else:
+                v2g = {var: grad for var, grad in zip(vars, grads)}
+                for var, grad in zip(vars, grads):
+                    if var not in self._local_vars:
+                        rv.append(var)
+                        rg.append(grad)
+
+            rg = self.allreduce_grads(rg, rv)
+            horovod_size = size_op(process_set_id=self.process_set.process_set_id) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else self.process_set.size()
+            if _IS_TF2:
+                for rv, rg in zip(rv, rg):
+                    v2g[rv.ref()] = rg
+
+                if self.scale_local_gradients and len(self._local_vars):
+                    # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
+                    for v_ref in v2g:
+                        if v_ref in self._local_vars and v2g[v_ref] is not None:
+                            v2g[v_ref] /= float(horovod_size)
+
+                return [v2g[rv.ref()] for rv in vars]
+            else:
+                for rv, rg in zip(rv, rg):
+                    v2g[rv] = rg
+
+                if self.scale_local_gradients and len(self._local_vars):
+                    # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
+                    for v in v2g:
+                        if v in self._local_vars and v2g[v] is not None:
+                            v2g[v] /= float(horovod_size)
+
+                return [v2g[rv] for rv in vars]
+
+        allreduced_grads = __filtered_reduce_grads(grads, vars)
 
         if not self.average_aggregated_gradients:
             return allreduced_grads
@@ -131,7 +191,10 @@ class LocalGradientAggregationHelperEager:
             # property instead of the unsafe `_iterations`.
 
             if hasattr(optimizer, "iterations") and optimizer.iterations is not None:
-                return optimizer.iterations.assign_add(1).op
+                if hasattr(super(optimizer.__class__, optimizer), '_compute_gradients'):
+                    return optimizer.iterations.assign_add(1).op
+                else:
+                    return optimizer.iterations.assign_add(1)
             return tf.no_op()
 
         def non_aggregation_step():
@@ -140,7 +203,7 @@ class LocalGradientAggregationHelperEager:
                 # We account for this by calling `_aggregate_gradients()` for steps where we do
                 # not call `apply_gradients()`.
                 transformed_grads_and_vars = optimizer._transform_unaggregated_gradients(
-                    args[0])
+                    args[0]) if hasattr(optimizer, '_transform_unaggregated_gradients') else args[0]
                 _ = optimizer._aggregate_gradients(transformed_grads_and_vars)
 
             return increment_optimizer_iteration()

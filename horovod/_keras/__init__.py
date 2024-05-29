@@ -13,24 +13,27 @@
 # limitations under the License.
 # ==============================================================================
 
-from distutils.version import LooseVersion
+import os
+from packaging import version
 
 import horovod.tensorflow as hvd
 import tensorflow as tf
 from horovod.tensorflow.gradient_aggregation import LocalGradientAggregationHelper
 from horovod.tensorflow.gradient_aggregation_eager import LocalGradientAggregationHelperEager
-from horovod.tensorflow.mpi_ops import rank
+from horovod.tensorflow.mpi_ops import rank, size_op
 
 
-_PRE_TF_2_4_0 = LooseVersion(tf.__version__) < LooseVersion('2.4.0')
+_PRE_TF_2_4_0 = version.parse(tf.__version__) < version.parse('2.4.0')
+_IS_TF2 = version.parse(tf.__version__) >= version.parse('2.0.0')
 
 
 def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sparse,
                                  compression, sparse_as_dense, gradient_predivide_factor,
                                  op, backward_passes_per_step=1,
                                  average_aggregated_gradients=False,
-                                 groups=None, process_set=hvd.global_process_set):
-    class _DistributedOptimizer(keras.optimizers.Optimizer):
+                                 groups=None, process_set=hvd.global_process_set,
+                                 scale_local_gradients=True):
+    class _DistributedOptimizer(*optimizer.__class__.__bases__):
         _HAS_AGGREGATE_GRAD = True
 
         def __init__(self, **kwargs):
@@ -50,6 +53,9 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                 groups,
                 process_set=process_set)
 
+            self._local_vars = set()
+            self.process_set = process_set
+            self.scale_local_gradients = scale_local_gradients
             self._agg_helper = None
             if backward_passes_per_step > 1:
                 if hvd._executing_eagerly():
@@ -58,6 +64,8 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                         allreduce_func=self._allreduce_grads,
                         sparse_as_dense=sparse_as_dense,
                         average_aggregated_gradients=average_aggregated_gradients,
+                        process_set=process_set,
+                        scale_local_gradients=scale_local_gradients
                     )
                 else:
                     self._agg_helper = LocalGradientAggregationHelper(
@@ -67,7 +75,33 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                         average_aggregated_gradients=average_aggregated_gradients,
                         rank=rank(),
                         optimizer_type=LocalGradientAggregationHelper._OPTIMIZER_TYPE_KERAS,
+                        process_set=process_set,
+                        scale_local_gradients=scale_local_gradients
                     )
+
+        if version.parse(tf.__version__) >= version.parse('2.12.0'):
+            @property
+            def variables(self):
+                return CallableList(super(self.__class__, self).variables())
+        else:
+            def variables(self):
+                if _IS_TF2:
+                    return super(self.__class__, self).variables()
+                return self.get_weights()
+
+        def register_local_var(self, var):
+            """Registers a source/variable as worker local. Horovod will not perform any global
+            operations on gradients corresponding to these sources and will instead return the local
+            gradient."""
+            if self._agg_helper:
+                self._agg_helper.register_local_var(var)
+            elif _IS_TF2:
+                self._local_vars.add(var.ref())
+            else:
+                self._local_vars.add(var)
+
+        def compute_gradients(self, loss, var_list, tape=None):
+            return self._compute_gradients(loss, var_list, None, tape)
 
         def _compute_gradients(self, loss, var_list, grad_loss=None, tape=None):
             """
@@ -78,17 +112,25 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
             In DistributedOptimizer, get_gradients() is overriden to also
             allreduce the gradients before returning them.
             """
+            base_class = super(self.__class__, self)
             if _PRE_TF_2_4_0:
-                return super(self.__class__, self)._compute_gradients(
+                return base_class._compute_gradients(
                     loss, var_list, grad_loss, tape)
 
             tape = tf.GradientTape() if tape is None else tape
-            grads_and_vars = super(self.__class__, self)._compute_gradients(
-                # pylint: disable=protected-access
-                loss,
-                var_list,
-                grad_loss,
-                tape=tape)
+            if hasattr(base_class, '_compute_gradients'):
+                grads_and_vars = base_class._compute_gradients(
+                    # pylint: disable=protected-access
+                    loss,
+                    var_list,
+                    grad_loss,
+                    tape=tape)
+            else:
+                grads_and_vars = base_class.compute_gradients(
+                    # pylint: disable=protected-access
+                    loss,
+                    var_list,
+                    tape=tape)
             grads, weights = list(zip(*grads_and_vars))
 
             allreduced_grads = self._allreduce(grads, weights)
@@ -107,13 +149,15 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
             return self._allreduce(gradients, params)
 
         def _aggregate_gradients(self, grads_and_vars):
+            base_class = super(self.__class__, self)
             if _PRE_TF_2_4_0:
                 grads, vars = list(zip(*grads_and_vars))
                 aggregated_grads = self._allreduce(grads, vars)
                 return aggregated_grads
+            elif hasattr(base_class, '_aggregate_gradients'):
+                return base_class._aggregate_gradients(grads_and_vars)
             else:
-                return super(self.__class__, self)._aggregate_gradients(
-                    grads_and_vars)
+                return base_class.aggregate_gradients(grads_and_vars)
 
         def _allreduce(self, grads, vars):
             self._aggregated_gradients = True
@@ -121,7 +165,57 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
             if self._agg_helper:
                 return self._agg_helper.compute_gradients(tuple(grads), tuple(vars))
             else:
-                return self._allreduce_grads(grads, vars)
+                def __filtered_reduce_grads(grads, vars):
+                    rv = []
+                    rg = []
+                    if _IS_TF2:
+                        v2g = {var.ref(): grad for var, grad in zip(vars, grads)}
+                        for var, grad in zip(vars, grads):
+                            if var.ref() not in self._local_vars:
+                                rv.append(var)
+                                rg.append(grad)
+                    else:
+                        v2g = {var: grad for var, grad in zip(vars, grads)}
+                        for var, grad in zip(vars, grads):
+                            if var not in self._local_vars:
+                                rv.append(var)
+                                rg.append(grad)
+
+                    rg = self._allreduce_grads(rg, rv)
+                    horovod_size = size_op(process_set_id=self.process_set.process_set_id) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else self.process_set.size()
+                    if _IS_TF2:
+                        for rv, rg in zip(rv, rg):
+                            v2g[rv.ref()] = rg
+
+                        if self.scale_local_gradients and len(self._local_vars):
+                            # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
+                            for v_ref in v2g:
+                                if v_ref in self._local_vars and v2g[v_ref] is not None:
+                                    grad = v2g[v_ref]
+                                    if isinstance(grad, tf.IndexedSlices):
+                                        grad = tf.IndexedSlices(grad.values / float(horovod_size), grad.indices, grad.dense_shape)
+                                    else:
+                                        grad /= float(horovod_size)
+                                    v2g[v_ref] = grad
+
+                        return [v2g[rv.ref()] for rv in vars]
+                    else:
+                        for rv, rg in zip(rv, rg):
+                            v2g[rv] = rg
+
+                        if self.scale_local_gradients and len(self._local_vars):
+                            # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
+                            for v in v2g:
+                                if v in self._local_vars and v2g[v] is not None:
+                                    grad = v2g[v]
+                                    if isinstance(grad, tf.IndexedSlices):
+                                        grad = tf.IndexedSlices(grad.values / float(horovod_size), grad.indices, grad.dense_shape)
+                                    else:
+                                        grad /= float(horovod_size)
+                                    v2g[v] = grad
+
+                        return [v2g[rv] for rv in vars]
+                return __filtered_reduce_grads(grads, vars)
 
         def apply_gradients(self, *args, **kwargs):
             if self._agg_helper:
@@ -161,6 +255,13 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
     return cls.from_config(optimizer.get_config())
 
 
+class CallableList(list):
+    """Temporary shim to support both `opt.variables()` and `opt.variables`."""
+
+    def __call__(self):
+        return self
+
+
 def _eval(backend, op_or_result):
     if hvd._executing_eagerly():
         return op_or_result
@@ -192,11 +293,15 @@ def reducescatter(backend, value, name, op):
     return _eval(backend, hvd.reducescatter(tf.constant(value, name=name), op=op))
 
 
-def load_model(keras, wrap_optimizer, optimizer_modules, filepath, custom_optimizers, custom_objects):
+def load_model(keras, wrap_optimizer, filepath, custom_optimizers, custom_objects, legacy_opts=False):
+    if legacy_opts:
+        keras_subclasses = keras.optimizers.legacy.Optimizer.__subclasses__()
+    else:
+        keras_subclasses = keras.optimizers.Optimizer.__subclasses__()
+
     horovod_objects = {
         subclass.__name__.lower(): wrap_optimizer(subclass)
-        for subclass in keras.optimizers.Optimizer.__subclasses__()
-        if subclass.__module__ in optimizer_modules
+        for subclass in keras_subclasses
     }
 
     if custom_optimizers is not None:

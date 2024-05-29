@@ -32,13 +32,6 @@ namespace common {
 // Check that Horovod is initialized.
 Status CheckInitialized();
 
-enum ReduceOp {
-    AVERAGE = 0, // This value should never appear past framework code, as
-                 // averaging is taken care of there.
-    SUM = 1,
-    ADASUM = 2
-};
-
 extern "C" {
 
 // C interface to initialize Horovod. Returns false on failure.
@@ -114,6 +107,15 @@ int horovod_reduce_op_sum();
 
 // C interface to return value of the ReduceOp::ADASUM enum field.
 int horovod_reduce_op_adasum();
+
+// C interface to return value of the ReduceOp::MIN enum field.
+int horovod_reduce_op_min();
+
+// C interface to return value of the ReduceOp::MAX enum field.
+int horovod_reduce_op_max();
+
+// C interface to return value of the ReduceOp::PRODUCT enum field.
+int horovod_reduce_op_product();
 
 extern const int HOROVOD_PROCESS_SET_ERROR_INIT;
 extern const int HOROVOD_PROCESS_SET_ERROR_DYNAMIC;
@@ -234,22 +236,22 @@ Status EnqueueTensorAlltoall(std::shared_ptr<OpContext> context,
                              StatusCallback callback,
                              int32_t process_set_id = 0);
 
-Status EnqueueTensorReducescatter(std::shared_ptr<OpContext> context,
-                                  std::shared_ptr<Tensor> tensor,
-                                  ReadyEventList ready_event_list,
-                                  const std::string& name, int device,
-                                  StatusCallback callback,
-                                  ReduceOp reduce_op = ReduceOp::SUM,
-                                  int32_t process_set_id = 0);
+Status EnqueueTensorReducescatter(
+    std::shared_ptr<OpContext> context, std::shared_ptr<Tensor> tensor,
+    std::shared_ptr<Tensor> output, ReadyEventList ready_event_list,
+    const std::string& name, int device, StatusCallback callback,
+    ReduceOp reduce_op = ReduceOp::SUM, int32_t process_set_id = 0,
+    double prescale_factor = 1.0, double postscale_factor = 1.0);
 
-Status
-EnqueueTensorReducescatters(std::vector<std::shared_ptr<OpContext>>& contexts,
-                            std::vector<std::shared_ptr<Tensor>>& tensors,
-                            std::vector<ReadyEventList>& ready_event_lists,
-                            std::vector<std::string>& names, int device,
-                            std::vector<StatusCallback>& callbacks,
-                            ReduceOp reduce_op = ReduceOp::SUM,
-                            int32_t process_set_id = 0);
+Status EnqueueTensorReducescatters(
+    std::vector<std::shared_ptr<OpContext>>& contexts,
+    std::vector<std::shared_ptr<Tensor>>& tensors,
+    std::vector<std::shared_ptr<Tensor>>& outputs,
+    std::vector<ReadyEventList>& ready_event_lists,
+    std::vector<std::string>& names, int device,
+    std::vector<StatusCallback>& callbacks, ReduceOp reduce_op = ReduceOp::SUM,
+    int32_t process_set_id = 0, double prescale_factor = 1.0,
+    double postscale_factor = 1.0);
 
 Status EnqueueJoin(std::shared_ptr<OpContext> context,
                    std::shared_ptr<Tensor> output_last_joined_rank,

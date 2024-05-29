@@ -92,6 +92,48 @@ inline const char *EnumNameDataType(DataType e) {
   return EnumNamesDataType()[index];
 }
 
+enum ReduceOp : int8_t {
+  ReduceOp_AVERAGE = 0,
+  ReduceOp_SUM = 1,
+  ReduceOp_ADASUM = 2,
+  ReduceOp_MIN_ = 3,
+  ReduceOp_MAX_ = 4,
+  ReduceOp_PRODUCT = 5,
+  ReduceOp_MIN = ReduceOp_AVERAGE,
+  ReduceOp_MAX = ReduceOp_PRODUCT
+};
+
+inline const ReduceOp (&EnumValuesReduceOp())[6] {
+  static const ReduceOp values[] = {
+    ReduceOp_AVERAGE,
+    ReduceOp_SUM,
+    ReduceOp_ADASUM,
+    ReduceOp_MIN_,
+    ReduceOp_MAX_,
+    ReduceOp_PRODUCT
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesReduceOp() {
+  static const char * const names[7] = {
+    "AVERAGE",
+    "SUM",
+    "ADASUM",
+    "MIN_",
+    "MAX_",
+    "PRODUCT",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameReduceOp(ReduceOp e) {
+  if (flatbuffers::IsOutRange(e, ReduceOp_AVERAGE, ReduceOp_PRODUCT)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesReduceOp()[index];
+}
+
 enum RequestType : int8_t {
   RequestType_ALLREDUCE = 0,
   RequestType_ALLGATHER = 1,
@@ -202,7 +244,8 @@ struct Request FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_DEVICE = 14,
     VT_TENSOR_SHAPE = 16,
     VT_PRESCALE_FACTOR = 18,
-    VT_POSTSCALE_FACTOR = 20
+    VT_POSTSCALE_FACTOR = 20,
+    VT_REDUCE_OP = 22
   };
   int32_t request_rank() const {
     return GetField<int32_t>(VT_REQUEST_RANK, 0);
@@ -231,6 +274,9 @@ struct Request FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   double postscale_factor() const {
     return GetField<double>(VT_POSTSCALE_FACTOR, 0.0);
   }
+  horovod::common::wire::ReduceOp reduce_op() const {
+    return static_cast<horovod::common::wire::ReduceOp>(GetField<int8_t>(VT_REDUCE_OP, 0));
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<int32_t>(verifier, VT_REQUEST_RANK) &&
@@ -244,6 +290,7 @@ struct Request FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVector(tensor_shape()) &&
            VerifyField<double>(verifier, VT_PRESCALE_FACTOR) &&
            VerifyField<double>(verifier, VT_POSTSCALE_FACTOR) &&
+           VerifyField<int8_t>(verifier, VT_REDUCE_OP) &&
            verifier.EndTable();
   }
 };
@@ -279,6 +326,9 @@ struct RequestBuilder {
   void add_postscale_factor(double postscale_factor) {
     fbb_.AddElement<double>(Request::VT_POSTSCALE_FACTOR, postscale_factor, 0.0);
   }
+  void add_reduce_op(horovod::common::wire::ReduceOp reduce_op) {
+    fbb_.AddElement<int8_t>(Request::VT_REDUCE_OP, static_cast<int8_t>(reduce_op), 0);
+  }
   explicit RequestBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -300,7 +350,8 @@ inline flatbuffers::Offset<Request> CreateRequest(
     int32_t device = 0,
     flatbuffers::Offset<flatbuffers::Vector<int64_t>> tensor_shape = 0,
     double prescale_factor = 0.0,
-    double postscale_factor = 0.0) {
+    double postscale_factor = 0.0,
+    horovod::common::wire::ReduceOp reduce_op = horovod::common::wire::ReduceOp_AVERAGE) {
   RequestBuilder builder_(_fbb);
   builder_.add_postscale_factor(postscale_factor);
   builder_.add_prescale_factor(prescale_factor);
@@ -309,6 +360,7 @@ inline flatbuffers::Offset<Request> CreateRequest(
   builder_.add_root_rank(root_rank);
   builder_.add_tensor_name(tensor_name);
   builder_.add_request_rank(request_rank);
+  builder_.add_reduce_op(reduce_op);
   builder_.add_tensor_type(tensor_type);
   builder_.add_request_type(request_type);
   return builder_.Finish();
@@ -324,7 +376,8 @@ inline flatbuffers::Offset<Request> CreateRequestDirect(
     int32_t device = 0,
     const std::vector<int64_t> *tensor_shape = nullptr,
     double prescale_factor = 0.0,
-    double postscale_factor = 0.0) {
+    double postscale_factor = 0.0,
+    horovod::common::wire::ReduceOp reduce_op = horovod::common::wire::ReduceOp_AVERAGE) {
   auto tensor_name__ = tensor_name ? _fbb.CreateString(tensor_name) : 0;
   auto tensor_shape__ = tensor_shape ? _fbb.CreateVector<int64_t>(*tensor_shape) : 0;
   return horovod::common::wire::CreateRequest(
@@ -337,7 +390,8 @@ inline flatbuffers::Offset<Request> CreateRequestDirect(
       device,
       tensor_shape__,
       prescale_factor,
-      postscale_factor);
+      postscale_factor,
+      reduce_op);
 }
 
 struct RequestList FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
@@ -415,7 +469,8 @@ struct Response FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_TENSOR_TYPE = 14,
     VT_PRESCALE_FACTOR = 16,
     VT_POSTSCALE_FACTOR = 18,
-    VT_LAST_JOINED_RANK = 20
+    VT_LAST_JOINED_RANK = 20,
+    VT_REDUCE_OP = 22
   };
   horovod::common::wire::ResponseType response_type() const {
     return static_cast<horovod::common::wire::ResponseType>(GetField<int8_t>(VT_RESPONSE_TYPE, 0));
@@ -444,6 +499,9 @@ struct Response FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   int32_t last_joined_rank() const {
     return GetField<int32_t>(VT_LAST_JOINED_RANK, 0);
   }
+  horovod::common::wire::ReduceOp reduce_op() const {
+    return static_cast<horovod::common::wire::ReduceOp>(GetField<int8_t>(VT_REDUCE_OP, 0));
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<int8_t>(verifier, VT_RESPONSE_TYPE) &&
@@ -460,6 +518,7 @@ struct Response FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<double>(verifier, VT_PRESCALE_FACTOR) &&
            VerifyField<double>(verifier, VT_POSTSCALE_FACTOR) &&
            VerifyField<int32_t>(verifier, VT_LAST_JOINED_RANK) &&
+           VerifyField<int8_t>(verifier, VT_REDUCE_OP) &&
            verifier.EndTable();
   }
 };
@@ -495,6 +554,9 @@ struct ResponseBuilder {
   void add_last_joined_rank(int32_t last_joined_rank) {
     fbb_.AddElement<int32_t>(Response::VT_LAST_JOINED_RANK, last_joined_rank, 0);
   }
+  void add_reduce_op(horovod::common::wire::ReduceOp reduce_op) {
+    fbb_.AddElement<int8_t>(Response::VT_REDUCE_OP, static_cast<int8_t>(reduce_op), 0);
+  }
   explicit ResponseBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -516,7 +578,8 @@ inline flatbuffers::Offset<Response> CreateResponse(
     horovod::common::wire::DataType tensor_type = horovod::common::wire::DataType_HOROVOD_UINT8,
     double prescale_factor = 0.0,
     double postscale_factor = 0.0,
-    int32_t last_joined_rank = 0) {
+    int32_t last_joined_rank = 0,
+    horovod::common::wire::ReduceOp reduce_op = horovod::common::wire::ReduceOp_AVERAGE) {
   ResponseBuilder builder_(_fbb);
   builder_.add_postscale_factor(postscale_factor);
   builder_.add_prescale_factor(prescale_factor);
@@ -525,6 +588,7 @@ inline flatbuffers::Offset<Response> CreateResponse(
   builder_.add_devices(devices);
   builder_.add_error_message(error_message);
   builder_.add_tensor_names(tensor_names);
+  builder_.add_reduce_op(reduce_op);
   builder_.add_tensor_type(tensor_type);
   builder_.add_response_type(response_type);
   return builder_.Finish();
@@ -540,7 +604,8 @@ inline flatbuffers::Offset<Response> CreateResponseDirect(
     horovod::common::wire::DataType tensor_type = horovod::common::wire::DataType_HOROVOD_UINT8,
     double prescale_factor = 0.0,
     double postscale_factor = 0.0,
-    int32_t last_joined_rank = 0) {
+    int32_t last_joined_rank = 0,
+    horovod::common::wire::ReduceOp reduce_op = horovod::common::wire::ReduceOp_AVERAGE) {
   auto tensor_names__ = tensor_names ? _fbb.CreateVector<flatbuffers::Offset<flatbuffers::String>>(*tensor_names) : 0;
   auto error_message__ = error_message ? _fbb.CreateString(error_message) : 0;
   auto devices__ = devices ? _fbb.CreateVector<int32_t>(*devices) : 0;
@@ -555,7 +620,8 @@ inline flatbuffers::Offset<Response> CreateResponseDirect(
       tensor_type,
       prescale_factor,
       postscale_factor,
-      last_joined_rank);
+      last_joined_rank,
+      reduce_op);
 }
 
 struct ResponseList FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {

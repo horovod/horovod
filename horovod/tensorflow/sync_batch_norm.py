@@ -29,11 +29,10 @@ class SyncBatchNormalization(tf.keras.layers.BatchNormalization):
       kwargs['name'] = 'sync_batch_normalization'
     super(SyncBatchNormalization, self).__init__(fused=fused, **kwargs)
 
-  def _moments(self, inputs, reduction_axes, keep_dims):
+  def _moments(self, inputs, reduction_axes, keep_dims, **kwargs):
     """Compute the mean and variance: it overrides the original _moments."""
-
     worker_mean, worker_variance = super(SyncBatchNormalization, self)._moments(
-      inputs, reduction_axes, keep_dims=keep_dims)
+      inputs, reduction_axes, keep_dims=keep_dims, **kwargs)
 
     if size() > 1:
       # Compute variance using: Var[X] = E[X^2] - E[X]^2.

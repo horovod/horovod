@@ -175,6 +175,11 @@ void Request::add_tensor_shape(int64_t value) {
   tensor_shape_.push_back(value);
 }
 
+ReduceOp Request::reduce_op() const { return reduce_op_; };
+
+void Request::set_reduce_op(ReduceOp reduce_op) { reduce_op_ = reduce_op; };
+
+
 namespace {
 
 void Request_ParseFromWire(Request& request,
@@ -189,6 +194,7 @@ void Request_ParseFromWire(Request& request,
                                                 obj->tensor_shape()->end()));
   request.set_prescale_factor(obj->prescale_factor());
   request.set_postscale_factor(obj->postscale_factor());
+  request.set_reduce_op((ReduceOp) obj->reduce_op());
 }
 
 void Request_SerializeToWire(const Request& request,
@@ -209,6 +215,7 @@ void Request_SerializeToWire(const Request& request,
   request_builder.add_tensor_shape(tensor_shape_wire);
   request_builder.add_prescale_factor(request.prescale_factor());
   request_builder.add_postscale_factor(request.postscale_factor());
+  request_builder.add_reduce_op((wire::ReduceOp) request.reduce_op());
   obj = request_builder.Finish();
 }
 
@@ -419,6 +426,10 @@ void Response::set_last_joined_rank(int value) {
   last_joined_rank_ = value;
 }
 
+ReduceOp Response::reduce_op() const { return reduce_op_; };
+
+void Response::set_reduce_op(ReduceOp reduce_op) { reduce_op_ = reduce_op; };
+
 void Response_ParseFromWire(Response& response,
                             const wire::Response* obj) {
   response.set_response_type((Response::ResponseType) obj->response_type());
@@ -434,6 +445,7 @@ void Response_ParseFromWire(Response& response,
   response.set_prescale_factor(obj->prescale_factor());
   response.set_postscale_factor(obj->postscale_factor());
   response.set_last_joined_rank(obj->last_joined_rank());
+  response.set_reduce_op((ReduceOp) obj->reduce_op());
 }
 
 void Response::ParseFromBytes(Response& response, const uint8_t* input) {
@@ -463,6 +475,7 @@ void Response_SerializeToWire(const Response& response,
   response_builder.add_prescale_factor(response.prescale_factor());
   response_builder.add_postscale_factor(response.postscale_factor());
   response_builder.add_last_joined_rank(response.last_joined_rank());
+  response_builder.add_reduce_op((wire::ReduceOp) response.reduce_op());
   obj = response_builder.Finish();
 }
 

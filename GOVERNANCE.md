@@ -22,8 +22,9 @@ Current voting members of the Horovod TSC:
 * [Josh Romero](https://github.com/romerojosh) - NVIDIA
 * [Nicolas Castet](https://github.com/nvcastet) - NVIDIA
 * [Enrico Minack](https://github.com/EnricoMi) - G-Research
-* [Xu Ning](https://github.com/thuningxu) - Uber
+* [Xu Ning](https://github.com/thuningxu) - Snap Inc.
 * [Todd Mytkowicz](https://github.com/klipto) - Microsoft
+* [Max Gerlach](https://github.com/maxhgerlach) - DeepL
 
 Current non-voting members of the Horovod TSC:
 * [Leonard Lausen](https://github.com/leezu) - Amazon
@@ -32,10 +33,11 @@ Current non-voting members of the Horovod TSC:
 * [Neil Conway](https://github.com/neilconway) - Determined AI, HPE
 * [Min Cai](https://github.com/mincai) - Uber
 * [Chongxiao Cao](https://github.com/chongxiaoc) - Uber
-* [Max Gerlach](https://github.com/maxhgerlach) - DeepL
 * [Ryan Beethe](https://github.com/rb-determined-ai) - Determined AI, HPE
 * [Abin Shahab](https://github.com/ashahab) - LinkedIn
-* [TJ Xu](https://github.com/Tixxx) - Uber
+* [TJ Xu](https://github.com/Tixxx) - NVIDIA
+* [Keqiu Hu](https://github.com/oliverhu) - LinkedIn
+* [Peng Zhang](https://github.com/irasit) - Uber
 
 Emeritus members of the Horovod TSC:
 * [Lin Yuan](https://github.com/apeforest)

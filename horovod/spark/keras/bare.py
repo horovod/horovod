@@ -76,7 +76,7 @@ def save_bare_keras_optimizer(optimizer, h5py_file):
             },
         }, default=get_json_type).encode('utf8')
 
-        symbolic_weights = getattr(optimizer, 'weights')
+        symbolic_weights = optimizer.variables()
         if symbolic_weights:
             optimizer_weights_group = h5py_file['optimizer_weights']
             weight_values = K.batch_get_value(symbolic_weights)

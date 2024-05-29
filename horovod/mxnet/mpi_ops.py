@@ -69,6 +69,9 @@ def init(*args, **kwargs):
 Average = _basics.Average
 Sum = _basics.Sum
 Adasum = _basics.Adasum
+Min = _basics.Min
+Max = _basics.Max
+Product = _basics.Product
 
 handle_average_backwards_compatibility = get_average_backwards_compatibility_fun(_basics)
 
@@ -102,7 +105,8 @@ def allreduce(tensor, average=None, name=None, priority=0, prescale_factor=1.0,
                 Use `op` instead. Will be removed in v1.0.
 
         op: The reduction operation to combine tensors across different ranks.
-            Can be Average (default) or Sum.
+            Supported op values are Sum, Average, Min, Max, and Product. Defaults
+            to Average if None is given.
         name: A name of the reduction operation.
         priority: The priority of this operation. Higher priority operations
                   are likely to be executed before other operations.
@@ -116,7 +120,7 @@ def allreduce(tensor, average=None, name=None, priority=0, prescale_factor=1.0,
         across all processes.
     """
     op = handle_average_backwards_compatibility(op, average)
-    assert op in [Average, Sum]
+    assert op != Adasum
 
     output = mx.nd.zeros(shape=tensor.shape, ctx=tensor.context,
                          dtype=tensor.dtype)
@@ -126,7 +130,7 @@ def allreduce(tensor, average=None, name=None, priority=0, prescale_factor=1.0,
     c_name = c_str(name) if isinstance(name, string_types) else ctypes.c_char_p(None)
 
     check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(
-        ctypes.byref(c_in), ctypes.byref(c_out), c_name, ctypes.c_bool(op == Average),
+        ctypes.byref(c_in), ctypes.byref(c_out), c_name, ctypes.c_int(op),
         ctypes.c_int(priority),
         ctypes.c_double(prescale_factor),
         ctypes.c_double(postscale_factor),
@@ -156,7 +160,8 @@ def allreduce_(tensor, average=None, name=None, priority=0, prescale_factor=1.0,
                 Use `op` instead. Will be removed in v1.0.
 
         op: The reduction operation to combine tensors across different ranks.
-            Can be Average (default) or Sum.
+            Supported op values are Sum, Average, Min, Max, and Product. Defaults
+            to Average if None is given.
         name: A name of the reduction operation.
         priority: The priority of this operation. Higher priority operations
                   are likely to be executed before other operations.
@@ -170,14 +175,14 @@ def allreduce_(tensor, average=None, name=None, priority=0, prescale_factor=1.0,
         across all processes.
     """
     op = handle_average_backwards_compatibility(op, average)
-    assert op in [Average, Sum]
+    assert op != Adasum
 
     c_in = tensor.handle
     c_out = tensor.handle
     c_name = c_str(name) if isinstance(name, string_types) else ctypes.c_char_p(None)
 
     check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(
-        ctypes.byref(c_in), ctypes.byref(c_out), c_name, ctypes.c_bool(op == Average),
+        ctypes.byref(c_in), ctypes.byref(c_out), c_name, ctypes.c_int(op),
         ctypes.c_int(priority),
         ctypes.c_double(prescale_factor),
         ctypes.c_double(postscale_factor),
@@ -208,7 +213,8 @@ def grouped_allreduce(tensors, average=None, name=None, priority=0, prescale_fac
                 Use `op` instead. Will be removed in v1.0.
 
         op: The reduction operation to combine tensors across different ranks.
-            Can be Average (default) or Sum.
+            Supported op values are Sum, Average, Min, Max, and Product. Defaults
+            to Average if None is given.
         name: A base name to use for the group reduction operation
         priority: The priority of this operation. Higher priority operations
                   are likely to be executed before other operations.
@@ -222,7 +228,7 @@ def grouped_allreduce(tensors, average=None, name=None, priority=0, prescale_fac
         averaged or summed across all processes.
     """
     op = handle_average_backwards_compatibility(op, average)
-    assert op in [Average, Sum]
+    assert op != Adasum
 
     if not tensors:
       return tensors
@@ -235,7 +241,7 @@ def grouped_allreduce(tensors, average=None, name=None, priority=0, prescale_fac
     c_name = c_str(name) if isinstance(name, string_types) else ctypes.c_char_p(None)
 
     check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(
-        c_in, c_out, c_name, ctypes.c_bool(op == Average),
+        c_in, c_out, c_name, ctypes.c_int(op),
         ctypes.c_int(priority),
         ctypes.c_double(prescale_factor),
         ctypes.c_double(postscale_factor),
@@ -266,7 +272,8 @@ def grouped_allreduce_(tensors, average=None, name=None, priority=0, prescale_fa
                 Use `op` instead. Will be removed in v1.0.
 
         op: The reduction operation to combine tensors across different ranks.
-            Can be Average (default) or Sum.
+            Supported op values are Sum, Average, Min, Max, and Product. Defaults
+            to Average if None is given.
         name: A base name to use for the group reduction operation
         priority: The priority of this operation. Higher priority operations
                   are likely to be executed before other operations.
@@ -280,7 +287,7 @@ def grouped_allreduce_(tensors, average=None, name=None, priority=0, prescale_fa
         averaged or summed across all processes.
     """
     op = handle_average_backwards_compatibility(op, average)
-    assert op in [Average, Sum]
+    assert op != Adasum
 
     if not tensors:
       return tensors
@@ -290,7 +297,7 @@ def grouped_allreduce_(tensors, average=None, name=None, priority=0, prescale_fa
     c_name = c_str(name) if isinstance(name, string_types) else ctypes.c_char_p(None)
 
     check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(
-        c_in, c_out, c_name, ctypes.c_bool(op == Average),
+        c_in, c_out, c_name, ctypes.c_int(op),
         ctypes.c_int(priority),
         ctypes.c_double(prescale_factor),
         ctypes.c_double(postscale_factor),
@@ -532,7 +539,7 @@ def alltoall(tensor, splits=None, name=None, priority=0, process_set=global_proc
 
 
 def reducescatter(tensor, op=Average, name=None, priority=0,
-                  process_set=global_process_set):
+                  process_set=global_process_set, prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs asynchronous averaging or summation of the input tensor
     over all the Horovod processes, then scatters the results across all Horovod
@@ -556,6 +563,8 @@ def reducescatter(tensor, op=Average, name=None, priority=0,
                   are likely to be executed before other operations.
         process_set: Process set object to limit this operation to a subset of
                      Horovod processes. Default is the global process set.
+        prescale_factor: Multiplicative factor to scale tensor before reducescatter.
+        postscale_factor: Multiplicative factor to scale tensor after reducescatter.
 
     Returns:
         A tensor of the same rank and type as `tensor` across all processes.
@@ -564,6 +573,8 @@ def reducescatter(tensor, op=Average, name=None, priority=0,
     """
     assert(isinstance(tensor, mx.nd.NDArray))
     assert(op in [Average, Sum])
+    if tensor.shape == ():
+        raise ValueError("reducescatter does not support scalar inputs")
     # Size of output is unknown, create output array that
     # will be resized during Horovod operation
     output = mx.nd.empty(shape=(1,), ctx=tensor.context,
@@ -574,19 +585,18 @@ def reducescatter(tensor, op=Average, name=None, priority=0,
 
     check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_reducescatter_async(
         ctypes.byref(c_in), ctypes.byref(c_out), c_name, ctypes.c_int(priority),
-        ctypes.c_int(process_set.process_set_id), ctypes.c_int(1)))
+        ctypes.c_int(process_set.process_set_id), ctypes.c_int(1),
+        ctypes.c_int(op), ctypes.c_double(prescale_factor), ctypes.c_double(postscale_factor))
+    )
 
     # Need to block here so changes to output tensor are visible
     output.wait_to_read()
-
-    if op == Average:
-        output /= process_set.size()
 
     return output
 
 
 def grouped_reducescatter(tensors, op=Average, name=None, priority=0,
-                          process_set=global_process_set):
+                          process_set=global_process_set, prescale_factor=1.0, postscale_factor=1.0):
     """
     A function that performs reduction of a list of input tensors over all the
     Horovod processes, then scatters the results across all Horovod processes. The
@@ -610,6 +620,8 @@ def grouped_reducescatter(tensors, op=Average, name=None, priority=0,
                   are likely to be executed before other operations.
         process_set: Process set object to limit this operation to a subset of
                      Horovod processes. Default is the global process set.
+        prescale_factor: Multiplicative factor to scale tensors before reducescatter.
+        postscale_factor: Multiplicative factor to scale tensors after reducescatter.
 
     Returns:
         A list containing tensors of the same rank and type as in `tensors`. For each
@@ -618,6 +630,8 @@ def grouped_reducescatter(tensors, op=Average, name=None, priority=0,
     """
     assert(all(isinstance(t, mx.nd.NDArray) for t in tensors))
     assert(op in [Average, Sum])
+    if any(tensor.shape == () for tensor in tensors):
+        raise ValueError("groued_reducescatter does not support scalar inputs")
     # Sizes of outputs are unknown, create output arrays that
     # will be resized during Horovod operation
     outputs = [mx.nd.empty(shape=(1,), ctx=t.context, dtype=t.dtype)
@@ -628,14 +642,11 @@ def grouped_reducescatter(tensors, op=Average, name=None, priority=0,
 
     check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_reducescatter_async(
         c_in, c_out, c_name, ctypes.c_int(priority),
-        ctypes.c_int(process_set.process_set_id), ctypes.c_int(len(tensors))))
+        ctypes.c_int(process_set.process_set_id), ctypes.c_int(len(tensors)),
+        ctypes.c_int(op), ctypes.c_double(prescale_factor), ctypes.c_double(postscale_factor)))
 
     # Need to block here so changes to output tensors are visible
     for o in outputs:
         o.wait_to_read()
-
-    if op == Average:
-        for i in range(len(outputs)):
-            outputs[i] /= process_set.size()
 
     return outputs

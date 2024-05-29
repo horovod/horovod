@@ -38,9 +38,9 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        conclusion=$(gh api "${{ github.event.workflow_run.jobs_url }}" -q '.jobs[] | select(.name | startswith("Build and Test (")) | .conclusion' | sort | uniq | paste -sd "," -)
+        conclusion=$(gh api --paginate "${{ github.event.workflow_run.jobs_url }}" -q '.jobs[] | select(.name | startswith("Build and Test (")) | .conclusion' | sort | uniq | paste -sd "," -)
         echo "build-and-test conclusion: ${conclusion}"
-        echo "::set-output name=build-and-test::${conclusion}"
+        echo "build-and-test=${conclusion}" >> $GITHUB_OUTPUT
       shell: bash
 
     - name: Fetch PR meta
@@ -50,11 +50,11 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         artifacts_url=${{ github.event.workflow_run.artifacts_url }}
-        gh api "$artifacts_url" -q '.artifacts[] | select(.name == "PR Meta") .archive_download_url' | while read url
+        gh api --paginate "$artifacts_url" -q '.artifacts[] | select(.name == "PR Meta") .archive_download_url' | while read url
         do
           gh api "$url" > "pr.zip"
           unzip -o "pr.zip"
-          echo "::set-output name=json::$(cat pr.json)"
+          echo "json=$(cat pr.json)" >> $GITHUB_OUTPUT
           cat pr.json
           echo
         done
@@ -76,7 +76,7 @@ jobs:
     outputs:
       url: ${{ steps.build.outputs.url }}
     permissions:
-      # steps "Create check status" and "Update check status"
+      # step "Create check status"
       statuses: write
 
     steps:
@@ -108,6 +108,9 @@ jobs:
     name: "Build and Test GPU (download Builtkite)"
     needs: [buildkite-trigger]
     runs-on: ubuntu-latest
+    permissions:
+      # step "Update check status"
+      statuses: write
 
     steps:
       - name: Download Buildkite Artifacts
@@ -122,7 +125,7 @@ jobs:
           output_path: artifacts/Unit Test Results - GPU NON HEADS on Builtkite
 
       - name: Upload Test Results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: always()
         with:
           name: Unit Test Results - GPU NON HEADS on Builtkite
@@ -163,7 +166,7 @@ jobs:
     outputs:
       url: ${{ steps.build.outputs.url }}
     permissions:
-      # steps "Create check status" and "Update check status"
+      # step "Create check status"
       statuses: write
 
     steps:
@@ -195,6 +198,9 @@ jobs:
     name: "Build and Test GPU heads (download Builtkite)"
     needs: [buildkite-heads-trigger]
     runs-on: ubuntu-latest
+    permissions:
+      # step "Update check status"
+      statuses: write
 
     steps:
       - name: Download Buildkite Artifacts
@@ -209,7 +215,7 @@ jobs:
           output_path: artifacts/Unit Test Results - GPU HEADS on Builtkite
 
       - name: Upload Test Results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: always()
         with:
           name: Unit Test Results - GPU HEADS on Builtkite
@@ -276,7 +282,7 @@ jobs:
           done
 
       - name: Download Buildkite Artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           path: artifacts
 
@@ -308,7 +314,8 @@ jobs:
           event_file: artifacts/Event File/event.json
           event_name: ${{ github.event.workflow_run.event }}
           commit: ${{ github.event.workflow_run.head_sha }}
-          files: "${{ env.LAST_RUNS }}"
+          junit_files: "${{ env.LAST_RUNS }}"
+          log_level: DEBUG
 
       - name: Publish Unit Test Results (with flaky tests)
         uses: EnricoMi/publish-unit-test-result-action@v2
@@ -318,5 +325,6 @@ jobs:
           event_file: artifacts/Event File/event.json
           event_name: ${{ github.event.workflow_run.event }}
           commit: ${{ github.event.workflow_run.head_sha }}
-          files: "artifacts/Unit Test Results */**/*.xml"
+          junit_files: "artifacts/Unit Test Results */**/*.xml"
+          log_level: DEBUG
           fail_on: errors

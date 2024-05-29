@@ -18,7 +18,8 @@ import io
 import os
 import tempfile
 import math
-from distutils.version import LooseVersion
+import warnings
+from packaging import version
 
 import torch
 import pytorch_lightning as pl
@@ -27,7 +28,7 @@ from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger, CometLogger
 
 from horovod.spark.common import constants
-from horovod.spark.common.util import _get_assigned_gpu_or_default, _set_mp_start_method
+from horovod.spark.common.util import _get_assigned_gpu_or_local_rank, _set_mp_start_method
 from horovod.spark.lightning.datamodule import PetastormDataModule
 from horovod.spark.lightning.util import deserialize_fn
 
@@ -49,9 +50,15 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     epochs = estimator.getEpochs()
     random_seed = estimator.getRandomSeed()
     user_shuffle_buffer_size = estimator.getShufflingBufferSize()
+    if user_shuffle_buffer_size is not None:
+        warnings.warn('shuffle_buffer_size is deprecated and will be removed in future releases, '\
+                      'use shuffle instead', DeprecationWarning)
+    shuffle = estimator.getShuffle()
     terminate_on_nan = estimator.getTerminateOnNan()
     transformation_fn = estimator.getTransformationFn()
     transformation = transformation_fn if transformation_fn else None
+    transformation_edit_fields = estimator.getTransformationEditFields()
+    transformation_removed_fields = estimator.getTransformationRemovedFields()
     inmemory_cache_all = estimator.getInMemoryCacheAll()
     callbacks = estimator.getCallbacks() or []
     train_steps_per_epoch = estimator.getTrainStepsPerEpoch()
@@ -87,8 +94,6 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
     # Utility functions
     deserialize = deserialize_fn()
-    calculate_shuffle_buffer_size = _calculate_shuffle_buffer_size_fn(
-        train_rows, avg_row_size, user_shuffle_buffer_size)
 
     schema_fields = feature_columns + label_columns
     if sample_weight_col:
@@ -192,10 +197,9 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             _val_steps_per_epoch = val_steps_per_epoch if val_steps_per_epoch else \
                 int(math.floor(float(val_rows) / val_batch_size / hvd.size()))
 
-            shuffle_size = calculate_shuffle_buffer_size()
             if verbose:
                 print(f"Training data of rank[{hvd.local_rank()}]: Epochs: {epochs}, "
-                      f"Shuffle_size: {shuffle_size}, Random seed: {random_seed}\n"
+                      f"Shuffle: {shuffle}, Random seed: {random_seed}\n"
                       f"Train rows: {train_rows}, Train batch size: {batch_size}, Train_steps_per_epoch: {_train_steps_per_epoch}\n"
                       f"Val rows: {val_rows}, Val batch size: {val_batch_size}, Val_steps_per_epoch: {_val_steps_per_epoch}\n"
                       f"Checkpoint file: {remote_store.checkpoint_path}, Logs dir: {remote_store.logs_path}\n")
@@ -218,7 +222,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
             if cuda_available:
                 # Horovod: pin GPU to local rank or the assigned GPU from spark.
-                torch.cuda.set_device(_get_assigned_gpu_or_default(default=hvd.local_rank()))
+                torch.cuda.set_device(_get_assigned_gpu_or_local_rank(local_rank=hvd.local_rank()))
                 # Move model to GPU.
                 model.cuda()
 
@@ -267,11 +271,13 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                 'has_val': should_validate is not None,
                 'train_batch_size': batch_size,
                 'val_batch_size': val_batch_size,
-                'shuffle_size': shuffle_size,
+                'shuffle': shuffle,
                 'num_reader_epochs': loader_num_epochs,
                 'reader_pool_type': reader_pool_type,
                 'reader_worker_count': train_reader_worker_count,
                 'transformation': transformation,
+                'transformation_edit_fields': transformation_edit_fields,
+                'transformation_removed_fields': transformation_removed_fields,
                 'inmemory_cache_all': inmemory_cache_all,
                 'cur_shard': hvd.rank(),
                 'shard_count': hvd.size(),
@@ -283,6 +289,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                 'debug_data_loader': debug_data_loader,
                 'train_async_data_loader_queue_size': train_async_data_loader_queue_size,
                 'val_async_data_loader_queue_size': val_async_data_loader_queue_size,
+                'seed': random_seed,
             }
             if debug_data_loader and hvd.rank() == 0:
                 print(f"Creating data module with args:\n {data_module_kwargs}")
@@ -313,54 +320,6 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
                 return serialized_checkpoint
     return train
-
-
-def _calculate_shuffle_buffer_size_fn(train_rows, avg_row_size, user_shuffle_buffer_size):
-    def calculate_shuffle_buffer_size():
-        """
-        Determines the shuffling buffer size such that each worker gets at most 1GB for shuffling
-        buffer such that on a single machine, among all the workers on that machine, at most
-        memory_cap_gb GB are allocated for shuffling buffer. Also, it ensures that the buffer size
-        is identical among all the workers.
-
-        example 1:
-        memory_cap_gb = 4
-        machine1: 8 workers
-        machine2: 3 workers
-        shuffle_buffer_size = 0.5 GB
-
-        example 2:
-        memory_cap_gb = 4
-            machine1: 2 workers
-            machine2: 3 workers
-        shuffle_buffer_size = 1 GB
-
-        example 3:
-        memory_cap_gb = 4
-            machine1: 2 workers
-            machine2: 8 workers
-            machine3: 5 workers
-        shuffle_buffer_size = 0.5 GB
-        """
-        import horovod.torch as hvd
-
-        # If user specifies any user_shuffle_buffer_size (even 0), we should honor it.
-        if user_shuffle_buffer_size is not None:
-            if user_shuffle_buffer_size < 0:
-                raise ValueError("user_shuffle_buffer_size cannot be negative!")
-            return user_shuffle_buffer_size
-
-        local_size = hvd.local_size()
-        local_sizes = hvd.allgather(torch.tensor([local_size]))
-        max_local_size = torch.max(local_sizes).item()
-
-        if max_local_size > TOTAL_BUFFER_MEMORY_CAP_GIB:
-            shuffle_buffer_size = TOTAL_BUFFER_MEMORY_CAP_GIB * BYTES_PER_GIB / avg_row_size / max_local_size
-        else:
-            shuffle_buffer_size = BYTES_PER_GIB / avg_row_size
-        return int(min(shuffle_buffer_size, train_rows / hvd.size()))
-
-    return calculate_shuffle_buffer_size
 
 
 def _prepare_data_fn(metadata):

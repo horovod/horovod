@@ -103,7 +103,7 @@ def _get_mpi_implementation(env=None):
             return _OMPI_IMPL
         elif 'IBM Spectrum MPI' in output:
             return _SMPI_IMPL
-        elif 'MPICH' in output:
+        elif 'MPICH' in output or 'HYDRA' in output:
             return _MPICH_IMPL
         elif 'Intel(R) MPI' in output:
             return _IMPI_IMPL
@@ -166,8 +166,13 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None):
         joined_ssh_args = ' '.join(ssh_args)
         mpi_ssh_args = f'-bootstrap=ssh -bootstrap-exec-args \"{joined_ssh_args}\"' if impi_or_mpich else f'-mca plm_rsh_args \"{joined_ssh_args}\"'
 
-    tcp_intf_arg = '-mca btl_tcp_if_include {nics}'.format(
-        nics=','.join(nics)) if nics and not impi_or_mpich else ''
+    if settings.nics and impi_or_mpich:
+        if len(nics) > 1:
+            raise Exception('Intel MPI and MPICH do not support multiple interfaces.')
+        tcp_intf_arg = '-iface {nic}'.format(nic=list(nics)[0])
+    else:
+        tcp_intf_arg = '-mca btl_tcp_if_include {nics}'.format(
+            nics=','.join(nics)) if nics and not impi_or_mpich else ''
     nccl_socket_intf_arg = '-{opt} NCCL_SOCKET_IFNAME={nics}'.format(
         opt='genv' if impi_or_mpich else 'x',
         nics=','.join(nics)) if nics else ''

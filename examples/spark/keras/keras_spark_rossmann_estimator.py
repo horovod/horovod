@@ -18,7 +18,7 @@ import argparse
 import datetime
 import os
 import sys
-from distutils.version import LooseVersion
+from packaging import version
 
 import pyspark.sql.types as T
 import pyspark.sql.functions as F
@@ -338,7 +338,7 @@ if __name__ == '__main__':
                       'act_sigmoid_scaled': act_sigmoid_scaled}
 
     # Disable GPUs when building the model to prevent memory leaks
-    if LooseVersion(tf.__version__) >= LooseVersion('2.0.0'):
+    if version.parse(tf.__version__) >= version.parse('2.0.0'):
         # See https://github.com/tensorflow/tensorflow/issues/33168
         os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     else:

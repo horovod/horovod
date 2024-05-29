@@ -16,11 +16,14 @@
 import inspect
 import warnings
 
+from packaging import version
+
 import tensorflow as tf
 
 from tensorflow import keras
 
 from horovod.common.util  import is_version_greater_equal_than
+
 
 if is_version_greater_equal_than(tf.__version__, "2.6.0"):
     from keras import backend as K
@@ -43,15 +46,6 @@ import horovod._keras as _impl
 from horovod.tensorflow.keras import callbacks, elastic
 
 
-try:
-    # In later versions of TensorFlow, optimizers are spread across multiple modules. This set is used to distinguish
-    # stock optimizers that come with tf.keras from custom optimizers that may need to be wrapped specially.
-    _OPTIMIZER_MODULES = set([obj.__module__ for name, obj in inspect.getmembers(tf.keras.optimizers)
-                              if isinstance(obj, type(tf.keras.optimizers.Optimizer))])
-except:
-    _OPTIMIZER_MODULES = set()
-
-
 def DistributedOptimizer(optimizer, name=None,
                          device_dense='', device_sparse='',
                          compression=Compression.none,
@@ -62,7 +56,8 @@ def DistributedOptimizer(optimizer, name=None,
                          average_aggregated_gradients=False,
                          num_groups=0,
                          groups=None,
-                         process_set=global_process_set):
+                         process_set=global_process_set,
+                         scale_local_gradients=True):
     """
     An optimizer that wraps another keras.optimizers.Optimizer, using an allreduce to
     average gradient values before applying gradients to model weights.
@@ -107,8 +102,10 @@ def DistributedOptimizer(optimizer, name=None,
                 inner list will be assigned to the same group, while parameter that does
                 not appear in any list will form a group itself.
                 Defaults as None, which is no explicit groups.
-      process_set: Gradients will only be reduced over Horovod processes belonging
+        process_set: Gradients will only be reduced over Horovod processes belonging
                    to this process set. Defaults to the global process set.
+        scale_local_gradients: Whether to scale the gradients of local variables. Default is set to True.
+
     """
     if gradient_predivide_factor != 1.0 and rocm_built():
             raise ValueError('gradient_predivide_factor not supported yet with ROCm')
@@ -141,6 +138,7 @@ def DistributedOptimizer(optimizer, name=None,
         average_aggregated_gradients=average_aggregated_gradients,
         groups=groups,
         process_set=process_set,
+        scale_local_gradients=scale_local_gradients
     )
 
 
@@ -233,7 +231,7 @@ def reducescatter(value, name=None, op=Average):
     return _impl.reducescatter(K, value, name, op)
 
 
-def load_model(filepath, custom_optimizers=None, custom_objects=None, compression=Compression.none):
+def load_model(filepath, custom_optimizers=None, custom_objects=None, compression=Compression.none, legacy_opts=False):
     """
     Loads a saved Keras model with a Horovod DistributedOptimizer.
 
@@ -256,6 +254,7 @@ def load_model(filepath, custom_optimizers=None, custom_objects=None, compressio
         compression: Compression algorithm used to reduce the amount of data
                      sent and received by each worker node.  Defaults to not
                      using compression.
+        legacy_opts: If True, model uses tf.keras.optimizers.legacy.* optimizers
 
     Returns:
         A Keras model instance.
@@ -266,4 +265,4 @@ def load_model(filepath, custom_optimizers=None, custom_objects=None, compressio
     """
     def wrap_optimizer(cls):
         return lambda **kwargs: DistributedOptimizer(cls(**kwargs), compression=compression)
-    return _impl.load_model(keras, wrap_optimizer, _OPTIMIZER_MODULES, filepath, custom_optimizers, custom_objects)
+    return _impl.load_model(keras, wrap_optimizer, filepath, custom_optimizers, custom_objects, legacy_opts)

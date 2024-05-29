@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from distutils.version import LooseVersion
+from packaging import version
 import warnings
 
 import horovod.tensorflow as hvd
@@ -27,6 +27,18 @@ class BroadcastGlobalVariablesCallbackImpl(object):
         self.root_rank = root_rank
         self.device = device
         self.broadcast_done = False
+        self._local_vars = set()
+
+    def register_local_var(self, var):
+        """
+        Registers a variable as worker local. Horovod will not perform broadcasting
+            operation on this variable.
+        """
+        if version.parse(tf.__version__) < version.parse('2.0.0'):
+            raise Exception('Registering local variables for '
+                            'BroadcastGlobalVariablesCallback is not supported in TF 1.*')
+
+        self._local_vars.add(var.ref())
 
     def on_batch_end(self, batch, logs=None):
         if self.broadcast_done:
@@ -35,7 +47,8 @@ class BroadcastGlobalVariablesCallbackImpl(object):
         with tf.device(self.device):
             if hvd._executing_eagerly() and hasattr(self.model, 'variables'):
                 # TensorFlow 2.0 or TensorFlow eager
-                hvd.broadcast_variables(self.model.variables,
+                broadcast_vars = [var for var in self.model.variables if var.ref() not in self._local_vars]
+                hvd.broadcast_variables(broadcast_vars,
                                         root_rank=self.root_rank)
                 hvd.broadcast_variables(self.model.optimizer.variables(),
                                         root_rank=self.root_rank)
@@ -54,7 +67,7 @@ class MetricAverageCallbackImpl(object):
         self.allreduce_ops = {}
         self.device = device
 
-        if LooseVersion("2.3") <= LooseVersion(tf.__version__) < LooseVersion("2.5"):
+        if version.parse("2.3") <= version.parse(tf.__version__) < version.parse("2.5"):
             warnings.warn(
                 "Some callbacks may not have access to the averaged metrics, "
                 "see https://github.com/horovod/horovod/issues/2440")

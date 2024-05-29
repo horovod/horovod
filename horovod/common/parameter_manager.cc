@@ -43,6 +43,7 @@ ParameterManager::ParameterManager() :
     steps_per_sample_(GetIntEnvOrDefault(HOROVOD_AUTOTUNE_STEPS_PER_SAMPLE, DEFAULT_STEPS_PER_SAMPLE)),
     hierarchical_allreduce_(CategoricalParameter<bool>(std::vector<bool>{false, true})),
     hierarchical_allgather_(CategoricalParameter<bool>(std::vector<bool>{false, true})),
+    torus_allreduce_(CategoricalParameter<bool>(std::vector<bool>{false, true})),
     cache_enabled_(CategoricalParameter<bool>(std::vector<bool>{false, true})),
     joint_params_(BayesianParameter(
       std::vector<BayesianVariableConfig>{
@@ -58,7 +59,7 @@ ParameterManager::ParameterManager() :
       GetIntEnvOrDefault(HOROVOD_AUTOTUNE_BAYES_OPT_MAX_SAMPLES, DEFAULT_BAYES_OPT_MAX_SAMPLES),
       GetDoubleEnvOrDefault(HOROVOD_AUTOTUNE_GAUSSIAN_PROCESS_NOISE, DEFAULT_GAUSSIAN_PROCESS_NOISE))),
     parameter_chain_(std::vector<ITunableParameter*>{&joint_params_, &hierarchical_allreduce_, &hierarchical_allgather_,
-                                                     &cache_enabled_}),
+                                                     &torus_allreduce_, &cache_enabled_}),
     active_(false),
     warmup_remaining_(warmups_),
     sample_(0),
@@ -73,12 +74,12 @@ void ParameterManager::Initialize(int32_t rank, int32_t root_rank,
   rank_ = rank;
   root_rank_ = root_rank;
   if (rank_ == root_rank) {
-    LOG(INFO) << "Autotuner: Tunable params [hierarchical_allreduce,hierarchical_allgather,cache_enabled,cycle_time_ms,tensor_fusion_threshold] score";
+    LOG(INFO) << "Autotuner: Tunable params [hierarchical_allreduce,hierarchical_allgather,torus_allreduce,cache_enabled,cycle_time_ms,tensor_fusion_threshold] score";
   }
   if (rank_ == root_rank && !file_name.empty()) {
     file_.open(file_name, std::ios::out | std::ios::trunc);
     if (file_.good()) {
-      file_ << "hierarchical_allreduce,hierarchical_allgather,cache_enabled,cycle_time_ms,tensor_fusion_threshold,score" << std::endl;
+      file_ << "hierarchical_allreduce,hierarchical_allgather,torus_allreduce,cache_enabled,cycle_time_ms,tensor_fusion_threshold,score" << std::endl;
       writing_ = true;
     }
   }
@@ -105,6 +106,14 @@ bool ParameterManager::HierarchicalAllgather() const {
 
 void ParameterManager::SetHierarchicalAllgather(bool value, bool fixed) {
   hierarchical_allgather_.SetValue(value, fixed);
+}
+
+bool ParameterManager::TorusAllreduce() const {
+  return active_ ? torus_allreduce_.Value() : torus_allreduce_.BestValue();
+}
+
+void ParameterManager::SetTorusAllreduce(bool value, bool fixed) {
+  torus_allreduce_.SetValue(value, fixed);
 }
 
 bool ParameterManager::CacheEnabled() const {
@@ -220,6 +229,7 @@ ParameterManager::Params ParameterManager::GetParams() {
     // We're actively tuning, so send the current value.
     params.hierarchical_allreduce = hierarchical_allreduce_.Value();
     params.hierarchical_allgather = hierarchical_allgather_.Value();
+    params.torus_allreduce = torus_allreduce_.Value();
     params.cache_enabled = cache_enabled_.Value();
     params.tensor_fusion_threshold = joint_params_.Value(fusion_buffer_threshold_mb);
     params.cycle_time = joint_params_.Value(cycle_time_ms);
@@ -227,6 +237,7 @@ ParameterManager::Params ParameterManager::GetParams() {
     // Tuning has completed, so send the best value.
     params.hierarchical_allreduce = hierarchical_allreduce_.BestValue();
     params.hierarchical_allgather = hierarchical_allgather_.BestValue();
+    params.torus_allreduce = torus_allreduce_.BestValue();
     params.cache_enabled = cache_enabled_.BestValue();
     params.tensor_fusion_threshold = joint_params_.BestValue(fusion_buffer_threshold_mb);
     params.cycle_time = joint_params_.BestValue(cycle_time_ms);
@@ -240,6 +251,7 @@ ParameterManager::Params ParameterManager::GetParams() {
 void ParameterManager::SetParams(const Params& newParams) {
   hierarchical_allreduce_.SetValue(newParams.hierarchical_allreduce, true);
   hierarchical_allgather_.SetValue(newParams.hierarchical_allgather, true);
+  torus_allreduce_.SetValue(newParams.torus_allreduce, true);
   cache_enabled_.SetValue(newParams.cache_enabled, true);
   joint_params_.SetValue(fusion_buffer_threshold_mb, newParams.tensor_fusion_threshold, true);
   joint_params_.SetValue(cycle_time_ms, newParams.cycle_time, true);
@@ -258,6 +270,7 @@ void ParameterManager::LogParameters(double score) {
     LOG(INFO) << "Autotuner: ["
               << hierarchical_allreduce_.Value() << ", "
               << hierarchical_allgather_.Value() << ", "
+              << torus_allreduce_.Value() << ", "
               << cache_enabled_.Value() << ", "
               << joint_params_.Value(cycle_time_ms) << " ms, "
               << joint_params_.Value(fusion_buffer_threshold_mb) << " mb] "
@@ -265,6 +278,7 @@ void ParameterManager::LogParameters(double score) {
     if (writing_ && file_.good()) {
       file_ << hierarchical_allreduce_.Value() << ","
             << hierarchical_allgather_.Value() << ","
+            << torus_allreduce_.Value() << ", "
             << cache_enabled_.Value() << ","
             << joint_params_.Value(cycle_time_ms) << ","
             << joint_params_.Value(fusion_buffer_threshold_mb) << ","
@@ -279,6 +293,7 @@ void ParameterManager::LogBestParameters() {
     LOG(INFO) << "Autotuner: Best params ["
               << hierarchical_allreduce_.BestValue() << ", "
               << hierarchical_allgather_.BestValue() << ", "
+              << torus_allreduce_.BestValue() << ", "
               << cache_enabled_.BestValue() << ", "
               << joint_params_.BestValue(cycle_time_ms) << " ms, "
               << joint_params_.BestValue(fusion_buffer_threshold_mb) << " mb] "
@@ -286,6 +301,7 @@ void ParameterManager::LogBestParameters() {
     if (writing_ && file_.good()) {
       file_ << hierarchical_allreduce_.BestValue() << ","
             << hierarchical_allgather_.BestValue() << ","
+            << torus_allreduce_.BestValue() << ", "
             << cache_enabled_.BestValue() << ","
             << joint_params_.BestValue(cycle_time_ms) << ","
             << joint_params_.BestValue(fusion_buffer_threshold_mb) << ","

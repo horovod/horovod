@@ -1,25 +1,25 @@
-ARG CUDA_DOCKER_VERSION=10.0-devel-ubuntu20.04
+ARG CUDA_DOCKER_VERSION=11.6.2-devel-ubuntu20.04
 FROM nvidia/cuda:${CUDA_DOCKER_VERSION}
 
 # Arguments for the build. CUDA_DOCKER_VERSION needs to be repeated because
 # the first usage only applies to the FROM tag.
-ARG CUDA_DOCKER_VERSION=10.0-devel-ubuntu20.04
-ARG CUDNN_VERSION=7.6.0.64-1+cuda10.0
-ARG NCCL_VERSION_OVERRIDE=2.4.7-1+cuda10.0
+ARG CUDA_DOCKER_VERSION=11.6.2-devel-ubuntu20.04
+ARG CUDNN_VERSION=8.4.1.50-1+cuda11.6
+ARG NCCL_VERSION_OVERRIDE=2.11.4-1+cuda11.6
 ARG MPI_KIND=OpenMPI
-ARG PYTHON_VERSION=3.6
+ARG PYTHON_VERSION=3.8
 ARG GPP_VERSION=7
-ARG TENSORFLOW_PACKAGE=tensorflow-gpu==1.15.0
-ARG KERAS_PACKAGE=keras==2.2.4
-ARG PYTORCH_PACKAGE=torch==1.2.0
-ARG PYTORCH_LIGHTNING_PACKAGE=pytorch_lightning==0.7.6
-ARG TORCHVISION_PACKAGE=torchvision==0.4.0
-ARG MXNET_PACKAGE=mxnet-cu100==1.5.0
-ARG PYSPARK_PACKAGE=pyspark==2.4.7
+ARG TENSORFLOW_PACKAGE=tensorflow-gpu==2.10.0
+ARG KERAS_PACKAGE=keras==2.10.0
+ARG PYTORCH_PACKAGE=torch==1.12.1+cu116
+ARG PYTORCH_LIGHTNING_PACKAGE=pytorch_lightning==1.5.9
+ARG TORCHVISION_PACKAGE=torchvision==0.13.1+cu116
+ARG MXNET_PACKAGE=mxnet-cu112==1.9.1
+ARG PYSPARK_PACKAGE=pyspark==3.3.1
 # if SPARK_PACKAGE is set, installs Spark into /spark from the tgz archive
 # if SPARK_PACKAGE is a preview version, installs PySpark from the tgz archive
 # see https://archive.apache.org/dist/spark/ for available packages, version must match PYSPARK_PACKAGE
-ARG SPARK_PACKAGE=spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
+ARG SPARK_PACKAGE=spark-3.3.1/spark-3.3.1-bin-hadoop2.tgz
 ARG HOROVOD_BUILD_FLAGS="HOROVOD_GPU_OPERATIONS=NCCL"
 ARG HOROVOD_MIXED_INSTALL=0
 
@@ -29,9 +29,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
-# Log given ARGs (and all other environment vars)
-RUN env | sort
-
 # Extract ubuntu distribution version and download the corresponding key.
 # This is to fix CI failures caused by the new rotating key mechanism rolled out by Nvidia.
 # Refer to https://forums.developer.nvidia.com/t/notice-cuda-linux-repository-key-rotation/212771 for more details.
@@ -40,9 +37,7 @@ RUN env | sort
 #    apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu${DIST}/x86_64/7fa2af80.pub
 
 # Prepare to install specific g++ versions
-RUN apt-get update -qq && apt-get install -y --no-install-recommends software-properties-common && \
-    rm -rf /var/lib/apt/lists/*
-
+RUN apt-get update -qq && apt-get install -y --no-install-recommends software-properties-common && rm -rf /var/lib/apt/lists/*
 RUN add-apt-repository ppa:ubuntu-toolchain-r/test
 
 # Install essential packages.
@@ -57,6 +52,8 @@ RUN CUDNN_MAJOR=$(cut -d '.' -f 1 <<< "${CUDNN_VERSION}"); \
         build-essential \
         g++-${GPP_VERSION} \
         moreutils \
+        openjdk-8-jdk-headless \
+        python3 python3-dev python3-pip python-is-python3 \
         libcudnn${CUDNN_MAJOR}=${CUDNN_VERSION} \
         libnccl2=${NCCL_VERSION_OVERRIDE} \
         libnccl-dev=${NCCL_VERSION_OVERRIDE} && \
@@ -66,19 +63,15 @@ RUN CUDNN_MAJOR=$(cut -d '.' -f 1 <<< "${CUDNN_VERSION}"); \
 RUN ssh-keygen -f /root/.ssh/id_rsa -q -N ''
 RUN cp -v /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
 
-# Install Python.
-RUN apt-get update -qq && apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-distutils && \
-    rm -rf /var/lib/apt/lists/*
-RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
-RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python${PYTHON_VERSION/%.*/}
-RUN wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
-
+# Pinning older versions of cudf-cu11 and dask-cudf-cu11 for Python 3.8
+RUN pip install --no-cache-dir cudf-cu11==23.4.1 dask-cudf-cu11==23.4.1 --extra-index-url=https://pypi.nvidia.com
+RUN pip install --no-cache-dir numba==0.56 nvidia-ml-py nvtabular
 RUN pip install --no-cache-dir -U --force requests pytest mock pytest-forked parameterized
 
 # Add launch helper scripts
 RUN echo "env SPARK_HOME=/spark SPARK_DRIVER_MEM=512m PYSPARK_PYTHON=/usr/bin/python${PYTHON_VERSION} PYSPARK_DRIVER_PYTHON=/usr/bin/python${PYTHON_VERSION} \"\$@\"" > /spark_env.sh
-RUN echo /spark_env.sh pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.\$1.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.\$2.xml \${@:2} > /pytest.sh
-RUN echo /spark_env.sh pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.\$1.standalone.\$2.xml --forked \${@:2} > /pytest_standalone.sh
+RUN echo "/spark_env.sh pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.\$1.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.\$2.xml \${@:2}" > /pytest.sh
+RUN echo "/spark_env.sh pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.\$1.standalone.\$2.xml --forked \${@:2}" > /pytest_standalone.sh
 RUN chmod a+x /spark_env.sh
 RUN chmod a+x /pytest.sh
 RUN chmod a+x /pytest_standalone.sh
@@ -90,28 +83,27 @@ RUN if [[ -n ${SPARK_PACKAGE} ]]; then \
     fi
 
 # Install PySpark.
-RUN apt-get update -qq && apt install -y openjdk-8-jdk-headless
+RUN apt-get update -qq && apt install -y openjdk-8-jdk-headless && rm -rf /var/lib/apt/lists/*
 RUN if [[ ${SPARK_PACKAGE} != *"-preview"* ]]; then \
         pip install --no-cache-dir ${PYSPARK_PACKAGE}; \
     else \
         apt-get update -qq && apt-get install pandoc; \
         pip install --no-cache-dir pypandoc; \
         (cd /spark/python && python setup.py sdist && pip install --no-cache-dir dist/pyspark-*.tar.gz && rm dist/pyspark-*); \
+    rm -rf /var/lib/apt/lists/*; \
     fi
 
 # Install Ray.
-RUN pip install --no-cache-dir ray
+RUN pip install --no-cache-dir ray==1.3.0
 
 # Install MPI.
 RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
-        wget --progress=dot:mega -O /tmp/openmpi-4.1.4-bin.tar.gz https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.4.tar.gz && \
-            cd /tmp && tar -zxf /tmp/openmpi-4.1.4-bin.tar.gz && \
-            mkdir openmpi-4.1.4/build && cd openmpi-4.1.4/build && ../configure --prefix=/usr/local && \
-            make -j all && make install && ldconfig && \
-            echo "mpirun -allow-run-as-root -np 2 -H localhost:2 -bind-to none -map-by slot -mca mpi_abort_print_stack 1 -tag-output" > /mpirun_command; \
+        wget --progress=dot:mega -O /tmp/openmpi-3.0.0-bin.tar.gz https://github.com/horovod/horovod/files/1596799/openmpi-3.0.0-bin.tar.gz && \
+            cd /usr/local && tar -zxf /tmp/openmpi-3.0.0-bin.tar.gz && ldconfig && \
+            echo "mpirun -allow-run-as-root -np 2 -H localhost:2 -bind-to none -map-by slot -mca mpi_abort_print_stack 1" > /mpirun_command; \
     elif [[ ${MPI_KIND} == "MPICH" ]]; then \
         apt-get update -qq && apt-get install -y mpich && \
-            echo "mpirun -np 2 -l" > /mpirun_command; \
+            echo "mpirun -np 2" > /mpirun_command; \
     fi
 
 # Set default NCCL parameters
@@ -126,18 +118,9 @@ RUN if [[ ${MPI_KIND} != "None" ]]; then \
 
 # Install TensorFlow and Keras (releases).
 # Pin scipy!=1.4.0: https://github.com/scipy/scipy/issues/11237
-# Pin protobuf~=3.20 for tensorflow<2.6.5: https://github.com/tensorflow/tensorflow/issues/56077
+# Pin protobuf<4 for tensorflow: https://github.com/tensorflow/tensorflow/issues/56815
 RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly" ]]; then \
-        if [[ ${TENSORFLOW_PACKAGE} == nvidia-tensorflow==* ]]; then \
-            pip install nvidia-pyindex; \
-        fi; \
-        PROTOBUF_PACKAGE=""; \
-        if [[ ${TENSORFLOW_PACKAGE} == tensorflow-gpu==1.15.* ]] || \
-           [[ ${TENSORFLOW_PACKAGE} == tensorflow-gpu==2.[012345].* ]] || \
-           [[ ${TENSORFLOW_PACKAGE} == nvidia-tensorflow==* ]]; then \
-            PROTOBUF_PACKAGE="protobuf~=3.20"; \
-        fi; \
-        pip install --no-cache-dir ${TENSORFLOW_PACKAGE} ${PROTOBUF_PACKAGE}; \
+        pip install --no-cache-dir ${TENSORFLOW_PACKAGE} "protobuf<3.20"; \
         if [[ ${KERAS_PACKAGE} != "None" ]]; then \
             pip uninstall -y keras; \
             pip install --no-cache-dir ${KERAS_PACKAGE} "scipy!=1.4.0" "pandas<1.1.0" "numpy<1.24.0"; \
@@ -149,7 +132,7 @@ RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly" ]]; then \
     fi
 
 # Pin h5py < 3 for tensorflow: https://github.com/tensorflow/tensorflow/issues/44467
-RUN pip install 'h5py<3.0' 'numpy<1.24.0' --force-reinstall
+RUN pip install "h5py<3.0" "numpy<1.24.0" --force-reinstall
 
 # Install PyTorch (releases).
 # Pin Pillow<7.0 for torchvision < 0.5.0: https://github.com/pytorch/vision/issues/1718
@@ -161,22 +144,25 @@ RUN if [[ ${PYTORCH_PACKAGE} != "torch-nightly-cu"* ]]; then \
         else \
             pip install --no-cache-dir "Pillow!=8.3.0" --no-deps; \
         fi; \
-        pip install ${PYTORCH_LIGHTNING_PACKAGE}; \
     fi
+RUN pip install ${PYTORCH_LIGHTNING_PACKAGE}
 
 # Install MXNet (releases).
 RUN if [[ ${MXNET_PACKAGE} != "mxnet-nightly-cu"* ]]; then \
-        pip install --no-cache-dir ${MXNET_PACKAGE} ; \
+        pip install --no-cache-dir ${MXNET_PACKAGE} "numpy<1.24.0"; \
     fi
 
 # Prefetch Spark MNIST dataset.
 RUN mkdir -p /work /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/mnist.bz2 -O /data/mnist.bz2
 
 # Prefetch Spark Rossmann dataset.
-RUN mkdir -p /work /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/rossmann.tgz -O - | tar -xzC /data
+RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/rossmann.tgz -O - | tar -xzC /data
 
 # Prefetch PyTorch datasets.
 RUN wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/pytorch_datasets.tgz -O - | tar -xzC /data
+
+# Update pip dependencies for nvtabular
+RUN pip install --no-cache-dir "numpy<1.23"
 
 ### END OF CACHE ###
 COPY . /horovod
@@ -202,7 +188,6 @@ RUN if [[ ${TENSORFLOW_PACKAGE} == "tf-nightly" ]]; then \
 RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly-cu"* ]]; then \
         pip install --no-cache-dir --pre torch ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/nightly/${PYTORCH_PACKAGE/#torch-nightly-/}/torch_nightly.html; \
         pip install --no-cache-dir "Pillow!=8.3.0" --no-deps; \
-        pip install ${PYTORCH_LIGHTNING_PACKAGE}; \
     fi
 
 # Install MXNet (nightly).
@@ -218,44 +203,7 @@ RUN cd /horovod && \
     ldconfig
 
 # Show the effective python package version to easily spot version differences
-RUN pip freeze | sort
-
-# Assert installed package versions
-RUN /horovod/assert-package-versions.sh
-
-# Hack for compatibility of MNIST example with TensorFlow 1.1.0.
-RUN if [[ ${TENSORFLOW_PACKAGE} == "tensorflow-gpu==1.1.0" ]]; then \
-        sed -i "s/from tensorflow import keras/from tensorflow.contrib import keras/" /horovod/examples/tensorflow/tensorflow_mnist.py; \
-    fi
-
-# Hack TensorFlow MNIST example to be smaller.
-RUN sed -i "s/last_step=20000/last_step=100/" /horovod/examples/tensorflow/tensorflow_mnist.py
-
-# Hack TensorFlow Eager MNIST example to be smaller.
-RUN sed -i "s/dataset.take(20000/dataset.take(100/" /horovod/examples/tensorflow/tensorflow_mnist_eager.py
-
-# Hack TensorFlow 2.0 example to be smaller.
-RUN sed -i "s/dataset.take(10000/dataset.take(100/" /horovod/examples/tensorflow2/tensorflow2_mnist.py
-
-# Hack TensorFlow 2.0 Data Service example to be smaller.
-RUN sed -i "s/ epochs=24/ epochs=2/" /horovod/examples/tensorflow2/tensorflow2_mnist_data_service_train_fn_*_side_dispatcher.py
-
-# Hack Keras MNIST advanced example to be smaller.
-RUN sed -i "s/'--epochs', type=int, default=24,/'--epochs', type=int, default=2,/" /horovod/examples/keras/keras_mnist_advanced.py
-
-# Hack TensorFlow 2.0 Keras MNIST advanced example to be smaller.
-RUN sed -i "s/epochs=24/epochs=2/" /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py
-
-# Hack PyTorch MNIST example to be smaller.
-RUN sed -i "s/'--epochs', type=int, default=10,/'--epochs', type=int, default=2,/" /horovod/examples/pytorch/pytorch_mnist.py
-
-# Hack Keras Spark Rossmann Run example to be smaller.
-RUN sed -i "s/x = Dense(1000,/x = Dense(100,/g" /horovod/examples/spark/keras/keras_spark_rossmann_run.py
-RUN sed -i "s/x = Dense(500,/x = Dense(50,/g" /horovod/examples/spark/keras/keras_spark_rossmann_run.py
-
-# Hack Keras Spark Rossmann Estimator example to be smaller.
-RUN sed -i "s/x = Dense(1000,/x = Dense(100,/g" /horovod/examples/spark/keras/keras_spark_rossmann_estimator.py
-RUN sed -i "s/x = Dense(500,/x = Dense(50,/g" /horovod/examples/spark/keras/keras_spark_rossmann_estimator.py
+RUN pip list --format=freeze | sort
 
 # Export HOROVOD_MIXED_INSTALL
 ENV HOROVOD_MIXED_INSTALL=${HOROVOD_MIXED_INSTALL}

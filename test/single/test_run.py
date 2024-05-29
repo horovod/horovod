@@ -668,9 +668,7 @@ class RunTests(unittest.TestCase):
 
         test("IBM Spectrum MPI", _SMPI_IMPL)
 
-        test(("HYDRA build details:\n"
-              "    Version:           3.3a2\n"
-              "    Configure options: 'MPICHLIB_CFLAGS=-g -O2'\n"), _MPICH_IMPL)
+        test(("HYDRA build details:\n"), _MPICH_IMPL)
 
         test("Intel(R) MPI", _IMPI_IMPL)
 

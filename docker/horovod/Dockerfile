@@ -1,20 +1,20 @@
-ARG CUDA_DOCKER_VERSION=11.2.2-devel-ubuntu20.04
+ARG CUDA_DOCKER_VERSION=11.3.1-devel-ubuntu20.04
 FROM nvidia/cuda:${CUDA_DOCKER_VERSION}
 
 # Arguments for the build. CUDA_DOCKER_VERSION needs to be repeated because
 # the first usage only applies to the FROM tag.
 # TensorFlow version is tightly coupled to CUDA and cuDNN so it should be selected carefully
-ARG CUDA_DOCKER_VERSION=11.2.2-devel-ubuntu18.04
-ARG TENSORFLOW_VERSION=2.7.3
-ARG PYTORCH_VERSION=1.8.1+cu111
+ARG CUDA_DOCKER_VERSION=11.3.1-devel-ubuntu20.04
+ARG TENSORFLOW_VERSION=2.9.2
+ARG PYTORCH_VERSION=1.12.1+cu113
 ARG PYTORCH_LIGHTNING_VERSION=1.5.9
-ARG TORCHVISION_VERSION=0.9.1+cu111
-ARG CUDNN_VERSION=8.1.1.33-1+cuda11.2
-ARG NCCL_VERSION=2.8.4-1+cuda11.2
-ARG MXNET_VERSION=1.8.0.post0
+ARG TORCHVISION_VERSION=0.13.1+cu113
+ARG CUDNN_VERSION=8.2.1.32-1+cuda11.3
+ARG NCCL_VERSION=2.9.9-1+cuda11.3
+ARG MXNET_VERSION=1.9.1
 
-ARG PYSPARK_PACKAGE=pyspark==3.1.1
-ARG SPARK_PACKAGE=spark-3.1.1/spark-3.1.1-bin-hadoop2.7.tgz
+ARG PYSPARK_PACKAGE=pyspark==3.3.0
+ARG SPARK_PACKAGE=spark-3.3.0/spark-3.3.0-bin-hadoop2.tgz
 
 ARG PYTHON_VERSION=3.8
 
@@ -57,10 +57,10 @@ RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Open MPI
-RUN wget --progress=dot:mega -O /tmp/openmpi-3.0.0-bin.tar.gz https://github.com/horovod/horovod/files/1596799/openmpi-3.0.0-bin.tar.gz && \
-    cd /usr/local && \
-    tar -zxf /tmp/openmpi-3.0.0-bin.tar.gz && \
-    ldconfig && \
+RUN wget --progress=dot:mega -O /tmp/openmpi-4.1.4-bin.tar.gz https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.4.tar.gz && \
+    cd /tmp && tar -zxf /tmp/openmpi-4.1.4-bin.tar.gz && \
+    mkdir openmpi-4.1.4/build && cd openmpi-4.1.4/build && ../configure --prefix=/usr/local && \
+    make -j all && make install && ldconfig && \
     mpirun --version
 
 # Allow OpenSSH to talk to containers without asking for confirmation
@@ -71,12 +71,9 @@ RUN cat /etc/ssh/ssh_config | grep -v StrictHostKeyChecking > /etc/ssh/ssh_confi
 
 RUN ln -s /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 
-# pinning pip to 21.0.0 as 22.0.0 cannot fetch pytorch packages from html linl
-# https://github.com/pytorch/pytorch/issues/72045
 RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
     python get-pip.py && \
-    rm get-pip.py && \
-    pip install --no-cache-dir -U --force pip~=21.0.0
+    rm get-pip.py
 
 # Install PyTorch, TensorFlow, Keras and MXNet
 RUN pip install --no-cache-dir \
@@ -91,7 +88,7 @@ RUN pip install --no-cache-dir \
     keras \
     h5py
 
-RUN pip install --no-cache-dir mxnet-cu112==${MXNET_VERSION}
+RUN pip install --no-cache-dir mxnet-cu112==${MXNET_VERSION} "numpy<1.24.0"
 
 # Install Spark stand-alone cluster.
 RUN wget --progress=dot:giga "https://www.apache.org/dyn/closer.lua/spark/${SPARK_PACKAGE}?action=download" -O - | tar -xzC /tmp; \

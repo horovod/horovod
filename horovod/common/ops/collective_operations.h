@@ -47,6 +47,11 @@ protected:
 
   virtual void WaitForData(std::vector<TensorTableEntry>& entries);
 
+  virtual void ScaleBuffer(double scale_factor,
+                           const std::vector<TensorTableEntry>& entries,
+                           const void* fused_input_data, void* buffer_data,
+                           int64_t num_elements);
+
   HorovodGlobalState* global_state_;
 };
 
@@ -55,9 +60,6 @@ public:
   explicit AllreduceOp(HorovodGlobalState* global_state);
 
   virtual ~AllreduceOp() = default;
-
-  virtual Status Execute(std::vector<TensorTableEntry>& entries,
-                         const Response& response) = 0;
 
   virtual bool Enabled(const ParameterManager& param_manager,
                        const std::vector<TensorTableEntry>& entries,
@@ -81,11 +83,6 @@ protected:
   MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
                              const void* buffer_data_at_offset,
                              TensorTableEntry& e);
-
-  virtual void
-  ScaleBuffer(double scale_factor, const std::vector<TensorTableEntry>& entries,
-              const void* fused_input_data, void* buffer_data, int64_t num_elements);
-
 };
 
 template <typename T, typename TS>
@@ -132,9 +129,6 @@ public:
 
   virtual ~AllgatherOp() = default;
 
-  virtual Status Execute(std::vector<TensorTableEntry>& entries,
-                         const Response& response) = 0;
-
   virtual bool Enabled(const ParameterManager& param_manager,
                        const std::vector<TensorTableEntry>& entries,
                        const Response& response) const = 0;
@@ -142,17 +136,19 @@ public:
 protected:
   virtual Status AllocateOutput(std::vector<TensorTableEntry>& entries,
                                 const Response& response,
-                                int64_t**& entry_component_sizes,
-                                int*& recvcounts);
+                                int64_t**& entry_component_sizes);
 
-  virtual void SetDisplacements(const int* recvcounts, int*& displcmnts,
-                                int global_size);
+  static void SetRecvcounts(const int64_t* const* entry_component_sizes,
+                            size_t num_entries, int global_size,
+                            int*& recvcounts, int rank_padding_elements = 1);
 
-  virtual void
-  SetEntryComponentOffsets(const std::vector<TensorTableEntry>& entries,
-                           const int64_t* const* entry_component_sizes,
-                           const int* recvcounts,
-                           int64_t**& entry_component_offsets);
+  static void SetDisplacements(const int* recvcounts, int*& displcmnts,
+                               int global_size);
+
+  static void
+  SetEntryComponentOffsets(const int64_t* const* entry_component_sizes,
+                           const int* recvcounts, size_t num_entries,
+                           int global_size, int64_t**& entry_component_offsets);
 
   virtual void
   MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries,
@@ -184,9 +180,6 @@ public:
 
   virtual ~BroadcastOp() = default;
 
-  virtual Status Execute(std::vector<TensorTableEntry>& entries,
-                         const Response& response) = 0;
-
   virtual bool Enabled(const ParameterManager& param_manager,
                        const std::vector<TensorTableEntry>& entries,
                        const Response& response) const = 0;
@@ -197,9 +190,6 @@ public:
   explicit AlltoallOp(HorovodGlobalState* global_state);
 
   virtual ~AlltoallOp() = default;
-
-  virtual Status Execute(std::vector<TensorTableEntry>& entries,
-                         const Response& response) = 0;
 
   virtual bool Enabled(const ParameterManager& param_manager,
                        const std::vector<TensorTableEntry>& entries,
@@ -284,18 +274,14 @@ public:
 
   virtual ~ReducescatterOp() = default;
 
-  Status Execute(std::vector<TensorTableEntry>& entries,
-                 const Response& response) override = 0;
-
   virtual bool Enabled(const ParameterManager& param_manager,
                        const std::vector<TensorTableEntry>& entries,
                        const Response& response) const = 0;
 
-protected:
-  virtual TensorShape ComputeOutputShapeForRank(const TensorShape& tensor_shape,
-                                                int rank,
-                                                int global_size) const;
+  static TensorShape ComputeOutputShapeForRank(const TensorShape& tensor_shape,
+                                               int rank, int global_size);
 
+protected:
   virtual std::vector<std::vector<TensorShape>>
   ComputeOutputShapes(const std::vector<TensorTableEntry>& entries,
                       int global_size) const;
@@ -303,13 +289,10 @@ protected:
   virtual std::vector<int> ComputeReceiveCounts(
       const std::vector<std::vector<TensorShape>>& output_shapes) const;
 
-  virtual Status AllocateOutput(std::vector<TensorTableEntry>& entries,
-                                const std::vector<TensorShape>& output_shapes);
-
   virtual void MemcpyInFusionBuffer(
       const std::vector<TensorTableEntry>& entries,
       const std::vector<std::vector<TensorShape>>& output_shapes,
-      std::size_t element_size, void*& buffer_data);
+      std::size_t element_size, void*& buffer_data, size_t& buffer_len);
 
   virtual void MemcpyOutFusionBuffer(const void* buffer_data,
                                      std::vector<TensorTableEntry>& entries);
@@ -345,7 +328,8 @@ public:
 
   virtual ~BarrierOp() = default;
 
-  virtual Status Execute(std::vector<TensorTableEntry>& entries, const Response& response);
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
 };
 
 class ErrorOp : public HorovodOp {
@@ -354,7 +338,8 @@ public:
 
   virtual ~ErrorOp() = default;
 
-  virtual Status Execute(std::vector<TensorTableEntry>& entries, const Response& response);
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
 };
 
 } // namespace common

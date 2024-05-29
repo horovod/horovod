@@ -31,7 +31,7 @@ from tensorflow.python.util import serialization
 
 
 def save_tf_keras_optimizer(optimizer, h5py_file):
-    if isinstance(optimizer, optimizers.TFOptimizer):
+    if hasattr(optimizers, "TFOptimizer") and isinstance(optimizer, optimizers.TFOptimizer):
         logging.warning(
             'TensorFlow optimizers do not '
             'make it possible to access '
@@ -42,6 +42,12 @@ def save_tf_keras_optimizer(optimizer, h5py_file):
             'You will have to compile your model again after loading it. '
             'Prefer using a Keras optimizer instead '
             '(see keras.io/optimizers).')
+    elif (hasattr(optimizers, "optimizer_experimental.Optimizer") and
+          isinstance(optimizer, optimizers.optimizer_experimental.Optimizer)):
+        logging.warning(
+            'Horovod Spark Keras estimator does not support Keras reworked optimizers after Keras 2.11'
+            'You will have to change to tf.keras.optimizers.legacy.Optimizer in Keras 2.11+.'
+            '(see reworked optimizers at https://github.com/keras-team/keras/tree/master/keras/optimizers/optimizer_experimental)')
     else:
         h5py_file.attrs['training_config'] = json.dumps(
             {
@@ -53,7 +59,7 @@ def save_tf_keras_optimizer(optimizer, h5py_file):
             default=serialization.get_json_type).encode('utf8')
 
         # Save optimizer weights.
-        symbolic_weights = getattr(optimizer, 'weights')
+        symbolic_weights = optimizer.variables()
         if symbolic_weights:
             optimizer_weights_group = h5py_file.create_group('optimizer_weights')
             weight_values = K.batch_get_value(symbolic_weights)
@@ -73,7 +79,7 @@ def save_tf_keras_optimizer(optimizer, h5py_file):
     h5py_file.flush()
 
 
-def load_tf_keras_optimizer(h5py_file, custom_objects=None):
+def load_tf_keras_optimizer(h5py_file, custom_objects=None, model=None):
     if not custom_objects:
         custom_objects = {}
 
@@ -119,5 +125,7 @@ def load_tf_keras_optimizer(h5py_file, custom_objects=None):
         optimizer_weight_values = [optimizer_weights_group[n].value for n in
                                    optimizer_weight_names]
     if optimizer_weight_values:
+        if hasattr(optimizer, 'build'):
+            optimizer.build(model.trainable_weights)
         optimizer.set_weights(optimizer_weight_values)
     return optimizer

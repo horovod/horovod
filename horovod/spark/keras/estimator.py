@@ -1,4 +1,5 @@
 # Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
+# Modifications copyright (C) 2022, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +19,7 @@ import os
 import numpy as np
 import tensorflow as tf
 
+from packaging import version
 from pyspark import keyword_only
 from pyspark.ml.util import MLWritable, MLReadable
 from pyspark.ml.param.shared import Param, Params, TypeConverters
@@ -31,6 +33,7 @@ from horovod.spark.common.params import EstimatorParams
 from horovod.spark.common.serialization import HorovodParamsWriter, HorovodParamsReader
 from horovod.spark.keras import remote
 from horovod.spark.keras.util import TFKerasUtil
+from horovod.spark.keras.datamodule import PetastormDataModule
 
 
 class KerasEstimatorParamsWriter(HorovodParamsWriter):
@@ -48,7 +51,7 @@ class KerasEstimatorParamsWritable(MLWritable):
 
 class KerasEstimatorParamsReader(HorovodParamsReader):
     def _deserialize_dict(self, dict):
-        def _param_deserializer_fn(name, param_val, keras_utils, custom_objects):
+        def _param_deserializer_fn(name, param_val, keras_utils, custom_objects, model=None):
             if param_val is None:
                 return param_val
 
@@ -61,7 +64,7 @@ class KerasEstimatorParamsReader(HorovodParamsReader):
                                                      load_model_fn=load_model_fn)
             elif name == KerasEstimator.optimizer.name:
                 opt_base64_encoded = codec.loads_base64(param_val)
-                return keras_utils.deserialize_optimizer(opt_base64_encoded)
+                return keras_utils.deserialize_optimizer(opt_base64_encoded, model=model)
             else:
                 return codec.loads_base64(param_val)
 
@@ -73,8 +76,15 @@ class KerasEstimatorParamsReader(HorovodParamsReader):
                                                     dict[KerasEstimator.custom_objects.name],
                                                     None, None)
 
+        model = None
+        model_name = EstimatorParams.model.name
+        if model_name in dict:
+            model = _param_deserializer_fn(model_name, dict[model_name], TFKerasUtil, custom_objects)
+
         for key, val in dict.items():
-            dict[key] = _param_deserializer_fn(key, val, TFKerasUtil, custom_objects)
+            if key == model_name:
+                dict[model_name] = model
+            dict[key] = _param_deserializer_fn(key, val, TFKerasUtil, custom_objects, model)
         return dict
 
 
@@ -93,6 +103,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
 
     Args:
         num_proc: Number of Horovod processes.  Defaults to `spark.default.parallelism`.
+        data_module: (Optional) DataModule class used for training and validation, if not set, defaults to the PetastormDataModule.
         model: Keras model to train.
         backend: Optional Backend object for running distributed training function. Defaults to SparkBackend with
                  `num_proc` worker processes. Cannot be specified if `num_proc` is also provided.
@@ -116,10 +127,11 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
         epochs: Number of epochs to train.
         verbose: Verbosity level [0, 2] (default: 1).
         random_seed: Optional random seed to use for Tensorflow. Default: None.
-        shuffle_buffer_size: Optional size of in-memory shuffle buffer in rows (on training data).
+        shuffle_buffer_size: (Deprecated) Optional size of in-memory shuffle buffer in rows (on training data).
                              Allocating a larger buffer size increases randomness of shuffling at
                              the cost of more host memory. Defaults to estimating with an assumption
                              of 4GB of memory per host. Set shuffle_buffer_size=0 would turn off shuffle.
+        shuffle: (Optional) Whether to shuffle training samples or not. Defaults to True.
         partitions_per_process: Number of Parquet partitions to assign per worker process from `num_proc` (default: 10).
         run_id: Optional unique ID for this run for organization in the Store. Will be automatically assigned if not
                 provided.
@@ -142,8 +154,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                                high enough, or users need to apply transformation such as
                                decompression or data augmentation on raw data.
         val_reader_num_workers: Similar to the train_reader_num_workers.
-        reader_pool_type: Type of worker pool used to parallelize reading data from the dataset.
-                          Should be one of ['thread', 'process']. Defaults to 'process'.
+        reader_pool_type: Type of Petastorm worker pool used to parallelize reading data from the dataset.
+                          Should be one of ['thread', 'process', 'dummy']. Defaults to 'thread'.
         inmemory_cache_all: boolean value. Cache the data in memory for training and validation. Default: False.
         backend_env: dict to add to the environment of the backend.  Defaults to setting the java heap size to
                      2G min and max for libhdfs through petastorm
@@ -154,12 +166,14 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
     custom_objects = Param(Params._dummy(), 'custom_objects', 'custom objects')
     checkpoint_callback = Param(Params._dummy(), 'checkpoint_callback',
                                 'model checkpointing callback')
+    data_module = Param(Params._dummy(), 'data_module', 'data module class to use when reading data')
     backend_env = Param(Params._dummy(), "backend_env",
                         "dict to add to the environment of the command run on the environment")
 
     @keyword_only
     def __init__(self,
                  num_proc=None,
+                 data_module=None,
                  model=None,
                  backend=None,
                  store=None,
@@ -172,6 +186,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                  metrics=None,
                  feature_cols=None,
                  label_cols=None,
+                 continuous_cols=None,
+                 categorical_cols=None,
                  validation=None,
                  callbacks=None,
                  batch_size=None,
@@ -180,6 +196,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                  verbose=None,
                  random_seed=None,
                  shuffle_buffer_size=None,
+                 shuffle=True,
                  partitions_per_process=None,
                  run_id=None,
                  train_steps_per_epoch=None,
@@ -187,7 +204,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                  transformation_fn=None,
                  train_reader_num_workers=None,
                  val_reader_num_workers=None,
-                 reader_pool_type=None,
+                 reader_pool_type='thread',
                  label_shapes=None,
                  checkpoint_callback=None,
                  inmemory_cache_all=False,
@@ -197,7 +214,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
 
         super(KerasEstimator, self).__init__()
 
-        self._setDefault(optimizer=None,
+        self._setDefault(data_module=PetastormDataModule,
+                         optimizer=None,
                          custom_objects={},
                          checkpoint_callback=None,
                          backend_env={'LIBHDFS_OPTS': '-Xms2048m -Xmx2048m'})
@@ -213,14 +231,6 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
             if not isinstance(model, tf.keras.Model):
                 raise ValueError(
                     "model has to be an instance of tensorflow.keras.Model")
-
-        optimizer = self.getOptimizer()
-        if optimizer:
-            if isinstance(optimizer, str):
-                pass
-            elif not isinstance(optimizer, tf.keras.optimizers.Optimizer):
-                raise ValueError("optimizer has to be an instance of tensorflow.keras.optimizers.Optimizer")
-
         return TFKerasUtil
 
     def setCustomObjects(self, value):
@@ -240,6 +250,12 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
 
     def getBackendEnv(self):
         return self.getOrDefault(self.backend_env)
+
+    def setDataModule(self, value):
+        return self._set(data_module=value)
+
+    def getDataModule(self):
+        return self.getOrDefault(self.data_module)
 
     def _check_metadata_compatibility(self, metadata):
         input_shapes, output_shapes = self.get_model_shapes()
@@ -310,7 +326,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
 
         metrics = self.getMetrics()
         gradient_compression = self.getGradientCompression()
-        optimizer_weight_values = optimizer.get_weights()
+        optimizer_weight_values = optimizer.variables()
 
         dist_optimizer_args = dict(optimizer=optimizer)
         if gradient_compression:
@@ -324,6 +340,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                       metrics=metrics)
 
         if optimizer_weight_values:
+            if hasattr(model.optimizer, 'build'):
+                model.optimizer.build(model.trainable_weights)
             model.optimizer.set_weights(optimizer_weight_values)
 
         return keras_utils.serialize_model(model)

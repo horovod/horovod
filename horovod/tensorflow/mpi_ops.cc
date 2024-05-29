@@ -42,8 +42,6 @@
 #include "tensorflow/core/kernels/training_op_helpers.h"
 #endif // TENSORFLOW_VERSION >= 2006000000
 
-#include "../common/common.h"
-
 #if HAVE_GPU
 
 #if HAVE_CUDA
@@ -62,11 +60,20 @@ namespace gpu {
 GpuStreamHandle AsGpuStreamValue(Stream* stream);
 } // namespace stream_executor
 } // namespace gpu
+#if TENSORFLOW_VERSION >= 2011000000
+#include "tensorflow/compiler/xla/stream_executor/stream.h"
+#else
 #include "tensorflow/stream_executor/stream.h"
+#endif // TENSORFLOW_VERSION >= 2011000000
 #endif // HAVE_GPU
 
+// Undef LOG macro from TensorFlow
+#undef LOG
+
 #define OMPI_SKIP_MPICXX
+#include "../common/common.h"
 #include "../common/operations.h"
+#include "../common/ops/collective_operations.h"
 
 using namespace tensorflow;
 using namespace horovod;
@@ -106,7 +113,7 @@ namespace {
 Status ConvertStatus(const common::Status& status) {
   switch (status.type()) {
   case common::OK:
-    return Status::OK();
+    return Status();
   case common::UNKNOWN_ERROR:
     return errors::Unknown(status.reason());
   case common::PRECONDITION_ERROR:
@@ -121,19 +128,25 @@ Status ConvertStatus(const common::Status& status) {
 }
 
 common::Status ConvertStatus(const Status& status) {
-  switch (status.code()) {
-  case error::Code::OK:
+  if (status.code() == error::Code::OK) {
     return common::Status::OK();
-  case error::Code::UNKNOWN:
-    return common::Status::UnknownError(status.error_message());
-  case error::Code::FAILED_PRECONDITION:
-    return common::Status::PreconditionError(status.error_message());
-  case error::Code::ABORTED:
-    return common::Status::Aborted(status.error_message());
-  case error::Code::INVALID_ARGUMENT:
-    return common::Status::InvalidArgument(status.error_message());
-  default:
-    return common::Status::UnknownError("Unknown error.");
+  } else {
+#if TENSORFLOW_VERSION >= 2013000000
+    std::string message(status.message()); // copy from string_view
+#else
+    const std::string& message = status.error_message();
+#endif
+    if (status.code() == error::Code::UNKNOWN) {
+      return common::Status::UnknownError(message);
+    } else if (status.code() == error::Code::FAILED_PRECONDITION) {
+      return common::Status::PreconditionError(message);
+    } else if (status.code() == error::Code::ABORTED) {
+      return common::Status::Aborted(message);
+    } else if (status.code() == error::Code::INVALID_ARGUMENT) {
+      return common::Status::InvalidArgument(message);
+    } else {
+      return common::Status::UnknownError("Unknown error.");
+    }
   }
 }
 
@@ -177,7 +190,6 @@ public:
   virtual const common::TensorShape shape() const override;
   virtual const void* data() const override;
   virtual int64_t size() const override;
-  const ::tensorflow::Tensor* tensor() const;
 
 protected:
   ::tensorflow::Tensor tensor_;
@@ -200,7 +212,6 @@ public:
   AllocateZeros(int64_t num_elements, common::DataType dtype,
                 std::shared_ptr<common::Tensor>* tensor) override;
   virtual common::Framework framework() const override;
-  OpKernelContext* GetKernelContext() const;
 
 private:
   OpKernelContext* context_ = nullptr;
@@ -256,7 +267,10 @@ TFPersistentBuffer::TFPersistentBuffer(OpKernelContext* context, int64_t size) {
   // complete.
   auto device_context = context->op_device_context();
   if (device_context != nullptr) {
-    device_context->stream()->BlockHostUntilDone();
+    status = device_context->stream()->BlockHostUntilDone();
+    if (!status.ok()) {
+      throw status;
+    }
   }
 #endif
 }
@@ -307,7 +321,14 @@ const void* TFTensor::data() const { return (const void*)tensor_.tensor_data().d
 
 int64_t TFTensor::size() const { return (int64_t)tensor_.tensor_data().size(); }
 
-const ::tensorflow::Tensor*  TFTensor::tensor() const { return &tensor_; }
+inline ::tensorflow::TensorShape
+ConvertToTFTensorShape(const common::TensorShape& shape) {
+  TensorShape tf_shape;
+  for (int idx = 0; idx < shape.dims(); ++idx) {
+    tf_shape.AddDim(shape.dim_size(idx));
+  }
+  return tf_shape;
+}
 
 // On GPU this event will signal that data is ready, and tensors are
 // allocated.
@@ -344,10 +365,7 @@ common::Status
 TFOpContext::AllocateOutput(int output_index, common::TensorShape shape,
                             std::shared_ptr<common::Tensor>* tensor,
                             std::shared_ptr<common::ReadyEvent>* event) {
-  TensorShape tf_shape;
-  for (int idx = 0; idx < shape.dims(); ++idx) {
-    tf_shape.AddDim(shape.dim_size(idx));
-  }
+  TensorShape tf_shape = ConvertToTFTensorShape(shape);
   Tensor* tf_tensor;
   Status status = context_->allocate_output(output_index, tf_shape, &tf_tensor);
   if (status.ok()) {
@@ -359,7 +377,10 @@ TFOpContext::AllocateOutput(int output_index, common::TensorShape shape,
   auto device_context = context_->op_device_context();
   if (device_context != nullptr) {
     if (event == nullptr) {
-      device_context->stream()->BlockHostUntilDone();
+      auto status_gpu = device_context->stream()->BlockHostUntilDone();
+      if (!status_gpu.ok()) {
+        return ConvertStatus(status_gpu);
+      }
     } else {
       *event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context_));
     }
@@ -406,7 +427,10 @@ TFOpContext::AllocateZeros(int64_t num_elements, common::DataType dtype,
   // complete.
   auto device_context = context_->op_device_context();
   if (device_context != nullptr) {
-    device_context->stream()->BlockHostUntilDone();
+    auto status_gpu = device_context->stream()->BlockHostUntilDone();
+    if (!status_gpu.ok()) {
+      return ConvertStatus(status_gpu);
+    }
   }
 #endif
   return ConvertStatus(status);
@@ -415,8 +439,6 @@ TFOpContext::AllocateZeros(int64_t num_elements, common::DataType dtype,
 common::Framework TFOpContext::framework() const {
   return common::Framework::TENSORFLOW;
 }
-
-OpKernelContext* TFOpContext::GetKernelContext() const { return context_; }
 
 int GetDeviceID(OpKernelContext* context) {
   int device = CPU_DEVICE_ID;
@@ -510,7 +532,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_GPU),
 #endif
 
 REGISTER_OP("HorovodAllreduce")
-    .Attr("T: {int32, int64, float16, float32, float64}")
+    .Attr("T: {uint8, int8, int32, int64, float16, float32, float64}")
     .Attr("reduce_op: int")
     .Attr("prescale_factor: float")
     .Attr("postscale_factor: float")
@@ -520,7 +542,7 @@ REGISTER_OP("HorovodAllreduce")
     .Output("sum: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       c->set_output(0, c->input(0));
-      return Status::OK();
+      return Status();
     })
     .Doc(R"doc(
 Perform an Allreduce on a tensor. All other processes that do a reduction
@@ -647,7 +669,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodGroupedAllreduce").Device(DEVICE_GPU),
 #endif
 
 REGISTER_OP("HorovodGroupedAllreduce")
-    .Attr("T: {int32, int64, float16, float32, float64}")
+    .Attr("T: {uint8, int8, int32, int64, float16, float32, float64}")
     .Attr("reduce_op: int")
     .Attr("prescale_factor: float")
     .Attr("postscale_factor: float")
@@ -660,7 +682,7 @@ REGISTER_OP("HorovodGroupedAllreduce")
       for (int i = 0; i < c->num_inputs(); ++i) {
           c->set_output(i, c->input(i));
       }
-      return Status::OK();
+      return Status();
     })
     .Doc(R"doc(
 Perform an MPI Allreduce on a list tensors. All other processes that do a reduction
@@ -749,7 +771,7 @@ REGISTER_OP("HorovodAllgather")
       TF_RETURN_IF_ERROR(
           c->ReplaceDim(c->input(0), 0, c->UnknownDim(), &output));
       c->set_output(0, output);
-      return Status::OK();
+      return Status();
     })
     .Doc(R"doc(
 Perform an Allgather on a tensor. All other processes that do a gather on a
@@ -875,7 +897,7 @@ REGISTER_OP("HorovodGroupedAllgather")
             c->ReplaceDim(c->input(i), 0, c->UnknownDim(), &output));
         c->set_output(i, output);
       }
-      return Status::OK();
+      return Status();
     })
     .Doc(R"doc(
 Perform an Allgather on a list tensors. All other processes that do a gather
@@ -973,7 +995,7 @@ REGISTER_OP("HorovodBroadcast")
     .Output("output: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       c->set_output(0, c->input(0));
-      return Status::OK();
+      return Status();
     })
     .Doc(R"doc(
 Perform a Broadcast on a tensor. All other processes that do a broadcast
@@ -1005,7 +1027,7 @@ Status GetInputDataTypeFromVariable(OpKernelContext* ctx, int input,
   } else {
     out = BaseType(ctx->input_dtype(input));
   }
-  return Status::OK();
+  return Status();
 }
 
 }
@@ -1091,13 +1113,18 @@ private:
     const bool do_lock = true;
     const bool sparse = false;
     // Here we need to replicate the functionality provided by
-    // MaybeLockVariableInputMutexesInOrder(). That function currently does
+    // MaybeLockVariableInputMutexesInOrder(). With TF < 2.8.0 the function does
     // not work as intended for input_ids not starting at 0. See:
     // https://github.com/tensorflow/tensorflow/issues/51686
     {
       Var* var;
+#if TENSORFLOW_VERSION >= 2013000000
+      mutex* mu =
+          GetTrainingVariableMutex<Device, T>(context, tensor_index, &var);
+#else
       mutex* mu = GetTrainingVariableMutex<Device, T>(context, tensor_index,
                                                       sparse, &var);
+#endif // TENSORFLOW_VERSION >= 2013000000
       std::vector<Var*> vars;
       if (var) {
         vars.reserve(1);
@@ -1254,6 +1281,10 @@ public:
                    context->GetAttr("ignore_name_scope", &ignore_name_scope_));
     OP_REQUIRES_OK(context,
                    context->GetAttr("process_set_id", &process_set_id_));
+    OP_REQUIRES_OK(context,
+                   context->GetAttr("prescale_factor", &prescale_factor_));
+    OP_REQUIRES_OK(context,
+                   context->GetAttr("postscale_factor", &postscale_factor_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -1269,18 +1300,46 @@ public:
     }
     auto device = GetDeviceID(context);
     auto tensor = context->input(0);
-    // ReadyEvent makes sure input tensor is ready.
+    auto hvd_tensor = std::make_shared<TFTensor>(tensor);
+    Tensor* output;
+    {
+      auto horovod_input_tensor_shape = hvd_tensor->shape();
+      OP_REQUIRES_ASYNC(context, horovod_input_tensor_shape.dims() > 0,
+                        errors::InvalidArgument(
+                            "Reducescatter does not support scalar inputs"),
+                        done);
+      int process_set_size =
+          common::horovod_process_set_size(process_set_id_);
+      OP_REQUIRES_ASYNC(
+          context, process_set_size >= 0,
+          errors::InvalidArgument("Invalid process set id for this rank: ",
+                                  process_set_id_),
+          done);
+      int process_set_rank =
+          common::horovod_process_set_rank(process_set_id_);
+      OP_REQUIRES_ASYNC(
+          context, process_set_rank >= 0,
+          errors::InvalidArgument("Invalid process set id for this rank: ",
+                                  process_set_id_),
+          done);
+      auto horovod_output_shape =
+          common::ReducescatterOp::ComputeOutputShapeForRank(
+              horovod_input_tensor_shape, process_set_rank, process_set_size);
+      auto tf_output_shape = ConvertToTFTensorShape(horovod_output_shape);
+      OP_REQUIRES_OK_ASYNC(
+          context, context->allocate_output(0, tf_output_shape, &output), done);
+    }
+    // ReadyEvent makes sure input tensor is ready, and output is allocated.
     common::ReadyEventList ready_event_list;
 #if HAVE_GPU
     ready_event_list.AddReadyEvent(
         std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context)));
 #endif
-    // We cannot pre-allocate output for reducescatter, since shape of result is
-    // only known after all ranks make a request.
     auto hvd_context = std::make_shared<TFOpContext>(context);
-    auto hvd_tensor = std::make_shared<TFTensor>(tensor);
+    auto hvd_output = std::make_shared<TFTensor>(*output);
     auto enqueue_result = EnqueueTensorReducescatter(
-        hvd_context, hvd_tensor, ready_event_list, node_name, device,
+        hvd_context, hvd_tensor, hvd_output, ready_event_list, node_name,
+        device,
         [context, done](const common::Status& status) {
 #if HAVE_GPU
           auto hvd_event = status.event;
@@ -1296,7 +1355,8 @@ public:
           context->SetStatus(ConvertStatus(status));
           done();
         },
-        reduce_op_, process_set_id_);
+        reduce_op_, process_set_id_, (double)prescale_factor_,
+        (double)postscale_factor_);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 
@@ -1304,6 +1364,8 @@ private:
   horovod::common::ReduceOp reduce_op_;
   bool ignore_name_scope_;
   int process_set_id_;
+  float prescale_factor_;
+  float postscale_factor_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodReducescatter").Device(DEVICE_CPU),
@@ -1317,15 +1379,23 @@ REGISTER_OP("HorovodReducescatter")
     .Attr("T: {int32, int64, float16, float32, float64}")
     .Attr("reduce_op: int")
     .Attr("ignore_name_scope: bool = False")
+    .Attr("prescale_factor: float")
+    .Attr("postscale_factor: float")
     .Attr("process_set_id: int = 0")
     .Input("tensor: T")
     .Output("output: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
+      if (shape_inference::InferenceContext::Rank(c->input(0)) == 0) {
+        return errors::InvalidArgument(
+            "HorovodReducescatter does not support scalar inputs.");
+      }
+      // Output shape is unknown before Horovod initialization (need to know
+      // process set size).
       shape_inference::ShapeHandle output;
       TF_RETURN_IF_ERROR(
           c->ReplaceDim(c->input(0), 0, c->UnknownDim(), &output));
       c->set_output(0, output);
-      return Status::OK();
+      return Status();
     })
     .Doc(R"doc(
 Perform a Reducescatter on a tensor. All other processes that do a
@@ -1349,9 +1419,15 @@ public:
     int reduce_op;
     OP_REQUIRES_OK(context, context->GetAttr("reduce_op", &reduce_op));
     reduce_op_ = static_cast<horovod::common::ReduceOp>(reduce_op);
-    OP_REQUIRES_OK(context, context->GetAttr("ignore_name_scope", &ignore_name_scope_));
+    OP_REQUIRES_OK(context,
+                   context->GetAttr("ignore_name_scope", &ignore_name_scope_));
     OP_REQUIRES_OK(context, context->GetAttr("num_tensors", &num_tensors_));
-    OP_REQUIRES_OK(context, context->GetAttr("process_set_id", &process_set_id_));
+    OP_REQUIRES_OK(context,
+                   context->GetAttr("process_set_id", &process_set_id_));
+    OP_REQUIRES_OK(context,
+                   context->GetAttr("prescale_factor", &prescale_factor_));
+    OP_REQUIRES_OK(context,
+                   context->GetAttr("postscale_factor", &postscale_factor_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -1370,16 +1446,51 @@ public:
     std::vector<common::ReadyEventList> ready_event_lists;
     std::vector<std::shared_ptr<common::OpContext>> hvd_contexts;
     std::vector<std::shared_ptr<common::Tensor>> hvd_tensors;
+    std::vector<std::shared_ptr<common::Tensor>> hvd_outputs;
     std::vector<common::StatusCallback> callbacks;
     std::vector<std::string> names;
     ready_event_lists.reserve(num_tensors_);
     hvd_contexts.reserve(num_tensors_);
     hvd_tensors.reserve(num_tensors_);
+    hvd_outputs.reserve(num_tensors_);
     callbacks.reserve(num_tensors_);
     names.reserve(num_tensors_);
     auto callback_mutex = std::make_shared<std::mutex>();
     auto callback_count = std::make_shared<int>(0);
     int num_tensors = num_tensors_;
+
+    std::vector<Tensor*> outputs(num_tensors_);
+    for (int i = 0; i < num_tensors_; ++i) {
+      auto tensor = context->input(i);
+      hvd_tensors.emplace_back(std::make_shared<TFTensor>(tensor));
+      auto horovod_input_tensor_shape = hvd_tensors[i]->shape();
+      OP_REQUIRES_ASYNC(
+          context, horovod_input_tensor_shape.dims() > 0,
+          errors::InvalidArgument(
+              "GroupedReducescatter does not support scalar inputs"),
+          done);
+      int process_set_size =
+          ::common::horovod_process_set_size(process_set_id_);
+      OP_REQUIRES_ASYNC(
+          context, process_set_size >= 0,
+          errors::InvalidArgument("Invalid process set id for this rank: ",
+                                  process_set_id_),
+          done);
+      int process_set_rank =
+          ::common::horovod_process_set_rank(process_set_id_);
+      OP_REQUIRES_ASYNC(
+          context, process_set_rank >= 0,
+          errors::InvalidArgument("Invalid process set id for this rank: ",
+                                  process_set_id_),
+          done);
+      auto horovod_output_shape =
+          ::common::ReducescatterOp::ComputeOutputShapeForRank(
+              horovod_input_tensor_shape, process_set_rank, process_set_size);
+      auto tf_output_shape = ConvertToTFTensorShape(horovod_output_shape);
+      OP_REQUIRES_OK_ASYNC(
+          context, context->allocate_output(i, tf_output_shape, &outputs[i]),
+          done);
+    }
 
     // ReadyEvent makes sure input tensors are ready, and outputs are allocated.
     common::ReadyEventList ready_event_list;
@@ -1393,7 +1504,7 @@ public:
       ready_event_lists.emplace_back(
           ready_event_list); // Same for all tensors in group
       hvd_contexts.emplace_back(std::make_shared<TFOpContext>(context));
-      hvd_tensors.emplace_back(std::make_shared<TFTensor>(tensor));
+      hvd_outputs.emplace_back(std::make_shared<TFTensor>(*outputs[i]));
       names.emplace_back(node_name + "_" + std::to_string(i + 1) + "of" +
                          std::to_string(num_tensors));
       callbacks.emplace_back([context, done, callback_mutex, callback_count,
@@ -1420,8 +1531,9 @@ public:
     }
 
     auto enqueue_result = EnqueueTensorReducescatters(
-        hvd_contexts, hvd_tensors, ready_event_lists, names, device, callbacks,
-        reduce_op_, process_set_id_);
+        hvd_contexts, hvd_tensors, hvd_outputs, ready_event_lists, names,
+        device, callbacks, reduce_op_, process_set_id_,
+        (double)prescale_factor_, (double)postscale_factor_);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 
@@ -1430,6 +1542,8 @@ private:
   bool ignore_name_scope_;
   int num_tensors_;
   int process_set_id_;
+  float prescale_factor_;
+  float postscale_factor_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodGroupedReducescatter").Device(DEVICE_CPU),
@@ -1445,16 +1559,24 @@ REGISTER_OP("HorovodGroupedReducescatter")
     .Attr("ignore_name_scope: bool = False")
     .Attr("num_tensors: int")
     .Attr("process_set_id: int = 0")
+    .Attr("prescale_factor: float")
+    .Attr("postscale_factor: float")
     .Input("tensors: num_tensors*T")
     .Output("outputs: num_tensors*T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       for (int i = 0; i < c->num_inputs(); ++i) {
+        if (shape_inference::InferenceContext::Rank(c->input(i)) == 0) {
+          return errors::InvalidArgument(
+              "HorovodGroupedReducescatter does not support scalar inputs.");
+        }
+        // Output shape is unknown before Horovod initialization (need to know
+        // process set size).
         shape_inference::ShapeHandle output;
         TF_RETURN_IF_ERROR(
             c->ReplaceDim(c->input(i), 0, c->UnknownDim(), &output));
         c->set_output(i, output);
       }
-      return Status::OK();
+      return Status();
     })
     .Doc(R"doc(
 Perform a Reducescatter on a list tensors. All other processes that do a reduce
@@ -1530,7 +1652,7 @@ REGISTER_OP("HorovodJoin")
     .Output("output: int32")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       c->set_output(0, c->Scalar());
-      return Status::OK();
+      return Status();
     })
     .Doc(R"doc(
 Perform a join on a tensor.
@@ -1579,7 +1701,7 @@ REGISTER_OP("HorovodSize")
     .SetIsStateful()
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       c->set_output(0, c->Scalar());
-      return Status::OK();
+      return Status();
     })
     .Doc(R"doc(
 Returns the number of Horovod processes. If process_set_id > 0, limit the
@@ -1604,7 +1726,7 @@ REGISTER_OP("HorovodProcessSetIncluded")
     .SetIsStateful()
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       c->set_output(0, c->Scalar());
-      return Status::OK();
+      return Status();
     })
     .Doc(R"doc(
 Returns 0 or 1 depending on whether the current process is
@@ -1646,7 +1768,7 @@ REGISTER_OP("HorovodLocalSize")
     .SetIsStateful()
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       c->set_output(0, c->Scalar());
-      return Status::OK();
+      return Status();
     })
     .Doc(R"doc(
 Returns the number of Horovod processes within the node the current process is
@@ -1671,7 +1793,7 @@ REGISTER_OP("HorovodRank")
     .SetIsStateful()
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       c->set_output(0, c->Scalar());
-      return Status::OK();
+      return Status();
     })
     .Doc(R"doc(
 Returns the Horovod rank of the calling process.
@@ -1694,7 +1816,7 @@ REGISTER_OP("HorovodLocalRank")
     .SetIsStateful()
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       c->set_output(0, c->Scalar());
-      return Status::OK();
+      return Status();
     })
     .Doc(R"doc(
 Returns the local Horovod rank of the calling process, within the node that it
@@ -1784,7 +1906,7 @@ REGISTER_OP("HorovodAlltoall")
           c->ReplaceDim(c->input(0), 0, c->UnknownDim(), &output));
       c->set_output(0, output);
       c->set_output(1, c->input(1));
-      return Status::OK();
+      return Status();
     })
     .Doc(R"doc(
 Perform an MPI Alltoall on a tensor.

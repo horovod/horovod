@@ -9,18 +9,37 @@ on:
   schedule:
     - cron: '32 10 * * 5'
 
+concurrency:
+  # This controls which concurrent builds to cancel:
+  # - we do not want any concurrent builds on a branch (pull_request)
+  # - we do not want concurrent builds on the same commit on master (push)
+  # - we do not want concurrent builds on the same commit on a tag (push)
+  # - we allow concurrent runs on the same commit on master and its tag (push)
+  # - we allow concurrent runs on the same commit on master (push) and a scheduled build (schedule)
+  #
+  # A pull_request event only runs on branch commit, a push event only on master and tag commit.
+  # A schedule event only runs on master HEAD commit.
+  #
+  # Expression github.ref means something like refs/heads/master or refs/tags/v0.22.1 or the branch.
+  # This helps to not cancel concurrent runs on master or a tag that share the same commit.
+  # Expression github.head_ref refers to the branch of the pull request.
+  # On master, github.head_ref is empty, so we use the SHA of the commit, this means individual
+  # commits to master will not be cancelled, while there can only be one concurrent build on a branch.
+  #
+  # We include the event name to we allow for concurrent scheduled and master builds.
+  group: codeql-${{ github.event_name }}-${{ github.ref }}-${{ github.head_ref || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   analyze-python:
     name: Analyze Python
     runs-on: ubuntu-latest
     permissions:
-      actions: read
-      contents: read
       security-events: write
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Install Python dependencies
       # install all `install_requires` dependencies but no `extras_require` dependencies
@@ -29,20 +48,18 @@ jobs:
         pip install $(head -n $(( $(grep -m 1 -n -e "^\[" horovod.egg-info/requires.txt | cut -d : -f 1) - 1 )) horovod.egg-info/requires.txt)
 
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v1
+      uses: github/codeql-action/init@v2
       with:
         languages: python
         setup-python-dependencies: false
 
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v1
+      uses: github/codeql-action/analyze@v2
 
   analyze-cpp:
     name: Analyze C++
     runs-on: ubuntu-latest
     permissions:
-      actions: read
-      contents: read
       security-events: write
 
     steps:
@@ -56,11 +73,18 @@ jobs:
         df -h
         echo ::endgroup::
 
-        for dir in /usr/share/dotnet/sdk/\*/nuGetPackagesArchive.lzma \
-                   /usr/share/dotnet/shared \
-                   /usr/local/lib/android/sdk/ndk \
-                   /usr/local/lib/android/sdk/build-tools \
-                   /opt/ghc
+        for dir in /opt/az \
+                   /opt/google/chrome \
+                   /opt/hostedtoolcache/go \
+                   /usr/lib/google-cloud-sdk \
+                   /usr/lib/mono \
+                   /usr/libexec/gcc \
+                   /usr/local/.ghcup \
+                   /usr/local/lib/android \
+                   /usr/local/share/chromium \
+                   /usr/local/share/powershell \
+                   /usr/share/dotnet \
+                   /usr/share/swift
         do
           echo ::group::Deleting "$dir"
           sudo du -hsc $dir | tail -n1 || true
@@ -73,12 +97,12 @@ jobs:
         echo ::endgroup::
 
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         submodules: recursive
 
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v1
+      uses: github/codeql-action/init@v2
       with:
         languages: cpp
 
@@ -109,7 +133,7 @@ jobs:
         # Build Horovod (C++)
         RUN mkdir -p build/temp
         RUN cd build/temp; source /home/runner/work/_temp/codeql_databases/temp/tracingEnvironment/start-tracing.sh; cmake /home/runner/work/horovod/horovod -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO=/home/runner/work/horovod/horovod/build/temp/lib.linux-x86_64-3.8 -DPYTHON_EXECUTABLE:FILEPATH=/usr/bin/python
-        RUN cd build/temp; source /home/runner/work/_temp/codeql_databases/temp/tracingEnvironment/start-tracing.sh; cmake --build . --config RelWithDebInfo -- VERBOSE=1
+        RUN cd build/temp; source /home/runner/work/_temp/codeql_databases/temp/tracingEnvironment/start-tracing.sh; cmake --build . --config RelWithDebInfo -- VERBOSE=0
         EOF
         )
         sed -i -e "s%^# Install Horovod.$%${command//$'\n'/\\n}\n\n# Install Horovod.%" Dockerfile.test.?pu
@@ -125,19 +149,18 @@ jobs:
         git diff
 
     - name: Setup Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
-        python-version: 3.8
+        python-version: '3.8'
 
     - name: Build Horovod
       shell: bash
       run: |
-        pip install docker-compose
         image=$(grep mixed docker-compose.test.yml | sed -e "s/[ :]//g")
-        docker-compose -f docker-compose.test.yml build ${image}
-        docker run --name horovod horovod_${image} ls -lah /home/runner/work/_temp/codeql_databases
+        docker compose -f docker-compose.test.yml build ${image}
+        docker run --name horovod horovod-${image} ls -lah /home/runner/work/_temp/codeql_databases
         rm -rf /home/runner/work/_temp/codeql_databases
         docker cp horovod:/home/runner/work/_temp/codeql_databases /home/runner/work/_temp/
 
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v1
+      uses: github/codeql-action/analyze@v2

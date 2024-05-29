@@ -1,4 +1,5 @@
 # Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
+# Modifications copyright (C) 2022, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,6 +54,10 @@ class EstimatorParams(Params):
                          typeConverter=TypeConverters.toListString)
     label_cols = Param(Params._dummy(), 'label_cols', 'label column names',
                        typeConverter=TypeConverters.toListString)
+    continuous_cols = Param(Params._dummy(), "continuous_cols", "continuous column names",
+                        typeConverter=TypeConverters.toListString)
+    categorical_cols = Param(Params._dummy(), "categorical_cols", "categorical column names",
+                        typeConverter=TypeConverters.toListString)
     validation = Param(Params._dummy(), 'validation',
                        'one of: float validation split [0, 1), or string validation column name')
     callbacks = Param(Params._dummy(), 'callbacks', 'callbacks')
@@ -74,8 +79,13 @@ class EstimatorParams(Params):
 
     shuffle_buffer_size = Param(Params._dummy(),
                                 'shuffle_buffer_size',
-                                'shuffling buffer size of data before training in number of samples',
+                                '(Deprecated) shuffling buffer size used for training samples',
                                 typeConverter=TypeConverters.toInt)
+
+    shuffle = Param(Params._dummy(),
+                    'shuffle',
+                    'Whether to shuffle training samples or not. Defaults to True',
+                    typeConverter=TypeConverters.toBoolean)
 
     verbose = Param(Params._dummy(), 'verbose', 'verbose flag (0=silent, 1=enabled, other values used by frameworks)',
                     typeConverter=TypeConverters.toInt)
@@ -93,6 +103,15 @@ class EstimatorParams(Params):
                               'functions that construct the transformation '
                               'function that applies custom transformations to '
                               'every batch before train and validation steps')
+    
+    transformation_edit_fields = Param(Params._dummy(), 'transformation_edit_fields',
+                                       'edit fields for petastorm TransformSpec that\'s applied to '
+                                       'every batch, A list of 4-tuples with the following fields: '
+                                       '(name, numpy_dtype, shape, is_nullable)')
+
+    transformation_removed_fields = Param(Params._dummy(), 'transformation_removed_fields',
+                                       'removed fields for petastorm TransformSpec that\'s applied to '
+                                       'every batch, A list of field names that will be removed from the original schema.')
 
     label_shapes = Param(Params._dummy(), 'label_shapes', 'specifies the shape (or shapes) of the label column (or columns)')
 
@@ -114,6 +133,12 @@ class EstimatorParams(Params):
                     'https://docs.python.org/3/library/multiprocessing.html#multiprocessing.get_start_method.'
                     'This param defaults to None.',
                     typeConverter=TypeConverters.toString)
+    
+    backward_passes_per_step = Param(Params._dummy(), 'backward_passes_per_step',
+                                     'Number of backward passes to perform before calling hvd.allreduce. '
+                                     'This allows accumulating updates over multiple mini-batches before reducing and applying them. '
+                                     'This param defaults to 1.',
+                                     typeConverter=TypeConverters.toInt)
 
     def __init__(self):
         super(EstimatorParams, self).__init__()
@@ -130,6 +155,8 @@ class EstimatorParams(Params):
             metrics=[],
             feature_cols=None,
             label_cols=None,
+            continuous_cols=None,
+            categorical_cols=None,
             validation=None,
             gradient_compression=None,
             compress_sparse_cols=False,
@@ -140,18 +167,22 @@ class EstimatorParams(Params):
             callbacks=[],
             random_seed=None,
             shuffle_buffer_size=None,
+            shuffle=True,
             partitions_per_process=10,
             run_id=None,
             train_steps_per_epoch=None,
             validation_steps_per_epoch=None,
             transformation_fn=None,
+            transformation_edit_fields=None,
+            transformation_removed_fields=None,
             train_reader_num_workers=2,
             val_reader_num_workers=2,
-            reader_pool_type='process',
+            reader_pool_type='thread',
             label_shapes=None,
             inmemory_cache_all=False,
             use_gpu=True,
-            mp_start_method=None)
+            mp_start_method=None,
+            backward_passes_per_step=1)
 
     def _check_params(self, metadata):
         model = self.getModel()
@@ -236,6 +267,18 @@ class EstimatorParams(Params):
     def getLabelCols(self):
         return self.getOrDefault(self.label_cols)
 
+    def setContinuousCols(self, value):
+        return self._set(continuous_cols=value)
+
+    def getContinuousCols(self):
+        return self.getOrDefault(self.continuous_cols)
+
+    def setCategoricalCols(self, value):
+        return self._set(categorical_cols=value)
+
+    def getCategoricalCols(self):
+        return self.getOrDefault(self.categorical_cols)
+
     def setValidation(self, value):
         return self._set(validation=value)
 
@@ -305,8 +348,14 @@ class EstimatorParams(Params):
     def setShufflingBufferSize(self, value):
         return self._set(shuffle_buffer_size=value)
 
+    def setShuffle(self, value):
+        return self._set(shuffle=value)
+
     def getShufflingBufferSize(self):
         return self.getOrDefault(self.shuffle_buffer_size)
+
+    def getShuffle(self):
+        return self.getOrDefault(self.shuffle)
 
     def setOptimizer(self, value):
         return self._set(optimizer=value)
@@ -331,6 +380,18 @@ class EstimatorParams(Params):
 
     def getTransformationFn(self):
         return self.getOrDefault(self.transformation_fn)
+    
+    def setTransformationEditFields(self, value):
+        return self._set(transformation_edit_fields=value)
+
+    def getTransformationEditFields(self):
+        return self.getOrDefault(self.transformation_edit_fields)
+
+    def setTransformationRemovedFields(self, value):
+        return self._set(transformation_removed_fields=value)
+
+    def getTransformationRemovedFields(self):
+        return self.getOrDefault(self.transformation_removed_fields)
 
     def setTrainReaderNumWorker(self, value):
         return self._set(train_reader_num_workers=value)
@@ -373,6 +434,12 @@ class EstimatorParams(Params):
 
     def getMpStartMethod(self):
         return self.getOrDefault(self.mp_start_method)
+    
+    def setBackwardPassesPerStep(self, value):
+        self._set(backward_passes_per_step=value)
+
+    def getBackwardPassesPerStep(self):
+        return self.getOrDefault(self.backward_passes_per_step)
 
 class ModelParams(HasOutputCols):
     history = Param(Params._dummy(), 'history', 'history')

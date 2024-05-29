@@ -27,7 +27,6 @@ import textwrap
 
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
-from distutils.version import LooseVersion
 
 from horovod import __version__
 
@@ -42,11 +41,11 @@ class CMakeExtension(Extension):
 
 
 tensorflow_mpi_lib = CMakeExtension('horovod.tensorflow.mpi_lib',
-                                     cmake_lists_dir='.', sources=[])
+                                    cmake_lists_dir='.', sources=[])
 torch_mpi_lib_v2 = CMakeExtension('horovod.torch.mpi_lib_v2',
-                                     cmake_lists_dir='.', sources=[])
+                                  cmake_lists_dir='.', sources=[])
 mxnet_mpi_lib = CMakeExtension('horovod.mxnet.mpi_lib',
-                                     cmake_lists_dir='.', sources=[])
+                               cmake_lists_dir='.', sources=[])
 
 def is_build_action():
     if len(sys.argv) <= 1:
@@ -65,6 +64,8 @@ def is_build_action():
         return True
 
 def get_cmake_bin():
+    from packaging import version
+
     if 'HOROVOD_CMAKE' in os.environ:
         return os.environ['HOROVOD_CMAKE']
 
@@ -72,11 +73,11 @@ def get_cmake_bin():
     try:
         out = subprocess.check_output([cmake_bin, '--version'])
     except OSError:
-        cmake_installed_version = LooseVersion("0.0")
+        cmake_installed_version = version.parse("0.0")
     else:
-        cmake_installed_version = LooseVersion(re.search(r'version\s*([\d.]+)', out.decode()).group(1))
+        cmake_installed_version = version.parse(re.search(r'version\s*([\d.]+)', out.decode()).group(1))
 
-    if cmake_installed_version < LooseVersion("3.13.0"):
+    if cmake_installed_version < version.parse("3.13.0"):
         print("Could not find a recent CMake to build Horovod. "
               "Attempting to install CMake 3.13 to a temporary location via pip.", flush=True)
         cmake_temp_dir = tempfile.TemporaryDirectory(prefix="horovod-cmake-tmp")
@@ -154,7 +155,7 @@ class custom_build_ext(build_ext):
 
 
 # python packages required to use horovod in general
-require_list = ['cloudpickle', 'psutil', 'pyyaml', 'dataclasses;python_version<"3.7"']
+require_list = ['cloudpickle', 'psutil', 'pyyaml', 'dataclasses;python_version<"3.7"', 'packaging']
 
 # framework dependencies
 tensorflow_require_list = ['tensorflow']
@@ -166,9 +167,11 @@ pytorch_require_list = ['torch']
 mxnet_require_list = ['mxnet>=1.4.1']
 pyspark_require_list = ['pyspark>=2.3.2;python_version<"3.8"',
                         'pyspark>=3.0.0;python_version>="3.8"']
-spark_require_list = ['numpy', 'petastorm>=0.11.0', 'pyarrow>=0.15.0', 'fsspec>=2021.07.0']
+spark_require_list = ['numpy', 'petastorm>=0.12.0', 'pyarrow>=0.15.0,<11.0', 'fsspec>=2021.07.0']
 # https://github.com/ray-project/ray/pull/17465
-ray_require_list = ['ray', 'aioredis<2']
+# google-api-core>=2.9.0 depends on protobuf<5.0.0dev,>=3.20.1, which conflicts with
+#   tensorflow protobuf~=3.20 and pytorch-lightning protobuf<3.20,>=3.9.2
+ray_require_list = ['ray', 'aioredis<2', 'google-api-core<2.9.0']
 pytorch_spark_require_list = pytorch_require_list + \
                              spark_require_list + \
                              pyspark_require_list + \

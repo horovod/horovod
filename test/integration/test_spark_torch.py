@@ -13,9 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
-import io
 import logging
 import os
+import pytest
 import sys
 import unittest
 import warnings
@@ -44,6 +44,11 @@ sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 from common import tempdir, spawn, is_built
 from spark_common import CallbackBackend, create_xor_data, create_xor_data_with_val, local_store, spark_session
 
+try:
+    import nvtabular
+    HAS_NVTABULAR=True
+except ImportError:
+    HAS_NVTABULAR=False
 
 class XOR(nn.Module):
     def __init__(self, input_dim, output_dim):
@@ -92,6 +97,45 @@ class SparkTorchTests(unittest.TestCase):
                     epochs=3,
                     random_seed=1,
                     verbose=2,
+                    backward_passes_per_step=3,
+                    sample_weight_col='weight')
+
+                torch_model = torch_estimator.fit(df)
+
+                trained_model = torch_model.getModel()
+                pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
+                assert len(pred) == 1
+                assert pred.dtype == torch.float32
+
+    @pytest.mark.skipif(not HAS_NVTABULAR, reason='NVTabular unavailable')
+    def test_fit_model_nvtabular(self):
+        from horovod.spark.torch.datamodule import NVTabularDataModule
+
+        model = create_xor_model()
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+        loss = F.binary_cross_entropy
+
+        with spark_session('test_fit_model') as spark:
+            df = create_xor_data(spark)
+
+            with local_store() as store:
+                torch_estimator = hvd_spark.TorchEstimator(
+                    data_module=NVTabularDataModule,
+                    num_proc=1,
+                    store=store,
+                    model=model,
+                    optimizer=optimizer,
+                    loss=loss,
+                    input_shapes=[[2]],
+                    feature_cols=['features'],
+                    continuous_cols=['features'],
+                    categorical_cols=[],
+                    label_cols=['y'],
+                    batch_size=1,
+                    epochs=3,
+                    random_seed=1,
+                    verbose=2,
+                    backward_passes_per_step=3,
                     sample_weight_col='weight')
 
                 torch_model = torch_estimator.fit(df)
@@ -125,6 +169,7 @@ class SparkTorchTests(unittest.TestCase):
                     batch_size=1,
                     epochs=1,
                     verbose=2,
+                    backward_passes_per_step=3,
                     run_id=run_id)
 
                 torch_estimator._load_checkpoint = mock.Mock(side_effect=torch_estimator._load_checkpoint)
@@ -183,35 +228,6 @@ class SparkTorchTests(unittest.TestCase):
         optimizer_state = opt_unscaled_lr.state_dict()
         for i in range(len(optimizer_state['param_groups'])):
             assert optimizer_state['param_groups'][i]['lr'] == init_learning_rate / hvd_size
-
-    def test_calculate_shuffle_buffer_size_small_row_size(self):
-        hvd_size = 4
-        local_size = 2
-        hvd_mock = mock.MagicMock()
-        hvd_mock.local_size = lambda: local_size
-        hvd_mock.allgather = lambda x: torch.tensor([local_size for _ in range(hvd_size)])
-
-        avg_row_size = 100
-        train_row_count_per_worker = 100
-
-        calculate_shuffle_buffer_size = remote._calculate_shuffle_buffer_size_fn()
-        shuffle_size = calculate_shuffle_buffer_size(hvd_mock, avg_row_size, train_row_count_per_worker)
-        assert shuffle_size == train_row_count_per_worker
-
-    def test_calculate_shuffle_buffer_size(self):
-        # case with 2 workers, one with 5 ranks and second with 3 ranks
-        hvd_mock = mock.MagicMock()
-        hvd_mock.allgather = lambda x: torch.tensor([5, 5, 5, 5, 5, 3, 3, 3])
-        hvd_mock.local_size = lambda: 2
-
-        avg_row_size = 100000
-        train_row_count_per_worker = 1000000
-
-        calculate_shuffle_buffer_size = remote._calculate_shuffle_buffer_size_fn()
-        shuffle_size = calculate_shuffle_buffer_size(hvd_mock, avg_row_size, train_row_count_per_worker)
-
-        assert int(shuffle_size) == \
-               int(constants.TOTAL_BUFFER_MEMORY_CAP_GIB * constants.BYTES_PER_GIB / avg_row_size / 5)
 
     def test_metric_class(self):
         hvd_mock = mock.MagicMock()
@@ -372,6 +388,7 @@ class SparkTorchTests(unittest.TestCase):
                                     verbose=2,
                                     reader_pool_type=reader_pool_type,
                                     inmemory_cache_all=inmemory_cache_all,
+                                    backward_passes_per_step=3,
                                     validation=validation)
 
                                 # To make sure that setLoss works with non-list loss.

@@ -96,7 +96,34 @@ logging (for Tensorboard) using the Estimator ``Store`` abstraction.  Stores are
 artifacts including intermediate representations of the training data.  Horovod natively supports stores for HDFS
 and local filesystems.
 
-`Petastorm <https://github.com/uber/petastorm/blob/master/petastorm/pytorch.py#L258>` based data loader is used by default, but user can define a custom data loader by override the `BaseDataLoader` interface. A async data loader mixin can also added on top of the data loader.
+`Petastorm <https://github.com/uber/petastorm/blob/master/petastorm/pytorch.py#L259>`__ based data loader is used by default,
+but user can define a custom data loader by overriding the `BaseDataLoader` interface. An async data loader mixin can also
+be added on top of the data loader.  Additionally, KerasEstimator and TorchEstimator both support an optional DataModule
+argument, similar to the Lightning DataModule, which abstracts the data loading and allows for alternative implementations.
+For example, the NVTabularDataModule integrates the `KerasSequenceLoader <https://github.com/NVIDIA-Merlin/NVTabular/blob/main/nvtabular/loader/tensorflow.py>`__
+from NVTabular to enable GPU-accelerated data loading.
+
+There is an `example Dockerfile <https://github.com/horovod/horovod/blob/master/docker/horovod-nvtabular/Dockerfile>`__
+for building Horovod with NVTabular support.
+
+.. code-block:: python
+
+    from horovod.spark.keras.datamodule import NVTabularDataModule
+
+    keras_estimator = hvd.KerasEstimator(
+        data_module=NVTabularDataModule,   # default: PetastormDataModule
+        num_proc=4,
+        store=store,
+        model=model,
+        optimizer=optimizer,
+        loss=loss,
+        feature_cols=['features'],
+        label_cols=['y'],
+        continuous_cols=CONTINUOUS_COLS,
+        categorical_cols=CATEGORICAL_COLS,
+        batch_size=32,
+        epochs=10)
+
 
 End-to-end example
 ------------------
@@ -325,5 +352,9 @@ With the Run API, the function ``get_available_devices()`` from ``horovod.spark.
 for the spark task from which ``get_available_devices()`` is called.
 See `keras_spark3_rossmann.py <../examples/spark/keras/keras_spark3_rossmann.py>`__ for an example of using
 ``get_available_devices()`` with the Run API.
+
+In some cases, you may want to ignore GPU devices assigned by Spark and always use the local rank as the GPU index.
+You can set environment variable ``HOROVOD_SPARK_USE_LOCAL_RANK_GPU_INDEX`` to ``1`` to have Horovod use the local rank
+as the GPU index for each task.
 
 .. inclusion-marker-end-do-not-remove

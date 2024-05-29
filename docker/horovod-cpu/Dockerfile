@@ -1,14 +1,14 @@
 FROM ubuntu:20.04
 
 # TensorFlow version is tightly coupled to CUDA and cuDNN so it should be selected carefully
-ARG TENSORFLOW_VERSION=2.7.3
-ARG PYTORCH_VERSION=1.8.1
+ARG TENSORFLOW_VERSION=2.9.2
+ARG PYTORCH_VERSION=1.12.1
 ARG PYTORCH_LIGHTNING_VERSION=1.5.9
-ARG TORCHVISION_VERSION=0.9.1
-ARG MXNET_VERSION=1.8.0.post0
+ARG TORCHVISION_VERSION=0.13.1
+ARG MXNET_VERSION=1.9.1
 
-ARG PYSPARK_PACKAGE=pyspark==3.1.1
-ARG SPARK_PACKAGE=spark-3.1.1/spark-3.1.1-bin-hadoop2.7.tgz
+ARG PYSPARK_PACKAGE=pyspark==3.3.0
+ARG SPARK_PACKAGE=spark-3.3.0/spark-3.3.0-bin-hadoop2.tgz
 
 ARG PYTHON_VERSION=3.8
 
@@ -41,10 +41,10 @@ RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Open MPI
-RUN wget --progress=dot:mega -O /tmp/openmpi-3.0.0-bin.tar.gz https://github.com/horovod/horovod/files/1596799/openmpi-3.0.0-bin.tar.gz && \
-    cd /usr/local && \
-    tar -zxf /tmp/openmpi-3.0.0-bin.tar.gz && \
-    ldconfig && \
+RUN wget --progress=dot:mega -O /tmp/openmpi-4.1.4-bin.tar.gz https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.4.tar.gz && \
+    cd /tmp && tar -zxf /tmp/openmpi-4.1.4-bin.tar.gz && \
+    mkdir openmpi-4.1.4/build && cd openmpi-4.1.4/build && ../configure --prefix=/usr/local && \
+    make -j all && make install && ldconfig && \
     mpirun --version
 
 # Allow OpenSSH to talk to containers without asking for confirmation
@@ -69,7 +69,7 @@ RUN pip install --no-cache-dir \
     keras \
     h5py
 
-RUN pip install --no-cache-dir mxnet==${MXNET_VERSION}
+RUN pip install --no-cache-dir mxnet==${MXNET_VERSION} "numpy<1.24.0"
 
 # Install Spark stand-alone cluster.
 RUN wget --progress=dot:giga "https://www.apache.org/dyn/closer.lua/spark/${SPARK_PACKAGE}?action=download" -O - | tar -xzC /tmp; \
