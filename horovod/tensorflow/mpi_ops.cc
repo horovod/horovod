@@ -99,6 +99,8 @@ namespace {
     return DT_INT64;
   case common::HOROVOD_FLOAT16:
     return DT_HALF;
+  case common::HOROVOD_BFLOAT16:
+    return DT_BFLOAT16;
   case common::HOROVOD_FLOAT32:
     return DT_FLOAT;
   case common::HOROVOD_FLOAT64:
@@ -298,6 +300,8 @@ const common::DataType TFTensor::dtype() const {
     return common::HOROVOD_INT64;
   case DT_HALF:
     return common::HOROVOD_FLOAT16;
+  case DT_BFLOAT16:
+    return common::HOROVOD_BFLOAT16;
   case DT_FLOAT:
     return common::HOROVOD_FLOAT32;
   case DT_DOUBLE:
@@ -532,7 +536,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_GPU),
 #endif
 
 REGISTER_OP("HorovodAllreduce")
-    .Attr("T: {uint8, int8, int32, int64, float16, float32, float64}")
+    .Attr("T: {uint8, int8, int32, int64, float16, bfloat16, float32, float64}")
     .Attr("reduce_op: int")
     .Attr("prescale_factor: float")
     .Attr("postscale_factor: float")
@@ -761,7 +765,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodAllgather").Device(DEVICE_GPU),
 
 REGISTER_OP("HorovodAllgather")
     .Attr(
-        "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
+        "T: {uint8, int8, uint16, int16, int32, int64, float16, bfloat16, float32, float64, bool}")
     .Attr("ignore_name_scope: bool = False")
     .Attr("process_set_id: int = 0")
     .Input("tensor: T")
@@ -884,7 +888,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodGroupedAllgather").Device(DEVICE_GPU),
 
 REGISTER_OP("HorovodGroupedAllgather")
     .Attr(
-        "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
+        "T: {uint8, int8, uint16, int16, int32, int64, float16, bfloat16, float32, float64, bool}")
     .Attr("ignore_name_scope: bool = False")
     .Attr("num_tensors: int")
     .Attr("process_set_id: int = 0")
@@ -987,7 +991,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodBroadcast").Device(DEVICE_GPU),
 
 REGISTER_OP("HorovodBroadcast")
     .Attr(
-        "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
+        "T: {uint8, int8, uint16, int16, int32, int64, float16, bfloat16, float32, float64, bool}")
     .Attr("root_rank: int")
     .Attr("ignore_name_scope: bool = False")
     .Attr("process_set_id: int = 0")
@@ -1206,7 +1210,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodBroadcastInplace").Device(DEVICE_GPU),
 
 REGISTER_OP("HorovodBroadcastInplace")
     .Attr(
-        "T: {uint8, int8, int32, int64, float16, float32, float64, bool}")
+        "T: {uint8, int8, int32, int64, float16, bfloat16, float32, float64, bool}")
     .Attr("root_rank: int")
     .Attr("process_set_id: int = 0")
     .Attr("num_variables: int")
@@ -1376,7 +1380,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodReducescatter").Device(DEVICE_GPU),
 #endif
 
 REGISTER_OP("HorovodReducescatter")
-    .Attr("T: {int32, int64, float16, float32, float64}")
+    .Attr("T: {int32, int64, float16, bfloat16, float32, float64}")
     .Attr("reduce_op: int")
     .Attr("ignore_name_scope: bool = False")
     .Attr("prescale_factor: float")
@@ -1554,7 +1558,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodGroupedReducescatter").Device(DEVICE_GPU),
 #endif
 
 REGISTER_OP("HorovodGroupedReducescatter")
-    .Attr("T: {int32, int64, float16, float32, float64}")
+    .Attr("T: {int32, int64, float16, bfloat16, float32, float64}")
     .Attr("reduce_op: int")
     .Attr("ignore_name_scope: bool = False")
     .Attr("num_tensors: int")
@@ -1893,7 +1897,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodAlltoall")
 
 REGISTER_OP("HorovodAlltoall")
     .Attr(
-        "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
+        "T: {uint8, int8, uint16, int16, int32, int64, float16, bfloat16, float32, float64, bool}")
     .Attr("ignore_name_scope: bool = False")
     .Attr("process_set_id: int = 0")
     .Input("tensor: T")

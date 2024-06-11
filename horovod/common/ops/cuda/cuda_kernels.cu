@@ -20,6 +20,7 @@
 
 #include <stdexcept>
 #include <cuda_fp16.h>
+#include <cuda_bf16.h>
 
 namespace horovod {
 namespace common {
@@ -96,6 +97,26 @@ __global__ void scale_buffer_k(const T* input, T* output, int64_t num_elements, 
   }
 }
 
+#if (__CUDA_ARCH__ >= 800 || !defined(__CUDA_ARCH__))
+__global__ void scale_buffer_bf162_k(const __nv_bfloat16* input, __nv_bfloat16* output, int64_t num_elements, const __nv_bfloat16 scale_factor) {
+
+  const size_t idx = static_cast<size_t>(blockDim.x) * blockIdx.x + threadIdx.x;
+
+  const auto* input_h2 = reinterpret_cast<const __nv_bfloat162 *>(input);
+  auto* output_h2 = reinterpret_cast<__nv_bfloat162 *>(output);
+  const auto scale_factor_h2 = __bfloat162bfloat162(scale_factor);
+
+  for (size_t i = idx; i < num_elements / 2; i += gridDim.x * blockDim.x) {
+    output_h2[i] = __hmul2(scale_factor_h2, input_h2[i]);
+  }
+
+  // Deal with last element if num_elements is odd
+  if (idx == 0 && num_elements % 2) {
+    output[num_elements - 1] = __hmul(scale_factor, input[num_elements - 1]);
+  }
+}
+#endif
+
 // Specialization for half2
 __global__ void scale_buffer_half2_k(const __half* input, __half* output, int64_t num_elements, const __half scale_factor) {
 
@@ -121,22 +142,22 @@ __global__ void scale_buffer_half2_k(const __half* input, __half* output, int64_
 #endif
 }
 
-// Specialization for architectures without __half compute
-template<>
-__global__ void scale_buffer_k(const __half* input, __half* output, int64_t num_elements, const __half scale_factor) {
+// // Specialization for architectures without __half compute
+// template<>
+// __global__ void scale_buffer_k(const __half* input, __half* output, int64_t num_elements, const __half scale_factor) {
 
-  const size_t idx = static_cast<size_t>(blockDim.x) * blockIdx.x + threadIdx.x;
+//   const size_t idx = static_cast<size_t>(blockDim.x) * blockIdx.x + threadIdx.x;
 
-#if __CUDA_ARCH__ > 530
-  for (size_t i = idx; i < num_elements; i += gridDim.x * blockDim.x) {
-    output[i] = scale_factor * input[i];
-  }
-#else
-  for (size_t i = idx; i < num_elements; i += gridDim.x * blockDim.x) {
-    output[i] = __float2half(__half2float(scale_factor) * __half2float(input[i]));
-  }
-#endif
-}
+// #if __CUDA_ARCH__ > 530
+//   for (size_t i = idx; i < num_elements; i += gridDim.x * blockDim.x) {
+//     output[i] = scale_factor * input[i];
+//   }
+// #else
+//   for (size_t i = idx; i < num_elements; i += gridDim.x * blockDim.x) {
+//     output[i] = __float2half(__half2float(scale_factor) * __half2float(input[i]));
+//   }
+// #endif
+// }
 
 #define NTHREADS_SCALE_BUFFER_KERNEL 512
 void ScaleBufferCudaImpl(const void* fused_input_data, void* buffer_data, const int64_t num_elements, double scale_factor,
@@ -172,9 +193,26 @@ void ScaleBufferCudaImpl(const void* fused_input_data, void* buffer_data, const 
       } else {
         scale_buffer_k<<<blocks, threads, 0, stream>>>((const __half*) fused_input_data, (__half*) buffer_data,
                                                        num_elements, scale_factor_half);
-     }
+      }
       break;
     }
+#if (__CUDA_ARCH__ >= 800 || !defined(__CUDA_ARCH__))
+    case HOROVOD_BFLOAT16:
+    {
+      auto scale_factor_half = __float2bfloat16((float) scale_factor);
+      if ((size_t) fused_input_data % 4 == 0 && (size_t) buffer_data % 4 == 0) {
+        // If alignment allows, use half2 specialized kernel
+        int64_t num_elements_h2 = (num_elements + 1) / 2;
+        int64_t blocks_h2 = (num_elements_h2 + NTHREADS_SCALE_BUFFER_KERNEL - 1) / NTHREADS_SCALE_BUFFER_KERNEL;
+        scale_buffer_bf162_k<<<blocks_h2, threads, 0, stream>>>((const __nv_bfloat16*) fused_input_data, (__nv_bfloat16*) buffer_data,
+                                                          num_elements, scale_factor_half);
+      } else {
+        scale_buffer_k<<<blocks, threads, 0, stream>>>((const __nv_bfloat16*) fused_input_data, (__nv_bfloat16*) buffer_data,
+                                                       num_elements, scale_factor_half);
+      }
+      break;
+    }
+#endif
     case HOROVOD_FLOAT32:
       scale_buffer_k<<<blocks, threads, 0, stream>>>((const float*) fused_input_data, (float*) buffer_data,
                                                      num_elements, (float) scale_factor);
