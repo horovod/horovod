@@ -79,6 +79,8 @@ std::size_t DataType_Size(DataType value) {
       return sizeof(int64_t);
     case HOROVOD_FLOAT16:
       return 2;
+    case HOROVOD_BFLOAT16:
+      return 2;
     case HOROVOD_FLOAT32:
       return sizeof(float);
     case HOROVOD_FLOAT64:
