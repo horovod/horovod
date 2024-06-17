@@ -98,6 +98,7 @@ __global__ void scale_buffer_k(const T* input, T* output, int64_t num_elements, 
 }
 
 #if (__CUDA_ARCH__ >= 800 || !defined(__CUDA_ARCH__))
+// Specialization for bfloat16
 __global__ void scale_buffer_bf162_k(const __nv_bfloat16* input, __nv_bfloat16* output, int64_t num_elements, const __nv_bfloat16 scale_factor) {
 
   const size_t idx = static_cast<size_t>(blockDim.x) * blockIdx.x + threadIdx.x;
@@ -143,21 +144,21 @@ __global__ void scale_buffer_half2_k(const __half* input, __half* output, int64_
 }
 
 // // Specialization for architectures without __half compute
-// template<>
-// __global__ void scale_buffer_k(const __half* input, __half* output, int64_t num_elements, const __half scale_factor) {
+template<>
+__global__ void scale_buffer_k(const __half* input, __half* output, int64_t num_elements, const __half scale_factor) {
 
-//   const size_t idx = static_cast<size_t>(blockDim.x) * blockIdx.x + threadIdx.x;
+  const size_t idx = static_cast<size_t>(blockDim.x) * blockIdx.x + threadIdx.x;
 
-// #if __CUDA_ARCH__ > 530
-//   for (size_t i = idx; i < num_elements; i += gridDim.x * blockDim.x) {
-//     output[i] = scale_factor * input[i];
-//   }
-// #else
-//   for (size_t i = idx; i < num_elements; i += gridDim.x * blockDim.x) {
-//     output[i] = __float2half(__half2float(scale_factor) * __half2float(input[i]));
-//   }
-// #endif
-// }
+#if __CUDA_ARCH__ > 530
+  for (size_t i = idx; i < num_elements; i += gridDim.x * blockDim.x) {
+    output[i] = scale_factor * input[i];
+  }
+#else
+  for (size_t i = idx; i < num_elements; i += gridDim.x * blockDim.x) {
+    output[i] = __float2half(__half2float(scale_factor) * __half2float(input[i]));
+  }
+#endif
+}
 
 #define NTHREADS_SCALE_BUFFER_KERNEL 512
 void ScaleBufferCudaImpl(const void* fused_input_data, void* buffer_data, const int64_t num_elements, double scale_factor,
