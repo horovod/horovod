@@ -143,7 +143,7 @@ __global__ void scale_buffer_half2_k(const __half* input, __half* output, int64_
 #endif
 }
 
-// // Specialization for architectures without __half compute
+// Specialization for architectures without __half compute
 template<>
 __global__ void scale_buffer_k(const __half* input, __half* output, int64_t num_elements, const __half scale_factor) {
 
