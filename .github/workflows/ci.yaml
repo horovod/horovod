@@ -45,7 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Upload
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: Event File
         path: ${{ github.event_path }}
@@ -55,9 +55,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.8
       - name: Test setup.py
@@ -85,9 +85,9 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.8
       - name: Pip install dependencies
@@ -162,7 +162,7 @@ jobs:
           cat pr.json
 
       - name: Upload PR meta
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: github.event_name == 'pull_request'
         with:
           name: PR Meta
@@ -432,12 +432,12 @@ jobs:
           echo ::endgroup::
 
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.8
 
@@ -2340,7 +2340,7 @@ jobs:
         shell: bash
 
       - name: Upload Test Results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always() && contains(matrix.image, '-cpu-')
         with:
           name: Unit Test Results - ${{ matrix.image }}
@@ -2425,12 +2425,12 @@ jobs:
           echo ::endgroup::
 
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.8
 
@@ -4333,7 +4333,7 @@ jobs:
         shell: bash
 
       - name: Upload Test Results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always() && contains(matrix.image, '-cpu-')
         with:
           name: Unit Test Results - ${{ matrix.image }}
@@ -4386,12 +4386,12 @@ jobs:
           echo ::endgroup::
 
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.8
 
@@ -4405,7 +4405,7 @@ jobs:
 
 
       - name: Upload Test Results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always() && contains(matrix.image, '-cpu-')
         with:
           name: Unit Test Results - ${{ matrix.image }}
@@ -4456,7 +4456,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -4551,7 +4551,7 @@ jobs:
           ls test_*.py | gtimeout 10m xargs -n 1 horovodrun -np 2 /bin/bash ../../pytest.sh macos
 
       - name: Upload Test Results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: Unit Test Results - ${{ matrix.image }}-macos
@@ -4601,7 +4601,7 @@ jobs:
           output_path: artifacts/Unit Test Results - GPU NON HEADS on Builtkite
 
       - name: Upload Test Results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: Unit Test Results - GPU NON HEADS on Builtkite
@@ -4658,7 +4658,7 @@ jobs:
           output_path: artifacts/Unit Test Results - GPU HEADS on Builtkite
 
       - name: Upload Test Results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: Unit Test Results - GPU HEADS on Builtkite
@@ -4735,13 +4735,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: 'recursive'
 
       - name: Docker meta
         id: meta
-        uses: crazy-max/ghaction-docker-meta@v2
+        uses: crazy-max/ghaction-docker-meta@v5
         with:
           # list of Docker images to use as base name for tags
           images: |
@@ -4757,13 +4757,13 @@ jobs:
             type=sha
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
         with:
           driver: docker
 
       - name: Login to DockerHub
         if: needs.docker-config.outputs.push == 'true'
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -4796,7 +4796,7 @@ jobs:
 
       - name: Build image
         id: build
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v5
         timeout-minutes: 60
         with:
           context: .
@@ -4837,7 +4837,7 @@ jobs:
 
       - name: Push image
         if: needs.docker-config.outputs.push == 'true'
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v5
         timeout-minutes: 60
         with:
           context: .
@@ -4885,7 +4885,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Diffing ${{ matrix.left_file }} with ${{ matrix.right_file }}
         env:
