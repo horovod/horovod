@@ -59,7 +59,11 @@ RUN apt-get update -qq && apt-get install -y python${PYTHON_VERSION} python${PYT
     rm -rf /var/lib/apt/lists/*
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python${PYTHON_VERSION/%.*/}
-RUN wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
+RUN if [[ ${PYTHON_VERSION} != "3.7" ]]; then \
+        wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py; \
+    else \
+        wget --progress=dot:mega https://bootstrap.pypa.io/pip/3.7/get-pip.py; \
+    fi && python get-pip.py && rm get-pip.py
 
 RUN pip install --no-cache-dir -U --force requests pytest mock pytest-forked parameterized
 
