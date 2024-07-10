@@ -1,0 +1,4 @@
+[build-system]
+requires = ["setuptools", "wheel", "packaging", "cmake"]
+build-backend = "backend"
+backend-path = ["_custom_build"]

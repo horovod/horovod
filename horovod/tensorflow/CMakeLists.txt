@@ -6,7 +6,7 @@ set(TF_TARGET_LIB "tensorflow")
 
 # Find TF
 set(TF_REQUIRED "")
-if ("$ENV{HOROVOD_WITH_TENSORFLOW}" STREQUAL "1")
+if ("$ENV{HOROVOD_WITH_TENSORFLOW}" MATCHES "^[1-2]\.")
     set(TF_REQUIRED "REQUIRED")
 endif ()
 find_package(Tensorflow "1.15.0" ${TF_REQUIRED})

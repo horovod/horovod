@@ -14,7 +14,6 @@
 # limitations under the License.
 # ==============================================================================
 
-
 class HorovodInternalError(RuntimeError):
     """Internal error raised when a Horovod collective operation (e.g., allreduce) fails.
 
@@ -28,22 +27,30 @@ class HostsUpdatedInterrupt(RuntimeError):
 
     In elastic mode, this will result in a reset event without a restore to committed state.
     """
+
     def __init__(self, skip_sync):
         self.skip_sync = skip_sync
 
 
-def get_version_mismatch_message(name, version, installed_version):
+def get_version_mismatch_message(name, version, installed_version, build_flag):
     return f'Framework {name} installed with version {installed_version} but found version {version}.\n\
              This can result in unexpected behavior including runtime errors.\n\
-             Reinstall Horovod using `pip install --no-cache-dir` to build with the new version.'
+             Reinstall Horovod using `{build_flag} pip install --no-cache-dir` to build with the new version.'
 
 
 class HorovodVersionMismatchError(ImportError):
     """Internal error raised when the runtime version of a framework mismatches its version at
     Horovod installation time.
     """
-    def __init__(self, name, version, installed_version):
-        super().__init__(get_version_mismatch_message(name, version, installed_version))
+
+    def __init__(self, name, version, installed_version, build_flag):
+        super().__init__(
+            get_version_mismatch_message(
+                name,
+                version,
+                installed_version,
+                build_flag))
         self.name = name
         self.version = version
         self.installed_version = installed_version
+        self.build_flag = build_flag

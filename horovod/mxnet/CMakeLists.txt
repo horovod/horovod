@@ -6,7 +6,7 @@ set(Mxnet_TARGET_LIB "mxnet")
 
 # Find MXNet
 set(Mxnet_REQUIRED "")
-if ("$ENV{HOROVOD_WITH_MXNET}" STREQUAL "1")
+if ("$ENV{HOROVOD_WITH_MXNET}" MATCHES "^1\.")
     set(Mxnet_REQUIRED "REQUIRED")
 endif ()
 find_package(Mxnet "1.4.1" ${Mxnet_REQUIRED})
