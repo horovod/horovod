@@ -167,6 +167,9 @@ RUN pip install 'h5py<3.0' 'numpy<1.24.0' --force-reinstall
 # Install PyTorch (releases).
 # Pin Pillow<7.0 for torchvision < 0.5.0: https://github.com/pytorch/vision/issues/1718
 # Pin Pillow!=8.3.0 for torchvision: https://github.com/pytorch/vision/issues/4146
+# installing pytorch lightning < 1.8.4 with pip > 23.2.1 fails with:
+#   invalid metadata: .* suffix can only be used with == or != operators
+# https://github.com/pypa/pipx/issues/998
 RUN if [[ ${PYTORCH_PACKAGE} != "torch-nightly" ]]; then \
         pip install --no-cache-dir ${PYTORCH_PACKAGE} ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/torch_stable.html; \
         if [[ "${TORCHVISION_PACKAGE/%+*/}" == torchvision==0.[1234].* ]]; then \
@@ -174,6 +177,12 @@ RUN if [[ ${PYTORCH_PACKAGE} != "torch-nightly" ]]; then \
         else \
             pip install --no-cache-dir "Pillow!=8.3.0" --no-deps; \
         fi; \
+        \
+        IFS=. read maj min patch <<< `cut -d "=" -f 3 <<< "${PYTORCH_LIGHTNING_PACKAGE}"`; \
+        if [[ $maj < 1 || $maj == 1 && ( $min < 8 || $min == 8 && $patch < 4) ]]; then \
+            pip install -U pip==23.2.1; \
+        fi; \
+        \
         pip install ${PYTORCH_LIGHTNING_PACKAGE}; \
     fi
 
@@ -211,9 +220,18 @@ RUN if [[ ${TENSORFLOW_PACKAGE} == "tf-nightly" ]]; then \
 
 # Install PyTorch (nightly).
 # Pin Pillow!=8.3.0 for torchvision: https://github.com/pytorch/vision/issues/4146
+# installing pytorch lightning < 1.8.4 with pip > 23.2.1 fails with:
+#   invalid metadata: .* suffix can only be used with == or != operators
+# https://github.com/pypa/pipx/issues/998
 RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
         pip install --no-cache-dir --pre torch ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html; \
         pip install --no-cache-dir "Pillow!=8.3.0" --no-deps; \
+        \
+        IFS=. read maj min patch <<< `cut -d "=" -f 3 <<< "${PYTORCH_LIGHTNING_PACKAGE}"`; \
+        if [[ $maj < 1 || $maj == 1 && ( $min < 8 || $min == 8 && $patch < 4) ]]; then \
+            pip install -U pip==23.2.1; \
+        fi; \
+        \
         pip install ${PYTORCH_LIGHTNING_PACKAGE}; \
     fi
 
