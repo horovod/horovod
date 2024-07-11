@@ -159,6 +159,7 @@ require_list = ['cloudpickle', 'psutil', 'pyyaml', 'dataclasses;python_version<"
 
 # framework dependencies
 tensorflow_require_list = ['tensorflow']
+# for protobuf constraint see ray_require_list
 tensorflow_cpu_require_list = ['tensorflow-cpu']
 tensorflow_gpu_require_list = ['tensorflow-gpu']
 keras_require_list = ['keras>=2.0.8,!=2.0.9,!=2.1.0,!=2.1.1']
