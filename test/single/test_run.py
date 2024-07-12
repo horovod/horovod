@@ -1195,3 +1195,4 @@ rank: 4: { hostname: host2; cpu: {0-3} ; gpu: * ; mem: * }
                     SlotInfo(hostname='worker-1', rank=2, local_rank=1, cross_rank=0,
                              size=3, local_size=2, cross_size=1)]
         self.assertListEqual(assignments, expected)
+
