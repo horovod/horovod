@@ -402,7 +402,7 @@ def main():
                 f'    if: >\n'
                 f"      needs.init-workflow.outputs.run-at-all == 'true' &&\n"
                 f"      needs.init-workflow.outputs.run-builds-and-tests == 'true'\n"
-                f'    runs-on: macos-11\n'
+                f'    runs-on: macos-latest\n'
                 f'\n'
                 f'    strategy:\n'
                 f'      max-parallel: 3\n'
@@ -467,9 +467,8 @@ def main():
                 f'          brew reinstall -f zlib bzip2\n'
                 f'          brew install -f openmpi cmake libuv pyenv coreutils curl\n'
                 f'          export PATH=$(pyenv root)/shims:$PATH\n'
-                f'          pyenv uninstall -f 3.7.7\n'
-                f'          CFLAGS="-I$(brew --prefix bzip2)/include -I$(brew --prefix zlib)/include" LDFLAGS="-L$(brew --prefix zlib)/lib -L$(brew --prefix bzip2)/lib" pyenv install --patch 3.7.7 < <(curl -sSL https://github.com/python/cpython/commit/8ea6353.patch)\n'
-                f'          pyenv global 3.7.7\n'
+                f'          pyenv install 3.7.12\n'
+                f'          pyenv global 3.7.12\n'
                 f'          python --version\n'
                 f'\n'
                 f'          python -m pip install -U pip\n'
@@ -487,7 +486,7 @@ def main():
                            f'\n'
                            f'        run: |\n'
                            f'          export PATH=$(pyenv root)/shims:$PATH\n'
-                           f'          pyenv global 3.7.7\n'
+                           f'          pyenv global 3.7.12\n'
                            f'          python --version\n'
                            f'\n'
                            f'          artifacts_path="$(pwd)/artifacts/${{{{ matrix.image }}}}-macos-run-{attempt}"\n'
@@ -814,13 +813,7 @@ def main():
         workflow = workflow_header() + jobs(
             init_workflow_job(),
             # changing these names require changes in the workflow-conclusion step in ci-results.yaml
-            build_and_test_images(id='build-and-test', name='Build and Test', needs=['init-workflow'], images=release_images, parallel_images=len(cpu_release_images), tests_per_image=tests_per_image, tests=tests),
-            build_and_test_images(id='build-and-test-heads', name='Build and Test heads', needs=['build-and-test'], images=allhead_images, tests_per_image=tests_per_image, tests=tests),
-            build_and_test_images(id='build-mins', name='Build mins', needs=['build-and-test'], images=allmin_images, tests_per_image=tests_per_image, tests={}),
-            build_and_test_macos(id='build-and-test-macos', name='Build and Test macOS', needs=['build-and-test']),
-            trigger_buildkite_job(id='buildkite', name='Build and Test GPU', needs=['build-and-test'], mode='GPU NON HEADS'),
-            trigger_buildkite_job(id='buildkite-heads', name='Build and Test GPU heads', needs=['build-and-test'], mode='GPU HEADS'),
-            publish_docker_images(needs=['build-and-test', 'buildkite'], images=['horovod', 'horovod-cpu', 'horovod-nvtabular', 'horovod-ray']),
+            build_and_test_macos(id='build-and-test-macos', name='Build and Test macOS', needs=['init-workflow']),
             sync_files(needs=['init-workflow'])
         )
         print(workflow, file=w, end='')
