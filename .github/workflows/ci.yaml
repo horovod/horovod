@@ -238,9 +238,8 @@ jobs:
           brew reinstall -f zlib bzip2
           brew install -f openmpi cmake libuv pyenv coreutils curl
           export PATH=$(pyenv root)/shims:$PATH
-          pyenv uninstall -f 3.7.7
-          CFLAGS="-I$(brew --prefix bzip2)/include -I$(brew --prefix zlib)/include" LDFLAGS="-L$(brew --prefix zlib)/lib -L$(brew --prefix bzip2)/lib" pyenv install --patch 3.7.7 < <(curl -sSL https://github.com/python/cpython/commit/8ea6353.patch)
-          pyenv global 3.7.7
+          pyenv install 3.7.12
+          pyenv global 3.7.12
           python --version
 
           python -m pip install -U pip
@@ -258,7 +257,7 @@ jobs:
 
         run: |
           export PATH=$(pyenv root)/shims:$PATH
-          pyenv global 3.7.7
+          pyenv global 3.7.12
           python --version
 
           artifacts_path="$(pwd)/artifacts/${{ matrix.image }}-macos-run-1"
@@ -277,7 +276,7 @@ jobs:
 
         run: |
           export PATH=$(pyenv root)/shims:$PATH
-          pyenv global 3.7.7
+          pyenv global 3.7.12
           python --version
 
           artifacts_path="$(pwd)/artifacts/${{ matrix.image }}-macos-run-2"
@@ -296,7 +295,7 @@ jobs:
 
         run: |
           export PATH=$(pyenv root)/shims:$PATH
-          pyenv global 3.7.7
+          pyenv global 3.7.12
           python --version
 
           artifacts_path="$(pwd)/artifacts/${{ matrix.image }}-macos-run-3"
