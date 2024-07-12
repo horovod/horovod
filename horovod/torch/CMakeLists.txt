@@ -14,6 +14,16 @@ if(NOT PYTORCH_FOUND)
     return()
 endif()
 
+if(Pytorch_VERSION VERSION_GREATER_EQUAL "2.1")
+    set(CMAKE_CXX_STANDARD 17)
+    set(Pytorch_CXX17 TRUE)
+elseif(Pytorch_VERSION VERSION_GREATER_EQUAL "1.5")
+    set(CMAKE_CXX_STANDARD 14)
+    set(Pytorch_CXX17 FALSE)
+else()
+    set(Pytorch_CXX17 FALSE)
+endif()
+
 # Append version number into metadata
 file(APPEND "${CMAKE_LIBRARY_OUTPUT_DIRECTORY_ROOT}/metadata.json" "\"pytorch\": \"${Pytorch_VERSION}\",\n")
 
@@ -39,7 +49,9 @@ execute_process(COMMAND ${PY_EXE} -c "from distutils.sysconfig import get_python
 include_directories(SYSTEM ${PYTHON_INCLUDE_PATH})
 set(CMAKE_CXX_FLAGS "${Pytorch_COMPILE_FLAGS} ${CMAKE_CXX_FLAGS}")
 if(HAVE_GLOO)
-    if (Pytorch_CXX11)
+    if (Pytorch_CXX17)
+        list(APPEND PYTORCH_LINKER_LIBS compatible17_gloo)
+    elseif (Pytorch_CXX11)
         list(APPEND PYTORCH_LINKER_LIBS gloo)
     else()
         list(APPEND PYTORCH_LINKER_LIBS compatible_gloo)
@@ -63,9 +75,7 @@ list(APPEND PYTORCH_LINKER_LIBS ${Pytorch_LIBRARIES})
 parse_version(${Pytorch_VERSION} VERSION_DEC)
 add_definitions(-DPYTORCH_VERSION=${VERSION_DEC} -DTORCH_API_INCLUDE_EXTENSION_H=1)
 set(Pytorch_CXX11 ${Pytorch_CXX11} PARENT_SCOPE)
-if(NOT Pytorch_VERSION VERSION_LESS "1.5.0")
-    set(CMAKE_CXX_STANDARD 14)
-endif()
+set(Pytorch_CXX17 ${Pytorch_CXX17} PARENT_SCOPE)
 
 # PyTorch SOURCES
 # Later versions of PyTorch that use ROCm's hipify step will rename files.

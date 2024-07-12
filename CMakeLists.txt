@@ -375,7 +375,7 @@ if(HAVE_GLOO AND ((DEFINED Tensorflow_CXX11 AND NOT Tensorflow_CXX11) OR (DEFINE
 endif()
 
 # Gloo for c++17 TF
-if(HAVE_GLOO AND (DEFINED Tensorflow_CXX17 AND Tensorflow_CXX17))
+if(HAVE_GLOO AND ((DEFINED Tensorflow_CXX17 AND Tensorflow_CXX17) OR (DEFINED Pytorch_CXX17 AND Pytorch_CXX17)))
     file(COPY ${PROJECT_SOURCE_DIR}/third_party/gloo/ DESTINATION ${PROJECT_SOURCE_DIR}/third_party/compatible17_gloo)
     file(READ ${PROJECT_SOURCE_DIR}/third_party/compatible17_gloo/gloo/CMakeLists.txt GLOO_CMAKE)
     string(REPLACE "gloo " "compatible17_gloo " GLOO_CMAKE "${GLOO_CMAKE}")
@@ -385,7 +385,7 @@ if(HAVE_GLOO AND (DEFINED Tensorflow_CXX17 AND Tensorflow_CXX17))
     string(PREPEND GLOO_CMAKE "set(CMAKE_CXX_STANDARD 17)\n")
     file(WRITE ${PROJECT_SOURCE_DIR}/third_party/compatible17_gloo/CMakeLists.txt "${GLOO_CMAKE}")
     add_subdirectory(third_party/compatible17_gloo)
-    if (Tensorflow_CXX11)
+    if (Tensorflow_CXX11 OR Pytorch_CXX11)
         target_compile_definitions(compatible17_gloo PRIVATE _GLIBCXX_USE_CXX11_ABI=1)
     else()
        target_compile_definitions(compatible17_gloo PRIVATE _GLIBCXX_USE_CXX11_ABI=0)
