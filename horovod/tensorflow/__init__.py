@@ -622,10 +622,7 @@ def _make_cached_allreduce_grads_fn(name, device_dense, device_sparse,
                     if grad is not None else grad
                     for i, grad in enumerate(grads)]
 
-    if _executing_eagerly():
-        return _make_subgraph(allreduce_grads)
-    else:
-        return allreduce_grads
+    return allreduce_grads
 
 
 def _make_allreduce_grads_fn(name, device_dense, device_sparse,
