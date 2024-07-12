@@ -2359,7 +2359,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - image: test-cpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_4_0
+          - image: test-cpu-openmpi-gloo-py3_9-tfhead-keras_none-torchhead-mxnethead-pyspark3_4_0
             Elastic_Tests_1: true
             Gloo_Cluster_PyTests: true
             Gloo_MXNet2_MNIST_api: true
@@ -2394,7 +2394,7 @@ jobs:
             Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_4_0
+          - image: test-gpu-openmpi-gloo-py3_9-tfhead-keras_none-torchhead-mxnethead-pyspark3_4_0
             build_timeout: 40
 
     steps:
