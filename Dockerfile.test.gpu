@@ -43,7 +43,10 @@ RUN env | sort
 RUN apt-get update -qq && apt-get install -y --no-install-recommends software-properties-common && \
     rm -rf /var/lib/apt/lists/*
 
-RUN add-apt-repository ppa:ubuntu-toolchain-r/test
+# Adding this repo may fail with "Error: retrieving gpg key timed out" using default keyserver, so adding an alternative keyserver first
+RUN mkdir -p ~/.gnupg/; \
+    echo "keyserver keyserver.ubuntu.com" >> ~/.gnupg/gpg.conf; \
+    add-apt-repository ppa:ubuntu-toolchain-r/test
 
 # Install essential packages.
 RUN CUDNN_MAJOR=$(cut -d '.' -f 1 <<< "${CUDNN_VERSION}"); \
