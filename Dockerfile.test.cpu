@@ -162,14 +162,20 @@ RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly" ]]; then \
         pip install --no-cache-dir ${TENSORFLOW_PACKAGE} ${PROTOBUF_PACKAGE}; \
         if [[ ${KERAS_PACKAGE} != "None" ]]; then \
             pip uninstall -y keras; \
-            pip install --no-cache-dir ${KERAS_PACKAGE} "scipy!=1.4.0" "pandas<1.1.0" "numpy<1.24.0"; \
+            KERAS_DEPS=""; \
+            if [[ ${KERAS_PACKAGE} == "keras==2.2.4" ]]; then \
+                KERAS_DEPS='"scipy!=1.4.0" "pandas<1.1.0" "numpy<1.24.0"'; \
+            fi; \
+            pip install --no-cache-dir ${KERAS_PACKAGE} ${KERAS_DEPS}; \
         fi; \
         mkdir -p ~/.keras; \
         python -c "import tensorflow as tf; tf.keras.datasets.mnist.load_data()"; \
     fi
 
-# Pin h5py < 3 for tensorflow: https://github.com/tensorflow/tensorflow/issues/44467
-RUN pip install 'h5py<3.0' 'numpy<1.24.0' --force-reinstall
+# Pin h5py<3 for tensorflow<2.4.0: https://github.com/tensorflow/tensorflow/issues/44467
+RUN if [[ ${TENSORFLOW_PACKAGE} == tensorflow*==1.15.* ]]; then \
+        pip install 'h5py<3.0' 'numpy<1.24.0' --force-reinstall; \
+    fi
 
 # Install PyTorch (releases).
 # Pin Pillow<7.0 for torchvision < 0.5.0: https://github.com/pytorch/vision/issues/1718
@@ -196,7 +202,8 @@ RUN if [[ ${PYTORCH_PACKAGE} != "torch-nightly" ]]; then \
 
 # Install MXNet (releases).
 RUN if [[ ${MXNET_PACKAGE} != "mxnet-nightly" ]]; then \
-        pip install --no-cache-dir ${MXNET_PACKAGE} ; \
+        # mxnet uses numpy.bool, which has been removed in numpy 1.24.0
+        pip install --no-cache-dir ${MXNET_PACKAGE} "numpy<1.24.0"; \
     fi
 
 # Prefetch Spark MNIST dataset.
@@ -219,7 +226,7 @@ RUN if [[ ${TENSORFLOW_PACKAGE} == "tf-nightly" ]]; then \
         pip install --no-cache-dir ${TENSORFLOW_PACKAGE}; \
         if [[ ${KERAS_PACKAGE} != "None" ]]; then \
             pip uninstall -y keras-nightly; \
-            pip install --no-cache-dir ${KERAS_PACKAGE} "scipy!=1.4.0" "pandas<1.1.0" "numpy<1.24.0"; \
+            pip install --no-cache-dir ${KERAS_PACKAGE}; \
         fi; \
         mkdir -p ~/.keras; \
         python -c "import tensorflow as tf; tf.keras.datasets.mnist.load_data()"; \
