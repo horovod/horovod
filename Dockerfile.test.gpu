@@ -147,7 +147,7 @@ RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly" ]]; then \
         pip install --no-cache-dir ${TENSORFLOW_PACKAGE} ${PROTOBUF_PACKAGE}; \
         if [[ ${KERAS_PACKAGE} != "None" ]]; then \
             pip uninstall -y keras; \
-            pip install --no-cache-dir ${KERAS_PACKAGE} "scipy!=1.4.0" "pandas<1.1.0" "numpy<1.24.0"; \
+            pip install --no-cache-dir ${KERAS_PACKAGE} "scipy!=1.4.0" "pandas<1.2.0" "numpy<1.24.0"; \
         fi; \
         mkdir -p ~/.keras; \
         ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs; \
@@ -155,8 +155,11 @@ RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly" ]]; then \
         ldconfig; \
     fi
 
-# Pin h5py < 3 for tensorflow: https://github.com/tensorflow/tensorflow/issues/44467
-RUN pip install 'h5py<3.0' 'numpy<1.24.0' --force-reinstall
+# Pin h5py < 3 for tensorflow < 2.4.0: https://github.com/tensorflow/tensorflow/issues/44467
+RUN if [[ ${TENSORFLOW_PACKAGE} == tensorflow-gpu==1.15.* ]] || \
+       [[ ${TENSORFLOW_PACKAGE} == tensorflow-gpu==2.[0123].* ]]; then \
+      pip install 'h5py<3.0' 'numpy<1.24.0' --force-reinstall; \
+    fi
 
 # Install PyTorch (releases).
 # Pin Pillow<7.0 for torchvision < 0.5.0: https://github.com/pytorch/vision/issues/1718
@@ -205,7 +208,7 @@ RUN if [[ ${TENSORFLOW_PACKAGE} == "tf-nightly" ]]; then \
         pip install --no-cache-dir ${TENSORFLOW_PACKAGE}; \
         if [[ ${KERAS_PACKAGE} != "None" ]]; then \
             pip uninstall -y keras-nightly; \
-            pip install --no-cache-dir ${KERAS_PACKAGE} "scipy!=1.4.0" "pandas<1.1.0" "numpy<1.24.0"; \
+            pip install --no-cache-dir ${KERAS_PACKAGE} "scipy!=1.4.0" "pandas<1.2.0" "numpy<1.24.0"; \
         fi; \
         mkdir -p ~/.keras; \
         ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs; \
