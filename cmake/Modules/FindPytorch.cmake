@@ -10,6 +10,7 @@
 #  Pytorch_CUDA
 #  Pytorch_ROCM
 #  Pytorch_CXX11
+#  Pytorch_CXX17
 
 # Compatible layer for CMake <3.12. Pytorch_ROOT will be accounted in for searching paths and libraries for CMake >=3.12.
 list(APPEND CMAKE_PREFIX_PATH ${Pytorch_ROOT})
