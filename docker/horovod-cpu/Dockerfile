@@ -59,6 +59,9 @@ RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
     python get-pip.py && \
     rm get-pip.py
 
+# Pin pip version
+RUN pip install --upgrade pip==24.0
+
 # Install PyTorch, TensorFlow, Keras and MXNet
 RUN pip install --no-cache-dir torch==${PYTORCH_VERSION} torchvision==${TORCHVISION_VERSION}
 RUN pip install --no-cache-dir pytorch_lightning==${PYTORCH_LIGHTNING_VERSION}
