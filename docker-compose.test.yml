@@ -122,21 +122,23 @@ services:
 
   # we deviate from baseline here because PySpark 2.4 requires Python 3.7 and
   # Tensorflow 2.11.0 is the last version that supports that Python
+  # Keras 2.11.0 is the last version that supports that Python
   # Torch 1.13.1 is the last version that supports that Python
-  test-cpu-gloo-py3_7-tf2_11_0-keras3_3_3-torch2_2_2-mxnet1_9_1-pyspark2_4_8:
+  test-cpu-gloo-py3_7-tf2_11_0-keras2_11_0-torch1_13_1-mxnet1_9_1-pyspark2_4_8:
     extends: test-cpu-base
     build:
       args:
         # PySpark 2.4.8 is only available for Python 3.7
         # Python 3.7 is only available on Ubuntu 18.04
         # Tensorflow 2.11.0 is the last version supporting that Python
+        # Keras 2.11.0 is the last version that supports that Python
         # Torch 1.13.1 is the last version supporting that Python
         UBUNTU_VERSION: 18.04
         PYTHON_VERSION: 3.7
         TENSORFLOW_PACKAGE: tensorflow-cpu==2.11.0
-        KERAS_PACKAGE: keras==3.3.3
-        PYTORCH_PACKAGE: torch==2.2.2+cpu
-        TORCHVISION_PACKAGE: torchvision==0.17.2+cpu
+        KERAS_PACKAGE: keras==2.11.0
+        PYTORCH_PACKAGE: torch==1.13.1+cpu
+        TORCHVISION_PACKAGE: torchvision==0.14.1+cpu
         PYSPARK_PACKAGE: pyspark==2.4.8
         SPARK_PACKAGE: spark-2.4.8/spark-2.4.8-bin-hadoop2.7.tgz
   test-cpu-gloo-py3_9-tf2_17_0-keras3_4_1-torch2_3_1-mxnet1_9_1-pyspark3_4_3:
@@ -145,7 +147,7 @@ services:
       args:
         PYTHON_VERSION: 3.9
         PYSPARK_PACKAGE: pyspark==3.4.3
-        SPARK_PACKAGE: spark-3.4.3/spark-3.4.3-bin-hadoop2.tgz
+        SPARK_PACKAGE: spark-3.4.3/spark-3.4.3-bin-hadoop3.tgz
   # then our baseline again, omitted ...
 
   test-gpu-base:

@@ -24,8 +24,9 @@ tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${B
   # run_gloo_integration expects these to have Gloo mpi kind to run 'Elastic Spark * Tests'
   # we deviate from baseline here because PySpark 2.4 requires Python 3.7 and
   # Tensorflow 2.11.0 is the last version that supports that Python
+  # Keras 2.11.0 is the last version that supports that Python
   # Torch 1.13.1 is the last version that supports that Python
-  printf "test-cpu-gloo-py3_7-tf2_11_0-keras3_3_3-torch2_2_2-mxnet1_9_1-pyspark2_4_8 "
+  printf "test-cpu-gloo-py3_7-tf2_11_0-keras2_11_0-torch1_13_1-mxnet1_9_1-pyspark2_4_8 "
   printf "test-cpu-gloo-py3_9-tf2_17_0-keras3_4_1-torch2_3_1-mxnet1_9_1-pyspark3_4_3 "
   # our baseline
   printf "$baseline "
