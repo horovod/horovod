@@ -186,7 +186,7 @@ services:
         PYTHON_VERSION: 3.8
         TENSORFLOW_PACKAGE: nvidia-tensorflow==1.15.5+nv22.4
         KERAS_PACKAGE: keras==2.2.4
-        PYTORCH_PACKAGE: torch==2.1.2+cu116
+        PYTORCH_PACKAGE: torch==2.1.2+cu118
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision==0.16.2+cu116
         MXNET_PACKAGE: mxnet-cu112==1.8.0.post0
