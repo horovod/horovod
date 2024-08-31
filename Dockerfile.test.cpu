@@ -164,7 +164,7 @@ RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly" ]]; then \
             pip uninstall -y keras; \
             KERAS_DEPS=""; \
             if [[ ${KERAS_PACKAGE} == "keras==2.2.4" ]]; then \
-                KERAS_DEPS='"scipy!=1.4.0" "pandas<1.1.0" "numpy<1.24.0"'; \
+                KERAS_DEPS='scipy!=1.4.0 pandas<1.1.0 numpy<1.24.0'; \
             fi; \
             pip install --no-cache-dir ${KERAS_PACKAGE} ${KERAS_DEPS}; \
         fi; \
