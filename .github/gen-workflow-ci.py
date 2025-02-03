@@ -14,6 +14,7 @@
 # ==============================================================================
 
 import re
+import sys
 from typing import List, Dict, Set
 
 import yaml
@@ -34,7 +35,9 @@ def main():
         BUILDKITE_PIPELINE_DEFAULT_BRANCH='master',
         BUILDKITE_BRANCH='master'
     )
-    proc = subprocess.run([script], env=env, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, encoding='utf-8')
+    proc = subprocess.run([script], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
+    if proc.stderr:
+        print(proc.stderr, file=sys.stderr)
     if proc.returncode:
         raise RuntimeError(f'Script exited with code {proc.returncode}: {script}')
 
@@ -340,7 +343,7 @@ def main():
                 f'          df -h\n'
                 f'          echo ::endgroup::\n'
                 f'\n'
-                f'          for dir in /usr/share/dotnet/sdk/\*/nuGetPackagesArchive.lzma \\\n'
+                f'          for dir in /usr/share/dotnet/sdk/\\*/nuGetPackagesArchive.lzma \\\n'
                 f'                     /usr/share/dotnet/shared \\\n'
                 f'                     /usr/local/lib/android/sdk/ndk \\\n'
                 f'                     /usr/local/lib/android/sdk/build-tools \\\n'
@@ -493,7 +496,7 @@ def main():
                            f'          artifacts_path="$(pwd)/artifacts/${{{{ matrix.image }}}}-macos-run-{attempt}"\n'
                            f'          mkdir -p "$artifacts_path"\n'
                            f'          echo "artifacts-path=$artifacts_path" >> $GITHUB_OUTPUT\n'
-                           f'          echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=$artifacts_path/junit.\$1.\${{HOROVOD_RANK:-\${{OMPI_COMM_WORLD_RANK:-\${{PMI_RANK}}}}}}.\$2.xml \${{@:2}} > pytest.sh\n'
+                           f'          echo pytest -v --capture=no --continue-on-collection-errors --junit-xml=$artifacts_path/junit.\\$1.\\${{HOROVOD_RANK:-\\${{OMPI_COMM_WORLD_RANK:-\\${{PMI_RANK}}}}}}.\\$2.xml \\${{@:2}} > pytest.sh\n'
                            f'          chmod u+x pytest.sh\n'
                            f'\n'
                            f'          cd test/parallel\n'
@@ -677,7 +680,7 @@ def main():
                 f'          df -h\n'
                 f'          echo ::endgroup::\n'
                 f'\n'
-                f'          for dir in /usr/share/dotnet/sdk/\*/nuGetPackagesArchive.lzma \\\n'
+                f'          for dir in /usr/share/dotnet/sdk/\\*/nuGetPackagesArchive.lzma \\\n'
                 f'                     /usr/share/dotnet/shared \\\n'
                 f'                     /usr/local/lib/android/sdk/ndk \\\n'
                 f'                     /usr/local/lib/android/sdk/build-tools \\\n'
@@ -724,7 +727,7 @@ def main():
                         f'python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets --num-proc 2 --hosts localhost:2 --communication {comm}',
                         f'python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 {comm}',
                     ])
-                    for framework in [re.sub('\/.*', '', re.sub('.*\/examples\/', '', example))]
+                    for framework in [re.sub('\\/.*', '', re.sub('.*\\/examples\\/', '', example))]
                 ]) +
                 f'\n'
                 f'      - name: Push image\n'
@@ -770,7 +773,7 @@ def main():
                 f'          - name: Docs Summary\n'
                 f'            left_file: README.rst\n'
                 f'            right_file: docs/summary.rst\n'
-                f'            init: sed -i -e s/docs\///g README.rst\n'
+                f'            init: sed -i -e s/docs\\///g README.rst\n'
                 f'\n'
                 f'          - name: Examples Keras Spark3\n'
                 f'            left_file: examples/spark/keras/keras_spark_rossmann_run.py\n'
