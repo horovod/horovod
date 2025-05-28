@@ -32,6 +32,6 @@ def main(addr, port):
 
 
 if __name__ == '__main__':
-    _, driver_addr, run_func_server_port_str = sys.argv
+    _, driver_addr, run_func_server_port_str = sys.argv[:3]
     run_func_server_port = int(run_func_server_port_str)
     main(driver_addr, run_func_server_port)
