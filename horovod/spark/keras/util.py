@@ -61,7 +61,7 @@ class TFKerasUtil(object):
             has_sparse_col, sample_weight_col, feature_columns,
             label_columns, input_shapes, label_shapes, output_names)
 
-        def fn(reader, batch_size, is_batch_reader, shuffle=True, cache=False):
+        def fn(reader, batch_size, is_batch_reader, shuffle=True, cache=False, disable_autotune_batch_prefetch=False):
             from petastorm.tf_utils import make_petastorm_dataset
 
             # Samples come from Petastorm reader are already shuffled if needed.
@@ -87,7 +87,7 @@ class TFKerasUtil(object):
                 dataset = dataset.batch(1).map(reshape)
 
             dataset = dataset.batch(batch_size).map(prep_data_tf_keras)
-            if hasattr(tf.data, 'AUTOTUNE'):
+            if not disable_autotune_batch_prefetch and hasattr(tf.data, 'AUTOTUNE'):
                 dataset = dataset.prefetch(tf.data.AUTOTUNE)
             else:
                 dataset = dataset.prefetch(1)

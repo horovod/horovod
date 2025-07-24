@@ -103,7 +103,7 @@ class EstimatorParams(Params):
                               'functions that construct the transformation '
                               'function that applies custom transformations to '
                               'every batch before train and validation steps')
-    
+
     transformation_edit_fields = Param(Params._dummy(), 'transformation_edit_fields',
                                        'edit fields for petastorm TransformSpec that\'s applied to '
                                        'every batch, A list of 4-tuples with the following fields: '
@@ -133,12 +133,18 @@ class EstimatorParams(Params):
                     'https://docs.python.org/3/library/multiprocessing.html#multiprocessing.get_start_method.'
                     'This param defaults to None.',
                     typeConverter=TypeConverters.toString)
-    
+
     backward_passes_per_step = Param(Params._dummy(), 'backward_passes_per_step',
                                      'Number of backward passes to perform before calling hvd.allreduce. '
                                      'This allows accumulating updates over multiple mini-batches before reducing and applying them. '
                                      'This param defaults to 1.',
                                      typeConverter=TypeConverters.toInt)
+
+    disable_autotune_batch_prefetch = Param(Params._dummy(), 'disable_autotune_batch_prefetch',
+                                      'Whether to disable autotune batch prefetch in data module or not.'
+                                      'Setting this to True will prefetch only one batch.'
+                                      'Defaults to False.',
+                                      typeConverter=TypeConverters.toBoolean)
 
     def __init__(self):
         super(EstimatorParams, self).__init__()
@@ -182,7 +188,8 @@ class EstimatorParams(Params):
             inmemory_cache_all=False,
             use_gpu=True,
             mp_start_method=None,
-            backward_passes_per_step=1)
+            backward_passes_per_step=1,
+            disable_autotune_batch_prefetch=False)
 
     def _check_params(self, metadata):
         model = self.getModel()
@@ -380,7 +387,7 @@ class EstimatorParams(Params):
 
     def getTransformationFn(self):
         return self.getOrDefault(self.transformation_fn)
-    
+
     def setTransformationEditFields(self, value):
         return self._set(transformation_edit_fields=value)
 
@@ -434,12 +441,18 @@ class EstimatorParams(Params):
 
     def getMpStartMethod(self):
         return self.getOrDefault(self.mp_start_method)
-    
+
     def setBackwardPassesPerStep(self, value):
         self._set(backward_passes_per_step=value)
 
     def getBackwardPassesPerStep(self):
         return self.getOrDefault(self.backward_passes_per_step)
+
+    def setDisableAutotuneBatchPrefetch(self, value):
+        self._set(disable_autotune_batch_prefetch=value)
+
+    def getDisableAutotuneBatchPrefetch(self):
+        return self.getOrDefault(self.disable_autotune_batch_prefetch)
 
 class ModelParams(HasOutputCols):
     history = Param(Params._dummy(), 'history', 'history')
