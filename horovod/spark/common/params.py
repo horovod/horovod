@@ -140,11 +140,10 @@ class EstimatorParams(Params):
                                      'This param defaults to 1.',
                                      typeConverter=TypeConverters.toInt)
 
-    disable_autotune_batch_prefetch = Param(Params._dummy(), 'disable_autotune_batch_prefetch',
-                                      'Whether to disable autotune batch prefetch in data module or not.'
-                                      'Setting this to True will prefetch only one batch.'
-                                      'Defaults to False.',
-                                      typeConverter=TypeConverters.toBoolean)
+    tensorflow_dataset_prefetch_buffer_size = Param(Params._dummy(), 'tensorflow_dataset_prefetch_buffer_size',
+                                      'The size of the prefetch buffer for the TensorFlow dataset. '
+                                      'This param defaults to 0.',
+                                      typeConverter=TypeConverters.toInt)
 
     def __init__(self):
         super(EstimatorParams, self).__init__()
@@ -189,7 +188,7 @@ class EstimatorParams(Params):
             use_gpu=True,
             mp_start_method=None,
             backward_passes_per_step=1,
-            disable_autotune_batch_prefetch=False)
+            tensorflow_dataset_prefetch_buffer_size=0)
 
     def _check_params(self, metadata):
         model = self.getModel()
@@ -448,11 +447,11 @@ class EstimatorParams(Params):
     def getBackwardPassesPerStep(self):
         return self.getOrDefault(self.backward_passes_per_step)
 
-    def setDisableAutotuneBatchPrefetch(self, value):
-        self._set(disable_autotune_batch_prefetch=value)
+    def setTensorflowDatasetPrefetchBufferSize(self, value):
+        self._set(tensorflow_dataset_prefetch_buffer_size=value)
 
-    def getDisableAutotuneBatchPrefetch(self):
-        return self.getOrDefault(self.disable_autotune_batch_prefetch)
+    def getTensorflowDatasetPrefetchBufferSize(self):
+        return self.getOrDefault(self.tensorflow_dataset_prefetch_buffer_size)
 
 class ModelParams(HasOutputCols):
     history = Param(Params._dummy(), 'history', 'history')

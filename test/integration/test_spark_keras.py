@@ -243,12 +243,12 @@ class SparkKerasTests(tf.test.TestCase):
                     label_prob = row.label_prob.toArray().tolist()
                     assert label_prob[int(row.label_pred)] == max(label_prob)
 
-    def test_fit_model_with_disable_autotune_batch_prefetch(self):
+    def test_fit_model_with_tensorflow_dataset_prefetch_buffer_size(self):
         model = create_xor_model()
         optimizer = get_sgd_optimizer()
         loss = 'binary_crossentropy'
 
-        with spark_session('test_fit_model_with_disable_autotune_batch_prefetch') as spark:
+        with spark_session('test_fit_model_with_tensorflow_dataset_prefetch_buffer_size') as spark:
             df = create_xor_data(spark)
 
             with local_store() as store:
@@ -266,7 +266,7 @@ class SparkKerasTests(tf.test.TestCase):
                     verbose=2,
                     use_gpu=False,
                     mp_start_method='spawn',
-                    disable_autotune_batch_prefetch=True)
+                    tensorflow_dataset_prefetch_buffer_size=1)
 
                 assert not keras_estimator.getUseGpu()
                 assert 'spawn' == keras_estimator.getMpStartMethod()
