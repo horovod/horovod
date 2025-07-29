@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import os
 import re
 import sys
 from typing import List, Dict, Set
@@ -30,6 +31,7 @@ def main():
     path = pathlib.Path(__file__).parent
     script = path.joinpath('..', '.buildkite', 'gen-pipeline.sh').absolute()
     env = dict(
+        PATH=os.environ.get('PATH', ''),
         PIPELINE_MODE='FULL',
         BUILDKITE_PIPELINE_SLUG='horovod',
         BUILDKITE_PIPELINE_DEFAULT_BRANCH='master',
