@@ -23,6 +23,7 @@ class MPI:
         ...
 
 from horovod.common.process_sets import ProcessSet, global_process_set, _init_process_sets
+from horovod.common.process_sets import _setup as _setup_process_sets
 from horovod.common import util as util
 
 
@@ -30,15 +31,24 @@ class HorovodBasics(object):
     """Wrapper class for the basic Horovod API."""
 
     def __init__(self, pkg_path, *args):
-        full_path = util.get_extension_full_path(pkg_path, *args)
-        self.MPI_LIB_CTYPES = ctypes.CDLL(full_path, mode=ctypes.RTLD_GLOBAL)
+        self.full_path = util.get_extension_full_path(pkg_path, *args)
 
-        self.Average = self.MPI_LIB_CTYPES.horovod_reduce_op_average()
-        self.Sum = self.MPI_LIB_CTYPES.horovod_reduce_op_sum()
-        self.Adasum = self.MPI_LIB_CTYPES.horovod_reduce_op_adasum()
-        self.Min = self.MPI_LIB_CTYPES.horovod_reduce_op_min()
-        self.Max = self.MPI_LIB_CTYPES.horovod_reduce_op_max()
-        self.Product = self.MPI_LIB_CTYPES.horovod_reduce_op_product()
+        # These ReduceOp must be kept in sync with horovod/common/message.h
+        # We can not get these values from ctypes (self.MPI_LIB_CTYPES.horovod_reduce_op_average() etc.) dynamically
+        # because ctypes hasn't load shared lib yet, but other components need to import these ReduceOp now.
+        AVERAGE = 0
+        SUM = 1
+        ADASUM = 2
+        MIN = 3
+        MAX = 4
+        PRODUCT = 5
+
+        self.Average = AVERAGE
+        self.Sum = SUM
+        self.Adasum = ADASUM
+        self.Min = MIN
+        self.Max = MAX
+        self.Product = PRODUCT
 
         # These must be kept in sync with operations.cc (this might also be possible via ctypes)
         self.HOROVOD_PROCESS_SET_ERROR_INIT = -1
@@ -71,6 +81,11 @@ class HorovodBasics(object):
             3) "dynamic": do not initialize any process sets now, but set the environment variable
                HOROVOD_DYNAMIC_PROCESS_SETS=1 so we can call `hvd.add_process_set(...)` later.
         """
+        # We delay MPI_LIB_CTYPES creation from func __init__ to init
+        # because multiple HorovodBasics might be created accidently
+        # if more than one of tf/torch/mxnet horovod are imported.
+        # Loading multiple mpi_libs will cause NCCL error / stuck.
+        self.MPI_LIB_CTYPES = ctypes.CDLL(self.full_path, mode=ctypes.RTLD_GLOBAL)
 
         if comm is None:
             comm = []
@@ -133,6 +148,8 @@ class HorovodBasics(object):
                 "Horovod initialization failed. Please check log messages above for a more descriptive error.")
 
         try:
+            _setup_process_sets(self)   # process_sets.py contains a global reference to HorovodBasics
+                                        # we explictly set it here to make process_sets reference the one that have hvd.init called
             _init_process_sets(process_sets)
         except ValueError as e:
             if (len(e.args) > 0 and isinstance(e.args[0], str) and
@@ -489,4 +506,3 @@ class HorovodBasics(object):
         elif result == self.HOROVOD_PROCESS_SET_ERROR_UNKNOWN_SET:
             raise ValueError('MPI communicator does not correspond to any registered process set.')
         return result
-
