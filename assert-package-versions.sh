@@ -33,6 +33,11 @@ do
   else
     flag="-Fx"
   fi
+  if [[ "$pattern" == *"-"* ]]
+  then
+    flag="-P"
+    pattern="${pattern//-/[-_]}"
+  fi
 
   found=$(pip freeze | grep -i $flag "$pattern" || true)
   if [ -n "$found" ]
