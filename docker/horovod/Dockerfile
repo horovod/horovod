@@ -79,7 +79,8 @@ RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
 RUN pip install --no-cache-dir \
     torch==${PYTORCH_VERSION} \
     torchvision==${TORCHVISION_VERSION} \
-    -f https://download.pytorch.org/whl/${PYTORCH_VERSION/*+/}/torch_stable.html
+    -f https://download.pytorch.org/whl/${PYTORCH_VERSION/*+/}/torch \
+    -f https://download.pytorch.org/whl/${TORCHVISION_VERSION/*+/}/torchvision
 RUN pip install --no-cache-dir pytorch_lightning==${PYTORCH_LIGHTNING_VERSION}
 
 RUN pip install --no-cache-dir future typing packaging

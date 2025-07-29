@@ -170,7 +170,7 @@ RUN pip install 'h5py<3.0' 'numpy<1.24.0' --force-reinstall
 #   invalid metadata: .* suffix can only be used with == or != operators
 # https://github.com/pypa/pipx/issues/998
 RUN if [[ ${PYTORCH_PACKAGE} != "torch-nightly-cu"* ]]; then \
-        pip install --no-cache-dir ${PYTORCH_PACKAGE} ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/${PYTORCH_PACKAGE/*+/}/torch_stable.html; \
+        pip install --no-cache-dir ${PYTORCH_PACKAGE} ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/${PYTORCH_PACKAGE/*+/}/torch -f https://download.pytorch.org/whl/${TORCHVISION_PACKAGE/*+/}/torchvision; \
         if [[ "${TORCHVISION_PACKAGE/%+*/}" == torchvision==0.[1234].* ]]; then \
             pip install --no-cache-dir "Pillow<7.0" --no-deps; \
         else \
