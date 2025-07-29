@@ -247,7 +247,7 @@ services:
         MXNET_PACKAGE: mxnet-nightly-cu112
   # These are the lowest framework versions that Horovod compiles with on the CUDA 11.x container, but they are not tested.
   # Versions of python, mxnet, and pyspark differ from the CPU build with minimum versions.
-  test-gpu-openmpi-gloo-py3_8-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin:
+  test-gpu-openmpi-gloo-py3_9-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin:
     extends: test-gpu-base
     build:
       args:
@@ -267,7 +267,7 @@ services:
         PYSPARK_PACKAGE: pyspark==3.0.0
         SPARK_PACKAGE: spark-3.0.0/spark-3.0.0-bin-hadoop2.7.tgz
 
-  test-mixed-openmpi-gloo-py3_8-tf2_17_0-keras3_4_1-torch2_3_1-mxnet1_9_1-pyspark3_5_1:
+  test-mixed-openmpi-gloo-py3_9-tf2_17_0-keras3_4_1-torch2_3_1-mxnet1_9_1-pyspark3_5_1:
     extends: test-gpu-base
     build:
       args:
