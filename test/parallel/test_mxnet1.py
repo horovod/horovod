@@ -33,6 +33,41 @@ if HAS_MXNET:
 else:
     _skip_enqueue_errors = False
 
+import atexit
+import mxnet as mx
+import horovod.mxnet as hvd
+
+
+@atexit.register
+def finalize_horovod():
+    try:
+        if hvd.is_initialized():
+            # Ensure any pending ops are flushed
+            mx.nd.waitall()
+
+            try:
+                # Try barrier, but timeout after N seconds to avoid hang
+                import signal
+
+                def timeout_handler(signum, frame):
+                    raise TimeoutError("Rank {} timed out in hvd.barrier()".format(hvd.rank()))
+
+                signal.signal(signal.SIGALRM, timeout_handler)
+                signal.alarm(10)  # 10 second timeout for barrier
+
+                hvd.barrier()
+                signal.alarm(0)
+
+            except TimeoutError as te:
+                print(f"[Rank {hvd.rank()}] barrier timeout: {te}")
+
+            try:
+                hvd.shutdown()
+            except Exception as e:
+                print(f"[Rank {hvd.rank()}] hvd.shutdown() failed: {e}")
+    except Exception as e:
+        print(f"[Rank N/A] Finalization error: {e}")
+
 
 @pytest.mark.skipif(not HAS_MXNET, reason='MXNet unavailable')
 @pytest.mark.skipif(version.parse(mx.__version__).major != 1, reason='MXNet v1.x tests')

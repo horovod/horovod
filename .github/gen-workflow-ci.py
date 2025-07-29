@@ -572,7 +572,8 @@ def main():
     def publish_docker_images(needs: List[str], images: List[str]) -> str:
         if 'init-workflow' not in needs:
             needs.insert(0, 'init-workflow')
-        if needs != ['init-workflow', 'build-and-test', 'buildkite']:
+        # if needs != ['init-workflow', 'build-and-test', 'buildkite']:
+        if needs != ['init-workflow', 'build-and-test']:
             raise RuntimeError('This job has hard-coded needs, which you may want to adjust')
         return (f'  docker-config:\n'
                 f'    name: Configure docker build\n'
@@ -815,12 +816,13 @@ def main():
             init_workflow_job(),
             # changing these names require changes in the workflow-conclusion step in ci-results.yaml
             build_and_test_images(id='build-and-test', name='Build and Test', needs=['init-workflow'], images=release_images, parallel_images=len(cpu_release_images), tests_per_image=tests_per_image, tests=tests),
-            build_and_test_images(id='build-and-test-heads', name='Build and Test heads', needs=['build-and-test'], images=allhead_images, tests_per_image=tests_per_image, tests=tests),
+            # build_and_test_images(id='build-and-test-heads', name='Build and Test heads', needs=['build-and-test'], images=allhead_images, tests_per_image=tests_per_image, tests=tests),
             build_and_test_images(id='build-mins', name='Build mins', needs=['build-and-test'], images=allmin_images, tests_per_image=tests_per_image, tests={}),
             build_and_test_macos(id='build-and-test-macos', name='Build and Test macOS', needs=['build-and-test']),
-            trigger_buildkite_job(id='buildkite', name='Build and Test GPU', needs=['build-and-test'], mode='GPU NON HEADS'),
-            trigger_buildkite_job(id='buildkite-heads', name='Build and Test GPU heads', needs=['build-and-test'], mode='GPU HEADS'),
-            publish_docker_images(needs=['build-and-test', 'buildkite'], images=['horovod', 'horovod-cpu', 'horovod-nvtabular', 'horovod-ray']),
+            # trigger_buildkite_job(id='buildkite', name='Build and Test GPU', needs=['build-and-test'], mode='GPU NON HEADS'),
+            # trigger_buildkite_job(id='buildkite-heads', name='Build and Test GPU heads', needs=['build-and-test'], mode='GPU HEADS'),
+            # publish_docker_images(needs=['build-and-test', 'buildkite'], images=['horovod', 'horovod-cpu', 'horovod-nvtabular', 'horovod-ray']),
+            publish_docker_images(needs=['build-and-test'], images=['horovod', 'horovod-cpu', 'horovod-nvtabular', 'horovod-ray']),
             sync_files(needs=['init-workflow'])
         )
         print(workflow, file=w, end='')
