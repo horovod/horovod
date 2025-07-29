@@ -53,6 +53,8 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
         moreutils && \
     rm -rf /var/lib/apt/lists/*
 
+ENV CMAKE_POLICY_VERSION_MINIMUM=3.5
+
 # setup ssh service
 RUN ssh-keygen -f /root/.ssh/id_rsa -q -N ''
 RUN cp -v /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
