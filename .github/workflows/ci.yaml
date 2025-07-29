@@ -389,7 +389,7 @@ jobs:
             Spark_Torch_MNIST: true
             build_timeout: 30
 
-          - image: test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch2_1_2-mxnet1_8_0_p0-pyspark3_5_1
+          - image: test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_13_1-mxnet1_8_0_p0-pyspark3_5_1
             build_timeout: 40
 
           - image: test-gpu-gloo-py3_9-tf2_15_1-keras3_2_1-torch2_1_2-mxnet1_8_0_p0-pyspark3_5_1

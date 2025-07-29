@@ -59,7 +59,7 @@ tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${B
 
   # then we vary the frameworks for gpu
   # There is no CUDA10 nvidia/cuda image any more, so we move to nvidia-tensorflow==1.15.5+nv... (with CUDA 11.6) from mainline tensorflow-gpu==1.15.5, which requires us to deviate from CPU versions for python, torch, and mxnet.
-  printf "test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch2_1_2-mxnet1_8_0_p0-pyspark3_5_1 "
+  printf "test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_13_1-mxnet1_8_0_p0-pyspark3_5_1 "
   printf "test-gpu-gloo-py3_9-tf2_15_1-keras3_2_1-torch2_1_2-mxnet1_8_0_p0-pyspark3_5_1 "
   printf "test-gpu-gloo-py3_9-tf2_16_2-keras3_3_3-torch2_2_2-mxnet1_8_0_p0-pyspark3_5_1 "
   printf "test-gpu-openmpi-gloo-py3_9-tf2_17_0-keras3_4_1-torch2_3_1-mxnet1_9_1-pyspark3_5_1 "
