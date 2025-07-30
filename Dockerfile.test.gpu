@@ -60,6 +60,7 @@ RUN CUDNN_MAJOR=$(cut -d '.' -f 1 <<< "${CUDNN_VERSION}"); \
         build-essential \
         g++-${GPP_VERSION} \
         moreutils \
+        llvm-dev \
         libcudnn${CUDNN_MAJOR}=${CUDNN_VERSION} \
         libnccl2=${NCCL_VERSION_OVERRIDE} \
         libnccl-dev=${NCCL_VERSION_OVERRIDE} && \

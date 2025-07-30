@@ -50,7 +50,8 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
         git \
         build-essential \
         g++-${GPP_VERSION} \
-        moreutils && \
+        moreutils \
+        llvm-dev && \
     rm -rf /var/lib/apt/lists/*
 
 ENV CMAKE_POLICY_VERSION_MINIMUM=3.5
