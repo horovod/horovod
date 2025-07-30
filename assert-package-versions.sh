@@ -33,10 +33,14 @@ do
   else
     flag="-Fx"
   fi
+  # packages like tensorflow-cpu==x.y.z and tensorflow_cpu==x.y.z are equivalent
   if [[ "$pattern" == *"-"* ]]
   then
     flag="-P"
     pattern="${pattern//-/[-_]}"
+    # escape special regexp characters
+    pattern="${pattern//./[.]}"
+    pattern="${pattern//+/[+]}"
   fi
 
   found=$(pip freeze | grep -i $flag "$pattern" || true)
