@@ -249,6 +249,7 @@ RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly-cu"* ]]; then \
     fi
 
 # Install Horovod.
+ENV MAKEFLAGS=-j1
 RUN cd /horovod && \
     python setup.py sdist && \
     ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \

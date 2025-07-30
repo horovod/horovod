@@ -261,6 +261,7 @@ RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly" ]]; then \
     fi
 
 # Install Horovod.
+ENV MAKEFLAGS=-j1
 RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
       if [ -z "${LD_LIBRARY_PATH:-}" ]; then \
           export LD_LIBRARY_PATH=""; \
