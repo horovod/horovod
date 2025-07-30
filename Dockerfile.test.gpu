@@ -194,7 +194,8 @@ RUN if [[ ${PYTORCH_PACKAGE} != "torch-nightly-cu"* ]]; then \
 
 # Install MXNet (releases).
 RUN if [[ ${MXNET_PACKAGE} != "mxnet-nightly-cu"* ]]; then \
-        pip install --no-cache-dir ${MXNET_PACKAGE} ; \
+        # mxnet uses numpy.bool, which has been removed in numpy 1.24.0
+        pip install --no-cache-dir ${MXNET_PACKAGE} "numpy<1.24.0"; \
     fi
 
 # Prefetch Spark MNIST dataset.
