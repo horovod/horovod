@@ -60,10 +60,13 @@ RUN CUDNN_MAJOR=$(cut -d '.' -f 1 <<< "${CUDNN_VERSION}"); \
         build-essential \
         g++-${GPP_VERSION} \
         moreutils \
+        llvm-dev \
         libcudnn${CUDNN_MAJOR}=${CUDNN_VERSION} \
         libnccl2=${NCCL_VERSION_OVERRIDE} \
         libnccl-dev=${NCCL_VERSION_OVERRIDE} && \
     rm -rf /var/lib/apt/lists/*
+
+ENV CMAKE_POLICY_VERSION_MINIMUM=3.5
 
 # setup ssh service
 RUN ssh-keygen -f /root/.ssh/id_rsa -q -N ''
@@ -74,12 +77,15 @@ RUN apt-get update -qq && apt-get install -y python${PYTHON_VERSION} python${PYT
     rm -rf /var/lib/apt/lists/*
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python${PYTHON_VERSION/%.*/}
-RUN if [[ ${PYTHON_VERSION} != "3.7" ]]; then \
-        wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py; \
-    else \
+RUN if [[ ${PYTHON_VERSION} == "3.7" ]]; then \
         wget --progress=dot:mega https://bootstrap.pypa.io/pip/3.7/get-pip.py; \
+    elif [[ ${PYTHON_VERSION} == "3.8" ]]; then \
+        wget --progress=dot:mega https://bootstrap.pypa.io/pip/3.8/get-pip.py; \
+    else \
+        wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py; \
     fi && python get-pip.py && rm get-pip.py
 
+RUN python -m pip install --upgrade pip
 RUN pip install --no-cache-dir -U --force requests "pytest<8" mock pytest-forked parameterized
 
 # Add launch helper scripts
@@ -147,7 +153,11 @@ RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly" ]]; then \
         pip install --no-cache-dir ${TENSORFLOW_PACKAGE} ${PROTOBUF_PACKAGE}; \
         if [[ ${KERAS_PACKAGE} != "None" ]]; then \
             pip uninstall -y keras; \
-            pip install --no-cache-dir ${KERAS_PACKAGE} "scipy!=1.4.0" "pandas<1.1.0" "numpy<1.24.0"; \
+            KERAS_DEPS=""; \
+            if [[ ${KERAS_PACKAGE} == "keras==2.2.4" ]]; then \
+                KERAS_DEPS='scipy!=1.4.0 pandas<1.1.0 numpy<1.24.0'; \
+            fi; \
+            pip install --no-cache-dir ${KERAS_PACKAGE} ${KERAS_DEPS}; \
         fi; \
         mkdir -p ~/.keras; \
         ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs; \
@@ -155,8 +165,10 @@ RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly" ]]; then \
         ldconfig; \
     fi
 
-# Pin h5py < 3 for tensorflow: https://github.com/tensorflow/tensorflow/issues/44467
-RUN pip install 'h5py<3.0' 'numpy<1.24.0' --force-reinstall
+# Pin h5py<3 for tensorflow<2.4.0: https://github.com/tensorflow/tensorflow/issues/44467
+RUN if [[ ${TENSORFLOW_PACKAGE} == tensorflow*==1.15.* ]]; then \
+        pip install 'h5py<3.0' 'numpy<1.24.0' --force-reinstall; \
+    fi
 
 # Install PyTorch (releases).
 # Pin Pillow<7.0 for torchvision < 0.5.0: https://github.com/pytorch/vision/issues/1718
@@ -165,7 +177,7 @@ RUN pip install 'h5py<3.0' 'numpy<1.24.0' --force-reinstall
 #   invalid metadata: .* suffix can only be used with == or != operators
 # https://github.com/pypa/pipx/issues/998
 RUN if [[ ${PYTORCH_PACKAGE} != "torch-nightly-cu"* ]]; then \
-        pip install --no-cache-dir ${PYTORCH_PACKAGE} ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/${PYTORCH_PACKAGE/*+/}/torch_stable.html; \
+        pip install --no-cache-dir ${PYTORCH_PACKAGE} ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/${PYTORCH_PACKAGE/*+/}/torch -f https://download.pytorch.org/whl/${TORCHVISION_PACKAGE/*+/}/torchvision; \
         if [[ "${TORCHVISION_PACKAGE/%+*/}" == torchvision==0.[1234].* ]]; then \
             pip install --no-cache-dir "Pillow<7.0" --no-deps; \
         else \
@@ -182,7 +194,8 @@ RUN if [[ ${PYTORCH_PACKAGE} != "torch-nightly-cu"* ]]; then \
 
 # Install MXNet (releases).
 RUN if [[ ${MXNET_PACKAGE} != "mxnet-nightly-cu"* ]]; then \
-        pip install --no-cache-dir ${MXNET_PACKAGE} ; \
+        # mxnet uses numpy.bool, which has been removed in numpy 1.24.0
+        pip install --no-cache-dir ${MXNET_PACKAGE} "numpy<1.24.0"; \
     fi
 
 # Prefetch Spark MNIST dataset.
@@ -236,6 +249,7 @@ RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly-cu"* ]]; then \
     fi
 
 # Install Horovod.
+ENV MAKEFLAGS=-j1
 RUN cd /horovod && \
     python setup.py sdist && \
     ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \

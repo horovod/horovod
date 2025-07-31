@@ -40,6 +40,7 @@ RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-
         vim \
         wget \
         ca-certificates \
+        llvm-dev \
         libcudnn8=${CUDNN_VERSION} \
         libnccl2=${NCCL_VERSION} \
         libnccl-dev=${NCCL_VERSION} \
@@ -79,7 +80,8 @@ RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
 RUN pip install --no-cache-dir \
     torch==${PYTORCH_VERSION} \
     torchvision==${TORCHVISION_VERSION} \
-    -f https://download.pytorch.org/whl/${PYTORCH_VERSION/*+/}/torch_stable.html
+    -f https://download.pytorch.org/whl/${PYTORCH_VERSION/*+/}/torch \
+    -f https://download.pytorch.org/whl/${TORCHVISION_VERSION/*+/}/torchvision
 RUN pip install --no-cache-dir pytorch_lightning==${PYTORCH_LIGHTNING_VERSION}
 
 RUN pip install --no-cache-dir future typing packaging
