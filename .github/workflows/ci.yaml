@@ -4574,7 +4574,7 @@ jobs:
     steps:
       - name: Trigger Buildkite Pipeline
         id: build
-        uses: buildkite/trigger-pipeline-action@v1.3.1
+        uses: buildkite/trigger-pipeline-action@v2.3.0
         env:
           PIPELINE: "horovod/horovod"
           # COMMIT is taken from GITHUB_SHA
@@ -4631,7 +4631,7 @@ jobs:
     steps:
       - name: Trigger Buildkite Pipeline
         id: build
-        uses: buildkite/trigger-pipeline-action@v1.3.1
+        uses: buildkite/trigger-pipeline-action@v2.3.0
         env:
           PIPELINE: "horovod/horovod"
           # COMMIT is taken from GITHUB_SHA
