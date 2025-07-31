@@ -96,7 +96,6 @@ services:
     build:
       args:
         MPI_KIND: OpenMPI
-        PYTHON_VERSION: 3.9
         TENSORFLOW_PACKAGE: tf-nightly
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch-nightly
@@ -145,7 +144,6 @@ services:
     extends: test-cpu-base
     build:
       args:
-        PYTHON_VERSION: 3.9
         PYSPARK_PACKAGE: pyspark==3.4.3
         SPARK_PACKAGE: spark-3.4.3/spark-3.4.3-bin-hadoop3.tgz
   # then our baseline again, omitted ...
@@ -255,7 +253,6 @@ services:
         CUDNN_VERSION: 8.4.1.50-1+cuda11.6
         NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
         MPI_KIND: OpenMPI
-        PYTHON_VERSION: 3.8
         TENSORFLOW_PACKAGE: nvidia-tensorflow==1.15.5+nv22.4
         KERAS_PACKAGE: keras==2.2.4
         # torch ships its own CUDA libraries
@@ -275,7 +272,6 @@ services:
         CUDNN_VERSION: 8.6.0.163-1+cuda11.8
         NCCL_VERSION_OVERRIDE: 2.16.5-1+cuda11.8
         MPI_KIND: OpenMPI
-        PYTHON_VERSION: 3.8
         # tensorflow package supports GPU from 2.11.1 and 2.12.0 on
         TENSORFLOW_PACKAGE: tensorflow==2.19.0
         KERAS_PACKAGE: keras==3.10.0
