@@ -26,6 +26,7 @@ class PetastormDataModule(DataModule):
                        val_reader_worker_count: int=2,
                        make_dataset=None,
                        random_seed=0,
+                       tensorflow_dataset_prefetch_buffer_size=0,
                        **kwargs):
         from petastorm import TransformSpec, make_reader, make_batch_reader
 
@@ -35,6 +36,7 @@ class PetastormDataModule(DataModule):
         self.val_reader_worker_count = val_reader_worker_count
         self.make_dataset = make_dataset
         self.random_seed = random_seed
+        self.tensorflow_dataset_prefetch_buffer_size = tensorflow_dataset_prefetch_buffer_size
 
         # In general, make_batch_reader is faster than make_reader for reading the dataset.
         # However, we found out that make_reader performs data transformations much faster than
@@ -94,11 +96,11 @@ class PetastormDataModule(DataModule):
 
     def train_data(self):
         return self.make_dataset(self.train_reader, self.train_batch_size,
-                                 self.is_batch_reader, shuffle=self.shuffle, cache=self.inmemory_cache_all)
+                                 self.is_batch_reader, shuffle=self.shuffle, cache=self.inmemory_cache_all, tensorflow_dataset_prefetch_buffer_size=self.tensorflow_dataset_prefetch_buffer_size)
 
     def val_data(self):
         return self.make_dataset(self.val_reader, self.val_batch_size,
-                                 self.is_batch_reader, shuffle=False, cache=self.inmemory_cache_all) if self.val_reader else None
+                                 self.is_batch_reader, shuffle=False, cache=self.inmemory_cache_all, tensorflow_dataset_prefetch_buffer_size=self.tensorflow_dataset_prefetch_buffer_size) if self.val_reader else None
 
 
 class NVTabularDataModule(DataModule):

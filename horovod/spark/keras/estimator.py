@@ -161,6 +161,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                      2G min and max for libhdfs through petastorm
         use_gpu: Whether to use the GPU for training. Defaults to True.
         mp_start_method: The method to use to start multiprocessing. Defaults to None.
+        tensorflow_dataset_prefetch_buffer_size: The size of the prefetch buffer for the TensorFlow dataset. Default to 0.
     """
 
     custom_objects = Param(Params._dummy(), 'custom_objects', 'custom objects')
@@ -210,7 +211,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                  inmemory_cache_all=False,
                  backend_env=None,
                  use_gpu=True,
-                 mp_start_method=None):
+                 mp_start_method=None,
+                 tensorflow_dataset_prefetch_buffer_size=0):
 
         super(KerasEstimator, self).__init__()
 
