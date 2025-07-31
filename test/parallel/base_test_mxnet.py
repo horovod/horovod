@@ -58,6 +58,16 @@ class MXTests:
     Tests for ops in horovod.mxnet. These are inherited by the actual unittest.TestCases
     in test_mxnet1.py and test_mxnet2.py.
     """
+    def setUp(self):
+        if hasattr(hvd, 'is_initialized') and not hvd.is_initialized():
+            hvd.init()
+
+    def tearDown(self):
+        if hasattr(hvd, 'is_initialized') and hvd.is_initialized():
+            try:
+                hvd.barrier()
+            except Exception:
+                pass
 
     def _current_context(self):
         if has_gpu:
@@ -648,7 +658,7 @@ class MXTests:
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
-        
+
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
 
@@ -728,7 +738,7 @@ class MXTests:
             self.skipTest("Only one worker available")
 
         dtypes = ['int32',   'int64',
-                  'float32', 'float64'] 
+                  'float32', 'float64']
         dims = [1, 2, 3]
         ctx = self._current_context()
         count = 0
@@ -773,7 +783,7 @@ class MXTests:
             self.skipTest("Only one worker available")
 
         dtypes = ['int32',   'int64',
-                  'float32', 'float64'] 
+                  'float32', 'float64']
         dims = [1, 2, 3]
         ctx = self._current_context()
         count = 0
@@ -820,7 +830,7 @@ class MXTests:
             self.skipTest("Only one worker available")
 
         dtypes = ['int32',   'int64',
-                  'float32', 'float64'] 
+                  'float32', 'float64']
         dims = [1, 2, 3]
         ctx = self._current_context()
         count = 0
@@ -1650,13 +1660,13 @@ class MXTests:
             expected = np.ones(tensor_size)
             err = np.linalg.norm(expected - tensor_decompressed.asnumpy())
             self.assertLess(err, 0.00000001)
-            
+
     def test_optimizer_process_sets(self):
         """Test DistributedOptimizer restricted to a process set for an entire model.
 
         Note that this test makes the most sense when running with > 2 processes."""
         hvd.init()
-        
+
         if hvd.ccl_built():
             self.skipTest("Multiple process sets currently do not support CCL.")
 
@@ -1672,20 +1682,20 @@ class MXTests:
             this_set = even_set
         elif hvd.rank() in odd_ranks:
             this_set = odd_set
-            
+
         ctx = self._current_context()
         mx.random.seed(hvd.rank(), ctx=ctx)
-        
+
         opt = hvd.DistributedOptimizer(mx.optimizer.Test(learning_rate=10.), process_set=even_set)
-        
-        # Identical weights tensor on each rank 
+
+        # Identical weights tensor on each rank
         shape = (3, 10, 100)
         w = mx.random.uniform(shape=shape, ctx=ctx, dtype=np.float32)
         hvd.broadcast_(w, root_rank=0)
 
         # Gradient tensor that differs by rank
         g = mx.random.uniform(shape=shape, ctx=ctx, dtype=np.float32)
-        
+
         # Update that is only averaged over even_set
         if version.parse(mx.__version__).major >= 2:
             opt.update([0], [w], [g], [opt.create_state(0, w)])

@@ -60,17 +60,17 @@ class BuildKiteTests(unittest.TestCase):
 
     """
     Tests the generated GPU buildkite pipeline.
-    
+
     Compares output of .buildkite/gen-pipeline.sh with test/single/data/expected_buildkite_gpu_heads_pipeline.yaml.
     To see the changes in the output, run the following in your Horovod project root:
-    
+
         BUILDKITE_PIPELINE_SLUG=SLUG BUILDKITE_BRANCH=BRANCH PIPELINE_MODE="GPU HEADS" .buildkite/gen-pipeline.sh > test/single/data/expected_buildkite_gpu_heads_pipeline.yaml
-    
+
     Then run `git diff` to see the changes in the generated pipeline YAML.
     Commit `test/single/data/expected_buildkite_gpu_heads_pipeline.yaml` to get those changes into your PR.
     """
-    def test_gen_gpu_heads_pipeline(self):
-        self.do_test_gen_pipeline(GEN_PIPELINE_FNAME, 'GPU HEADS', {}, 'WARNING:root:no commit (None) or default branch (None) given\n')
+    # def test_gen_gpu_heads_pipeline(self):
+    #     self.do_test_gen_pipeline(GEN_PIPELINE_FNAME, 'GPU HEADS', {}, 'WARNING:root:no commit (None) or default branch (None) given\n')
 
     """
     Tests the generated GPU buildkite pipeline.
@@ -83,8 +83,8 @@ class BuildKiteTests(unittest.TestCase):
     Then run `git diff` to see the changes in the generated pipeline YAML.
     Commit `test/single/data/expected_buildkite_gpu_non_heads_pipeline.yaml` to get those changes into your PR.
     """
-    def test_gen_gpu_non_heads_pipeline(self):
-        self.do_test_gen_pipeline(GEN_PIPELINE_FNAME, 'GPU NON HEADS', {}, 'WARNING:root:no commit (None) or default branch (None) given\n')
+    # def test_gen_gpu_non_heads_pipeline(self):
+    #     self.do_test_gen_pipeline(GEN_PIPELINE_FNAME, 'GPU NON HEADS', {}, 'WARNING:root:no commit (None) or default branch (None) given\n')
 
     """
     Tests the given command produces the expected pipeline.

@@ -53,6 +53,8 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
         moreutils && \
     rm -rf /var/lib/apt/lists/*
 
+ENV CMAKE_POLICY_VERSION_MINIMUM=3.5
+
 # setup ssh service
 RUN ssh-keygen -f /root/.ssh/id_rsa -q -N ''
 RUN cp -v /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
@@ -62,12 +64,15 @@ RUN apt-get update -qq && apt-get install -y python${PYTHON_VERSION} python${PYT
     rm -rf /var/lib/apt/lists/*
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python${PYTHON_VERSION/%.*/}
-RUN if [[ ${PYTHON_VERSION} != "3.7" ]]; then \
-        wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py; \
-    else \
+RUN if [[ ${PYTHON_VERSION} == "3.7" ]]; then \
         wget --progress=dot:mega https://bootstrap.pypa.io/pip/3.7/get-pip.py; \
+    elif [[ ${PYTHON_VERSION} == "3.8" ]]; then \
+        wget --progress=dot:mega https://bootstrap.pypa.io/pip/3.8/get-pip.py; \
+    else \
+        wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py; \
     fi && python get-pip.py && rm get-pip.py
 
+RUN python -m pip install --upgrade pip
 RUN pip install --no-cache-dir -U --force requests "pytest<8" mock pytest-forked parameterized
 
 # Add launch helper scripts
