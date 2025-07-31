@@ -4417,7 +4417,7 @@ jobs:
     if: >
       needs.init-workflow.outputs.run-at-all == 'true' &&
       needs.init-workflow.outputs.run-builds-and-tests == 'true'
-    runs-on: macos-11
+    runs-on: macos-latest
 
     strategy:
       max-parallel: 3
