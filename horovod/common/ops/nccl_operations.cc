@@ -43,6 +43,8 @@ ncclDataType_t GetNCCLDataType(const std::shared_ptr<Tensor> tensor) {
     return ncclInt64;
   case HOROVOD_FLOAT16:
     return ncclFloat16;
+  case HOROVOD_BFLOAT16:
+    return ncclBfloat16;
   case HOROVOD_FLOAT32:
     return ncclFloat32;
   case HOROVOD_FLOAT64:
