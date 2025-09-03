@@ -391,3 +391,5 @@ if(HAVE_GLOO AND ((DEFINED Tensorflow_CXX17 AND Tensorflow_CXX17) OR (DEFINED Py
        target_compile_definitions(compatible17_gloo PRIVATE _GLIBCXX_USE_CXX11_ABI=0)
     endif()
 endif()
+
+add_subdirectory(third_party/abseil-cpp)

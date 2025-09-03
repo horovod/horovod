@@ -24,7 +24,11 @@
 
 #include "tensorflow/compiler/tf2xla/xla_op_kernel.h"
 #include "tensorflow/compiler/tf2xla/xla_op_registry.h"
+#if TENSORFLOW_VERSION >= 2018000000
+#include "tensorflow/compiler/xla/hlo/builder/xla_builder.h"
+#else
 #include "tensorflow/compiler/xla/client/xla_builder.h"
+#endif
 #include "tensorflow/compiler/xla/service/custom_call_target_registry.h"
 #include "tensorflow/compiler/xla/service/hlo.pb.h"
 #include "tensorflow/compiler/xla/shape.h"
@@ -225,7 +229,11 @@ public:
   }
 
 private:
+#if TENSORFLOW_VERSION >= 2020000000
+  absl::StatusOr<::xla::XlaOp> BuildAllreduceCustomCall(
+#else
   ::xla::StatusOr<::xla::XlaOp> BuildAllreduceCustomCall(
+#endif
       ::xla::XlaBuilder* b, absl::Span<const ::xla::XlaOp> operands,
       bool is_start,
       absl::Span<const std::pair<::xla::ShapeIndex,
@@ -274,7 +282,11 @@ private:
 HVD_REGISTER_XLA_OP("HorovodAllreduce", HVDAllreduceOp);
 
 // A helper function to build HLOs for all-reduce.
+#if TENSORFLOW_VERSION >= 2020000000
+absl::StatusOr<::xla::XlaOp> HVDAllreduceOp::BuildAllreduceCustomCall(
+#else
 ::xla::StatusOr<::xla::XlaOp> HVDAllreduceOp::BuildAllreduceCustomCall(
+#endif
     ::xla::XlaBuilder* b, absl::Span<const ::xla::XlaOp> operands,
     bool is_start,
     absl::Span<
