@@ -63,6 +63,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
     val_reader_worker_count = estimator.getValReaderNumWorker()
     reader_pool_type = estimator.getReaderPoolType()
+    tensorflow_dataset_prefetch_buffer_size = estimator.getTensorflowDatasetPrefetchBufferSize()
 
     # Model parameters
     input_shapes, output_shapes = estimator.get_model_shapes()
@@ -244,6 +245,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                 'steps_per_epoch_train': steps_per_epoch,
                 'steps_per_epoch_val': validation_steps,
                 'verbose': verbose,
+                'tensorflow_dataset_prefetch_buffer_size': tensorflow_dataset_prefetch_buffer_size,
                 # petastorm
                 'make_dataset': make_dataset,
                 'random_seed': random_seed,

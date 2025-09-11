@@ -243,6 +243,45 @@ class SparkKerasTests(tf.test.TestCase):
                     label_prob = row.label_prob.toArray().tolist()
                     assert label_prob[int(row.label_pred)] == max(label_prob)
 
+    def test_fit_model_with_tensorflow_dataset_prefetch_buffer_size(self):
+        model = create_xor_model()
+        optimizer = get_sgd_optimizer()
+        loss = 'binary_crossentropy'
+
+        with spark_session('test_fit_model_with_tensorflow_dataset_prefetch_buffer_size') as spark:
+            df = create_xor_data(spark)
+
+            with local_store() as store:
+                keras_estimator = hvd.KerasEstimator(
+                    num_proc=2,
+                    store=store,
+                    model=model,
+                    optimizer=optimizer,
+                    loss=loss,
+                    feature_cols=['features'],
+                    label_cols=['y'],
+                    batch_size=1,
+                    random_seed=1,
+                    epochs=3,
+                    verbose=2,
+                    use_gpu=False,
+                    mp_start_method='spawn',
+                    tensorflow_dataset_prefetch_buffer_size=1)
+
+                assert not keras_estimator.getUseGpu()
+                assert 'spawn' == keras_estimator.getMpStartMethod()
+
+                keras_estimator.setMpStartMethod('forkserver')
+                assert 'forkserver' == keras_estimator.getMpStartMethod()
+
+                keras_model = keras_estimator.fit(df)
+
+                trained_model = keras_model.getModel()
+                pred = trained_model.predict([np.ones([1, 2], dtype=np.float32)])
+                assert len(pred) == 1
+                assert pred.dtype == np.float32
+
+
     @mock.patch('horovod.spark.keras.remote._pin_gpu_fn')
     @mock.patch('horovod.spark.keras.util.TFKerasUtil.fit_fn')
     def test_restore_from_checkpoint(self, mock_fit_fn, mock_pin_gpu_fn):
