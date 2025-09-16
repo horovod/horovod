@@ -141,7 +141,7 @@ RUN if [[ ${MPI_KIND} != "None" ]]; then \
 # Install TensorFlow and Keras (releases).
 # Pin scipy!=1.4.0: https://github.com/scipy/scipy/issues/11237
 # Pin protobuf~=3.20 for tensorflow<2.6.5: https://github.com/tensorflow/tensorflow/issues/56077
-RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly" ]]; then \
+RUN if [[ ${TENSORFLOW_PACKAGE} != "None" ]] && [[ ${TENSORFLOW_PACKAGE} != "tf-nightly" ]]; then \
         if [[ ${TENSORFLOW_PACKAGE} == nvidia-tensorflow==* ]]; then \
             pip install nvidia-pyindex; \
         fi; \
@@ -177,7 +177,7 @@ RUN if [[ ${TENSORFLOW_PACKAGE} == tensorflow*==1.15.* ]]; then \
 # installing pytorch lightning < 1.8.4 with pip > 23.2.1 fails with:
 #   invalid metadata: .* suffix can only be used with == or != operators
 # https://github.com/pypa/pipx/issues/998
-RUN if [[ ${PYTORCH_PACKAGE} != "torch-nightly-cu"* ]]; then \
+RUN if [[ ${PYTORCH_PACKAGE} != "None" ]] && [[ ${PYTORCH_PACKAGE} != "torch-nightly-cu"* ]]; then \
         pip install --no-cache-dir ${PYTORCH_PACKAGE} ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/${PYTORCH_PACKAGE/*+/}/torch -f https://download.pytorch.org/whl/${TORCHVISION_PACKAGE/*+/}/torchvision; \
         if [[ "${TORCHVISION_PACKAGE/%+*/}" == torchvision==0.[1234].* ]]; then \
             pip install --no-cache-dir "Pillow<7.0" --no-deps; \
@@ -194,7 +194,7 @@ RUN if [[ ${PYTORCH_PACKAGE} != "torch-nightly-cu"* ]]; then \
     fi
 
 # Install MXNet (releases).
-RUN if [[ ${MXNET_PACKAGE} != "mxnet-nightly-cu"* ]]; then \
+RUN if [[ ${MXNET_PACKAGE} != "None" ]] && [[ ${MXNET_PACKAGE} != "mxnet-nightly-cu"* ]]; then \
         # mxnet uses numpy.bool, which has been removed in numpy 1.24.0
         pip install --no-cache-dir ${MXNET_PACKAGE} "numpy<1.24.0"; \
     fi
@@ -251,10 +251,14 @@ RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly-cu"* ]]; then \
 
 # Install Horovod.
 ENV MAKEFLAGS=-j1
-RUN cd /horovod && \
+RUN if [[ ${TENSORFLOW_PACKAGE} == "None" ]]; then export HOROVOD_WITHOUT_TENSORFLOW=1; else export HOROVOD_WITH_TENSORFLOW=1; fi; \
+    if [[ ${PYTORCH_PACKAGE}    == "None" ]]; then export HOROVOD_WITHOUT_PYTORCH=1;    else export HOROVOD_WITH_PYTORCH=1; fi; \
+    if [[ ${MXNET_PACKAGE}      == "None" ]]; then export HOROVOD_WITHOUT_MXNET=1;      else export HOROVOD_WITH_MXNET=1; fi; \
+    env | grep HOROVOD_WITH; \
+    cd /horovod && \
     python setup.py sdist && \
     ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
-    bash -c "${HOROVOD_BUILD_FLAGS} HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray] 'protobuf~=3.20'" && \
+    bash -c "${HOROVOD_BUILD_FLAGS} pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray] 'protobuf~=3.20'" && \
     ldconfig
 
 # Show the effective python package version to easily spot version differences

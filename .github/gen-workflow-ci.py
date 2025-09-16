@@ -810,7 +810,7 @@ def main():
 
     with open(path.joinpath('workflows', 'ci.yaml').absolute(), 'wt') as w:
         mins = ['tfmin', 'torchmin', 'mxnetmin']
-        heads = ['tfhead', 'torchhead', 'mxnethead']
+        heads = ['tfhead', 'torchhead', 'mxnet_none']
         allmin_images = [image for image in images if all(min in image for min in mins)]
         allhead_images = [image for image in images if all(head in image for head in heads)]
         release_images = [image for image in images if image not in allhead_images + allmin_images]
