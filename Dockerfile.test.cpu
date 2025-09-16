@@ -86,7 +86,8 @@ RUN chmod a+x /pytest_standalone.sh
 
 # Install Spark stand-alone cluster.
 RUN if [[ -n ${SPARK_PACKAGE} ]]; then \
-        wget --progress=dot:giga "https://www.apache.org/dyn/closer.lua/spark/${SPARK_PACKAGE}?action=download" -O - | tar -xzC /tmp; \
+        # use https://www.apache.org/dyn/closer.lua/spark/${SPARK_PACKAGE}?action=download instead to download from Apache Spark server
+        wget --progress=dot:giga "https://horovod-testing.s3.us-east-1.amazonaws.com/${SPARK_PACKAGE}" -O - | tar -xzC /tmp; \
         archive=$(basename "${SPARK_PACKAGE}") bash -c "mv -v /tmp/\${archive/%.tgz/} /spark"; \
     fi
 
