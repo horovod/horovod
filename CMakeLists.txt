@@ -392,4 +392,6 @@ if(HAVE_GLOO AND ((DEFINED Tensorflow_CXX17 AND Tensorflow_CXX17) OR (DEFINED Py
     endif()
 endif()
 
-add_subdirectory(third_party/abseil-cpp)
+if ((NOT "$ENV{HOROVOD_WITHOUT_TENSORFLOW}" STREQUAL "1") AND (Tensorflow_VERSION VERSION_GREATER_EQUAL "2.20"))
+    add_subdirectory(third_party/abseil-cpp)
+endif()
