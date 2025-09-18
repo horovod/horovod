@@ -76,6 +76,7 @@ parse_version(${Tensorflow_VERSION} VERSION_DEC)
 add_definitions(-DTENSORFLOW_VERSION=${VERSION_DEC})
 set(Tensorflow_CXX11 ${Tensorflow_CXX11} PARENT_SCOPE)
 set(Tensorflow_CXX17 ${Tensorflow_CXX17} PARENT_SCOPE)
+set(Tensorflow_VERSION ${Tensorflow_VERSION} PARENT_SCOPE)
 
 # TF SOURCES
 list(APPEND TF_SOURCES "${PROJECT_SOURCE_DIR}/horovod/tensorflow/mpi_ops.cc")
