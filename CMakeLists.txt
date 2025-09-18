@@ -393,5 +393,14 @@ if(HAVE_GLOO AND ((DEFINED Tensorflow_CXX17 AND Tensorflow_CXX17) OR (DEFINED Py
 endif()
 
 if ((NOT "$ENV{HOROVOD_WITHOUT_TENSORFLOW}" STREQUAL "1") AND (Tensorflow_VERSION VERSION_GREATER_EQUAL "2.20"))
-    add_subdirectory(third_party/abseil-cpp)
+    # TensorFlow >= 2.20 depends on abseil-cpp; provide a friendly error if the submodule was not checked out.
+    if (EXISTS "${PROJECT_SOURCE_DIR}/third_party/abseil-cpp/CMakeLists.txt")
+        add_subdirectory(third_party/abseil-cpp)
+    else()
+        message(FATAL_ERROR "TensorFlow ${Tensorflow_VERSION} support in Horovod requires the 'third_party/abseil-cpp' submodule.\n"
+                            "It appears to be missing. Fetch submodules with one of:\n"
+                            "  git submodule update --init --recursive\n"
+                            "  (or) git submodule update --init third_party/abseil-cpp\n"
+                            "If you are using a source archive that omits git metadata, re-clone the repository including submodules.")
+    endif()
 endif()
