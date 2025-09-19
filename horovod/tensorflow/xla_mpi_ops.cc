@@ -24,7 +24,7 @@
 
 #include "tensorflow/compiler/tf2xla/xla_op_kernel.h"
 #include "tensorflow/compiler/tf2xla/xla_op_registry.h"
-#if TENSORFLOW_VERSION >= 2018000000
+#if TENSORFLOW_VERSION >= 2020000000
 #include "tensorflow/compiler/xla/hlo/builder/xla_builder.h"
 #else
 #include "tensorflow/compiler/xla/client/xla_builder.h"
