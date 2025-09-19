@@ -188,13 +188,14 @@ services:
         TORCHVISION_PACKAGE: torchvision==0.14.1+cu116
         MXNET_PACKAGE: mxnet-cu112==1.8.0.post0
   # test mxnet individually as it is not maintained any more
-  test-gpu-gloo-py3_9-tf_none-keras_none-torch_none-mxnet1_9_1-pyspark3_5_1:
+  test-gpu-openmpi-gloo-py3_9-tf_none-keras_none-torch_none-mxnet1_9_1-pyspark3_5_1:
     extends: test-gpu-base
     build:
       args:
         CUDA_DOCKER_VERSION: 11.8.0-devel-ubuntu20.04
         CUDNN_VERSION: 8.4.1.50-1+cuda11.6
         NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
+        MPI_KIND: OpenMPI
         TENSORFLOW_PACKAGE: None
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: None

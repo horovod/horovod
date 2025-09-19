@@ -198,24 +198,6 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-v6170
-- label: ':muscle: Gloo MXNet MNIST horovodrun (test-gpu-openmpi-gloo-py3_9-tfhead-keras_none-torchhead-mxnet_none-pyspark3_5_1)'
-  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet_mnist.py
-  artifact_paths: "artifacts/**"
-  env:
-    COMPOSE_HTTP_TIMEOUT: 300
-  plugins:
-  - docker-compose#v5.2.0:
-      run: test-gpu-openmpi-gloo-py3_9-tfhead-keras_none-torchhead-mxnet_none-pyspark3_5_1
-      volumes: "./artifacts:/artifacts"
-      config: docker-compose.test.yml
-      pull-retries: 3
-  - ecr#v2.8.0:
-      login: true
-  timeout_in_minutes: 10
-  retry:
-    automatic: true
-  agents:
-    queue: 2x-gpu-v6170
 - label: ':factory: Elastic Tests (test-gpu-openmpi-gloo-py3_9-tfhead-keras_none-torchhead-mxnet_none-pyspark3_5_1)'
   command: bash -c "cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.xml test_elastic_torch.py test_elastic_tensorflow2.py"
   artifact_paths: "artifacts/**"
@@ -254,24 +236,6 @@ steps:
     queue: 2x-gpu-v6170
 - label: ':fire: MPI PyTorch MNIST horovodrun (test-gpu-openmpi-gloo-py3_9-tfhead-keras_none-torchhead-mxnet_none-pyspark3_5_1)'
   command: bash -c " \$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
-  artifact_paths: "artifacts/**"
-  env:
-    COMPOSE_HTTP_TIMEOUT: 300
-  plugins:
-  - docker-compose#v5.2.0:
-      run: test-gpu-openmpi-gloo-py3_9-tfhead-keras_none-torchhead-mxnet_none-pyspark3_5_1
-      volumes: "./artifacts:/artifacts"
-      config: docker-compose.test.yml
-      pull-retries: 3
-  - ecr#v2.8.0:
-      login: true
-  timeout_in_minutes: 10
-  retry:
-    automatic: true
-  agents:
-    queue: 2x-gpu-v6170
-- label: ':muscle: MPI MXNet MNIST horovodrun (test-gpu-openmpi-gloo-py3_9-tfhead-keras_none-torchhead-mxnet_none-pyspark3_5_1)'
-  command: bash -c " OMP_NUM_THREADS=1 \$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet_mnist.py"
   artifact_paths: "artifacts/**"
   env:
     COMPOSE_HTTP_TIMEOUT: 300
