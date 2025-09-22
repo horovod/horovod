@@ -9,6 +9,7 @@ ARG NCCL_VERSION_OVERRIDE=2.4.7-1+cuda10.0
 ARG MPI_KIND=OpenMPI
 ARG PYTHON_VERSION=3.6
 ARG GPP_VERSION=7
+ARG LLVM_VERSION=18
 ARG TENSORFLOW_PACKAGE=tensorflow-gpu==1.15.0
 ARG KERAS_PACKAGE=keras==2.2.4
 ARG PYTORCH_PACKAGE=torch==1.2.0
@@ -60,13 +61,18 @@ RUN CUDNN_MAJOR=$(cut -d '.' -f 1 <<< "${CUDNN_VERSION}"); \
         build-essential \
         g++-${GPP_VERSION} \
         moreutils \
-        llvm-dev \
         libcudnn${CUDNN_MAJOR}=${CUDNN_VERSION} \
         libnccl2=${NCCL_VERSION_OVERRIDE} \
         libnccl-dev=${NCCL_VERSION_OVERRIDE} && \
     rm -rf /var/lib/apt/lists/*
 
 ENV CMAKE_POLICY_VERSION_MINIMUM=3.5
+
+# Install LLVM version as defined in LLVM_VERSION
+RUN wget https://apt.llvm.org/llvm.sh && bash ./llvm.sh $LLVM_VERSION && rm -f ./llvm.sh
+ENV LLVM_ROOT=/usr/lib/llvm-$LLVM_VERSION
+ENV CPLUS_INCLUDE_PATH="$LLVM_ROOT/include"
+ENV C_INCLUDE_PATH="$CPLUS_INCLUDE_PATH"
 
 # setup ssh service
 RUN ssh-keygen -f /root/.ssh/id_rsa -q -N ''
