@@ -264,7 +264,7 @@ RUN if [[ ${TENSORFLOW_PACKAGE} == "None" ]]; then export HOROVOD_WITHOUT_TENSOR
     cd /horovod && \
     python setup.py sdist && \
     ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
-    bash -c "${HOROVOD_BUILD_FLAGS} pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray] 'protobuf~=3.20'" && \
+    bash -c "${HOROVOD_BUILD_FLAGS} pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]" && \
     ldconfig
 
 # Show the effective python package version to easily spot version differences
