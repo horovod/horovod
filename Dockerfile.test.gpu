@@ -163,6 +163,8 @@ RUN if [[ ${TENSORFLOW_PACKAGE} != "None" ]] && [[ ${TENSORFLOW_PACKAGE} != "tf-
             KERAS_DEPS=""; \
             if [[ ${KERAS_PACKAGE} == "keras==2.2.4" ]]; then \
                 KERAS_DEPS='scipy!=1.4.0 pandas<1.1.0 numpy<1.24.0'; \
+            else \
+                KERAS_DEPS='numpy<2'; \
             fi; \
             pip install --no-cache-dir ${KERAS_PACKAGE} ${KERAS_DEPS}; \
         fi; \
