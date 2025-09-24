@@ -229,7 +229,7 @@ public:
   }
 
 private:
-#if TENSORFLOW_VERSION >= 2020000000
+#if TENSORFLOW_VERSION >= 2019000000
   absl::StatusOr<::xla::XlaOp> BuildAllreduceCustomCall(
 #else
   ::xla::StatusOr<::xla::XlaOp> BuildAllreduceCustomCall(
@@ -282,7 +282,7 @@ private:
 HVD_REGISTER_XLA_OP("HorovodAllreduce", HVDAllreduceOp);
 
 // A helper function to build HLOs for all-reduce.
-#if TENSORFLOW_VERSION >= 2020000000
+#if TENSORFLOW_VERSION >= 2019000000
 absl::StatusOr<::xla::XlaOp> HVDAllreduceOp::BuildAllreduceCustomCall(
 #else
 ::xla::StatusOr<::xla::XlaOp> HVDAllreduceOp::BuildAllreduceCustomCall(
