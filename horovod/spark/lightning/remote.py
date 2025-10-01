@@ -73,6 +73,10 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     val_async_data_loader_queue_size = estimator.getValAsyncDataLoaderQueueSize()
     should_use_gpu = estimator.getUseGpu()
     mp_start_method = estimator.getMpStartMethod()
+    cache_type = estimator.getCacheType()
+    per_gpu_cache_size_limit = estimator.getPerGPUCacheSizeLimit()
+    cache_row_size_estimate = estimator.getCacheRowSizeEstimate()
+    cache_extra_settings = estimator.getCacheExtraSettings()
 
     # get logger
     logger = estimator.getLogger()
@@ -290,6 +294,12 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                 'train_async_data_loader_queue_size': train_async_data_loader_queue_size,
                 'val_async_data_loader_queue_size': val_async_data_loader_queue_size,
                 'seed': random_seed,
+                'cache_type': cache_type,
+                'per_gpu_train_cache_size_limit': (per_gpu_cache_size_limit * train_rows)/ (train_rows + val_rows),
+                'per_gpu_val_cache_size_limit': (per_gpu_cache_size_limit * val_rows)/ (train_rows + val_rows),
+                'cache_row_size_estimate': cache_row_size_estimate,
+                'cache_row_size_estimate': cache_row_size_estimate,
+                'cache_extra_settings': cache_extra_settings,
             }
             if debug_data_loader and hvd.rank() == 0:
                 print(f"Creating data module with args:\n {data_module_kwargs}")
@@ -323,6 +333,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
 
 
 def _prepare_data_fn(metadata):
+
     def prepare_data(col_name, rows):
         if col_name not in metadata:
             return rows
