@@ -4796,7 +4796,7 @@ jobs:
 
       - name: Build image
         id: build
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         timeout-minutes: 60
         with:
           context: .
@@ -4837,7 +4837,7 @@ jobs:
 
       - name: Push image
         if: needs.docker-config.outputs.push == 'true'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         timeout-minutes: 60
         with:
           context: .
