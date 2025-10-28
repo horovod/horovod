@@ -171,7 +171,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                             for more details. Note that this fucntion constructs another function
                             which should perform the transformation.
         transformation_edit_fields: (Optional) A list of 4-tuples with the following fields:
-                            ``(name, numpy_dtype, shape, is_nullable)`` used for Petastorm 
+                            ``(name, numpy_dtype, shape, is_nullable)`` used for Petastorm
                             [TransformSpec](https://github.com/uber/petastorm/blob/master/petastorm/transform.py)
                             to add more fields into the schema.
         transformation_removed_fields: (Optional). A list of field names that will be removed from the original schema
@@ -190,6 +190,10 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         val_async_data_loader_queue_size: (Optional) Size of val async data loader queue.
         use_gpu: Whether to use the GPU for training. Defaults to True.
         mp_start_method: The method to use to start multiprocessing. Defaults to None.
+        cache_type: Type of cache to use for data loading. Should be one of [null, local-disk]. By default, it is null.
+        per_gpu_cache_size_limit: Size of cache to use for local disk cache per GPU, only used when cache_type is local-disk.
+        cache_row_size_estimate: Size of row to use for local disk cache, only used when cache_type is local-disk.
+        cache_extra_settings: Dict of args for extra settings to use for local disk cache, only used when cache_type is local-disk.
     """
 
     input_shapes = Param(Params._dummy(), 'input_shapes', 'input layer shapes')
@@ -225,6 +229,14 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     train_async_data_loader_queue_size = Param(Params._dummy(), 'train_async_data_loader_queue_size', 'Size of train async data loader queue.')
 
     val_async_data_loader_queue_size = Param(Params._dummy(), 'val_async_data_loader_queue_size', 'Size of val async data loader queue.')
+
+    cache_type = Param(Params._dummy(), 'cache_type', 'Type of cache to use for data loading. Should be one of [null, local-disk]. By default, it is null.')
+
+    per_gpu_cache_size_limit = Param(Params._dummy(), 'per_gpu_cache_size_limit', 'Size of cache to use for cache per GPU, only used when cache_type is not null.')
+
+    cache_row_size_estimate = Param(Params._dummy(), 'cache_row_size_estimate', 'Size of row to use for cache, only used when cache_type is not null.')
+
+    cache_extra_settings = Param(Params._dummy(), 'cache_extra_settings', 'Extra settings to use for cache, only used when cache_type is not null.')
 
     @keyword_only
     def __init__(self,
@@ -276,7 +288,11 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  train_async_data_loader_queue_size=None,
                  val_async_data_loader_queue_size=None,
                  use_gpu=True,
-                 mp_start_method=None):
+                 mp_start_method=None,
+                 cache_type='null',
+                 per_gpu_cache_size_limit=0,
+                 cache_row_size_estimate=0,
+                 cache_extra_settings={}):
 
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
@@ -293,7 +309,11 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                          trainer_args=None,
                          debug_data_loader=False,
                          train_async_data_loader_queue_size=None,
-                         val_async_data_loader_queue_size=None)
+                         val_async_data_loader_queue_size=None,
+                         cache_type='null',
+                         per_gpu_cache_size_limit=0,
+                         cache_row_size_estimate=0,
+                         cache_extra_settings={})
 
         kwargs = self._input_kwargs
 
@@ -390,6 +410,30 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     def getValAsyncDataLoaderQueueSize(self):
         return self.getOrDefault(self.val_async_data_loader_queue_size)
 
+    def setCacheType(self, value):
+        return self._set(cache_type=value)
+
+    def getCacheType(self):
+        return self.getOrDefault(self.cache_type)
+
+    def setPerGPUCacheSizeLimit(self, value):
+        return self._set(per_gpu_cache_size_limit=value)
+
+    def getPerGPUCacheSizeLimit(self):
+        return self.getOrDefault(self.per_gpu_cache_size_limit)
+
+    def setCacheRowSizeEstimate(self, value):
+        return self._set(cache_row_size_estimate=value)
+
+    def getCacheRowSizeEstimate(self):
+        return self.getOrDefault(self.cache_row_size_estimate)
+
+    def setCacheExtraSettings(self, value):
+        return self._set(cache_extra_settings=value)
+
+    def getCacheExtraSettings(self):
+        return self.getOrDefault(self.cache_extra_settings)
+
     # Overwrites Model's getOptimizer method
     def getOptimizer(self):
         model = self.getModel()
@@ -469,10 +513,10 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     def _read_checkpoint(self, run_id):
         store = self.getStore()
         checkpoints = store.get_checkpoints(run_id, suffix='.ckpt')
-        
+
         if not checkpoints:
             return None
-        
+
         last_ckpt_path = checkpoints[-1]
 
         if self.getVerbose():
