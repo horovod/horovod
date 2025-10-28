@@ -25,6 +25,9 @@ ARG HOROVOD_BUILD_FLAGS=""
 # to avoid interaction with apt-get
 ENV DEBIAN_FRONTEND=noninteractive
 
+# make apt-get not give up on connection errors too quickly
+RUN echo 'Acquire::Retries "30";' > /etc/apt/apt.conf.d/99-retries.conf
+
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
