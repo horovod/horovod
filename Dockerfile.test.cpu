@@ -58,20 +58,23 @@ RUN ssh-keygen -f /root/.ssh/id_rsa -q -N ''
 RUN cp -v /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
 
 # Install Python.
-RUN apt-get update -qq && apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-distutils && \
+RUN apt-get update -qq && apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-distutils python${PYTHON_VERSION}-venv && \
     rm -rf /var/lib/apt/lists/*
-RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
-RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python${PYTHON_VERSION/%.*/}
-RUN if [[ ${PYTHON_VERSION} != "3.7" ]]; then \
-        wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py; \
-    else \
+RUN /usr/bin/python${PYTHON_VERSION} -m venv /venv
+ENV PATH="/venv/bin:$PATH"
+RUN if [[ ${PYTHON_VERSION} == "3.7" ]]; then \
         wget --progress=dot:mega https://bootstrap.pypa.io/pip/3.7/get-pip.py; \
+    elif [[ ${PYTHON_VERSION} == "3.8" ]]; then \
+        wget --progress=dot:mega https://bootstrap.pypa.io/pip/3.8/get-pip.py; \
+    else \
+        wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py; \
     fi && python get-pip.py && rm get-pip.py
 
+RUN python -m pip install --upgrade pip
 RUN pip install --no-cache-dir -U --force requests "pytest<8" mock pytest-forked parameterized
 
 # Add launch helper scripts
-RUN echo "env SPARK_HOME=/spark SPARK_DRIVER_MEM=512m PYSPARK_PYTHON=/usr/bin/python${PYTHON_VERSION} PYSPARK_DRIVER_PYTHON=/usr/bin/python${PYTHON_VERSION} \"\$@\"" > /spark_env.sh
+RUN echo "env SPARK_HOME=/spark SPARK_DRIVER_MEM=512m PYSPARK_PYTHON=/venv/bin/python PYSPARK_DRIVER_PYTHON=/venv/bin/python \"\$@\"" > /spark_env.sh
 RUN echo /spark_env.sh pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.\$1.\${HOROVOD_RANK:-\${OMPI_COMM_WORLD_RANK:-\${PMI_RANK}}}.\$2.xml \${@:2} > /pytest.sh
 RUN echo /spark_env.sh pytest -v --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.\$1.standalone.\$2.xml --forked \${@:2} > /pytest_standalone.sh
 RUN chmod a+x /spark_env.sh
