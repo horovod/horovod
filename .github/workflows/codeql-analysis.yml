@@ -126,7 +126,7 @@ jobs:
         command=$(cat <<EOF
         # Setup CodeQL tracing
         RUN mkdir -p /home/runner/work/horovod
-        RUN ln -s /horovod /home/runner/work/horovod/horovod
+        RUN mv /horovod /home/runner/work/horovod/horovod
         RUN mkdir -p /home/runner/work/_temp
         RUN ${{ env.CODEQL_DIST }}/codeql database init --db-cluster /home/runner/work/_temp/codeql_databases --source-root=/home/runner/work/horovod/horovod --language=cpp --begin-tracing --trace-process-name=Runner.Worker.exe
 

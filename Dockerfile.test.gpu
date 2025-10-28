@@ -26,6 +26,9 @@ ARG HOROVOD_MIXED_INSTALL=0
 # to avoid interaction with apt-get
 ENV DEBIAN_FRONTEND=noninteractive
 
+# make apt-get not give up on connection errors too quickly
+RUN echo 'Acquire::Retries "30";' > /etc/apt/apt.conf.d/99-retries.conf
+
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
@@ -64,6 +67,8 @@ RUN CUDNN_MAJOR=$(cut -d '.' -f 1 <<< "${CUDNN_VERSION}"); \
         libnccl2=${NCCL_VERSION_OVERRIDE} \
         libnccl-dev=${NCCL_VERSION_OVERRIDE} && \
     rm -rf /var/lib/apt/lists/*
+
+ENV CMAKE_POLICY_VERSION_MINIMUM=3.5
 
 # setup ssh service
 RUN ssh-keygen -f /root/.ssh/id_rsa -q -N ''
