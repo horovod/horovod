@@ -319,7 +319,7 @@ def grouped_allreduce(tensors, average=None, device_dense='', device_sparse='',
             if (prescale_factor != 1.0 or postscale_factor != 1.0):
                 raise NotImplementedError("Pre/postscale_factor are not supported with tf.IndexedSlices")
         new_indexed_slices = [tf.IndexedSlices(x, i,
-                                               dense_shape=t.dense_shape) for x,i,t in zip(new_values, new_indices, tensors)]
+                                               dense_shape=t.dense_shape) for x,i,t in zip(new_values, new_indices, indexed_slices_list)]
 
         for idx, indexed_slice in zip(indexed_slices_list_idx, new_indexed_slices):
             new_tensors_merged[idx] = indexed_slice
