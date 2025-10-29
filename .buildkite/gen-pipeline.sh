@@ -7,12 +7,12 @@ set -eu
 repository=823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
 
 # our queues
-cpu_queue="cpu-v5111"
-gpux2_queue="2x-gpu-v5111"
-gpux4_queue="4x-gpu-v5111"
+cpu_queue="cpu-v6170"
+gpux2_queue="2x-gpu-v6170"
+gpux4_queue="4x-gpu-v6170"
 
 # our baseline test is
-baseline="test-cpu-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0"
+baseline="test-cpu-gloo-py3_9-tf2_20_0-keras3_10_0-torch2_7_1-mxnet_none-pyspark3_5_1"
 # in run_gloo_integration we run 'Elastic Spark * Tests' for this baseline
 # so it has to have Gloo mpi kind
 
@@ -24,22 +24,23 @@ tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${B
   # run_gloo_integration expects these to have Gloo mpi kind to run 'Elastic Spark * Tests'
   # we deviate from baseline here because PySpark 2.4 requires Python 3.7 and
   # Tensorflow 2.11.0 is the last version that supports that Python
+  # Keras 2.11.0 is the last version that supports that Python
   # Torch 1.13.1 is the last version that supports that Python
   printf "test-cpu-gloo-py3_7-tf2_11_0-keras2_11_0-torch1_13_1-mxnet1_9_1-pyspark2_4_8 "
-  printf "test-cpu-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_3_2 "
+  printf "test-cpu-gloo-py3_9-tf2_20_0-keras3_10_0-torch2_7_1-mxnet_none-pyspark3_4_3 "
   # our baseline
   printf "$baseline "
 
   # then we vary the baseline along mpi kinds dimension
   # our baseline again
-# printf "test-cpu-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0 "
-  printf "test-cpu-mpich-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0 "
-  printf "test-cpu-oneccl-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0 "
-  printf "test-cpu-openmpi-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0 "
+# printf "test-cpu-gloo-py3_9-tf2_20_0-keras3_10_0-torch2_7_1-mxnet_none-pyspark3_5_1 "
+  printf "test-cpu-mpich-py3_9-tf2_20_0-keras3_10_0-torch2_7_1-mxnet_none-pyspark3_5_1 "
+  printf "test-cpu-oneccl-py3_9-tf2_20_0-keras3_10_0-torch2_7_1-mxnet_none-pyspark3_5_1 "
+  printf "test-cpu-openmpi-py3_9-tf2_20_0-keras3_10_0-torch2_7_1-mxnet_none-pyspark3_5_1 "
   # note: we test openmpi-gloo mpi kind in this variation in each of [cpu, gpu, mixed]
-  printf "test-cpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0 "
+  printf "test-cpu-openmpi-gloo-py3_9-tf2_20_0-keras3_10_0-torch2_7_1-mxnet_none-pyspark3_5_1 "
 
-  # then we vary the baseline along the framework dimensions all together
+  # then we vary the baseline along the framework dimensions alongside (except for MXNet)
   # run_gloo_integration expects tf1 to have Gloo mpi kind to run 'Elastic Spark * Tests'
   # Tensorflow 1.15.5 is only available for Python 3.7
   # Python 3.7 is only available on Ubuntu 18.04
@@ -47,30 +48,33 @@ tests=$(if [[ -n "${PIPELINE_MODE:-}" ]] && ( [[ "${BUILDKITE_BRANCH:-}" == "${B
   # there is no mxnet-1.6.0.post0 and mxnet-1.6.0 does not work with horovod
   # https://github.com/apache/incubator-mxnet/issues/16193
   # so we test with mxnet 1.5.1
-  printf "test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_4_0 "
-  printf "test-cpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_7_0_p2-pyspark3_4_0 "
-  printf "test-cpu-gloo-py3_8-tf2_11_1-keras2_11_0-torch1_13_1-mxnet1_8_0_p0-pyspark3_4_0 "
+  printf "test-cpu-gloo-py3_7-tf1_15_5-keras2_2_4-torch1_8_1-mxnet1_5_1_p0-pyspark3_4_3 "
+  printf "test-cpu-gloo-py3_9-tf2_18_1-keras3_8_0-torch2_5_1-mxnet_none-pyspark3_5_1 "
+  printf "test-cpu-gloo-py3_9-tf2_19_0-keras3_9_2-torch2_6_0-mxnet_none-pyspark3_5_1 "
   # our baseline again
-# printf "test-cpu-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0 "
-  printf "test-cpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_4_0 "
+# printf "test-cpu-gloo-py3_9-tf2_20_0-keras3_10_0-torch2_7_1-mxnet_none-pyspark3_5_1 "
+  printf "test-cpu-openmpi-gloo-py3_9-tfhead-keras_none-torchhead-mxnet_none-pyspark3_5_1 "
   # these are the lowest framework versions that Horovod compiles with, but they are not tested
   printf "test-cpu-openmpi-gloo-py3_7-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin "
 
   # then we vary the frameworks for gpu
   # There is no CUDA10 nvidia/cuda image any more, so we move to nvidia-tensorflow==1.15.5+nv... (with CUDA 11.6) from mainline tensorflow-gpu==1.15.5, which requires us to deviate from CPU versions for python, torch, and mxnet.
-  printf "test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0 "
-  printf "test-gpu-gloo-py3_8-tf2_10_1-keras2_10_0-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0 "
-  printf "test-gpu-gloo-py3_8-tf2_11_1-keras2_11_0-torch1_13_1-mxnet1_8_0_p0-pyspark3_4_0 "
-  printf "test-gpu-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0 "
-  printf "test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_4_0 "
+  printf "test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_13_1-mxnet1_8_0_p0-pyspark3_5_1 "
+  # test mxnet individually as it is not maintained any more, tested with gloo and openmpi
+  printf "test-gpu-openmpi-gloo-py3_9-tf_none-keras_none-torch_none-mxnet1_9_1-pyspark3_5_1 "
+  # test latest tensorflow, keras, torch alongside
+  printf "test-gpu-gloo-py3_9-tf2_18_1-keras3_8_0-torch2_5_1-mxnet_none-pyspark3_5_1 "
+  printf "test-gpu-gloo-py3_9-tf2_19_0-keras3_9_2-torch2_6_0-mxnet_none-pyspark3_5_1 "
+  printf "test-gpu-openmpi-gloo-py3_9-tf2_20_0-keras3_10_0-torch2_7_1-mxnet_none-pyspark3_5_1 "
+  printf "test-gpu-openmpi-gloo-py3_9-tfhead-keras_none-torchhead-mxnet_none-pyspark3_5_1 "
   # these are the lowest framework versions that Horovod compiles with, but they are not tested
   printf "test-gpu-openmpi-gloo-py3_8-tfmin-kerasmin-torchmin-mxnetmin-pysparkmin "
 
   # and one final test with mixed cpu+gpu
-  printf "test-mixed-openmpi-gloo-py3_8-tf2_12_0-keras2_12_0-torch2_0_0-mxnet1_9_1-pyspark3_4_0 "
+  printf "test-mixed-openmpi-gloo-py3_9-tf2_20_0-keras3_10_0-torch2_7_1-mxnet_none-pyspark3_5_1 "
 fi | if [[ "${PIPELINE_MODE:-}" == "GPU"* ]]; then sed -E "s/[^ ]*-cpu-[^ ]*//g"; else cat; fi \
-   | if [[ "${PIPELINE_MODE:-}" == "GPU HEADS" ]]; then sed -E "s/ /\n/g" | grep -e "-tfhead-keras_none-torchhead-mxnethead-" | paste -s -d " " -; else cat; fi \
-   | if [[ "${PIPELINE_MODE:-}" == "GPU NON HEADS" ]]; then sed -E "s/[^ ]*-tfhead-keras_none-torchhead-mxnethead-[^ ]*//g"; else cat; fi)
+   | if [[ "${PIPELINE_MODE:-}" == "GPU HEADS" ]]; then sed -E "s/ /\n/g" | grep -e "-tfhead-keras_none-torchhead-mxnet_none-" | paste -s -d " " -; else cat; fi \
+   | if [[ "${PIPELINE_MODE:-}" == "GPU NON HEADS" ]]; then sed -E "s/[^ ]*-tfhead-keras_none-torchhead-mxnet_none-[^ ]*//g"; else cat; fi)
 read -r -a tests <<< "$tests"
 
 
@@ -81,12 +85,12 @@ build_test() {
   echo "  env:"
   echo "    COMPOSE_HTTP_TIMEOUT: 300"
   echo "  plugins:"
-  echo "  - docker-compose#v3.10.0:"
+  echo "  - docker-compose#v5.2.0:"
   echo "      build: ${test}"
-  echo "      image-repository: ${repository}"
   echo "      config: docker-compose.test.yml"
+  echo "      push: ${test}:${repository}"
   echo "      push-retries: 5"
-  echo "  - ecr#v1.2.0:"
+  echo "  - ecr#v2.8.0:"
   echo "      login: true"
   echo "  timeout_in_minutes: 40"
   echo "  retry:"
@@ -108,12 +112,12 @@ run_test() {
   echo "  env:"
   echo "    COMPOSE_HTTP_TIMEOUT: 300"
   echo "  plugins:"
-  echo "  - docker-compose#v3.10.0:"
+  echo "  - docker-compose#v5.2.0:"
   echo "      run: ${test}"
   echo "      volumes: \"./artifacts:/artifacts\""
   echo "      config: docker-compose.test.yml"
   echo "      pull-retries: 3"
-  echo "  - ecr#v1.2.0:"
+  echo "  - ecr#v2.8.0:"
   echo "      login: true"
   echo "  timeout_in_minutes: ${timeout}"
   echo "  retry:"
@@ -163,7 +167,7 @@ run_mpi_integration() {
   fi
 
   # Legacy TensorFlow tests
-  if [[ ${test} != *"tf2_"* ]] && [[ ${test} != *"tfhead"* ]]; then
+  if [[ ${test} != *"tf2_"* ]] && [[ ${test} != *"tfhead"* ]] && [[ ${test} != *"tf_none"* ]]; then
     run_test "${test}" "${queue}" \
       ":tensorflow: MPI TensorFlow MNIST (${test})" \
       "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/tensorflow/tensorflow_mnist.py\""
@@ -177,7 +181,7 @@ run_mpi_integration() {
       "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/keras/keras_mnist_advanced.py\""
   fi
 
-  if [[ ${test} != *"torch1_2"* ]]; then
+  if [[ ${test} != *"torch1_2"* ]] && [[ ${test} != *"torch_none"* ]]; then
     run_test "${test}" "${queue}" \
       ":fire: MPI PyTorch MNIST horovodrun (${test})" \
       "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets\""
@@ -198,7 +202,7 @@ run_mpi_integration() {
                ":muscle: MPI MXNet2 MNIST api (${test})" \
                "bash -c \"${oneccl_env} python /horovod/examples/mxnet/mxnet2_mnist.py --num-proc 2 --hosts localhost:2 --communication mpi\""
     fi
-  else
+  elif [[ ${test} != *"mxnet_none"* ]]; then
     run_test "${test}" "${queue}" \
              ":muscle: MPI MXNet MNIST horovodrun (${test})" \
              "bash -c \"${oneccl_env} OMP_NUM_THREADS=1 \\\$(cat /mpirun_command) python /horovod/examples/mxnet/mxnet_mnist.py\""
@@ -290,52 +294,54 @@ run_gloo_integration() {
   local test=$1
   local queue=$2
 
-  # TensorFlow 2.0 tests
-  if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
-    run_test "${test}" "${queue}" \
-      ":tensorflow: Gloo TensorFlow 2.0 MNIST horovodrun (${test})" \
-      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
-    if [[ ${queue} != *gpu* ]]; then
+  if [[ ${test} != *"tf_none"* ]]; then
+    # TensorFlow 2.0 tests
+    if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
       run_test "${test}" "${queue}" \
-        ":tensorflow: Gloo TensorFlow 2.0 MNIST api (${test})" \
-        "python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 gloo"
-    fi
+        ":tensorflow: Gloo TensorFlow 2.0 MNIST horovodrun (${test})" \
+        "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py"
+      if [[ ${queue} != *gpu* ]]; then
+        run_test "${test}" "${queue}" \
+          ":tensorflow: Gloo TensorFlow 2.0 MNIST api (${test})" \
+          "python /horovod/examples/tensorflow2/tensorflow2_mnist.py 2 localhost:2 gloo"
+      fi
 
-    run_test "${test}" "${queue}" \
-      ":tensorflow: Gloo TensorFlow 2.0 Keras MNIST horovodrun (${test})" \
-      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
-    if [[ ${queue} != *gpu* ]]; then
       run_test "${test}" "${queue}" \
-        ":tensorflow: Gloo TensorFlow 2.0 Keras MNIST api (${test})" \
-        "python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 gloo"
-    fi
+        ":tensorflow: Gloo TensorFlow 2.0 Keras MNIST horovodrun (${test})" \
+        "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py"
+      if [[ ${queue} != *gpu* ]]; then
+        run_test "${test}" "${queue}" \
+          ":tensorflow: Gloo TensorFlow 2.0 Keras MNIST api (${test})" \
+          "python /horovod/examples/tensorflow2/tensorflow2_keras_mnist.py 2 localhost:2 gloo"
+      fi
 
-    run_test "${test}" "${queue}" \
-      ":tensorflow: Gloo TensorFlow 2.0 MNIST Elastic horovodrun (${test})" \
-      "horovodrun -np 2 --min-np 2 --max-np 2 -H localhost:2,127.0.0.1:2 --gloo python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py"
-    if [[ ${queue} != *gpu* ]]; then
       run_test "${test}" "${queue}" \
-        ":tensorflow: Gloo TensorFlow 2.0 MNIST Elastic api (${test})" \
-        "python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py 2 2 2 localhost:2,127.0.0.1:2"
-    fi
+        ":tensorflow: Gloo TensorFlow 2.0 MNIST Elastic horovodrun (${test})" \
+        "horovodrun -np 2 --min-np 2 --max-np 2 -H localhost:2,127.0.0.1:2 --gloo python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py"
+      if [[ ${queue} != *gpu* ]]; then
+        run_test "${test}" "${queue}" \
+          ":tensorflow: Gloo TensorFlow 2.0 MNIST Elastic api (${test})" \
+          "python /horovod/examples/elastic/tensorflow2/tensorflow2_mnist_elastic.py 2 2 2 localhost:2,127.0.0.1:2"
+      fi
 
-    # https://github.com/horovod/horovod/issues/3711
-    if [[ ${test} == *tf2_?_* ]] || [[ ${test} == *tf2_10_* ]]; then
+      # https://github.com/horovod/horovod/issues/3711
+      if [[ ${test} == *tf2_?_* ]] || [[ ${test} == *tf2_10_* ]]; then
+        run_test "${test}" "${queue}" \
+          ":tensorflow: Gloo TensorFlow 2.0 MNIST Data Service (${test})" \
+          "bash -c \"horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json\""
+      fi
+    else
       run_test "${test}" "${queue}" \
-        ":tensorflow: Gloo TensorFlow 2.0 MNIST Data Service (${test})" \
-        "bash -c \"horovodrun -np 2 python -m horovod.tensorflow.data.compute_worker /tmp/compute.json & horovodrun -np 2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist_data_service.py /tmp/compute.json\""
-    fi
-  else
-    run_test "${test}" "${queue}" \
-      ":tensorflow: Gloo TensorFlow MNIST (${test})" \
-      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow/tensorflow_mnist.py"
+        ":tensorflow: Gloo TensorFlow MNIST (${test})" \
+        "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow/tensorflow_mnist.py"
 
-    run_test "${test}" "${queue}" \
-      ":tensorflow: Gloo Keras MNIST (${test})" \
-      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/keras/keras_mnist_advanced.py"
+      run_test "${test}" "${queue}" \
+        ":tensorflow: Gloo Keras MNIST (${test})" \
+        "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/keras/keras_mnist_advanced.py"
+    fi
   fi
 
-  if [[ ${test} != *"torch1_2"* ]]; then
+  if [[ ${test} != *"torch1_2"* ]] && [[ ${test} != *"torch_none"* ]]; then
     run_test "${test}" "${queue}" \
       ":fire: Gloo PyTorch MNIST horovodrun (${test})" \
       "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch/pytorch_mnist.py --data-dir /data/pytorch_datasets"
@@ -355,7 +361,7 @@ run_gloo_integration() {
                ":muscle: Gloo MXNet2 MNIST api (${test})" \
                "python /horovod/examples/mxnet/mxnet2_mnist.py --num-proc 2 --hosts localhost:2 --communication gloo"
     fi
-  else
+  elif [[ ${test} != *"mxnet_none"* ]]; then
       run_test "${test}" "${queue}" \
                ":muscle: Gloo MXNet MNIST horovodrun (${test})" \
                "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet/mxnet_mnist.py"
@@ -381,7 +387,7 @@ run_gloo_integration() {
   # Elastic Horovod on Spark tests are very expensive (high timeout)
   # We only need to run this for our baseline test image, baseline with tensorflow1, and pyspark variations
   # *-gloo-* does intentionally not match -openmpi-gloo- here
-  if [[ ${test} == ${baseline} ]] || [[ ${test} == test-cpu-gloo-*-tf1_* ]] || [[ ${test} != *pyspark3_4_0* ]]; then
+  if [[ ${test} == ${baseline} ]] || [[ ${test} == test-cpu-gloo-*-tf1_* ]] || [[ ${test} != *pyspark3_5_1* ]]; then
     run_test "${test}" "${queue}" \
       ":factory: Elastic Spark TensorFlow Tests (${test})" \
       "bash -c \"cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.tf.xml ${elastic_spark_tensorflow}\"" \
@@ -390,7 +396,7 @@ run_gloo_integration() {
 
   # Elastic Horovod on Spark tests are very expensive (high timeout)
   # We only need to run this for our baseline test image and pyspark variations
-  if [[ ${test} == ${baseline} ]] || [[ ${test} != *pyspark3_4_0* ]]; then
+  if [[ ${test} == ${baseline} ]] || [[ ${test} != *pyspark3_5_1* ]]; then
     run_test "${test}" "${queue}" \
       ":factory: Elastic Spark Torch Tests (${test})" \
       "bash -c \"cd /horovod/test/integration && /spark_env.sh HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no --continue-on-collection-errors --junit-xml=/artifacts/junit.gloo.elastic.spark.torch.xml test_elastic_spark_torch.py\"" \
@@ -420,7 +426,7 @@ run_spark_integration() {
         30
     fi
 
-    if [[ ${test} != *"tf2"* && ${test} != *"tfhead"* ]]; then
+    if [[ ${test} != *"tf2"* && ${test} != *"tfhead"* ]] && [[ ${test} != *"tf_none"* ]]; then
       run_test "${test}" "${queue}" \
         ":spark: Spark Keras Rossmann Run (${test})" \
         "bash -c \"OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/keras/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.1\""
@@ -440,13 +446,15 @@ run_spark_integration() {
         "bash -c \"cd /horovod/examples/spark/tensorflow2; spark-submit --master \\\"local[2]\\\" \\\"/horovod/horovod/spark/tensorflow/compute_worker.py\\\" /tmp/compute.json & OMP_NUM_THREADS=1 /spark_env.sh spark-submit --master \\\"local[2]\\\" --py-files tensorflow2_mnist_data_service_train_fn_compute_side_dispatcher.py,tensorflow2_mnist_data_service_train_fn_training_side_dispatcher.py tensorflow2_mnist_data_service.py /tmp/compute.json\""
     fi
 
-    run_test "${test}" "${queue}" \
-      ":spark: Spark Torch MNIST (${test})" \
-      "bash -c \"OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
+    if [[ ${test} != *"torch_none"* ]]; then
+      run_test "${test}" "${queue}" \
+        ":spark: Spark Torch MNIST (${test})" \
+        "bash -c \"OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
 
-    run_test "${test}" "${queue}" \
-      ":spark: Spark Lightning MNIST (${test})" \
-      "bash -c \"OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
+      run_test "${test}" "${queue}" \
+        ":spark: Spark Lightning MNIST (${test})" \
+        "bash -c \"OMP_NUM_THREADS=1 /spark_env.sh python /horovod/examples/spark/pytorch/pytorch_lightning_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
+    fi
   fi
 }
 
@@ -457,13 +465,13 @@ run_single_integration() {
   oneccl_env=$(echo ${oneccl_env//:/ })
 
   # Only in TensorFlow 1.X
-  if [[ ${test} != *"tf2_"* ]] && [[ ${test} != *"tfhead"* ]]; then
+  if [[ ${test} != *"tf2_"* ]] && [[ ${test} != *"tfhead"* ]] && [[ ${test} != *"tf_none"* ]]; then
     run_test "${test}" "${queue}" \
       ":tensorflow: Single Keras MNIST (${test})" \
       "bash -c \"${oneccl_env} python /horovod/examples/keras/keras_mnist_advanced.py --epochs 3 --batch-size 64\""
   fi
 
-  if [[ ${test} != *"torch1_2"* ]]; then
+  if [[ ${test} != *"torch1_2"* ]] && [[ ${test} != *"torch_none"* ]]; then
     run_test "${test}" "${queue}" \
       ":fire: Single PyTorch MNIST (${test})" \
       "bash -c \"${oneccl_env} python /horovod/examples/pytorch/pytorch_mnist.py --epochs 3 --data-dir /data/pytorch_datasets\""
@@ -473,7 +481,7 @@ run_single_integration() {
       run_test "${test}" "${queue}" \
                ":muscle: Single MXNet2 MNIST (${test})" \
                "bash -c \"${oneccl_env} python /horovod/examples/mxnet/mxnet2_mnist.py --epochs 3\""
-  else
+  elif [[ ${test} != *"mxnet_none"* ]]; then
       run_test "${test}" "${queue}" \
                ":muscle: Single MXNet MNIST (${test})" \
                "bash -c \"${oneccl_env} python /horovod/examples/mxnet/mxnet_mnist.py --epochs 3\""
