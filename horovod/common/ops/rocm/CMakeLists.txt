@@ -10,7 +10,10 @@ endif()
 
 list(APPEND CMAKE_PREFIX_PATH /opt/rocm/hip /opt/rocm)
 set(HIP_CLANG_PATH "${ROCM_PATH}/llvm/bin")
+# Module search path prior to ROCm 6.0+:
 set(CMAKE_MODULE_PATH "${HIP_PATH}/cmake" ${CMAKE_MODULE_PATH})
+# Module search path from ROCm 6.0+ onwards.
+set(CMAKE_MODULE_PATH "${ROCM_PATH}/lib/cmake/hip" ${CMAKE_MODULE_PATH})
 set(HIP_HCC_FLAGS ${HIP_HCC_FLAGS};-D__HIP_PLATFORM_HIPCC__=1;-fPIC)
 find_package(HIP QUIET REQUIRED)
 set(HIP_HIPCC_FLAGS ${HIP_HIPCC_FLAGS};-fPIC)
