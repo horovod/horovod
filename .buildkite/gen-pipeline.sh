@@ -550,7 +550,7 @@ for test in ${tests[@]-}; do
 done
 
 # wait for all gpu unit tests to finish
-echo "- wait"
+#echo "- wait"
 
 # run 2x gpu integration tests
 for test in ${tests[@]-}; do

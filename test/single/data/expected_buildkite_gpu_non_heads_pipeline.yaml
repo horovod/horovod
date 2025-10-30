@@ -475,7 +475,6 @@ steps:
     automatic: true
   agents:
     queue: 4x-gpu-v6170
-- wait
 - label: ':tensorflow: Gloo TensorFlow MNIST (test-gpu-gloo-py3_8-tf1_15_5-keras2_2_4-torch1_12_1-mxnet1_8_0_p0-pyspark3_4_0)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow/tensorflow_mnist.py
   artifact_paths: "artifacts/**"

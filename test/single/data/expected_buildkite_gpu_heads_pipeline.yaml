@@ -125,7 +125,6 @@ steps:
     automatic: true
   agents:
     queue: 4x-gpu-v6170
-- wait
 - label: ':tensorflow: Gloo TensorFlow 2.0 MNIST horovodrun (test-gpu-openmpi-gloo-py3_9-tfhead-keras_none-torchhead-mxnethead-pyspark3_4_0)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2/tensorflow2_mnist.py
   artifact_paths: "artifacts/**"
