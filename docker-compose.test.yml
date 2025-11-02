@@ -95,6 +95,7 @@ services:
     build:
       args:
         MPI_KIND: OpenMPI
+        PYTHON_VERSION: 3.9
         TENSORFLOW_PACKAGE: tf-nightly
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch-nightly
@@ -252,6 +253,7 @@ services:
         CUDNN_VERSION: 8.6.0.163-1+cuda11.8
         NCCL_VERSION_OVERRIDE: 2.16.5-1+cuda11.8
         MPI_KIND: OpenMPI
+        PYTHON_VERSION: 3.9
         TENSORFLOW_PACKAGE: tf-nightly
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch-nightly-cu118
