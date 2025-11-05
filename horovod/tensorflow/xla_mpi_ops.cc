@@ -24,7 +24,11 @@
 
 #include "tensorflow/compiler/tf2xla/xla_op_kernel.h"
 #include "tensorflow/compiler/tf2xla/xla_op_registry.h"
+#if TENSORFLOW_VERSION >= 2019000000
+#include "tensorflow/compiler/xla/hlo/builder/xla_builder.h"
+#else
 #include "tensorflow/compiler/xla/client/xla_builder.h"
+#endif
 #include "tensorflow/compiler/xla/service/custom_call_target_registry.h"
 #include "tensorflow/compiler/xla/service/hlo.pb.h"
 #include "tensorflow/compiler/xla/shape.h"
