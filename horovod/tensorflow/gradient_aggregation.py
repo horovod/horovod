@@ -3,6 +3,7 @@ import tensorflow as tf
 from packaging import version
 from horovod.tensorflow.mpi_ops import size_op
 from horovod.tensorflow.mpi_ops import global_process_set
+from horovod.tensorflow.util import _get_var_ref
 
 
 _IS_TF2 = version.parse(tf.__version__) >= version.parse('2.0.0')
@@ -82,7 +83,7 @@ class LocalGradientAggregationHelper:
         operations on gradients corresponding to these sources and will instead return the local
         gradient."""
         if _IS_TF2:
-            self._local_vars.add(var.ref())
+            self._local_vars.add(_get_var_ref(var))
         else:
             self._local_vars.add(var)
 
@@ -174,9 +175,9 @@ class LocalGradientAggregationHelper:
             rv = []
             rg = []
             if _IS_TF2:
-                v2g = {var.ref(): grad for var, grad in zip(vars, grads)}
+                v2g = {_get_var_ref(var): grad for var, grad in zip(vars, grads)}
                 for var, grad in zip(vars, grads):
-                    if var.ref() not in self._local_vars:
+                    if _get_var_ref(var) not in self._local_vars:
                         rv.append(var)
                         rg.append(grad)
             else:
@@ -190,7 +191,7 @@ class LocalGradientAggregationHelper:
             horovod_size = size_op(process_set_id=self.process_set.process_set_id) if int(os.environ.get("HOROVOD_ELASTIC", 0)) else self.process_set.size()
             if _IS_TF2:
                 for rv, rg in zip(rv, rg):
-                    v2g[rv.ref()] = rg
+                    v2g[_get_var_ref(rv)] = rg
 
                 if self.scale_local_gradients and len(self._local_vars):
                     # Scale local gradients by a size factor. See pull/3695 and discussions/3705 for context.
@@ -198,7 +199,7 @@ class LocalGradientAggregationHelper:
                         if v_ref in self._local_vars and v2g[v_ref] is not None:
                             v2g[v_ref] /= float(horovod_size)
 
-                return [v2g[rv.ref()] for rv in vars]
+                return [v2g[_get_var_ref(rv)] for rv in vars]
             else:
                 for rv, rg in zip(rv, rg):
                     v2g[rv] = rg
@@ -208,7 +209,7 @@ class LocalGradientAggregationHelper:
                     for v in v2g:
                         if v in self._local_vars and v2g[v] is not None:
                             v2g[v] /= float(horovod_size)
-     
+
                 return [v2g[rv] for rv in vars]
 
         # Read in latest variables values.

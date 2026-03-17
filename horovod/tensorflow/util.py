@@ -14,9 +14,11 @@
 # ==============================================================================
 
 import tensorflow as tf
-
+from packaging import version
 
 from tensorflow.python.eager import context
+
+_POST_TF_2_16_1 = version.parse(tf.__version__) >= version.parse('2.16.1')
 
 
 def _executing_eagerly():
@@ -44,13 +46,37 @@ def _cache(f):
     return wrapper
 
 
+def _get_var_ref(var):
+    """Get a reference to a variable that can be used as a dict key or in a set.
+
+    In TensorFlow < 2.16.1, variables have a .ref() method that returns a reference.
+    In TensorFlow >= 2.16.1, variables are directly hashable.
+    """
+    if _POST_TF_2_16_1:
+        return var
+    else:
+        return var.ref()
+
+
+def _deref_var(ref):
+    """Convert a variable reference back to a variable.
+
+    In TensorFlow < 2.16.1, references have a .deref() method.
+    In TensorFlow >= 2.16.1, references are the variables themselves.
+    """
+    if _POST_TF_2_16_1:
+        return ref
+    else:
+        return ref.deref()
+
+
 def vars_to_refs(vars):
     if isinstance(vars, list):
         return tuple(vars_to_refs(v) for v in vars)
-    return vars.ref()
+    return _get_var_ref(vars)
 
 
 def refs_to_vars(refs):
     if isinstance(refs, tuple):
         return [refs_to_vars(r) for r in refs]
-    return refs.deref()
+    return _deref_var(refs)
