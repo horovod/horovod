@@ -3,9 +3,9 @@
 name: CI
 
 on:
-  schedule:
-    # run a build on master (this does not publish test results or cancel concurrent builds)
-    - cron: '0 10 * * *' # everyday at 10am
+  #schedule:
+  #  # run a build on master (this does not publish test results or cancel concurrent builds)
+  #  - cron: '0 10 * * *' # everyday at 10am
   push:
     # only consider push to master, hotfix-branches, and tags
     # otherwise modify job.config.outputs.push
