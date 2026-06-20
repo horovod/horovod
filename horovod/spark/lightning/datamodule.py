@@ -7,6 +7,8 @@ from horovod.spark.data_loaders.pytorch_data_loaders import (
 from petastorm import TransformSpec, make_reader, make_batch_reader
 
 PETASTORM_HDFS_DRIVER = constants.PETASTORM_HDFS_DRIVER
+LOCAL_DISK_CACHE_LOCATION = constants.LOCAL_DISK_CACHE_LOCATION
+PETASTORM_LOCAL_DISK_CACHE = constants.PETASTORM_LOCAL_DISK_CACHE
 
 
 class PetastormDataModule(pl.LightningDataModule):
@@ -39,6 +41,11 @@ class PetastormDataModule(pl.LightningDataModule):
             train_async_data_loader_queue_size: int = None,
             val_async_data_loader_queue_size: int = None,
             seed: int = None,
+            cache_type: str = 'null',
+            per_gpu_train_cache_size_limit: int = None,
+            per_gpu_val_cache_size_limit: int = None,
+            cache_row_size_estimate: int = None,
+            cache_extra_settings: dict = None,
             **kwargs):
         super().__init__()
         self.train_dir = train_dir
@@ -66,6 +73,13 @@ class PetastormDataModule(pl.LightningDataModule):
         self.train_async_data_loader_queue_size = train_async_data_loader_queue_size
         self.val_async_data_loader_queue_size = val_async_data_loader_queue_size
         self.seed = seed
+        self.cache_type = cache_type
+        self.per_gpu_train_cache_size_limit = per_gpu_train_cache_size_limit
+        self.per_gpu_val_cache_size_limit = per_gpu_val_cache_size_limit
+        self.cache_row_size_estimate = cache_row_size_estimate
+        self.cache_extra_settings = cache_extra_settings
+        self.train_cache_location = None
+        self.val_cache_location = None
 
         if debug_data_loader:
             print("Creating data_module")
@@ -95,6 +109,12 @@ class PetastormDataModule(pl.LightningDataModule):
             else:
                 reader_factory = make_batch_reader
 
+
+             # If cache_type is local-disk, we need to set the cache_location to the local disk cache location
+            if self.cache_type  == PETASTORM_LOCAL_DISK_CACHE:
+                self.train_cache_location = LOCAL_DISK_CACHE_LOCATION + 'train_' + str(self.cur_shard) + '/'
+                self.val_cache_location = LOCAL_DISK_CACHE_LOCATION + 'val_' + str(self.cur_shard) + '/'
+
             self.train_reader = reader_factory(self.train_dir, num_epochs=self.num_reader_epochs,
                                                reader_pool_type=self.reader_pool_type,
                                                workers_count=self.reader_worker_count,
@@ -106,6 +126,11 @@ class PetastormDataModule(pl.LightningDataModule):
                                                shuffle_rows=self.shuffle,
                                                shuffle_row_groups=self.shuffle,
                                                seed=self.seed,
+                                               cache_type=self.cache_type,
+                                               cache_location=self.train_cache_location,
+                                               cache_row_size_estimate=self.cache_row_size_estimate,
+                                               cache_size_limit=self.per_gpu_train_cache_size_limit,
+                                               cache_extra_settings=self.cache_extra_settings,
                                                **reader_factory_kwargs)
             if self.has_val:
                 self.val_reader = reader_factory(
@@ -121,6 +146,11 @@ class PetastormDataModule(pl.LightningDataModule):
                     transform_spec=transform_spec,
                     shuffle_rows=False,
                     shuffle_row_groups=False,
+                    cache_type=self.cache_type,
+                    cache_location=self.val_cache_location,
+                    cache_row_size_estimate=self.cache_row_size_estimate,
+                    cache_size_limit=self.per_gpu_val_cache_size_limit,
+                    cache_extra_settings=self.cache_extra_settings,
                     **reader_factory_kwargs)
 
     def teardown(self, stage=None):
