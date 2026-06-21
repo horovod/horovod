@@ -8,6 +8,10 @@ MESSAGE(STATUS "HVD_NVCC_COMPILE_FLAGS = ${HVD_NVCC_COMPILE_FLAGS}")
 # the --std=c++... argument is passed multiple times.
 set(CMAKE_CUDA_STANDARD 11)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+# NVCC compilation errors with gcc-14 and c++11
+if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "14")
+  set(CMAKE_CUDA_STANDARD 14)
+endif()
 
 add_library(horovod_cuda_kernels cuda_kernels.cu)
 target_compile_options(horovod_cuda_kernels PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
