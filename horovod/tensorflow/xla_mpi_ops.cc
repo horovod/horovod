@@ -83,6 +83,8 @@ common::DataType GetHVDType(::xla::PrimitiveType type) {
     return common::HOROVOD_INT64;
   case ::xla::F16:
     return common::HOROVOD_FLOAT16;
+  case ::xla::BF16:
+    return common::HOROVOD_BFLOAT16;
   case ::xla::F32:
     return common::HOROVOD_FLOAT32;
   case ::xla::F64:

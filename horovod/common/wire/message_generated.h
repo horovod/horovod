@@ -49,11 +49,12 @@ enum DataType : int8_t {
   DataType_HOROVOD_FLOAT32 = 7,
   DataType_HOROVOD_FLOAT64 = 8,
   DataType_HOROVOD_BOOL = 9,
+  DataType_HOROVOD_BFLOAT16 = 10,
   DataType_MIN = DataType_HOROVOD_UINT8,
-  DataType_MAX = DataType_HOROVOD_BOOL
+  DataType_MAX = DataType_HOROVOD_BFLOAT16
 };
 
-inline const DataType (&EnumValuesDataType())[10] {
+inline const DataType (&EnumValuesDataType())[11] {
   static const DataType values[] = {
     DataType_HOROVOD_UINT8,
     DataType_HOROVOD_INT8,
@@ -64,13 +65,14 @@ inline const DataType (&EnumValuesDataType())[10] {
     DataType_HOROVOD_FLOAT16,
     DataType_HOROVOD_FLOAT32,
     DataType_HOROVOD_FLOAT64,
-    DataType_HOROVOD_BOOL
+    DataType_HOROVOD_BOOL,
+    DataType_HOROVOD_BFLOAT16
   };
   return values;
 }
 
 inline const char * const *EnumNamesDataType() {
-  static const char * const names[11] = {
+  static const char * const names[12] = {
     "HOROVOD_UINT8",
     "HOROVOD_INT8",
     "HOROVOD_UINT16",
@@ -81,13 +83,14 @@ inline const char * const *EnumNamesDataType() {
     "HOROVOD_FLOAT32",
     "HOROVOD_FLOAT64",
     "HOROVOD_BOOL",
+    "HOROVOD_BFLOAT16",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameDataType(DataType e) {
-  if (flatbuffers::IsOutRange(e, DataType_HOROVOD_UINT8, DataType_HOROVOD_BOOL)) return "";
+  if (flatbuffers::IsOutRange(e, DataType_HOROVOD_UINT8, DataType_HOROVOD_BFLOAT16)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesDataType()[index];
 }
