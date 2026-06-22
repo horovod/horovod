@@ -7,6 +7,7 @@ ARG UBUNTU_VERSION=20.04
 ARG MPI_KIND=OpenMPI
 ARG PYTHON_VERSION=3.6
 ARG GPP_VERSION=7
+ARG LLVM_VERSION=18
 # NOTE: keep versions in sync with setup.py extras_require{'dev'}:
 ARG TENSORFLOW_PACKAGE=tensorflow-cpu==1.15.0
 ARG KERAS_PACKAGE=keras==2.2.4
@@ -57,6 +58,12 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 ENV CMAKE_POLICY_VERSION_MINIMUM=3.5
+
+# Install LLVM version as defined in LLVM_VERSION
+RUN wget https://apt.llvm.org/llvm.sh && bash ./llvm.sh $LLVM_VERSION && rm -f ./llvm.sh
+ENV LLVM_ROOT=/usr/lib/llvm-$LLVM_VERSION
+ENV CPLUS_INCLUDE_PATH="$LLVM_ROOT/include"
+ENV C_INCLUDE_PATH="$CPLUS_INCLUDE_PATH"
 
 # setup ssh service
 RUN ssh-keygen -f /root/.ssh/id_rsa -q -N ''
@@ -162,7 +169,7 @@ RUN if [[ ${MPI_KIND} != "None" ]]; then \
 # Install TensorFlow and Keras (releases).
 # Pin scipy!=1.4.0: https://github.com/scipy/scipy/issues/11237
 # Pin protobuf~=3.20 for tensorflow<2.6.5: https://github.com/tensorflow/tensorflow/issues/56077
-RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly" ]]; then \
+RUN if [[ ${TENSORFLOW_PACKAGE} != "None" ]] && [[ ${TENSORFLOW_PACKAGE} != "tf-nightly" ]]; then \
         PROTOBUF_PACKAGE=""; \
         if [[ ${TENSORFLOW_PACKAGE} == tensorflow*==1.15.* ]] || \
            [[ ${TENSORFLOW_PACKAGE} == tensorflow-cpu==2.[012345].* ]]; then \
@@ -171,14 +178,22 @@ RUN if [[ ${TENSORFLOW_PACKAGE} != "tf-nightly" ]]; then \
         pip install --no-cache-dir ${TENSORFLOW_PACKAGE} ${PROTOBUF_PACKAGE}; \
         if [[ ${KERAS_PACKAGE} != "None" ]]; then \
             pip uninstall -y keras; \
-            pip install --no-cache-dir ${KERAS_PACKAGE} "scipy!=1.4.0" "pandas<1.1.0" "numpy<1.24.0"; \
+            KERAS_DEPS=""; \
+            if [[ ${KERAS_PACKAGE} == "keras==2.2.4" ]]; then \
+                KERAS_DEPS='scipy!=1.4.0 pandas<1.1.0 numpy<1.24.0'; \
+            else \
+                KERAS_DEPS='numpy<2'; \
+            fi; \
+            pip install --no-cache-dir ${KERAS_PACKAGE} ${KERAS_DEPS}; \
         fi; \
         mkdir -p ~/.keras; \
         python -c "import tensorflow as tf; tf.keras.datasets.mnist.load_data()"; \
     fi
 
-# Pin h5py < 3 for tensorflow: https://github.com/tensorflow/tensorflow/issues/44467
-RUN pip install 'h5py<3.0' 'numpy<1.24.0' --force-reinstall
+# Pin h5py<3 for tensorflow<2.4.0: https://github.com/tensorflow/tensorflow/issues/44467
+RUN if [[ ${TENSORFLOW_PACKAGE} == tensorflow*==1.15.* ]]; then \
+        pip install 'h5py<3.0' 'numpy<1.24.0' --force-reinstall; \
+    fi
 
 # Install PyTorch (releases).
 # Pin Pillow<7.0 for torchvision < 0.5.0: https://github.com/pytorch/vision/issues/1718
@@ -186,8 +201,8 @@ RUN pip install 'h5py<3.0' 'numpy<1.24.0' --force-reinstall
 # installing pytorch lightning < 1.8.4 with pip > 23.2.1 fails with:
 #   invalid metadata: .* suffix can only be used with == or != operators
 # https://github.com/pypa/pipx/issues/998
-RUN if [[ ${PYTORCH_PACKAGE} != "torch-nightly" ]]; then \
-        pip install --no-cache-dir ${PYTORCH_PACKAGE} ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/torch_stable.html; \
+RUN if [[ ${PYTORCH_PACKAGE} != "None" ]] && [[ ${PYTORCH_PACKAGE} != "torch-nightly" ]]; then \
+        pip install --no-cache-dir ${PYTORCH_PACKAGE} ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/torch -f https://download.pytorch.org/whl/torchvision; \
         if [[ "${TORCHVISION_PACKAGE/%+*/}" == torchvision==0.[1234].* ]]; then \
             pip install --no-cache-dir "Pillow<7.0" --no-deps; \
         else \
@@ -204,8 +219,9 @@ RUN if [[ ${PYTORCH_PACKAGE} != "torch-nightly" ]]; then \
 
 
 # Install MXNet (releases).
-RUN if [[ ${MXNET_PACKAGE} != "mxnet-nightly" ]]; then \
-        pip install --no-cache-dir ${MXNET_PACKAGE} ; \
+RUN if [[ ${MXNET_PACKAGE} != "None" ]] && [[ ${MXNET_PACKAGE} != "mxnet-nightly" ]]; then \
+        # mxnet uses numpy.bool, which has been removed in numpy 1.24.0
+        pip install --no-cache-dir ${MXNET_PACKAGE} "numpy<1.24.0"; \
     fi
 
 # Prefetch Spark MNIST dataset.
@@ -228,7 +244,7 @@ RUN if [[ ${TENSORFLOW_PACKAGE} == "tf-nightly" ]]; then \
         pip install --no-cache-dir ${TENSORFLOW_PACKAGE}; \
         if [[ ${KERAS_PACKAGE} != "None" ]]; then \
             pip uninstall -y keras-nightly; \
-            pip install --no-cache-dir ${KERAS_PACKAGE} "scipy!=1.4.0" "pandas<1.1.0" "numpy<1.24.0"; \
+            pip install --no-cache-dir ${KERAS_PACKAGE}; \
         fi; \
         mkdir -p ~/.keras; \
         python -c "import tensorflow as tf; tf.keras.datasets.mnist.load_data()"; \
@@ -257,7 +273,12 @@ RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly" ]]; then \
     fi
 
 # Install Horovod.
-RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
+ENV MAKEFLAGS=-j1
+RUN if [[ ${TENSORFLOW_PACKAGE} == "None" ]]; then export HOROVOD_WITHOUT_TENSORFLOW=1; else export HOROVOD_WITH_TENSORFLOW=1; fi; \
+    if [[ ${PYTORCH_PACKAGE}    == "None" ]]; then export HOROVOD_WITHOUT_PYTORCH=1;    else export HOROVOD_WITH_PYTORCH=1; fi; \
+    if [[ ${MXNET_PACKAGE}      == "None" ]]; then export HOROVOD_WITHOUT_MXNET=1;      else export HOROVOD_WITH_MXNET=1; fi; \
+    env | grep HOROVOD_WITH; \
+    if [[ ${MPI_KIND} == "ONECCL" ]]; then \
       if [ -z "${LD_LIBRARY_PATH:-}" ]; then \
           export LD_LIBRARY_PATH=""; \
       fi; \
@@ -270,7 +291,7 @@ RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
     fi; \
     cd /horovod && \
     python setup.py sdist && \
-    bash -c "${HOROVOD_BUILD_FLAGS} HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray] 'protobuf~=3.20'"
+    bash -c "${HOROVOD_BUILD_FLAGS} pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]"
 
 # Show the effective python package version to easily spot version differences
 RUN pip freeze | sort
