@@ -668,7 +668,7 @@ def _run_static(args):
                               'runfunc', 'func', args.run_func)
 
         executable = args.executable or sys.executable
-        command = [executable, '-m', 'horovod.runner.run_task', str(driver_ip), str(run_func_server_port)]
+        command = [executable, '-m', 'horovod.runner.run_task', str(driver_ip), str(run_func_server_port)] + sys.argv[1:]
 
         try:
             _launch_job(args, settings, nics, command)
