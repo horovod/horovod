@@ -228,7 +228,7 @@ class SparkLightningTests(unittest.TestCase):
                 assert pred.dtype == torch.float32
 
     def test_restore_from_checkpoint(self):
-        
+
         model = create_xor_model()
 
         with spark_session('test_restore_from_checkpoint') as spark:
@@ -950,6 +950,45 @@ class SparkLightningTests(unittest.TestCase):
                 pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
                 assert len(pred) == 1
                 assert pred.dtype == torch.float32
+
+    """
+    Test train model with local disk cache
+    """
+    def test_train_with_local_disk_cache(self):
+        if skip_lightning_tests:
+            self.skipTest('Spark PyTorch Lightning tests conflict with Tensorflow 2.5.x: '
+                          'https://github.com/horovod/horovod/pull/3263')
+
+        with spark_session('test_fit_model') as spark:
+            df = create_noisy_xor_data(spark)
+            model = create_xor_model()
+
+            with local_store() as store:
+                torch_estimator = hvd_spark.TorchEstimator(
+                    num_proc=1,
+                    store=store,
+                    model=model,
+                    input_shapes=[[-1, 2]],
+                    feature_cols=['features'],
+                    label_cols=['y'],
+                    validation=0.2,
+                    batch_size=4,
+                    epochs=2,
+                    verbose=2,
+                    cache_type='local-disk',
+                    per_gpu_cache_size_limit=1024,
+                    cache_row_size_estimate=1,
+                    cache_extra_settings={'eviction_policy': 'none'}, # This is important as eviction policy is not helpful for local disk cache
+                    trainer_args={"num_sanity_val_steps": 0})
+
+                torch_model = torch_estimator.fit(df)
+
+                # TODO: Find a way to pass log metrics from remote, and assert base on the logger.
+                trained_model = torch_model.getModel()
+                pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
+                assert len(pred) == 1
+                assert pred.dtype == torch.float32
+
 
     """
     Test override trainer args.
