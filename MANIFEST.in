@@ -29,3 +29,6 @@ exclude third_party/eigen/COPYING.README
 graft third_party/gloo/cmake
 recursive-include third_party/gloo CMakeLists.txt
 recursive-include third_party/gloo *.in
+
+# include inc header files for submodule abseil-cpp
+recursive-include third_party/abseil-cpp *.inc
