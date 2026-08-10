@@ -52,3 +52,7 @@
 [submodule "third_party/HTTPRequest"]
 	path = third_party/HTTPRequest
 	url = https://github.com/elnormous/HTTPRequest
+[submodule "third_party/abseil-cpp"]
+	path = third_party/abseil-cpp
+	url = https://github.com/janbernloehr/abseil-cpp.git
+	branch = lts_2025_01_27_tf_2_20_fixes
