@@ -89,11 +89,12 @@ services:
         TORCHVISION_PACKAGE: torchvision==0.14.1+cpu
         MXNET_PACKAGE: mxnet==1.8.0.post0
   # then our baseline again, omitted ...
-  test-cpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_4_0:
+  test-cpu-openmpi-gloo-py3_9-tfhead-keras_none-torchhead-mxnethead-pyspark3_4_0:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: OpenMPI
+        PYTHON_VERSION: 3.9
         TENSORFLOW_PACKAGE: tf-nightly
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch-nightly
@@ -175,7 +176,7 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.6.2-devel-ubuntu20.04
+        CUDA_DOCKER_VERSION: 11.8.0-devel-ubuntu20.04
         CUDNN_VERSION: 8.4.1.50-1+cuda11.6
         NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
         PYTHON_VERSION: 3.8
@@ -190,7 +191,7 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.6.2-devel-ubuntu20.04
+        CUDA_DOCKER_VERSION: 11.8.0-devel-ubuntu20.04
         CUDNN_VERSION: 8.4.1.50-1+cuda11.6
         NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.10.1
@@ -203,7 +204,7 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.6.2-devel-ubuntu20.04
+        CUDA_DOCKER_VERSION: 11.8.0-devel-ubuntu20.04
         CUDNN_VERSION: 8.4.1.50-1+cuda11.6
         NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
         # tensorflow package supports GPU from 2.11.1 and 2.12.0 on
@@ -228,14 +229,15 @@ services:
         PYTORCH_LIGHTNING_PACKAGE: pytorch-lightning==1.5.9
         TORCHVISION_PACKAGE: torchvision==0.15.1+cu118
         MXNET_PACKAGE: mxnet-cu112==1.9.1
-  test-gpu-openmpi-gloo-py3_8-tfhead-keras_none-torchhead-mxnethead-pyspark3_4_0:
+  test-gpu-openmpi-gloo-py3_9-tfhead-keras_none-torchhead-mxnethead-pyspark3_4_0:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.8.0-devel-ubuntu20.04
+        CUDA_DOCKER_VERSION: 12.0.0-devel-ubuntu20.04
         CUDNN_VERSION: 8.6.0.163-1+cuda11.8
         NCCL_VERSION_OVERRIDE: 2.16.5-1+cuda11.8
         MPI_KIND: OpenMPI
+        PYTHON_VERSION: 3.9
         TENSORFLOW_PACKAGE: tf-nightly
         KERAS_PACKAGE: None
         PYTORCH_PACKAGE: torch-nightly-cu118
@@ -248,7 +250,7 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 11.6.2-devel-ubuntu20.04
+        CUDA_DOCKER_VERSION: 11.8.0-devel-ubuntu20.04
         CUDNN_VERSION: 8.4.1.50-1+cuda11.6
         NCCL_VERSION_OVERRIDE: 2.11.4-1+cuda11.6
         MPI_KIND: OpenMPI

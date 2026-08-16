@@ -569,6 +569,8 @@ class SparkTests(unittest.TestCase):
     """
     def do_test_spark_run_does_not_default_env_to_os_env(self, use_mpi, use_gloo):
         env = {'env1': 'val1', 'env2': 'val2'}
+        # keep existing SPARK_ and PYSPARK_ env vars required to spin-up Spark
+        env.update({k: v for k, v in os.environ.items() if k.startswith('SPARK_') or k.startswith('PYSPARK_')})
         expected_env = ''
 
         with override_env(env):
