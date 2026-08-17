@@ -725,14 +725,14 @@ class RunTests(unittest.TestCase):
                 if gloo_is_built:
                     expected = 'gloo'
                 else:
-                    exception = r'^Gloo support has not been built\.  If this is not expected, ensure CMake is installed ' \
-                                r'and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error\.$'
+                    exception = r'^Gloo launch is expected to always be available in this launcher-only build ' \
+                                r'\(pure-Python rendezvous\); if you see this, please report a bug\.$'
             elif use_mpi:
                 if mpi_is_built:
                     expected = 'mpi'
                 else:
-                    exception = r'^MPI support has not been built\.  If this is not expected, ensure MPI is installed ' \
-                                r'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error\.$'
+                    exception = r'^MPI launch requires an external `mpirun` or `mpiexec` executable on PATH, but none was ' \
+                                r'found\. Install an MPI implementation \(e\.g\. OpenMPI\) or use `--gloo` instead\.$'
             elif use_js:
                 if mpi_is_built:
                     if lsf_exists:
@@ -741,8 +741,8 @@ class RunTests(unittest.TestCase):
                         exception = 'Horovod did not detect an LSF job.  The jsrun launcher can only be used in that environment. ' \
                                     'Please, pick a different launcher for other environments.'
                 else:
-                    exception = r'^MPI support has not been built\.  If this is not expected, ensure MPI is installed ' \
-                                r'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error\.$'
+                    exception = r'^MPI launch requires an external `mpirun` or `mpiexec` executable on PATH, but none was ' \
+                                r'found\. Install an MPI implementation \(e\.g\. OpenMPI\) or use `--gloo` instead\.$'
             elif mpi_is_built:
                 if lsf_exists and jsrun_installed:
                     expected = 'js'
@@ -751,8 +751,8 @@ class RunTests(unittest.TestCase):
             elif gloo_is_built:
                 expected = 'gloo'
             else:
-                exception = r'Neither MPI nor Gloo support has been built\. Try reinstalling Horovod ensuring that ' \
-                            r'either MPI is installed \(MPI\) or CMake is installed \(Gloo\)\.'
+                exception = r'Neither MPI nor Gloo launch is available\. This should not happen in a launcher-only ' \
+                            r'build, where Gloo launch is always available; if you see this, please report a bug\.'
 
             test(use_gloo, use_mpi, use_js,
                  gloo_is_built, mpi_is_built,
