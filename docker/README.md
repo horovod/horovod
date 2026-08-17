@@ -1,61 +1,52 @@
-# Horovod Docker Images
+# Horovod Docker Images (launcher-only)
 
-Often installing Horovod on bare metal can be difficult if your environment is not setup
-correctly with CUDA, MPI, G++, CMake, etc. These Docker images are provided to simplify
-the onboarding process for new users, and can serve as a starting point for building your
-own runtime environment.
+These images package the **launcher-only** build of Horovod: the `horovodrun` /
+`horovod.runner` process launcher, together with Open MPI and passwordless SSH so it
+can launch single-node and multi-node jobs. The TensorFlow / PyTorch / MXNet
+integrations and the C++ allreduce core have been removed from Horovod, so there is
+nothing to compile and the images contain no deep-learning framework. Distributed
+communication in the launched processes is handled by your own framework code (for
+example PyTorch `torch.distributed`) — install your framework packages on top of
+these images as needed.
 
-## Repositories
+## Images
 
-Separate images are provided for different Horovod configurations, and are published
-to separate repos in DockerHub.
+* `docker/horovod` — launcher on an NVIDIA CUDA base (for GPU jobs; bring your own
+  PyTorch/NCCL).
+* `docker/horovod-cpu` — launcher on a plain Ubuntu base (for CPU jobs).
 
-* `horovod/horovod` Horovod built with CUDA support and packaged with the latest stable TensorFlow, PyTorch, MXNet, 
-  and Spark releases
-* `horovod/horovod-cpu` Horovod built for CPU training and packaged with the latest stable TensorFlow, PyTorch, MXNet, 
-  and Spark releases
-* `horovod/horovod-ray` Horoovd built with CUDA support from the latest 
-  [ray-project/ray:nightly-gpu](https://github.com/ray-project/ray) and packaged with the latest stable 
-  TensorFlow and PyTorch releases
+Both images install Open MPI and configure passwordless SSH, which `horovodrun`
+needs for multi-node launches.
 
-## Image Tags
+## Building
 
-* `master` - built from Horovod's `master` branch
-* `nightly` - nightly build of Horovod
-* `sha-<commit point>` - version of Horovod at designated git sha1 7-character commit point
-
-## Building Custom Images
-
-Build arguments are provided to allow the user to build Horovod against custom versions of various frameworks,
-including:
-
-* `TENSORFLOW_VERSION` - version of `tensorflow` pip package to install
-* `PYTORCH_VERSION` - version of `torch` pip package to install
-* `PYTORCH_LIGHTNING_VERSION` - version of `pytorch_lightning` pip package to install
-* `TORCHVISION_VERSION` - version of `torchvision` pip package to install
-* `MXNET_VERSION` - version of `mxnet` pip package to install
-* `CUDNN_VERSION` - version of `libcudnn` apt package to install (only for `horovod` image)
-* `NCCL_VERSION` - version of `libnccl` apt package to install (only for `horovod` image)
-* `CUDA_DOCKER_VERSION` - tag of the `nvidia/cuda` image to build from (only for `horovod` image)
-* `RAY_DOCKER_VERSION` - tag of the `rayproject/ray` GPU image to build from (only for `horovod-ray` image)
-
-Building the Docker images should be run from the root Horovod directory. For example:
+Build from the repository root:
 
 ```
-export DOCKER_BUILDKIT=1
-docker build \
-    --build-arg TENSORFLOW_VERSION=2.3.1 \
-    --build-arg PYTORCH_VERSION=1.7.0+cu110 \
-    -f docker/horovod/Dockerfile .
+docker build -f docker/horovod-cpu/Dockerfile -t horovod-launcher-cpu .
+docker build -f docker/horovod/Dockerfile -t horovod-launcher .
 ```
 
-## Running Containers
+You can build against a specific CUDA base with the `CUDA_DOCKER_VERSION` build
+argument (only for the `horovod` image):
 
-See the [Horovod in Docker](../docs/docker.rst) documentation for guidance on running these Docker images, and
-[Horovod on Ray](../docs/ray.rst) for usage with Ray.
+```
+docker build --build-arg CUDA_DOCKER_VERSION=11.3.1-devel-ubuntu20.04 \
+    -f docker/horovod/Dockerfile -t horovod-launcher .
+```
 
-## Running in Kubernetes
+## Running
 
-See the [Horovod Helm Chart](helm/README.md), [Kubeflow MPI Operator](https://github.com/kubeflow/mpi-operator/),
-[FfDL](https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/), and [Polyaxon](https://docs.polyaxon.com/integrations/horovod/)
-for guidance on running these Docker images in Kubernetes.
+Launch a training script on the local container (Gloo launcher, no MPI required):
+
+```
+docker run --rm horovod-launcher-cpu horovodrun -np 2 --gloo python train.py
+```
+
+See `examples/` (and `examples/README.md`) for a complete PyTorch
+`torch.distributed` example, including the mapping from the `HOROVOD_*` environment
+variables set by the launcher to the variables `torch.distributed` expects.
+
+For multi-node runs, `horovodrun` must be able to SSH to every host without a
+password; the images already disable strict host-key checking, and you need to
+provide a shared SSH key across the containers. See `docs/running.rst`.

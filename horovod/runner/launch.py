@@ -26,9 +26,7 @@ import yaml
 
 import horovod
 
-from horovod.common.util import (extension_available,
-                                 gloo_built, mpi_built,
-                                 nccl_built, ddl_built, ccl_built)
+from horovod.common.util import gloo_built, mpi_built
 from horovod.runner.common.util import config_parser, hosts, safe_shell_exec, secret, timeout
 from horovod.runner.common.util import settings as hvd_settings
 from horovod.runner.driver import driver_service
@@ -112,35 +110,15 @@ def check_build(verbose):
         return 'X' if value else ' '
 
     output = '''{verbose_newline}\
-    Horovod v{version}:
+    Horovod v{version} (launcher-only build):
 
-    Available Frameworks:
-        [{tensorflow}] TensorFlow
-        [{torch}] PyTorch
-        [{mxnet}] MXNet
-
-    Available Controllers:
-        [{mpi}] MPI
-        [{gloo}] Gloo
-
-    Available Tensor Operations:
-        [{nccl_ops}] NCCL
-        [{ddl_ops}] DDL
-        [{ccl_ops}] CCL
-        [{mpi_ops}] MPI
-        [{gloo_ops}] Gloo\
+    Available Launch Controllers:
+        [{mpi}] MPI (requires external mpirun/mpiexec on PATH)
+        [{gloo}] Gloo (pure-Python rendezvous, always available)\
     '''.format(verbose_newline='\n' if verbose else '',
                version=horovod.__version__,
-               tensorflow=get_check(extension_available('tensorflow', verbose=verbose)),
-               torch=get_check(extension_available('torch', verbose=verbose)),
-               mxnet=get_check(extension_available('mxnet', verbose=verbose)),
                mpi=get_check(mpi_built(verbose=verbose)),
-               gloo=get_check(gloo_built(verbose=verbose)),
-               nccl_ops=get_check(nccl_built(verbose=verbose)),
-               ddl_ops=get_check(ddl_built(verbose=verbose)),
-               mpi_ops=get_check(mpi_built(verbose=verbose)),
-               ccl_ops=get_check(ccl_built(verbose=verbose)),
-               gloo_ops=get_check(gloo_built(verbose=verbose)))
+               gloo=get_check(gloo_built(verbose=verbose)))
     print(textwrap.dedent(output))
     sys.exit(0)
 
@@ -729,8 +707,8 @@ def _run_elastic(args):
                                                 prefix_output_with_timestamp=args.prefix_output_with_timestamp)
 
     if not gloo_built(verbose=(settings.verbose >= 2)):
-        raise ValueError('Gloo support is required to use elastic training, but has not been built.  Ensure CMake is '
-                         'installed and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error.')
+        raise ValueError('Gloo launch is required to use elastic training. In this launcher-only build Gloo launch '
+                         'is always available (pure-Python rendezvous); if you see this, please report a bug.')
 
     env = os.environ.copy()
     config_parser.set_env_from_args(env, args)
@@ -749,18 +727,18 @@ def run_controller(use_gloo, gloo_run, use_mpi, mpi_run, use_jsrun, js_run, verb
     verbose = verbosity is not None and verbosity >= 2
     if use_gloo:
         if not gloo_built(verbose=verbose):
-            raise ValueError('Gloo support has not been built.  If this is not expected, ensure CMake is installed '
-                             'and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error.')
+            raise ValueError('Gloo launch is expected to always be available in this launcher-only build '
+                             '(pure-Python rendezvous); if you see this, please report a bug.')
         gloo_run()
     elif use_mpi:
         if not mpi_built(verbose=verbose):
-            raise ValueError('MPI support has not been built.  If this is not expected, ensure MPI is installed '
-                             'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.')
+            raise ValueError('MPI launch requires an external `mpirun` or `mpiexec` executable on PATH, but none was '
+                             'found. Install an MPI implementation (e.g. OpenMPI) or use `--gloo` instead.')
         mpi_run()
     elif use_jsrun:
         if not mpi_built(verbose=verbose):
-            raise ValueError('MPI support has not been built.  If this is not expected, ensure MPI is installed '
-                             'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.')
+            raise ValueError('MPI launch requires an external `mpirun` or `mpiexec` executable on PATH, but none was '
+                             'found. Install an MPI implementation (e.g. OpenMPI) or use `--gloo` instead.')
         if not lsf.LSFUtils.using_lsf():
             raise ValueError(
                 'Horovod did not detect an LSF job.  The jsrun launcher can only be used in that environment. '
@@ -775,8 +753,8 @@ def run_controller(use_gloo, gloo_run, use_mpi, mpi_run, use_jsrun, js_run, verb
         elif gloo_built(verbose=verbose):
             gloo_run()
         else:
-            raise ValueError('Neither MPI nor Gloo support has been built. Try reinstalling Horovod ensuring that '
-                             'either MPI is installed (MPI) or CMake is installed (Gloo).')
+            raise ValueError('Neither MPI nor Gloo launch is available. This should not happen in a launcher-only '
+                             'build, where Gloo launch is always available; if you see this, please report a bug.')
 
 
 def _is_elastic(args):
