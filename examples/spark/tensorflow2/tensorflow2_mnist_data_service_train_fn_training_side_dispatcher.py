@@ -1,1 +1,0 @@
-../../tensorflow2/tensorflow2_mnist_data_service_train_fn_training_side_dispatcher.py

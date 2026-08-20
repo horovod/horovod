@@ -50,19 +50,22 @@ To run on hosts specified in a hostfile:
 Requirements
 ~~~~~~~~~~~~
 
-Usage of ``horovodrun`` requires one of the following:
+This build of Horovod is a **launcher-only** package: ``horovodrun`` starts one
+process per slot and sets ``HOROVOD_*`` environment variables; the distributed
+communication inside the launched processes is handled by your own framework code
+(for example PyTorch ``torch.distributed``). See ``examples/`` for a runnable
+example.
 
-* Open MPI >= 2.X
-* Spectrum MPI
-* MPICH
-* OpenRTE
-* Gloo
-* Intel(R) MPI
+``horovodrun`` supports two launch backends:
 
-If you do not have MPI installed, you can run ``horovodrun`` using Gloo.  Gloo dependencies come with Horovod
-automatically, and only require CMake to be available on your system at the time you install Horovod.
+* **Gloo** — a pure-Python launcher with no external dependencies. It is always
+  available; no MPI or CMake is required. Use ``--gloo`` to select it.
+* **MPI** — wraps an external ``mpirun``/``mpiexec`` (Open MPI >= 2.X, Spectrum
+  MPI, MPICH, OpenRTE, or Intel(R) MPI). Use ``--mpi`` to select it; it is also
+  chosen by default when a ``mpirun`` is found on ``PATH``.
 
-If you wish to use a different version of MPI, you may still be able to run Horovod using `mpirun <mpi.rst>`
+If you do not have MPI installed, run ``horovodrun`` with ``--gloo``. If you want
+fine-grained control over MPI options, you can launch with `mpirun <mpi.rst>`_
 directly.
 
 

@@ -26,12 +26,6 @@ from horovod import __version__
 version = __version__
 
 
-# -- Mocking configuration ---------------------------------------------------
-
-import mocks
-mocks.instrument()
-
-
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
@@ -41,7 +35,6 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.viewcode',
     'sphinxcontrib.napoleon',
-    'nbsphinx',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -62,7 +55,7 @@ autodoc_default_options = {
     'members': None,
     'member-order': 'bysource',
     'imported-members': None,
-    'exclude-members': 'contextmanager, version, tf, keras, torch, mx, pyspark',
+    'exclude-members': 'contextmanager, version',
 }
 
 
@@ -81,7 +74,7 @@ html_theme = 'alabaster'
 #
 html_theme_options = {
     'logo': 'logo.png',
-    'description': 'Distributed training framework for TensorFlow, Keras, PyTorch, and Apache MXNet.',
+    'description': 'A launcher-only build of Horovod for distributed deep learning.',
     'github_user': 'horovod',
     'github_repo': 'horovod',
     'github_button': True,

@@ -16,8 +16,8 @@
 # =============================================================================
 
 import json
-import multiprocessing
 import os
+import shutil
 import sys
 import sysconfig
 import warnings
@@ -27,7 +27,9 @@ from contextlib import contextmanager
 from horovod.common.exceptions import get_version_mismatch_message, HorovodVersionMismatchError
 
 
-EXTENSIONS = ['tensorflow', 'torch', 'mxnet']
+# The launcher-only build ships no framework extensions (the tensorflow/torch/mxnet
+# integrations were removed), so there is nothing for the *_built() probes to load.
+EXTENSIONS = []
 
 
 def get_ext_suffix():
@@ -61,53 +63,10 @@ def check_extension(ext_name, ext_env_var, pkg_path, *args):
         )
 
 
-def _check_extension_lambda(ext_base_name, fn, fn_desc, verbose):
-    """
-    Tries to load the extension in a new process.  If successful, puts fn(ext)
-    to the queue or False otherwise.  Mutes all stdout/stderr.
-    """
-    def _target_fn(ext_base_name, fn, fn_desc, queue, verbose):
-        import importlib
-        import sys
-        import traceback
-
-        if verbose:
-            print('Checking whether extension {ext_base_name} was {fn_desc}.'.format(
-                ext_base_name=ext_base_name, fn_desc=fn_desc))
-        else:
-            # Suppress output
-            sys.stdout = open(os.devnull, 'w')
-            sys.stderr = open(os.devnull, 'w')
-
-        try:
-            ext = importlib.import_module('.' + ext_base_name, 'horovod')
-            result = fn(ext)
-        except:
-            traceback.print_exc()
-            result = None
-
-        if verbose:
-            print('Extension {ext_base_name} {flag} {fn_desc}.'.format(
-                ext_base_name=ext_base_name, flag=('was' if result else 'was NOT'),
-                fn_desc=fn_desc))
-
-        queue.put(result)
-
-    # 'fork' is required because horovodrun is a frozen executable
-    ctx = multiprocessing.get_context('fork')
-    queue = ctx.Queue()
-    p = ctx.Process(target=_target_fn,
-                    args=(ext_base_name, fn, fn_desc, queue, verbose))
-    p.daemon = True
-    p.start()
-    p.join()
-    return queue.get_nowait()
-
-
 def extension_available(ext_base_name, verbose=False):
-    available_fn = lambda ext: ext is not None
-    return _check_extension_lambda(
-        ext_base_name, available_fn, 'built', verbose) or False
+    # The launcher-only build ships no framework extensions (tensorflow/torch/mxnet
+    # integrations were removed), so no extension is ever "built".
+    return False
 
 
 def _cache(f):
@@ -128,61 +87,36 @@ def _cache(f):
 
 @_cache
 def gpu_available(ext_base_name, verbose=False):
-    available_fn = lambda ext: ext._check_has_gpu()
-    return _check_extension_lambda(
-        ext_base_name, available_fn, 'running with GPU', verbose) or False
+    # No framework extension to probe for GPU support in a launcher-only build.
+    return False
 
 
 @_cache
 def mpi_built(verbose=False):
-    for ext_base_name in EXTENSIONS:
-        built_fn = lambda ext: ext.mpi_built()
-        result = _check_extension_lambda(
-            ext_base_name, built_fn, 'built with MPI', verbose)
-        if result is not None:
-            return result
-    return None
+    # MPI launch wraps an external `mpirun`/`mpiexec`; report whether one is on PATH.
+    return bool(shutil.which('mpirun') or shutil.which('mpiexec'))
 
 
 @_cache
 def gloo_built(verbose=False):
-    for ext_base_name in EXTENSIONS:
-        built_fn = lambda ext: ext.gloo_built()
-        result = _check_extension_lambda(
-            ext_base_name, built_fn, 'built with Gloo', verbose)
-        if result is not None:
-            return result
-    return None
+    # Gloo launch is pure Python (RendezvousServer); it is always available in this
+    # launcher-only build, independent of any compiled Gloo allreduce controller.
+    return True
 
 @_cache
 def nccl_built(verbose=False):
-    for ext_base_name in EXTENSIONS:
-        built_fn = lambda ext: ext.nccl_built()
-        result = _check_extension_lambda(
-            ext_base_name, built_fn, 'built with NCCL', verbose)
-        if result is not None:
-            return result
-    return None
+    # No compiled allreduce backends ship in a launcher-only build.
+    return False
+
 
 @_cache
 def ddl_built(verbose=False):
-    for ext_base_name in EXTENSIONS:
-        built_fn = lambda ext: ext.ddl_built()
-        result = _check_extension_lambda(
-            ext_base_name, built_fn, 'built with DDL', verbose)
-        if result is not None:
-            return result
-    return None
+    return False
+
 
 @_cache
 def ccl_built(verbose=False):
-    for ext_base_name in EXTENSIONS:
-        built_fn = lambda ext: ext.ccl_built()
-        result = _check_extension_lambda(
-            ext_base_name, built_fn, 'built with CCL', verbose)
-        if result is not None:
-            return result
-    return None
+    return False
 
 @contextmanager
 def env(**kwargs):
@@ -251,13 +185,20 @@ def split_list(l, n):
 def check_installed_version(name, version, exception=None):
     file_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),\
         os.pardir, "metadata.json"))
-    with open(file_path) as f:
-        installed_version = json.load(f).get(name)
-        if installed_version != version:
-            if exception is None:
-                warnings.warn(get_version_mismatch_message(name, version, installed_version))
-            else:
-                raise HorovodVersionMismatchError(name, version, installed_version) from exception
+    # metadata.json was produced by the (removed) C++/CMake build; it no longer exists
+    # in a launcher-only build, so treat a missing or unreadable file as "no info".
+    if not os.path.exists(file_path):
+        return
+    try:
+        with open(file_path) as f:
+            installed_version = json.load(f).get(name)
+    except (OSError, ValueError):
+        return
+    if installed_version != version:
+        if exception is None:
+            warnings.warn(get_version_mismatch_message(name, version, installed_version))
+        else:
+            raise HorovodVersionMismatchError(name, version, installed_version) from exception
 
 def is_iterable(x):
     try:

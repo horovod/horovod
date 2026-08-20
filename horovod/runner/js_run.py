@@ -14,19 +14,19 @@
 # ==============================================================================
 
 import os
+import shutil
 import tempfile
 
 from shlex import quote
 
 from horovod.runner.common.util import safe_shell_exec
 from horovod.runner.util import lsf
-from distutils.spawn import find_executable
 from horovod.runner.mpi_run import _get_mpi_implementation_flags, _MPI_NOT_FOUND_ERROR_MSG
 
 
 def is_jsrun_installed():
     """Returns True if jsrun is installed."""
-    return find_executable('jsrun') is not None
+    return shutil.which('jsrun') is not None
 
 
 def js_run(settings, nics, env, command, stdout=None, stderr=None):
