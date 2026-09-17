@@ -1,6 +1,6 @@
 .. raw:: html
 
-    <p>This project is inactive. Feel free to fork.</p>
+    <p>Due to inactivity, this project was archived in September 2026. The contents will remain available for historical purposes.</p>
     <p align="center"><img src="https://user-images.githubusercontent.com/16640218/34506318-84d0c06c-efe0-11e7-8831-0425772ed8f2.png" alt="Logo" width="200"/></p>
     <br/>
 
